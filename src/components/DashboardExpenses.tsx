@@ -75,7 +75,7 @@ export default function DashboardExpenses({
   const [isReceiptPreviewOpen, setIsReceiptPreviewOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [editExpenseError, setEditExpenseError] = useState('');
-  const [editForm, setEditForm] = useState<{description: string; amount: string; category: string; note: string; paidFromAccountId: string}>({description: '', amount: '', category: '', note: '', paidFromAccountId: ''});
+  const [editForm, setEditForm] = useState<{description: string; amount: string; category: string; note: string; paidFromAccountId: string; date: string}>({description: '', amount: '', category: '', note: '', paidFromAccountId: '', date: ''});
 
   // Date/day selected states. Defaulting to empty starts with 'All Records'
   // and user can filter by a single specific date or quick day options.
@@ -827,7 +827,7 @@ export default function DashboardExpenses({
                           <Eye className="w-3.5 h-3.5" />
                         </button>
                         <button type="button" title="Edit"
-                          onClick={() => { setEditExpenseError(''); setEditingExpense(e); setEditForm({description: e.description, amount: String(e.amount), category: e.category, note: e.note || '', paidFromAccountId: e.paidFromAccountId || ''}); }}
+                          onClick={() => { setEditExpenseError(''); setEditingExpense(e); setEditForm({description: e.description, amount: String(e.amount), category: e.category, note: e.note || '', paidFromAccountId: e.paidFromAccountId || '', date: (e.timestamp || '').split('T')[0]}); }}
                           className="p-1.5 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-500/10 text-slate-400 hover:text-amber-600 transition-colors cursor-pointer bg-transparent border-none"
                         >
                           <Edit className="w-3.5 h-3.5" />
@@ -1269,7 +1269,7 @@ export default function DashboardExpenses({
                 )}
                 <button
                   type="button"
-                  onClick={() => { setEditingExpense(expenseActionItem); setEditForm({description: expenseActionItem.description, amount: String(expenseActionItem.amount), category: expenseActionItem.category, note: expenseActionItem.note || '', paidFromAccountId: expenseActionItem.paidFromAccountId || ''}); setExpenseActionItem(null); }}
+                  onClick={() => { setEditingExpense(expenseActionItem); setEditForm({description: expenseActionItem.description, amount: String(expenseActionItem.amount), category: expenseActionItem.category, note: expenseActionItem.note || '', paidFromAccountId: expenseActionItem.paidFromAccountId || '', date: (expenseActionItem.timestamp || '').split('T')[0]}); setExpenseActionItem(null); }}
                   className="w-full h-14 min-h-[52px] bg-white dark:bg-slate-800 hover:bg-slate-50 flex items-center justify-between px-3.5 py-2.5 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-xs cursor-pointer text-left transition-colors"
                 >
                   <div className="flex items-center space-x-3.5">
@@ -1436,6 +1436,11 @@ export default function DashboardExpenses({
                 </select>
               </div>
               <div>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide block mb-1">Date</label>
+                <input type="date" value={editForm.date} onChange={e => setEditForm(p => ({...p, date: e.target.value}))}
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500" />
+              </div>
+              <div>
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide block mb-1">Note (optional)</label>
                 <input type="text" value={editForm.note} onChange={e => setEditForm(p => ({...p, note: e.target.value}))}
                   placeholder="Add a note..."
@@ -1468,7 +1473,8 @@ export default function DashboardExpenses({
                       setEditExpenseError('A posted payment cannot be silently changed. Reverse/delete it, then record the corrected expense.');
                       return;
                     }
-                    const saved = await onUpdateExpense?.({...editingExpense, description: editForm.description, amount: parseFloat(editForm.amount) || 0, category: editForm.category, note: editForm.note, paidFromAccountId: account.id, paymentMethod: account.paymentMethod || account.name});
+                    const nextTimestamp = editForm.date ? new Date(editForm.date + 'T12:00:00Z').toISOString() : editingExpense.timestamp;
+                    const saved = await onUpdateExpense?.({...editingExpense, description: editForm.description, amount: parseFloat(editForm.amount) || 0, category: editForm.category, note: editForm.note, paidFromAccountId: account.id, paymentMethod: account.paymentMethod || account.name, timestamp: nextTimestamp});
                     if (saved === false) {
                       setEditExpenseError('Expense changes could not be saved. Nothing was changed in the database.');
                       return;

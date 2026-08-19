@@ -1688,7 +1688,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     if (!existingExpense || !recordBelongsToActiveBranch(existingExpense, activeBranchSelection)) return false;
     const nextExpenses = (expensesMap[activeTenant.id] || []).map(expense => (
       expense.id === updatedExpense.id
-        ? { ...updatedExpense, branchId: existingExpense.branchId }
+        ? { ...updatedExpense, branchId: existingExpense.branchId, syncUpdatedAt: new Date().toISOString() }
         : expense
     ));
     localWorkspaceChangedAtRef.current = Date.now();

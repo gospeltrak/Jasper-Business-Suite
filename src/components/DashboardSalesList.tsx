@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { formatSaleItemQuantity } from '../utils/unitFormatter';
 import { isDemoTenant } from '../utils/tenantIsolation';
 import { safeSetJsonItem } from '../utils/dataSafety';
+import { canWriteBusinessDataOnline } from '../utils/onlineOnly';
 import {
   Search, 
   Calendar, 
@@ -1144,6 +1145,15 @@ export default function DashboardSalesList({
 
   const handleCreateCommercialDocument = async () => {
     if (newDocItems.length === 0 || documentMutationPending) return;
+    // Quotes/proformas are persisted via the weaker onlineStorage path (not
+    // the main tenant workspace sync), which silently drops the save when
+    // the browser's online flag is momentarily false — the document looked
+    // created here but was never actually written, and vanished the next
+    // time the app reloaded. Refuse up front instead of silently failing.
+    if (!canUseCrossBranchDocuments && !canWriteBusinessDataOnline()) {
+      alert('You appear to be offline. Reconnect and try again — this document was not saved.');
+      return;
+    }
     const prefixMap = { 'price quote': 'QUO', 'proforma invoice': 'PFI' };
     const prefix = prefixMap[newDocType] || 'DOC';
     const nextNum = `${prefix}-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;

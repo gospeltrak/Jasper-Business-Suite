@@ -373,6 +373,7 @@ export interface Expense {
   payrollReference?: string;
   payrollAttachmentName?: string;
   treasuryJournalId?: string;
+  syncUpdatedAt?: string;
 }
 
 export interface SyncLog {
