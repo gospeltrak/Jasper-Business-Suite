@@ -109,6 +109,19 @@ const normalizeProductStoreSettings = (settings?: Partial<ProductStoreSettings>)
 
 const SETTINGS_DRAFT_PROTECTION_MS = 15000;
 
+// Store Locations (registeredStores) is a legacy stock-bin concept, unrelated
+// to the real Tanzanite Branches feature (separate `branches` table, its own
+// entitlement/limit, its own Settings screen). Its embedded "Branch Logos"
+// sub-panel in particular was a naive stand-in that never followed the
+// tenant's actual active branch — see docs/multi-branch-audit-plan.md,
+// "Existing branch-like concepts that must remain independent" and gap
+// High-7. Hidden here (not deleted) while real per-branch logo support is
+// built on the `branches` table; existing registeredStores/branchBranding
+// data is left untouched so nothing already saved is lost, and the product
+// destination picker (Shop/Store in Purchases) is a separate hardcoded
+// concept unaffected by this toggle.
+const SHOW_LEGACY_STORE_LOCATIONS = false;
+
 export default function DashboardSettings({ 
   activeTenant, 
   systemSettings, 
@@ -1760,6 +1773,7 @@ export default function DashboardSettings({
               </div>
 
               {/* Stores Register */}
+              {SHOW_LEGACY_STORE_LOCATIONS && (
               <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4">
                 <div>
                   <h4 className="text-xs font-bold uppercase text-slate-700 font-mono flex items-center space-x-2">
@@ -1904,6 +1918,7 @@ export default function DashboardSettings({
                   )}
                 </div>
               </div>
+              )}
 
             </div>
           )}
