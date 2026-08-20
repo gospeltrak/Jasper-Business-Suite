@@ -341,16 +341,21 @@ test('delivery note WhatsApp sharing mounts the selected note and shares its PDF
   assert.match(pdfSource, /downloadBlob\(pdfFile, pdfFile\.name\)/);
 });
 
-test('POS receipt preview, print and WhatsApp use the same narrow receipt data', async () => {
+test('POS receipt preview, print, download and WhatsApp all capture the same on-screen template', async () => {
+  // POS receipt moved from a separately-maintained ReceiptData object fed
+  // to a standalone jsPDF text-redraw generator (which could silently drift
+  // from the on-screen preview) to a screenshot-based capture of the actual
+  // #pos-receipt-pdf-template DOM node — the same technique
+  // DashboardSalesList's POS Receipt viewer uses. The guarantee this test
+  // protects is unchanged (preview/download/share/print can never disagree
+  // with each other), just enforced by every path reading the one DOM
+  // element instead of every path reading one shared data object.
   const posSource = await read('src/components/DashboardPOS.tsx');
-  const pdfSource = await read('src/utils/pdfShare.ts');
   assert.match(posSource, /id="pos-receipt-pdf-template"/);
-  assert.match(posSource, /const receiptData = buildReceiptPdfData\(\)/);
-  assert.match(posSource, /sharePosReceiptPdf\(\s*receiptData,/);
-  assert.match(posSource, /const pdfFile = createPosReceiptPdfFromData\(receiptData\)/);
-  assert.doesNotMatch(posSource, /createReceiptPdfFromData\(receiptData\)/);
-  assert.match(pdfSource, /export function createPosReceiptPdfFromData\(data: ReceiptData\)/);
-  assert.match(pdfSource, /const pdfFile = createPosReceiptPdfFromData\(data\)/);
+  assert.match(posSource, /shareElementPdfToWhatsApp\(\{\s*elementId: 'pos-receipt-pdf-template'/);
+  assert.match(posSource, /downloadPdfFromElement\(\{\s*elementId: 'pos-receipt-pdf-template'/);
+  assert.match(posSource, /document\.getElementById\('pos-receipt-pdf-template'\)/);
+  assert.match(posSource, /format: 'receipt'/);
 });
 
 test('A4 sales invoice preview, download and WhatsApp use one template', async () => {
