@@ -925,7 +925,7 @@ export default function DashboardStaff({
           </button>
         </div>
 
-        <div className="mt-5 grid grid-cols-2 gap-3 md:max-w-md">
+        <div className="staff-two-column-grid mt-5 grid grid-cols-2 gap-3 md:max-w-md">
           {[
             { label: 'Total staff', value: totals.totalStaff.toLocaleString(), icon: Users, color: 'text-slate-900' },
             { label: 'Profit generated', value: `${currency}${Math.round(totals.totalProfit).toLocaleString()}`, icon: DollarSign, color: 'text-indigo-700' }
@@ -1128,7 +1128,7 @@ export default function DashboardStaff({
             <p className="mt-1 text-xs text-slate-500">Create a staff login, assign a role, and add delivery details when needed.</p>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1 mb-5">
+          <div className="staff-two-column-grid grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1 mb-5">
             <button
               type="button"
               onClick={() => setRoleType('standard')}
@@ -1258,7 +1258,7 @@ export default function DashboardStaff({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2.5">
+                <div className="staff-two-column-grid grid grid-cols-2 gap-2.5">
                   <label className="min-h-[84px] rounded-xl border-2 border-dashed border-slate-300 bg-white p-2 flex flex-col items-center justify-center text-center cursor-pointer">
                     {profilePic ? <img src={profilePic} alt="Profile" className="h-10 w-10 rounded-xl object-cover" /> : <Camera className="w-5 h-5 text-slate-400" />}
                     <span className="mt-1.5 text-[11px] font-black text-slate-600">Profile Photo</span>
@@ -1312,7 +1312,7 @@ export default function DashboardStaff({
 
           <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4 md:p-5 mb-5">
             <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-4">
-              <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
+              <div className="staff-three-column-grid grid grid-cols-3 gap-1.5 sm:gap-2">
                 {[
                   { id: 'today', label: 'Today' },
                   { id: 'week', label: 'This week' },
@@ -1328,7 +1328,7 @@ export default function DashboardStaff({
                   </button>
                 ))}
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="staff-two-column-grid grid grid-cols-2 gap-2">
                 <label className="space-y-1">
                   <span className="text-[10px] font-black uppercase text-slate-400">Start</span>
                   <input type="date" value={payrollPeriod.start} onChange={e => setPayrollPeriod(prev => ({ ...prev, preset: 'custom', start: e.target.value }))} className="w-full min-h-[42px] rounded-xl bg-white border border-slate-200 px-3 text-xs font-bold outline-none" />
@@ -1340,7 +1340,7 @@ export default function DashboardStaff({
               </div>
             </div>
 
-            <div className="mt-4 grid grid-cols-2 gap-3">
+            <div className="staff-two-column-grid mt-4 grid grid-cols-2 gap-3">
               {[
                 { label: 'Basic Salary', value: payrollSummary.basicSalaries, icon: Wallet },
                 { label: 'Allowances', value: payrollSummary.totalAllowances, icon: Plus }
@@ -1530,7 +1530,7 @@ export default function DashboardStaff({
               </strong>, deducted from the selected Money & Bank account, and will appear automatically in Expenses, Profit & Loss and downloaded reports.
             </div>
           </div>
-          <div className="shrink-0 border-t border-slate-100 p-4 md:p-5 grid grid-cols-2 gap-3 bg-white">
+          <div className="staff-two-column-grid shrink-0 border-t border-slate-100 p-4 md:p-5 grid grid-cols-2 gap-3 bg-white">
             <button type="button" onClick={() => setStaffToPay(null)} className="min-h-[50px] rounded-2xl border border-slate-200 bg-white text-sm font-black text-slate-700">Cancel</button>
             <button type="button" onClick={confirmSalaryPayment} className="min-h-[50px] rounded-2xl bg-emerald-600 text-sm font-black text-white">Pay Staff</button>
           </div>
@@ -1551,7 +1551,7 @@ export default function DashboardStaff({
               This will remove <strong className="text-slate-900">{staffToRemove.name}</strong> from this business.
               Review the selected account before confirming.
             </p>
-            <div className="mt-6 grid grid-cols-2 gap-3">
+            <div className="staff-two-column-grid mt-6 grid grid-cols-2 gap-3">
               <button
                 type="button"
                 onClick={() => setStaffToRemove(null)}
@@ -1665,7 +1665,7 @@ export default function DashboardStaff({
 
                 <section className="rounded-3xl border border-slate-200 bg-slate-50 p-4 md:p-5">
                   <h4 className="font-black text-slate-950">Login & Access</h4>
-                  <div className="mt-4 grid grid-cols-2 gap-3">
+                  <div className="staff-two-column-grid mt-4 grid grid-cols-2 gap-3">
                     <div className="rounded-2xl bg-white border border-slate-200 p-3">
                       <Lock className="w-4 h-4 text-indigo-600 mb-2" />
                       <span className="block text-[10px] font-black uppercase text-slate-400">Authentication</span>
@@ -1781,7 +1781,7 @@ export default function DashboardStaff({
                 return (
                   <section className="rounded-3xl border border-slate-200 bg-slate-50 p-4 md:p-5">
                     <h4 className="font-black text-slate-950">Payroll & Performance Summary</h4>
-                    <div className="mt-4 grid grid-cols-2 gap-3">
+                    <div className="staff-two-column-grid mt-4 grid grid-cols-2 gap-3">
                       {[
                         { label: 'Salary owed', value: formatMoney(profilePayroll.salaryTotal), icon: Wallet },
                         { label: 'Allowances', value: formatMoney(profilePayroll.allowancesTotal), icon: Plus },

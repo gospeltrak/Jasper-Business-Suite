@@ -1494,9 +1494,15 @@ button:active:not(:disabled),
   #dashboard-scaffold .stock-tabs-two-column-grid,
   #dashboard-scaffold .product-import-actions-grid,
   #dashboard-scaffold .mobile-tablet-kpi-grid,
-  #dashboard-scaffold .native-report-kpi-grid {
+  #dashboard-scaffold .native-report-kpi-grid,
+  #dashboard-scaffold .staff-two-column-grid {
     display: grid !important;
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  #dashboard-scaffold .staff-three-column-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
   }
 }
 
