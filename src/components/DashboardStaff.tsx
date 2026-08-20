@@ -33,7 +33,6 @@ import {
   ChevronRight,
   MoreVertical
 } from 'lucide-react';
-import { DEFAULT_CUSTOM_ROLES } from '../utils/defaultCustomRoles';
 import { compressImageFile } from '../utils/imageCompression';
 import { getMaskedAccountReference } from '../utils/paymentAccounts';
 import { loadBranchWorkspace } from '../branches/branchApi';
@@ -262,7 +261,9 @@ export default function DashboardStaff({
   const [staffStatuses, setStaffStatuses] = useState<Record<string, boolean>>({});
   const [sessionLogs, setSessionLogs] = useState<StaffSessionRecord[]>([]);
   const [sessionNow, setSessionNow] = useState(Date.now());
-  const customRoles = systemSettings.customRoles || DEFAULT_CUSTOM_ROLES;
+  // A brand-new tenant has no roles until the admin creates one in
+  // Settings → Roles & Permissions — no hardcoded fallback list here.
+  const customRoles = systemSettings.customRoles || [];
   const paymentAccounts = (systemSettings.paymentChannels || [])
     .filter(account => account.category !== 'person' && account.status !== 'inactive' && account.status !== 'archived');
 
@@ -271,7 +272,7 @@ export default function DashboardStaff({
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [profilePic, setProfilePic] = useState('');
-  const [selectedRole, setSelectedRole] = useState(customRoles[0]?.name || 'Seller');
+  const [selectedRole, setSelectedRole] = useState(customRoles[0]?.name || '');
   const [classification, setClassification] = useState<'rider' | 'driver'>('rider');
   const [vehicleType, setVehicleType] = useState<'motorcycle' | 'tuktuk' | 'car'>('motorcycle');
   const [vehicleColor, setVehicleColor] = useState('');
@@ -318,6 +319,16 @@ export default function DashboardStaff({
   useEffect(() => {
     setStaffList(systemSettings.staffs || []);
   }, [systemSettings.staffs]);
+
+  // Keep the role picker valid as roles get created/renamed/deleted in
+  // Settings while this form is open — it's no longer allowed to silently
+  // fall back to a hardcoded role name that may not exist.
+  useEffect(() => {
+    if (!customRoles.some(role => role.name === selectedRole)) {
+      setSelectedRole(customRoles[0]?.name || '');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customRoles]);
 
   useEffect(() => {
     let mounted = true;
@@ -470,6 +481,11 @@ export default function DashboardStaff({
   const handleRegisterStaff = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fullName || !phone || !email) return;
+    if (roleType === 'standard' && !selectedRole) {
+      setSuccessMessage('Create a role in Settings → Roles & Permissions before registering staff.');
+      setTimeout(() => setSuccessMessage(''), 6000);
+      return;
+    }
 
     const newStaff: StaffSettings = {
       id: `staff-${Date.now()}`,
@@ -1171,12 +1187,18 @@ export default function DashboardStaff({
               <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4 md:p-5 space-y-4">
                 <h4 className="text-xs font-black uppercase tracking-wider text-slate-500">Role and media</h4>
                 {roleType === 'standard' ? (
-                  <label className="space-y-1.5 block">
-                    <span className="text-xs font-black text-slate-700">Assign Role</span>
-                    <select value={selectedRole} onChange={e => setSelectedRole(e.target.value)} className="w-full min-h-[48px] rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black outline-none focus:border-indigo-500">
-                      {customRoles.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
-                    </select>
-                  </label>
+                  customRoles.length === 0 ? (
+                    <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-bold text-amber-800">
+                      No roles created yet. Go to Settings → Roles & Permissions to create a role before registering staff.
+                    </div>
+                  ) : (
+                    <label className="space-y-1.5 block">
+                      <span className="text-xs font-black text-slate-700">Assign Role</span>
+                      <select value={selectedRole} onChange={e => setSelectedRole(e.target.value)} className="w-full min-h-[48px] rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black outline-none focus:border-indigo-500">
+                        {customRoles.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
+                      </select>
+                    </label>
+                  )
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <label className="space-y-1.5">

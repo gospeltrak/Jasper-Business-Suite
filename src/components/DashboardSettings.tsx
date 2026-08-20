@@ -201,10 +201,12 @@ export default function DashboardSettings({
   });
 
   const [viewingStaffReport, setViewingStaffReport] = useState<StaffSettings | null>(null);
+  // A brand-new tenant starts with zero roles — they build their own from
+  // scratch (see "Create New Role" below) rather than the system silently
+  // seeding a fixed preset list. A tenant that already has real, saved
+  // roles (customRoles.length > 0) is completely unaffected by this.
   const [customRolesList, setCustomRolesList] = useState<CustomRole[]>(() => {
-    const roles = systemSettings?.customRoles && systemSettings?.customRoles.length > 0
-      ? systemSettings?.customRoles
-      : DEFAULT_CUSTOM_ROLES;
+    const roles = systemSettings?.customRoles || [];
     if (activeTenant.businessType === 'restaurant') {
       return roles.map(r => r.name === 'Seller' ? { ...r, name: 'Waiter' } : r);
     }
@@ -455,8 +457,14 @@ export default function DashboardSettings({
   };
 
   const handleDeleteRole = (id: string) => {
-    if (['role-admin', 'role-manager', 'role-cashier', 'role-seller'].includes(id)) {
-      alert("Preset baseline system roles are read-only-locked to preserve checkout safety!");
+    // No hardcoded preset IDs are protected anymore — every role here is
+    // one the tenant created themselves. The only real safety guard is not
+    // orphaning a staff member who currently holds this role, since an
+    // unmatched role string silently resolves to zero permissions.
+    const role = customRolesList.find(r => r.id === id);
+    const assignedCount = role ? staffsList.filter(s => s.role === role.name).length : 0;
+    if (assignedCount > 0) {
+      alert(`This role is assigned to ${assignedCount} staff member${assignedCount === 1 ? '' : 's'}. Reassign them to a different role before deleting it.`);
       return;
     }
     const remaining = customRolesList.filter(r => r.id !== id);
@@ -476,9 +484,7 @@ export default function DashboardSettings({
     setBusinessForm(normalizeBusinessSettings(systemSettings?.business));
     setProductForm(normalizeProductStoreSettings(systemSettings?.productStore));
     setStaffsList(systemSettings?.staffs || []);
-    setCustomRolesList(systemSettings?.customRoles && systemSettings.customRoles.length > 0
-      ? systemSettings?.customRoles
-      : DEFAULT_CUSTOM_ROLES);
+    setCustomRolesList(systemSettings?.customRoles || []);
     setInvoiceSettingsForm(systemSettings?.invoiceSettings || {});
     setPosSettingsForm({
       showProductImages: systemSettings?.posSettings?.showProductImages !== false,
@@ -2639,9 +2645,41 @@ export default function DashboardSettings({
           )}
 
           {/* TAB 5: CUSTOM ROLES MANAGEMENT */}
-          {activeSubTab === 'roles' && (() => {
-            const activeRole = customRolesList.find(r => r.id === selectedRoleId) || customRolesList[0] || DEFAULT_CUSTOM_ROLES[0];
-            const isPreset = ['role-admin', 'role-manager', 'role-cashier', 'role-seller'].includes(activeRole.id);
+          {activeSubTab === 'roles' && customRolesList.length === 0 && (
+            <div className="bg-white rounded-2xl md:rounded-3xl border border-slate-200 p-4 sm:p-6 space-y-6 shadow-sm">
+              <div className="border-b border-slate-100 pb-4">
+                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider font-mono">🛡️ System Security Roles & Permissions</h3>
+                <p className="text-xs text-slate-455 mt-1 font-sans">
+                  Construct fine-grain security roles for your floor {activeTenant.businessType === 'restaurant' ? 'waiters' : 'sellers'}, cashiers, and managers. Assign permissions checkmark-by-checkmark to restrict access to secret revenues, cost of goods (Cost of Goods), or system setup.
+                </p>
+              </div>
+              <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50 p-8 text-center space-y-4">
+                <p className="text-sm font-black text-slate-700">No roles created yet</p>
+                <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                  Create your first role and choose exactly which permissions it has. You'll need at least one role before you can register staff.
+                </p>
+                <div className="max-w-xs mx-auto space-y-2 text-xs pt-2">
+                  <input
+                    type="text"
+                    value={newRoleName}
+                    onChange={(e) => setNewRoleName(e.target.value)}
+                    placeholder="e.g. Cashier"
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl outline-none focus:ring-1 focus:ring-emerald-500 font-bold"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleCreateNewRole}
+                    className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase text-[10px] tracking-wider rounded-xl transition-all cursor-pointer flex items-center justify-center space-x-1.5 active:scale-95 shadow-xs"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Create Role</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+          {activeSubTab === 'roles' && customRolesList.length > 0 && (() => {
+            const activeRole = customRolesList.find(r => r.id === selectedRoleId) || customRolesList[0];
             const activePlanId = String(subscriptionStatus?.state?.planId || subscriptionStatus?.plan?.packageId || subscriptionStatus?.plan?.name || '').toLowerCase();
             const isTanzanitePlan = activePlanId === 'tanzanite';
 
@@ -2704,7 +2742,6 @@ export default function DashboardSettings({
                       <div className="settings-role-list flex xl:block gap-2 overflow-x-auto xl:overflow-y-auto xl:max-h-[320px] xl:space-y-1.5 xl:pr-1 pb-1">
                         {customRolesList.map(r => {
                           const isSel = r.id === selectedRoleId;
-                          const isStatic = ['role-admin', 'role-manager', 'role-cashier', 'role-seller'].includes(r.id);
                           return (
                             <div
                               key={r.id}
@@ -2728,28 +2765,26 @@ export default function DashboardSettings({
                                 <div className="min-w-0">
                                   <p className="font-bold truncate">{r.name}</p>
                                   <p className={`text-[9.5px] font-normal leading-relaxed ${isSel ? 'text-emerald-100' : 'text-slate-400'}`}>
-                                    {isStatic ? 'System default' : 'Custom designed'}
+                                    Custom role
                                   </p>
                                 </div>
                               </div>
-                              
-                              {!isStatic && (
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDeleteRole(r.id);
-                                  }}
-                                  className={`p-1.5 rounded-lg transition-colors ${
-                                    isSel
-                                      ? 'text-emerald-100 hover:text-white hover:bg-emerald-700'
-                                      : 'text-slate-400 hover:text-rose-600 hover:bg-rose-50'
-                                  }`}
-                                  title="Delete Custom Role"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              )}
+
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteRole(r.id);
+                                }}
+                                className={`p-1.5 rounded-lg transition-colors ${
+                                  isSel
+                                    ? 'text-emerald-100 hover:text-white hover:bg-emerald-700'
+                                    : 'text-slate-400 hover:text-rose-600 hover:bg-rose-50'
+                                }`}
+                                title="Delete Role"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
                             </div>
                           );
                         })}
@@ -2788,27 +2823,15 @@ export default function DashboardSettings({
                         <div className="space-y-0.5">
                           <span className="text-[10px] font-mono font-bold uppercase text-emerald-600 font-bold">Current Setup</span>
                           <div className="flex items-center space-x-2">
-                            {isPreset ? (
-                              <h4 className="text-sm font-black text-slate-800">{activeRole.name} Preset (Locked)</h4>
-                            ) : (
-                              <div className="flex items-center space-x-2">
-                                <input
-                                  type="text"
-                                  value={activeRole.name}
-                                  onChange={(e) => handleRenameRole(activeRole.id, e.target.value)}
-                                  className="text-sm font-black text-slate-800 bg-slate-50 border border-slate-200 rounded-lg px-2 py-0.5 outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500"
-                                />
-                                <span className="text-[9.5px] bg-slate-100 text-slate-500 font-mono font-black border border-slate-200 px-1.5 py-0.5 rounded">CUSTOM</span>
-                              </div>
-                            )}
+                            <input
+                              type="text"
+                              value={activeRole.name}
+                              onChange={(e) => handleRenameRole(activeRole.id, e.target.value)}
+                              className="text-sm font-black text-slate-800 bg-slate-50 border border-slate-200 rounded-lg px-2 py-0.5 outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500"
+                            />
+                            <span className="text-[9.5px] bg-slate-100 text-slate-500 font-mono font-black border border-slate-200 px-1.5 py-0.5 rounded">CUSTOM</span>
                           </div>
                         </div>
-
-                        {isPreset && (
-                          <span className="text-[9.5px] bg-amber-50 text-amber-700 font-mono font-black border border-amber-200 px-2.5 py-1 rounded-full uppercase tracking-wider shrink-0 select-none">
-                            🔒 Baseline Rule
-                          </span>
-                        )}
                       </div>
 
                       {isTanzanitePlan && (

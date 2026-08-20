@@ -39,7 +39,6 @@ const DashboardDeliveries = lazyWithReload('DashboardDeliveries', () => import('
 const DashboardSandboxVerticals = lazyWithReload('DashboardSandboxVerticals', () => import('./DashboardSandboxVerticals'));
 const DashboardWhiteLabel = lazyWithReload('DashboardWhiteLabel', () => import('./DashboardWhiteLabel'));
 const DashboardSettings = lazyWithReload('DashboardSettings', () => import('./DashboardSettings'));
-import { DEFAULT_CUSTOM_ROLES } from '../utils/defaultCustomRoles';
 const DashboardStaff = lazyWithReload('DashboardStaff', () => import('./DashboardStaff'));
 import DashboardScreenErrorBoundary from './DashboardScreenErrorBoundary';
 import AIBusinessCopilot from './AIBusinessCopilot';
@@ -1131,12 +1130,10 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     const matched = customRoles.find(r => r.name.toLowerCase() === activeRoleName.toLowerCase());
     if (matched) return matched.permissions;
 
-    const queryPreset = (activeRoleName.toLowerCase() === 'waiter' || activeRoleName.toLowerCase() === 'seller') ? 'seller' : activeRoleName.toLowerCase();
-    const preset = DEFAULT_CUSTOM_ROLES.find(r => r.name.toLowerCase() === queryPreset);
-    if (preset) return preset.permissions;
-
-    // Never turn an unrecognised staff role into an administrator. Access is
-    // denied until the owner assigns a known preset or custom role.
+    // Never turn an unrecognised staff role into an administrator, and never
+    // fall back to a hardcoded preset role — the tenant's own customRoles
+    // list (created in Settings → Roles & Permissions) is the only source
+    // of truth. Access is denied until the owner assigns a real role.
     return {
       pos: { read: false, write: false, edit: false },
       products: { read: false, write: false, edit: false },

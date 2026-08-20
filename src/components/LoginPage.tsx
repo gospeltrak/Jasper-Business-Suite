@@ -27,7 +27,6 @@ import { getSecureDataBridgeClient, isPlaceholderSecureDataBridgeClient } from '
 import { initializeCleanTenantWorkspace } from '../utils/tenantIsolation';
 import { startCloudSession } from '../utils/sessionControl';
 import { toUserFacingError } from '../utils/safeError';
-import { DEFAULT_CUSTOM_ROLES } from '../utils/defaultCustomRoles';
 import PrivacyAndTermsModals from './PrivacyAndTermsModals';
 import TurnstileWidget from './TurnstileWidget';
 import { prepareSuperAdminMfa, verifySuperAdminMfa, type SuperAdminMfaPrompt } from '../utils/superAdminMfa';
@@ -332,7 +331,9 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       return safeUser;
     });
     const resolveStaffPermissions = (settings: any, roleName: string) => {
-      const roles = settings.customRoles?.length ? settings.customRoles : DEFAULT_CUSTOM_ROLES;
+      // No hardcoded preset fallback — an unmatched role resolves to no
+      // permissions rather than silently borrowing a default role's rights.
+      const roles = settings.customRoles || [];
       const normalizedRole = (roleName || '').toLowerCase();
       const roleKey = normalizedRole === 'waiter' ? 'seller' : normalizedRole;
       return roles.find((role: any) => role.name.toLowerCase() === roleKey)?.permissions || {};
