@@ -913,12 +913,12 @@ export default function DashboardStaff({
             { label: 'Total staff', value: totals.totalStaff.toLocaleString(), icon: Users, color: 'text-slate-900' },
             { label: 'Profit generated', value: `${currency}${Math.round(totals.totalProfit).toLocaleString()}`, icon: DollarSign, color: 'text-indigo-700' }
           ].map(item => (
-            <div key={item.label} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div key={item.label} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">{item.label}</span>
                 <item.icon className={`w-4 h-4 ${item.color}`} />
               </div>
-              <div className={`mt-2 text-xl font-black tracking-tight ${item.color}`}>{item.value}</div>
+              <div className={`mt-2 text-lg font-black tracking-tight ${item.color}`}>{item.value}</div>
             </div>
           ))}
         </div>
@@ -1664,7 +1664,7 @@ export default function DashboardStaff({
 
                 <section className="rounded-3xl border border-slate-200 bg-slate-50 p-4 md:p-5">
                   <h4 className="font-black text-slate-950">Login & Access</h4>
-                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="mt-4 grid grid-cols-2 gap-3">
                     <div className="rounded-2xl bg-white border border-slate-200 p-3">
                       <Lock className="w-4 h-4 text-indigo-600 mb-2" />
                       <span className="block text-[10px] font-black uppercase text-slate-400">Authentication</span>
@@ -1780,7 +1780,7 @@ export default function DashboardStaff({
                 return (
                   <section className="rounded-3xl border border-slate-200 bg-slate-50 p-4 md:p-5">
                     <h4 className="font-black text-slate-950">Payroll & Performance Summary</h4>
-                    <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="mt-4 grid grid-cols-2 gap-3">
                       {[
                         { label: 'Salary owed', value: formatMoney(profilePayroll.salaryTotal), icon: Wallet },
                         { label: 'Allowances', value: formatMoney(profilePayroll.allowancesTotal), icon: Plus },
