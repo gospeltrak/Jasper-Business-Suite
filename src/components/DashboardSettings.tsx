@@ -2414,35 +2414,24 @@ export default function DashboardSettings({
                                         <p className="text-[10px] text-slate-400 leading-normal font-normal">{mod.desc}</p>
                                       </td>
                                       
-                                      <td className="p-3 text-center">
-                                        <input
-                                          type="checkbox"
-                                          id={`perm-${activeRole.id}-${mod.key}-read`}
-                                          checked={permissions.read}
-                                          onChange={() => handleTogglePermission(activeRole.id, mod.key, 'read')}
-                                          className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer border-slate-300"
-                                        />
-                                      </td>
-                                      
-                                      <td className="p-3 text-center">
-                                        <input
-                                          type="checkbox"
-                                          id={`perm-${activeRole.id}-${mod.key}-write`}
-                                          checked={permissions.write}
-                                          onChange={() => handleTogglePermission(activeRole.id, mod.key, 'write')}
-                                          className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer border-slate-300"
-                                        />
-                                      </td>
-                                      
-                                      <td className="p-3 text-center">
-                                        <input
-                                          type="checkbox"
-                                          id={`perm-${activeRole.id}-${mod.key}-edit`}
-                                          checked={permissions.edit}
-                                          onChange={() => handleTogglePermission(activeRole.id, mod.key, 'edit')}
-                                          className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer border-slate-300"
-                                        />
-                                      </td>
+                                      {(['read', 'write', 'edit'] as const).map(permissionType => (
+                                        <td key={permissionType} className="p-3 text-center">
+                                          <button
+                                            type="button"
+                                            id={`perm-${activeRole.id}-${mod.key}-${permissionType}`}
+                                            aria-pressed={permissions[permissionType]}
+                                            aria-label={`${mod.name} — ${permissionType}`}
+                                            onClick={() => handleTogglePermission(activeRole.id, mod.key, permissionType)}
+                                            className={`inline-flex h-6 w-6 items-center justify-center rounded-lg border-2 cursor-pointer transition-colors ${
+                                              permissions[permissionType]
+                                                ? 'bg-emerald-600 border-emerald-600'
+                                                : 'bg-white border-slate-300 hover:border-emerald-400'
+                                            }`}
+                                          >
+                                            {permissions[permissionType] && <Check className="w-4 h-4 text-white" strokeWidth={3} />}
+                                          </button>
+                                        </td>
+                                      ))}
                                     </tr>
                                   </React.Fragment>
                                 );
@@ -2474,22 +2463,24 @@ export default function DashboardSettings({
                                   </div>
                                   <div className="grid grid-cols-3 gap-2 mt-4">
                                     {(['read', 'write', 'edit'] as const).map(permissionType => (
-                                      <label
+                                      <button
                                         key={permissionType}
-                                        className={`min-h-[52px] rounded-2xl border flex flex-col items-center justify-center gap-1 text-[10px] font-black uppercase tracking-wide ${
+                                        type="button"
+                                        aria-pressed={permissions[permissionType]}
+                                        onClick={() => handleTogglePermission(activeRole.id, mod.key, permissionType)}
+                                        className={`min-h-[56px] rounded-2xl border flex flex-col items-center justify-center gap-1.5 text-[10px] font-black uppercase tracking-wide cursor-pointer transition-colors ${
                                           permissions[permissionType]
-                                            ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                                            ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
                                             : 'bg-white border-slate-200 text-slate-500'
                                         }`}
                                       >
-                                        <input
-                                          type="checkbox"
-                                          checked={permissions[permissionType]}
-                                          onChange={() => handleTogglePermission(activeRole.id, mod.key, permissionType)}
-                                          className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer border-slate-300"
-                                        />
+                                        <span className={`flex h-5 w-5 items-center justify-center rounded-md border-2 ${
+                                          permissions[permissionType] ? 'bg-emerald-600 border-emerald-600' : 'bg-white border-slate-300'
+                                        }`}>
+                                          {permissions[permissionType] && <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />}
+                                        </span>
                                         <span>{permissionType}</span>
-                                      </label>
+                                      </button>
                                     ))}
                                   </div>
                                 </div>
