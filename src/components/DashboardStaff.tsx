@@ -312,6 +312,7 @@ export default function DashboardStaff({
   const [isRegisteringStaff, setIsRegisteringStaff] = useState(false);
   const [viewingStaffReport, setViewingStaffReport] = useState<StaffSettings | null>(null);
   const [openStaffActionId, setOpenStaffActionId] = useState<string | null>(null);
+  const [desktopActionMenuPos, setDesktopActionMenuPos] = useState<{ top: number; right: number } | null>(null);
   const [mobileActionsStaff, setMobileActionsStaff] = useState<StaffSettings | null>(null);
 
   useEffect(() => {
@@ -1008,15 +1009,27 @@ export default function DashboardStaff({
                           <div className="relative inline-block text-left">
                             <button
                               type="button"
-                              onClick={() => setOpenStaffActionId(openStaffActionId === staff.id ? null : staff.id)}
+                              onClick={(e) => {
+                                if (openStaffActionId === staff.id) {
+                                  setOpenStaffActionId(null);
+                                  setDesktopActionMenuPos(null);
+                                  return;
+                                }
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                setDesktopActionMenuPos({ top: rect.bottom + 6, right: window.innerWidth - rect.right });
+                                setOpenStaffActionId(staff.id);
+                              }}
                               className="h-9 w-9 rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-slate-800 hover:bg-slate-50 inline-flex items-center justify-center"
                             >
                               <MoreVertical className="w-4 h-4" />
                             </button>
-                            {openStaffActionId === staff.id && (
+                            {openStaffActionId === staff.id && desktopActionMenuPos && (
                               <>
-                                <div className="fixed inset-0 z-40" onClick={() => setOpenStaffActionId(null)} />
-                                <div className="absolute right-0 top-10 w-44 bg-white shadow-xl rounded-2xl border border-slate-200 py-1.5 z-50 animate-fade-in origin-top-right text-left text-xs font-bold text-slate-700 flex flex-col">
+                                <div className="fixed inset-0 z-40" onClick={() => { setOpenStaffActionId(null); setDesktopActionMenuPos(null); }} />
+                                <div
+                                  className="fixed w-44 bg-white shadow-xl rounded-2xl border border-slate-200 py-1.5 z-50 animate-fade-in origin-top-right text-left text-xs font-bold text-slate-700 flex flex-col"
+                                  style={{ top: desktopActionMenuPos.top, right: desktopActionMenuPos.right }}
+                                >
                                   <button type="button" onClick={() => { setOpenStaffActionId(null); openStaffProfile(staff); }} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center gap-2 cursor-pointer">
                                     <Eye className="w-3.5 h-3.5 text-slate-400" />
                                     View Staff
@@ -1383,29 +1396,6 @@ export default function DashboardStaff({
               </div>
 
               <div className="p-5 space-y-4">
-                <div className="grid grid-cols-2 gap-2.5">
-                  <div className="rounded-2xl bg-slate-50 border border-slate-200 p-3">
-                    <Clock className="w-4 h-4 text-indigo-600 mb-1.5" />
-                    <span className="block text-[10px] font-black uppercase text-slate-400">Login</span>
-                    <strong className="mt-0.5 block text-xs text-slate-800">{formatDateTime(summary.lastLogin)}</strong>
-                  </div>
-                  <div className="rounded-2xl bg-slate-50 border border-slate-200 p-3">
-                    <TimerReset className="w-4 h-4 text-slate-600 mb-1.5" />
-                    <span className="block text-[10px] font-black uppercase text-slate-400">Logout</span>
-                    <strong className="mt-0.5 block text-xs text-slate-800">{summary.isOnline ? 'Still online' : formatDateTime(summary.lastLogout)}</strong>
-                  </div>
-                  <div className="rounded-2xl bg-slate-50 border border-slate-200 p-3">
-                    <Smartphone className="w-4 h-4 text-amber-600 mb-1.5" />
-                    <span className="block text-[10px] font-black uppercase text-slate-400">Time spent</span>
-                    <strong className="mt-0.5 block text-xs text-slate-800">{formatDuration(summary.totalDuration)}</strong>
-                  </div>
-                  <div className="rounded-2xl bg-slate-50 border border-slate-200 p-3">
-                    <Activity className="w-4 h-4 text-emerald-600 mb-1.5" />
-                    <span className="block text-[10px] font-black uppercase text-slate-400">Sessions</span>
-                    <strong className="mt-0.5 block text-xs text-slate-800">{summary.sessionCount}</strong>
-                  </div>
-                </div>
-
                 <div className="rounded-2xl border border-slate-200 overflow-hidden">
                   {[
                     { label: 'Sales Recorded', value: `${currency}${Math.round(summary.totalHandled).toLocaleString()}`, sub: `${summary.orders} orders` },
@@ -1434,17 +1424,6 @@ export default function DashboardStaff({
                     <Truck className="w-4 h-4 shrink-0" />
                     <span>{staff.classification || staff.role} - {staff.vehicleType || 'vehicle'} {staff.licensePlate ? `(${staff.licensePlate})` : ''}</span>
                   </div>
-                )}
-
-                {payrollEnabled && canPayPayroll && (
-                  <button
-                    type="button"
-                    onClick={() => { setViewingStaffReport(null); openSalaryPayment(staff); }}
-                    className="w-full min-h-[48px] rounded-2xl bg-emerald-600 text-white text-sm font-black inline-flex items-center justify-center gap-2"
-                  >
-                    <Wallet className="w-4 h-4" />
-                    Pay Staff
-                  </button>
                 )}
               </div>
             </div>
