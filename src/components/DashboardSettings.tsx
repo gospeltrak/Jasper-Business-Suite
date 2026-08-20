@@ -364,6 +364,7 @@ export default function DashboardSettings({
   };
 
   const handleTogglePermission = (roleId: string, module: string, permissionType: 'read' | 'write' | 'edit') => {
+    markSettingsDraftChanged();
     setCustomRolesList(prev => prev.map(r => {
       if (r.id === roleId) {
         const currentModPerms = (r.permissions as any)[module] || { read: false, write: false, edit: false };
