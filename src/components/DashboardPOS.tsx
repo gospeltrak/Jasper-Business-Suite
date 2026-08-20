@@ -26,6 +26,7 @@ import {
   Scan,
   Sparkles,
   Printer,
+  Download,
   MessageSquare,
   Pill,
   Coins,
@@ -41,7 +42,7 @@ import {
 } from 'lucide-react';
 import DashboardBarcodeScanner from './DashboardBarcodeScanner';
 import CachedImage from './CachedImage';
-import { createPosReceiptPdfFromData, printPdfFile, sharePosReceiptPdf, ReceiptData } from '../utils/pdfShare';
+import { downloadPdfFromElement, shareElementPdfToWhatsApp } from '../utils/pdfShare';
 
 // Web Audio API helper for offline-friendly beep sound
 // Shared AudioContext singleton — created once, reused for all beeps (eliminates init lag)
@@ -320,67 +321,40 @@ export default function DashboardPOS({
     return () => mql.removeEventListener('change', handleChange);
   }, []);
 
-  const buildReceiptPdfData = (): ReceiptData | null => {
-    if (!receiptResult) return null;
-    const rawTerms = systemSettings?.invoiceSettings?.termsAndConditions;
-    const terms = Array.isArray(rawTerms) ? rawTerms : rawTerms ? String(rawTerms).split('\n').filter(Boolean) : [];
-    return {
-        businessName: getActiveBranchDisplayName(activeTenant, systemSettings, userName, activeBranch),
-        businessAddress: systemSettings?.business?.businessAddress || activeTenant.city || undefined,
-        businessPhone: systemSettings?.business?.businessPhone || undefined,
-        businessEmail: systemSettings?.business?.businessEmail || undefined,
-        businessCity: activeTenant.city || undefined,
-        businessLogo: getActiveBranchLogo(systemSettings, activeBranch) || undefined,
-        receiptId: receiptResult.reference || receiptResult.id,
-        timestamp: receiptResult.timestamp,
-        cashierName: receiptResult.cashierName || userName || undefined,
-        customerName: receiptResult.customerName || undefined,
-        customerPhone: receiptResult.customerPhone || customerPhone || undefined,
-        paymentMethod: receiptResult.paymentMethod,
-        paymentBreakdown: receiptResult.paymentBreakdown,
-        items: receiptResult.items.map(item => {
-          const prod = products.find(p => p.id === item.productId);
-          return {
-            name: item.productName || prod?.name || 'Item',
-            qty: item.qty,
-            price: item.price,
-            total: item.qty * item.price,
-            unit: prod?.unit || undefined,
-          };
-        }),
-        subtotal: receiptResult.items.reduce((s, i) => s + i.qty * i.price, 0),
-        tax: receiptResult.tax || 0,
-        vatStatus: receiptResult.vatStatus,
-        discount: receiptResult.discount || 0,
-        deliveryCost: receiptResult.deliveryCost || 0,
-        productTotal: receiptResult.productTotal ?? (receiptResult.total - (receiptResult.deliveryCost || 0)),
-        grandTotal: receiptResult.total,
-        currency: activeTenant.currency || 'TZS',
-        amountPaid: receiptResult.amountPaid ?? receiptResult.total,
-        change: receiptResult.change ?? 0,
-        vatNumber: (systemSettings?.business as any)?.vatNumber || undefined,
-        documentTitle: 'A4 Receipt',
-        status: (receiptResult.amountPaid ?? receiptResult.total) >= receiptResult.total ? 'Paid' : 'Pending',
-        preparedByRole: 'Cashier',
-        terms,
-        footer: 'Powered by Orvix',
-      };
+  // Deterministic decorative barcode — same visual-only hashing approach used
+  // by DashboardSalesList's POS Receipt viewer and printed product labels,
+  // not a real scannable symbology.
+  const receiptBarcodeDigits = (code: string) => {
+    const hash = code.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) + 7;
+    return String(hash).padStart(13, '0').slice(-13);
+  };
+  const renderReceiptBarcodeBars = (code: string) => {
+    const hash = code.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) + 7;
+    return Array.from({ length: 46 }, (_, i) => {
+      const isBlack = i % 2 === 0;
+      const isGuard = i < 3 || (i >= 21 && i <= 23) || i > 42;
+      const w = (hash * (i + 17)) % 10;
+      const width = isGuard ? 1.5 : w < 4 ? 1.5 : w < 7 ? 2.5 : w < 9 ? 3.8 : 5;
+      return <div key={i} style={{ height: '32px', flexShrink: 0, background: isBlack ? '#000' : 'transparent', width: `${width}px` }} />;
+    });
   };
 
+  // Screenshot-based PDF/share/print — captures the on-screen
+  // #pos-receipt-pdf-template exactly as shown, the same technique
+  // DashboardSalesList's POS Receipt viewer uses, so what's downloaded,
+  // shared, or printed is guaranteed to match the preview (the old
+  // separate jsPDF text-redraw generator could silently drift from it).
   const sharePosReceiptPdfHandler = async () => {
     if (!receiptResult) return;
     try {
       setReceiptPdfStatus('Preparing receipt PDF...');
-
-      // Build receipt data for real PDF generation (no screenshot)
-      const receiptData = buildReceiptPdfData();
-      if (!receiptData) return;
-
-      const result = await sharePosReceiptPdf(
-        receiptData,
-        recipientWhatsApp,
-        `Hello ${receiptResult.customerName || 'valued customer'}, please find your receipt attached from ${getActiveBranchDisplayName(activeTenant, systemSettings, userName, activeBranch)}. Thank you for your business!`
-      );
+      const result = await shareElementPdfToWhatsApp({
+        elementId: 'pos-receipt-pdf-template',
+        fileName: `Receipt-${receiptResult.reference || receiptResult.id}.pdf`,
+        phone: recipientWhatsApp || receiptResult.customerPhone || customerPhone,
+        message: `Hello ${receiptResult.customerName || 'valued customer'}, please find your receipt attached from ${getActiveBranchDisplayName(activeTenant, systemSettings, userName, activeBranch)}. Thank you for your business!`,
+        format: 'receipt',
+      });
 
       if (result.method === 'native-share') {
         setReceiptPdfStatus('✅ Receipt shared successfully.');
@@ -398,22 +372,74 @@ export default function DashboardPOS({
     }
   };
 
-  const printPosReceiptPdfHandler = () => {
-    const receiptData = buildReceiptPdfData();
-    if (!receiptData) return;
+  const downloadPosReceiptPdfHandler = async () => {
+    if (!receiptResult) return;
     try {
-      setReceiptPdfStatus('Generating printable receipt PDF...');
-      // Use the same narrow till-receipt generator as WhatsApp share (and
-      // that matches the on-screen Preview) instead of the full-A4 generator
-      // that was here before — Print/Download must match what Preview shows.
-      const pdfFile = createPosReceiptPdfFromData(receiptData);
-      printPdfFile(pdfFile);
-      setReceiptPdfStatus('PDF opened for printing.');
+      setReceiptPdfStatus('Generating receipt PDF...');
+      await downloadPdfFromElement({
+        elementId: 'pos-receipt-pdf-template',
+        fileName: `Receipt-${receiptResult.reference || receiptResult.id}.pdf`,
+        format: 'receipt',
+      });
+      setReceiptPdfStatus('✅ Receipt downloaded.');
     } catch (err: any) {
       setReceiptPdfStatus(err?.message || 'Could not prepare receipt PDF.');
     } finally {
       setTimeout(() => setReceiptPdfStatus(null), 6000);
     }
+  };
+
+  const printPosReceiptPdfHandler = () => {
+    if (!receiptResult) return;
+    const el = document.getElementById('pos-receipt-pdf-template');
+    if (!el) return;
+    const content = el.innerHTML;
+
+    // Real thermal-printer stylesheet — mirrors DashboardSalesList's POS
+    // Receipt print exactly, since it targets the same 80mm till paper.
+    const thermalCSS = `
+      @page { size: 80mm auto; margin: 4mm; }
+      * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      body { width: 72mm; font-family: 'Courier New', Courier, monospace; font-size: 11px; color: #000; background: #fff; margin: 0; padding: 0; }
+      img { max-width: 100%; height: auto; }
+      * { color: #000 !important; background: transparent !important; border-color: #888 !important; box-shadow: none !important; border-radius: 0 !important; }
+      .flex { display: flex; } .justify-between { justify-content: space-between; } .justify-center { justify-content: center; } .items-center { align-items: center; } .items-start { align-items: flex-start; } .flex-col { flex-direction: column; }
+      .text-center { text-align: center; } .text-right { text-align: right; }
+      .font-black, .font-bold, .font-extrabold, .font-semibold { font-weight: bold; }
+      .uppercase { text-transform: uppercase; }
+      .border-b { border-bottom: 1px dashed #666; } .border-t { border-top: 1px dashed #666; } .border-b-2 { border-bottom: 2px solid #000; } .border-t-2 { border-top: 2px solid #000; }
+      .border-dashed { border-style: dashed !important; }
+      .space-y-1 > * + * { margin-top: 2px; } .space-y-1\\.5 > * + * { margin-top: 3px; } .space-y-2 > * + * { margin-top: 4px; } .space-y-4 > * + * { margin-top: 8px; }
+      .py-2 { padding: 4px 0; } .pb-1\\.5 { padding-bottom: 3px; } .pt-1 { padding-top: 2px; } .pt-1\\.5 { padding-top: 3px; } .p-6 { padding: 12px; }
+      .mb-1 { margin-bottom: 2px; }
+      .text-sm { font-size: 12px; } .text-xs { font-size: 11px; }
+      .w-5 { width: 10px; } .w-12 { width: 24px; } .w-16 { width: 32px; }
+      .max-h-12 { max-height: 48px; } .max-w-\\[140px\\] { max-width: 140px; }
+      .object-contain { object-fit: contain; }
+      .text-\\[9px\\] { font-size: 9px; } .text-\\[10px\\] { font-size: 10px; } .text-\\[11px\\] { font-size: 11px; }
+      .tracking-tight { letter-spacing: -0.025em; } .tracking-wide { letter-spacing: 0.025em; } .tracking-\\[0\\.2em\\] { letter-spacing: 0.2em; }
+      .shrink-0 { flex-shrink: 0; } .flex-1 { flex: 1 1 0%; }
+      .gap-1 { gap: 2px; }
+    `;
+
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:80mm;height:0;border:none;';
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!doc) { document.body.removeChild(iframe); return; }
+
+    doc.open();
+    doc.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Receipt ${receiptResult.reference || receiptResult.id}</title><style>${thermalCSS}</style></head><body>${content}</body></html>`);
+    doc.close();
+
+    setTimeout(() => {
+      try {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      } catch {}
+      setTimeout(() => { try { document.body.removeChild(iframe); } catch {} }, 3000);
+    }, 600);
   };
 
   // Dual-channel context (Retail vs. Wholesale)
@@ -2225,131 +2251,189 @@ export default function DashboardPOS({
                   </p>
                 </div>
 
-                {/* PHYSICAL RECEIPT GRAPHIC CONTAINER */}
-                <div id="pos-receipt-pdf-template" className="bg-white text-slate-900 p-5 rounded-3xl font-mono text-xs space-y-4 shadow-xl border-dashed border-2 border-slate-250">
-                  <div className="text-center space-y-2 border-b border-dashed border-slate-200 pb-3 flex flex-col items-center">
+                {/* PHYSICAL RECEIPT GRAPHIC CONTAINER — same plain black-ink
+                    thermal layout as DashboardSalesList's POS Receipt viewer,
+                    so both places the receipt appears look identical. */}
+                <div id="pos-receipt-pdf-template" className="bg-white text-black p-6 space-y-4 font-mono text-xs">
+                  <div className="text-center space-y-1 flex flex-col items-center">
                     {getActiveBranchLogo(systemSettings, activeBranch) && (
                       <CachedImage
                         src={getActiveBranchLogo(systemSettings, activeBranch) || undefined}
-                        alt="Logo"
-                        className="w-12 h-12 object-contain mb-1 rounded-lg border border-slate-200 p-0.5"
+                        alt="Receipt Logo"
+                        className="max-h-12 max-w-[140px] object-contain mb-1 select-none"
                         referrerPolicy="no-referrer"
                       />
                     )}
-                    <h5 className="font-bold text-sm uppercase">
+                    <h4 className="text-base font-black tracking-tight text-black">
                       {getActiveBranchDisplayName(activeTenant, systemSettings, userName, activeBranch)}
-                    </h5>
-                    <p className="text-[10.5px] text-slate-500">
-                      {systemSettings?.business?.businessAddress || `${activeTenant.city}, ${activeTenant.country}`}
-                    </p>
-                    <p className="text-[9.5px] text-slate-500">
-                      Tel: {systemSettings?.business?.businessPhone || '+234 (0) 700 9000'}
-                    </p>
+                    </h4>
+                    {activeTenant.city && <p className="text-[11px] text-black uppercase font-semibold">{activeTenant.city}</p>}
+                    {systemSettings?.business?.businessPhone && <p className="text-[11px] text-black">Tel:{systemSettings.business.businessPhone}</p>}
                   </div>
 
-                  <div className="space-y-1 text-[10.5px] border-b border-dashed border-slate-200 pb-2">
+                  <div className="border-t border-dashed border-slate-300" />
+
+                  <h3 className="text-center text-sm font-black uppercase tracking-wide text-black">POS Receipt</h3>
+
+                  {/* Core docket information */}
+                  <div className="space-y-1.5 text-[11px] text-black">
                     <div className="flex justify-between">
-                      <span>Receipt Ref:</span>
-                      <span className="font-bold">{receiptResult.id}</span>
+                      <span>Invoice No:</span>
+                      <span className="font-semibold">{receiptResult.reference || `REC-${receiptResult.id.toUpperCase().slice(0, 8)}`}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span>Date:</span>
-                      <span>{new Date(receiptResult.timestamp).toLocaleString()}</span>
+                      <span>Tarehe:</span>
+                      <span className="font-semibold">{new Date(receiptResult.timestamp).toLocaleDateString([], { dateStyle: 'long' })}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Wakati:</span>
+                      <span className="font-semibold">{new Date(receiptResult.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>{activeTenant.businessType === 'pharmacy' ? 'Pharmacist:' : 'Cashier:'}</span>
-                      <span>{receiptResult.cashierName}</span>
+                      <span className="font-semibold">{receiptResult.cashierName}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span>Payment Mode:</span>
-                      <span className="font-bold uppercase">{receiptResult.paymentMethod}</span>
-                    </div>
-                    {receiptResult.paymentMethod === 'Multi-Channel' && Array.isArray(receiptResult.paymentBreakdown) && receiptResult.paymentBreakdown.length > 0 && (
-                      <div className="pt-1 mt-1 border-t border-dashed border-slate-200 space-y-0.5">
-                        {receiptResult.paymentBreakdown.map((part, i) => (
-                          <div key={i} className="flex justify-between text-slate-500">
-                            <span>{part.method}</span>
-                            <span className="font-mono">{currency}{Math.round(part.amount).toLocaleString()}</span>
-                          </div>
-                        ))}
+                    {receiptResult.customerName && (
+                      <div className="flex justify-between">
+                        <span>Customer:</span>
+                        <span className="font-semibold">{receiptResult.customerName}</span>
                       </div>
                     )}
                   </div>
 
-                  {/* Receipt Items list */}
-                  <div className="space-y-2 border-b border-dashed border-slate-200 pb-3">
-                    <div className="grid grid-cols-12 font-bold text-[10.5px]">
-                      <span className="col-span-6">Item Description</span>
-                      <span className="col-span-2 text-center">Qty</span>
-                      <span className="col-span-4 text-right">Sum</span>
+                  <div className="border-t border-dashed border-slate-300" />
+
+                  {/* Items table */}
+                  <div>
+                    <div className="flex text-[10px] font-black uppercase text-black pb-1.5 border-b-2 border-black">
+                      <span className="w-5 shrink-0">#</span>
+                      <span className="flex-1">Maelezo</span>
+                      <span className="w-12 shrink-0 text-center">Qty</span>
+                      <span className="w-16 shrink-0 text-right">Bei</span>
+                      <span className="w-16 shrink-0 text-right">Jumla</span>
                     </div>
-                    {receiptResult.items.map((item, i) => {
-                      const finalItemPrice = (item.discountType === 'cash' 
-                        ? Math.max(0, item.price - item.discount) 
-                        : item.price * (1 - item.discount / 100)
-                      ) * item.qty;
+                    {receiptResult.items.map((item, index) => {
+                      const finalItemPrice = item.discountType === 'cash'
+                        ? Math.max(0, item.price - item.discount)
+                        : item.price * (1 - item.discount / 100);
                       return (
-                        <div key={i} className="grid grid-cols-12 text-[10.5px] gap-y-0.5">
-                          <span className="col-span-6 line-clamp-1">{item.productName}</span>
-                          <span className="col-span-2 text-center">{formatSaleItemQuantity(item)}</span>
-                          <span className="col-span-4 text-right">
-                            {currency}{Math.round(finalItemPrice).toLocaleString()}
-                          </span>
+                        <div key={index}>
+                          <div className="flex items-start py-2 text-[11px] text-black">
+                            <span className="w-5 shrink-0 text-slate-400">{index + 1}</span>
+                            <span className="flex-1 font-semibold pr-1">{item.productName}</span>
+                            <span className="w-12 shrink-0 text-center">{formatSaleItemQuantity(item)}</span>
+                            <span className="w-16 shrink-0 text-right">{currency}{Math.round(finalItemPrice).toLocaleString()}</span>
+                            <span className="w-16 shrink-0 text-right font-bold">{currency}{Math.round(finalItemPrice * item.qty).toLocaleString()}</span>
+                          </div>
+                          {index < receiptResult.items.length - 1 && <div className="border-t border-dashed border-slate-200" />}
                         </div>
                       );
                     })}
                   </div>
 
-                  {/* Calculations */}
-                  <div className="space-y-1.5 text-right font-bold text-xs">
-                    {(() => {
-                      const itemsSubtotal = receiptResult.items.reduce((sum, item) => {
-                        const itemDiscPrice = item.discountType === 'cash'
-                          ? Math.max(0, item.price - item.discount)
-                          : item.price * (1 - item.discount / 100);
-                        return sum + (itemDiscPrice * item.qty);
-                      }, 0);
+                  <div className="border-t border-dashed border-slate-300" />
 
-                      const orderDiscountAmt = receiptResult.discountType === 'cash'
-                        ? receiptResult.discount
-                        : itemsSubtotal * (receiptResult.discount / 100);
-
-                      return (
-                        <>
-                          <div className="flex justify-between text-slate-600 font-normal">
-                            <span>Subtotal</span>
-                            <span>{currency}{Math.round(itemsSubtotal).toLocaleString()}</span>
+                  {/* Totals — same subtotal/discount math as before, just
+                      restyled to match the plain black-ink layout. */}
+                  {(() => {
+                    const itemsSubtotal = receiptResult.items.reduce((sum, item) => {
+                      const itemDiscPrice = item.discountType === 'cash'
+                        ? Math.max(0, item.price - item.discount)
+                        : item.price * (1 - item.discount / 100);
+                      return sum + (itemDiscPrice * item.qty);
+                    }, 0);
+                    const orderDiscountAmt = receiptResult.discountType === 'cash'
+                      ? (receiptResult.discount || 0)
+                      : itemsSubtotal * ((receiptResult.discount || 0) / 100);
+                    const paidAmount = receiptResult.amountPaid ?? receiptResult.total;
+                    const balanceDue = Math.max(0, receiptResult.total - paidAmount);
+                    const changeDue = Math.max(0, receiptResult.change || 0);
+                    return (
+                      <>
+                        <div className="space-y-1.5 text-[11px] text-black">
+                          <div className="flex justify-between">
+                            <span>Jumla Ndogo</span>
+                            <span className="font-semibold">{currency}{Math.round(itemsSubtotal).toLocaleString()}</span>
                           </div>
                           {orderDiscountAmt > 0 && (
-                            <div className="flex justify-between text-emerald-700 font-mono text-[10px] font-normal">
-                              <span>Order Discount {receiptResult.discountType === 'percent' ? `(${receiptResult.discount}%)` : ''}</span>
-                              <span>-{currency}{Math.round(orderDiscountAmt).toLocaleString()}</span>
+                            <div className="flex justify-between">
+                              <span>Punguzo</span>
+                              <span className="font-semibold">-{currency}{Math.round(orderDiscountAmt).toLocaleString()}</span>
                             </div>
                           )}
                           {receiptResult.vatStatus === 'vat' && (
-                            <div className="flex justify-between text-slate-600 font-normal">
+                            <div className="flex justify-between">
                               <span>VAT ({Math.round(activeTenant.taxRate * 100)}%)</span>
-                              <span>{currency}{Math.round(receiptResult.tax || 0).toLocaleString()}</span>
+                              <span className="font-semibold">{currency}{Math.round(receiptResult.tax || 0).toLocaleString()}</span>
                             </div>
                           )}
                           {receiptResult.deliveryCost ? (
-                            <div className="flex justify-between text-slate-600 font-normal">
-                              <span>Delivery Fee</span>
-                              <span>{currency}{Math.round(receiptResult.deliveryCost).toLocaleString()}</span>
+                            <div className="flex justify-between">
+                              <span>Delivery</span>
+                              <span className="font-semibold">{currency}{Math.round(receiptResult.deliveryCost).toLocaleString()}</span>
                             </div>
                           ) : null}
-                          <div className="flex justify-between text-base border-t border-slate-200 pt-2 text-slate-900 font-black">
-                            <span>PAID TOTAL</span>
-                            <span>{currency}{Math.round(receiptResult.total).toLocaleString()}</span>
+                        </div>
+
+                        <div className="border-t-2 border-black pt-1.5 flex justify-between text-sm font-black text-black">
+                          <span>Jumla</span>
+                          <span>{currency}{Math.round(receiptResult.total).toLocaleString()}</span>
+                        </div>
+                        {balanceDue > 0 && (
+                          <div className="border-t-2 border-black pt-1.5 flex justify-between text-[11px] text-black">
+                            <span>Due</span>
+                            <span className="font-semibold">{currency}{Math.round(balanceDue).toLocaleString()}</span>
                           </div>
-                        </>
-                      );
-                    })()}
+                        )}
+
+                        <div className="border-t border-dashed border-slate-300" />
+
+                        {/* Payment details */}
+                        <div className="space-y-1 text-[11px] text-black">
+                          <p className="font-black uppercase tracking-wide">Payment Details</p>
+                          <div className="flex justify-between">
+                            <span>Mode</span>
+                            <span className="font-semibold">{receiptResult.paymentMethod}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Kiasi</span>
+                            <span className="font-semibold">{currency}{Math.round(paidAmount).toLocaleString()}</span>
+                          </div>
+                          {changeDue > 0 && (
+                            <div className="flex justify-between">
+                              <span>Change</span>
+                              <span className="font-semibold">{currency}{Math.round(changeDue).toLocaleString()}</span>
+                            </div>
+                          )}
+                          {receiptResult.paymentMethod === 'Multi-Channel' && Array.isArray(receiptResult.paymentBreakdown) && receiptResult.paymentBreakdown.length > 0 && (
+                            <div className="pt-1 space-y-0.5">
+                              {receiptResult.paymentBreakdown.map((part, i) => (
+                                <div key={i} className="flex justify-between text-slate-600">
+                                  <span>{part.method}</span>
+                                  <span className="font-mono">{currency}{Math.round(part.amount).toLocaleString()}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    );
+                  })()}
+
+                  <div className="border-t border-dashed border-slate-300" />
+
+                  {/* Barcode */}
+                  <div className="flex flex-col items-center gap-1 pt-1">
+                    <div className="flex items-end">
+                      {renderReceiptBarcodeBars(receiptResult.reference || receiptResult.id)}
+                    </div>
+                    <p className="text-[9px] font-bold tracking-[0.2em] text-black">{receiptBarcodeDigits(receiptResult.reference || receiptResult.id)}</p>
                   </div>
 
-                  <div className="text-center font-normal text-[9.5px] text-slate-500 border-t border-dashed border-slate-200 pt-3 space-y-1">
-                    <p className="font-sans font-medium">Thank you for shopping with us!</p>
-                    <p className="text-[8px] text-slate-400 font-mono">Powered by Orvix</p>
+                  {/* Footer */}
+                  <div className="text-center space-y-1 pt-1">
+                    <p className="text-[10px] font-black text-black">Thank you for shopping with us</p>
+                    <p className="text-[9px] text-slate-400">Powered by Orvix</p>
                   </div>
                 </div>
 
@@ -2388,13 +2472,20 @@ export default function DashboardPOS({
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2.5">
+                  <div className="grid grid-cols-3 gap-2.5">
                     <button
                       onClick={printPosReceiptPdfHandler}
                       className="w-full py-3.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold rounded-xl text-xs uppercase cursor-pointer flex items-center justify-center space-x-1.5 transition-colors"
                     >
                       <Printer className="w-4 h-4 text-slate-550" />
-                      <span>Print Receipt</span>
+                      <span className="hidden sm:inline">Print</span>
+                    </button>
+                    <button
+                      onClick={downloadPosReceiptPdfHandler}
+                      className="w-full py-3.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold rounded-xl text-xs uppercase cursor-pointer flex items-center justify-center space-x-1.5 transition-colors"
+                    >
+                      <Download className="w-4 h-4 text-slate-550" />
+                      <span className="hidden sm:inline">Download</span>
                     </button>
                     <button
                       onClick={() => setIsCheckoutOpen(false)}
