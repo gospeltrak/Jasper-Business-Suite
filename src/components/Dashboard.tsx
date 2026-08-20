@@ -2398,7 +2398,13 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
 
     localWorkspaceChangedAtRef.current = Date.now();
     cloudWorkspaceLoadedRef.current = true;
-    const nextDeliveries = (deliveriesMap[activeTenant.id] || []).map(del =>
+    // Applied against whichever delivery list is passed in — used both for
+    // the immediate save below (pre-await snapshot) and again against the
+    // *latest* state once the save resolves, so a delivery added/edited
+    // elsewhere during the await isn't silently dropped by committing a
+    // stale pre-await snapshot back into React state (that stale commit
+    // would then get persisted for real by the reactive autosave effect).
+    const applyUpdate = (list: Delivery[]) => list.map(del =>
       del.id === deliveryId
         ? {
             ...del,
@@ -2412,6 +2418,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
           }
         : del
     );
+    const nextDeliveries = applyUpdate(deliveriesMap[activeTenant.id] || []);
     const saved = await saveTenantWorkspace(activeTenant.id, {
       branches: branchesMap[activeTenant.id] || [],
       branchStocks: branchStocksMap[activeTenant.id] || [],
@@ -2427,7 +2434,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       saleTombstones: readLocalSaleTombstones(activeTenant.id),
     });
     if (!saved) return false;
-    setDeliveriesMap(prev => ({ ...prev, [activeTenant.id]: nextDeliveries }));
+    setDeliveriesMap(prev => ({ ...prev, [activeTenant.id]: applyUpdate(prev[activeTenant.id] || []) }));
 
     const newLog: SyncLog = {
       id: 'l-' + Math.random().toString(36).substr(2, 9),
@@ -2488,7 +2495,14 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
 
     localWorkspaceChangedAtRef.current = Date.now();
     cloudWorkspaceLoadedRef.current = true;
-    setDeliveriesMap(previous => ({ ...previous, [tenantId]: nextDeliveries }));
+    // Filter against the *latest* state, not the pre-await nextDeliveries
+    // snapshot — a delivery added/edited elsewhere during the awaits above
+    // (save + treasury reversal) would otherwise be silently dropped when
+    // this commits, and then persisted as gone by the reactive autosave.
+    setDeliveriesMap(previous => ({
+      ...previous,
+      [tenantId]: (previous[tenantId] || []).filter(delivery => delivery.id !== deliveryId),
+    }));
     saveData(tenantId, 'deliveries_map', { [tenantId]: nextDeliveries });
 
     setLogs(previous => [{
