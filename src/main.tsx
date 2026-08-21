@@ -14,9 +14,13 @@ function syncViewportVars() {
   const viewport = window.visualViewport;
   const height = viewport?.height || window.innerHeight;
   const width = viewport?.width || window.innerWidth;
+  const offsetTop = viewport?.offsetTop || 0;
+  const offsetLeft = viewport?.offsetLeft || 0;
   const bottomInset = viewport ? Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop) : 0;
   document.documentElement.style.setProperty('--app-height', `${height}px`);
   document.documentElement.style.setProperty('--app-width', `${width}px`);
+  document.documentElement.style.setProperty('--visual-viewport-top', `${offsetTop}px`);
+  document.documentElement.style.setProperty('--visual-viewport-left', `${offsetLeft}px`);
   document.documentElement.style.setProperty('--browser-bottom-inset', `${bottomInset}px`);
   // Confirmed via an on-device diagnostic: with the keyboard open, #dashboard-scaffold's
   // *actual rendered* height stayed at window.innerHeight (the full, unshrunk layout
@@ -29,6 +33,17 @@ function syncViewportVars() {
   if (scaffold) {
     scaffold.style.height = `${height}px`;
     scaffold.style.maxHeight = `${height}px`;
+    // iOS can pan the visual viewport while keeping the layout viewport (and
+    // therefore fixed elements) at its original origin. Anchor the fixed app
+    // shell to the visual viewport instead of trying to fight that pan with
+    // window.scrollTo(), which Safari may ignore while the keyboard animates.
+    if (width < 1280) {
+      scaffold.style.top = `${offsetTop}px`;
+      scaffold.style.left = `${offsetLeft}px`;
+    } else {
+      scaffold.style.top = '';
+      scaffold.style.left = '';
+    }
   }
   // Confirmed via the ancestor-chain diagnostic: every element between
   // #workspace-content and #dashboard-scaffold correctly shrinks to the
@@ -74,7 +89,7 @@ function syncViewportVars() {
       // (it clears the mobile bottom nav bar); reproduce that formula here.
       const safeAreaBottom = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--safe-area-bottom')) || 0;
       const bottomNavHeight = 64 + safeAreaBottom + bottomInset;
-      const lucyHeight = Math.min(680, height - bottomNavHeight - 32);
+      const lucyHeight = Math.max(160, Math.min(680, height - bottomNavHeight - 32));
       lucyPanel.style.height = `${lucyHeight}px`;
       lucyPanel.style.maxHeight = `${lucyHeight}px`;
     } else {
@@ -96,7 +111,7 @@ function syncViewportVars() {
   const posView = document.getElementById('pos-view');
   if (posView) {
     if (width >= 768 && width < 1280) {
-      const posViewHeight = height - 130;
+      const posViewHeight = Math.max(160, height - 130);
       posView.style.height = `${posViewHeight}px`;
       posView.style.maxHeight = `${posViewHeight}px`;
     } else {
@@ -106,73 +121,42 @@ function syncViewportVars() {
   }
 }
 
-// iOS Safari: the app shell is `position: fixed` (to stop bounce/scroll glitches),
-// sized live from `--app-height` (window.visualViewport). When a text input inside
-// that fixed shell receives focus, iOS's own "scroll input above keyboard" behavior
-// scrolls the layout viewport independently of the visual viewport, desyncing the
-// fixed shell from what's actually on screen and leaving a blank gap. Pinning the
-// layout viewport back to (0,0) around focus/blur keeps the two in sync.
-//
-// Confirmed via the on-device diagnostic: once #dashboard-scaffold's height
-// was fixed to actually shrink for the keyboard, the screen was STILL blank
-// because this used to force #workspace-content's scrollTop back to 0
-// unconditionally — hiding the focused field below the now-smaller visible
-// area instead of showing it. When a text field is focused, scroll it into
-// view within its container instead of resetting to the top; only reset to
-// the top when nothing text-entry is focused (e.g. keyboard closing).
-function pinLayoutViewport() {
-  window.scrollTo(0, 0);
-  const workspace = document.getElementById('workspace-content');
-  if (!workspace) return;
-  const active = document.activeElement;
-  if (isTextEntryElement(active) && workspace.contains(active as Node)) {
-    (active as HTMLElement).scrollIntoView({ block: 'nearest', inline: 'nearest' });
-  } else {
-    workspace.scrollTop = 0;
-  }
+syncViewportVars();
+let viewportSyncFrame: number | null = null;
+function scheduleViewportSync() {
+  if (viewportSyncFrame !== null) return;
+  viewportSyncFrame = window.requestAnimationFrame(() => {
+    viewportSyncFrame = null;
+    syncViewportVars();
+  });
 }
 
-syncViewportVars();
-window.addEventListener('resize', syncViewportVars, { passive: true });
-window.addEventListener('orientationchange', () => window.setTimeout(syncViewportVars, 250), { passive: true });
-// The keyboard closing (e.g. blurring one field to tap a checkbox) also fires a
-// visualViewport resize as its height grows back -- re-pin here too, not just on
-// focus/blur, since that resize is exactly when the layout/visual viewport can drift.
-function handleVisualViewportGeometryChange() {
-  syncViewportVars();
-  pinLayoutViewport();
-}
-window.visualViewport?.addEventListener('resize', handleVisualViewportGeometryChange, { passive: true });
-window.visualViewport?.addEventListener('scroll', handleVisualViewportGeometryChange, { passive: true });
+window.addEventListener('resize', scheduleViewportSync, { passive: true });
+window.addEventListener('orientationchange', () => window.setTimeout(scheduleViewportSync, 250), { passive: true });
+window.visualViewport?.addEventListener('resize', scheduleViewportSync, { passive: true });
+window.visualViewport?.addEventListener('scroll', scheduleViewportSync, { passive: true });
 function isTextEntryElement(el: EventTarget | null): boolean {
   const target = el as HTMLElement | null;
   if (!target) return false;
   const tag = target.tagName;
   return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || !!target.isContentEditable;
 }
-// Two checkpoints (50ms/300ms) assumed a fairly fixed, fast keyboard
-// animation. Older iOS/iPadOS Safari versions (pre-16.4, where
-// interactive-widget=resizes-content in index.html isn't recognized and
-// this JS path is the only mitigation) can take noticeably longer and less
-// predictably to finish animating the keyboard in/out, so a wider, denser
-// set of checkpoints — covering the same overall window plus a bit more —
-// gives more chances to catch the moment the layout viewport actually
-// drifts, instead of missing it between two widely-spaced checks.
-const VIEWPORT_REPIN_DELAYS_MS = [16, 50, 100, 150, 250, 350, 500];
-function schedulePinLayoutViewport() {
-  syncViewportVars();
-  pinLayoutViewport();
-  for (const delay of VIEWPORT_REPIN_DELAYS_MS) {
-    window.setTimeout(() => { syncViewportVars(); pinLayoutViewport(); }, delay);
-  }
+// Focus events may arrive just before Safari starts or finishes its keyboard
+// animation. Geometry events are the source of truth; these two checkpoints
+// only cover versions that occasionally omit one of those events. They never
+// change window/workspace scroll positions.
+function scheduleKeyboardViewportSync() {
+  scheduleViewportSync();
+  window.setTimeout(scheduleViewportSync, 100);
+  window.setTimeout(scheduleViewportSync, 350);
 }
 document.addEventListener('focusin', (e) => {
   if (!isTextEntryElement(e.target)) return;
-  schedulePinLayoutViewport();
+  scheduleKeyboardViewportSync();
 }, { passive: true });
 document.addEventListener('focusout', (e) => {
   if (!isTextEntryElement(e.target)) return;
-  schedulePinLayoutViewport();
+  scheduleKeyboardViewportSync();
 }, { passive: true });
 
 createRoot(document.getElementById('root')!).render(
