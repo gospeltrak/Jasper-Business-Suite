@@ -777,6 +777,21 @@ body.rtl { font-family: 'Cairo', "Plus Jakarta Sans", "Inter", system-ui, sans-s
   }
 }
 
+/* POS Payment Mode / receipt modal, tablet only: the global mobile-modal
+   rule (#dashboard-scaffold [class*="fixed"][class*="inset-0"]
+   [class*="items-center"] > div, further up in this file) forces every
+   modal's direct child box to max-width: min(100%, 100vw - 1rem) — correct
+   for phone, where a near-full-width sheet is the right call, but on a
+   wide tablet landscape that stretches this modal's payment-method grid
+   into huge, sparse cells instead of the compact w-full max-w-lg (32rem)
+   dialog it was actually designed as. Restore that cap, tablet only —
+   phone keeps the existing near-full-width behavior untouched. */
+@media (min-width: 768px) and (max-width: 1279px) {
+  #dashboard-scaffold .pos-tablet-checkout-modal {
+    max-width: 32rem !important;
+  }
+}
+
 /* Tablet-only compactness pass: search bar, categories, and product cards
    were all sized for either phone or desktop, never specifically for the
    768-1279px split-screen layout, so they were taking up more vertical
