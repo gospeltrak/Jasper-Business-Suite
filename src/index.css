@@ -743,6 +743,37 @@ body.rtl { font-family: 'Cairo', "Plus Jakarta Sans", "Inter", system-ui, sans-s
   }
 }
 
+/* Subscription countdown badge (mobile top bar): tablet only, phone hidden
+   — same custom-class technique, needed for the same reason. */
+#dashboard-scaffold .tablet-subscription-badge {
+  display: none;
+}
+@media (min-width: 768px) {
+  #dashboard-scaffold .tablet-subscription-badge {
+    display: flex;
+  }
+}
+
+/* Full message vs short title inside the badge above (and the existing
+   desktop header, ≥1280px where the tablet-native-mode block below never
+   applies anyway) — custom classes instead of hidden/md:inline + md:hidden,
+   which the same block would otherwise force both visible on tablet at
+   once. */
+#dashboard-scaffold .subscription-reminder-full {
+  display: none;
+}
+#dashboard-scaffold .subscription-reminder-short {
+  display: inline;
+}
+@media (min-width: 768px) {
+  #dashboard-scaffold .subscription-reminder-full {
+    display: inline;
+  }
+  #dashboard-scaffold .subscription-reminder-short {
+    display: none;
+  }
+}
+
 /* POS split layout, tablet only (768-1279px) — now deliberately matching
    desktop's own mechanism exactly, on request, instead of the page-scroll
    approach tried previously: #pos-view gets a bounded height and clips

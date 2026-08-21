@@ -342,7 +342,7 @@ function SubscriptionCheckoutStateBridge({
 function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggleTheme, initialTab }: DashboardProps) {
   const { t, lang, setLang } = useTranslation();
   const { getFallbackInitials } = useTenantLogo();
-  const { addSaleNotification, unreadCount, hydrateTenantModuleSettings, configureInbox } = useJasperNotifications();
+  const { addSaleNotification, addSubscriptionReminderNotification, unreadCount, hydrateTenantModuleSettings, configureInbox } = useJasperNotifications();
   const [showDashLangMenu, setShowDashLangMenu] = useState(false);
   const [isNotificationCenterOpen, setIsNotificationCenterOpen] = useState(false);
 
@@ -1531,6 +1531,24 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     );
   }, [subscriptionReminderKey]);
 
+  // Phone has no header to show the countdown badge in (Dashboard's top bar
+  // only exists from 768px up) — deliver the same 3/2/1-day reminder into
+  // the bell/inbox instead, once per key (matches the badge's own dismiss
+  // key: tenant + subscription end date + day count, so day 3, day 2, and
+  // day 1 are each a distinct key and each notify exactly once).
+  useEffect(() => {
+    if (!subscriptionReminder || !subscriptionReminderKey) return;
+    if (typeof window === 'undefined' || window.innerWidth >= 768) return;
+    const notifiedKey = `${subscriptionReminderKey}:notified`;
+    if (sessionStorage.getItem(notifiedKey) === 'sent') return;
+    addSubscriptionReminderNotification({
+      tenantId: activeTenant.id,
+      title: subscriptionReminder.level === 'expired' ? 'Tanzanite package expired' : subscriptionReminder.title,
+      message: subscriptionReminder.message,
+    });
+    sessionStorage.setItem(notifiedKey, 'sent');
+  }, [subscriptionReminder, subscriptionReminderKey, activeTenant.id, addSubscriptionReminderNotification]);
+
   // Compact header countdown between search and online status.
   const renderSubscriptionCountdownBadge = () => {
     if (!subscriptionReminder || isBillingBannerDismissed || user.role === 'SuperAdmin') return null;
@@ -1554,8 +1572,8 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
           title={subscriptionReminder.message}
         >
           <Clock className="h-3.5 w-3.5 shrink-0 text-amber-500" />
-          <span className="hidden max-w-[260px] truncate md:inline">{subscriptionReminder.message}</span>
-          <span className="md:hidden">{subscriptionReminder.title}</span>
+          <span className="subscription-reminder-full max-w-[260px] truncate">{subscriptionReminder.message}</span>
+          <span className="subscription-reminder-short">{subscriptionReminder.title}</span>
         </button>
         <button
           type="button"
@@ -3509,6 +3527,18 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
               {user.role !== 'SuperAdmin' ? (
                 <GlobalBranchSwitcher onManageBranches={() => setActiveTab('branches')} />
               ) : null}
+            </div>
+
+            {/* Tablet only (this whole header is xl:hidden, so 768-1279px
+                here) — same subscription countdown badge desktop shows,
+                invisible until now because the desktop header it lived in is
+                hidden below 1280px. Phone stays hidden; that reminder goes
+                through notifications instead (see below). A custom class,
+                not hidden/md:flex — the tablet-native-mode block elsewhere
+                in index.css forces any literal .hidden.md\:flex back to
+                display:none. */}
+            <div className="tablet-subscription-badge shrink-0">
+              {renderSubscriptionCountdownBadge()}
             </div>
 
             {/* Right: Search icon + Dark Mode + Language + Notification bell */}
