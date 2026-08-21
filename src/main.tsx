@@ -64,16 +64,23 @@ function syncViewportVars() {
 // fixed shell from what's actually on screen and leaving a blank gap. Pinning the
 // layout viewport back to (0,0) around focus/blur keeps the two in sync.
 //
-// Still reported blank on iPhone/iPad after widening the retry schedule below,
-// so this now also resets #workspace-content — the dashboard's own inner
-// scroll container (overflow-y-auto) — not just window.scrollTo. iOS's
-// "scroll input into view" behavior on a focused element can scroll *either*
-// the outer layout viewport or the nearest scrollable ancestor (or both);
-// window.scrollTo alone only ever addressed the former.
+// Confirmed via the on-device diagnostic: once #dashboard-scaffold's height
+// was fixed to actually shrink for the keyboard, the screen was STILL blank
+// because this used to force #workspace-content's scrollTop back to 0
+// unconditionally — hiding the focused field below the now-smaller visible
+// area instead of showing it. When a text field is focused, scroll it into
+// view within its container instead of resetting to the top; only reset to
+// the top when nothing text-entry is focused (e.g. keyboard closing).
 function pinLayoutViewport() {
   window.scrollTo(0, 0);
   const workspace = document.getElementById('workspace-content');
-  if (workspace) workspace.scrollTop = 0;
+  if (!workspace) return;
+  const active = document.activeElement;
+  if (isTextEntryElement(active) && workspace.contains(active as Node)) {
+    (active as HTMLElement).scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  } else {
+    workspace.scrollTop = 0;
+  }
 }
 
 syncViewportVars();
