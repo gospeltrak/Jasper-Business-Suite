@@ -1990,11 +1990,11 @@ export default function DashboardProducts({
               {active && (
                 <div className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-emerald-400" />
               )}
-              <span className="text-2xl mb-1.5 leading-none">{tab.icon}</span>
-              <span className="text-[11px] sm:text-[12px] font-extrabold leading-tight break-words" style={{ color: active ? '#ffffff' : '#475569' }}>
+              <span className="stock-tab-icon text-2xl mb-1.5 leading-none">{tab.icon}</span>
+              <span className="stock-tab-label text-[11px] sm:text-[12px] font-extrabold leading-tight break-words" style={{ color: active ? '#ffffff' : '#475569' }}>
                 {tab.label}
               </span>
-              <span className="text-[10px] mt-0.5 font-medium" style={{ color: active ? 'rgba(255,255,255,0.6)' : '#94a3b8' }}>
+              <span className="stock-tab-sub text-[10px] mt-0.5 font-medium" style={{ color: active ? 'rgba(255,255,255,0.6)' : '#94a3b8' }}>
                 {tab.sub}
               </span>
             </button>

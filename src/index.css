@@ -1760,6 +1760,36 @@ button:active:not(:disabled),
   }
 }
 
+/* Stock tab nav (Product List / Categories / Brands / Barcode & Labels),
+   tablet only (768-1279px): one row of 4 instead of the phone's 2x2 grid, to
+   save vertical space. Later in source than the shared 2-column rule above
+   (max-width:1279px, no min-width floor) so it wins on tablet width via
+   cascade order while phone (<768px) still matches only that earlier rule
+   and stays 2x2. Same design/colors, just proportionally smaller so all 4
+   fit on one row without wrapping. */
+@media (min-width: 768px) and (max-width: 1279px) {
+  #dashboard-scaffold .stock-tabs-two-column-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 0.5rem !important;
+  }
+  #dashboard-scaffold .stock-tabs-two-column-grid button {
+    padding-top: 0.625rem !important;
+    padding-bottom: 0.625rem !important;
+    padding-left: 0.25rem !important;
+    padding-right: 0.25rem !important;
+  }
+  #dashboard-scaffold .stock-tab-icon {
+    font-size: 1.125rem !important;
+    margin-bottom: 0.25rem !important;
+  }
+  #dashboard-scaffold .stock-tab-label {
+    font-size: 9px !important;
+  }
+  #dashboard-scaffold .stock-tab-sub {
+    font-size: 8px !important;
+  }
+}
+
 .subscription-mobile-action {
   display: none;
 }
