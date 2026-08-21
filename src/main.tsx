@@ -10,50 +10,6 @@ import { TenantLogoProvider } from './TenantLogoContext';
 import { NotificationProvider } from './JasperNotificationContext';
 import AppErrorBoundary from './components/AppErrorBoundary';
 
-// TEMPORARY DIAGNOSTIC — remove once the iOS blank-on-keyboard-focus bug is
-// confirmed fixed. Shows live viewport numbers on screen so a screenshot
-// taken at the moment of the blank screen tells us the real values instead
-// of guessing at them.
-let debugOverlayEl: HTMLDivElement | null = null;
-function updateDebugOverlay() {
-  if (typeof document === 'undefined') return;
-  if (!debugOverlayEl) {
-    debugOverlayEl = document.createElement('div');
-    debugOverlayEl.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:2147483647;background:rgba(220,38,38,0.95);color:#fff;font:10px/1.4 monospace;padding:4px 6px;pointer-events:none;white-space:pre-wrap;';
-    document.body.appendChild(debugOverlayEl);
-  }
-  const vv = window.visualViewport;
-  const scaffold = document.getElementById('dashboard-scaffold');
-  const workspace = document.getElementById('workspace-content');
-  const active = document.activeElement;
-  // Pinpoints exactly which ancestor between #workspace-content and
-  // #dashboard-scaffold fails to shrink to the keyboard-open height: walks
-  // parentElement from workspace up to (and including) scaffold, recording
-  // each rendered box height. A flex chain that's correctly shrinking should
-  // read the same small number all the way up; the first jump to a much
-  // larger number identifies the broken link.
-  let chain = 'n/a';
-  if (workspace && scaffold) {
-    const heights: number[] = [];
-    let el: HTMLElement | null = workspace;
-    let guard = 0;
-    while (el && guard < 8) {
-      heights.push(Math.round(el.getBoundingClientRect().height));
-      if (el === scaffold) break;
-      el = el.parentElement;
-      guard++;
-    }
-    chain = heights.join('>');
-  }
-  debugOverlayEl.textContent =
-    `innerH/W=${window.innerHeight}/${window.innerWidth} vv.h/w/top=${vv?.height ?? '-'}/${vv?.width ?? '-'}/${vv?.offsetTop ?? '-'} `
-    + `appH=${getComputedStyle(document.documentElement).getPropertyValue('--app-height')} `
-    + `scaffoldH=${scaffold ? Math.round(scaffold.getBoundingClientRect().height) : 'none'} `
-    + `wsH=${workspace ? Math.round(workspace.getBoundingClientRect().height) : 'none'} wsScrollH=${workspace?.scrollHeight ?? '-'} wsScrollTop=${workspace?.scrollTop ?? '-'} `
-    + `chain(ws→scaffold)=${chain} `
-    + `active=${active?.tagName}${active?.id ? '#' + active.id : ''}`;
-}
-
 function syncViewportVars() {
   const viewport = window.visualViewport;
   const height = viewport?.height || window.innerHeight;
@@ -148,7 +104,6 @@ function syncViewportVars() {
       posView.style.maxHeight = '';
     }
   }
-  updateDebugOverlay();
 }
 
 // iOS Safari: the app shell is `position: fixed` (to stop bounce/scroll glitches),
