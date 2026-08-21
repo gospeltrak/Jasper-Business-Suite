@@ -2838,7 +2838,7 @@ export default function DashboardProducts({
             <div className="overflow-x-auto bg-white dark:bg-slate-900">
 
             {/* ── MOBILE STOCK CARDS ── */}
-            <div className="xl:hidden bg-slate-50 dark:bg-slate-950 px-3 pt-3 pb-[calc(80px+env(safe-area-inset-bottom))] space-y-3">
+            <div className="stock-cards-tablet-grid xl:hidden bg-slate-50 dark:bg-slate-950 px-3 pt-3 pb-[calc(80px+env(safe-area-inset-bottom))] space-y-3">
               {filteredProducts.map((prod) => {
                   const shopQty = prod.shopStockQty ?? 0;
                   const storeQty = prod.storeStockQty ?? 0;

@@ -1746,6 +1746,20 @@ button:active:not(:disabled),
   }
 }
 
+/* Stock product cards, tablet only (768-1279px): two per row since the wider
+   screen has room, same card markup/styling as phone unchanged. Phone keeps
+   its single-column space-y-3 stack. */
+@media (min-width: 768px) and (max-width: 1279px) {
+  #dashboard-scaffold .stock-cards-tablet-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 0.75rem !important;
+  }
+  #dashboard-scaffold .stock-cards-tablet-grid > * {
+    margin-top: 0 !important;
+  }
+}
+
 .subscription-mobile-action {
   display: none;
 }
