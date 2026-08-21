@@ -769,14 +769,25 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       }
     }, 90_000);
 
+    // A tab closed/killed outright (backgrounded app swiped away, browser
+    // quit) never reaches this effect's own React cleanup below in time —
+    // the Realtime channel is left registered on Supabase's side until its
+    // own idle-connection reaper eventually closes it. Sending an explicit
+    // unsubscribe on pagehide (fires more reliably than beforeunload,
+    // including on iOS Safari) closes it immediately instead of leaving it
+    // for that server-side timeout to clean up.
+    const handlePageHide = () => { unsubscribe(); };
+
     window.addEventListener('online', handleOnline);
     window.addEventListener('focus', handleFocus);
+    window.addEventListener('pagehide', handlePageHide);
 
     return () => {
       active = false;
       window.clearInterval(liveRefreshTimer);
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('pagehide', handlePageHide);
       unsubscribe();
     };
   }, [activeTenant.id]);
