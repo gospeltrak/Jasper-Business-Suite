@@ -1816,6 +1816,11 @@ button:active:not(:disabled),
   #dashboard-scaffold .reports-list-tablet-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
+  /* Same fix for the Quick Overview tiles (Branch Yield / Active Stock)
+     right above the reports list. */
+  #dashboard-scaffold .reports-overview-tablet-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
 }
 
 .subscription-mobile-action {

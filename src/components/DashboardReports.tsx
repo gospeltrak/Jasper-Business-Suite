@@ -4042,7 +4042,7 @@ export default function DashboardReports({
             </div>
 
             {/* Quick Overview Cards for Mobile */}
-            <div className="grid grid-cols-2 gap-3 pb-2">
+            <div className="reports-overview-tablet-grid grid grid-cols-2 gap-3 pb-2">
               <div className="bg-slate-50 border border-slate-200/80 p-3 rounded-xl flex flex-col justify-between min-h-[76px] text-left">
                 <span className="text-[9px] font-bold text-slate-400 font-mono uppercase tracking-wider block">Branch Yield</span>
                 <span className="text-sm font-black text-slate-800 tracking-tight block mt-1">{currency}{Math.round(totalSalesRevenue).toLocaleString()}</span>
