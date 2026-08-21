@@ -790,6 +790,15 @@ body.rtl { font-family: 'Cairo', "Plus Jakarta Sans", "Inter", system-ui, sans-s
   #dashboard-scaffold .pos-tablet-checkout-modal {
     max-width: 32rem !important;
   }
+
+  /* The receipt step specifically (paymentStatus === 'completed') reads as
+     an actual receipt only when it's narrow like one — 32rem is fine for
+     the Payment Mode button grid above, but leaves the receipt looking
+     like a wide document instead of matching the same narrow column phone
+     naturally gets from its own narrower viewport. */
+  #dashboard-scaffold .pos-tablet-receipt-modal {
+    max-width: 26rem !important;
+  }
 }
 
 /* Tablet-only compactness pass: search bar, categories, and product cards
