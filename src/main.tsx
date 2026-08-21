@@ -48,15 +48,29 @@ function isTextEntryElement(el: EventTarget | null): boolean {
   const tag = target.tagName;
   return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || !!target.isContentEditable;
 }
+// Two checkpoints (50ms/300ms) assumed a fairly fixed, fast keyboard
+// animation. Older iOS/iPadOS Safari versions (pre-16.4, where
+// interactive-widget=resizes-content in index.html isn't recognized and
+// this JS path is the only mitigation) can take noticeably longer and less
+// predictably to finish animating the keyboard in/out, so a wider, denser
+// set of checkpoints — covering the same overall window plus a bit more —
+// gives more chances to catch the moment the layout viewport actually
+// drifts, instead of missing it between two widely-spaced checks.
+const VIEWPORT_REPIN_DELAYS_MS = [16, 50, 100, 150, 250, 350, 500];
+function schedulePinLayoutViewport() {
+  syncViewportVars();
+  pinLayoutViewport();
+  for (const delay of VIEWPORT_REPIN_DELAYS_MS) {
+    window.setTimeout(() => { syncViewportVars(); pinLayoutViewport(); }, delay);
+  }
+}
 document.addEventListener('focusin', (e) => {
   if (!isTextEntryElement(e.target)) return;
-  pinLayoutViewport();
-  window.setTimeout(pinLayoutViewport, 50);
-  window.setTimeout(pinLayoutViewport, 300);
+  schedulePinLayoutViewport();
 }, { passive: true });
 document.addEventListener('focusout', (e) => {
   if (!isTextEntryElement(e.target)) return;
-  window.setTimeout(pinLayoutViewport, 50);
+  schedulePinLayoutViewport();
 }, { passive: true });
 
 createRoot(document.getElementById('root')!).render(
