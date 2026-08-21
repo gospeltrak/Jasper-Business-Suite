@@ -1126,7 +1126,6 @@ export default function DashboardOverview({
                   itemStyle={{ fontSize: '11px', fontWeight: 600, padding: '2px 0' }}
                   labelStyle={{ color: '#64748b', fontWeight: 700, marginBottom: '4px' }}
                 />
-                <Bar dataKey="target" name="Sales Target" fill="#e2e8f0" barSize={barWidth} radius={[3, 3, 0, 0]} />
                 <Bar dataKey="sales" name="Sales" fill="url(#coralRed)" barSize={barWidth} radius={[3, 3, 0, 0]} />
                 <Bar dataKey="purchases" name="Purchases" fill="url(#purpleIndigo)" barSize={barWidth} radius={[3, 3, 0, 0]} />
                 <Line 
@@ -1143,10 +1142,6 @@ export default function DashboardOverview({
           </div>
 
           <div className="flex items-center justify-center space-x-6 shrink-0 mt-3 text-xs font-medium">
-            <div className="flex items-center space-x-2">
-              <span className="w-2.5 h-2.5 rounded bg-slate-300" />
-              <span className="text-slate-550">Sales Target</span>
-            </div>
             <div className="flex items-center space-x-2">
               <span className="w-2.5 h-2.5 rounded bg-orange-500" />
               <span className="text-slate-550">Sales</span>
