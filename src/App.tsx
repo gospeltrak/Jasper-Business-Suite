@@ -452,10 +452,16 @@ export default function App() {
 
   useEffect(() => {
     if (!user) return;
+    // Purely a liveness signal for session tracking (staff session lists,
+    // admin "who's online") — nothing reads this to gate access (login is
+    // always allowed, no device limit), so widening the interval and
+    // skipping backgrounded tabs is invisible to the user: no UI depends on
+    // sub-minute freshness here, and a tab that regains focus/visibility
+    // still touches immediately via the listeners below.
     const touch = () => { void touchCloudSession(); };
     const touchWhenVisible = () => { if (document.visibilityState === 'visible') touch(); };
     touch();
-    const heartbeat = window.setInterval(touch, 60 * 1000);
+    const heartbeat = window.setInterval(touchWhenVisible, 3 * 60 * 1000);
     window.addEventListener('focus', touch);
     document.addEventListener('visibilitychange', touchWhenVisible);
     return () => {

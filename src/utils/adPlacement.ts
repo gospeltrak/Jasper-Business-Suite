@@ -116,6 +116,10 @@ function refreshSharedAdSettings() {
   return adSettingsInFlight;
 }
 
+function refreshSharedAdSettingsIfVisible() {
+  if (document.visibilityState === 'visible') void refreshSharedAdSettings();
+}
+
 function startSharedAdSettingsRefreshIfNeeded() {
   if (adSettingsRefreshHandle !== null) return;
   void refreshSharedAdSettings();
@@ -123,8 +127,10 @@ function startSharedAdSettingsRefreshIfNeeded() {
   window.addEventListener('focus', refreshSharedAdSettings);
   // Ad settings already refresh instantly on save (AD_SETTINGS_EVENT) and on
   // window focus. This interval only exists to catch cross-tab/cross-admin
-  // changes without those triggers, so it does not need to run every 2s.
-  adSettingsRefreshHandle = window.setInterval(refreshSharedAdSettings, 60000);
+  // changes without those triggers, so a rarer, visibility-gated check is
+  // still invisible to users — nothing here depends on sub-minute freshness,
+  // and focus/AD_SETTINGS_EVENT already cover the moments that matter.
+  adSettingsRefreshHandle = window.setInterval(refreshSharedAdSettingsIfVisible, 5 * 60000);
 }
 
 function stopSharedAdSettingsRefreshIfIdle() {
