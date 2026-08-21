@@ -4054,7 +4054,7 @@ export default function DashboardReports({
             </div>
 
             {/* List of Reports Cards with Icons */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="reports-list-tablet-grid grid grid-cols-2 gap-3">
               {[
                 { id: 'p&l', label: 'Profit & Loss', icon: BarChart3, desc: 'Gross & net margin statement', colorClass: 'bg-emerald-50 text-emerald-700 border border-emerald-100', reqPerm: 'reportsSalesExpenses' },
                 { id: 'sales-report', label: 'Sales Report', icon: TrendingUp, desc: 'Transactions & VAT audit', colorClass: 'bg-indigo-50 text-indigo-605 border border-indigo-100', reqPerm: 'reportsSalesExpenses' },
