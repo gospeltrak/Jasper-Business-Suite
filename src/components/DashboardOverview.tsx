@@ -85,10 +85,10 @@ export default function DashboardOverview({
   const businessDisplayName = getBusinessDisplayName(activeTenant, systemSettings, userName);
   
   // Date timeframe filtering state: 'today' | 'week' | 'month' | '3month' | 'year'
-  const [timeframe, setTimeframe] = useState<'today' | 'week' | 'month' | '3month' | 'year'>('month');
+  const [timeframe, setTimeframe] = useState<'today' | 'week' | 'month' | '3month' | 'year'>('today');
 
   // Sales & Purchases status graph timeframe: 'today' | 'week' | 'month' | '3month' | 'year'
-  const [statusTimeframe, setStatusTimeframe] = useState<'today' | 'week' | 'month' | '3month' | 'year'>('month');
+  const [statusTimeframe, setStatusTimeframe] = useState<'today' | 'week' | 'month' | '3month' | 'year'>('today');
 
   const applyStatusTimeframe = (nextTimeframe: typeof statusTimeframe) => {
     setStatusTimeframe(nextTimeframe);
