@@ -1892,7 +1892,7 @@ export default function DashboardPOS({
       {/* Mobile Sticky Cart Summary */}
       <div
         key={`pos-mobile-total-${cart.length}-${grandTotal}`}
-        className="md:hidden fixed bottom-[calc(56px+env(safe-area-inset-bottom))] left-0 w-full bg-white border-t border-slate-200 px-4 py-3 z-40 shadow-[0_-4px_10px_-2px_rgba(0,0,0,0.05)]"
+        className="pos-mobile-sticky-cart fixed bottom-[calc(56px+env(safe-area-inset-bottom))] left-0 w-full bg-white border-t border-slate-200 px-4 py-3 z-40 shadow-[0_-4px_10px_-2px_rgba(0,0,0,0.05)]"
       >
         <div className="flex flex-col space-y-2.5">
           <div className="flex items-center justify-between">

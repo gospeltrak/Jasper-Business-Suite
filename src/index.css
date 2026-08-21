@@ -696,6 +696,21 @@ body.rtl { font-family: 'Cairo', "Plus Jakarta Sans", "Inter", system-ui, sans-s
   }
 }
 
+/* Phone-only bottom sticky cart bar: hidden from 768px up, where the side
+   cart panel's own "Proceed to Payment" button (.pos-checkout-btn-desktop)
+   takes over. Custom class, not md:hidden — the tablet-native-mode block
+   above forces any literal .md\:hidden back to display:block, which is
+   exactly why this bar kept showing on tablet and covering the cart panel
+   underneath it. */
+#dashboard-scaffold .pos-mobile-sticky-cart {
+  display: block;
+}
+@media (min-width: 768px) {
+  #dashboard-scaffold .pos-mobile-sticky-cart {
+    display: none;
+  }
+}
+
 /* POS split layout: products left, cart right, from 768px up with no upper
    cap (see below for why no cap). The real bug, found from a landscape
    tablet screenshot: the products/cart children still carry Tailwind's
