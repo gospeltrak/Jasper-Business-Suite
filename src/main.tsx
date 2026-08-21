@@ -42,6 +42,18 @@ function syncViewportVars() {
   document.documentElement.style.setProperty('--app-height', `${height}px`);
   document.documentElement.style.setProperty('--app-width', `${width}px`);
   document.documentElement.style.setProperty('--browser-bottom-inset', `${bottomInset}px`);
+  // Confirmed via an on-device diagnostic: with the keyboard open, #dashboard-scaffold's
+  // *actual rendered* height stayed at window.innerHeight (the full, unshrunk layout
+  // viewport) even though --app-height above was correctly computed at the smaller
+  // visualViewport.height. CSS `height: var(--app-height, 100dvh)` was not taking
+  // effect — this device's 100dvh fallback (or the var() itself) was not shrinking for
+  // the keyboard the way it should. Setting the height directly, in JS, on the actual
+  // element bypasses that entirely.
+  const scaffold = document.getElementById('dashboard-scaffold');
+  if (scaffold) {
+    scaffold.style.height = `${height}px`;
+    scaffold.style.maxHeight = `${height}px`;
+  }
   updateDebugOverlay();
 }
 
