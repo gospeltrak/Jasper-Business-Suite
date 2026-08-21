@@ -1417,7 +1417,7 @@ export default function DashboardPOS({
                       playOutOfStockBeep();
                     }
                   }}
-                  className={`w-full min-w-0 bg-white border rounded-xl select-none relative shadow-xs active:scale-95 group ${
+                  className={`pos-tablet-product-card w-full min-w-0 bg-white border rounded-xl select-none relative shadow-xs active:scale-95 group ${
                     showProductImages
                       ? 'p-0 lg:p-5 xl:p-3 flex flex-col justify-between overflow-hidden lg:overflow-visible lg:rounded-3xl'
                       : 'p-3 md:p-4 flex items-center gap-3 overflow-hidden'
@@ -1459,7 +1459,7 @@ export default function DashboardPOS({
                   )}
 
                   {/* Text details and bottom panel wrapper */}
-                  <div className={`${showProductImages ? 'flex-grow flex flex-col justify-between min-w-0 mt-1.5 px-1.5 pb-2 sm:mt-2 sm:px-2 sm:pb-2.5 lg:px-0 lg:pb-0 xl:mt-1' : 'flex-1 min-w-0 grid grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_auto] items-center gap-3'}`}>
+                  <div className={`pos-tablet-product-details ${showProductImages ? 'flex-grow flex flex-col justify-between min-w-0 mt-1.5 px-1.5 pb-2 sm:mt-2 sm:px-2 sm:pb-2.5 lg:px-0 lg:pb-0 xl:mt-1' : 'flex-1 min-w-0 grid grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_auto] items-center gap-3'}`}>
                     {/* Product Metadata & Text layout */}
                     <div className="space-y-1 min-w-0">
                       <div className={`${showProductImages ? 'hidden lg:flex' : 'flex'} items-center justify-between gap-2`}>
@@ -1472,7 +1472,7 @@ export default function DashboardPOS({
                           </span>
                         )}
                       </div>
-                      <h5 className={`font-extrabold text-[10px] sm:text-xs xl:text-[11px] text-slate-800 leading-snug pt-0.5 select-all ${showProductImages ? 'line-clamp-2 min-h-[1.75rem] sm:min-h-[2.25rem] xl:min-h-[1.75rem]' : 'truncate md:text-sm'}`} title={prod.name}>
+                      <h5 className={`pos-tablet-product-title font-extrabold text-[10px] sm:text-xs xl:text-[11px] text-slate-800 leading-snug pt-0.5 select-all ${showProductImages ? 'line-clamp-2 min-h-[1.75rem] sm:min-h-[2.25rem] xl:min-h-[1.75rem]' : 'truncate md:text-sm'}`} title={prod.name}>
                         {prod.name}
                       </h5>
                       {!showProductImages && (
@@ -1481,7 +1481,7 @@ export default function DashboardPOS({
                     </div>
 
                     {/* Pricing and Select CTA trigger */}
-                    <div className={`${showProductImages ? 'flex min-w-0 flex-col gap-1 pt-1.5 border-t border-slate-100 mt-1.5 lg:gap-2 lg:pt-2 lg:mt-2 xl:gap-1 xl:pt-1.5 xl:mt-1.5' : 'contents md:flex md:items-center md:gap-3 md:justify-end'} shrink-0`}>
+                    <div className={`pos-tablet-product-price-row ${showProductImages ? 'flex min-w-0 flex-col gap-1 pt-1.5 border-t border-slate-100 mt-1.5 lg:gap-2 lg:pt-2 lg:mt-2 xl:gap-1 xl:pt-1.5 xl:mt-1.5' : 'contents md:flex md:items-center md:gap-3 md:justify-end'} shrink-0`}>
                       <div className="space-y-0.5">
                         <p className="hidden xl:block border-none bg-transparent text-[8px] font-bold text-slate-400 uppercase tracking-wider leading-none">Price</p>
                         <span className="block max-w-full truncate text-[10px] sm:text-xs lg:text-[14px] xl:text-xs font-black text-emerald-700 lg:text-slate-900 leading-none" title={`${currency}${Math.round(displayPrice).toLocaleString()}`}>{currency}{Math.round(displayPrice).toLocaleString()}</span>
