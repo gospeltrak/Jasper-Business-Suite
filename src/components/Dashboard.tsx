@@ -1193,7 +1193,14 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     
     switch (tabId) {
       case 'overview':
-        return perms.reportsSalesExpenses?.read || perms.reportsProfitCogs?.read;
+        // Dashboard/Overview is the universal landing tab (see
+        // getDefaultDashboardTab) — every role can always reach it. Gating
+        // it behind report permissions meant a role without report access
+        // failed isTabAllowed('overview') on every mount, and the
+        // auto-redirect effect below sent them to the first ungated tab in
+        // the sidebar list instead (Money & Bank), which is what was
+        // actually landing tenants there, not any tab-caching behavior.
+        return true;
       case 'pos':
         return perms.pos?.read;
       case 'sales-list':
