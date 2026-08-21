@@ -433,12 +433,6 @@ export default function App() {
         new Promise<null>(resolve => window.setTimeout(() => resolve(null), 1500)),
       ]);
     }
-    // A fresh login should always land on the Dashboard/Overview, not
-    // whatever tab was cached from the previous session — that cache exists
-    // only to survive an in-session page refresh (see Dashboard.tsx).
-    if (storageTenantId) {
-      sessionStorage.removeItem(`jasper_active_dashboard_tab_${authenticatedUser.id}_${storageTenantId}`);
-    }
     void recordStaffLogin(authenticatedUser);
     setUser(authenticatedUser);
     persistSignedInUser(authenticatedUser);

@@ -451,16 +451,15 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     return 'overview';
   };
 
+  // Always opens on the default tab (Overview) rather than restoring
+  // whatever tab was open last time — a cached "last tab" was landing
+  // tenants back on screens like Money & Bank both on a fresh login and on
+  // simply reopening the app, since a resumed session never re-runs the
+  // login flow that would have cleared it.
   const [activeTab, setActiveTab ] = useState<string>(() => {
     if (initialTab && knownDashboardTabs.has(initialTab)) return initialTab;
-    const cachedTab = sessionStorage.getItem(`jasper_active_dashboard_tab_${user.id}_${activeTenant.id}`);
-    if (cachedTab && knownDashboardTabs.has(cachedTab)) return cachedTab;
     return getDefaultDashboardTab();
   });
-
-  useEffect(() => {
-    sessionStorage.setItem(`jasper_active_dashboard_tab_${user.id}_${activeTenant.id}`, activeTab);
-  }, [activeTab, activeTenant.id, user.id]);
 
   const [actingStaffId, setActingStaffId] = useState<string>('logged-in-user');
   const [productsMap, setProductsMap] = useState<Record<string, Product[]>>(() => isDemoTenant(activeTenant.id) ? DEFAULT_PRODUCTS : {});
