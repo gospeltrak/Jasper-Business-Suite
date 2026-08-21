@@ -241,6 +241,7 @@ export default function DashboardStaff({
   sales,
   expenses,
   activeTenant,
+  activeBranchId,
   deliveries,
   onPayStaff,
   payrollEnabled,
@@ -251,6 +252,7 @@ export default function DashboardStaff({
   sales: Sale[];
   expenses: Expense[];
   activeTenant: Tenant;
+  activeBranchId?: string | null;
   deliveries: Delivery[];
   onPayStaff: (expense: Expense) => void | boolean | Promise<void | boolean>;
   payrollEnabled: boolean;
@@ -468,7 +470,7 @@ export default function DashboardStaff({
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
       body: JSON.stringify({
         staffId: staff.id, name: staff.name, email: staff.email, phone: staff.phone,
-        role: staff.role, branchId: staff.branchId || activeBranchContext?.id,
+        role: staff.role, branchId: staff.branchId || activeBranchId || activeBranchContext?.id,
         permissions: customRoles.find(item => item.name.toLowerCase() === staff.role.toLowerCase())?.permissions || {},
       }),
     });
@@ -492,7 +494,7 @@ export default function DashboardStaff({
       name: fullName.trim(),
       email: email.trim().toLowerCase(),
       phone: phone.trim(),
-      branchId: activeBranchContext?.id,
+      branchId: activeBranchId || activeBranchContext?.id,
       role: roleType === 'delivery' ? classification : selectedRole,
       salary: Number(salaryAmount) || 0,
       salaryType,

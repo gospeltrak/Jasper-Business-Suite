@@ -1823,7 +1823,11 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     const saveVersion = settingsSaveVersionRef.current + 1;
     settingsSaveVersionRef.current = saveVersion;
     const syncUpdatedAt = new Date().toISOString();
-    const safeUpdatedSettings = normalizeSystemSettings(activeTenant, updated);
+    // Merge against the latest in-memory settings before stamping. A queued
+    // settings write created from an older render must not replace a newer
+    // staff list after that staff registration has already been confirmed.
+    const mergedUpdatedSettings = mergeSettingsForSync(updated, systemSettings);
+    const safeUpdatedSettings = normalizeSystemSettings(activeTenant, mergedUpdatedSettings);
     const syncedSettings = stampSettingsForSync(safeUpdatedSettings, systemSettings, syncUpdatedAt);
     setDatabaseBusinessName(String(syncedSettings.business?.businessName || '').trim());
     localWorkspaceChangedAtRef.current = Date.now();
@@ -4023,6 +4027,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
               sales={activeSales}
               expenses={activeExpenses}
               activeTenant={activeTenant}
+              activeBranchId={activeBranchSelection.activeBranchId}
               deliveries={activeDeliveries}
               onPayStaff={handleAddExpense}
               payrollEnabled={subStatus.plan.id === 'tanzanite'}

@@ -399,6 +399,11 @@ export default function App() {
 
         const isPlatformAdmin = userProfile?.account_type === 'super_admin' ||
           ['superadmin', 'super_admin'].includes(String(userProfile?.role_key || userProfile?.role || '').toLowerCase());
+        const isBusinessStaff = userProfile?.account_type === 'business_staff';
+        const staffRoleKey = String(userProfile?.role_key || '').trim();
+        const effectiveRole = isBusinessStaff && staffRoleKey
+          ? staffRoleKey.replace(/(^|[\s_-])([a-z])/g, (_match: string, prefix: string, letter: string) => `${prefix}${letter.toUpperCase()}`)
+          : userProfile.role || 'Admin';
         const profileTenantId = userProfile?.tenant_id || userProfile?.active_tenant;
         if (!profileTenantId && !isPlatformAdmin) return;
 
@@ -406,12 +411,13 @@ export default function App() {
           id: userProfile.id,
           email: userProfile.email || authUser.email || '',
           name: userProfile.name || authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'User',
-          role: isPlatformAdmin ? 'SuperAdmin' : (userProfile.role || 'Admin'),
+          role: (isPlatformAdmin ? 'SuperAdmin' : effectiveRole) as User['role'],
           tenantId: userProfile.tenant_id || 'platform-control',
           activeTenant: userProfile.active_tenant || userProfile.tenant_id || 'platform-control',
           phone: userProfile.phone || authUser.user_metadata?.phone || undefined,
           isSaaSStaff: userProfile.is_saas_staff || false,
           saasPermissions: userProfile.role_permissions || undefined,
+          rolePermissions: userProfile.role_permissions || undefined,
           profileImage: userProfile.profile_image_url || undefined
         };
 

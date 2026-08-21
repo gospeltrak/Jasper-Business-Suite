@@ -3550,9 +3550,9 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         phone: String(invitation.phone || ''), authUserId: authUser.id, authEmail: normalizeEmail(invitation.email),
       });
       return res.json({ status: 'existing', user: {
-        id: authUser.id, email: invitation.email, name: invitation.staff_name, role: databaseRole,
+        id: authUser.id, email: invitation.email, name: invitation.staff_name, role: invitation.role_key,
         tenantId: invitation.tenant_id, activeTenant: invitation.tenant_id, phone: invitation.phone,
-        saasPermissions: invitation.permissions || {},
+        saasPermissions: invitation.permissions || {}, rolePermissions: invitation.permissions || {},
       }});
     } catch (error) {
       return sendUnexpectedSafeApiError(req, res, error, { fallbackCode: 'AUTH_ERROR', context: 'sign_in', operation: 'staff_google_invitation_accept' });
@@ -3577,13 +3577,17 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     if (userProfile.id !== authUser.id) {
       return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 409, 'sign_in');
     }
+    const isBusinessStaff = userProfile.account_type === 'business_staff';
+    const resolvedRole = isBusinessStaff && userProfile.role_key ? userProfile.role_key : userProfile.role;
     return res.json({ status: 'existing', user: {
       id: userProfile.id, email: userProfile.email || authUser.email,
       name: userProfile.name || authUser.user_metadata?.full_name || 'User',
-      role: userProfile.account_type === 'super_admin' ? 'SuperAdmin' : (userProfile.role || 'Admin'),
+      role: userProfile.account_type === 'super_admin' ? 'SuperAdmin' : (resolvedRole || 'Admin'),
       tenantId: userProfile.tenant_id || 'platform-control', activeTenant: userProfile.active_tenant || userProfile.tenant_id || 'platform-control',
       phone: userProfile.phone || null, isSaaSStaff: userProfile.is_saas_staff || false,
-      saasPermissions: userProfile.role_permissions || undefined, profileImage: userProfile.profile_image_url || undefined,
+      saasPermissions: userProfile.role_permissions || undefined,
+      rolePermissions: userProfile.role_permissions || undefined,
+      profileImage: userProfile.profile_image_url || undefined,
     }});
   });
 

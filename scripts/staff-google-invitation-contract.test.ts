@@ -5,6 +5,8 @@ import fs from 'node:fs';
 const server = fs.readFileSync('server.ts', 'utf8');
 const login = fs.readFileSync('src/components/LoginPage.tsx', 'utf8');
 const staff = fs.readFileSync('src/components/DashboardStaff.tsx', 'utf8');
+const app = fs.readFileSync('src/App.tsx', 'utf8');
+const dashboard = fs.readFileSync('src/components/Dashboard.tsx', 'utf8');
 const migration = fs.readFileSync('supabase/migrations/20260812000200_staff_google_invitations.sql', 'utf8');
 
 test('staff invitation stores only a hash and is time-limited and single-use', () => {
@@ -20,6 +22,16 @@ test('Google acceptance enforces exact invited email and server-owned access', (
   assert.match(server, /tenant_id: invitation\.tenant_id/);
   assert.match(server, /branch_id: invitation\.branch_id/);
   assert.match(server, /role_permissions: invitation\.permissions/);
+  assert.match(server, /rolePermissions: invitation\.permissions/);
+  assert.match(server, /role: invitation\.role_key/);
+});
+
+test('staff role, permissions, and branch survive registration and reload', () => {
+  assert.match(staff, /branchId: activeBranchId \|\| activeBranchContext\?\.id/);
+  assert.match(app, /rolePermissions: userProfile\.role_permissions/);
+  assert.match(app, /isBusinessStaff && staffRoleKey/);
+  assert.match(server, /const resolvedRole = isBusinessStaff && userProfile\.role_key/);
+  assert.match(dashboard, /mergeSettingsForSync\(updated, systemSettings\)/);
 });
 
 test('staff form collects Gmail and callback preserves invitation token', () => {
