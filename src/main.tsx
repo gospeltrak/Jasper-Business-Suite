@@ -74,6 +74,31 @@ function syncViewportVars() {
     scaffold.style.height = `${height}px`;
     scaffold.style.maxHeight = `${height}px`;
   }
+  // The Lucy AI chat panel is a `position: fixed` element rendered as a sibling
+  // of the scroll container, not a descendant of #dashboard-scaffold's own flex
+  // layout — so it never benefited from the height fix above, and its own CSS
+  // (`h-[min(680px,calc(var(--app-height,100dvh)-var(--dashboard-bottom-nav-height)-2rem))]`)
+  // depends purely on --app-height reactively recomputing through calc(), which is
+  // exactly the mechanism confirmed unreliable on-device when the keyboard opens.
+  // Force the same formula directly from source values instead of trusting CSS to
+  // re-resolve it.
+  const lucyPanel = document.querySelector<HTMLElement>('.lucy-copilot-panel');
+  if (lucyPanel) {
+    if (width < 1280) {
+      // Below xl, the panel's own class targets `--app-height - bottom-nav - 2rem`
+      // (it clears the mobile bottom nav bar); reproduce that formula here.
+      const safeAreaBottom = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--safe-area-bottom')) || 0;
+      const bottomNavHeight = 64 + safeAreaBottom + bottomInset;
+      const lucyHeight = Math.min(680, height - bottomNavHeight - 32);
+      lucyPanel.style.height = `${lucyHeight}px`;
+      lucyPanel.style.maxHeight = `${lucyHeight}px`;
+    } else {
+      // At xl+ the desktop class targets 100dvh - 7rem with no bottom-nav to clear;
+      // clear any inline override left over from a narrower viewport.
+      lucyPanel.style.height = '';
+      lucyPanel.style.maxHeight = '';
+    }
+  }
   updateDebugOverlay();
 }
 
