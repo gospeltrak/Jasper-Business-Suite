@@ -99,6 +99,26 @@ function syncViewportVars() {
       lucyPanel.style.maxHeight = '';
     }
   }
+  // Same class of bug again: on tablet, #pos-view's split layout
+  // (index.css, .pos-tablet-split-grid) is sized with raw `calc(100dvh - 130px)`
+  // and `overflow: hidden`, no JS override -- the exact CSS mechanism already
+  // confirmed unreliable on-device when the keyboard opens. A stale (unshrunk)
+  // #pos-view height can make the browser's scroll-into-view math overshoot
+  // into #workspace-content's own bottom padding when the product search
+  // input is focused, landing the visible viewport on blank space. Force it
+  // from the same reliable source value, scoped to the same tablet range the
+  // CSS rule applies to.
+  const posView = document.getElementById('pos-view');
+  if (posView) {
+    if (width >= 768 && width < 1280) {
+      const posViewHeight = height - 130;
+      posView.style.height = `${posViewHeight}px`;
+      posView.style.maxHeight = `${posViewHeight}px`;
+    } else {
+      posView.style.height = '';
+      posView.style.maxHeight = '';
+    }
+  }
   updateDebugOverlay();
 }
 
