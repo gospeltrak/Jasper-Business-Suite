@@ -9,6 +9,7 @@ import { pullFromCloud, pushToCloud } from './utils/dbSync';
 import { configureOnlineStorage, resetOnlineStorage } from './utils/onlineStorage';
 import { lazyWithReload } from './utils/lazyWithReload';
 import SystemErrorPage, { type SystemErrorStatus } from './components/SystemErrorPage';
+import { resolveProfileRolePermissions } from './utils/profilePermissions';
 
 // Route-level code splitting keeps the large business workspaces out of the
 // login bundle. No feature is removed; it is downloaded only when opened.
@@ -452,6 +453,7 @@ export default function App() {
         const effectiveRole = isBusinessStaff && staffRoleKey
           ? staffRoleKey.replace(/(^|[\s_-])([a-z])/g, (_match: string, prefix: string, letter: string) => `${prefix}${letter.toUpperCase()}`)
           : userProfile.role || 'Admin';
+        const profileRolePermissions = resolveProfileRolePermissions(userProfile.role_permissions);
         const profileTenantId = userProfile?.tenant_id || userProfile?.active_tenant;
         if (!profileTenantId && !isPlatformAdmin) return;
 
@@ -465,7 +467,7 @@ export default function App() {
           phone: userProfile.phone || authUser.user_metadata?.phone || undefined,
           isSaaSStaff: userProfile.is_saas_staff || false,
           saasPermissions: userProfile.role_permissions || undefined,
-          rolePermissions: userProfile.role_permissions || undefined,
+          rolePermissions: profileRolePermissions,
           profileImage: userProfile.profile_image_url || undefined
         };
 

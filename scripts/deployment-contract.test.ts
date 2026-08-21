@@ -11,9 +11,19 @@ import {
 } from '../src/utils/saleSync';
 import { protectTenantPayload } from '../src/utils/dataSafety';
 import type { Product, Sale } from '../src/types';
+import { resolveProfileRolePermissions } from '../src/utils/profilePermissions';
 
 const projectRoot = resolve(import.meta.dirname, '..');
 const read = (path: string) => readFile(join(projectRoot, path), 'utf8');
+
+test('empty cloud role permissions fall back to the tenant named role after reload', () => {
+  assert.equal(resolveProfileRolePermissions(null), undefined);
+  assert.equal(resolveProfileRolePermissions({}), undefined);
+  assert.deepEqual(
+    resolveProfileRolePermissions({ pos: { read: false, write: false, edit: false } }),
+    { pos: { read: false, write: false, edit: false } },
+  );
+});
 
 test('tenant package navigation contract remains centralized and correct', () => {
   assert.equal(isTenantPackageTabAllowed('ruby', 'deliveries'), false);

@@ -28,7 +28,8 @@ test('Google acceptance enforces exact invited email and server-owned access', (
 
 test('staff role, permissions, and branch survive registration and reload', () => {
   assert.match(staff, /branchId: activeBranchId \|\| activeBranchContext\?\.id/);
-  assert.match(app, /rolePermissions: userProfile\.role_permissions/);
+  assert.match(app, /rolePermissions: profileRolePermissions/);
+  assert.match(app, /resolveProfileRolePermissions\(userProfile\.role_permissions\)/);
   assert.match(app, /isBusinessStaff && staffRoleKey/);
   assert.match(server, /const resolvedRole = isBusinessStaff && userProfile\.role_key/);
   assert.match(dashboard, /mergeSettingsForSync\(updated, systemSettings\)/);

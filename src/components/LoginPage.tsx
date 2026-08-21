@@ -30,6 +30,7 @@ import { toUserFacingError } from '../utils/safeError';
 import PrivacyAndTermsModals from './PrivacyAndTermsModals';
 import TurnstileWidget from './TurnstileWidget';
 import { prepareSuperAdminMfa, verifySuperAdminMfa, type SuperAdminMfaPrompt } from '../utils/superAdminMfa';
+import { resolveProfileRolePermissions } from '../utils/profilePermissions';
 
 const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
   en: {
@@ -976,9 +977,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         // Session tracking — fire and forget, never block login
         startCloudSession(authData.session?.access_token).catch(() => null);
 
-        const profileRolePermissions = userProfile.role_permissions && Object.keys(userProfile.role_permissions).length
-          ? userProfile.role_permissions
-          : undefined;
+        const profileRolePermissions = resolveProfileRolePermissions(userProfile.role_permissions);
         const isBusinessStaff = userProfile.account_type === 'business_staff';
         const staffRoleKey = String(userProfile.role_key || '').trim();
         const effectiveProfileRole = isBusinessStaff && staffRoleKey
