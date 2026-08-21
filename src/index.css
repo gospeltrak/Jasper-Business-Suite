@@ -1790,6 +1790,26 @@ button:active:not(:disabled),
   }
 }
 
+/* Product Manager/Stock: Template, Import, Download Product Catalogue,
+   tablet only (768-1279px): one row of 3 instead of 2-cols-then-full-width-
+   third. Same buttons/design, just the grid arrangement changes; the third
+   button's col-span-2 (meant for the 2-column phone layout) is neutralized
+   so it takes one column like the other two. */
+@media (min-width: 768px) and (max-width: 1279px) {
+  #dashboard-scaffold .product-import-actions-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+  #dashboard-scaffold .product-import-actions-grid > * {
+    grid-column: auto !important;
+  }
+  /* Drop the "Full restore backup · N products" subtitle on tablet only, to
+     help the button fit comfortably in the one-row-of-3 layout above. Phone
+     keeps it (2-cols-then-full-width layout has room for it). */
+  #dashboard-scaffold .product-catalogue-subtitle {
+    display: none !important;
+  }
+}
+
 .subscription-mobile-action {
   display: none;
 }

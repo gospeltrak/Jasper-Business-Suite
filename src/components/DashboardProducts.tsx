@@ -2094,7 +2094,7 @@ export default function DashboardProducts({
                   <Database className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
                   <div>
                     <p className="text-[12px] font-bold text-emerald-900 dark:text-emerald-100 leading-tight">Download Product Catalogue</p>
-                    <p className="text-[10px] text-emerald-700/70 dark:text-emerald-400 mt-0.5">Full restore backup · {products.length} products</p>
+                    <p className="product-catalogue-subtitle text-[10px] text-emerald-700/70 dark:text-emerald-400 mt-0.5">Full restore backup · {products.length} products</p>
                   </div>
                 </button>
               </div>
