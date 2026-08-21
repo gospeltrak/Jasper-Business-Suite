@@ -719,49 +719,55 @@ body.rtl { font-family: 'Cairo', "Plus Jakarta Sans", "Inter", system-ui, sans-s
   }
 }
 
-/* POS split layout: products left, cart right, from 768px up with no upper
-   cap (see below for why no cap). The real bug, found from a landscape
-   tablet screenshot: the products/cart children still carry Tailwind's
-   lg:col-span-7/xl:col-span-8 and lg:col-span-5/xl:col-span-4 classes,
-   which assume a 12-column explicit grid. Once lg: activates at 1024px+,
-   "span 7"/"span 5" no longer fit inside the 2 explicit columns this rule
-   defines, so the grid engine creates extra implicit columns to satisfy
-   the span instead of using the 2 columns declared here — which is what
-   was actually pushing the cart out of the visible row and making it wrap
-   below the products on a landscape tablet, not a media query specificity
-   problem. Forcing grid-column explicitly on both children below is the
-   actual fix; the missing upper cap is a secondary hardening (a capped
-   (min-width:768px) and (max-width:1279px) version worked in every static
-   check but didn't visibly apply on the real device tested against — the
-   uncapped rules just above it, for category/checkout buttons, did — so
-   removing the cap removes that as a variable too). */
-#dashboard-scaffold #pos-view.pos-tablet-split-grid {
-  grid-template-columns: minmax(0, 1fr) !important;
-}
-@media (min-width: 768px) {
+/* POS split layout, tablet only (768-1279px) — capped this time, and
+   deliberately not sharing a rule with desktop: desktop's own cart
+   (lg:sticky lg:top-0 lg:h-full max-h-none, in the JSX) and product scroll
+   (lg:flex-1 lg:overflow-y-auto) already work and were confirmed correct;
+   this block leaves them alone entirely rather than risk a regression by
+   applying tablet-tuned values there too.
+   Two things fixed here, found across two rounds of real-device testing:
+   1. The products/cart children carry Tailwind's lg:col-span-7/xl:col-span-8
+      and lg:col-span-5/xl:col-span-4 classes, which assume a 12-column
+      explicit grid. Once lg: activates at 1024px+, those spans no longer
+      fit inside the 2 explicit columns this rule defines, so the grid
+      engine created extra implicit columns instead of respecting the 2
+      declared here — forcing grid-column explicitly below is the fix.
+   2. Each side must scroll independently. The first attempt gave #pos-view
+      a fixed height (calc(100dvh-130px)) and clipped it with
+      overflow:hidden, assuming a fixed header height — wrong on the real
+      tablet tested against, so the whole grid overflowed and the PAGE
+      scrolled instead, taking the cart along with it and starving the
+      products area of its own scroll. Now the page scrolls products
+      naturally (no independent scroll box for them at all); the cart
+      panel is position:sticky instead, pinned in the viewport as the page
+      scrolls, with its own bounded max-height — only the cart's item list
+      (.pos-tablet-cart-items) scrolls inside that fixed box, the card
+      itself never moves or grows past it. */
+@media (min-width: 768px) and (max-width: 1279px) {
   #dashboard-scaffold #pos-view.pos-tablet-split-grid {
     grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr) !important;
-    height: calc(100dvh - 130px);
-    overflow: hidden;
+    align-items: start;
   }
 
   #dashboard-scaffold .pos-tablet-products-col {
     grid-column: 1 !important;
-    height: 100%;
-    min-height: 0;
-  }
-
-  #dashboard-scaffold #pos-product-grid {
-    flex: 1 1 auto;
-    overflow-y: auto;
   }
 
   #dashboard-scaffold .pos-tablet-cart-col {
     grid-column: 2 !important;
-    height: 100%;
-    max-height: 100%;
     position: sticky;
     top: 0;
+    max-height: calc(100dvh - 130px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  #dashboard-scaffold .pos-tablet-cart-items {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none !important;
+    overflow-y: auto;
   }
 }
 

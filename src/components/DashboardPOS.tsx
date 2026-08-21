@@ -1593,7 +1593,7 @@ export default function DashboardPOS({
         )}
 
         {/* Cart items list scroll context - dynamically adapts height and scroll posture neatly */}
-        <div className="p-4 overflow-y-auto space-y-2.5 max-h-[272px] scrollbar-thin scrollbar-thumb-slate-200 flex flex-col">
+        <div className="pos-tablet-cart-items p-4 overflow-y-auto space-y-2.5 max-h-[272px] scrollbar-thin scrollbar-thumb-slate-200 flex flex-col">
           {cart.length === 0 ? (
             <div className="flex-grow flex flex-col items-center justify-center text-center space-y-3 text-slate-400 h-full py-12">
               <ShoppingCart className="w-8 h-8 text-slate-300 stroke-[1.25]" />
