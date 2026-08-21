@@ -80,11 +80,13 @@ export default function App() {
   const [currentPath, setCurrentPath] = useState<string>(() => normalizePath(window.location.pathname || '/'));
   const [user, setUser] = useState<User | null>(() => {
     try {
-      const cached = sessionStorage.getItem('jasper_cashier_user');
+      // localStorage (not sessionStorage): stays signed in across closing the
+      // tab/app/browser, ending only on an explicit Logout.
+      const cached = localStorage.getItem('jasper_cashier_user');
       return cached ? JSON.parse(cached) : null;
     } catch (err) {
       console.error('Failed to load saved user session', err);
-      sessionStorage.removeItem('jasper_cashier_user');
+      localStorage.removeItem('jasper_cashier_user');
       return null;
     }
   });
@@ -108,7 +110,7 @@ export default function App() {
   const persistSignedInUser = (sessionUser: User) => {
     const serialized = JSON.stringify(sessionUser);
     try {
-      sessionStorage.setItem('jasper_cashier_user', serialized);
+      localStorage.setItem('jasper_cashier_user', serialized);
     } catch { /* Supabase auth remains the source of truth */ }
   };
 
@@ -306,7 +308,7 @@ export default function App() {
       if (!isPlatformAdmin && userTenantId !== tenantDomainContext.tenant?.id) {
         recordStaffLogout(user);
         setUser(null);
-        sessionStorage.removeItem('jasper_cashier_user');
+        localStorage.removeItem('jasper_cashier_user');
         setRedirectMessage(`Please log in with an account for ${tenantDomainContext.tenant?.name || 'this business'}.`);
         window.history.replaceState({}, '', '/login');
         setCurrentPath('/login');
@@ -318,7 +320,7 @@ export default function App() {
       if (!isPlatformAdmin) {
         recordStaffLogout(user);
         setUser(null);
-        sessionStorage.removeItem('jasper_cashier_user');
+        localStorage.removeItem('jasper_cashier_user');
         setRedirectMessage('This login is for Orvix platform administrators only. Please use your business login instead.');
         window.history.replaceState({}, '', '/login');
         setCurrentPath('/login');
@@ -497,7 +499,7 @@ export default function App() {
       console.warn('Browser auth session could not be closed during logout', error);
     } finally {
       setUser(null);
-      sessionStorage.removeItem('jasper_cashier_user');
+      localStorage.removeItem('jasper_cashier_user');
       resetOnlineStorage();
       splashShownRef.current = false;
       navigateTo('/');

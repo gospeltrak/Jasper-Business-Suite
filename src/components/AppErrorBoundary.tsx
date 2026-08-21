@@ -26,7 +26,7 @@ export default class AppErrorBoundary extends React.Component<AppErrorBoundaryPr
   };
 
   private returnToLogin = () => {
-    sessionStorage.removeItem('jasper_cashier_user');
+    localStorage.removeItem('jasper_cashier_user');
     window.location.assign('/login');
   };
 
