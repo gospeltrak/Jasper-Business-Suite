@@ -74,6 +74,35 @@ function syncViewportVars() {
     scaffold.style.height = `${height}px`;
     scaffold.style.maxHeight = `${height}px`;
   }
+  // Confirmed via the ancestor-chain diagnostic: every element between
+  // #workspace-content and #dashboard-scaffold correctly shrinks to the
+  // keyboard-open height (they're plain flex-1/min-h-0, no dvh or CSS var
+  // involved) -- #workspace-content itself is the one link that doesn't,
+  // staying at its full unshrunk content height despite `flex-1 min-h-0
+  // overflow-y-auto`. Its ancestor (`overflow:hidden`) then visually clips
+  // it, but #workspace-content's own scrollTop/scrollIntoView math still
+  // operates against its wrong, oversized box, which is what was landing
+  // focused inputs (product search, etc.) in blank space. Compute the
+  // actually-available height directly from the DOM (parent height minus
+  // its other children) and force it, rather than trust flex to shrink it.
+  const workspace = document.getElementById('workspace-content');
+  if (workspace) {
+    if (width < 1280) {
+      const wsParent = workspace.parentElement;
+      if (wsParent) {
+        let siblingsHeight = 0;
+        for (const sibling of Array.from(wsParent.children)) {
+          if (sibling !== workspace) siblingsHeight += (sibling as HTMLElement).getBoundingClientRect().height;
+        }
+        const wsHeight = Math.max(0, wsParent.getBoundingClientRect().height - siblingsHeight);
+        workspace.style.height = `${wsHeight}px`;
+        workspace.style.maxHeight = `${wsHeight}px`;
+      }
+    } else {
+      workspace.style.height = '';
+      workspace.style.maxHeight = '';
+    }
+  }
   // The Lucy AI chat panel is a `position: fixed` element rendered as a sibling
   // of the scroll container, not a descendant of #dashboard-scaffold's own flex
   // layout — so it never benefited from the height fix above, and its own CSS
