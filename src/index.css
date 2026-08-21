@@ -54,8 +54,17 @@ html.landing-page #jasper-app-root {
   overflow-x: clip !important;
   display: block !important;
 }
-@media screen and (orientation: landscape) and (max-height: 500px) {
-  /* Phone landscape — show a rotate prompt instead of broken layout */
+@media screen and (orientation: landscape) and (max-height: 500px) and (max-width: 767px) {
+  /* Phone landscape — show a rotate prompt instead of broken layout.
+     max-width added: without it, this also matched tablets — landscape
+     tablets sit comfortably above 500px tall normally, but the on-screen
+     keyboard opening (e.g. tapping a search field) shrinks the visible
+     content height enough to dip under 500px too, so this rule was firing
+     on tablets whenever the keyboard opened, blanking the whole screen —
+     confirmed from an iPad screenshot sequence: tap search -> keyboard
+     opens -> everything disappears. Capped to genuine phone widths, where
+     this rotate-prompt behavior is actually intended, fixes that without
+     touching the tablet landscape lock added separately below. */
   #jasper-app-root > * {
     display: none !important;
   }
