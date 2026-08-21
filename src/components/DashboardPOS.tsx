@@ -1356,15 +1356,15 @@ export default function DashboardPOS({
             </div>
           )}
 
-          {/* Desktop Categories Pill List */}
-          <div className="hidden xl:flex flex-wrap items-center gap-1.5 pt-0">
+          {/* Tablet + Desktop Categories Pill List (text-only buttons, "All" first) */}
+          <div className="pos-category-buttons flex-wrap items-center gap-1.5 pt-0">
             {categories.map(cat => (
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat === 'All' ? null : cat)}
                 className={`px-3 py-1.5 rounded-lg text-[10px] font-semibold transition-all uppercase cursor-pointer ${
                   (cat === 'All' && !selectedCategory) || (selectedCategory === cat)
-                    ? 'bg-emerald-600 text-white font-bold shadow-xs' 
+                    ? 'bg-emerald-600 text-white font-bold shadow-xs'
                     : 'bg-slate-100 border border-slate-200 text-slate-600 hover:text-slate-800 hover:bg-slate-200'
                 }`}
               >
@@ -1373,8 +1373,8 @@ export default function DashboardPOS({
             ))}
           </div>
 
-          {/* Mobile Categories Dropdown */}
-          <div className="xl:hidden px-2 pt-0.5">
+          {/* Phone-only Categories Dropdown */}
+          <div className="pos-category-dropdown px-2 pt-0.5">
             <div className="relative">
               <select
                 value={selectedCategory || 'All'}
@@ -1882,7 +1882,7 @@ export default function DashboardPOS({
             id="pos-checkout-btn"
             disabled={cart.length === 0}
             onClick={triggerCheckout}
-            className="hidden xl:flex w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-45 text-white font-bold py-3.5 px-4 rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer items-center justify-center space-x-2 shadow-lg shadow-emerald-500/15 active:scale-98"
+            className="pos-checkout-btn-desktop w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-45 text-white font-bold py-3.5 px-4 rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer items-center justify-center space-x-2 shadow-lg shadow-emerald-500/15 active:scale-98"
           >
             <span>Proceed to Payment</span>
           </button>

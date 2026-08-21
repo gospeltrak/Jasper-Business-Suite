@@ -691,6 +691,37 @@ body.rtl { font-family: 'Cairo', "Plus Jakarta Sans", "Inter", system-ui, sans-s
   }
 }
 
+/* POS category selector: text-only buttons ("All" first) on tablet+desktop,
+   the compact dropdown on phone only. Custom classes (not hidden/md:flex)
+   deliberately sidestep the tablet-native-mode display overrides above,
+   which force any literal `.hidden.md\:flex` back to display:none. */
+#dashboard-scaffold .pos-category-buttons {
+  display: none;
+}
+#dashboard-scaffold .pos-category-dropdown {
+  display: block;
+}
+@media (min-width: 768px) {
+  #dashboard-scaffold .pos-category-buttons {
+    display: flex;
+  }
+  #dashboard-scaffold .pos-category-dropdown {
+    display: none;
+  }
+}
+
+/* POS in-cart checkout button: visible once the side cart panel is (tablet
+   768px+, matching .pos-tablet-cart-col); below that the Mobile Sticky Cart
+   bar is the only checkout entry point. */
+#dashboard-scaffold .pos-checkout-btn-desktop {
+  display: none;
+}
+@media (min-width: 768px) {
+  #dashboard-scaffold .pos-checkout-btn-desktop {
+    display: flex;
+  }
+}
+
 @media (max-width: 767px) {
   .phone {
     margin: 0;
