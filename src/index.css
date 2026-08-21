@@ -265,6 +265,32 @@ body {
   #dashboard-scaffold table {
     font-size: 0.76rem;
   }
+
+  /* POS is the one screen that breaks tablet-native single-column mode:
+     products left, cart right, like a standard POS terminal. Everything
+     else in the dashboard keeps the native/card pattern above. */
+  #dashboard-scaffold #pos-view.pos-tablet-split-grid {
+    grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr) !important;
+    height: calc(100dvh - 130px);
+    overflow: hidden;
+  }
+
+  #dashboard-scaffold .pos-tablet-products-col {
+    height: 100%;
+    min-height: 0;
+  }
+
+  #dashboard-scaffold #pos-product-grid {
+    flex: 1 1 auto;
+    overflow-y: auto;
+  }
+
+  #dashboard-scaffold .pos-tablet-cart-col {
+    height: 100%;
+    max-height: 100%;
+    position: sticky;
+    top: 0;
+  }
 }
 /* Scrollable areas must explicitly opt-in */
 .overflow-y-auto, .overflow-y-scroll {

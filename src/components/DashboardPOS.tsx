@@ -1248,10 +1248,10 @@ export default function DashboardPOS({
         </AnimatePresence>
       </div>
 
-      <div id="pos-view" className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-8 lg:h-[calc(100dvh-130px)] lg:overflow-hidden">
-        
+      <div id="pos-view" className="pos-tablet-split-grid grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-8 lg:h-[calc(100dvh-130px)] lg:overflow-hidden">
+
         {/* Product selection grid (8/12 scope) */}
-        <div className="lg:col-span-7 xl:col-span-8 min-h-0 flex flex-col space-y-4 md:space-y-6 xl:space-y-3">
+        <div className="pos-tablet-products-col lg:col-span-7 xl:col-span-8 min-h-0 flex flex-col space-y-4 md:space-y-6 xl:space-y-3">
           {/* Search and Categories controls */}
           <div className="bg-white px-3 py-2.5 md:border border-slate-200 md:p-6 xl:p-3.5 rounded-none md:rounded-3xl space-y-3 lg:space-y-4 xl:space-y-2.5 shadow-none md:shadow-sm">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-100/70 border border-slate-200 rounded-2xl p-1 lg:p-1.5 xl:p-1 relative md:mx-0">
@@ -1514,7 +1514,7 @@ export default function DashboardPOS({
       </div>
 
       {/* Cart Summary right panel (4/12 scope) */}
-      <div className="lg:col-span-5 xl:col-span-4 bg-white border border-slate-200 rounded-3xl lg:h-full max-h-none lg:sticky lg:top-0 flex flex-col justify-between overflow-hidden shadow-sm">
+      <div className="pos-tablet-cart-col lg:col-span-5 xl:col-span-4 bg-white border border-slate-200 rounded-3xl lg:h-full max-h-none lg:sticky lg:top-0 flex flex-col justify-between overflow-hidden shadow-sm">
         {/* Cart Header */}
         <div className="px-5 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
           <div className="flex items-center space-x-2">
@@ -1892,7 +1892,7 @@ export default function DashboardPOS({
       {/* Mobile Sticky Cart Summary */}
       <div
         key={`pos-mobile-total-${cart.length}-${grandTotal}`}
-        className="xl:hidden fixed bottom-[calc(56px+env(safe-area-inset-bottom))] left-0 w-full bg-white border-t border-slate-200 px-4 py-3 z-40 shadow-[0_-4px_10px_-2px_rgba(0,0,0,0.05)]"
+        className="md:hidden fixed bottom-[calc(56px+env(safe-area-inset-bottom))] left-0 w-full bg-white border-t border-slate-200 px-4 py-3 z-40 shadow-[0_-4px_10px_-2px_rgba(0,0,0,0.05)]"
       >
         <div className="flex flex-col space-y-2.5">
           <div className="flex items-center justify-between">
