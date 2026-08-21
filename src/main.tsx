@@ -10,6 +10,30 @@ import { TenantLogoProvider } from './TenantLogoContext';
 import { NotificationProvider } from './JasperNotificationContext';
 import AppErrorBoundary from './components/AppErrorBoundary';
 
+// TEMPORARY DIAGNOSTIC — remove once the iOS blank-on-keyboard-focus bug is
+// confirmed fixed. Shows live viewport numbers on screen so a screenshot
+// taken at the moment of the blank screen tells us the real values instead
+// of guessing at them.
+let debugOverlayEl: HTMLDivElement | null = null;
+function updateDebugOverlay() {
+  if (typeof document === 'undefined') return;
+  if (!debugOverlayEl) {
+    debugOverlayEl = document.createElement('div');
+    debugOverlayEl.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:2147483647;background:rgba(220,38,38,0.95);color:#fff;font:10px/1.4 monospace;padding:4px 6px;pointer-events:none;white-space:pre-wrap;';
+    document.body.appendChild(debugOverlayEl);
+  }
+  const vv = window.visualViewport;
+  const scaffold = document.getElementById('dashboard-scaffold');
+  const workspace = document.getElementById('workspace-content');
+  const active = document.activeElement;
+  debugOverlayEl.textContent =
+    `innerH/W=${window.innerHeight}/${window.innerWidth} vv.h/w/top=${vv?.height ?? '-'}/${vv?.width ?? '-'}/${vv?.offsetTop ?? '-'} `
+    + `appH=${getComputedStyle(document.documentElement).getPropertyValue('--app-height')} `
+    + `scaffoldH=${scaffold ? Math.round(scaffold.getBoundingClientRect().height) : 'none'} `
+    + `wsH=${workspace ? Math.round(workspace.getBoundingClientRect().height) : 'none'} wsScrollTop=${workspace?.scrollTop ?? '-'} `
+    + `active=${active?.tagName}${active?.id ? '#' + active.id : ''}`;
+}
+
 function syncViewportVars() {
   const viewport = window.visualViewport;
   const height = viewport?.height || window.innerHeight;
@@ -18,6 +42,7 @@ function syncViewportVars() {
   document.documentElement.style.setProperty('--app-height', `${height}px`);
   document.documentElement.style.setProperty('--app-width', `${width}px`);
   document.documentElement.style.setProperty('--browser-bottom-inset', `${bottomInset}px`);
+  updateDebugOverlay();
 }
 
 // iOS Safari: the app shell is `position: fixed` (to stop bounce/scroll glitches),
@@ -26,8 +51,17 @@ function syncViewportVars() {
 // scrolls the layout viewport independently of the visual viewport, desyncing the
 // fixed shell from what's actually on screen and leaving a blank gap. Pinning the
 // layout viewport back to (0,0) around focus/blur keeps the two in sync.
+//
+// Still reported blank on iPhone/iPad after widening the retry schedule below,
+// so this now also resets #workspace-content — the dashboard's own inner
+// scroll container (overflow-y-auto) — not just window.scrollTo. iOS's
+// "scroll input into view" behavior on a focused element can scroll *either*
+// the outer layout viewport or the nearest scrollable ancestor (or both);
+// window.scrollTo alone only ever addressed the former.
 function pinLayoutViewport() {
   window.scrollTo(0, 0);
+  const workspace = document.getElementById('workspace-content');
+  if (workspace) workspace.scrollTop = 0;
 }
 
 syncViewportVars();
