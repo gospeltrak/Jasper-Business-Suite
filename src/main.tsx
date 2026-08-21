@@ -59,19 +59,30 @@ function syncViewportVars() {
   const workspace = document.getElementById('workspace-content');
   if (workspace) {
     if (width < 1280) {
-      const wsParent = workspace.parentElement;
-      if (wsParent) {
-        let siblingsHeight = 0;
-        for (const sibling of Array.from(wsParent.children)) {
-          if (sibling !== workspace) siblingsHeight += (sibling as HTMLElement).getBoundingClientRect().height;
-        }
-        const wsHeight = Math.max(0, wsParent.getBoundingClientRect().height - siblingsHeight);
+      // The workspace's flex parent can retain its pre-keyboard content height
+      // on iOS (for example 996px while the visual viewport/scaffold is only
+      // 323px tall). Measuring that parent therefore recreates the bad height.
+      // Derive the remaining space directly from the visual-viewport-sized
+      // scaffold and the workspace's rendered top edge, then make the flex item
+      // an exact-height viewport. This common path covers every dashboard search
+      // input on phone and tablet (Stock, Sales, POS, etc.).
+      if (scaffold) {
+        const scaffoldRect = scaffold.getBoundingClientRect();
+        const workspaceRect = workspace.getBoundingClientRect();
+        const workspaceTop = Math.max(scaffoldRect.top, workspaceRect.top);
+        const wsHeight = Math.max(0, scaffoldRect.bottom - workspaceTop);
         workspace.style.height = `${wsHeight}px`;
         workspace.style.maxHeight = `${wsHeight}px`;
+        workspace.style.flexBasis = `${wsHeight}px`;
+        workspace.style.flexGrow = '0';
+        workspace.style.flexShrink = '0';
       }
     } else {
       workspace.style.height = '';
       workspace.style.maxHeight = '';
+      workspace.style.flexBasis = '';
+      workspace.style.flexGrow = '';
+      workspace.style.flexShrink = '';
     }
   }
   // The Lucy AI chat panel is a `position: fixed` element rendered as a sibling
