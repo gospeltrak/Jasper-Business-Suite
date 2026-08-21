@@ -26,11 +26,31 @@ function updateDebugOverlay() {
   const scaffold = document.getElementById('dashboard-scaffold');
   const workspace = document.getElementById('workspace-content');
   const active = document.activeElement;
+  // Pinpoints exactly which ancestor between #workspace-content and
+  // #dashboard-scaffold fails to shrink to the keyboard-open height: walks
+  // parentElement from workspace up to (and including) scaffold, recording
+  // each rendered box height. A flex chain that's correctly shrinking should
+  // read the same small number all the way up; the first jump to a much
+  // larger number identifies the broken link.
+  let chain = 'n/a';
+  if (workspace && scaffold) {
+    const heights: number[] = [];
+    let el: HTMLElement | null = workspace;
+    let guard = 0;
+    while (el && guard < 8) {
+      heights.push(Math.round(el.getBoundingClientRect().height));
+      if (el === scaffold) break;
+      el = el.parentElement;
+      guard++;
+    }
+    chain = heights.join('>');
+  }
   debugOverlayEl.textContent =
     `innerH/W=${window.innerHeight}/${window.innerWidth} vv.h/w/top=${vv?.height ?? '-'}/${vv?.width ?? '-'}/${vv?.offsetTop ?? '-'} `
     + `appH=${getComputedStyle(document.documentElement).getPropertyValue('--app-height')} `
     + `scaffoldH=${scaffold ? Math.round(scaffold.getBoundingClientRect().height) : 'none'} `
-    + `wsH=${workspace ? Math.round(workspace.getBoundingClientRect().height) : 'none'} wsScrollTop=${workspace?.scrollTop ?? '-'} `
+    + `wsH=${workspace ? Math.round(workspace.getBoundingClientRect().height) : 'none'} wsScrollH=${workspace?.scrollHeight ?? '-'} wsScrollTop=${workspace?.scrollTop ?? '-'} `
+    + `chain(ws→scaffold)=${chain} `
     + `active=${active?.tagName}${active?.id ? '#' + active.id : ''}`;
 }
 
