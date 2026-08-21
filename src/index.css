@@ -757,6 +757,46 @@ body.rtl { font-family: 'Cairo', "Plus Jakarta Sans", "Inter", system-ui, sans-s
   }
 }
 
+/* Tablet-only compactness pass: search bar, categories, and product cards
+   were all sized for either phone or desktop, never specifically for the
+   768-1279px split-screen layout, so they were taking up more vertical
+   space than the tablet's shorter viewport can spare. Desktop (already
+   confirmed correct) is untouched — capped to the tablet range only. */
+@media (min-width: 768px) and (max-width: 1279px) {
+  #dashboard-scaffold .pos-tablet-search-shell {
+    padding: 0.625rem !important;
+  }
+
+  #dashboard-scaffold .pos-tablet-search-shell > * + * {
+    margin-top: 0.5rem !important;
+  }
+
+  #dashboard-scaffold .pos-tablet-search-input {
+    padding-top: 0.375rem !important;
+    padding-bottom: 0.375rem !important;
+    font-size: 0.75rem !important;
+  }
+
+  /* Categories on one row: shrink the buttons and let the row scroll
+     horizontally instead of wrapping, so it always stays a single line
+     regardless of how many categories a tenant has. */
+  #dashboard-scaffold .pos-category-buttons {
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 0.125rem;
+  }
+  #dashboard-scaffold .pos-category-buttons button {
+    padding: 0.25rem 0.5rem !important;
+    font-size: 9px !important;
+    flex-shrink: 0;
+  }
+
+  #dashboard-scaffold .pos-tablet-product-image {
+    height: 4.5rem !important;
+  }
+}
+
 @media (max-width: 767px) {
   .phone {
     margin: 0;

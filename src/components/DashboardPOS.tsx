@@ -1253,7 +1253,7 @@ export default function DashboardPOS({
         {/* Product selection grid (8/12 scope) */}
         <div className="pos-tablet-products-col lg:col-span-7 xl:col-span-8 min-h-0 flex flex-col space-y-4 md:space-y-6 xl:space-y-3">
           {/* Search and Categories controls */}
-          <div className="bg-white px-3 py-2.5 md:border border-slate-200 md:p-6 xl:p-3.5 rounded-none md:rounded-3xl space-y-3 lg:space-y-4 xl:space-y-2.5 shadow-none md:shadow-sm">
+          <div className="pos-tablet-search-shell bg-white px-3 py-2.5 md:border border-slate-200 md:p-6 xl:p-3.5 rounded-none md:rounded-3xl space-y-3 lg:space-y-4 xl:space-y-2.5 shadow-none md:shadow-sm">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-100/70 border border-slate-200 rounded-2xl p-1 lg:p-1.5 xl:p-1 relative md:mx-0">
               <div className="relative flex-grow">
                 <input
@@ -1261,7 +1261,7 @@ export default function DashboardPOS({
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Search Code, Barcode or Title..."
-                  className="w-full bg-transparent text-[13px] lg:text-sm xl:text-xs pl-9 lg:pl-10 pr-20 lg:pr-24 py-2 lg:py-2.5 xl:py-1.5 text-slate-800 placeholder-slate-400 font-sans font-medium outline-none border-none focus:ring-0"
+                  className="pos-tablet-search-input w-full bg-transparent text-[13px] lg:text-sm xl:text-xs pl-9 lg:pl-10 pr-20 lg:pr-24 py-2 lg:py-2.5 xl:py-1.5 text-slate-800 placeholder-slate-400 font-sans font-medium outline-none border-none focus:ring-0"
                 />
                 <Search className="absolute left-3 lg:left-3.5 top-1/2 -translate-y-1/2 w-4 lg:w-5 h-4 lg:h-5 text-slate-400 pointer-events-none" />
                 
@@ -1429,7 +1429,7 @@ export default function DashboardPOS({
                 >
                   {/* Product image — only shown if user uploaded one */}
                   {showProductImages && getProductImage(prod) !== '' && (
-                    <div className="w-full aspect-square lg:aspect-auto lg:h-36 xl:h-20 bg-slate-50 border-b lg:border border-slate-100 rounded-t-xl lg:rounded-2xl overflow-hidden flex items-center justify-center relative shrink-0">
+                    <div className="pos-tablet-product-image w-full aspect-square lg:aspect-auto lg:h-36 xl:h-20 bg-slate-50 border-b lg:border border-slate-100 rounded-t-xl lg:rounded-2xl overflow-hidden flex items-center justify-center relative shrink-0">
                       <CachedImage 
                         src={getProductImage(prod)} 
                         alt={prod.name} 
