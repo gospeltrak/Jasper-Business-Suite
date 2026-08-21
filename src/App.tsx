@@ -90,6 +90,7 @@ export default function App() {
       return null;
     }
   });
+  const [workspaceStorageReady, setWorkspaceStorageReady] = useState(() => !user);
   const [redirectMessage, setRedirectMessage] = useState<string>('');
   const [tenantDomainContext, setTenantDomainContext] = useState<TenantDomainContext>({ kind: 'loading' });
   
@@ -119,6 +120,35 @@ export default function App() {
       fetchLogoUrl(user.activeTenant);
     }
   }, [user, fetchLogoUrl]);
+
+  // A cached user is available synchronously on reload, while onlineStorage is
+  // in-memory and still empty. Keep the workspace unmounted until that tenant's
+  // data has been restored so dashboard components never read a half-ready store.
+  useEffect(() => {
+    const storageTenantId = user?.activeTenant || user?.tenantId;
+
+    if (!user || !storageTenantId || storageTenantId === 'platform-control') {
+      setWorkspaceStorageReady(true);
+      return;
+    }
+
+    let cancelled = false;
+    setWorkspaceStorageReady(false);
+
+    configureOnlineStorage(storageTenantId)
+      .catch(error => {
+        // configureOnlineStorage has its own local fallback. This catch keeps a
+        // transient cloud failure from turning a page reload into Error 500.
+        console.warn('Workspace storage hydration fell back to local data', error);
+      })
+      .finally(() => {
+        if (!cancelled) setWorkspaceStorageReady(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, user?.activeTenant, user?.tenantId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -510,6 +540,15 @@ export default function App() {
   const renderRoute = () => {
     if (tenantDomainContext.kind === 'loading') {
       return <div className="min-h-[100dvh] bg-white" aria-hidden="true" />;
+    }
+
+    const rendersAuthenticatedWorkspace = Boolean(user) && (
+      isDashboardRoute(currentPath) ||
+      (currentPath === '/' && tenantDomainContext.kind === 'tenant')
+    );
+
+    if (rendersAuthenticatedWorkspace && !workspaceStorageReady) {
+      return <div className="min-h-[100dvh] bg-white dark:bg-slate-950" aria-hidden="true" />;
     }
 
     if (tenantDomainContext.kind === 'tenant-not-found' || tenantDomainContext.kind === 'tenant-inactive' || tenantDomainContext.kind === 'error') {
