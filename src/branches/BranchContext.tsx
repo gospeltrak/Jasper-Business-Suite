@@ -96,6 +96,18 @@ export function BranchProvider({
     };
   }, [tenantKey, refresh]);
 
+  // A short-lived auth/network failure must not leave the tenant permanently
+  // stuck in the implicit `no_branch_access` state. Keep the last valid
+  // snapshot when one exists; otherwise retry until the authoritative branch
+  // context is available.
+  useEffect(() => {
+    if (!error || snapshot || isLoading) return;
+    const retryTimer = window.setTimeout(() => {
+      void refresh();
+    }, 2000);
+    return () => window.clearTimeout(retryTimer);
+  }, [error, snapshot, isLoading, refresh]);
+
   const chooseBranch = useCallback(async (
     branchId: string | null,
     scope: SelectableBranchScope,

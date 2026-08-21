@@ -91,6 +91,7 @@ export default function App() {
     }
   });
   const [workspaceStorageReady, setWorkspaceStorageReady] = useState(() => !user);
+  const [authenticatedSessionReady, setAuthenticatedSessionReady] = useState(() => !user);
   const [redirectMessage, setRedirectMessage] = useState<string>('');
   const [tenantDomainContext, setTenantDomainContext] = useState<TenantDomainContext>({ kind: 'loading' });
   
@@ -114,6 +115,53 @@ export default function App() {
       localStorage.setItem('jasper_cashier_user', serialized);
     } catch { /* Supabase auth remains the source of truth */ }
   };
+
+  // localStorage is only a UI cache, never proof of authentication. A cached
+  // profile can outlive its Supabase session; opening the dashboard in that
+  // state makes every protected branch/workspace request fail and looks like
+  // the tenant has lost all menus and data.
+  useEffect(() => {
+    if (!user) {
+      setAuthenticatedSessionReady(true);
+      return;
+    }
+
+    let cancelled = false;
+    setAuthenticatedSessionReady(false);
+
+    const validateCachedSession = async () => {
+      try {
+        const client: any = await getSecureDataBridgeClient();
+        if (isPlaceholderSecureDataBridgeClient(client)) {
+          if (!cancelled) setAuthenticatedSessionReady(true);
+          return;
+        }
+        const { data, error } = await client.auth.getSession();
+        const authUserId = data?.session?.user?.id;
+        if (error || !authUserId || (user.id && authUserId !== user.id)) {
+          if (cancelled) return;
+          resetOnlineStorage();
+          localStorage.removeItem('jasper_cashier_user');
+          setUser(null);
+          setRedirectMessage('Your secure session ended. Please sign in again to restore your business workspace.');
+          window.history.replaceState({}, '', '/login');
+          setCurrentPath('/login');
+          return;
+        }
+        if (!cancelled) setAuthenticatedSessionReady(true);
+      } catch {
+        // A temporary network problem is not proof that the session expired.
+        // Keep the authenticated shell gated while the branch/workspace retry
+        // path reconnects instead of opening an empty tenant.
+        if (!cancelled) setAuthenticatedSessionReady(true);
+      }
+    };
+
+    void validateCachedSession();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   useEffect(() => {
     if (user?.activeTenant) {
@@ -553,7 +601,7 @@ export default function App() {
       (currentPath === '/' && tenantDomainContext.kind === 'tenant')
     );
 
-    if (rendersAuthenticatedWorkspace && !workspaceStorageReady) {
+    if (rendersAuthenticatedWorkspace && (!authenticatedSessionReady || !workspaceStorageReady)) {
       return <div className="min-h-[100dvh] bg-white dark:bg-slate-950" aria-hidden="true" />;
     }
 

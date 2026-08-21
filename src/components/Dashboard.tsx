@@ -61,7 +61,7 @@ import {
   writeLocalSaleTombstones,
 } from '../utils/saleSync';
 import { mergeSettingsForSync, stampSettingsForSync } from '../utils/settingsSync';
-import { BranchProvider, useOptionalBranchContext } from '../branches/BranchContext';
+import { BranchProvider, useBranchContext, useOptionalBranchContext } from '../branches/BranchContext';
 import GlobalBranchSwitcher from './GlobalBranchSwitcher';
 import {
   mergeScopedProducts,
@@ -667,6 +667,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     hasVat?: boolean;
   } | null>(null);
   const [workspaceReady, setWorkspaceReady] = useState(false);
+  const [workspaceLoadFailed, setWorkspaceLoadFailed] = useState(false);
   const cloudWorkspaceLoadedRef = useRef(false);
   const localWorkspaceChangedAtRef = useRef(0);
   const skipNextWorkspaceSaveRef = useRef(false);
@@ -696,6 +697,8 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     cloudWorkspaceLoadedRef.current = false;
     localWorkspaceChangedAtRef.current = 0;
     setWorkspaceReady(false);
+    setWorkspaceLoadFailed(false);
+    let initialLoadRetryTimer: number | null = null;
 
     const applyWorkspace = (workspace: TenantWorkspace) => {
       if (!active) return;
@@ -724,6 +727,8 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       if (workspace.settings) {
         setSystemSettings(normalizeSystemSettings(activeTenant, workspace.settings));
       }
+      setWorkspaceLoadFailed(false);
+      setWorkspaceReady(true);
     };
 
     const refreshWorkspaceFromDatabase = async (force = false) => {
@@ -742,14 +747,25 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       }
     };
 
-    loadTenantWorkspace(activeTenant.id).then((workspace) => {
+    const loadInitialWorkspace = async (attempt = 0): Promise<void> => {
+      const workspace = await loadTenantWorkspace(activeTenant.id);
       if (!active) return;
       if (workspace) {
         cloudWorkspaceLoadedRef.current = true;
         applyWorkspace(workspace);
+        return;
       }
-      setWorkspaceReady(true);
-    });
+
+      // Null means the authoritative workspace was not available; it must not
+      // be treated as a real empty tenant. Keep writes disabled and retry.
+      setWorkspaceLoadFailed(true);
+      const retryDelay = Math.min(5000, 1000 * (attempt + 1));
+      initialLoadRetryTimer = window.setTimeout(() => {
+        void loadInitialWorkspace(attempt + 1);
+      }, retryDelay);
+    };
+
+    void loadInitialWorkspace();
 
     subscribeToTenantWorkspace(activeTenant.id, applyWorkspace).then((cleanup) => {
       unsubscribe = cleanup;
@@ -784,6 +800,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
 
     return () => {
       active = false;
+      if (initialLoadRetryTimer !== null) window.clearTimeout(initialLoadRetryTimer);
       window.clearInterval(liveRefreshTimer);
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('focus', handleFocus);
@@ -3048,6 +3065,17 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     return <DuressDashboard onLogout={onLogout} onNavigate={onNavigate} />;
   }
 
+  if (user.role !== 'SuperAdmin' && !workspaceReady) {
+    return (
+      <WorkspaceBootstrapScreen
+        title={workspaceLoadFailed ? 'Reconnecting to your business' : 'Loading your business'}
+        message={workspaceLoadFailed
+          ? 'Your saved data is safe. Orvix is reconnecting before opening the workspace.'
+          : 'Restoring your menus, roles, products and business records…'}
+      />
+    );
+  }
+
   return (
     <div id="dashboard-scaffold" className="w-full h-dvh bg-[#f5f6fa] dark:bg-slate-950 flex text-slate-800 dark:text-slate-200 font-sans antialiased overflow-hidden select-none">
       
@@ -4678,7 +4706,34 @@ export default function Dashboard(props: DashboardProps) {
   const tenantKey = props.user.activeTenant || props.user.tenantId;
   return (
     <BranchProvider tenantKey={tenantKey}>
-      <DashboardContent {...props} />
+      <TenantDashboardGate {...props} />
     </BranchProvider>
   );
+}
+
+function WorkspaceBootstrapScreen({ title, message }: { title: string; message: string }) {
+  return (
+    <div className="flex min-h-[100dvh] w-full items-center justify-center bg-slate-50 px-6 dark:bg-slate-950">
+      <div className="flex max-w-md flex-col items-center text-center">
+        <div className="mb-5 h-12 w-12 animate-spin rounded-full border-4 border-emerald-100 border-t-emerald-500 dark:border-emerald-950 dark:border-t-emerald-400" />
+        <h1 className="text-lg font-black text-slate-900 dark:text-white">{title}</h1>
+        <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">{message}</p>
+      </div>
+    </div>
+  );
+}
+
+function TenantDashboardGate(props: DashboardProps) {
+  const branchContext = useBranchContext();
+  if (!branchContext.snapshot) {
+    return (
+      <WorkspaceBootstrapScreen
+        title={branchContext.error ? 'Reconnecting to your business' : 'Loading your business'}
+        message={branchContext.error
+          ? 'Your account and saved data are safe. Orvix is restoring branch access before opening the workspace.'
+          : 'Restoring your branch, menus and permissions…'}
+      />
+    );
+  }
+  return <DashboardContent {...props} />;
 }

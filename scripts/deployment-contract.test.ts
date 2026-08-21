@@ -647,6 +647,24 @@ test('tenant settings can only change through the explicit authoritative save pa
   );
 });
 
+test('tenant hydration never opens an empty workspace after a transient load failure', async () => {
+  const appSource = await read('src/App.tsx');
+  const dashboardSource = await read('src/components/Dashboard.tsx');
+  const branchContextSource = await read('src/branches/BranchContext.tsx');
+
+  assert.match(dashboardSource, /if \(workspace\) \{[\s\S]*applyWorkspace\(workspace\);[\s\S]*return;/);
+  assert.match(dashboardSource, /setWorkspaceLoadFailed\(true\)/);
+  assert.match(dashboardSource, /void loadInitialWorkspace\(attempt \+ 1\)/);
+  assert.match(dashboardSource, /user\.role !== 'SuperAdmin' && !workspaceReady/);
+  assert.match(dashboardSource, /if \(!branchContext\.snapshot\)/);
+  assert.match(branchContextSource, /if \(!error \|\| snapshot \|\| isLoading\) return;/);
+  assert.match(branchContextSource, /void refresh\(\)/);
+  assert.match(appSource, /localStorage is only a UI cache, never proof of authentication/);
+  assert.match(appSource, /client\.auth\.getSession\(\)/);
+  assert.match(appSource, /!authenticatedSessionReady \|\| !workspaceStorageReady/);
+  assert.match(appSource, /Your secure session ended/);
+});
+
 test('tenant wildcard domains have an additive immutable database contract', async () => {
   const migrationSource = await read('supabase/migrations/20260729000400_tenant_wildcard_domains.sql');
   const slugApiSource = await read('api/tenant/slug.ts');
