@@ -288,6 +288,7 @@ export default function DashboardStaff({
   const [salaryStartDate, setSalaryStartDate] = useState(todayIsoDate());
   const [salaryNotes, setSalaryNotes] = useState('');
   const [credentialPhone, setCredentialPhone] = useState('');
+  const [credentialRole, setCredentialRole] = useState('');
   const [credentialStaffId, setCredentialStaffId] = useState('');
   const [selectedStaff, setSelectedStaff] = useState<StaffSettings | null>(null);
   const [staffToRemove, setStaffToRemove] = useState<StaffSettings | null>(null);
@@ -657,6 +658,13 @@ export default function DashboardStaff({
     const isOpen = credentialStaffId === staff.id;
     setCredentialStaffId(isOpen ? '' : staff.id);
     setCredentialPhone(isOpen ? '' : staff.phone);
+    setCredentialRole(isOpen ? '' : staff.role);
+  };
+
+  const closeCredentialEditor = () => {
+    setCredentialStaffId('');
+    setCredentialPhone('');
+    setCredentialRole('');
   };
 
   const handleSaveStaffCredentials = (staffId: string) => {
@@ -665,13 +673,25 @@ export default function DashboardStaff({
       setSuccessMessage('Enter the staff phone/login ID.');
       return;
     }
-    const updatedStaff = { ...staff, phone: credentialPhone.trim() };
+    const nextRole = credentialRole.trim() || staff.role;
+    const roleChanged = nextRole !== staff.role;
+    // Only the HR record (systemSettings.staffs, this tenant's own bookkeeping)
+    // is updated by persistStaffList -- it does not touch the staff's real
+    // auth profile (users.role_key/role_permissions), which is what actually
+    // governs their permissions at login. A fresh invitation (same mechanism
+    // already used above for a phone/login-ID change) carries the new role's
+    // permissions forward; accepting it is what makes a role change actually
+    // take effect for the staff member, exactly like it already does today
+    // for a phone change. Their current, already-active session is untouched
+    // until they do that -- this never interrupts a live session.
+    const updatedStaff = { ...staff, phone: credentialPhone.trim(), role: nextRole };
     persistStaffList(staffList.map(item => item.id === staffId ? updatedStaff : item));
-    setCredentialStaffId('');
-    setCredentialPhone('');
+    closeCredentialEditor();
     void createGoogleInvitation(updatedStaff)
-      .then(() => setSuccessMessage('Login ID saved and a secure Google invitation was created.'))
-      .catch(error => setSuccessMessage(error instanceof Error ? error.message : 'Login ID saved, but invitation creation failed.'));
+      .then(() => setSuccessMessage(roleChanged
+        ? 'Login and role saved. Share the new invitation link so the updated role takes effect on their next sign-in.'
+        : 'Login ID saved and a secure Google invitation was created.'))
+      .catch(error => setSuccessMessage(error instanceof Error ? error.message : 'Changes saved, but the invitation could not be created.'));
   };
 
   const updateStaff = (staffId: string, updater: (staff: StaffSettings) => StaffSettings) => {
@@ -879,14 +899,30 @@ export default function DashboardStaff({
             placeholder="Phone / Login ID"
             className="min-h-[44px] rounded-xl border border-white bg-white px-3 text-sm font-semibold outline-none focus:border-indigo-400"
           />
-          <div className="min-h-[44px] rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800">
-            Authentication is protected by Supabase Auth. Passwords are never saved in workspace data.
-          </div>
+          {customRoles.length > 0 ? (
+            <select
+              value={credentialRole}
+              onChange={e => setCredentialRole(e.target.value)}
+              className="min-h-[44px] rounded-xl border border-white bg-white px-3 text-sm font-black outline-none focus:border-indigo-400"
+            >
+              {credentialRole && !customRoles.some(r => r.name === credentialRole) && (
+                <option value={credentialRole}>{credentialRole} (current)</option>
+              )}
+              {customRoles.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
+            </select>
+          ) : (
+            <div className="min-h-[44px] rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800 flex items-center">
+              No roles created yet — role stays "{staff.role}".
+            </div>
+          )}
+        </div>
+        <div className="mt-2 min-h-[44px] rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800 flex items-center">
+          Authentication is protected by Supabase Auth. Passwords are never saved in workspace data.
         </div>
         <div className="mt-3 flex gap-2 justify-end">
           <button
             type="button"
-            onClick={() => setCredentialStaffId('')}
+            onClick={closeCredentialEditor}
             className="min-h-[40px] rounded-xl border border-slate-200 bg-white px-4 text-xs font-black text-slate-600"
           >
             Cancel
@@ -897,7 +933,7 @@ export default function DashboardStaff({
             className="min-h-[40px] rounded-xl bg-slate-950 px-4 text-xs font-black text-white inline-flex items-center gap-2"
           >
             <Save className="w-3.5 h-3.5" />
-            Save Login
+            Save Changes
           </button>
         </div>
       </div>
