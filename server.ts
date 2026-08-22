@@ -3485,6 +3485,48 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     return allowed && isUuid(tenantId) ? { authUser: authData.user, profile, tenantId } : null;
   };
 
+  // Updates an EXISTING staff member's real permissions directly (their
+  // users.role/role_key/role_permissions row) without requiring a fresh
+  // invitation link. A brand-new hire has no users row yet (they haven't
+  // accepted their first invitation, so no Supabase Auth account exists to
+  // update) -- that case still needs the invitation flow below, which is
+  // the only way to create their account. An already-active staff member
+  // does have a row, and their permissions are resolved fresh from it on
+  // every login (getSimulatedPermissions), so updating it here is enough:
+  // the new role applies from their next sign-in on, and their current,
+  // already-open session is left completely untouched by this write.
+  app.post('/api/staff/update-role', rateLimit({ windowMs: 60_000, max: 20, prefix: 'staff-role-update' }), async (req, res) => {
+    const admin = await getTenantAdminRequestProfile(req);
+    if (!admin) return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 403, 'registration');
+    const email = normalizeEmail(req.body?.email);
+    const role = normalizeText(req.body?.role, 80) || 'Cashier';
+    const permissions = req.body?.permissions && typeof req.body.permissions === 'object' && !Array.isArray(req.body.permissions)
+      ? req.body.permissions : {};
+    if (!email || !email.includes('@')) {
+      return sendExpectedSafeApiError(req, res, 'VALIDATION_ERROR', 400, 'registration');
+    }
+    try {
+      const { data: existing } = await adminTable('users')
+        .select('id,tenant_id,account_type')
+        .eq('email', email).eq('tenant_id', admin.tenantId).maybeSingle();
+      if (!existing) {
+        return res.json({ updated: false, reason: 'no_account_yet' });
+      }
+      const roleLower = role.toLowerCase();
+      const databaseRole = ['admin', 'manager', 'cashier'].includes(roleLower)
+        ? `${roleLower.charAt(0).toUpperCase()}${roleLower.slice(1)}` : 'Cashier';
+      const { error } = await adminTable('users').update({
+        role: databaseRole,
+        role_key: role,
+        role_permissions: resolveRolePermissionsForResponse(permissions) || null,
+      }).eq('id', existing.id).eq('tenant_id', admin.tenantId);
+      if (error) throw error;
+      return res.json({ updated: true });
+    } catch (error) {
+      return sendUnexpectedSafeApiError(req, res, error, { fallbackCode: 'SAVE_ERROR', context: 'registration', operation: 'staff_role_update' });
+    }
+  });
+
   app.post('/api/staff/google-invitations', rateLimit({ windowMs: 60_000, max: 20, prefix: 'staff-invite' }), async (req, res) => {
     const admin = await getTenantAdminRequestProfile(req);
     if (!admin) return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 403, 'registration');

@@ -460,6 +460,30 @@ export default function DashboardStaff({
     return true;
   };
 
+  // Updates an already-active staff member's real permissions directly,
+  // without a new invitation link. Returns true if their account existed
+  // and was updated (the new role now applies from their next sign-in --
+  // their current, already-open session is untouched), or false if they
+  // have no account yet (haven't accepted their first invitation), which
+  // still needs the invitation flow below since there's no account to update.
+  const updateStaffRoleDirectly = async (staff: StaffSettings): Promise<boolean> => {
+    if (!staff.email) return false;
+    const client: any = await getSecureDataBridgeClient();
+    const { data } = await client.auth.getSession();
+    const accessToken = data?.session?.access_token;
+    if (!accessToken) return false;
+    const response = await fetch('/api/staff/update-role', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({
+        email: staff.email, role: staff.role,
+        permissions: customRoles.find(item => item.name.toLowerCase() === staff.role.toLowerCase())?.permissions || {},
+      }),
+    });
+    const result = await response.json().catch(() => ({}));
+    return Boolean(response.ok && result.updated);
+  };
+
   const createGoogleInvitation = async (staff: StaffSettings) => {
     if (!staff.email) throw new Error('Add the staff Gmail first.');
     const client: any = await getSecureDataBridgeClient();
@@ -676,21 +700,33 @@ export default function DashboardStaff({
     const nextRole = credentialRole.trim() || staff.role;
     const roleChanged = nextRole !== staff.role;
     // Only the HR record (systemSettings.staffs, this tenant's own bookkeeping)
-    // is updated by persistStaffList -- it does not touch the staff's real
-    // auth profile (users.role_key/role_permissions), which is what actually
-    // governs their permissions at login. A fresh invitation (same mechanism
-    // already used above for a phone/login-ID change) carries the new role's
-    // permissions forward; accepting it is what makes a role change actually
-    // take effect for the staff member, exactly like it already does today
-    // for a phone change. Their current, already-active session is untouched
-    // until they do that -- this never interrupts a live session.
+    // is updated by persistStaffList below -- it never touches the staff's
+    // real auth profile (users.role_key/role_permissions), which is what
+    // actually governs their permissions at login.
     const updatedStaff = { ...staff, phone: credentialPhone.trim(), role: nextRole };
     persistStaffList(staffList.map(item => item.id === staffId ? updatedStaff : item));
     closeCredentialEditor();
+
+    if (roleChanged) {
+      // Try updating their real permissions directly first -- if they
+      // already have an account, this applies from their next sign-in with
+      // no new invitation link needed, and never touches their current,
+      // already-open session. Only falls back to the invitation flow below
+      // when they have no account yet (nothing to update directly).
+      void updateStaffRoleDirectly(updatedStaff).then(applied => {
+        if (applied) {
+          setSuccessMessage('Login and role saved. The new role takes effect next time they sign in -- no new invitation link needed.');
+          return;
+        }
+        void createGoogleInvitation(updatedStaff)
+          .then(() => setSuccessMessage('Login and role saved. Share the invitation link so they can sign in for the first time.'))
+          .catch(error => setSuccessMessage(error instanceof Error ? error.message : 'Changes saved, but the invitation could not be created.'));
+      });
+      return;
+    }
+
     void createGoogleInvitation(updatedStaff)
-      .then(() => setSuccessMessage(roleChanged
-        ? 'Login and role saved. Share the new invitation link so the updated role takes effect on their next sign-in.'
-        : 'Login ID saved and a secure Google invitation was created.'))
+      .then(() => setSuccessMessage('Login ID saved and a secure Google invitation was created.'))
       .catch(error => setSuccessMessage(error instanceof Error ? error.message : 'Changes saved, but the invitation could not be created.'));
   };
 
