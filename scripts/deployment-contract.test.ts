@@ -41,6 +41,19 @@ test('empty or malformed cloud role permissions fall back to the tenant named ro
   assert.deepEqual(resolveProfileRolePermissions(fullPermissions), fullPermissions);
 });
 
+test('staff and custom roles survive stale realtime payloads and database writes', async () => {
+  const dashboardSource = await read('src/components/Dashboard.tsx');
+  const migrationSource = await read('supabase/migrations/20260822000100_protect_staff_settings_from_stale_writes.sql');
+  assert.match(
+    dashboardSource,
+    /setSystemSettings\(current => normalizeSystemSettings\([\s\S]{0,180}mergeSettingsForSync\(workspace\.settings, current\)/,
+  );
+  assert.match(migrationSource, /for update/);
+  assert.match(migrationSource, /array\['staffs', 'customRoles'\]/);
+  assert.match(migrationSource, /v_incoming_sync <= v_existing_sync/);
+  assert.match(migrationSource, /v_existing_settings -> v_protected_key/);
+});
+
 test('tenant package navigation contract remains centralized and correct', () => {
   assert.equal(isTenantPackageTabAllowed('ruby', 'deliveries'), false);
   assert.equal(isTenantPackageTabAllowed('ruby', 'forecasting'), false);

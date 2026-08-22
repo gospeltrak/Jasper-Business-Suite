@@ -725,7 +725,13 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       setPendingDeliveryNotesMap(prev => ({ ...prev, [activeTenant.id]: workspace.pendingDeliveryNotes || [] }));
       setPurchasesMap(prev => ({ ...prev, [activeTenant.id]: workspace.purchases || [] }));
       if (workspace.settings) {
-        setSystemSettings(normalizeSystemSettings(activeTenant, workspace.settings));
+        // Realtime and recovery reads can arrive out of order. Merge using the
+        // per-field clocks so an older payload cannot hide a newly saved staff
+        // member or their role from the current session.
+        setSystemSettings(current => normalizeSystemSettings(
+          activeTenant,
+          mergeSettingsForSync(workspace.settings, current),
+        ));
       }
       setWorkspaceLoadFailed(false);
       setWorkspaceReady(true);
@@ -839,7 +845,10 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
         [activeTenant.id]: workspace.pendingDeliveryNotes || [],
       }));
       setPurchasesMap(previous => ({ ...previous, [activeTenant.id]: workspace.purchases || [] }));
-      setSystemSettings(normalizeSystemSettings(activeTenant, workspace.settings));
+      setSystemSettings(current => normalizeSystemSettings(
+        activeTenant,
+        mergeSettingsForSync(workspace.settings, current),
+      ));
       cloudWorkspaceLoadedRef.current = true;
     };
     const handleBranchContextChanged = async (event: Event) => {
