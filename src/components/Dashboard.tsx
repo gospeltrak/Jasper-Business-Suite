@@ -1157,6 +1157,27 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     const matched = customRoles.find(r => r.name.toLowerCase() === activeRoleName.toLowerCase());
     if (matched) return matched.permissions;
 
+    // The tenant owner (Admin, acting as themselves -- never a simulated
+    // staff role) must never be locked out of their own dashboard by a
+    // missing or corrupted "Admin" entry in customRoles: that would also
+    // lock them out of Settings -> Roles & Permissions, the only screen
+    // that can fix it. Grant full access unconditionally in that specific
+    // case; the deny-all fallback below still applies to any unrecognised
+    // STAFF role, unchanged.
+    if (actingStaffId === 'logged-in-user' && activeRoleName === 'Admin') {
+      return {
+        pos: { read: true, write: true, edit: true },
+        products: { read: true, write: true, edit: true },
+        purchases: { read: true, write: true, edit: true },
+        suppliers: { read: true, write: true, edit: true },
+        expenses: { read: true, write: true, edit: true },
+        reportsSalesExpenses: { read: true, write: true, edit: true },
+        reportsProfitCogs: { read: true, write: true, edit: true },
+        sync: { read: true, write: true, edit: true },
+        settings: { read: true, write: true, edit: true }
+      };
+    }
+
     // Never turn an unrecognised staff role into an administrator, and never
     // fall back to a hardcoded preset role — the tenant's own customRoles
     // list (created in Settings → Roles & Permissions) is the only source
