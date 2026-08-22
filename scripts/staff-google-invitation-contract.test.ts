@@ -21,8 +21,8 @@ test('Google acceptance enforces exact invited email and server-owned access', (
   assert.match(server, /normalizeEmail\(authUser\.email\) !== normalizeEmail\(invitation\.email\)/);
   assert.match(server, /tenant_id: invitation\.tenant_id/);
   assert.match(server, /branch_id: invitation\.branch_id/);
-  assert.match(server, /role_permissions: invitation\.permissions/);
-  assert.match(server, /rolePermissions: invitation\.permissions/);
+  assert.match(server, /role_permissions: resolveRolePermissionsForResponse\(invitation\.permissions\)/);
+  assert.match(server, /rolePermissions: resolveRolePermissionsForResponse\(invitation\.permissions\)/);
   assert.match(server, /role: invitation\.role_key/);
 });
 
