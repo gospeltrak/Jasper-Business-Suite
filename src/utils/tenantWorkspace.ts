@@ -840,15 +840,21 @@ export async function flushPendingTenantWorkspace(tenantId: string): Promise<voi
   if (queued) await queued.catch(() => false);
 }
 
-// True while a save for this tenant is still debouncing (pendingWorkspaceAutoSaves)
-// or is queued/in-flight on the network (workspaceSaveQueue). Callers that apply
-// incoming remote data (e.g. a realtime payload) should skip while this is true —
-// otherwise a write that is still in flight can complete after the remote read
-// was taken, and the remote payload (missing the not-yet-committed edit) would
-// overwrite the fresher local state.
+// True while a save for this tenant is still debouncing (pendingWorkspaceAutoSaves),
+// queued/in-flight on the network (workspaceSaveQueue), or a settings save (staff
+// registration, roles, etc. — saveTenantSettings) is in flight on its own separate
+// queue (settingsSaveQueue). Callers that apply incoming remote data (e.g. a
+// realtime payload) should skip while this is true — otherwise a write that is
+// still in flight can complete after the remote read was taken, and the remote
+// payload (missing the not-yet-committed edit) would overwrite the fresher local
+// state. Previously this only checked the workspace queues, not settingsSaveQueue —
+// a staff member registered via Settings/Staff could be silently wiped from the
+// screen once the fixed 10s LOCAL_WORKSPACE_PROTECTION_MS window in Dashboard.tsx
+// expired, if the settings save was still in flight (or its write hadn't yet
+// become visible to a subsequent read) when a realtime/poll refresh landed.
 export function hasPendingTenantWorkspaceSave(tenantId: string): boolean {
   if (!tenantId) return false;
-  return pendingWorkspaceAutoSaves.has(tenantId) || workspaceSaveQueue.has(tenantId);
+  return pendingWorkspaceAutoSaves.has(tenantId) || workspaceSaveQueue.has(tenantId) || settingsSaveQueue.has(tenantId);
 }
 
 // ─── Real-time subscription ─────────────────────────────────────────────────
