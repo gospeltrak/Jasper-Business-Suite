@@ -103,12 +103,34 @@ const adSettingsSubscribers = new Set<(settings: GlobalAdPlacementSettings) => v
 let adSettingsRefreshHandle: number | null = null;
 let adSettingsInFlight: Promise<void> | null = null;
 
+let adSettingsListenersActive = false;
+
+// The 5-minute poll exists only to catch a change made from a different
+// browser/tab/admin without the AD_SETTINGS_EVENT/focus triggers below. That
+// only matters while ads are actually enabled somewhere -- most tenants have
+// ads switched off, and there is nothing to catch a change *to* while off
+// except by fetching once already know that. So the interval now only runs
+// while the last-known state has an ad enabled; the moment it's off, it's
+// torn down and stays fully dormant (no periodic database reads at all)
+// until a focus/save event triggers the next check.
+function syncAdSettingsPollingInterval() {
+  const shouldPoll = adSettingsSubscribers.size > 0
+    && (sharedAdSettings.dashboardAdEnabled || sharedAdSettings.bottomAdEnabled);
+  if (shouldPoll && adSettingsRefreshHandle === null) {
+    adSettingsRefreshHandle = window.setInterval(refreshSharedAdSettingsIfVisible, 5 * 60000);
+  } else if (!shouldPoll && adSettingsRefreshHandle !== null) {
+    window.clearInterval(adSettingsRefreshHandle);
+    adSettingsRefreshHandle = null;
+  }
+}
+
 function refreshSharedAdSettings() {
   if (adSettingsInFlight) return adSettingsInFlight;
   adSettingsInFlight = loadGlobalAdSettings()
     .then((next) => {
       sharedAdSettings = next;
       adSettingsSubscribers.forEach((notify) => notify(next));
+      syncAdSettingsPollingInterval();
     })
     .finally(() => {
       adSettingsInFlight = null;
@@ -121,24 +143,28 @@ function refreshSharedAdSettingsIfVisible() {
 }
 
 function startSharedAdSettingsRefreshIfNeeded() {
-  if (adSettingsRefreshHandle !== null) return;
+  if (!adSettingsListenersActive) {
+    adSettingsListenersActive = true;
+    window.addEventListener(AD_SETTINGS_EVENT, refreshSharedAdSettings);
+    window.addEventListener('focus', refreshSharedAdSettings);
+  }
   void refreshSharedAdSettings();
-  window.addEventListener(AD_SETTINGS_EVENT, refreshSharedAdSettings);
-  window.addEventListener('focus', refreshSharedAdSettings);
-  // Ad settings already refresh instantly on save (AD_SETTINGS_EVENT) and on
-  // window focus. This interval only exists to catch cross-tab/cross-admin
-  // changes without those triggers, so a rarer, visibility-gated check is
-  // still invisible to users — nothing here depends on sub-minute freshness,
-  // and focus/AD_SETTINGS_EVENT already cover the moments that matter.
-  adSettingsRefreshHandle = window.setInterval(refreshSharedAdSettingsIfVisible, 5 * 60000);
+  // A later mount can join an already-fetched, ads-enabled cache before that
+  // fetch's own .then() runs this -- make sure the interval reflects it now.
+  syncAdSettingsPollingInterval();
 }
 
 function stopSharedAdSettingsRefreshIfIdle() {
-  if (adSettingsSubscribers.size > 0 || adSettingsRefreshHandle === null) return;
-  window.removeEventListener(AD_SETTINGS_EVENT, refreshSharedAdSettings);
-  window.removeEventListener('focus', refreshSharedAdSettings);
-  window.clearInterval(adSettingsRefreshHandle);
-  adSettingsRefreshHandle = null;
+  if (adSettingsSubscribers.size > 0) return;
+  if (adSettingsListenersActive) {
+    window.removeEventListener(AD_SETTINGS_EVENT, refreshSharedAdSettings);
+    window.removeEventListener('focus', refreshSharedAdSettings);
+    adSettingsListenersActive = false;
+  }
+  if (adSettingsRefreshHandle !== null) {
+    window.clearInterval(adSettingsRefreshHandle);
+    adSettingsRefreshHandle = null;
+  }
 }
 
 export function useGlobalAdSettings() {
