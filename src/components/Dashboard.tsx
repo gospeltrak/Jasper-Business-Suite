@@ -1151,19 +1151,14 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
   }, [activeRoleName, activeTenant.id, canAccessNotificationInbox, configureInbox, user.id, user.role]);
 
   const getSimulatedPermissions = () => {
-    if (actingStaffId === 'logged-in-user' && user.rolePermissions) return user.rolePermissions;
-
-    const customRoles = systemSettings.customRoles || [];
-    const matched = customRoles.find(r => r.name.toLowerCase() === activeRoleName.toLowerCase());
-    if (matched) return matched.permissions;
-
     // The tenant owner (Admin, acting as themselves -- never a simulated
-    // staff role) must never be locked out of their own dashboard by a
-    // missing or corrupted "Admin" entry in customRoles: that would also
-    // lock them out of Settings -> Roles & Permissions, the only screen
-    // that can fix it. Grant full access unconditionally in that specific
-    // case; the deny-all fallback below still applies to any unrecognised
-    // STAFF role, unchanged.
+    // staff role) must always have full access. This takes priority over
+    // user.rolePermissions below: a real tenant was found with a non-empty
+    // but wrong-shaped role_permissions row (missing/undefined per-module
+    // keys), which was being returned as-is by the check below, silently
+    // denying every module -- and since Settings is itself permission-
+    // gated, the owner had no self-service way to fix it. An owner's own
+    // access must never depend on that row's shape being correct.
     if (actingStaffId === 'logged-in-user' && activeRoleName === 'Admin') {
       return {
         pos: { read: true, write: true, edit: true },
@@ -1177,6 +1172,12 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
         settings: { read: true, write: true, edit: true }
       };
     }
+
+    if (actingStaffId === 'logged-in-user' && user.rolePermissions) return user.rolePermissions;
+
+    const customRoles = systemSettings.customRoles || [];
+    const matched = customRoles.find(r => r.name.toLowerCase() === activeRoleName.toLowerCase());
+    if (matched) return matched.permissions;
 
     // Never turn an unrecognised staff role into an administrator, and never
     // fall back to a hardcoded preset role — the tenant's own customRoles
