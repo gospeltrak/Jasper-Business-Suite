@@ -16,13 +16,29 @@ import { resolveProfileRolePermissions } from '../src/utils/profilePermissions';
 const projectRoot = resolve(import.meta.dirname, '..');
 const read = (path: string) => readFile(join(projectRoot, path), 'utf8');
 
-test('empty cloud role permissions fall back to the tenant named role after reload', () => {
+test('empty or malformed cloud role permissions fall back to the tenant named role after reload', () => {
+  const fullPermissions = {
+    pos: { read: true, write: true, edit: true },
+    products: { read: true, write: true, edit: true },
+    purchases: { read: true, write: true, edit: true },
+    suppliers: { read: true, write: true, edit: true },
+    expenses: { read: true, write: true, edit: true },
+    reportsSalesExpenses: { read: true, write: true, edit: true },
+    reportsProfitCogs: { read: true, write: true, edit: true },
+    sync: { read: true, write: true, edit: true },
+    settings: { read: true, write: true, edit: true },
+  };
   assert.equal(resolveProfileRolePermissions(null), undefined);
   assert.equal(resolveProfileRolePermissions({}), undefined);
-  assert.deepEqual(
+  // A partial object (missing module keys, e.g. from historical data
+  // corruption) is functionally indistinguishable from empty -- every
+  // missing module silently denies that module everywhere it's checked.
+  // Falling back to the tenant's named role is safer than trusting it.
+  assert.equal(
     resolveProfileRolePermissions({ pos: { read: false, write: false, edit: false } }),
-    { pos: { read: false, write: false, edit: false } },
+    undefined,
   );
+  assert.deepEqual(resolveProfileRolePermissions(fullPermissions), fullPermissions);
 });
 
 test('tenant package navigation contract remains centralized and correct', () => {

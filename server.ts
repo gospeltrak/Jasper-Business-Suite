@@ -133,11 +133,24 @@ const normalizeHost = (value: unknown) => String(value || '').trim().toLowerCase
 // customRole when a staff invitation was created). Passing that empty object
 // through as-is short-circuits the client's getSimulatedPermissions() before
 // it can fall back to looking up the tenant's real named role, silently
-// denying every module on that Google login. Returning undefined instead
-// lets the client do that lookup correctly.
+// denying every module on that Google login. A non-empty but incomplete
+// object (missing one of these module keys -- found in production for a
+// tenant's Admin role) is just as unreliable: that module silently denies
+// access everywhere it's checked. Returning undefined for either case lets
+// the client fall back to the tenant's named role lookup correctly.
+const ROLE_PERMISSION_MODULE_KEYS = [
+  'pos', 'products', 'purchases', 'suppliers', 'expenses',
+  'reportsSalesExpenses', 'reportsProfitCogs', 'sync', 'settings',
+];
 const resolveRolePermissionsForResponse = (value: unknown): Record<string, unknown> | undefined => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
-  return Object.keys(value as Record<string, unknown>).length > 0 ? value as Record<string, unknown> : undefined;
+  const record = value as Record<string, unknown>;
+  if (Object.keys(record).length === 0) return undefined;
+  const wellFormed = ROLE_PERMISSION_MODULE_KEYS.every((key) => {
+    const module = record[key];
+    return Boolean(module) && typeof module === 'object' && !Array.isArray(module) && typeof (module as any).read === 'boolean';
+  });
+  return wellFormed ? record : undefined;
 };
 
 const getRequestSafeErrorLanguage = (req: express.Request) => normalizeSafeErrorLanguage(
