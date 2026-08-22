@@ -3097,14 +3097,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
   }
 
   if (user.role !== 'SuperAdmin' && !workspaceReady) {
-    return (
-      <WorkspaceBootstrapScreen
-        title={workspaceLoadFailed ? 'Reconnecting to your business' : 'Loading your business'}
-        message={workspaceLoadFailed
-          ? 'Your saved data is safe. Orvix is reconnecting before opening the workspace.'
-          : 'Restoring your menus, roles, products and business records…'}
-      />
-    );
+    return <WorkspaceBootstrapScreen />;
   }
 
   return (
@@ -4742,13 +4735,18 @@ export default function Dashboard(props: DashboardProps) {
   );
 }
 
-function WorkspaceBootstrapScreen({ title, message }: { title: string; message: string }) {
+function WorkspaceBootstrapScreen() {
+  const { logoUrl } = useTenantLogo();
+
   return (
     <div className="flex min-h-[100dvh] w-full items-center justify-center bg-slate-50 px-6 dark:bg-slate-950">
-      <div className="flex max-w-md flex-col items-center text-center">
-        <div className="mb-5 h-12 w-12 animate-spin rounded-full border-4 border-emerald-100 border-t-emerald-500 dark:border-emerald-950 dark:border-t-emerald-400" />
-        <h1 className="text-lg font-black text-slate-900 dark:text-white">{title}</h1>
-        <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">{message}</p>
+      <div role="status" aria-label="Loading business" className="flex flex-col items-center">
+        <img
+          src={logoUrl || '/icon-512.png'}
+          alt=""
+          className="max-h-28 w-auto max-w-[min(70vw,18rem)] animate-pulse object-contain"
+        />
+        <span className="sr-only">Loading…</span>
       </div>
     </div>
   );
@@ -4757,14 +4755,7 @@ function WorkspaceBootstrapScreen({ title, message }: { title: string; message: 
 function TenantDashboardGate(props: DashboardProps) {
   const branchContext = useBranchContext();
   if (!branchContext.snapshot) {
-    return (
-      <WorkspaceBootstrapScreen
-        title={branchContext.error ? 'Reconnecting to your business' : 'Loading your business'}
-        message={branchContext.error
-          ? 'Your account and saved data are safe. Orvix is restoring branch access before opening the workspace.'
-          : 'Restoring your branch, menus and permissions…'}
-      />
-    );
+    return <WorkspaceBootstrapScreen />;
   }
   return <DashboardContent {...props} />;
 }

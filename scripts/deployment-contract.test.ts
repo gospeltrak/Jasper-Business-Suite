@@ -54,6 +54,14 @@ test('staff and custom roles survive stale realtime payloads and database writes
   assert.match(migrationSource, /v_existing_settings -> v_protected_key/);
 });
 
+test('tenant login bootstrap displays only the tenant logo without restoration copy', async () => {
+  const dashboardSource = await read('src/components/Dashboard.tsx');
+  assert.match(dashboardSource, /function WorkspaceBootstrapScreen\(\)[\s\S]{0,260}const \{ logoUrl \} = useTenantLogo\(\)/);
+  assert.match(dashboardSource, /src=\{logoUrl \|\| '\/icon-512\.png'\}/);
+  assert.doesNotMatch(dashboardSource, /Restoring your menus, roles, products and business records/);
+  assert.doesNotMatch(dashboardSource, /Restoring your branch, menus and permissions/);
+});
+
 test('tenant package navigation contract remains centralized and correct', () => {
   assert.equal(isTenantPackageTabAllowed('ruby', 'deliveries'), false);
   assert.equal(isTenantPackageTabAllowed('ruby', 'forecasting'), false);
