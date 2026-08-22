@@ -127,6 +127,19 @@ const normalizeEmail = (value: unknown) => String(value || '').trim().toLowerCas
 const normalizeText = (value: unknown, max = 180) => String(value || '').trim().slice(0, max);
 const normalizeHost = (value: unknown) => String(value || '').trim().toLowerCase().replace(/^https?:\/\//, '').split('/')[0].split(':')[0];
 
+// Mirrors src/utils/profilePermissions.ts's resolveProfileRolePermissions.
+// An empty {} in role_permissions/invitation.permissions means no real
+// per-user override was ever resolved (e.g. the role name didn't match any
+// customRole when a staff invitation was created). Passing that empty object
+// through as-is short-circuits the client's getSimulatedPermissions() before
+// it can fall back to looking up the tenant's real named role, silently
+// denying every module on that Google login. Returning undefined instead
+// lets the client do that lookup correctly.
+const resolveRolePermissionsForResponse = (value: unknown): Record<string, unknown> | undefined => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  return Object.keys(value as Record<string, unknown>).length > 0 ? value as Record<string, unknown> : undefined;
+};
+
 const getRequestSafeErrorLanguage = (req: express.Request) => normalizeSafeErrorLanguage(
   req.headers['x-jasper-language'] || req.headers['accept-language']
 );
@@ -3529,7 +3542,8 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       const profile = {
         id: authUser.id, email: invitation.email, name: invitation.staff_name, phone: invitation.phone,
         tenant_id: invitation.tenant_id, active_tenant: invitation.tenant_id, role: databaseRole,
-        account_type: 'business_staff', role_key: invitation.role_key, role_permissions: invitation.permissions || {},
+        account_type: 'business_staff', role_key: invitation.role_key,
+        role_permissions: resolveRolePermissionsForResponse(invitation.permissions) || null,
         is_active: true, is_saas_staff: false,
       };
       const { error: profileError } = await adminTable('users').upsert(profile, { onConflict: 'id' });
@@ -3552,7 +3566,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       return res.json({ status: 'existing', user: {
         id: authUser.id, email: invitation.email, name: invitation.staff_name, role: invitation.role_key,
         tenantId: invitation.tenant_id, activeTenant: invitation.tenant_id, phone: invitation.phone,
-        saasPermissions: invitation.permissions || {}, rolePermissions: invitation.permissions || {},
+        saasPermissions: invitation.permissions || {}, rolePermissions: resolveRolePermissionsForResponse(invitation.permissions),
       }});
     } catch (error) {
       return sendUnexpectedSafeApiError(req, res, error, { fallbackCode: 'AUTH_ERROR', context: 'sign_in', operation: 'staff_google_invitation_accept' });
@@ -3586,7 +3600,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       tenantId: userProfile.tenant_id || 'platform-control', activeTenant: userProfile.active_tenant || userProfile.tenant_id || 'platform-control',
       phone: userProfile.phone || null, isSaaSStaff: userProfile.is_saas_staff || false,
       saasPermissions: userProfile.role_permissions || undefined,
-      rolePermissions: userProfile.role_permissions || undefined,
+      rolePermissions: resolveRolePermissionsForResponse(userProfile.role_permissions),
       profileImage: userProfile.profile_image_url || undefined,
     }});
   });
