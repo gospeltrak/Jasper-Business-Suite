@@ -3099,7 +3099,15 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
 
   return (
     <div id="dashboard-scaffold" className="w-full h-dvh bg-[#f5f6fa] dark:bg-slate-950 flex text-slate-800 dark:text-slate-200 font-sans antialiased overflow-hidden select-none">
-      
+
+      {/* TEMPORARY DIAGNOSTIC — remove once the tenant-owner menu lockout is
+          confirmed fixed. Shows the raw values getSimulatedPermissions()
+          decides access from, so we can see exactly why the Admin
+          full-access fallback isn't matching for this account. */}
+      <div style={{position:'fixed',top:0,left:0,right:0,zIndex:2147483647,background:'rgba(220,38,38,0.95)',color:'#fff',font:'10px/1.4 monospace',padding:'4px 6px',pointerEvents:'none',whiteSpace:'pre-wrap'}}>
+        {`user.role=${user.role} activeRoleName=${activeRoleName} actingStaffId=${actingStaffId} settings.read=${String(currentPermissions?.settings?.read)} pos.read=${String(currentPermissions?.pos?.read)}`}
+      </div>
+
       {/* PWA install banner — shows after login, not on login page */}
       {user.role === 'SuperAdmin' ? (
         <PWAInstallBanner
