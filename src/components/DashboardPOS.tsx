@@ -619,7 +619,7 @@ export default function DashboardPOS({
       return;
     }
 
-    const isPharmacy = activeTenant.businessType === 'pharmacy' || prod.productType === 'medicine';
+    const isPharmacy = activeTenant.businessType === 'pharmacy';
     const initialDosage = isPharmacy ? 'packet' : undefined;
     const initialTabs = isPharmacy ? 1 : undefined;
 
@@ -658,7 +658,7 @@ export default function DashboardPOS({
           
           const shopQty = i.product.shopStockQty ?? 0;
           const activeType = i.dosageType || 'packet';
-          const boxWeight = (activeTenant.businessType === 'pharmacy' || i.product.productType === 'medicine') ? getPharmacyDoseWeight(i.product, activeType, i.tabsSelected) : 1;
+          const boxWeight = activeTenant.businessType === 'pharmacy' ? getPharmacyDoseWeight(i.product, activeType, i.tabsSelected) : 1;
 
           if (nextQty * boxWeight > shopQty) {
             setPosWarning(`Stock Limit: Cannot exceed active shop stock of ${formatProductQuantity(shopQty, i.product)} for "${i.product.name}"!`);
@@ -681,10 +681,10 @@ export default function DashboardPOS({
         if (i.product.id === id) {
           const shopQty = i.product.shopStockQty ?? 0;
           const activeType = i.dosageType || 'packet';
-          const boxWeight = (activeTenant.businessType === 'pharmacy' || i.product.productType === 'medicine') ? getPharmacyDoseWeight(i.product, activeType, i.tabsSelected) : 1;
+          const boxWeight = activeTenant.businessType === 'pharmacy' ? getPharmacyDoseWeight(i.product, activeType, i.tabsSelected) : 1;
 
           if (newQty * boxWeight > shopQty) {
-            const maxQty = (activeTenant.businessType === 'pharmacy' || i.product.productType === 'medicine')
+            const maxQty = activeTenant.businessType === 'pharmacy'
               ? Math.max(1, Math.floor(shopQty / boxWeight))
               : Number(shopQty.toFixed(3));
             setPosWarning(`Stock Limit: Maximum possible quantity for "${i.product.name}" is ${formatProductQuantity(maxQty, i.product)} based on stock!`);
@@ -830,7 +830,7 @@ export default function DashboardPOS({
     dosageType?: 'packet' | 'full' | 'half' | 'tabs' | 'strip' | 'dose' | 'unit';
     tabsSelected?: number;
   }) => {
-    const isPharmacy = activeTenant.businessType === 'pharmacy' || item.product.productType === 'medicine';
+    const isPharmacy = activeTenant.businessType === 'pharmacy';
     const channelBasePrice = getChannelPrice(item.product); // uses batchPriceCache — instant
     let unitPrice = channelBasePrice;
 
@@ -877,7 +877,7 @@ export default function DashboardPOS({
     const map = new Map<string, string>();
     filteredProducts.forEach(p => {
       const shopQty = p.shopStockQty ?? 0;
-      map.set(p.id, (activeTenant.businessType === 'pharmacy' || p.productType === 'medicine')
+      map.set(p.id, activeTenant.businessType === 'pharmacy'
         ? formatPharmacyRemaining(shopQty, p)
         : formatRetailPackageRemaining(shopQty, p));
     });
@@ -887,7 +887,7 @@ export default function DashboardPOS({
   // Pre-compute ALL cart item display values once — avoids calling getPharmacyDoseConfig etc per render
   const cartDisplayData = useMemo(() => {
     return cart.map(item => {
-      const isPharmacy = activeTenant.businessType === 'pharmacy' || item.product.productType === 'medicine';
+      const isPharmacy = activeTenant.businessType === 'pharmacy';
       const dosageType = item.dosageType || 'packet';
       const doseCfg = getPharmacyDoseConfig(item.product);
       const tabsSelected = item.tabsSelected || 1;
@@ -990,7 +990,7 @@ export default function DashboardPOS({
 
     // Generate sale item models
     const saleItems: SaleItem[] = cart.map(i => {
-      const isPharmacy = activeTenant.businessType === 'pharmacy' || i.product.productType === 'medicine';
+      const isPharmacy = activeTenant.businessType === 'pharmacy';
       const dType = i.dosageType || 'packet';
       
       const channelBasePrice = getChannelPrice(i.product); // cached — no repeated batch sort
@@ -1169,7 +1169,7 @@ export default function DashboardPOS({
         if (prod.isBulkProduct) {
           const bMode = soldItem.bulkSellMode || (prod.sellingMode === 'hybrid' ? 'scale' : prod.sellingMode);
           deductQty = soldItem.qty;
-        } else if (activeTenant.businessType === 'pharmacy' || prod.productType === 'medicine') {
+        } else if (activeTenant.businessType === 'pharmacy') {
           const dType = soldItem.dosageType || 'packet';
           deductQty = soldItem.qty * getPharmacyDoseWeight(soldItem.product, dType, soldItem.tabsSelected);
         }

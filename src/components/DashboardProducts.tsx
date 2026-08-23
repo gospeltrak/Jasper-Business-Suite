@@ -776,11 +776,10 @@ export default function DashboardProducts({
   const [prescriptionRequired, setPrescriptionRequired] = useState(false);
   const [trackExpiry, setTrackExpiry] = useState(true);
 
-  // A Medicine-type product gets the same dosage/packaging hierarchy as a
-  // Pharmacy tenant's products, regardless of the tenant's own business
-  // type -- so a Retail tenant can register an OTC medicine with proper
-  // Full/Half Dose pricing, not just Pharmacy tenants.
-  const isPharmacyLike = activeTenant.businessType === 'pharmacy' || productType === 'medicine';
+  // Pharmacy and Retail/Wholesale product fields stay fully separate by
+  // tenant niche -- Pharmacy-only fields (packaging hierarchy, Medicine
+  // Details) never appear for a Retail/Wholesale tenant, and vice versa.
+  const isPharmacyLike = activeTenant.businessType === 'pharmacy';
 
   const [costPrice, setCostPrice] = useState(0);
   const [sellingPrice, setSellingPrice] = useState(0);
@@ -2432,14 +2431,14 @@ export default function DashboardProducts({
                     <label className="text-[10px] font-bold text-slate-500 uppercase block">Product Type</label>
                     <ModernSelect
                       value={productType}
-                      options={PRODUCT_TYPE_OPTIONS}
+                      options={isPharmacyLike ? PRODUCT_TYPE_OPTIONS : PRODUCT_TYPE_OPTIONS.filter(option => option.value !== 'medicine')}
                       onChange={(next) => setProductType(next as ProductType)}
                       title="Choose product type"
                       placeholder="Select product type"
                     />
                   </div>
 
-                  {productType === 'medicine' && (
+                  {productType === 'medicine' && isPharmacyLike && (
                     <div className="space-y-4 pt-2 border-t border-slate-200">
                       <div className="flex items-center space-x-2">
                         {!isDesktopAddProductLayout && (
@@ -2821,20 +2820,23 @@ export default function DashboardProducts({
                   ))}
                 </div>
                 {!isPharmacyLike && (
-                  <div className="grid gap-3 bg-slate-50 border border-slate-200 rounded-2xl p-3" style={{ display: 'grid', gridTemplateColumns: `repeat(${isTabletWidthOrWider ? 4 : 3}, minmax(0, 1fr))`, gap: '0.75rem' }}>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-slate-500 uppercase">Package Name</label>
-                      <input value={purchaseUnit} onChange={(e) => setPurchaseUnit(e.target.value)} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                  <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 space-y-3">
+                    <div className="flex flex-wrap items-end gap-x-2 gap-y-3">
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-bold text-slate-500 uppercase">Package Name</label>
+                        <input value={purchaseUnit} onChange={(e) => setPurchaseUnit(e.target.value)} placeholder="e.g. Sack" className="w-28 bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                      </div>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase pb-2.5 shrink-0">contains</span>
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-bold text-slate-500 uppercase">Quantity</label>
+                        <input type="number" step="0.001" value={conversionToBaseUnit} onChange={(e) => setConversionToBaseUnit(e.target.value === '' ? '' : Number(e.target.value))} placeholder="e.g. 24" className="w-24 bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-bold text-slate-500 uppercase">Sell / Count Unit</label>
+                        <input value={baseUnit} onChange={(e) => setBaseUnit(e.target.value)} placeholder="e.g. Pcs" className="w-28 bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                      </div>
                     </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-slate-500 uppercase">Sell / Count Unit</label>
-                      <input value={baseUnit} onChange={(e) => setBaseUnit(e.target.value)} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-slate-500 uppercase">1 Package Contains</label>
-                      <input type="number" step="0.001" value={conversionToBaseUnit} onChange={(e) => setConversionToBaseUnit(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-                    </div>
-                    <label className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 uppercase">
+                    <label className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 uppercase w-fit">
                       <input type="checkbox" checked={allowScaleSelling} onChange={(e) => {
                         setAllowScaleSelling(e.target.checked);
                         setIsBulkProduct(e.target.checked);
