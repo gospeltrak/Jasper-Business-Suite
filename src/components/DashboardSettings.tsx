@@ -1400,7 +1400,7 @@ export default function DashboardSettings({
                     <span className="shrink-0 border-l border-slate-200 px-3 py-2.5 text-[11px] font-black text-slate-400">.{baseDomain}</span>
                   </div>
                   <p className="text-[10px] font-medium leading-relaxed text-slate-500">
-                    This will be your domain name. Example: <span className="font-black text-slate-700">lim.{baseDomain}</span>. Once saved, it cannot be changed.
+                    This will be your domain name. Example: <span className="font-black text-slate-700">yourname.{baseDomain}</span>. Once saved, it cannot be changed.
                   </p>
                   {currentBusinessDomain && (
                     <p className="text-[10px] font-black text-emerald-600">
@@ -1563,20 +1563,35 @@ export default function DashboardSettings({
                   </p>
                 </div>
 
-                <label className="flex items-center justify-between gap-4 bg-white border border-slate-220 rounded-2xl p-4 cursor-pointer">
+                <div className="flex items-center justify-between gap-4 bg-white border border-slate-220 rounded-2xl p-4">
                   <div className="min-w-0">
                     <span className="block text-xs font-black text-slate-800 uppercase tracking-wide">Show product pictures in POS</span>
                     <span className="block text-[10.5px] text-slate-500 mt-0.5">
                       Turn off to show a clean product list without images.
                     </span>
                   </div>
-                  <input
-                    type="checkbox"
-                    checked={posSettingsForm.showProductImages}
-                    onChange={(e) => setPosSettingsForm(prev => ({ ...prev, showProductImages: e.target.checked }))}
-                    className="w-5 h-5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 shrink-0"
-                  />
-                </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      // A native <input type="checkbox"> fires a DOM `change` event
+                      // that the settings shell's draft-protection guard listens for
+                      // (onChangeCapture, further down this file) to stop an incoming
+                      // settings sync from silently reverting an unsaved edit. This
+                      // custom button doesn't fire that event, so it must mark the
+                      // draft changed itself -- the exact bug already fixed once for
+                      // the Roles & Permissions checkboxes (bfd0d46).
+                      markSettingsDraftChanged();
+                      setPosSettingsForm(prev => ({ ...prev, showProductImages: !prev.showProductImages }));
+                    }}
+                    aria-pressed={posSettingsForm.showProductImages}
+                    aria-label="Show product pictures in POS"
+                    className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 transition-colors cursor-pointer ${
+                      posSettingsForm.showProductImages ? 'border-emerald-600 bg-emerald-600' : 'border-slate-300 bg-white'
+                    }`}
+                  >
+                    {posSettingsForm.showProductImages && <Check className="h-4 w-4 text-white" strokeWidth={3} />}
+                  </button>
+                </div>
               </div>
 
               {/* Payment modes register */}
