@@ -1,6 +1,6 @@
 import React, { useState, useRef, useMemo, FormEvent, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Tenant, Product, ProductBatch, SystemSettings } from '../types';
+import { Tenant, Product, ProductBatch, SystemSettings, DosageForm, ProductType } from '../types';
 import { isDemoTenant } from '../utils/tenantIsolation';
 import { getSecureDataBridgeClient } from '../secureDataBridge';
 import { 
@@ -124,6 +124,40 @@ const PHARMACY_START_OPTIONS = {
     { value: 'master_box', label: 'Master Box' },
   ],
 } satisfies Record<string, ModernSelectOption[]>;
+
+// Universal Inventory Unit & Packaging Engine -- Product Type is separate
+// from Category (e.g. Panadol: Product Type "Medicine", Category "Pain
+// Relief & Fever"), available to every tenant so a Pharmacy can also stock
+// ordinary retail goods and vice versa.
+const PRODUCT_TYPE_OPTIONS: ModernSelectOption[] = [
+  { value: 'general_retail', label: 'General Retail' },
+  { value: 'medicine', label: 'Medicine' },
+  { value: 'medical_supply', label: 'Medical Supply' },
+  { value: 'personal_care', label: 'Personal Care' },
+  { value: 'cosmetics_beauty', label: 'Cosmetics & Beauty' },
+  { value: 'baby_care', label: 'Baby Care' },
+  { value: 'hygiene', label: 'Hygiene' },
+  { value: 'supplements', label: 'Supplements' },
+  { value: 'food_drinks', label: 'Food & Drinks' },
+];
+
+const DOSAGE_FORM_OPTIONS: ModernSelectOption[] = [
+  { value: 'tablet', label: 'Tablet' },
+  { value: 'capsule', label: 'Capsule' },
+  { value: 'syrup', label: 'Syrup' },
+  { value: 'suspension', label: 'Suspension' },
+  { value: 'oral_solution', label: 'Oral Solution' },
+  { value: 'drops', label: 'Drops' },
+  { value: 'cream', label: 'Cream' },
+  { value: 'ointment', label: 'Ointment' },
+  { value: 'gel', label: 'Gel' },
+  { value: 'injection', label: 'Injection' },
+  { value: 'inhaler', label: 'Inhaler' },
+  { value: 'sachet', label: 'Sachet' },
+  { value: 'powder', label: 'Powder' },
+  { value: 'suppository', label: 'Suppository' },
+  { value: 'other', label: 'Other' },
+];
 
 export default function DashboardProducts({ 
   activeTenant, 
@@ -728,6 +762,19 @@ export default function DashboardProducts({
   const [barcode, setBarcode] = useState('');
   const [category, setCategory] = useState(categoriesList[0] || '');
   const [unit, setUnit] = useState(unitsList[0] || 'Pcs');
+
+  // Universal Inventory Unit & Packaging Engine -- Product Type is distinct
+  // from Category. Medicine-specific fields only apply when productType is
+  // 'medicine', regardless of the tenant's own business type.
+  const [productType, setProductType] = useState<ProductType>('general_retail');
+  const [genericName, setGenericName] = useState('');
+  const [manufacturer, setManufacturer] = useState('');
+  const [dosageForm, setDosageForm] = useState<DosageForm>('tablet');
+  const [strengthValue, setStrengthValue] = useState<number | ''>('');
+  const [strengthUnit, setStrengthUnit] = useState('mg');
+  const [prescriptionRequired, setPrescriptionRequired] = useState(false);
+  const [trackExpiry, setTrackExpiry] = useState(true);
+
   const [costPrice, setCostPrice] = useState(0);
   const [sellingPrice, setSellingPrice] = useState(0);
   const [shopStockQty, setShopStockQty] = useState(0);
@@ -1172,6 +1219,15 @@ export default function DashboardProducts({
       alertQty: alertQty,
       image: productImage || undefined,
       brand: brand.trim() || undefined,
+      productType,
+      genericName: productType === 'medicine' ? (genericName.trim() || undefined) : undefined,
+      manufacturer: productType === 'medicine' ? (manufacturer.trim() || undefined) : undefined,
+      dosageForm: productType === 'medicine' ? dosageForm : undefined,
+      strengthValue: productType === 'medicine' && strengthValue !== '' ? Number(strengthValue) : undefined,
+      strengthUnit: productType === 'medicine' && strengthValue !== '' ? strengthUnit : undefined,
+      prescriptionRequired: productType === 'medicine' ? prescriptionRequired : undefined,
+      trackBatch: productType === 'medicine' ? true : undefined,
+      trackExpiry: productType === 'medicine' ? trackExpiry : undefined,
       sellInRetail,
       sellInWholesale,
       wholesalePrice: sellInWholesale ? finalWholesalePrice : undefined,
@@ -1292,6 +1348,14 @@ export default function DashboardProducts({
       setBrand('');
       setBarcode('');
       setCategory(categoriesList[0] || '');
+      setProductType('general_retail');
+      setGenericName('');
+      setManufacturer('');
+      setDosageForm('tablet');
+      setStrengthValue('');
+      setStrengthUnit('mg');
+      setPrescriptionRequired(false);
+      setTrackExpiry(true);
       setCostPrice(0);
       setSellingPrice(0);
       setShopStockQty(0);
@@ -2237,6 +2301,62 @@ export default function DashboardProducts({
                       />
                     </div>
                   </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase block">Product Type</label>
+                    <ModernSelect
+                      value={productType}
+                      options={PRODUCT_TYPE_OPTIONS}
+                      onChange={(next) => setProductType(next as ProductType)}
+                      title="Choose product type"
+                      placeholder="Select product type"
+                    />
+                  </div>
+
+                  {productType === 'medicine' && (
+                    <div className="space-y-4 pt-2 border-t border-slate-200">
+                      <div className="flex items-center space-x-2">
+                        {!isDesktopAddProductLayout && (
+                          <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center flex-shrink-0 shadow-sm shadow-emerald-500/30">
+                            <Layers className="w-3.5 h-3.5" />
+                          </span>
+                        )}
+                        <div>
+                          <span className="font-bold text-sm text-slate-800">Medicine Details</span>
+                          <p className="text-[10.5px] text-slate-450 mt-0.5">Clinical information shown only for Product Type = Medicine.</p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 bg-emerald-50/40 border border-emerald-100 rounded-2xl p-3">
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold text-slate-500 uppercase">Generic Name</label>
+                          <input type="text" placeholder="e.g. Amoxicillin" value={genericName} onChange={e => setGenericName(e.target.value)} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold text-slate-500 uppercase">Manufacturer</label>
+                          <input type="text" placeholder="Optional" value={manufacturer} onChange={e => setManufacturer(e.target.value)} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold text-slate-500 uppercase">Dosage Form</label>
+                          <ModernSelect value={dosageForm} options={DOSAGE_FORM_OPTIONS} onChange={(next) => setDosageForm(next as DosageForm)} title="Choose dosage form" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold text-slate-500 uppercase">Strength</label>
+                          <div className="flex gap-1.5">
+                            <input type="number" min={0} placeholder="500" value={strengthValue} onChange={e => setStrengthValue(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                            <input type="text" placeholder="mg" value={strengthUnit} onChange={e => setStrengthUnit(e.target.value)} className="w-16 bg-white border border-slate-200 text-xs px-2 py-2 rounded-xl" />
+                          </div>
+                        </div>
+                      </div>
+                      <label className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 uppercase">
+                        <input type="checkbox" checked={prescriptionRequired} onChange={(e) => setPrescriptionRequired(e.target.checked)} className="accent-emerald-600" />
+                        Prescription Required
+                      </label>
+                      <label className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 uppercase">
+                        <input type="checkbox" checked={trackExpiry} onChange={(e) => setTrackExpiry(e.target.checked)} className="accent-emerald-600" />
+                        Track Expiry Dates
+                      </label>
+                    </div>
+                  )}
 
                   <div className={isDesktopAddProductLayout ? "space-y-4" : "grid gap-3"} style={isDesktopAddProductLayout ? undefined : { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.75rem' }}>
                   <div className="space-y-1">
