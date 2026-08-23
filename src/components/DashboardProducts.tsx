@@ -775,6 +775,12 @@ export default function DashboardProducts({
   const [prescriptionRequired, setPrescriptionRequired] = useState(false);
   const [trackExpiry, setTrackExpiry] = useState(true);
 
+  // A Medicine-type product gets the same dosage/packaging hierarchy as a
+  // Pharmacy tenant's products, regardless of the tenant's own business
+  // type -- so a Retail tenant can register an OTC medicine with proper
+  // Full/Half Dose pricing, not just Pharmacy tenants.
+  const isPharmacyLike = activeTenant.businessType === 'pharmacy' || productType === 'medicine';
+
   const [costPrice, setCostPrice] = useState(0);
   const [sellingPrice, setSellingPrice] = useState(0);
   const [shopStockQty, setShopStockQty] = useState(0);
@@ -949,10 +955,10 @@ export default function DashboardProducts({
   const [printJobSuccess, setPrintJobSuccess] = useState(false);
 
   // Profit/Telemetry calculations
-  const effectiveCostPrice = isBulkProduct && activeTenant.businessType !== 'pharmacy'
+  const effectiveCostPrice = isBulkProduct && !isPharmacyLike
     ? costPrice / Math.max(0.001, Number(conversionToBaseUnit) || Number(bulkPurchaseQty) || 1)
     : costPrice;
-  const effectiveSellingPrice = isBulkProduct && activeTenant.businessType !== 'pharmacy'
+  const effectiveSellingPrice = isBulkProduct && !isPharmacyLike
     ? Number(sellUnitPrice) || sellingPrice
     : sellingPrice;
   const profit = effectiveSellingPrice - effectiveCostPrice;
@@ -1200,7 +1206,7 @@ export default function DashboardProducts({
     const retailConversionToBaseUnit = Math.max(0.001, Number(conversionToBaseUnit) || Number(bulkPurchaseQty) || 1);
     const retailPricePerBaseUnit = Number(sellUnitPrice) || finalSellingPrice;
     const retailPackageBuyingCost = costPrice;
-    const ledgerCostPrice = activeTenant.businessType !== 'pharmacy' && isBulkProduct
+    const ledgerCostPrice = !isPharmacyLike && isBulkProduct
       ? retailPackageBuyingCost / retailConversionToBaseUnit
       : costPrice;
 
@@ -1210,7 +1216,7 @@ export default function DashboardProducts({
       sku: finalizedBarcode, // sku is populated behind the scenes with barcode to avoid breaking standard VM integrations
       barcode: finalizedBarcode,
       category,
-      unit: activeTenant.businessType === 'pharmacy' ? hierarchy.baseUnit : unit,
+      unit: isPharmacyLike ? hierarchy.baseUnit : unit,
       costPrice: ledgerCostPrice,
       sellingPrice: finalSellingPrice,
       stockQty: getTotalStockQty(shopStockQty, storeStockQty),
@@ -1235,32 +1241,32 @@ export default function DashboardProducts({
       costingMethod,
       sellingMethod: mapCostingMethodToLegacy(costingMethod),
       allowPosMethodOverride,
-      allowScaleSelling: activeTenant.businessType === 'pharmacy' ? false : (allowScaleSelling || isBulkProduct),
-      purchaseUnit: activeTenant.businessType === 'pharmacy' ? pharmacyTopLevel.unit : retailPurchaseUnit,
-      baseUnit: activeTenant.businessType === 'pharmacy' ? hierarchy.baseUnit : retailBaseUnit,
-      conversionToBaseUnit: activeTenant.businessType === 'pharmacy' ? pharmacyTabsPerPacket : retailConversionToBaseUnit,
-      packageUnitPrice: activeTenant.businessType === 'pharmacy' ? undefined : retailPricePerBaseUnit,
-      wholePackagePrice: activeTenant.businessType === 'pharmacy' ? undefined : retailPricePerBaseUnit * retailConversionToBaseUnit,
-      halfPackagePrice: activeTenant.businessType === 'pharmacy' ? undefined : retailPricePerBaseUnit * (retailConversionToBaseUnit / 2),
-      packageBuyingCost: activeTenant.businessType === 'pharmacy' ? undefined : retailPackageBuyingCost,
+      allowScaleSelling: isPharmacyLike ? false : (allowScaleSelling || isBulkProduct),
+      purchaseUnit: isPharmacyLike ? pharmacyTopLevel.unit : retailPurchaseUnit,
+      baseUnit: isPharmacyLike ? hierarchy.baseUnit : retailBaseUnit,
+      conversionToBaseUnit: isPharmacyLike ? pharmacyTabsPerPacket : retailConversionToBaseUnit,
+      packageUnitPrice: isPharmacyLike ? undefined : retailPricePerBaseUnit,
+      wholePackagePrice: isPharmacyLike ? undefined : retailPricePerBaseUnit * retailConversionToBaseUnit,
+      halfPackagePrice: isPharmacyLike ? undefined : retailPricePerBaseUnit * (retailConversionToBaseUnit / 2),
+      packageBuyingCost: isPharmacyLike ? undefined : retailPackageBuyingCost,
       allowCustomQuantity,
-      defaultPricePerBaseUnit: activeTenant.businessType === 'pharmacy' ? pharmacyTabPrice : retailPricePerBaseUnit,
-      pharmacyProductType: activeTenant.businessType === 'pharmacy' ? pharmacyProductType : undefined,
-      pharmacyHierarchyStart: activeTenant.businessType === 'pharmacy' ? pharmacyHierarchyStart : undefined,
-      pharmacyBaseUnit: activeTenant.businessType === 'pharmacy' ? hierarchy.baseUnit : undefined,
-      pharmacyUnitLevels: activeTenant.businessType === 'pharmacy' ? hierarchy.levels : undefined,
-      dosesPerPacket: activeTenant.businessType === 'pharmacy' ? pharmacyDosesPerPacket : undefined,
-      tabsPerDose: activeTenant.businessType === 'pharmacy' ? pharmacyTabsPerDose : undefined,
-      tabsPerPack: activeTenant.businessType === 'pharmacy' ? pharmacyTabsPerPacket : undefined,
-      allowsDosageDividing: activeTenant.businessType === 'pharmacy' ? true : undefined,
-      packetPrice: activeTenant.businessType === 'pharmacy' ? pharmacyPacketPrice : undefined,
-      fullDosePrice: activeTenant.businessType === 'pharmacy' ? pharmacyFullDosePrice : undefined,
-      halfDosePrice: activeTenant.businessType === 'pharmacy' ? pharmacyHalfDosePrice : undefined,
-      tabPrice: activeTenant.businessType === 'pharmacy' ? pharmacyTabPrice : undefined,
-      fractionSaleOptions: activeTenant.businessType !== 'pharmacy' && (allowScaleSelling || isBulkProduct)
+      defaultPricePerBaseUnit: isPharmacyLike ? pharmacyTabPrice : retailPricePerBaseUnit,
+      pharmacyProductType: isPharmacyLike ? pharmacyProductType : undefined,
+      pharmacyHierarchyStart: isPharmacyLike ? pharmacyHierarchyStart : undefined,
+      pharmacyBaseUnit: isPharmacyLike ? hierarchy.baseUnit : undefined,
+      pharmacyUnitLevels: isPharmacyLike ? hierarchy.levels : undefined,
+      dosesPerPacket: isPharmacyLike ? pharmacyDosesPerPacket : undefined,
+      tabsPerDose: isPharmacyLike ? pharmacyTabsPerDose : undefined,
+      tabsPerPack: isPharmacyLike ? pharmacyTabsPerPacket : undefined,
+      allowsDosageDividing: isPharmacyLike ? true : undefined,
+      packetPrice: isPharmacyLike ? pharmacyPacketPrice : undefined,
+      fullDosePrice: isPharmacyLike ? pharmacyFullDosePrice : undefined,
+      halfDosePrice: isPharmacyLike ? pharmacyHalfDosePrice : undefined,
+      tabPrice: isPharmacyLike ? pharmacyTabPrice : undefined,
+      fractionSaleOptions: !isPharmacyLike && (allowScaleSelling || isBulkProduct)
         ? getDefaultFractionOptions(retailBaseUnit, retailPricePerBaseUnit)
         : undefined,
-      pharmacyUnitBreakdown: activeTenant.businessType === 'pharmacy'
+      pharmacyUnitBreakdown: isPharmacyLike
         ? {
           purchaseUnit: pharmacyTopLevel.unit,
           stripUnit: hierarchy.levels[1]?.unit || hierarchy.baseUnit,
@@ -1272,20 +1278,20 @@ export default function DashboardProducts({
       inventorySettings: {
         costingMethod,
         allowPosMethodOverride,
-        allowScaleSelling: activeTenant.businessType === 'pharmacy' ? false : (allowScaleSelling || isBulkProduct),
-        purchaseUnit: activeTenant.businessType === 'pharmacy' ? pharmacyTopLevel.unit : retailPurchaseUnit,
-        baseUnit: activeTenant.businessType === 'pharmacy' ? hierarchy.baseUnit : retailBaseUnit,
-        conversionToBaseUnit: activeTenant.businessType === 'pharmacy' ? pharmacyTabsPerPacket : retailConversionToBaseUnit,
-        packageUnitPrice: activeTenant.businessType === 'pharmacy' ? undefined : retailPricePerBaseUnit,
-        wholePackagePrice: activeTenant.businessType === 'pharmacy' ? undefined : retailPricePerBaseUnit * retailConversionToBaseUnit,
-        halfPackagePrice: activeTenant.businessType === 'pharmacy' ? undefined : retailPricePerBaseUnit * (retailConversionToBaseUnit / 2),
-        packageBuyingCost: activeTenant.businessType === 'pharmacy' ? undefined : retailPackageBuyingCost,
+        allowScaleSelling: isPharmacyLike ? false : (allowScaleSelling || isBulkProduct),
+        purchaseUnit: isPharmacyLike ? pharmacyTopLevel.unit : retailPurchaseUnit,
+        baseUnit: isPharmacyLike ? hierarchy.baseUnit : retailBaseUnit,
+        conversionToBaseUnit: isPharmacyLike ? pharmacyTabsPerPacket : retailConversionToBaseUnit,
+        packageUnitPrice: isPharmacyLike ? undefined : retailPricePerBaseUnit,
+        wholePackagePrice: isPharmacyLike ? undefined : retailPricePerBaseUnit * retailConversionToBaseUnit,
+        halfPackagePrice: isPharmacyLike ? undefined : retailPricePerBaseUnit * (retailConversionToBaseUnit / 2),
+        packageBuyingCost: isPharmacyLike ? undefined : retailPackageBuyingCost,
         allowCustomQuantity,
-        defaultPricePerBaseUnit: activeTenant.businessType === 'pharmacy' ? pharmacyTabPrice : retailPricePerBaseUnit,
-        fractionSaleOptions: activeTenant.businessType !== 'pharmacy' && (allowScaleSelling || isBulkProduct)
+        defaultPricePerBaseUnit: isPharmacyLike ? pharmacyTabPrice : retailPricePerBaseUnit,
+        fractionSaleOptions: !isPharmacyLike && (allowScaleSelling || isBulkProduct)
           ? getDefaultFractionOptions(retailBaseUnit, retailPricePerBaseUnit)
           : undefined,
-        pharmacyUnitBreakdown: activeTenant.businessType === 'pharmacy'
+        pharmacyUnitBreakdown: isPharmacyLike
           ? {
             purchaseUnit: pharmacyTopLevel.unit,
             stripUnit: hierarchy.levels[1]?.unit || hierarchy.baseUnit,
@@ -2487,22 +2493,22 @@ export default function DashboardProducts({
 
                   <div className="grid gap-3.5 border-b border-dashed border-slate-100 pb-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.875rem' }}>
                     <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase block">Shop Stock ({activeTenant.businessType !== 'pharmacy' ? (isBulkProduct || allowScaleSelling ? baseUnit : unit) : pharmacyFormHierarchy.baseUnit})</label>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase block">Shop Stock ({!isPharmacyLike ? (isBulkProduct || allowScaleSelling ? baseUnit : unit) : pharmacyFormHierarchy.baseUnit})</label>
                       <input 
                         type="number" 
                         min="0"
-                        step={isBulkProduct || allowScaleSelling || activeTenant.businessType === 'pharmacy' ? 0.001 : 1}
+                        step={isBulkProduct || allowScaleSelling || isPharmacyLike ? 0.001 : 1}
                         value={shopStockQty}
                         onChange={(e) => setShopStockQty(Math.max(0, parseFloat(e.target.value) || 0))}
                         className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-800 font-mono transition-all outline-none"
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase block">Store Stock ({activeTenant.businessType !== 'pharmacy' ? (isBulkProduct || allowScaleSelling ? baseUnit : unit) : pharmacyFormHierarchy.baseUnit})</label>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase block">Store Stock ({!isPharmacyLike ? (isBulkProduct || allowScaleSelling ? baseUnit : unit) : pharmacyFormHierarchy.baseUnit})</label>
                       <input 
                         type="number" 
                         min="0"
-                        step={isBulkProduct || allowScaleSelling || activeTenant.businessType === 'pharmacy' ? 0.001 : 1}
+                        step={isBulkProduct || allowScaleSelling || isPharmacyLike ? 0.001 : 1}
                         value={storeStockQty}
                         onChange={(e) => setStoreStockQty(Math.max(0, parseFloat(e.target.value) || 0))}
                         className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-800 font-mono transition-all outline-none"
@@ -2575,7 +2581,7 @@ export default function DashboardProducts({
 
                   <div className="grid gap-3.5" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.875rem' }}>
                     <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase block">{isBulkProduct && activeTenant.businessType !== 'pharmacy' ? `Package Buy Cost (${purchaseUnit || 'Package'})` : 'Cost Buy Price'}</label>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase block">{isBulkProduct && !isPharmacyLike ? `Package Buy Cost (${purchaseUnit || 'Package'})` : 'Cost Buy Price'}</label>
                       <input 
                         type="number" 
                         min="0"
@@ -2694,7 +2700,7 @@ export default function DashboardProducts({
                     </button>
                   ))}
                 </div>
-                {activeTenant.businessType !== 'pharmacy' && (
+                {!isPharmacyLike && (
                   <div className="grid gap-3 bg-slate-50 border border-slate-200 rounded-2xl p-3" style={{ display: 'grid', gridTemplateColumns: `repeat(${isTabletWidthOrWider ? 4 : 3}, minmax(0, 1fr))`, gap: '0.75rem' }}>
                     <div className="space-y-1">
                       <label className="text-[9px] font-bold text-slate-500 uppercase">Package Name</label>
@@ -2719,7 +2725,7 @@ export default function DashboardProducts({
                   </div>
                 )}
 
-                {allowScaleSelling && activeTenant.businessType !== 'pharmacy' && (
+                {allowScaleSelling && !isPharmacyLike && (
                   <div className="p-4 bg-slate-50 border border-emerald-100 rounded-2xl space-y-4">
                     {/* Mode Selector */}
                     <div>
@@ -2825,7 +2831,7 @@ export default function DashboardProducts({
                 )}
               </div>
 
-              {activeTenant.businessType === 'pharmacy' && (
+              {isPharmacyLike && (
                 <div className="space-y-4 pt-2 border-t border-slate-200">
                   <div className="flex items-center space-x-2">
                     {!isDesktopAddProductLayout && (
