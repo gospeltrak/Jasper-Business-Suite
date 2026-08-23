@@ -468,6 +468,13 @@ export interface PurchaseItem {
   productName: string;
   qty: number;
   costPrice: number;
+  // Universal Inventory Unit & Packaging Engine -- which package level was
+  // actually bought (e.g. "Box"), separate from the base-unit stock that
+  // was added. Undefined/omitted means the base unit was bought directly,
+  // exactly as before this was introduced.
+  packageLevelId?: string;
+  packageLevelLabel?: string;
+  baseQty?: number;
 }
 
 export interface Purchase {

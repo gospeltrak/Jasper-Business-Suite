@@ -5,6 +5,7 @@ import { getMaskedAccountReference } from '../utils/paymentAccounts';
 import ModernSelect from './ui/ModernSelect';
 import { addBatchToProduct, createInventoryBatch } from '../utils/inventoryCosting';
 import { formatProductQuantity } from '../utils/unitFormatter';
+import { calculateBaseCost, convertToBaseQuantity, getBaseUnitLabel, resolvePackageLevels } from '../utils/universalUnits';
 import { 
   Truck, 
   Package, 
@@ -72,7 +73,7 @@ export default function DashboardPurchases({
   const [deliveryStatus, setDeliveryStatus] = useState<'Pending' | 'Partial' | 'Full order delivered'>('Full order delivered');
   
   const [searchTerm, setSearchTerm] = useState('');
-  const [cart, setCart] = useState<Array<{ product: Product; qty: number; costPrice: number }>>([]);
+  const [cart, setCart] = useState<Array<{ product: Product; qty: number; costPrice: number; unitLevelId: string }>>([]);
   const [amountPaid, setAmountPaid] = useState<number>(0);
   const [paymentMethod, setPaymentMethod] = useState<string>('Cash');
   const [paidFromAccountId, setPaidFromAccountId] = useState<string>('');
@@ -216,7 +217,7 @@ export default function DashboardPurchases({
           : item
       ));
     } else {
-      setCart([...cart, { product, qty: 1, costPrice: product.costPrice }]);
+      setCart([...cart, { product, qty: 1, costPrice: product.costPrice, unitLevelId: 'base' }]);
     }
   };
 
@@ -224,15 +225,21 @@ export default function DashboardPurchases({
     if (val <= 0) {
       setCart(cart.filter(item => item.product.id !== productId));
     } else {
-      setCart(cart.map(item => 
+      setCart(cart.map(item =>
         item.product.id === productId ? { ...item, qty: val } : item
       ));
     }
   };
 
   const handleUpdateCostPrice = (productId: string, cost: number) => {
-    setCart(cart.map(item => 
+    setCart(cart.map(item =>
       item.product.id === productId ? { ...item, costPrice: Math.max(0, cost) } : item
+    ));
+  };
+
+  const handleUpdateUnitLevel = (productId: string, unitLevelId: string) => {
+    setCart(cart.map(item =>
+      item.product.id === productId ? { ...item, unitLevelId } : item
     ));
   };
 
@@ -260,12 +267,20 @@ export default function DashboardPurchases({
     const supplier = availableSuppliers.find(s => s.id === selectedSupplierId) || availableSuppliers[0];
     const paidFromAccount = paymentAccounts.find(account => account.id === paidFromAccountId);
 
-    const purchaseItems: PurchaseItem[] = cart.map(item => ({
-      productId: item.product.id,
-      productName: item.product.name,
-      qty: item.qty,
-      costPrice: item.costPrice
-    }));
+    const purchaseItems: PurchaseItem[] = cart.map(item => {
+      const level = item.unitLevelId !== 'base'
+        ? resolvePackageLevels(item.product).find(candidate => candidate.id === item.unitLevelId)
+        : undefined;
+      return {
+        productId: item.product.id,
+        productName: item.product.name,
+        qty: item.qty,
+        costPrice: item.costPrice,
+        packageLevelId: level?.id,
+        packageLevelLabel: level?.label,
+        baseQty: level ? convertToBaseQuantity(item.qty, item.unitLevelId, item.product) : undefined,
+      };
+    });
 
     const newPurchase: Purchase = {
       id: 'PC-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
@@ -289,7 +304,11 @@ export default function DashboardPurchases({
     const updatedProductsList = products.map(prod => {
       const cartItem = cart.find(item => item.product.id === prod.id);
       if (cartItem) {
-        const addedQty = cartItem.qty;
+        // Purchases can happen in a package unit (e.g. 2 Boxes) -- inventory
+        // and batch costing always operate on base units (e.g. 200 Capsules),
+        // never on the raw quantity the tenant typed.
+        const addedQty = convertToBaseQuantity(cartItem.qty, cartItem.unitLevelId, prod);
+        const baseCostPrice = calculateBaseCost(cartItem.costPrice, cartItem.unitLevelId, prod);
         let newShopQty = prod.shopStockQty;
         let newStoreQty = prod.storeStockQty;
         if (destination === 'shop') {
@@ -297,7 +316,7 @@ export default function DashboardPurchases({
         } else {
           newStoreQty += addedQty;
         }
-        const batch = createInventoryBatch(prod, addedQty, cartItem.costPrice, {
+        const batch = createInventoryBatch(prod, addedQty, baseCostPrice, {
           supplierName: supplier.name,
           finalSellingPrice: prod.sellingPrice,
           purchaseDate: newPurchase.timestamp,
@@ -1419,6 +1438,25 @@ export default function DashboardPurchases({
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
+                        {(() => {
+                          const levels = resolvePackageLevels(item.product);
+                          if (levels.length === 0) return null;
+                          return (
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-slate-400 text-[10px] font-black font-mono">BUYING AS:</span>
+                              <ModernSelect
+                                title="Buying as"
+                                value={item.unitLevelId}
+                                onChange={(value) => handleUpdateUnitLevel(item.product.id, value)}
+                                options={[
+                                  { value: 'base', label: getBaseUnitLabel(item.product) },
+                                  ...levels.map(level => ({ value: level.id, label: level.label })),
+                                ]}
+                                buttonClassName="!min-h-[28px] !px-2 !text-[10px] !bg-white"
+                              />
+                            </div>
+                          );
+                        })()}
                         <div className="flex items-center justify-between gap-4 pt-1.5 border-t border-slate-200/60 font-mono text-xs">
                           <div className="flex items-center space-x-1">
                             <span className="text-slate-400 text-[10px] font-black">COST:</span>
