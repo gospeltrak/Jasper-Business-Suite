@@ -52,6 +52,7 @@ import {
   Scale
 } from 'lucide-react';
 import { formatProductQuantity, formatSaleItemQuantity, getProductUnitName } from '../utils/unitFormatter';
+import { getDisplayStockBreakdown, resolvePackageLevels } from '../utils/universalUnits';
 import { downloadPdfFromElement } from '../utils/pdfShare';
 import CachedImage from './CachedImage';
 import ModernSelect from './ui/ModernSelect';
@@ -2348,6 +2349,21 @@ export default function DashboardReports({
         )}        {/* TAB 3: SKU STOCK & CREDIT VALUATIONS */}
         {reportTab === 'inventory' && (() => {
           const showProfitCogs = rolePermissions?.reportsProfitCogs?.read !== false;
+          // Backend already knows exact expiry dates (Stage 4 batches); this
+          // report only needs a simple human summary, never raw base units.
+          const getExpirySummary = (product: Product): string | null => {
+            const batches = (product.batches || []).filter(b => b.status === 'active' && b.expiryDate);
+            if (batches.length === 0) return null;
+            const now = Date.now();
+            const expired = batches.filter(b => new Date(b.expiryDate!).getTime() < now).length;
+            const expiringSoon = batches.filter(b => {
+              const daysLeft = (new Date(b.expiryDate!).getTime() - now) / 86400000;
+              return daysLeft >= 0 && daysLeft <= 30;
+            }).length;
+            if (expired > 0) return `${expired} batch${expired === 1 ? '' : 'es'} expired`;
+            if (expiringSoon > 0) return `${expiringSoon} batch${expiringSoon === 1 ? '' : 'es'} expiring soon`;
+            return null;
+          };
           return (
             <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 space-y-6">
               <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-100 pb-4 gap-4">
@@ -2463,6 +2479,10 @@ export default function DashboardReports({
                         const product = p.product;
                         const stockIsLow = p.totalQty <= (product.alertQty || 0);
                         const totalCogsValue = p.cogsShop + p.cogsStore + p.cogsCredit > 0 ? p.totalCogs : 0;
+                        const hasPackaging = resolvePackageLevels(product).length > 0;
+                        const displayQty = (qty: number, prod: Product) => (
+                          hasPackaging ? getDisplayStockBreakdown(qty, prod) : formatProductQuantity(qty, prod)
+                        );
                         return (
                           <tr key={p.id} className="hover:bg-slate-50/70 transition-colors align-middle">
                             <td className="p-4">
@@ -2479,21 +2499,24 @@ export default function DashboardReports({
                                   <div className="flex flex-wrap gap-1.5 mt-1.5">
                                     <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100 text-[9px] font-mono font-bold uppercase">SKU {p.sku || 'N/A'}</span>
                                     <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200 text-[9px] font-mono font-bold uppercase max-w-[160px] truncate">{p.category || 'Uncategorized'}</span>
+                                    {getExpirySummary(product) && (
+                                      <span className="px-2 py-0.5 rounded-full bg-rose-50 text-rose-600 border border-rose-100 text-[9px] font-mono font-bold uppercase">⏳ {getExpirySummary(product)}</span>
+                                    )}
                                   </div>
                                 </div>
                               </div>
                             </td>
                             <td className="p-4 text-center">
-                              <span className="inline-flex justify-center min-w-[92px] px-3 py-2 rounded-2xl bg-emerald-50 border border-emerald-100 font-black text-emerald-800">{formatProductQuantity(p.shopQty, product)}</span>
+                              <span className="inline-flex justify-center min-w-[92px] px-3 py-2 rounded-2xl bg-emerald-50 border border-emerald-100 font-black text-emerald-800">{displayQty(p.shopQty, product)}</span>
                             </td>
                             <td className="p-4 text-center">
-                              <span className="inline-flex justify-center min-w-[92px] px-3 py-2 rounded-2xl bg-blue-50 border border-blue-100 font-black text-blue-800">{formatProductQuantity(p.storeQty, product)}</span>
+                              <span className="inline-flex justify-center min-w-[92px] px-3 py-2 rounded-2xl bg-blue-50 border border-blue-100 font-black text-blue-800">{displayQty(p.storeQty, product)}</span>
                             </td>
                             <td className="p-4 text-center">
-                              <span className="inline-flex justify-center min-w-[92px] px-3 py-2 rounded-2xl bg-amber-50 border border-amber-100 font-black text-amber-800">{formatProductQuantity(p.creditIssuedQty, product)}</span>
+                              <span className="inline-flex justify-center min-w-[92px] px-3 py-2 rounded-2xl bg-amber-50 border border-amber-100 font-black text-amber-800">{displayQty(p.creditIssuedQty, product)}</span>
                             </td>
                             <td className="p-4 text-center">
-                              <span className={`inline-flex justify-center min-w-[92px] px-3 py-2 rounded-2xl border font-black ${stockIsLow ? 'bg-amber-50 border-amber-100 text-amber-800' : 'bg-slate-50 border-slate-200 text-slate-900'}`}>{formatProductQuantity(p.totalQty, product)}</span>
+                              <span className={`inline-flex justify-center min-w-[92px] px-3 py-2 rounded-2xl border font-black ${stockIsLow ? 'bg-amber-50 border-amber-100 text-amber-800' : 'bg-slate-50 border-slate-200 text-slate-900'}`}>{displayQty(p.totalQty, product)}</span>
                             </td>
                             {showProfitCogs && <td className="p-4 text-right font-mono text-slate-600">{currency}{totalCogsValue.toLocaleString()}</td>}
                             <td className="p-4 text-right font-mono font-black text-slate-900">{currency}{p.totalValue.toLocaleString()}</td>

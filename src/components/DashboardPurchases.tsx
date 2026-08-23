@@ -413,7 +413,10 @@ export default function DashboardPurchases({
                   <div key={i} className="flex justify-between items-center bg-slate-50 rounded-xl px-3.5 py-2.5 text-xs">
                     <span className="font-semibold text-slate-700 truncate max-w-[55%]">{it.productName}</span>
                     <div className="text-right">
-                      <span className="font-black text-slate-800 font-mono">×{it.qty}</span>
+                      <span className="font-black text-slate-800 font-mono">×{it.qty}{it.packageLevelLabel ? ` ${it.packageLevelLabel}` : ''}</span>
+                      {it.packageLevelLabel && it.baseQty !== undefined && (
+                        <span className="text-slate-400 ml-1.5 font-mono text-[10px]">({it.baseQty} base)</span>
+                      )}
                       <span className="text-slate-400 ml-2 font-mono">{currency}{it.costPrice?.toLocaleString()}</span>
                     </div>
                   </div>
