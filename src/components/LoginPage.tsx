@@ -224,7 +224,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   // Tenant Workspace Onboarding States
   const [onboardingUser, setOnboardingUser] = useState<User | null>(null);
   const [onboardingBusinessName, setOnboardingBusinessName] = useState('');
-  const [onboardingBusinessType, setOnboardingBusinessType] = useState('Retail');
+  const [onboardingBusinessType, setOnboardingBusinessType] = useState('');
   const [onboardingCity, setOnboardingCity] = useState('Dar es Salaam');
   const [onboardingPhone, setOnboardingPhone] = useState('');
 
@@ -523,6 +523,10 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     if (!onboardingUser) return;
     if (!onboardingBusinessName.trim() || normalizePhoneForWhatsapp(onboardingPhone).length < 10) {
       setError('Please enter your business name and a valid phone number.');
+      return;
+    }
+    if (!onboardingBusinessType) {
+      setError('Please choose your business industry niche/type.');
       return;
     }
     if (!acceptedTenantLegal) {
@@ -1475,17 +1479,31 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-500 uppercase block tracking-wider font-mono">Business Type</label>
-                <select
-                  value={onboardingBusinessType}
-                  onChange={(e) => setOnboardingBusinessType(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl px-3 py-2.5 text-xs text-slate-800 outline-none cursor-pointer"
-                >
-                  <option value="Retail">Retail</option>
-                  <option value="Wholesale">Wholesale</option>
-                  <option value="Retail & Wholesale">Retail & Wholesale</option>
-                  <option value="Pharmacy">Pharmacy</option>
-                </select>
+                <label className="text-[10px] font-bold text-slate-500 uppercase block tracking-wider font-mono">Business Industry Niche / Type</label>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { value: 'Retail & Wholesale', label: 'Retail & Wholesale', icon: '🛒', desc: 'Shops, supermarkets, distributors' },
+                    { value: 'Pharmacy', label: 'Pharmacy', icon: '💊', desc: 'Clinics, dispensaries, chemists' },
+                  ].map(niche => (
+                    <button
+                      key={niche.value}
+                      type="button"
+                      onClick={() => setOnboardingBusinessType(niche.value)}
+                      className={`p-4 rounded-2xl border-2 text-left transition-all cursor-pointer ${
+                        onboardingBusinessType === niche.value
+                          ? 'border-emerald-500 bg-emerald-50 shadow-sm'
+                          : 'border-slate-200 bg-slate-50 hover:border-slate-300 hover:bg-white'
+                      }`}
+                    >
+                      <span className="text-2xl block mb-1">{niche.icon}</span>
+                      <span className={`block text-xs font-black ${onboardingBusinessType === niche.value ? 'text-emerald-800' : 'text-slate-700'}`}>{niche.label}</span>
+                      <span className="block text-[10px] text-slate-400 font-medium mt-0.5 leading-snug">{niche.desc}</span>
+                      {onboardingBusinessType === niche.value && (
+                        <span className="mt-1.5 inline-block text-[9px] font-black uppercase tracking-wider text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">Selected ✓</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div className="space-y-1.5">
