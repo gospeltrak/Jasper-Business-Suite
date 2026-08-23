@@ -43,6 +43,7 @@ import {
   mapCostingMethodToLegacy,
 } from '../utils/inventoryCosting';
 import { formatProductQuantity } from '../utils/unitFormatter';
+import { classifyUniversalImportRows, downloadableUniversalTemplate } from '../utils/bulkProductImport';
 import { compressImageFile } from '../utils/imageCompression';
 import { safeSetJsonItem } from '../utils/dataSafety';
 import { generateUniqueEan13Barcode } from '../utils/barcode';
@@ -903,6 +904,9 @@ export default function DashboardProducts({
   const [csvUploadError, setCsvUploadError] = useState<string | null>(null);
   const [csvUploadSuccess, setCsvUploadSuccess] = useState<string | null>(null);
   const csvInputRef = useRef<HTMLInputElement>(null);
+  // Universal/Medicine-aware bulk import (Stage 8) -- a second, separate
+  // import path; the Retail template/importer above is untouched.
+  const universalCsvInputRef = useRef<HTMLInputElement>(null);
 
   // Stock Transfer Modal state
   const [transferProduct, setTransferProduct] = useState<Product | null>(null);
@@ -1491,6 +1495,80 @@ export default function DashboardProducts({
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const downloadUniversalTemplate = () => {
+    const encodedUri = encodeURI('data:text/csv;charset=utf-8,' + downloadableUniversalTemplate());
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', 'jasper_universal_products_template.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const registerImportedCategories = (importedItems: Product[]) => {
+    const importedCategories = Array.from(
+      new Set(importedItems.map(p => p.category?.trim()).filter(Boolean))
+    ) as string[];
+    if (importedCategories.length === 0) return;
+    const existingCategories: string[] = systemSettings?.productStore?.categories || [];
+    const existingNormalized = existingCategories.map(c => c.trim().toLowerCase());
+    const newCategories = importedCategories.filter(c => !existingNormalized.includes(c.toLowerCase()));
+    if (newCategories.length > 0) {
+      onUpdateSettings({
+        ...systemSettings,
+        productStore: { ...systemSettings.productStore, categories: [...existingCategories, ...newCategories] },
+      } as any);
+    }
+  };
+
+  const handleUniversalCsvImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setCsvUploadError(null);
+    setCsvUploadSuccess(null);
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const text = evt.target?.result as string;
+        const summary = classifyUniversalImportRows(text);
+
+        if (summary.results.length === 0) {
+          setCsvUploadError('The selected spreadsheet is empty or contains only column headers.');
+          return;
+        }
+        if (summary.readyProducts.length === 0) {
+          const firstErrors = summary.results.filter(r => r.status === 'error').slice(0, 3)
+            .map(r => `Row ${r.rowNumber}: ${r.messages.join(' ')}`).join(' ');
+          setCsvUploadError(`No rows could be imported. ${firstErrors}`);
+          return;
+        }
+
+        if (subscriptionStatus) {
+          if (subscriptionStatus.isExpired) { onTriggerUpgrade?.('expired'); return; }
+          if (products.length + summary.readyProducts.length > subscriptionStatus.plan.maxProducts) {
+            onTriggerUpgrade?.('products');
+            return;
+          }
+        }
+
+        summary.readyProducts.forEach(item => onAddProduct(item));
+        registerImportedCategories(summary.readyProducts);
+
+        const errorNote = summary.error > 0
+          ? ` (${summary.error} row${summary.error === 1 ? '' : 's'} skipped: ${summary.results.filter(r => r.status === 'error').slice(0, 2).map(r => r.messages[0]).join('; ')}${summary.error > 2 ? '…' : ''})`
+          : '';
+        const warningNote = summary.warning > 0 ? ` (${summary.warning} imported with warnings)` : '';
+        setCsvUploadSuccess(`Universal spreadsheet uploaded! Imported ${summary.readyProducts.length} products.${warningNote}${errorNote}`);
+        if (universalCsvInputRef.current) universalCsvInputRef.current.value = '';
+      } catch (error: any) {
+        setCsvUploadError(error?.message || 'Failed to parse the selected spreadsheet.');
+      }
+    };
+    reader.readAsText(file);
   };
 
   const downloadProductCatalogue = () => {
@@ -2157,6 +2235,33 @@ export default function DashboardProducts({
                   </div>
                 </div>
                 <button
+                  onClick={downloadUniversalTemplate}
+                  className="flex items-center gap-3 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 active:bg-slate-100 text-left"
+                >
+                  <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-900/40 flex items-center justify-center shrink-0">
+                    <Download className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                  </div>
+                  <div>
+                    <p className="text-[12px] font-bold text-slate-800 dark:text-white leading-tight">Medicine Template</p>
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Product Type + packaging</p>
+                  </div>
+                </button>
+
+                <div className="relative">
+                  <input type="file" accept=".csv" ref={universalCsvInputRef} onChange={handleUniversalCsvImport}
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" />
+                  <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-left">
+                    <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-900/40 flex items-center justify-center shrink-0">
+                      <Upload className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                    </div>
+                    <div>
+                      <p className="text-[12px] font-bold text-slate-800 dark:text-white leading-tight">Medicine Import</p>
+                      <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Header-based CSV</p>
+                    </div>
+                  </div>
+                </div>
+
+                <button
                   onClick={downloadProductCatalogue}
                   disabled={products.length === 0}
                   className="col-span-2 flex items-center justify-center gap-3 p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-100 dark:border-emerald-800 active:bg-emerald-100 text-left disabled:opacity-50"
@@ -2203,6 +2308,21 @@ export default function DashboardProducts({
                   <button className="h-9 px-3.5 flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 transition-colors">
                     <Upload className="w-3.5 h-3.5 text-blue-600" />
                     <span>Bulk Upload</span>
+                  </button>
+                </div>
+
+                <button onClick={downloadUniversalTemplate}
+                  className="h-9 px-3.5 flex items-center gap-1.5 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-white dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-slate-700 text-xs font-bold text-indigo-700 dark:text-indigo-300 transition-colors">
+                  <Download className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>Medicine Template</span>
+                </button>
+
+                <div className="relative h-9">
+                  <input type="file" accept=".csv" ref={universalCsvInputRef} onChange={handleUniversalCsvImport}
+                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" />
+                  <button className="h-9 px-3.5 flex items-center gap-1.5 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-white dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-slate-700 text-xs font-bold text-indigo-700 dark:text-indigo-300 transition-colors">
+                    <Upload className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>Medicine Import</span>
                   </button>
                 </div>
 
