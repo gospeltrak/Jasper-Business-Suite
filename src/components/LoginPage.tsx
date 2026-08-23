@@ -1500,6 +1500,20 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                 />
               </div>
 
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase block tracking-wider font-mono">Promo Code (Optional)</label>
+                <input
+                  type="text"
+                  value={affiliateCode}
+                  placeholder="Enter PROMO CODE"
+                  onChange={(e) => setAffiliateCode(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 font-bold uppercase tracking-wider outline-none placeholder:font-bold placeholder:uppercase placeholder:text-slate-400"
+                />
+                <p className="text-[9.5px] text-slate-500 leading-normal">
+                  Register with a promo code to get 20 free days instead of 10.
+                </p>
+              </div>
+
               <div className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-[11px] leading-relaxed text-slate-600">
                 <button
                   type="button"
