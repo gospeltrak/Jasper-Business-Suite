@@ -19,7 +19,8 @@ import {
   MessageCircle,
   RefreshCw,
   Eye,
-  EyeOff
+  EyeOff,
+  Check
 } from 'lucide-react';
 import { DEMO_USERS, DEFAULT_TENANTS } from '../data';
 import { User, Tenant } from '../types';
@@ -1499,10 +1500,20 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                 />
               </div>
 
-              <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-[11px] leading-relaxed text-slate-600">
-                <input type="checkbox" checked={acceptedTenantLegal} onChange={(e) => setAcceptedTenantLegal(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-emerald-600" />
+              <div className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-[11px] leading-relaxed text-slate-600">
+                <button
+                  type="button"
+                  onClick={() => setAcceptedTenantLegal(!acceptedTenantLegal)}
+                  aria-pressed={acceptedTenantLegal}
+                  aria-label="I agree to Orvix's Terms and Privacy Policy"
+                  className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors cursor-pointer ${
+                    acceptedTenantLegal ? 'border-emerald-600 bg-emerald-600' : 'border-slate-300 bg-white'
+                  }`}
+                >
+                  {acceptedTenantLegal && <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />}
+                </button>
                 <span>I agree to Orvix's <button type="button" onClick={() => setTenantLegalModalType('terms')} className="font-bold text-emerald-700 underline">Terms</button> and <button type="button" onClick={() => setTenantLegalModalType('privacy')} className="font-bold text-emerald-700 underline">Privacy Policy</button>.</span>
-              </label>
+              </div>
 
               <button
                 type="submit"
