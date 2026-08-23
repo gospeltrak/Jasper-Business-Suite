@@ -145,6 +145,51 @@ export interface ProductInventorySettings {
   pharmacyUnitBreakdown?: PharmacyUnitBreakdown;
 }
 
+// ─── Universal Inventory Unit & Packaging Engine ────────────────────────────
+// One shared model for Pharmacy dosage packaging (Box -> Blister -> Tablet)
+// and Retail measured/packaged goods (Sack -> Kg, Carton -> Piece). A
+// conversion always belongs to a specific product's packageLevels entry,
+// never to a unit name globally -- two products can both use the label
+// "Sack" with completely different quantityInBaseUnit values.
+export type ProductType =
+  | 'medicine'
+  | 'medical_supply'
+  | 'personal_care'
+  | 'cosmetics_beauty'
+  | 'baby_care'
+  | 'hygiene'
+  | 'supplements'
+  | 'food_drinks'
+  | 'general_retail';
+
+export type DosageForm =
+  | 'tablet' | 'capsule' | 'syrup' | 'suspension' | 'oral_solution' | 'drops'
+  | 'cream' | 'ointment' | 'gel' | 'injection' | 'inhaler' | 'sachet'
+  | 'powder' | 'suppository' | 'other';
+
+export interface UniversalPackageLevel {
+  id: string;
+  label: string; // the tenant's own word for this level, e.g. "Box", "Blister", "Sack"
+  quantityInBaseUnit: number; // product-specific; never shared across products
+  isPurchaseUnit?: boolean; // the level normally used when buying stock
+}
+
+export interface UniversalSellingUnit {
+  id: string;
+  packageLevelId: string; // references a UniversalPackageLevel.id, or 'base' for the base unit itself
+  label: string; // shown in POS, e.g. "Capsule", "Blister", "Kg"
+  price: number; // independent of packageLevel math -- not forced to equal qty * base price
+  isDefault?: boolean;
+}
+
+export interface UniversalPreset {
+  id: string;
+  label: string; // "Full Dose", "Half Dose", "1/4 Kg" -- a POS shortcut, not an inventory unit
+  quantityInBaseUnit: number;
+  price?: number;
+  isDefault?: boolean;
+}
+
 export interface PriceChangeInfo {
   previousBuyingPrice: number;
   newBuyingPrice: number;
@@ -224,6 +269,25 @@ export interface Product {
   averageBuyingCost?: number;
   batches?: ProductBatch[];
   branchId?: string;
+
+  // Universal Inventory Unit & Packaging Engine (additive; legacy pharmacy
+  // dosage fields and legacy bulk-selling fields above remain untouched and
+  // keep working for products that only have those set).
+  productType?: ProductType;
+  // Medicine-specific -- only meaningful when productType === 'medicine'
+  genericName?: string;
+  manufacturer?: string;
+  dosageForm?: DosageForm;
+  strengthValue?: number;
+  strengthUnit?: string; // e.g. "mg", "ml", "%"
+  strengthDenominator?: string; // e.g. "per tablet", "per 5ml"
+  prescriptionRequired?: boolean;
+  // Shared packaging/selling model (Pharmacy and Retail both use this)
+  packageLevels?: UniversalPackageLevel[];
+  sellingUnits?: UniversalSellingUnit[];
+  dispensingPresets?: UniversalPreset[];
+  trackBatch?: boolean;
+  trackExpiry?: boolean;
 }
 
 export interface ProductBatch {
@@ -246,6 +310,10 @@ export interface ProductBatch {
   status: 'active' | 'finished';
   createdBy: string;
   createdAt: string;
+  // FEFO support -- optional; a batch with no expiryDate is treated as
+  // never-expiring and falls back to existing oldest-createdAt ordering.
+  expiryDate?: string;
+  manufacturingDate?: string;
 }
 
 export interface SaleBatchInfo {
