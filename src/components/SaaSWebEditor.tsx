@@ -24,7 +24,6 @@ import {
 import { DEFAULT_TENANTS } from '../data';
 import { loadPlatformRecord, savePlatformRecord } from '../utils/superAdminPlatformRecords';
 import { ONLINE_ONLY_WRITE_MESSAGE } from '../utils/onlineOnly';
-import SaaSAdPlacementsPanel from './SaaSAdPlacementsPanel';
 import { compressImageFile } from '../utils/imageCompression';
 import { loadSuperAdminOverview } from '../utils/superAdminData';
 import { getSecureDataBridgeClient } from '../secureDataBridge';
@@ -1329,10 +1328,6 @@ export default function SaaSWebEditor() {
                 <span className="text-[8px] text-slate-500">© 2026 JASPER SUITE</span>
               </div>
             </div>
-          </div>
-
-          <div className="pt-4 border-t border-slate-800">
-            <SaaSAdPlacementsPanel compact />
           </div>
 
           <div className="pt-4 border-t border-slate-800 space-y-2">
