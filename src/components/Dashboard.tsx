@@ -1562,13 +1562,15 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
 
   const subscriptionReminder = getSubscriptionReminder(
     subStatus.plan.id,
+    subStatus.plan.name,
     subStatus.daysRemaining,
     subStatus.isExpired,
+    isTrialAccount,
   );
   const subscriptionReminderKey = subscriptionReminder
     ? getSubscriptionReminderKey(
       activeTenant.id,
-      subStatus.state.subscriptionEndAt,
+      isTrialAccount ? subStatus.state.trialStartedAt : subStatus.state.subscriptionEndAt,
       subscriptionReminder,
     )
     : null;
@@ -1591,7 +1593,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     if (sessionStorage.getItem(notifiedKey) === 'sent') return;
     addSubscriptionReminderNotification({
       tenantId: activeTenant.id,
-      title: subscriptionReminder.level === 'expired' ? 'Tanzanite package expired' : subscriptionReminder.title,
+      title: subscriptionReminder.title,
       message: subscriptionReminder.message,
     });
     sessionStorage.setItem(notifiedKey, 'sent');
@@ -1611,7 +1613,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
           onClick={() => {
           setSubModal({
             show: true,
-            title: subscriptionReminder.level === 'expired' ? 'Renew Tanzanite' : 'Renew Subscription',
+            title: subscriptionReminder.level === 'trial' ? 'Upgrade Now' : 'Renew Subscription',
             limitType: 'expired',
             description: subscriptionReminder.message,
           });
