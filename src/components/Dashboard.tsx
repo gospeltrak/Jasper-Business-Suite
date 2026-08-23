@@ -48,7 +48,7 @@ import DuressDashboard from './DuressDashboard';
 import CachedImage from './CachedImage';
 import { savePendingSaleOffline } from '../utils/offlineDb';
 import { createCleanTenantSettings, isDemoTenant } from '../utils/tenantIsolation';
-import { flushPendingTenantWorkspace, hasPendingTenantWorkspaceSave, loadTenantWorkspace, markTenantProductsUpdated, saveTenantSettings, saveTenantWorkspace, scheduleTenantWorkspaceSave, subscribeToTenantWorkspace, TenantWorkspace, workspaceHasBusinessData } from '../utils/tenantWorkspace';
+import { flushPendingTenantWorkspace, hasPendingTenantWorkspaceSave, loadTenantWorkspace, markTenantProductsUpdated, saveTenantSettings, saveTenantWorkspace, scheduleTenantWorkspaceSave, subscribeToTenantBusinessType, subscribeToTenantWorkspace, TenantWorkspace, workspaceHasBusinessData } from '../utils/tenantWorkspace';
 import { safeSetJsonItem, safeSetTenantMapItem } from '../utils/dataSafety';
 import { findPaymentChannel, getTreasuryPaymentMethods, reconcilePaymentChannels } from '../utils/paymentAccounts';
 import { attachPayloadProductTombstones, markLocalProductTombstones, readLocalProductTombstones, stampProductsForSync } from '../utils/productSync';
@@ -314,6 +314,21 @@ const normalizeSystemSettings = (
     customRoles: Array.isArray(merged?.customRoles) ? merged.customRoles : [],
     paymentChannels: Array.isArray(merged?.paymentChannels) ? merged.paymentChannels : [],
   };
+};
+
+// The local `jasper_custom_tenants` cache is written once at registration
+// and otherwise never re-synced from the server. Keep it in step so a
+// Super Admin-driven business type change (retail/pharmacy) still shows the
+// right value after this browser reloads or the tenant re-logs in later.
+const patchCachedTenantBusinessType = (tenantId: string, businessType: string) => {
+  try {
+    const cached = JSON.parse(onlineStorage.getItem('jasper_custom_tenants') || '[]');
+    if (!Array.isArray(cached)) return;
+    const next = cached.map((tenant: any) => (
+      tenant && tenant.id === tenantId ? { ...tenant, businessType } : tenant
+    ));
+    onlineStorage.setItem('jasper_custom_tenants', JSON.stringify(next));
+  } catch { /* ignore */ }
 };
 
 type SubscriptionCheckoutRenderState = {
@@ -693,6 +708,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
   useEffect(() => {
     let active = true;
     let unsubscribe = () => undefined;
+    let unsubscribeBusinessType = () => undefined;
     let refreshInFlight = false;
     cloudWorkspaceLoadedRef.current = false;
     localWorkspaceChangedAtRef.current = 0;
@@ -777,6 +793,14 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       unsubscribe = cleanup;
     });
 
+    subscribeToTenantBusinessType(activeTenant.id, (businessType) => {
+      if (!active) return;
+      setActiveTenant(prev => prev.businessType === businessType ? prev : { ...prev, businessType: businessType as Tenant['businessType'] });
+      patchCachedTenantBusinessType(activeTenant.id, businessType);
+    }).then((cleanup) => {
+      unsubscribeBusinessType = cleanup;
+    });
+
     const handleOnline = () => {
       refreshWorkspaceFromDatabase(true);
     };
@@ -798,7 +822,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     // unsubscribe on pagehide (fires more reliably than beforeunload,
     // including on iOS Safari) closes it immediately instead of leaving it
     // for that server-side timeout to clean up.
-    const handlePageHide = () => { unsubscribe(); };
+    const handlePageHide = () => { unsubscribe(); unsubscribeBusinessType(); };
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('focus', handleFocus);
@@ -812,6 +836,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       window.removeEventListener('focus', handleFocus);
       window.removeEventListener('pagehide', handlePageHide);
       unsubscribe();
+      unsubscribeBusinessType();
     };
   }, [activeTenant.id]);
 

@@ -38,6 +38,7 @@ export interface SuperAdminUserRow {
   paymentMethod: string;
   dateCreated: string;
   status: 'Active' | 'Suspended' | 'Expired';
+  businessType: 'retail' | 'pharmacy';
   // Location — from tenant business setup, GPS, or region fields
   location: string;            // human-readable label shown in table
   locationSource: 'gps' | 'business_setup' | 'manual' | 'none';
@@ -860,6 +861,7 @@ export function mapSuperAdminUsers(overview: SuperAdminOverview): SuperAdminUser
         paymentMethod: readTenantSettings(tenant)?.paymentMethod || 'Not recorded',
         dateCreated: formatDate(user.created_at || tenant?.created_at),
         status: (user.is_active === false ? 'Suspended' : 'Active') as SuperAdminUserRow['status'],
+        businessType: (tenant?.business_type === 'pharmacy' ? 'pharmacy' : 'retail') as SuperAdminUserRow['businessType'],
         ...resolveLocation(tenant, user),
         // Last activity is the latest cloud heartbeat, not tenant metadata or
         // the time at which an old session originally logged in.
@@ -939,6 +941,7 @@ export function mapSuperAdminUsers(overview: SuperAdminOverview): SuperAdminUser
         paymentMethod: readTenantSettings(tenant)?.paymentMethod || 'Not recorded',
         dateCreated: formatDate(tenant.created_at),
         status: (tenant.is_active === false ? 'Suspended' : 'Active') as SuperAdminUserRow['status'],
+        businessType: (tenant?.business_type === 'pharmacy' ? 'pharmacy' : 'retail') as SuperAdminUserRow['businessType'],
         ...resolveLocation(tenant, {}),
         lastActivity,
         lastActivityLabel: activityLabel(lastActivity, tenantIsOnline),

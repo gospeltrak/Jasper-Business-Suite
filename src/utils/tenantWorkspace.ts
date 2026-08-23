@@ -901,6 +901,42 @@ export async function subscribeToTenantWorkspace(
   }
 }
 
+// A tenant's business type (retail vs pharmacy) lives on the `tenants` row,
+// not inside the workspace payload, so it needs its own lightweight
+// subscription -- reuses the same realtime channel/client as the workspace
+// subscription above, no polling added.
+export async function subscribeToTenantBusinessType(
+  tenantId: string,
+  onBusinessType: (businessType: string) => void
+): Promise<() => void> {
+  const client = await getConfiguredClient();
+  if (!client) return () => undefined;
+
+  try {
+    const channelId = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    const channel: RealtimeChannel = client
+      .channel(`tenant-business-type:${tenantId}:${channelId}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'tenants', filter: `id=eq.${tenantId}` },
+        (event: any) => {
+          const businessType = event.new?.business_type;
+          if (typeof businessType === 'string' && businessType) {
+            onBusinessType(businessType);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      try { client.removeChannel(channel); } catch { /* ignore */ }
+    };
+  } catch (e) {
+    console.warn('[workspace] business type subscribe exception:', e);
+    return () => undefined;
+  }
+}
+
 // ─── Initialize empty workspace for new tenants ────────────────────────────
 
 export function emptyWorkspace(settings?: Partial<SystemSettings>): TenantWorkspace {

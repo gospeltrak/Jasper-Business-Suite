@@ -2927,7 +2927,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       const adminUser = await requirePlatformAdmin(req);
       const targetUserId = String(req.params.id || '');
       if (!isUuid(targetUserId)) return res.status(400).json({ error: 'Invalid user identifier.' });
-      const { name, email, phone, roleKey, rolePermissions, isActive } = req.body || {};
+      const { name, email, phone, roleKey, rolePermissions, isActive, businessType } = req.body || {};
       const updates: Record<string, any> = {};
       if (typeof name === 'string') updates.name = normalizeText(name);
       if (typeof email === 'string') updates.email = normalizeEmail(email);
@@ -2939,28 +2939,56 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       if (rolePermissions && typeof rolePermissions === 'object') updates.role_permissions = rolePermissions;
       if (typeof isActive === 'boolean') updates.is_active = isActive;
 
-      if (Object.keys(updates).length === 0) return res.status(400).json({ error: 'No user fields supplied.' });
+      const normalizedBusinessType = typeof businessType === 'string' && ['retail', 'pharmacy'].includes(businessType)
+        ? businessType
+        : undefined;
+      if (typeof businessType === 'string' && !normalizedBusinessType) {
+        return res.status(400).json({ error: 'Business type must be "retail" or "pharmacy".' });
+      }
 
-      const { data, error } = await adminTable('users')
-        .update(updates)
-        .eq('id', targetUserId)
-        .select('*')
-        .single();
-      if (error) throw error;
+      if (Object.keys(updates).length === 0 && !normalizedBusinessType) {
+        return res.status(400).json({ error: 'No user fields supplied.' });
+      }
+
+      let data: any = null;
+      if (Object.keys(updates).length > 0) {
+        const { data: updatedUser, error } = await adminTable('users')
+          .update(updates)
+          .eq('id', targetUserId)
+          .select('*')
+          .single();
+        if (error) throw error;
+        data = updatedUser;
+      } else {
+        const { data: existingUser, error } = await adminTable('users')
+          .select('*')
+          .eq('id', targetUserId)
+          .single();
+        if (error) throw error;
+        data = existingUser;
+      }
 
       if (typeof email === 'string' && normalizeEmail(email)) {
         await supabaseAdmin!.auth.admin.updateUserById(targetUserId, { email: normalizeEmail(email), email_confirm: true });
       }
 
+      const targetTenantId = (data as any)?.tenant_id || null;
+      if (normalizedBusinessType && targetTenantId) {
+        const { error: tenantError } = await adminTable('tenants')
+          .update({ business_type: normalizedBusinessType })
+          .eq('id', targetTenantId);
+        if (tenantError) throw tenantError;
+      }
+
       await adminTable('super_admin_audit_logs').insert({
         actor_user_id: adminUser.id,
         target_user_id: targetUserId,
-        target_tenant_id: (data as any)?.tenant_id || null,
+        target_tenant_id: targetTenantId,
         action: 'user_updated',
-        metadata: updates
+        metadata: normalizedBusinessType ? { ...updates, business_type: normalizedBusinessType } : updates
       });
 
-      return res.json({ user: data });
+      return res.json({ user: data, businessType: normalizedBusinessType || undefined });
     } catch (error: any) {
       return platformAdminError(res, error);
     }

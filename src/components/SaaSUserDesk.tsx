@@ -106,6 +106,10 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
   // Custom password reset state
   const [newPasswordValue, setNewPasswordValue] = useState('');
 
+  // Business type (retail/pharmacy) correction state
+  const [isEditingBusinessType, setIsEditingBusinessType] = useState(false);
+  const [isSavingBusinessType, setIsSavingBusinessType] = useState(false);
+
   // Pager settings for live logs
   useEffect(() => {
     loadUsersData();
@@ -173,6 +177,7 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
     setEditPaymentStatus(user.paymentStatus);
     setEditStatus(user.status);
     setBizSubTab('messages');
+    setIsEditingBusinessType(false);
     if (!user.tenantId || !overviewRef.current) return;
 
     const controller = new AbortController();
@@ -342,6 +347,30 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
       setNewPasswordValue('');
     } catch (error: any) {
       alert(error?.message || 'Unable to reset password.');
+    }
+  };
+
+  const handleBusinessTypeChange = async (nextType: 'retail' | 'pharmacy') => {
+    if (!selectedUser || selectedUser.businessType === nextType) {
+      setIsEditingBusinessType(false);
+      return;
+    }
+    if (!(await verifySecureKey())) return;
+
+    setIsSavingBusinessType(true);
+    try {
+      await updateSuperAdminUser(selectedUser.id, { businessType: nextType });
+      const updatedUser: UserAccount = { ...selectedUser, businessType: nextType };
+      const updatedUsersList = users.map(u => u.id === selectedUser.id ? updatedUser : u);
+      setUsers(updatedUsersList);
+      setSelectedUser(updatedUser);
+      setIsEditingBusinessType(false);
+      handleAuditLog(`Changed business type to ${nextType}`, selectedUser.name);
+      alert(`Business type updated to ${nextType === 'pharmacy' ? 'Pharmacy' : 'Retail & Wholesale'}. The tenant's active session updates automatically.`);
+    } catch (error: any) {
+      alert(error?.message || 'Unable to update business type.');
+    } finally {
+      setIsSavingBusinessType(false);
     }
   };
 
@@ -549,6 +578,40 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
                   </div>
                   <h3 className="text-lg font-black text-white mt-1 tracking-tight">{selectedUser.tenantName}</h3>
                   <p className="text-xs text-slate-400 mt-0.5">Subscriber: {selectedUser.name}</p>
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className={`px-2 py-0.5 rounded text-[9px] font-mono font-bold uppercase tracking-wider ${selectedUser.businessType === 'pharmacy' ? 'bg-indigo-500/10 text-indigo-300' : 'bg-slate-800 text-slate-300'}`}>
+                      {selectedUser.businessType === 'pharmacy' ? '💊 Pharmacy' : '🛒 Retail & Wholesale'}
+                    </span>
+                    {isUnlocked && !isEditingBusinessType && (
+                      <button
+                        onClick={() => setIsEditingBusinessType(true)}
+                        className="text-[9px] font-mono uppercase tracking-wider text-indigo-400 hover:text-indigo-300 underline"
+                      >
+                        Change
+                      </button>
+                    )}
+                  </div>
+                  {isUnlocked && isEditingBusinessType && (
+                    <div className="flex items-center gap-2 mt-2">
+                      {(['retail', 'pharmacy'] as const).map((type) => (
+                        <button
+                          key={type}
+                          disabled={isSavingBusinessType}
+                          onClick={() => handleBusinessTypeChange(type)}
+                          className={`px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider border transition-colors disabled:opacity-50 ${selectedUser.businessType === type ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' : 'bg-slate-900 border-slate-800 text-slate-300 hover:border-slate-700'}`}
+                        >
+                          {type === 'pharmacy' ? '💊 Pharmacy' : '🛒 Retail & Wholesale'}
+                        </button>
+                      ))}
+                      <button
+                        onClick={() => setIsEditingBusinessType(false)}
+                        disabled={isSavingBusinessType}
+                        className="text-[9px] font-mono uppercase tracking-wider text-slate-500 hover:text-slate-300"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )}
                   {/* Location + last activity line */}
                   <div className="flex flex-wrap gap-3 mt-1.5 text-[10px] font-mono text-slate-500">
                     {(selectedUser as any).location && (selectedUser as any).location !== 'Location not provided' && (
