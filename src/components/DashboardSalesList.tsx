@@ -4498,14 +4498,31 @@ export default function DashboardSalesList({
                     : item.price * (1 - item.discount / 100);
                   return sum + (priceAfterDiscount * item.qty);
                 }, 0);
+                // The sale's order-level discount (editingSale.discount/discountType,
+                // separate from each item's own discount above) isn't editable in
+                // this dialog, but it's still in effect and must reduce the taxable
+                // amount here -- otherwise this preview (and the save below) silently
+                // drop it, overstating the bill by exactly the discount amount.
+                const orderDiscountVal = editingSale.discount !== undefined ? editingSale.discount : 0;
+                const orderDiscountType = editingSale.discountType || 'percent';
+                const orderDiscountAmt = orderDiscountType === 'percent'
+                  ? subAmt * (orderDiscountVal / 100)
+                  : Math.max(0, Math.min(subAmt, orderDiscountVal));
+                const taxableAmt = Math.max(0, subAmt - orderDiscountAmt);
                 // Strict conditional tax: only recompute/show VAT if this sale was
                 // originally completed WITH tax. Never inject tax into a sale that
                 // was completed tax-free.
                 const originalIsVat = editingSale.vatStatus === 'vat' || (!editingSale.vatStatus && (editingSale.tax || 0) > 0);
-                const taxAmt = originalIsVat ? Math.round(subAmt * activeTenant.taxRate) : 0;
-                const totalAmt = subAmt + taxAmt;
+                const taxAmt = originalIsVat ? Math.round(taxableAmt * activeTenant.taxRate) : 0;
+                const totalAmt = taxableAmt + taxAmt;
                 return (
                   <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-xs font-mono text-slate-600 flex justify-between">
+                    {orderDiscountAmt > 0 && (
+                      <div>
+                        <p className="text-[9px] uppercase font-sans text-slate-405 font-bold mb-0.5">Discount</p>
+                        <p className="font-bold text-rose-600">-{currency}{orderDiscountAmt.toLocaleString()}</p>
+                      </div>
+                    )}
                     {originalIsVat && (
                       <div>
                         <p className="text-[9px] uppercase font-sans text-slate-405 font-bold mb-0.5">VAT TAXES ESTIMATED ({activeTenant.taxRate * 100}%)</p>
@@ -4556,13 +4573,26 @@ export default function DashboardSalesList({
                       : item.price * (1 - item.discount / 100);
                     return sum + (priceAfterDiscount * item.qty);
                   }, 0);
+                  // The sale's order-level discount isn't editable in this dialog,
+                  // but it's still in effect (preserved unchanged below via
+                  // {...editingSale, ...}) and must reduce the taxable/total amount
+                  // here too -- otherwise a discounted sale loses its discount from
+                  // `total` the moment it's edited, while the receipt view keeps
+                  // showing the discount as if it were still subtracted, leaving a
+                  // false "balance due" equal to the discount amount.
+                  const orderDiscountVal = editingSale.discount !== undefined ? editingSale.discount : 0;
+                  const orderDiscountType = editingSale.discountType || 'percent';
+                  const orderDiscountAmt = orderDiscountType === 'percent'
+                    ? itemSubtotal * (orderDiscountVal / 100)
+                    : Math.max(0, Math.min(itemSubtotal, orderDiscountVal));
+                  const taxableAmt = Math.max(0, itemSubtotal - orderDiscountAmt);
                   // Strict conditional tax: preserve the sale's original vat/non-vat
                   // status. A sale completed without tax must never have tax injected
                   // just because it was edited; a sale completed with tax keeps being
                   // recalculated from its (possibly-edited) items at the tenant rate.
                   const originalIsVat = editingSale.vatStatus === 'vat' || (!editingSale.vatStatus && (editingSale.tax || 0) > 0);
-                  const calculatedTax = originalIsVat ? Math.round(itemSubtotal * activeTenant.taxRate) : 0;
-                  const calculatedTotal = itemSubtotal + calculatedTax;
+                  const calculatedTax = originalIsVat ? Math.round(taxableAmt * activeTenant.taxRate) : 0;
+                  const calculatedTotal = taxableAmt + calculatedTax;
 
                   // Sale Date: combine the (possibly-edited) calendar date with the
                   // sale's original time-of-day so only the date actually changes.
