@@ -7,6 +7,9 @@ import {
   getDisplayStockBreakdown,
   getPackageEquivalent,
   resolvePackageLevels,
+  validateDispensingPresets,
+  validateProductPackagingConfig,
+  validateSellingUnits,
   validateUnitHierarchy,
 } from './universalUnits';
 
@@ -179,5 +182,100 @@ describe('calculateBaseCost', () => {
   it('returns the cost unchanged when already expressed per base unit', () => {
     const product = baseProduct();
     expect(calculateBaseCost(400, 'base', product)).toBe(400);
+  });
+});
+
+describe('validateSellingUnits', () => {
+  const packageLevels = [{ id: 'box', label: 'Box', quantityInBaseUnit: 100 }];
+
+  it('accepts selling units that reference the base unit or a real package level', () => {
+    const result = validateSellingUnits(
+      [
+        { id: 'su-base', packageLevelId: 'base', label: 'Capsule', price: 400 },
+        { id: 'su-box', packageLevelId: 'box', label: 'Box', price: 30000 },
+      ],
+      packageLevels,
+    );
+    expect(result).toEqual({ valid: true, errors: [] });
+  });
+
+  it('rejects a selling unit that references an undefined package level', () => {
+    const result = validateSellingUnits(
+      [{ id: 'su-blister', packageLevelId: 'blister', label: 'Blister', price: 3500 }],
+      packageLevels,
+    );
+    expect(result.valid).toBe(false);
+    expect(result.errors[0]).toContain("doesn't exist");
+  });
+
+  it('rejects a negative price', () => {
+    const result = validateSellingUnits(
+      [{ id: 'su-box', packageLevelId: 'box', label: 'Box', price: -1 }],
+      packageLevels,
+    );
+    expect(result.valid).toBe(false);
+    expect(result.errors[0]).toContain('price of 0 or more');
+  });
+
+  it('rejects duplicate selling unit identifiers', () => {
+    const result = validateSellingUnits(
+      [
+        { id: 'su-box', packageLevelId: 'box', label: 'Box', price: 30000 },
+        { id: 'su-box', packageLevelId: 'base', label: 'Capsule', price: 400 },
+      ],
+      packageLevels,
+    );
+    expect(result.valid).toBe(false);
+    expect(result.errors.some(error => error.includes('unique identifiers'))).toBe(true);
+  });
+});
+
+describe('validateDispensingPresets', () => {
+  it('accepts a well-formed preset', () => {
+    const result = validateDispensingPresets([{ id: 'full', label: 'Full Dose', quantityInBaseUnit: 20 }]);
+    expect(result).toEqual({ valid: true, errors: [] });
+  });
+
+  it('rejects a preset with zero base quantity', () => {
+    const result = validateDispensingPresets([{ id: 'full', label: 'Full Dose', quantityInBaseUnit: 0 }]);
+    expect(result.valid).toBe(false);
+    expect(result.errors[0]).toContain('must contain more than 0 base units');
+  });
+});
+
+describe('validateProductPackagingConfig', () => {
+  it('passes trivially for a product using none of this (the vast majority of products today)', () => {
+    const product = baseProduct({ unit: 'Bottle' });
+    expect(validateProductPackagingConfig(product)).toEqual({ valid: true, errors: [] });
+  });
+
+  it('accepts a fully valid Amoxicillin configuration end to end', () => {
+    const amoxicillin = baseProduct({
+      baseUnit: 'Capsule',
+      packageLevels: [
+        { id: 'box', label: 'Box', quantityInBaseUnit: 100 },
+        { id: 'blister', label: 'Blister', quantityInBaseUnit: 10 },
+      ],
+      sellingUnits: [
+        { id: 'su-capsule', packageLevelId: 'base', label: 'Capsule', price: 400 },
+        { id: 'su-blister', packageLevelId: 'blister', label: 'Blister', price: 3500 },
+        { id: 'su-box', packageLevelId: 'box', label: 'Box', price: 30000 },
+      ],
+      dispensingPresets: [
+        { id: 'full', label: 'Full Dose', quantityInBaseUnit: 20 },
+        { id: 'half', label: 'Half Dose', quantityInBaseUnit: 10 },
+      ],
+    });
+    expect(validateProductPackagingConfig(amoxicillin)).toEqual({ valid: true, errors: [] });
+  });
+
+  it('surfaces both a package-level error and a selling-unit error together', () => {
+    const invalid = baseProduct({
+      packageLevels: [{ id: 'box', label: 'Box', quantityInBaseUnit: 0 }],
+      sellingUnits: [{ id: 'su-blister', packageLevelId: 'blister', label: 'Blister', price: 3500 }],
+    });
+    const result = validateProductPackagingConfig(invalid);
+    expect(result.valid).toBe(false);
+    expect(result.errors).toHaveLength(2);
   });
 });

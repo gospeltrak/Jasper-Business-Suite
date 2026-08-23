@@ -1,4 +1,4 @@
-import { Product, UniversalPackageLevel } from '../types';
+import { Product, UniversalPackageLevel, UniversalPreset, UniversalSellingUnit } from '../types';
 import { formatQuantity } from './unitFormatter';
 
 // ─── Universal Inventory Unit & Packaging Engine — Stage 2 ─────────────────
@@ -158,6 +158,79 @@ export const validateUnitHierarchy = (levels: UniversalPackageLevel[]): { valid:
   if (new Set(ids).size !== ids.length) {
     errors.push('Package levels must have unique identifiers.');
   }
+
+  return { valid: errors.length === 0, errors };
+};
+
+/** Validates selling units before they're saved -- each must point at a real package level (or the base unit) and carry a sane price. */
+export const validateSellingUnits = (
+  sellingUnits: UniversalSellingUnit[],
+  packageLevels: UniversalPackageLevel[],
+): { valid: boolean; errors: string[] } => {
+  const errors: string[] = [];
+  const knownLevelIds = new Set(['base', ...packageLevels.map(level => level.id)]);
+
+  sellingUnits.forEach((unit, index) => {
+    const name = unit.label?.trim() || `Selling unit ${index + 1}`;
+    if (!unit.label || !unit.label.trim()) {
+      errors.push(`Selling unit ${index + 1} is missing a name.`);
+    }
+    if (!knownLevelIds.has(unit.packageLevelId)) {
+      errors.push(`"${name}" refers to a package level that doesn't exist.`);
+    }
+    if (!(unit.price >= 0)) {
+      errors.push(`"${name}" must have a price of 0 or more.`);
+    }
+  });
+
+  const ids = sellingUnits.map(unit => unit.id);
+  if (new Set(ids).size !== ids.length) {
+    errors.push('Selling units must have unique identifiers.');
+  }
+
+  return { valid: errors.length === 0, errors };
+};
+
+/** Validates dispensing/quick-sell presets (Full Dose, 1/4 Kg, etc.) before they're saved. */
+export const validateDispensingPresets = (
+  presets: UniversalPreset[],
+): { valid: boolean; errors: string[] } => {
+  const errors: string[] = [];
+
+  presets.forEach((preset, index) => {
+    const name = preset.label?.trim() || `Preset ${index + 1}`;
+    if (!preset.label || !preset.label.trim()) {
+      errors.push(`Preset ${index + 1} is missing a name.`);
+    }
+    if (!(preset.quantityInBaseUnit > 0)) {
+      errors.push(`"${name}" must contain more than 0 base units.`);
+    }
+  });
+
+  const ids = presets.map(preset => preset.id);
+  if (new Set(ids).size !== ids.length) {
+    errors.push('Presets must have unique identifiers.');
+  }
+
+  return { valid: errors.length === 0, errors };
+};
+
+/**
+ * Validates a product's full packaging configuration (package levels, selling
+ * units, dispensing presets) together, before it's saved. Only validates
+ * whichever pieces are actually present -- a product using none of this
+ * (the vast majority of existing products) always passes trivially.
+ */
+export const validateProductPackagingConfig = (product: Product): { valid: boolean; errors: string[] } => {
+  const packageLevels = product.packageLevels || [];
+  const sellingUnits = product.sellingUnits || [];
+  const dispensingPresets = product.dispensingPresets || [];
+
+  const errors = [
+    ...(packageLevels.length > 0 ? validateUnitHierarchy(packageLevels).errors : []),
+    ...(sellingUnits.length > 0 ? validateSellingUnits(sellingUnits, packageLevels).errors : []),
+    ...(dispensingPresets.length > 0 ? validateDispensingPresets(dispensingPresets).errors : []),
+  ];
 
   return { valid: errors.length === 0, errors };
 };
