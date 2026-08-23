@@ -64,10 +64,24 @@ export const calculateWeightedAverageCost = (batches: ProductBatch[], fallbackCo
   return totalQuantity > 0 ? totalValue / totalQuantity : fallbackCost;
 };
 
+// FEFO (First Expiry, First Out) with a FIFO-by-receipt fallback: a batch
+// with an expiryDate is consumed before one without, earliest expiry first;
+// among batches sharing an expiry (or none), the older receipt goes first --
+// exactly the existing ordering. A product whose batches carry no expiry
+// dates at all (every retail product today, and every pharmacy product
+// until a tenant starts setting expiry via Add Product) sorts identically
+// to before this was introduced.
+const compareBatchesForAllocation = (a: ProductBatch, b: ProductBatch) => {
+  const aExpiry = a.expiryDate ? new Date(a.expiryDate).getTime() : Infinity;
+  const bExpiry = b.expiryDate ? new Date(b.expiryDate).getTime() : Infinity;
+  if (aExpiry !== bExpiry) return aExpiry - bExpiry;
+  return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+};
+
 export const getActiveBatchesOldestFirst = (product: Product) => (
   [...(product.batches || [])]
     .filter(batch => batch.status === 'active' && batch.quantityRemaining > 0)
-    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+    .sort(compareBatchesForAllocation)
 );
 
 export const calculateWeightedAverageSellingPrice = (product: Product, fallbackPrice = product.sellingPrice) => {
@@ -108,6 +122,8 @@ export const createInventoryBatch = (
     finalSellingPrice?: number;
     createdBy?: string;
     purchaseDate?: string;
+    expiryDate?: string;
+    manufacturingDate?: string;
   } = {},
 ): ProductBatch => {
   const previousBuyingPrice = product.latestBuyingPrice ?? product.costPrice ?? 0;
@@ -139,6 +155,8 @@ export const createInventoryBatch = (
     status: 'active',
     createdBy: options.createdBy || 'Admin',
     createdAt: new Date().toISOString(),
+    expiryDate: options.expiryDate,
+    manufacturingDate: options.manufacturingDate,
   };
 };
 
@@ -201,7 +219,7 @@ export const deductBatchesForSale = (
   const updatedBatches = sourceBatches.map(batch => ({ ...batch }));
   const orderedBatches = updatedBatches
     .filter(batch => batch.status === 'active')
-    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+    .sort(compareBatchesForAllocation);
   const batchesUsed: SaleBatchInfo[] = [];
   let remainingToDeduct = baseQuantityToDeduct;
   let totalCost = 0;

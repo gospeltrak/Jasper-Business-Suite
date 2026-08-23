@@ -73,7 +73,7 @@ export default function DashboardPurchases({
   const [deliveryStatus, setDeliveryStatus] = useState<'Pending' | 'Partial' | 'Full order delivered'>('Full order delivered');
   
   const [searchTerm, setSearchTerm] = useState('');
-  const [cart, setCart] = useState<Array<{ product: Product; qty: number; costPrice: number; unitLevelId: string }>>([]);
+  const [cart, setCart] = useState<Array<{ product: Product; qty: number; costPrice: number; unitLevelId: string; expiryDate?: string }>>([]);
   const [amountPaid, setAmountPaid] = useState<number>(0);
   const [paymentMethod, setPaymentMethod] = useState<string>('Cash');
   const [paidFromAccountId, setPaidFromAccountId] = useState<string>('');
@@ -243,6 +243,12 @@ export default function DashboardPurchases({
     ));
   };
 
+  const handleUpdateExpiryDate = (productId: string, expiryDate: string) => {
+    setCart(cart.map(item =>
+      item.product.id === productId ? { ...item, expiryDate: expiryDate || undefined } : item
+    ));
+  };
+
   const subtotal = cart.reduce((sum, item) => sum + (item.costPrice * item.qty), 0);
   const discountAmount = purchaseDiscountType === 'percentage'
     ? (subtotal * purchaseDiscount) / 100
@@ -320,6 +326,7 @@ export default function DashboardPurchases({
           supplierName: supplier.name,
           finalSellingPrice: prod.sellingPrice,
           purchaseDate: newPurchase.timestamp,
+          expiryDate: prod.trackExpiry ? cartItem.expiryDate : undefined,
         });
         const updatedWithBatch = addBatchToProduct(prod, batch, destination);
         return {
@@ -1457,6 +1464,17 @@ export default function DashboardPurchases({
                             </div>
                           );
                         })()}
+                        {item.product.trackExpiry && (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-slate-400 text-[10px] font-black font-mono">EXPIRY DATE:</span>
+                            <input
+                              type="date"
+                              value={item.expiryDate || ''}
+                              onChange={(e) => handleUpdateExpiryDate(item.product.id, e.target.value)}
+                              className="bg-white border border-slate-250 rounded-lg px-2 py-0.5 text-[10px] font-mono text-slate-800 focus:outline-none focus:border-emerald-400"
+                            />
+                          </div>
+                        )}
                         <div className="flex items-center justify-between gap-4 pt-1.5 border-t border-slate-200/60 font-mono text-xs">
                           <div className="flex items-center space-x-1">
                             <span className="text-slate-400 text-[10px] font-black">COST:</span>
