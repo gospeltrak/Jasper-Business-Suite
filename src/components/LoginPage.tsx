@@ -1452,7 +1452,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
             <form className="space-y-5 animate-fade-in" onSubmit={handleOnboardingSubmit}>
               <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-center">
                 <p className="text-xs font-semibold text-amber-800 leading-normal">
-                  Tenant Workspace Configuration: Please set up your business details to launch your isolated dashboard.
+                  Workspace Configuration: Please set up your business details to launch your dashboard.
                 </p>
               </div>
 
