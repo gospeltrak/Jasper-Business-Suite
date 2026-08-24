@@ -145,6 +145,9 @@ test('tenant image uploads require JSON, tenant authorization, and verified file
 
 test('repository verification blocks tracked secrets and exposes a production dependency audit', () => {
   assert.match(repositoryAudit, /git', \['ls-files', '-z'\]/);
+  assert.match(repositoryAudit, /Vercel source archives intentionally omit \.git/);
+  assert.match(repositoryAudit, /fs\.readdirSync\(directory, \{ withFileTypes: true \}\)/);
+  assert.match(repositoryAudit, /ignoredDirectories\.has\(entry\.name\)/);
   assert.match(repositoryAudit, /\.env\.example/);
   assert.match(repositoryAudit, /PRIVATE KEY/);
   assert.match(repositoryAudit, /Secret values are intentionally redacted/);
