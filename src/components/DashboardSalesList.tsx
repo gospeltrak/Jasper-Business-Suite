@@ -63,6 +63,7 @@ import {
   loadCrossBranchDocumentSources,
   type CrossBranchDocumentSources,
 } from '../branches/branchApi';
+import { getSecureDataBridgeClient } from '../secureDataBridge';
 
 // A high-fidelity composite component representing a rider on a motorcycle with a delivery basket on their back
 function DeliveryMotorcycleIcon({ className, size = 14 }: { className?: string; size?: number }) {
@@ -466,6 +467,99 @@ export default function DashboardSalesList({
       logLabel: `${activeTenant.id}/docs`,
     });
   }, [documents, activeTenant.id]);
+
+  // Keep commercial documents visible across already-open phones, tablets, and PCs.
+  // onlineStorage hydrates at login, so without this focused subscription a device
+  // that was already open would keep showing its older in-memory document list.
+  useEffect(() => {
+    let disposed = false;
+    let removeRealtime: (() => void) | undefined;
+    const storageKey = `jasper_docs_${activeTenant.id}`;
+
+    const applyRemoteDocuments = (payload: unknown) => {
+      if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return;
+      const rawDocuments = (payload as Record<string, unknown>)[storageKey];
+      if (typeof rawDocuments !== 'string') return;
+
+      try {
+        const parsed = JSON.parse(rawDocuments);
+        if (!Array.isArray(parsed)) return;
+        const normalized = parsed.map((document: SalesDocument) => {
+          const normalizedItems = (document.items || []).map(item => ({
+            ...item,
+            productName: getDocumentItemName(item),
+            unit: getDocumentItemUnit(item),
+            price: toNumber(item.price),
+            qty: toNumber(item.qty),
+            discount: toNumber(item.discount),
+          }));
+          return normalizeDocumentDiscount({
+            ...document,
+            type: normalizeDocType(document.type),
+            items: normalizedItems,
+            total: toNumber(document.total, normalizedItems.reduce((sum, item) => sum + getLegacyLineTotal(item), 0)),
+            tax: toNumber(document.tax),
+          });
+        });
+        if (!disposed) {
+          setDocuments(current => JSON.stringify(current) === JSON.stringify(normalized) ? current : normalized);
+        }
+      } catch {
+        // Ignore malformed legacy cache values and keep the last valid document list.
+      }
+    };
+
+    const refreshDocuments = async () => {
+      if (!navigator.onLine) return;
+      try {
+        const client: any = await getSecureDataBridgeClient();
+        const { data, error } = await client
+          .from('tenant_data')
+          .select('payload')
+          .eq('tenant_id', activeTenant.id)
+          .eq('data_key', 'application_state')
+          .maybeSingle();
+        if (!error) applyRemoteDocuments(data?.payload);
+      } catch {
+        // The cached list remains usable if a refresh is temporarily unavailable.
+      }
+    };
+
+    const connectRealtime = async () => {
+      try {
+        const client: any = await getSecureDataBridgeClient();
+        if (disposed) return;
+        const channel = client
+          .channel(`sales-documents:${activeTenant.id}:${Date.now()}`)
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'tenant_data', filter: `tenant_id=eq.${activeTenant.id}` },
+            (event: any) => {
+              if (event.new?.data_key === 'application_state') applyRemoteDocuments(event.new?.payload);
+            },
+          )
+          .subscribe();
+        removeRealtime = () => { try { client.removeChannel(channel); } catch { /* ignore */ } };
+      } catch {
+        // Focus/visibility refresh below remains the recovery path.
+      }
+    };
+
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') void refreshDocuments();
+    };
+    window.addEventListener('focus', refreshDocuments);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+    void refreshDocuments();
+    void connectRealtime();
+
+    return () => {
+      disposed = true;
+      window.removeEventListener('focus', refreshDocuments);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+      removeRealtime?.();
+    };
+  }, [activeTenant.id]);
 
   // Search state
   const [searchTerm, setSearchTerm] = useState('');
@@ -3420,13 +3514,13 @@ export default function DashboardSalesList({
                       {systemSettings?.invoiceSettings?.vatNumber && <p className="text-[11px] text-slate-500 font-mono">VAT: {systemSettings.invoiceSettings.vatNumber}</p>}
                     </div>
                     <div className="text-right font-mono text-xs space-y-1.5 shrink-0">
-                      <div className="inline-block text-white text-sm font-black uppercase tracking-wider px-6 py-2.5 rounded-full mb-1" style={{ backgroundColor: computedInvoiceColor }}>Mauzo Ankara</div>
-                      <p className="text-slate-400">Hapana: <strong className="text-slate-800">{selectedSale.reference || `INV-${selectedSale.id.toUpperCase().slice(0, 8)}`}</strong></p>
-                      <p className="text-slate-400">Tarehe: <span className="text-slate-700">{new Date(selectedSale.timestamp).toLocaleDateString([], { dateStyle: 'long' })}</span></p>
+                      <div className="inline-block text-white text-sm font-black uppercase tracking-wider px-6 py-2.5 rounded-full mb-1" style={{ backgroundColor: computedInvoiceColor }}>Sales Invoice</div>
+                      <p className="text-slate-400">No: <strong className="text-slate-800">{selectedSale.reference || `INV-${selectedSale.id.toUpperCase().slice(0, 8)}`}</strong></p>
+                      <p className="text-slate-400">Date: <span className="text-slate-700">{new Date(selectedSale.timestamp).toLocaleDateString([], { dateStyle: 'long' })}</span></p>
                       {(() => {
                         const paid = selectedSale.amountPaid !== undefined ? selectedSale.amountPaid : (selectedSale.paymentMethod === 'Credit' ? 0 : selectedSale.total);
                         const isPaid = paid >= selectedSale.total;
-                        return <span className={`inline-flex items-center gap-1 mt-1 px-3 py-1 rounded-full text-[10px] font-black uppercase ${isPaid ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>● {isPaid ? 'Imelipwa' : 'Haijalipwa'}</span>;
+                        return <span className={`inline-flex items-center gap-1 mt-1 px-3 py-1 rounded-full text-[10px] font-black uppercase ${isPaid ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>● {isPaid ? 'Paid' : 'Unpaid'}</span>;
                       })()}
                     </div>
                   </div>
@@ -3441,10 +3535,10 @@ export default function DashboardSalesList({
                     <thead>
                       <tr className="text-white" style={{ backgroundColor: computedInvoiceColor }}>
                         <th className="py-3 px-4 rounded-l-xl w-10">#</th>
-                        <th className="py-3 px-4 uppercase text-[10px]">Maelezo</th>
-                        <th className="py-3 px-4 uppercase text-[10px] text-center">Idadi</th>
-                        <th className="py-3 px-4 uppercase text-[10px] text-right">Kipimo Bei</th>
-                        <th className="py-3 px-4 uppercase text-[10px] text-right rounded-r-xl">Jumla</th>
+                        <th className="py-3 px-4 uppercase text-[10px]">Description</th>
+                        <th className="py-3 px-4 uppercase text-[10px] text-center">Quantity</th>
+                        <th className="py-3 px-4 uppercase text-[10px] text-right">Unit Price</th>
+                        <th className="py-3 px-4 uppercase text-[10px] text-right rounded-r-xl">Total</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -3472,7 +3566,7 @@ export default function DashboardSalesList({
                             <span className="text-slate-400">Mode</span><strong className="text-right text-slate-700">{selectedSale.paymentMethod}</strong>
                             {accountNumber && <><span className="text-slate-400">Account No.</span><strong className="text-right text-slate-700 font-mono">{accountNumber}</strong></>}
                             {accountName && <><span className="text-slate-400">Account Name</span><strong className="text-right text-slate-700">{accountName}</strong></>}
-                            <span className="text-slate-400">Kiasi</span><strong className="text-right text-slate-900 font-mono">{currency}{Math.round(selectedSale.total).toLocaleString()}</strong>
+                            <span className="text-slate-400">Amount</span><strong className="text-right text-slate-900 font-mono">{currency}{Math.round(selectedSale.total).toLocaleString()}</strong>
                           </div>
                         </div>
                       );
@@ -3484,12 +3578,12 @@ export default function DashboardSalesList({
                         const paid = selectedSale.amountPaid !== undefined ? selectedSale.amountPaid : (selectedSale.paymentMethod === 'Credit' ? 0 : selectedSale.total);
                         const balance = Math.max(0, selectedSale.total - paid);
                         return <>
-                          <div className="flex justify-between text-slate-500"><span>Jumla Ndogo</span><strong className="text-slate-800">{currency}{Math.round(subtotal).toLocaleString()}</strong></div>
-                          {(selectedSale.discount || 0) > 0 && <div className="flex justify-between text-orange-600"><span>Punguzo</span><strong>-{currency}{Math.round(selectedSale.discount || 0).toLocaleString()}</strong></div>}
+                          <div className="flex justify-between text-slate-500"><span>Subtotal</span><strong className="text-slate-800">{currency}{Math.round(subtotal).toLocaleString()}</strong></div>
+                          {(selectedSale.discount || 0) > 0 && <div className="flex justify-between text-orange-600"><span>Discount</span><strong>-{currency}{Math.round(selectedSale.discount || 0).toLocaleString()}</strong></div>}
                           {(selectedSale.vatStatus === 'vat' || (!selectedSale.vatStatus && (selectedSale.tax || 0) > 0)) && <div className="flex justify-between text-slate-500"><span>VAT / Tax</span><strong className="text-slate-700">{currency}{Math.round(selectedSale.tax || 0).toLocaleString()}</strong></div>}
                           {(selectedSale.deliveryCost || 0) > 0 && <div className="flex justify-between text-slate-500"><span>Delivery</span><strong className="text-slate-700">{currency}{Math.round(selectedSale.deliveryCost || 0).toLocaleString()}</strong></div>}
-                          <div className="flex justify-between text-white rounded-xl px-4 py-3" style={{ backgroundColor: computedInvoiceColor }}><strong className="uppercase text-sm">Jumla</strong><strong className="text-base">{currency}{Math.round(selectedSale.total).toLocaleString()}</strong></div>
-                          <div className="flex justify-between text-slate-500 px-4"><span>Due</span><strong className="text-slate-800">{currency}{Math.round(balance).toLocaleString()}</strong></div>
+                          <div className="flex justify-between text-white rounded-xl px-4 py-3" style={{ backgroundColor: computedInvoiceColor }}><strong className="uppercase text-sm">Total</strong><strong className="text-base">{currency}{Math.round(selectedSale.total).toLocaleString()}</strong></div>
+                          <div className="flex justify-between text-slate-500 px-4"><span>Amount Due</span><strong className="text-slate-800">{currency}{Math.round(balance).toLocaleString()}</strong></div>
                         </>;
                       })()}
                     </div>
@@ -3522,7 +3616,7 @@ export default function DashboardSalesList({
                           </div>
                         ) : <div className="h-10 w-48 border-b border-slate-300 mb-1.5" />;
                       })()}
-                      <p className="text-[10px] text-slate-400">Authorized Sahihi</p>
+                      <p className="text-[10px] text-slate-400">Authorized Signature</p>
                     </div>
                   </div>
                   {(() => {
@@ -5166,7 +5260,7 @@ export default function DashboardSalesList({
         const docTypeLabel = getDocumentLabel(viewingDocument.type);
 
         return (
-          <div className="fixed inset-0 z-[200] flex flex-col bg-[#404040] font-sans print:bg-white"
+          <div className="sales-invoice-a4-overlay fixed inset-0 z-[200] flex flex-col bg-[#404040] font-sans print:bg-white"
             style={{paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)'}}>
 
             {/* ── WYSIWYG TOOLBAR ── shrink-0 ───────────────────────────────── */}
@@ -5342,8 +5436,8 @@ export default function DashboardSalesList({
                         <div className="inline-block text-white text-sm font-black uppercase px-6 py-2.5 rounded-full mb-1 tracking-wider" style={{ backgroundColor: computedInvoiceColor }}>
                           {docTypeLabel}
                         </div>
-                        <p className="text-slate-400">Hapana: <strong className="text-slate-800">{viewingDocument.documentNumber}</strong></p>
-                        <p className="text-slate-400">Tarehe: <span className="text-slate-700">{new Date(viewingDocument.timestamp).toLocaleDateString([], {dateStyle: 'long'})}</span></p>
+                        <p className="text-slate-400">No: <strong className="text-slate-800">{viewingDocument.documentNumber}</strong></p>
+                        <p className="text-slate-400">Date: <span className="text-slate-700">{new Date(viewingDocument.timestamp).toLocaleDateString([], {dateStyle: 'long'})}</span></p>
                         {viewingDocument.validUntil && <p className="text-slate-400">Valid Until: <span className="text-slate-700">{new Date(viewingDocument.validUntil).toLocaleDateString()}</span></p>}
                         <div className={`inline-flex items-center gap-1.5 text-[10px] font-black uppercase px-2 py-0.5 rounded-lg mt-1 ${
                           viewingDocument.status === 'pending' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
@@ -5369,10 +5463,10 @@ export default function DashboardSalesList({
                         <thead>
                           <tr className="text-white" style={{ backgroundColor: computedInvoiceColor }}>
                             <th className="py-3 px-4 font-black uppercase tracking-wider text-[10px] rounded-l-xl w-8">#</th>
-                            <th className="py-3 px-4 font-black uppercase tracking-wider text-[10px]">Maelezo</th>
-                            <th className="py-3 px-4 font-black uppercase tracking-wider text-[10px] text-center">Idadi</th>
-                            <th className="py-3 px-4 font-black uppercase tracking-wider text-[10px] text-right">Kipimo Bei</th>
-                            <th className="py-3 px-4 font-black uppercase tracking-wider text-[10px] text-right rounded-r-xl">Jumla</th>
+                            <th className="py-3 px-4 font-black uppercase tracking-wider text-[10px]">Description</th>
+                            <th className="py-3 px-4 font-black uppercase tracking-wider text-[10px] text-center">Quantity</th>
+                            <th className="py-3 px-4 font-black uppercase tracking-wider text-[10px] text-right">Unit Price</th>
+                            <th className="py-3 px-4 font-black uppercase tracking-wider text-[10px] text-right rounded-r-xl">Total</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -5403,12 +5497,12 @@ export default function DashboardSalesList({
                     <div className="flex justify-end">
                       <div className="w-72 space-y-2 font-mono text-xs shrink-0">
                         <div className="flex justify-between text-slate-500 pb-1">
-                          <span>Jumla Ndogo</span>
+                          <span>Subtotal</span>
                           <span className="font-bold text-slate-800">{money(totals.subTotal)}</span>
                         </div>
                         {totals.discount > 0 && (
                           <div className="flex justify-between text-orange-600 pb-1">
-                            <span>Punguzo</span>
+                            <span>Discount</span>
                             <span className="font-bold">-{money(totals.discount)}</span>
                           </div>
                         )}
@@ -5431,11 +5525,11 @@ export default function DashboardSalesList({
                           </div>
                         )}
                         <div className="flex justify-between text-white rounded-xl px-4 py-3" style={{ backgroundColor: computedInvoiceColor }}>
-                          <span className="font-black text-sm uppercase tracking-wide">Jumla</span>
+                          <span className="font-black text-sm uppercase tracking-wide">Total</span>
                           <span className="font-black text-base">{money(totals.total)}</span>
                         </div>
                         <div className="flex justify-between text-slate-500 px-4">
-                          <span>Due</span>
+                          <span>Amount Due</span>
                           <span className="font-bold text-slate-800">{money(totals.balance)}</span>
                         </div>
                       </div>
@@ -5449,12 +5543,12 @@ export default function DashboardSalesList({
                           <div><span className="text-slate-400 block">Mode</span><strong className="text-slate-700">{viewingDocument.paymentMethod}</strong></div>
                           {viewingDocument.paymentAccountNumber && <div><span className="text-slate-400 block">Account No.</span><strong className="text-slate-700 font-mono">{viewingDocument.paymentAccountNumber}</strong></div>}
                           {viewingDocument.paymentAccountName && <div><span className="text-slate-400 block">Account Name</span><strong className="text-slate-700">{viewingDocument.paymentAccountName}</strong></div>}
-                          <div><span className="text-slate-400 block">Kiasi</span><strong className="text-slate-900 font-mono">{money(viewingDocument.paymentAmount ?? totals.total)}</strong></div>
+                          <div><span className="text-slate-400 block">Amount</span><strong className="text-slate-900 font-mono">{money(viewingDocument.paymentAmount ?? totals.total)}</strong></div>
                         </div>
                       </div>
                     )}
 
-                    {/* Signature row — Prepared by (left) | Authorized Sahihi (right) */}
+                    {/* Signature row — Prepared by (left) | Authorized Signature (right) */}
                     <div className="border-t border-slate-100 pt-5 flex items-end justify-between gap-6">
                         <div className="text-left">
                           <p className="text-[10px] text-slate-400 uppercase tracking-widest font-mono mb-1">Prepared by</p>
@@ -5472,7 +5566,7 @@ export default function DashboardSalesList({
                               <div className="h-10 border-b border-slate-300 mb-1.5" />
                             );
                           })()}
-                          <p className="text-[10px] text-slate-400">Authorized Sahihi</p>
+                          <p className="text-[10px] text-slate-400">Authorized Signature</p>
                         </div>
                     </div>
 
