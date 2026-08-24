@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
-import { getSecureDataBridgeClient } from './secureDataBridge';
+import { loadTenantWorkspaceCore } from './utils/tenantWorkspace';
 
 interface TenantLogoContextType {
   logoUrl: string | null;
@@ -47,13 +47,15 @@ export function TenantLogoProvider({ children }: { children: ReactNode }) {
       if (!request) request = (async () => {
       // Business branding comes directly from the tenant's online workspace.
       // Do not use company name, tenant name, admin name or local browser storage.
-      const client: any = await getSecureDataBridgeClient();
-      const { data: workspace } = await client
-        .from('tenant_workspaces')
-        .select('payload')
-        .eq('tenant_id', tenantId)
-        .maybeSingle();
-      const business = workspace?.payload?.settings?.business;
+      // Reuses loadTenantWorkspaceCore's fast, deduped request -- Dashboard's
+      // own initial load calls the same function for the same tenant, so this
+      // shares that request instead of racing it with a separate, slower
+      // query. Previously that separate query meant the tenant's real logo
+      // often hadn't arrived yet by the time the loading screen (which reads
+      // this fetch's result) was replaced by the dashboard, leaving the
+      // generic Orvix fallback icon showing instead.
+      const core = await loadTenantWorkspaceCore(tenantId);
+      const business = core?.settings?.business;
       const cloudBusinessName = String(business?.businessName || '').trim();
       const cloudBusinessLogo = business?.businessLogoLight || business?.businessLogoDark || business?.businessLogo || null;
       if (cloudBusinessLogo) {
