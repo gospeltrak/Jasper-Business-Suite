@@ -2143,6 +2143,341 @@ export default function DashboardProducts({
     );
   };
 
+  // Smart Batch Costing and Pharmacy Unit Hierarchy are rendered as their own
+  // full-width sections rather than nested inside a specific form column, so
+  // the same JSX can be placed at two different points in the tree: their
+  // usual spot after all three columns (tablet/desktop, where those columns
+  // sit side by side and this order doesn't read top-to-bottom anyway), and
+  // earlier -- interleaved between the columns -- on phone width, where the
+  // columns stack and a deliberate top-to-bottom reading order was requested
+  // (Medicine Details -> Pharmacy Unit Hierarchy -> Barcode Controls & Stock
+  // -> Smart Batch Costing -> Channel Rules & Costs -> Add Product).
+  const smartBatchCostingSection = (
+    <div className="space-y-4 pt-2 border-t border-slate-200">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-2">
+          {!isDesktopAddProductLayout && (
+            <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 text-white flex items-center justify-center flex-shrink-0 shadow-sm shadow-violet-500/30">
+              <Sliders className="w-3.5 h-3.5" />
+            </span>
+          )}
+          <div>
+            <h5 className="text-xs font-bold uppercase tracking-wider text-slate-500">Smart Batch Costing</h5>
+            <p className="text-[10px] text-slate-400 mt-0.5">FIFO, average, and batch price control.</p>
+          </div>
+        </div>
+        <label className="flex items-center space-x-2 text-[10px] font-bold text-slate-600 uppercase">
+          <input
+            type="checkbox"
+            checked={allowPosMethodOverride}
+            onChange={(e) => setAllowPosMethodOverride(e.target.checked)}
+            className="accent-emerald-600"
+          />
+          <span>Cashier Override</span>
+        </label>
+      </div>
+      <div className="grid gap-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '0.5rem' }}>
+        {[
+          ['fifo', 'FIFO', 'Oldest batch sells first'],
+          ['average_price', 'Average Price', 'Profit uses weighted cost'],
+          ['batch_price', 'Batch Price', 'Sell using batch price'],
+        ].map(([method, label, helper]) => (
+          <button
+            key={method}
+            type="button"
+            onClick={() => setCostingMethod(method as typeof costingMethod)}
+            className={`p-3 rounded-xl border text-left transition-all ${costingMethod === method ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'}`}
+          >
+            <span className="block text-xs font-black">{label}</span>
+            <span className={`block text-[9px] mt-1 ${costingMethod === method ? 'text-slate-300' : 'text-slate-400'}`}>{helper}</span>
+          </button>
+        ))}
+      </div>
+      {!isPharmacyLike && isBulkProduct && (
+        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 space-y-3">
+          <div className="flex flex-wrap items-end gap-x-2 gap-y-3">
+            <div className="space-y-1">
+              <label className="text-[9px] font-bold text-slate-500 uppercase">Package Name</label>
+              <input value={purchaseUnit} onChange={(e) => setPurchaseUnit(e.target.value)} placeholder="e.g. Sack" className="w-28 bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+            </div>
+            <span className="text-[10px] font-bold text-slate-400 uppercase pb-2.5 shrink-0">contains</span>
+            <div className="space-y-1">
+              <label className="text-[9px] font-bold text-slate-500 uppercase">Quantity</label>
+              <input type="number" step="0.001" value={conversionToBaseUnit} onChange={(e) => setConversionToBaseUnit(e.target.value === '' ? '' : Number(e.target.value))} placeholder="e.g. 24" className="w-24 bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[9px] font-bold text-slate-500 uppercase">Sell / Count Unit</label>
+              <input value={baseUnit} onChange={(e) => setBaseUnit(e.target.value)} placeholder="e.g. Pcs" className="w-28 bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+            </div>
+          </div>
+          <label className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 uppercase w-fit">
+            <input type="checkbox" checked={allowScaleSelling} onChange={(e) => {
+              setAllowScaleSelling(e.target.checked);
+              if (e.target.checked && !sellingMode) setSellingMode('scale');
+            }} className="accent-emerald-600" />
+            Fraction Sale
+          </label>
+        </div>
+      )}
+
+      {allowScaleSelling && !isPharmacyLike && (
+        <div className="p-4 bg-slate-50 border border-emerald-100 rounded-2xl space-y-4">
+          {/* Mode Selector */}
+          <div>
+            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">Sell Mode</label>
+            <div className="flex bg-white rounded-lg p-1 border border-slate-200">
+              <button
+                type="button"
+                onClick={() => setSellingMode('scale')}
+                className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${sellingMode === 'scale' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-500 hover:bg-slate-50'}`}
+              >
+                {t('scaleMode')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setSellingMode('pcs')}
+                className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${sellingMode === 'pcs' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-500 hover:bg-slate-50'}`}
+              >
+                {t('pcsMode')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setSellingMode('hybrid')}
+                className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${sellingMode === 'hybrid' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-500 hover:bg-slate-50'}`}
+              >
+                {t('hybridMode')}
+              </button>
+            </div>
+          </div>
+
+          {/* Open-ended stock — for items like a cable roll where the exact
+              total quantity isn't known upfront, only a price per unit. */}
+          <label className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 uppercase">
+            <input type="checkbox" checked={stockTrackingMode === 'open-ended'} onChange={(e) => setStockTrackingMode(e.target.checked ? 'open-ended' : 'quantity')} className="accent-emerald-600" />
+            Unknown total quantity (price by unit only)
+          </label>
+          {stockTrackingMode === 'open-ended' && (
+            <p className="text-[9.5px] text-slate-400 -mt-2">
+              For a cable roll or similar: enter a rough estimate below (or a large number) so it never shows as low/out of stock by accident. When the roll actually finishes, open Edit Product and tick "Mark as Finished".
+            </p>
+          )}
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-500 uppercase">Quick Sale Portions</label>
+              {sellingMode === 'scale' || sellingMode === 'hybrid' ? (
+                 <div className="flex space-x-1 overflow-x-auto scrollbar-hide flex-wrap gap-y-1">
+                   {[
+                     { label: '1/4', value: 0.25 },
+                     { label: '1/2', value: 0.5 },
+                     { label: '3/4', value: 0.75 },
+                     { label: '1', value: 1 },
+                   ].map(f => (
+                     <button type="button" key={f.label} onClick={() => { setSellUnit(baseUnit); setSellUnitQty(f.value); }} className="px-2 py-1 text-[10px] font-bold bg-white border border-slate-200 rounded">{f.label} {baseUnit}</button>
+                   ))}
+                 </div>
+              ) : (
+                 <input type="text" value={sellUnit} onChange={e => setSellUnit(e.target.value)} placeholder="Per piece" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+              )}
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-500 uppercase">Default Portion Qty</label>
+              {sellingMode === 'scale' || sellingMode === 'hybrid' ? (
+                <div className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-xl font-bold text-slate-700">
+                  {sellUnitQty === 0.25 ? '1/4' : sellUnitQty === 0.5 ? '1/2' : sellUnitQty === 0.75 ? '3/4' : '1'} {baseUnit}
+                </div>
+              ) : (
+                <input type="number" step="1" value={sellUnitQty} onChange={e => setSellUnitQty(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-slate-500 uppercase">Price per 1 {baseUnit || 'unit'}</label>
+            <input type="number" value={sellUnitPrice} onChange={e => setSellUnitPrice(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl font-bold" />
+          </div>
+
+          {/* Auto-calculation display */}
+          {stockTrackingMode !== 'open-ended' && (
+            <div className="bg-emerald-600 text-white rounded-2xl p-4 space-y-2 text-xs font-mono shadow-md shadow-emerald-600/20">
+              <div className="flex justify-between font-bold">
+                <span>{t('totalUnitsFromPurchase')}</span>
+                <span>1 {purchaseUnit || 'package'} = {formatProductQuantity(Number(conversionToBaseUnit) || 0, { unit: baseUnit } as Product)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Whole package sale value</span>
+                <span>{currency}{((Number(conversionToBaseUnit) || 0) * (Number(sellUnitPrice) || 0)).toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Cost of purchase:</span>
+                <span>{currency}{costPrice.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between font-bold border-t border-emerald-500 pt-2 text-emerald-100">
+                <span>{t('grossProfit')}:</span>
+                <span>{currency}{(((Number(conversionToBaseUnit) || 0) * (Number(sellUnitPrice) || 0)) - costPrice).toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between font-bold text-emerald-100">
+                <span>{t('breakevenUnits')}:</span>
+                <span>{formatProductQuantity(Math.ceil(costPrice / (Number(sellUnitPrice) || 1)), { unit: sellUnit || baseUnit } as Product)}</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+
+  const pharmacyUnitHierarchySection = isPharmacyLike ? (
+    <div className="space-y-4 pt-2 border-t border-slate-200">
+      <div className="flex items-center space-x-2">
+        {!isDesktopAddProductLayout && (
+          <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center flex-shrink-0 shadow-sm shadow-emerald-500/30">
+            <Layers className="w-3.5 h-3.5" />
+          </span>
+        )}
+        <div>
+          <span className="font-bold text-sm text-slate-800">Pharmacy Unit Hierarchy</span>
+          <p className="text-[10.5px] text-slate-450 mt-0.5">Choose the product type, starting level, and how many units each level contains.</p>
+        </div>
+      </div>
+      <div className="pharmacy-hierarchy-grid grid grid-cols-2 gap-3 bg-emerald-50/40 border border-emerald-100 rounded-2xl p-3">
+        {!isDesktopAddProductLayout ? (
+          <>
+            <div className="space-y-1 min-w-0">
+              <label className="text-[9px] font-bold text-slate-500 uppercase">Product Type</label>
+              <ModernSelect value={pharmacyProductType} options={PHARMACY_PRODUCT_TYPE_OPTIONS} onChange={(nextValue) => {
+                const next = nextValue as 'pharmaceutical' | 'non_pharmaceutical';
+                setPharmacyProductType(next);
+                setPharmacyHierarchyStart(next === 'pharmaceutical' ? 'packet' : 'carton');
+                setPharmacyBaseUnit(next === 'pharmaceutical' ? 'Tablet' : 'Piece');
+              }} title="Choose product type" />
+            </div>
+            <div className="space-y-1 min-w-0">
+              <label className="text-[9px] font-bold text-slate-500 uppercase">Starting Level</label>
+              <ModernSelect
+                value={pharmacyHierarchyStart}
+                options={pharmacyProductType === 'pharmaceutical'
+                  ? PHARMACY_START_OPTIONS.pharmaceutical
+                  : PHARMACY_START_OPTIONS.nonPharmaceutical}
+                onChange={(nextValue) => setPharmacyHierarchyStart(nextValue as any)}
+                title="Choose starting level"
+              />
+            </div>
+            <div className="space-y-1 min-w-0">
+              <label className="text-[9px] font-bold text-slate-500 uppercase">Lowest Unit</label>
+              <input type="text" value={pharmacyBaseUnit} onChange={e => setPharmacyBaseUnit(e.target.value)} placeholder="e.g. Tablet" className="w-full min-w-0 bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+            </div>
+            <div className="space-y-1 min-w-0">
+              <label className="text-[9px] font-bold text-slate-500 uppercase">{pharmacyProductType === 'pharmaceutical' ? 'Strips per Box' : 'Cartons per Master Box'}</label>
+              <input type="number" min={1} value={pharmacyTopContains} onChange={e => setPharmacyTopContains(e.target.value === '' ? '' : Number(e.target.value))} className="w-full min-w-0 bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+            </div>
+            <div className="space-y-1 min-w-0">
+              <label className="text-[9px] font-bold text-slate-500 uppercase">{pharmacyProductType === 'pharmaceutical' ? `${pharmacyBaseUnit || 'Tablet'}s per Dose/Strip` : 'Pieces per Carton'}</label>
+              <input type="number" min={1} value={pharmacyMiddleContains} onChange={e => setPharmacyMiddleContains(e.target.value === '' ? '' : Number(e.target.value))} className="w-full min-w-0 bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+            </div>
+            <div className="space-y-1 min-w-0">
+              <label className="text-[9px] font-bold text-slate-500 uppercase">{pharmacyProductType === 'pharmaceutical' ? `${pharmacyBaseUnit || 'Tablet'}s per Dose` : 'Units per Pack'}</label>
+              <input type="number" min={1} value={pharmacyDoseContains} onChange={e => setPharmacyDoseContains(e.target.value === '' ? '' : Number(e.target.value))} className="w-full min-w-0 bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="space-y-1">
+              <label className="text-[9px] font-bold text-slate-500 uppercase">Product Type</label>
+              <ModernSelect value={pharmacyProductType} options={PHARMACY_PRODUCT_TYPE_OPTIONS} onChange={(nextValue) => {
+                const next = nextValue as 'pharmaceutical' | 'non_pharmaceutical';
+                setPharmacyProductType(next);
+                setPharmacyHierarchyStart(next === 'pharmaceutical' ? 'packet' : 'carton');
+                setPharmacyBaseUnit(next === 'pharmaceutical' ? 'Tablet' : 'Piece');
+              }} title="Choose product type" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[9px] font-bold text-slate-500 uppercase">Starting Level</label>
+              <ModernSelect
+                value={pharmacyHierarchyStart}
+                options={pharmacyProductType === 'pharmaceutical'
+                  ? PHARMACY_START_OPTIONS.pharmaceutical
+                  : PHARMACY_START_OPTIONS.nonPharmaceutical}
+                onChange={(nextValue) => setPharmacyHierarchyStart(nextValue as any)}
+                title="Choose starting level"
+              />
+            </div>
+            {pharmacyProductType === 'pharmaceutical' && (
+          <div className="space-y-1">
+            <label className="text-[9px] font-bold text-slate-500 uppercase">Lowest Unit</label>
+            <ModernSelect value={pharmacyBaseUnit} options={PHARMACY_BASE_UNIT_OPTIONS} onChange={setPharmacyBaseUnit} title="Choose lowest unit" />
+          </div>
+        )}
+        {pharmacyHierarchyStart === 'box' && (
+          <div className="space-y-1">
+            <label className="text-[9px] font-bold text-slate-500 uppercase">Strips per Box</label>
+            <input type="number" min={1} value={pharmacyTopContains} onChange={e => setPharmacyTopContains(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+          </div>
+        )}
+        {pharmacyHierarchyStart === 'master_box' && (
+          <div className="space-y-1">
+            <label className="text-[9px] font-bold text-slate-500 uppercase">Cartons per Master Box</label>
+            <input type="number" min={1} value={pharmacyTopContains} onChange={e => setPharmacyTopContains(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+          </div>
+        )}
+        <div className="space-y-1">
+          <label className="text-[9px] font-bold text-slate-500 uppercase">{pharmacyProductType === 'pharmaceutical' ? `${pharmacyBaseUnit}s per Dose/Strip` : 'Pieces per Carton'}</label>
+          <input type="number" min={1} value={pharmacyMiddleContains} onChange={e => setPharmacyMiddleContains(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+        </div>
+        {pharmacyProductType === 'pharmaceutical' && (
+          <div className="space-y-1">
+            <label className="text-[9px] font-bold text-slate-500 uppercase">{pharmacyBaseUnit}s per Dose</label>
+            <input type="number" min={1} value={pharmacyDoseContains} onChange={e => setPharmacyDoseContains(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+          </div>
+            )}
+          </>
+        )}
+        <div className="pharmacy-hierarchy-levels-grid col-span-2 grid grid-cols-2 gap-3">
+          {pharmacyFormHierarchy.levels.map(level => (
+            <div key={level.id} className="bg-white/80 border border-emerald-100 rounded-xl px-3 py-2">
+              <span className="block text-[9px] font-bold text-slate-400 uppercase">{level.label}</span>
+              <span className="text-[11px] font-black text-emerald-800">1 {level.unit} = {level.quantityToBaseUnit} {pharmacyFormHierarchy.baseUnit}</span>
+            </div>
+          ))}
+        </div>
+        {!isDesktopAddProductLayout ? (
+          <div className="pharmacy-price-grid col-span-2 grid grid-cols-3 gap-1.5 sm:gap-2">
+            <div className="space-y-1 min-w-0">
+              <label className="block min-h-6 text-[8px] sm:text-[9px] leading-tight font-bold text-slate-500 uppercase">{pharmacyFormHierarchy.levels[0]?.unit || 'Strip'} price</label>
+              <input type="number" value={sellingPrice || ''} onChange={e => setSellingPrice(Number(e.target.value) || 0)} className="w-full min-w-0 bg-white border border-slate-200 text-[10px] px-2 py-2 rounded-xl" />
+            </div>
+            <div className="space-y-1 min-w-0">
+              <label className="block min-h-6 text-[8px] sm:text-[9px] leading-tight font-bold text-slate-500 uppercase">Dose / middle price</label>
+              <input type="number" value={fullDosePrice} onChange={e => setFullDosePrice(e.target.value === '' ? '' : Number(e.target.value))} placeholder="Auto" className="w-full min-w-0 bg-white border border-slate-200 text-[10px] px-2 py-2 rounded-xl" />
+            </div>
+            <div className="space-y-1 min-w-0">
+              <label className="block min-h-6 text-[8px] sm:text-[9px] leading-tight font-bold text-slate-500 uppercase">Price per {pharmacyFormHierarchy.baseUnit}</label>
+              <input type="number" value={tabPrice} onChange={e => setTabPrice(e.target.value === '' ? '' : Number(e.target.value))} placeholder="Auto" className="w-full min-w-0 bg-white border border-slate-200 text-[10px] px-2 py-2 rounded-xl" />
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="space-y-1">
+              <label className="text-[9px] font-bold text-slate-500 uppercase">{pharmacyFormHierarchy.levels[0]?.unit || 'Top Unit'} price</label>
+              <input type="number" value={sellingPrice || ''} onChange={e => setSellingPrice(Number(e.target.value) || 0)} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[9px] font-bold text-slate-500 uppercase">Dose / middle price</label>
+              <input type="number" value={fullDosePrice} onChange={e => setFullDosePrice(e.target.value === '' ? '' : Number(e.target.value))} placeholder="Auto if empty" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[9px] font-bold text-slate-500 uppercase">Price per {pharmacyFormHierarchy.baseUnit}</label>
+              <input type="number" value={tabPrice} onChange={e => setTabPrice(e.target.value === '' ? '' : Number(e.target.value))} placeholder="Auto if empty" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+            </div>
+          </>
+        )}
+        <div className="col-span-2 text-[10px] font-mono text-emerald-800 bg-white/70 border border-emerald-100 rounded-xl px-3 py-2">
+          Total shop stock: {shopStockQty} {pharmacyFormHierarchy.baseUnit}. Total store stock: {storeStockQty} {pharmacyFormHierarchy.baseUnit}. POS will sell by {pharmacyFormHierarchy.levels.map(level => level.unit).join(', ')} and deduct from {pharmacyFormHierarchy.baseUnit}.
+        </div>
+      </div>
+    </div>
+  ) : null;
+
   return (
     <div id="products-view" className="space-y-4 md:space-y-6">
       
@@ -2244,32 +2579,36 @@ export default function DashboardProducts({
 
               {/* Action tiles */}
               <div className="product-import-actions-grid grid grid-cols-2 gap-2 p-3">
-                <button
-                  onClick={downloadCsvTemplate}
-                  className="flex items-center gap-2.5 p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 active:bg-slate-100 text-left"
-                >
-                  <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-900/40 flex items-center justify-center shrink-0">
-                    <Download className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                  </div>
-                  <div>
-                    <p className="text-[12px] font-bold text-slate-800 dark:text-white leading-tight">Template</p>
-                    <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Download CSV</p>
-                  </div>
-                </button>
-
-                <div className="relative">
-                  <input type="file" accept=".csv,.json,application/json" ref={csvInputRef} onChange={handleCsvImport}
-                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" />
-                  <div className="flex items-center gap-2.5 p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-left">
-                    <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-900/40 flex items-center justify-center shrink-0">
-                      <Upload className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                {!isPharmacyLike && (
+                  <button
+                    onClick={downloadCsvTemplate}
+                    className="flex items-center gap-2.5 p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 active:bg-slate-100 text-left"
+                  >
+                    <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-900/40 flex items-center justify-center shrink-0">
+                      <Download className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                     </div>
                     <div>
-                      <p className="text-[12px] font-bold text-slate-800 dark:text-white leading-tight">Import</p>
-                      <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">CSV or backup</p>
+                      <p className="text-[12px] font-bold text-slate-800 dark:text-white leading-tight">Template</p>
+                      <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Download CSV</p>
+                    </div>
+                  </button>
+                )}
+
+                {!isPharmacyLike && (
+                  <div className="relative">
+                    <input type="file" accept=".csv,.json,application/json" ref={csvInputRef} onChange={handleCsvImport}
+                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" />
+                    <div className="flex items-center gap-2.5 p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-left">
+                      <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-900/40 flex items-center justify-center shrink-0">
+                        <Upload className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                      </div>
+                      <div>
+                        <p className="text-[12px] font-bold text-slate-800 dark:text-white leading-tight">Import</p>
+                        <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">CSV or backup</p>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
                 {isPharmacyLike && (
                   <button
                     onClick={downloadUniversalTemplate}
@@ -2280,7 +2619,7 @@ export default function DashboardProducts({
                     </div>
                     <div>
                       <p className="text-[12px] font-bold text-slate-800 dark:text-white leading-tight">Medicine Template</p>
-                      <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Product Type + packaging</p>
+                      <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Type & Packaging</p>
                     </div>
                   </button>
                 )}
@@ -2330,11 +2669,13 @@ export default function DashboardProducts({
 
               {/* Right: action buttons */}
               <div className="flex items-center gap-2 shrink-0">
-                <button onClick={downloadCsvTemplate}
-                  className="h-9 px-3.5 flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 transition-colors">
-                  <Download className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Bulk Template</span>
-                </button>
+                {!isPharmacyLike && (
+                  <button onClick={downloadCsvTemplate}
+                    className="h-9 px-3.5 flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 transition-colors">
+                    <Download className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Bulk Template</span>
+                  </button>
+                )}
 
                 <button onClick={downloadProductCatalogue} disabled={products.length === 0}
                   className="h-9 px-3.5 flex items-center gap-1.5 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/30 hover:bg-emerald-100 text-xs font-bold text-emerald-800 dark:text-emerald-300 transition-colors disabled:opacity-50">
@@ -2342,14 +2683,16 @@ export default function DashboardProducts({
                   <span>Download Catalogue</span>
                 </button>
 
-                <div className="relative h-9">
-                  <input type="file" accept=".csv,.json,application/json" ref={csvInputRef} onChange={handleCsvImport}
-                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" />
-                  <button className="h-9 px-3.5 flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 transition-colors">
-                    <Upload className="w-3.5 h-3.5 text-blue-600" />
-                    <span>Bulk Upload</span>
-                  </button>
-                </div>
+                {!isPharmacyLike && (
+                  <div className="relative h-9">
+                    <input type="file" accept=".csv,.json,application/json" ref={csvInputRef} onChange={handleCsvImport}
+                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" />
+                    <button className="h-9 px-3.5 flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 transition-colors">
+                      <Upload className="w-3.5 h-3.5 text-blue-600" />
+                      <span>Bulk Upload</span>
+                    </button>
+                  </div>
+                )}
 
                 {isPharmacyLike && (
                   <button onClick={downloadUniversalTemplate}
@@ -2569,7 +2912,7 @@ export default function DashboardProducts({
                       {trackExpiry && (
                         <div className="space-y-1.5 bg-white border border-emerald-100 rounded-xl px-3 py-2.5">
                           <label htmlFor="new-medicine-expiry-date" className="text-[9px] font-bold text-slate-500 uppercase block">
-                            Opening Stock Expiry Date
+                            Opening Stock Expiry Date <span className="normal-case font-medium text-slate-400">(e.g. 31/12/2026)</span>
                           </label>
                           <input
                             id="new-medicine-expiry-date"
@@ -2675,6 +3018,8 @@ export default function DashboardProducts({
 
                 </div>
 
+                {!isTabletWidthOrWider && pharmacyUnitHierarchySection}
+
                 {/* Column 2: Barcode Actions & Stock level details */}
                 <div className={isDesktopAddProductLayout ? "space-y-4" : "bg-gradient-to-br from-amber-50/60 via-white to-white border border-slate-100 rounded-2xl p-4 space-y-4"}>
                   {isDesktopAddProductLayout ? (
@@ -2751,6 +3096,8 @@ export default function DashboardProducts({
                     />
                   </div>
                 </div>
+
+                {!isTabletWidthOrWider && smartBatchCostingSection}
 
                 {/* Column 3: Pricing & Margins */}
                 <div className={isDesktopAddProductLayout ? "space-y-4" : "bg-gradient-to-br from-blue-50/60 via-white to-white border border-slate-100 rounded-2xl p-4 space-y-4"}>
@@ -2888,333 +3235,13 @@ export default function DashboardProducts({
                       <span>{currency}{Math.round(profit).toLocaleString()}</span>
                     </div>
                   </div>
+
+                  {isTabletWidthOrWider && smartBatchCostingSection}
                 </div>
 
               </div>
 
-              <div className="space-y-4 pt-2 border-t border-slate-200">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    {!isDesktopAddProductLayout && (
-                      <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 text-white flex items-center justify-center flex-shrink-0 shadow-sm shadow-violet-500/30">
-                        <Sliders className="w-3.5 h-3.5" />
-                      </span>
-                    )}
-                    <div>
-                      <h5 className="text-xs font-bold uppercase tracking-wider text-slate-500">Smart Batch Costing</h5>
-                      <p className="text-[10px] text-slate-400 mt-0.5">FIFO, average, and batch price control.</p>
-                    </div>
-                  </div>
-                  <label className="flex items-center space-x-2 text-[10px] font-bold text-slate-600 uppercase">
-                    <input
-                      type="checkbox"
-                      checked={allowPosMethodOverride}
-                      onChange={(e) => setAllowPosMethodOverride(e.target.checked)}
-                      className="accent-emerald-600"
-                    />
-                    <span>Cashier Override</span>
-                  </label>
-                </div>
-                <div className="grid gap-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '0.5rem' }}>
-                  {[
-                    ['fifo', 'FIFO', 'Oldest batch sells first'],
-                    ['average_price', 'Average Price', 'Profit uses weighted cost'],
-                    ['batch_price', 'Batch Price', 'Sell using batch price'],
-                  ].map(([method, label, helper]) => (
-                    <button
-                      key={method}
-                      type="button"
-                      onClick={() => setCostingMethod(method as typeof costingMethod)}
-                      className={`p-3 rounded-xl border text-left transition-all ${costingMethod === method ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'}`}
-                    >
-                      <span className="block text-xs font-black">{label}</span>
-                      <span className={`block text-[9px] mt-1 ${costingMethod === method ? 'text-slate-300' : 'text-slate-400'}`}>{helper}</span>
-                    </button>
-                  ))}
-                </div>
-                {!isPharmacyLike && isBulkProduct && (
-                  <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 space-y-3">
-                    <div className="flex flex-wrap items-end gap-x-2 gap-y-3">
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-bold text-slate-500 uppercase">Package Name</label>
-                        <input value={purchaseUnit} onChange={(e) => setPurchaseUnit(e.target.value)} placeholder="e.g. Sack" className="w-28 bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-                      </div>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase pb-2.5 shrink-0">contains</span>
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-bold text-slate-500 uppercase">Quantity</label>
-                        <input type="number" step="0.001" value={conversionToBaseUnit} onChange={(e) => setConversionToBaseUnit(e.target.value === '' ? '' : Number(e.target.value))} placeholder="e.g. 24" className="w-24 bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-bold text-slate-500 uppercase">Sell / Count Unit</label>
-                        <input value={baseUnit} onChange={(e) => setBaseUnit(e.target.value)} placeholder="e.g. Pcs" className="w-28 bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-                      </div>
-                    </div>
-                    <label className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 uppercase w-fit">
-                      <input type="checkbox" checked={allowScaleSelling} onChange={(e) => {
-                        setAllowScaleSelling(e.target.checked);
-                        if (e.target.checked && !sellingMode) setSellingMode('scale');
-                      }} className="accent-emerald-600" />
-                      Fraction Sale
-                    </label>
-                  </div>
-                )}
-
-                {allowScaleSelling && !isPharmacyLike && (
-                  <div className="p-4 bg-slate-50 border border-emerald-100 rounded-2xl space-y-4">
-                    {/* Mode Selector */}
-                    <div>
-                      <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">Sell Mode</label>
-                      <div className="flex bg-white rounded-lg p-1 border border-slate-200">
-                        <button
-                          type="button"
-                          onClick={() => setSellingMode('scale')}
-                          className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${sellingMode === 'scale' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-500 hover:bg-slate-50'}`}
-                        >
-                          {t('scaleMode')}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setSellingMode('pcs')}
-                          className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${sellingMode === 'pcs' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-500 hover:bg-slate-50'}`}
-                        >
-                          {t('pcsMode')}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setSellingMode('hybrid')}
-                          className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${sellingMode === 'hybrid' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-500 hover:bg-slate-50'}`}
-                        >
-                          {t('hybridMode')}
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Open-ended stock — for items like a cable roll where the exact
-                        total quantity isn't known upfront, only a price per unit. */}
-                    <label className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 uppercase">
-                      <input type="checkbox" checked={stockTrackingMode === 'open-ended'} onChange={(e) => setStockTrackingMode(e.target.checked ? 'open-ended' : 'quantity')} className="accent-emerald-600" />
-                      Unknown total quantity (price by unit only)
-                    </label>
-                    {stockTrackingMode === 'open-ended' && (
-                      <p className="text-[9.5px] text-slate-400 -mt-2">
-                        For a cable roll or similar: enter a rough estimate below (or a large number) so it never shows as low/out of stock by accident. When the roll actually finishes, open Edit Product and tick "Mark as Finished".
-                      </p>
-                    )}
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase">Quick Sale Portions</label>
-                        {sellingMode === 'scale' || sellingMode === 'hybrid' ? (
-                           <div className="flex space-x-1 overflow-x-auto scrollbar-hide flex-wrap gap-y-1">
-                             {[
-                               { label: '1/4', value: 0.25 },
-                               { label: '1/2', value: 0.5 },
-                               { label: '3/4', value: 0.75 },
-                               { label: '1', value: 1 },
-                             ].map(f => (
-                               <button type="button" key={f.label} onClick={() => { setSellUnit(baseUnit); setSellUnitQty(f.value); }} className="px-2 py-1 text-[10px] font-bold bg-white border border-slate-200 rounded">{f.label} {baseUnit}</button>
-                             ))}
-                           </div>
-                        ) : (
-                           <input type="text" value={sellUnit} onChange={e => setSellUnit(e.target.value)} placeholder="Per piece" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-                        )}
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase">Default Portion Qty</label>
-                        {sellingMode === 'scale' || sellingMode === 'hybrid' ? (
-                          <div className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-xl font-bold text-slate-700">
-                            {sellUnitQty === 0.25 ? '1/4' : sellUnitQty === 0.5 ? '1/2' : sellUnitQty === 0.75 ? '3/4' : '1'} {baseUnit}
-                          </div>
-                        ) : (
-                          <input type="number" step="1" value={sellUnitQty} onChange={e => setSellUnitQty(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase">Price per 1 {baseUnit || 'unit'}</label>
-                      <input type="number" value={sellUnitPrice} onChange={e => setSellUnitPrice(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl font-bold" />
-                    </div>
-
-                    {/* Auto-calculation display */}
-                    {stockTrackingMode !== 'open-ended' && (
-                      <div className="bg-emerald-600 text-white rounded-2xl p-4 space-y-2 text-xs font-mono shadow-md shadow-emerald-600/20">
-                        <div className="flex justify-between font-bold">
-                          <span>{t('totalUnitsFromPurchase')}</span>
-                          <span>1 {purchaseUnit || 'package'} = {formatProductQuantity(Number(conversionToBaseUnit) || 0, { unit: baseUnit } as Product)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Whole package sale value</span>
-                          <span>{currency}{((Number(conversionToBaseUnit) || 0) * (Number(sellUnitPrice) || 0)).toLocaleString()}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>Cost of purchase:</span>
-                          <span>{currency}{costPrice.toLocaleString()}</span>
-                        </div>
-                        <div className="flex justify-between font-bold border-t border-emerald-500 pt-2 text-emerald-100">
-                          <span>{t('grossProfit')}:</span>
-                          <span>{currency}{(((Number(conversionToBaseUnit) || 0) * (Number(sellUnitPrice) || 0)) - costPrice).toLocaleString()}</span>
-                        </div>
-                        <div className="flex justify-between font-bold text-emerald-100">
-                          <span>{t('breakevenUnits')}:</span>
-                          <span>{formatProductQuantity(Math.ceil(costPrice / (Number(sellUnitPrice) || 1)), { unit: sellUnit || baseUnit } as Product)}</span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {isPharmacyLike && (
-                <div className="space-y-4 pt-2 border-t border-slate-200">
-                  <div className="flex items-center space-x-2">
-                    {!isDesktopAddProductLayout && (
-                      <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center flex-shrink-0 shadow-sm shadow-emerald-500/30">
-                        <Layers className="w-3.5 h-3.5" />
-                      </span>
-                    )}
-                    <div>
-                      <span className="font-bold text-sm text-slate-800">Pharmacy Unit Hierarchy</span>
-                      <p className="text-[10.5px] text-slate-450 mt-0.5">Choose the product type, starting level, and how many units each level contains.</p>
-                    </div>
-                  </div>
-                  <div className="pharmacy-hierarchy-grid grid grid-cols-2 gap-3 bg-emerald-50/40 border border-emerald-100 rounded-2xl p-3">
-                    {!isDesktopAddProductLayout ? (
-                      <>
-                        <div className="space-y-1 min-w-0">
-                          <label className="text-[9px] font-bold text-slate-500 uppercase">Product Type</label>
-                          <ModernSelect value={pharmacyProductType} options={PHARMACY_PRODUCT_TYPE_OPTIONS} onChange={(nextValue) => {
-                            const next = nextValue as 'pharmaceutical' | 'non_pharmaceutical';
-                            setPharmacyProductType(next);
-                            setPharmacyHierarchyStart(next === 'pharmaceutical' ? 'packet' : 'carton');
-                            setPharmacyBaseUnit(next === 'pharmaceutical' ? 'Tablet' : 'Piece');
-                          }} title="Choose product type" />
-                        </div>
-                        <div className="space-y-1 min-w-0">
-                          <label className="text-[9px] font-bold text-slate-500 uppercase">Starting Level</label>
-                          <ModernSelect
-                            value={pharmacyHierarchyStart}
-                            options={pharmacyProductType === 'pharmaceutical'
-                              ? PHARMACY_START_OPTIONS.pharmaceutical
-                              : PHARMACY_START_OPTIONS.nonPharmaceutical}
-                            onChange={(nextValue) => setPharmacyHierarchyStart(nextValue as any)}
-                            title="Choose starting level"
-                          />
-                        </div>
-                        <div className="space-y-1 min-w-0">
-                          <label className="text-[9px] font-bold text-slate-500 uppercase">Lowest Unit</label>
-                          <input type="text" value={pharmacyBaseUnit} onChange={e => setPharmacyBaseUnit(e.target.value)} placeholder="e.g. Tablet" className="w-full min-w-0 bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-                        </div>
-                        <div className="space-y-1 min-w-0">
-                          <label className="text-[9px] font-bold text-slate-500 uppercase">{pharmacyProductType === 'pharmaceutical' ? 'Strips per Box' : 'Cartons per Master Box'}</label>
-                          <input type="number" min={1} value={pharmacyTopContains} onChange={e => setPharmacyTopContains(e.target.value === '' ? '' : Number(e.target.value))} className="w-full min-w-0 bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-                        </div>
-                        <div className="space-y-1 min-w-0">
-                          <label className="text-[9px] font-bold text-slate-500 uppercase">{pharmacyProductType === 'pharmaceutical' ? `${pharmacyBaseUnit || 'Tablet'}s per Dose/Strip` : 'Pieces per Carton'}</label>
-                          <input type="number" min={1} value={pharmacyMiddleContains} onChange={e => setPharmacyMiddleContains(e.target.value === '' ? '' : Number(e.target.value))} className="w-full min-w-0 bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-                        </div>
-                        <div className="space-y-1 min-w-0">
-                          <label className="text-[9px] font-bold text-slate-500 uppercase">{pharmacyProductType === 'pharmaceutical' ? `${pharmacyBaseUnit || 'Tablet'}s per Dose` : 'Units per Pack'}</label>
-                          <input type="number" min={1} value={pharmacyDoseContains} onChange={e => setPharmacyDoseContains(e.target.value === '' ? '' : Number(e.target.value))} className="w-full min-w-0 bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div className="space-y-1">
-                          <label className="text-[9px] font-bold text-slate-500 uppercase">Product Type</label>
-                          <ModernSelect value={pharmacyProductType} options={PHARMACY_PRODUCT_TYPE_OPTIONS} onChange={(nextValue) => {
-                            const next = nextValue as 'pharmaceutical' | 'non_pharmaceutical';
-                            setPharmacyProductType(next);
-                            setPharmacyHierarchyStart(next === 'pharmaceutical' ? 'packet' : 'carton');
-                            setPharmacyBaseUnit(next === 'pharmaceutical' ? 'Tablet' : 'Piece');
-                          }} title="Choose product type" />
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-[9px] font-bold text-slate-500 uppercase">Starting Level</label>
-                          <ModernSelect
-                            value={pharmacyHierarchyStart}
-                            options={pharmacyProductType === 'pharmaceutical'
-                              ? PHARMACY_START_OPTIONS.pharmaceutical
-                              : PHARMACY_START_OPTIONS.nonPharmaceutical}
-                            onChange={(nextValue) => setPharmacyHierarchyStart(nextValue as any)}
-                            title="Choose starting level"
-                          />
-                        </div>
-                        {pharmacyProductType === 'pharmaceutical' && (
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-bold text-slate-500 uppercase">Lowest Unit</label>
-                        <ModernSelect value={pharmacyBaseUnit} options={PHARMACY_BASE_UNIT_OPTIONS} onChange={setPharmacyBaseUnit} title="Choose lowest unit" />
-                      </div>
-                    )}
-                    {pharmacyHierarchyStart === 'box' && (
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-bold text-slate-500 uppercase">Strips per Box</label>
-                        <input type="number" min={1} value={pharmacyTopContains} onChange={e => setPharmacyTopContains(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-                      </div>
-                    )}
-                    {pharmacyHierarchyStart === 'master_box' && (
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-bold text-slate-500 uppercase">Cartons per Master Box</label>
-                        <input type="number" min={1} value={pharmacyTopContains} onChange={e => setPharmacyTopContains(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-                      </div>
-                    )}
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-slate-500 uppercase">{pharmacyProductType === 'pharmaceutical' ? `${pharmacyBaseUnit}s per Dose/Strip` : 'Pieces per Carton'}</label>
-                      <input type="number" min={1} value={pharmacyMiddleContains} onChange={e => setPharmacyMiddleContains(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-                    </div>
-                    {pharmacyProductType === 'pharmaceutical' && (
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-bold text-slate-500 uppercase">{pharmacyBaseUnit}s per Dose</label>
-                        <input type="number" min={1} value={pharmacyDoseContains} onChange={e => setPharmacyDoseContains(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-                      </div>
-                        )}
-                      </>
-                    )}
-                    <div className="pharmacy-hierarchy-levels-grid col-span-2 grid grid-cols-2 gap-3">
-                      {pharmacyFormHierarchy.levels.map(level => (
-                        <div key={level.id} className="bg-white/80 border border-emerald-100 rounded-xl px-3 py-2">
-                          <span className="block text-[9px] font-bold text-slate-400 uppercase">{level.label}</span>
-                          <span className="text-[11px] font-black text-emerald-800">1 {level.unit} = {level.quantityToBaseUnit} {pharmacyFormHierarchy.baseUnit}</span>
-                        </div>
-                      ))}
-                    </div>
-                    {!isDesktopAddProductLayout ? (
-                      <div className="pharmacy-price-grid col-span-2 grid grid-cols-3 gap-1.5 sm:gap-2">
-                        <div className="space-y-1 min-w-0">
-                          <label className="block min-h-6 text-[8px] sm:text-[9px] leading-tight font-bold text-slate-500 uppercase">{pharmacyFormHierarchy.levels[0]?.unit || 'Strip'} price</label>
-                          <input type="number" value={sellingPrice || ''} onChange={e => setSellingPrice(Number(e.target.value) || 0)} className="w-full min-w-0 bg-white border border-slate-200 text-[10px] px-2 py-2 rounded-xl" />
-                        </div>
-                        <div className="space-y-1 min-w-0">
-                          <label className="block min-h-6 text-[8px] sm:text-[9px] leading-tight font-bold text-slate-500 uppercase">Dose / middle price</label>
-                          <input type="number" value={fullDosePrice} onChange={e => setFullDosePrice(e.target.value === '' ? '' : Number(e.target.value))} placeholder="Auto" className="w-full min-w-0 bg-white border border-slate-200 text-[10px] px-2 py-2 rounded-xl" />
-                        </div>
-                        <div className="space-y-1 min-w-0">
-                          <label className="block min-h-6 text-[8px] sm:text-[9px] leading-tight font-bold text-slate-500 uppercase">Price per {pharmacyFormHierarchy.baseUnit}</label>
-                          <input type="number" value={tabPrice} onChange={e => setTabPrice(e.target.value === '' ? '' : Number(e.target.value))} placeholder="Auto" className="w-full min-w-0 bg-white border border-slate-200 text-[10px] px-2 py-2 rounded-xl" />
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="space-y-1">
-                          <label className="text-[9px] font-bold text-slate-500 uppercase">{pharmacyFormHierarchy.levels[0]?.unit || 'Top Unit'} price</label>
-                          <input type="number" value={sellingPrice || ''} onChange={e => setSellingPrice(Number(e.target.value) || 0)} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-[9px] font-bold text-slate-500 uppercase">Dose / middle price</label>
-                          <input type="number" value={fullDosePrice} onChange={e => setFullDosePrice(e.target.value === '' ? '' : Number(e.target.value))} placeholder="Auto if empty" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-[9px] font-bold text-slate-500 uppercase">Price per {pharmacyFormHierarchy.baseUnit}</label>
-                          <input type="number" value={tabPrice} onChange={e => setTabPrice(e.target.value === '' ? '' : Number(e.target.value))} placeholder="Auto if empty" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-                        </div>
-                      </>
-                    )}
-                    <div className="col-span-2 text-[10px] font-mono text-emerald-800 bg-white/70 border border-emerald-100 rounded-xl px-3 py-2">
-                      Total shop stock: {shopStockQty} {pharmacyFormHierarchy.baseUnit}. Total store stock: {storeStockQty} {pharmacyFormHierarchy.baseUnit}. POS will sell by {pharmacyFormHierarchy.levels.map(level => level.unit).join(', ')} and deduct from {pharmacyFormHierarchy.baseUnit}.
-                    </div>
-                  </div>
-                </div>
-              )}
+              {isTabletWidthOrWider && pharmacyUnitHierarchySection}
 
               {/* Commit Trigger */}
               <button
