@@ -2271,7 +2271,7 @@ export default function DashboardProducts({
           </button>
           {stockTrackingMode === 'open-ended' && (
             <p className="text-[9.5px] normal-case text-slate-400 -mt-2">
-              For a cable roll or similar: enter a rough estimate below (or a large number) so it never shows as low/out of stock by accident. When the roll actually finishes, open Edit Product and tick "Mark as Finished".
+              For products where you don't track an exact stock count — you sell by unit price, and it stays available until you mark it finished.
             </p>
           )}
 
