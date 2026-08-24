@@ -2792,7 +2792,7 @@ export default function DashboardProducts({
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 
                 {/* Column 1: Core Title, Category and Daymode Compression Upload */}
-                <div className={isDesktopAddProductLayout ? "space-y-4" : "bg-gradient-to-br from-emerald-50/60 via-white to-white border border-slate-100 rounded-2xl p-4 space-y-4"}>
+                <div className={isDesktopAddProductLayout ? "space-y-4" : "bg-gradient-to-br from-emerald-50/60 via-white to-white dark:from-slate-800 dark:via-slate-800 dark:to-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl p-4 space-y-4"}>
                   {isDesktopAddProductLayout ? (
                     <h5 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-1.5">1. Descriptor & Visual Assets</h5>
                   ) : (
@@ -3014,13 +3014,13 @@ export default function DashboardProducts({
                       </div>
                     </div>
                     ) : (
-                    <div className="border border-dashed border-slate-200 rounded-xl p-2.5 bg-gradient-to-br from-slate-50 to-white flex flex-col items-center text-center space-y-1.5">
+                    <div className="border border-dashed border-slate-200 dark:border-slate-700 rounded-xl p-2.5 bg-gradient-to-br from-slate-50 to-white dark:from-slate-800 dark:to-slate-800 flex flex-col items-center text-center space-y-1.5">
                       {productImage ? (
-                        <div className="w-11 h-11 rounded-lg bg-white border border-slate-200 overflow-hidden flex items-center justify-center p-0.5 shadow-xs">
+                        <div className="w-11 h-11 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 overflow-hidden flex items-center justify-center p-0.5 shadow-xs">
                           <img src={productImage} alt="Product Base64 Preview" className="max-w-full max-h-full object-contain" referrerPolicy="no-referrer" />
                         </div>
                       ) : (
-                        <div className="w-11 h-11 rounded-lg bg-gradient-to-br from-slate-100 to-slate-50 border border-slate-200 text-slate-400 flex items-center justify-center flex-shrink-0">
+                        <div className="w-11 h-11 rounded-lg bg-gradient-to-br from-slate-100 to-slate-50 dark:from-slate-900 dark:to-slate-900 border border-slate-200 dark:border-slate-700 text-slate-400 flex items-center justify-center flex-shrink-0">
                           <Upload className="w-4 h-4" />
                         </div>
                       )}
@@ -3054,7 +3054,7 @@ export default function DashboardProducts({
                 {!isTabletWidthOrWider && pharmacyUnitHierarchySection}
 
                 {/* Column 2: Barcode Actions & Stock level details */}
-                <div className={isDesktopAddProductLayout ? "space-y-4" : "bg-gradient-to-br from-amber-50/60 via-white to-white border border-slate-100 rounded-2xl p-4 space-y-4"}>
+                <div className={isDesktopAddProductLayout ? "space-y-4" : "bg-gradient-to-br from-amber-50/60 via-white to-white dark:from-slate-800 dark:via-slate-800 dark:to-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl p-4 space-y-4"}>
                   {isDesktopAddProductLayout ? (
                     <h5 className="text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-100 pb-1.5">2. Barcode Controls & Stock</h5>
                   ) : (
@@ -3068,15 +3068,14 @@ export default function DashboardProducts({
                   
                   <div className="space-y-1.5">
                     <div className="flex justify-between items-center text-[10px] text-slate-500 uppercase block font-bold">
-                      <label>Retail Scan Barcode (Acts as SKU Item Code)</label>
-                      <div className="flex items-center space-x-2 text-[9px] font-bold text-emerald-600 font-mono normal-case">
-                        <button type="button" onClick={generateManualBarcodeValue} className="hover:underline">
-                          [Generate]
+                      <label>Product Code (Acts as SKU / Item Code)</label>
+                      <div className="flex items-center space-x-1.5 normal-case">
+                        <button type="button" onClick={generateManualBarcodeValue} className="px-2 py-1 rounded-lg border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-[9px] font-bold text-emerald-700 transition-colors">
+                          Generate
                         </button>
-                        <span>|</span>
-                        <button type="button" onClick={() => setIsFormScannerOpen(true)} className="hover:underline flex items-center space-x-0.5">
+                        <button type="button" onClick={() => setIsFormScannerOpen(true)} className="flex items-center space-x-1 px-2 py-1 rounded-lg border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-[9px] font-bold text-emerald-700 transition-colors">
                           <Camera className="w-2.5 h-2.5" />
-                          <span>[Scanner Beam]</span>
+                          <span>Scan</span>
                         </button>
                       </div>
                     </div>
@@ -3133,7 +3132,7 @@ export default function DashboardProducts({
                 {!isTabletWidthOrWider && smartBatchCostingSection}
 
                 {/* Column 3: Pricing & Margins */}
-                <div className={isDesktopAddProductLayout ? "space-y-4" : "bg-gradient-to-br from-blue-50/60 via-white to-white border border-slate-100 rounded-2xl p-4 space-y-4"}>
+                <div className={isDesktopAddProductLayout ? "space-y-4" : "bg-gradient-to-br from-blue-50/60 via-white to-white dark:from-slate-800 dark:via-slate-800 dark:to-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl p-4 space-y-4"}>
                   {isDesktopAddProductLayout ? (
                     <h5 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-1.5">3. Channel Rules & Costs</h5>
                   ) : (
@@ -5018,7 +5017,7 @@ export default function DashboardProducts({
             <div className="tenant-form-body flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain p-4 sm:p-6 space-y-6 text-xs text-slate-600">
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Visual Block & Classification summary */}
-                <div className={isDesktopAddProductLayout ? "space-y-4" : "bg-gradient-to-br from-emerald-50/60 via-white to-white border border-slate-100 rounded-2xl p-4 space-y-4"}>
+                <div className={isDesktopAddProductLayout ? "space-y-4" : "bg-gradient-to-br from-emerald-50/60 via-white to-white dark:from-slate-800 dark:via-slate-800 dark:to-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl p-4 space-y-4"}>
                   {isDesktopAddProductLayout ? (
                     <h5 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200 pb-1.5 font-mono">1. Descriptor & Image</h5>
                   ) : (
@@ -5130,7 +5129,7 @@ export default function DashboardProducts({
                 </div>
 
                 {/* Stock levels block */}
-                <div className={isDesktopAddProductLayout ? "space-y-4" : "bg-gradient-to-br from-amber-50/60 via-white to-white border border-slate-100 rounded-2xl p-4 space-y-4"}>
+                <div className={isDesktopAddProductLayout ? "space-y-4" : "bg-gradient-to-br from-amber-50/60 via-white to-white dark:from-slate-800 dark:via-slate-800 dark:to-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl p-4 space-y-4"}>
                   {isDesktopAddProductLayout ? (
                     <h5 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200 pb-1.5 font-mono">2. Barcode & Stocking</h5>
                   ) : (
@@ -5209,7 +5208,7 @@ export default function DashboardProducts({
                 </div>
 
                 {/* Sells & Margin statistics */}
-                <div className={isDesktopAddProductLayout ? "space-y-4 font-mono" : "bg-gradient-to-br from-blue-50/60 via-white to-white border border-slate-100 rounded-2xl p-4 space-y-4 font-mono"}>
+                <div className={isDesktopAddProductLayout ? "space-y-4 font-mono" : "bg-gradient-to-br from-blue-50/60 via-white to-white dark:from-slate-800 dark:via-slate-800 dark:to-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl p-4 space-y-4 font-mono"}>
                   {isDesktopAddProductLayout ? (
                     <h5 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200 pb-1.5 font-mono">3. Financial Margin metrics</h5>
                   ) : (

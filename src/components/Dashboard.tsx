@@ -4410,7 +4410,6 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                   { id: 'admin-settings',   label: 'Settings',    icon: SettingsIcon,desc: 'System configuration',      color: 'text-slate-600 dark:text-slate-400', bg: 'bg-slate-100 dark:bg-slate-800' },
                   { id: 'install-orvix-app', label: 'Install Admin App', icon: Download, desc: 'Add Super Admin to your home screen', color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10', alwaysShow: true },
                 ] : [
-                  { id: 'sync', label: 'Sync', icon: RefreshCw, desc: isOfflineMode ? 'You are offline' : 'All data synced', color: isOfflineMode ? 'text-amber-600' : 'text-emerald-600', bg: isOfflineMode ? 'bg-amber-50 dark:bg-amber-500/10' : 'bg-emerald-50 dark:bg-emerald-500/10' },
                   { id: 'settings', label: 'Settings', icon: SettingsIcon, desc: 'Manage your business settings', color: 'text-slate-600 dark:text-slate-400', bg: 'bg-slate-100 dark:bg-slate-800' },
                   { id: 'subscription-modal', label: 'Subscription', icon: CardIcon, desc: 'Pay online or upload an offline receipt', color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10', alwaysShow: true },
                   { id: 'install-orvix-app', label: 'Install Orvix App', icon: Download, desc: 'Add this app to your home screen', color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10', alwaysShow: true },

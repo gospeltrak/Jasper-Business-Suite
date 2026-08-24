@@ -496,6 +496,52 @@ button, a, [role="button"] {
   color: #f1f5f9 !important;
 }
 
+/* Printable/downloadable business documents (invoices, quotations, receipts,
+   delivery notes, reports) must always render in light mode, even while the
+   tenant's dashboard UI is in dark mode. The hardened dark-mode safety layer
+   above intercepts literal utility classes like .bg-white/.text-slate-900
+   wherever they appear under .dark, which also caught these document
+   templates as a side effect. These rules restore the original light-mode
+   values specifically inside them. */
+.dark :is(#delivery-note-print-area, #pos-receipt-pdf-template, #reports-a4-pdf-template, #sales-document-a4-pdf-template, #sales-invoice-a4-pdf-template, #sales-receipt-pdf-template, #affiliate-monthly-payout-pdf-template, #saas-financial-audit-pdf-template) {
+  color-scheme: light;
+}
+
+.dark :is(#delivery-note-print-area, #pos-receipt-pdf-template, #reports-a4-pdf-template, #sales-document-a4-pdf-template, #sales-invoice-a4-pdf-template, #sales-receipt-pdf-template, #affiliate-monthly-payout-pdf-template, #saas-financial-audit-pdf-template):is(.bg-white, .bg-white\/65, .bg-white\/80, .bg-white\/85, .bg-white\/90),
+.dark :is(#delivery-note-print-area, #pos-receipt-pdf-template, #reports-a4-pdf-template, #sales-document-a4-pdf-template, #sales-invoice-a4-pdf-template, #sales-receipt-pdf-template, #affiliate-monthly-payout-pdf-template, #saas-financial-audit-pdf-template) :is(.bg-white, .bg-white\/65, .bg-white\/80, .bg-white\/85, .bg-white\/90) {
+  background-color: #ffffff !important;
+}
+
+.dark :is(#delivery-note-print-area, #pos-receipt-pdf-template, #reports-a4-pdf-template, #sales-document-a4-pdf-template, #sales-invoice-a4-pdf-template, #sales-receipt-pdf-template, #affiliate-monthly-payout-pdf-template, #saas-financial-audit-pdf-template) :is(.bg-slate-50, .bg-slate-50\/75, .bg-gray-50) {
+  background-color: #f8fafc !important;
+}
+
+.dark :is(#delivery-note-print-area, #pos-receipt-pdf-template, #reports-a4-pdf-template, #sales-document-a4-pdf-template, #sales-invoice-a4-pdf-template, #sales-receipt-pdf-template, #affiliate-monthly-payout-pdf-template, #saas-financial-audit-pdf-template) :is(.bg-slate-100, .bg-slate-100\/50, .bg-gray-100) {
+  background-color: #f1f5f9 !important;
+}
+
+.dark :is(#delivery-note-print-area, #pos-receipt-pdf-template, #reports-a4-pdf-template, #sales-document-a4-pdf-template, #sales-invoice-a4-pdf-template, #sales-receipt-pdf-template, #affiliate-monthly-payout-pdf-template, #saas-financial-audit-pdf-template) :is(.text-slate-900, .text-slate-800, .text-black, .text-gray-900, .text-gray-800) {
+  color: #0f172a !important;
+}
+
+.dark :is(#delivery-note-print-area, #pos-receipt-pdf-template, #reports-a4-pdf-template, #sales-document-a4-pdf-template, #sales-invoice-a4-pdf-template, #sales-receipt-pdf-template, #affiliate-monthly-payout-pdf-template, #saas-financial-audit-pdf-template) :is(.text-slate-700, .text-slate-600, .text-gray-700, .text-gray-600) {
+  color: #334155 !important;
+}
+
+.dark :is(#delivery-note-print-area, #pos-receipt-pdf-template, #reports-a4-pdf-template, #sales-document-a4-pdf-template, #sales-invoice-a4-pdf-template, #sales-receipt-pdf-template, #affiliate-monthly-payout-pdf-template, #saas-financial-audit-pdf-template) :is(.text-slate-500, .text-slate-400, .text-gray-500, .text-gray-400) {
+  color: #64748b !important;
+}
+
+.dark :is(#delivery-note-print-area, #pos-receipt-pdf-template, #reports-a4-pdf-template, #sales-document-a4-pdf-template, #sales-invoice-a4-pdf-template, #sales-receipt-pdf-template, #affiliate-monthly-payout-pdf-template, #saas-financial-audit-pdf-template) :is(.border, .border-t, .border-r, .border-b, .border-l, .border-slate-100, .border-slate-200, .border-slate-300, .border-slate-350, .border-gray-100, .border-gray-200) {
+  border-color: #e2e8f0 !important;
+}
+
+.dark :is(#delivery-note-print-area, #pos-receipt-pdf-template, #reports-a4-pdf-template, #sales-document-a4-pdf-template, #sales-invoice-a4-pdf-template, #sales-receipt-pdf-template, #affiliate-monthly-payout-pdf-template, #saas-financial-audit-pdf-template) :is(input, select, textarea) {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #e2e8f0 !important;
+}
+
 /* RTL Global Rules */
 
 .rtl { direction: rtl; text-align: right; }

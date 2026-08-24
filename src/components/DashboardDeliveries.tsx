@@ -962,11 +962,11 @@ Vehicle Plate Number: ${plateNumber}
                   onClick={() => handleSubTabChange(tab.id)}
                   className={`basis-0 flex-1 min-w-0 min-h-[44px] sm:min-h-[48px] rounded-xl border flex flex-row items-center justify-center gap-1.5 text-[10px] font-black transition-all ${
                     isActive
-                      ? 'bg-gradient-to-br from-emerald-600 to-emerald-800 text-white border-emerald-700 shadow-md'
+                      ? 'bg-emerald-500 text-white border-emerald-500 shadow-md'
                       : 'bg-transparent text-slate-500 border-transparent active:bg-slate-100'
                   }`}
                 >
-                  <Icon className={`w-4 h-4 ${isActive ? 'text-emerald-300' : 'text-slate-400'}`} />
+                  <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
                   <span>{tab.label}</span>
                 </button>
               );
@@ -2004,7 +2004,7 @@ Vehicle Plate Number: ${plateNumber}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
             
             {/* Form Fields Side panel (Left - 5 columns) */}
-            <div className="lg:col-span-12 xl:col-span-5 bg-white border border-slate-200 p-3.5 sm:p-5 rounded-2xl space-y-4 shadow-sm xl:max-h-[85vh] overflow-y-auto scrollbar-thin flex flex-col">
+            <div className="lg:col-span-12 xl:col-span-5 bg-white border border-slate-200 p-3.5 sm:p-5 rounded-2xl space-y-4 shadow-sm xl:max-h-[85vh] xl:overflow-y-auto scrollbar-thin flex flex-col">
               <div className="border-b border-slate-100 pb-3 flex justify-between items-center">
                 <h4 className="font-black text-slate-900 tracking-tight text-sm">Delivery Note Custom Fields</h4>
                 <button 
@@ -2180,9 +2180,6 @@ Vehicle Plate Number: ${plateNumber}
                     <p className="text-[10px] text-slate-400 mt-1.5 ml-1">No matching tenant record was found.</p>
                   )}
                 </div>
-                {!linkedInvoiceRef && !invoiceSearchQuery && (
-                  <p className="text-[10px] text-slate-400">Select a source record to load customer, destination, items and assigned transport.</p>
-                )}
               </div>
 
               {/* Table Note Items Builder */}
