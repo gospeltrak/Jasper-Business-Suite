@@ -2430,9 +2430,21 @@ export default function DashboardProducts({
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-slate-500 uppercase block">Product Type</label>
                     <ModernSelect
-                      value={productType}
-                      options={isPharmacyLike ? PRODUCT_TYPE_OPTIONS : PRODUCT_TYPE_OPTIONS.filter(option => option.value !== 'medicine')}
-                      onChange={(next) => setProductType(next as ProductType)}
+                      value={!isPharmacyLike && isBulkProduct ? 'retail_package' : productType}
+                      options={isPharmacyLike
+                        ? PRODUCT_TYPE_OPTIONS
+                        : [
+                          ...PRODUCT_TYPE_OPTIONS.filter(option => option.value !== 'medicine'),
+                          { value: 'retail_package', label: 'Retail Package' },
+                        ]}
+                      onChange={(next) => {
+                        if (next === 'retail_package') {
+                          setIsBulkProduct(true);
+                        } else {
+                          setIsBulkProduct(false);
+                          setProductType(next as ProductType);
+                        }
+                      }}
                       title="Choose product type"
                       placeholder="Select product type"
                     />
@@ -2819,7 +2831,7 @@ export default function DashboardProducts({
                     </button>
                   ))}
                 </div>
-                {!isPharmacyLike && (
+                {!isPharmacyLike && isBulkProduct && (
                   <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 space-y-3">
                     <div className="flex flex-wrap items-end gap-x-2 gap-y-3">
                       <div className="space-y-1">
@@ -2839,7 +2851,6 @@ export default function DashboardProducts({
                     <label className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 uppercase w-fit">
                       <input type="checkbox" checked={allowScaleSelling} onChange={(e) => {
                         setAllowScaleSelling(e.target.checked);
-                        setIsBulkProduct(e.target.checked);
                         if (e.target.checked && !sellingMode) setSellingMode('scale');
                       }} className="accent-emerald-600" />
                       Fraction Sale
