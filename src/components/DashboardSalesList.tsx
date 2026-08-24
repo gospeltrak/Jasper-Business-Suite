@@ -5655,9 +5655,9 @@ export default function DashboardSalesList({
                       </div>
                     </div>
 
-                    {/* Payment Details — below the totals/Due line, its own full row */}
+                    {/* Payment Details — below the totals/Due line, its own row, half-width */}
                     {viewingDocument.paymentMethod && (
-                      <div className="bg-slate-50 rounded-xl px-4 py-3.5 border border-slate-100 text-xs">
+                      <div className="bg-slate-50 rounded-xl px-4 py-3.5 border border-slate-100 text-xs w-1/2">
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-mono">Payment Details</p>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-1">
                           <div><span className="text-slate-400 block">Mode</span><strong className="text-slate-700">{viewingDocument.paymentMethod}</strong></div>
