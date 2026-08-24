@@ -1821,6 +1821,15 @@ button:active:not(:disabled),
   #dashboard-scaffold .reports-overview-tablet-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
+  /* Add Product > Pharmacy Unit Hierarchy: same literal grid-cols-2 trap,
+     forced to a single column and overlapping/crowding its many conditional
+     fields on tablet. Restore two columns; the nested levels-preview grid
+     and the full-width summary line still span correctly via col-span-2,
+     which is a different CSS property untouched by the collapse rule. */
+  #dashboard-scaffold .pharmacy-hierarchy-grid,
+  #dashboard-scaffold .pharmacy-hierarchy-levels-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
 }
 
 .subscription-mobile-action {

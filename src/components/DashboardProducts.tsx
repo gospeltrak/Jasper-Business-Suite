@@ -2997,7 +2997,7 @@ export default function DashboardProducts({
                       <p className="text-[10.5px] text-slate-450 mt-0.5">Choose the product type, starting level, and how many units each level contains.</p>
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-3 bg-emerald-50/40 border border-emerald-100 rounded-2xl p-3">
+                  <div className="pharmacy-hierarchy-grid grid grid-cols-2 gap-3 bg-emerald-50/40 border border-emerald-100 rounded-2xl p-3">
                     <div className="space-y-1">
                       <label className="text-[9px] font-bold text-slate-500 uppercase">Product Type</label>
                       <ModernSelect value={pharmacyProductType} options={PHARMACY_PRODUCT_TYPE_OPTIONS} onChange={(nextValue) => {
@@ -3046,7 +3046,7 @@ export default function DashboardProducts({
                         <input type="number" min={1} value={pharmacyDoseContains} onChange={e => setPharmacyDoseContains(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
                       </div>
                     )}
-                    <div className="col-span-2 grid grid-cols-2 gap-3">
+                    <div className="pharmacy-hierarchy-levels-grid col-span-2 grid grid-cols-2 gap-3">
                       {pharmacyFormHierarchy.levels.map(level => (
                         <div key={level.id} className="bg-white/80 border border-emerald-100 rounded-xl px-3 py-2">
                           <span className="block text-[9px] font-bold text-slate-400 uppercase">{level.label}</span>
