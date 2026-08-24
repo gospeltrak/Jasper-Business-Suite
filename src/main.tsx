@@ -156,8 +156,17 @@ function isTextEntryElement(el: EventTarget | null): boolean {
 // animation. Geometry events are the source of truth; these two checkpoints
 // only cover versions that occasionally omit one of those events. They never
 // change window/workspace scroll positions.
+//
+// Deliberately no immediate/rAF pass here (there used to be one): it ran
+// before the keyboard animation had started, so it applied a snap based on
+// pre-keyboard geometry right as the user's tap was landing -- on some
+// devices that coincided with the input receiving focus closely enough to
+// interrupt it, making the very first tap on any field appear to not
+// register (a retry after the 100ms/350ms passes settled always worked).
+// The two delayed passes plus the native visualViewport resize/scroll
+// listeners below are enough to still correct the layout once the keyboard
+// is actually animating.
 function scheduleKeyboardViewportSync() {
-  scheduleViewportSync();
   window.setTimeout(scheduleViewportSync, 100);
   window.setTimeout(scheduleViewportSync, 350);
 }
