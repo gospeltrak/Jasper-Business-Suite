@@ -79,7 +79,8 @@ test('lazy screens recover safely after a deployment changes chunk filenames', a
 
   assert.match(dashboardSource, /lazyWithReload\('DashboardCashBank'/);
   assert.match(appSource, /lazyWithReload\('Dashboard'/);
-  assert.match(boundarySource, /onRetry=\{this\.reloadUpdatedApp\}/);
+  assert.match(boundarySource, /Tunarudisha sehemu yako/);
+  assert.doesNotMatch(boundarySource, /SystemErrorPage status=\{500\}/);
   assert.match(boundarySource, /window\.location\.reload\(\)/);
   assert.match(lazyLoaderSource, /window\.setTimeout\(\(\) => window\.location\.reload\(\), 0\)/);
   assert.match(lazyLoaderSource, /sessionStorage\.setItem/);
@@ -98,12 +99,18 @@ test('login always returns to the canonical Jasper landing hub', async () => {
   assert.doesNotMatch(appSource, /publicLandingUrl\s*=\s*tenantDomainContext\.baseDomain/);
 });
 
-test('optional tenant branding cannot leave a successful login waiting forever', async () => {
+test('optional tenant branding and workspace hydration never block a successful login', async () => {
   const appSource = await read('src/App.tsx');
-  assert.match(appSource, /resolvedTenantLogo\s*=\s*await Promise\.race\(\[/);
-  assert.match(appSource, /fetchLogoUrl\(storageTenantId\)/);
-  assert.match(appSource, /window\.setTimeout\(\(\) => resolve\(null\), 1500\)/);
-  assert.match(appSource, /setUser\(authenticatedUser\)/);
+  const loginHandler = appSource.slice(
+    appSource.indexOf('const handleLoginSuccess ='),
+    appSource.indexOf('useEffect(() => {', appSource.indexOf('const handleLoginSuccess =')),
+  );
+  assert.match(loginHandler, /void fetchLogoUrl\(storageTenantId\)/);
+  assert.match(loginHandler, /setUser\(authenticatedUser\)/);
+  assert.doesNotMatch(loginHandler, /await configureOnlineStorage/);
+  assert.doesNotMatch(loginHandler, /await fetchLogoUrl/);
+  assert.doesNotMatch(loginHandler, /Promise\.race/);
+  assert.doesNotMatch(appSource, /await configureOnlineStorage\(restoredStorageTenantId\)/);
 });
 
 test('workspace entry and branch switching stay fast and non-blocking', async () => {
@@ -112,7 +119,7 @@ test('workspace entry and branch switching stay fast and non-blocking', async ()
   const branchContextSource = await read('src/branches/BranchContext.tsx');
   const dashboardSource = await read('src/components/Dashboard.tsx');
 
-  assert.match(appSource, /duration=\{splashRequest\.mode === 'tenant' \? 3000 : 1200\}/);
+  assert.match(appSource, /duration=\{splashRequest\.mode === 'tenant' \? 2000 : 1200\}/);
   assert.match(splashSource, /duration = 1200/);
   assert.match(branchContextSource, /branchSnapshotCache/);
   assert.match(branchContextSource, /optimisticSnapshot/);

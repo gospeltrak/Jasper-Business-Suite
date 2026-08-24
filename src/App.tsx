@@ -479,11 +479,10 @@ export default function App() {
           profileImage: userProfile.profile_image_url || undefined
         };
 
-        await startCloudSession(sessionData.session.access_token);
-        const restoredStorageTenantId = restoredUser.activeTenant || restoredUser.tenantId;
-        if (restoredStorageTenantId && restoredStorageTenantId !== 'platform-control') {
-          await configureOnlineStorage(restoredStorageTenantId);
-        }
+        // Session tracking and workspace hydration are non-blocking concerns.
+        // The workspace effect below owns hydration once the authenticated user
+        // is committed, avoiding a duplicate request waterfall during login.
+        void startCloudSession(sessionData.session.access_token);
         setUser(restoredUser);
         persistSignedInUser(restoredUser);
 
@@ -501,7 +500,7 @@ export default function App() {
     return () => { cancelled = true; };
   }, [currentPath, tenantDomainContext.kind, user]);
 
-  const handleLoginSuccess = async (authenticatedUser: User) => {
+  const handleLoginSuccess = (authenticatedUser: User) => {
     logoutInProgressRef.current = false;
     const domainTenantId = tenantDomainContext.kind === 'tenant' ? tenantDomainContext.tenant?.id : null;
     const userTenantId = authenticatedUser.tenantId || authenticatedUser.activeTenant;
@@ -519,15 +518,11 @@ export default function App() {
       return;
     }
     const storageTenantId = authenticatedUser.activeTenant || authenticatedUser.tenantId;
-    let resolvedTenantLogo: string | null = null;
+    // Branding is cosmetic. Refresh it in the background while the existing
+    // workspace effect hydrates tenant data; neither request may hold the user
+    // on the login page after authentication has succeeded.
     if (storageTenantId && storageTenantId !== 'platform-control') {
-      await configureOnlineStorage(storageTenantId);
-      // Branding is cosmetic and must never hold an authenticated user on the
-      // login page during a slow database/network incident.
-      resolvedTenantLogo = await Promise.race([
-        fetchLogoUrl(storageTenantId),
-        new Promise<null>(resolve => window.setTimeout(() => resolve(null), 1500)),
-      ]);
+      void fetchLogoUrl(storageTenantId);
     }
     void recordStaffLogin(authenticatedUser);
     setUser(authenticatedUser);
@@ -539,10 +534,10 @@ export default function App() {
       // logo image (same asset used on the login screen) rather than no
       // image at all, so the workspace-entry reveal always shows a real
       // logo — tenant's if present, Orvix's if not.
-      logoSrc: resolvedTenantLogo || '/jb-logo.png',
+      logoSrc: logoUrl || '/jb-logo.png',
       showTagline: false,
     });
-    // Route immediately underneath the four-second tenant-branded reveal.
+    // Route immediately underneath the two-second tenant-branded reveal.
     commitNavigation(getAuthenticatedRoute(authenticatedUser));
   };
 
@@ -831,7 +826,7 @@ export default function App() {
       {splashRequest && (
         <JasperSplashScreen
           logoSrc={splashRequest.mode === 'tenant' ? splashRequest.logoSrc : undefined}
-          duration={splashRequest.mode === 'tenant' ? 3000 : 1200}
+          duration={splashRequest.mode === 'tenant' ? 2000 : 1200}
           showTagline={splashRequest.showTagline}
           onFinish={() => {
             const pendingPath = splashRequest.pendingPath;
