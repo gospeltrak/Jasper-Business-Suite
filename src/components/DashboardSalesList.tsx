@@ -780,6 +780,7 @@ export default function DashboardSalesList({
       if (canUseCrossBranchDocuments) {
         setCrossBranchSourcesLoading(true);
         setCrossBranchSourcesError('');
+        setCrossBranchSources(null);
         void loadCrossBranchDocumentSources()
           .then(sources => {
             setCrossBranchSources(sources);
@@ -790,8 +791,13 @@ export default function DashboardSalesList({
             const preferredBranch = sources.branches.find(branch => branch.id === activeBranchId)
               || sources.branches.find(branch => branch.isDefault)
               || sources.branches[0];
-            setNewDocIssuingBranchId(current => current || preferredBranch?.id || '');
-            setDocWizardSourceBranchId(current => current || preferredBranch?.id || '');
+            // A previous invoice may have been created from another branch.
+            // Always align a newly opened wizard with the dashboard's current
+            // branch instead of retaining that stale branch selection.
+            setNewDocIssuingBranchId(preferredBranch?.id || '');
+            setDocWizardSourceBranchId(preferredBranch?.id || '');
+            setDocWizardSelectedProductId('');
+            setDocWizardProductSearchQuery('');
           })
           .catch(error => {
             setCrossBranchSources(null);
@@ -833,9 +839,16 @@ export default function DashboardSalesList({
       .filter(product => product.branchId === docWizardSourceBranchId && product.quantity > 0)
       .map(product => product.productId)
   ), [crossBranchSources, docWizardSourceBranchId]);
-  const documentPickerProducts = canUseCrossBranchDocuments && crossBranchSources
-    ? (allTenantProducts && allTenantProducts.length ? allTenantProducts : products).filter(product => branchSourceProductIds.has(product.id))
-    : products;
+  const documentPickerProducts = React.useMemo(() => {
+    if (!canUseCrossBranchDocuments || !crossBranchSources) return products;
+    const tenantCatalogue = allTenantProducts && allTenantProducts.length ? allTenantProducts : products;
+    const sourcedProducts = tenantCatalogue.filter(product => branchSourceProductIds.has(product.id));
+    // During legacy branch-stock normalization the server source can briefly
+    // be empty. The already branch-scoped dashboard catalogue is authoritative
+    // for the active branch and prevents its invoice search becoming blank.
+    if (sourcedProducts.length === 0 && docWizardSourceBranchId === activeBranchId) return products;
+    return sourcedProducts;
+  }, [activeBranchId, allTenantProducts, branchSourceProductIds, canUseCrossBranchDocuments, crossBranchSources, docWizardSourceBranchId, products]);
   const newDocSubtotal = React.useMemo(
     () => newDocItems.reduce((sum, item) => sum + (toNumber(item.qty) * toNumber(item.price)), 0),
     [newDocItems]

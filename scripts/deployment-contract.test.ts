@@ -167,6 +167,19 @@ test('expired Tanzanite tenants save quotes through the standard tenant document
   assert.match(salesSource, /if \(!canUseCrossBranchDocuments\) \{[\s\S]*setDocuments/);
 });
 
+test('commercial document product search follows the active branch and recognizes location stock', async () => {
+  const salesSource = await read('src/components/DashboardSalesList.tsx');
+  const migrationSource = await read('supabase/migrations/20260824095954_fix_cross_branch_invoice_product_sources.sql');
+
+  assert.match(salesSource, /setNewDocIssuingBranchId\(preferredBranch\?\.id \|\| ''\)/);
+  assert.match(salesSource, /setDocWizardSourceBranchId\(preferredBranch\?\.id \|\| ''\)/);
+  assert.match(salesSource, /docWizardSourceBranchId === activeBranchId\) return products/);
+  assert.match(migrationSource, /create or replace function public\.list_cross_branch_document_sources\(\)/);
+  assert.match(migrationSource, /coalesce\(stock\.shop_stock_qty, 0\) \+ coalesce\(stock\.store_stock_qty, 0\)/);
+  assert.match(migrationSource, /where stock\.tenant_id = v_tenant_id/);
+  assert.match(migrationSource, /grant execute on function public\.list_cross_branch_document_sources\(\) to authenticated/);
+});
+
 test('header uses active business profile and has no decorative workspace search box', async () => {
   const dashboardSource = await read('src/components/Dashboard.tsx');
   const branchContextSource = await read('src/branches/BranchContext.tsx');
