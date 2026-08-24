@@ -2270,32 +2270,36 @@ export default function DashboardProducts({
                     </div>
                   </div>
                 </div>
-                <button
-                  onClick={downloadUniversalTemplate}
-                  className="flex items-center gap-3 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 active:bg-slate-100 text-left"
-                >
-                  <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-900/40 flex items-center justify-center shrink-0">
-                    <Download className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                  </div>
-                  <div>
-                    <p className="text-[12px] font-bold text-slate-800 dark:text-white leading-tight">Medicine Template</p>
-                    <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Product Type + packaging</p>
-                  </div>
-                </button>
-
-                <div className="relative">
-                  <input type="file" accept=".csv" ref={universalCsvInputRef} onChange={handleUniversalCsvImport}
-                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" />
-                  <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-left">
+                {isPharmacyLike && (
+                  <button
+                    onClick={downloadUniversalTemplate}
+                    className="flex items-center gap-3 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 active:bg-slate-100 text-left"
+                  >
                     <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-900/40 flex items-center justify-center shrink-0">
-                      <Upload className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                      <Download className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
                     </div>
                     <div>
-                      <p className="text-[12px] font-bold text-slate-800 dark:text-white leading-tight">Medicine Import</p>
-                      <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Header-based CSV</p>
+                      <p className="text-[12px] font-bold text-slate-800 dark:text-white leading-tight">Medicine Template</p>
+                      <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Product Type + packaging</p>
+                    </div>
+                  </button>
+                )}
+
+                {isPharmacyLike && (
+                  <div className="relative">
+                    <input type="file" accept=".csv" ref={universalCsvInputRef} onChange={handleUniversalCsvImport}
+                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" />
+                    <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-left">
+                      <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-900/40 flex items-center justify-center shrink-0">
+                        <Upload className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                      </div>
+                      <div>
+                        <p className="text-[12px] font-bold text-slate-800 dark:text-white leading-tight">Medicine Import</p>
+                        <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Header-based CSV</p>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
 
                 <button
                   onClick={downloadProductCatalogue}
@@ -2347,20 +2351,24 @@ export default function DashboardProducts({
                   </button>
                 </div>
 
-                <button onClick={downloadUniversalTemplate}
-                  className="h-9 px-3.5 flex items-center gap-1.5 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-white dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-slate-700 text-xs font-bold text-indigo-700 dark:text-indigo-300 transition-colors">
-                  <Download className="w-3.5 h-3.5 text-indigo-600" />
-                  <span>Medicine Template</span>
-                </button>
-
-                <div className="relative h-9">
-                  <input type="file" accept=".csv" ref={universalCsvInputRef} onChange={handleUniversalCsvImport}
-                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" />
-                  <button className="h-9 px-3.5 flex items-center gap-1.5 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-white dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-slate-700 text-xs font-bold text-indigo-700 dark:text-indigo-300 transition-colors">
-                    <Upload className="w-3.5 h-3.5 text-indigo-600" />
-                    <span>Medicine Import</span>
+                {isPharmacyLike && (
+                  <button onClick={downloadUniversalTemplate}
+                    className="h-9 px-3.5 flex items-center gap-1.5 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-white dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-slate-700 text-xs font-bold text-indigo-700 dark:text-indigo-300 transition-colors">
+                    <Download className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>Medicine Template</span>
                   </button>
-                </div>
+                )}
+
+                {isPharmacyLike && (
+                  <div className="relative h-9">
+                    <input type="file" accept=".csv" ref={universalCsvInputRef} onChange={handleUniversalCsvImport}
+                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" />
+                    <button className="h-9 px-3.5 flex items-center gap-1.5 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-white dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-slate-700 text-xs font-bold text-indigo-700 dark:text-indigo-300 transition-colors">
+                      <Upload className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>Medicine Import</span>
+                    </button>
+                  </div>
+                )}
 
                 <button onClick={() => setIsOpen(!isOpen)}
                   className="h-9 px-4 flex items-center gap-1.5 rounded-xl text-white text-xs font-bold transition-colors shadow-sm"
