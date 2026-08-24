@@ -1212,7 +1212,12 @@ export default function DashboardProducts({
     const retailBaseUnit = (isBulkProduct || allowScaleSelling) ? (baseUnit || unit || 'Unit') : (unit || 'Unit');
     const retailPurchaseUnit = purchaseUnit || bulkUnit || 'Package';
     const retailConversionToBaseUnit = Math.max(0.001, Number(conversionToBaseUnit) || Number(bulkPurchaseQty) || 1);
-    const retailPricePerBaseUnit = Number(sellUnitPrice) || finalSellingPrice;
+    // "Retail Price" is entered per the whole package (e.g. per Sack) for a
+    // Retail Package product, the same way "Package Buy Cost" already is --
+    // it must divide down to a per-base-unit (Pcs) price the same way, or POS
+    // would sell each Pcs at the full Sack price. The explicit "Price per 1
+    // {unit}" field (Fraction Sale) always wins when the tenant filled it in.
+    const retailPricePerBaseUnit = Number(sellUnitPrice) || (isBulkProduct ? finalSellingPrice / retailConversionToBaseUnit : finalSellingPrice);
     const retailPackageBuyingCost = costPrice;
     const ledgerCostPrice = isPharmacyLike
       ? pharmacyCostPrice
@@ -1225,7 +1230,7 @@ export default function DashboardProducts({
     // remain the actual per-dose-level prices POS sells at; this is only the
     // generic reference price kept consistent with everything else on the
     // record.
-    const ledgerSellingPrice = isPharmacyLike ? pharmacyTabPrice : finalSellingPrice;
+    const ledgerSellingPrice = isPharmacyLike ? pharmacyTabPrice : retailPricePerBaseUnit;
 
     const newProd: Product = {
       id: 'p-' + Math.random().toString(36).substr(2, 9),
@@ -2765,10 +2770,14 @@ export default function DashboardProducts({
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-slate-505 uppercase block">
-                        Retail Price {!sellInRetail && <span className="text-red-500 font-mono text-[9px]">(LOCKED)</span>}
+                        {isPharmacyLike
+                          ? `${pharmacyFormHierarchy.levels[0]?.unit || 'Top Unit'} Retail Price`
+                          : isBulkProduct
+                            ? `Package Retail Price (${purchaseUnit || 'Package'})`
+                            : 'Retail Price'} {!sellInRetail && <span className="text-red-500 font-mono text-[9px]">(LOCKED)</span>}
                       </label>
-                      <input 
-                        type="number" 
+                      <input
+                        type="number"
                         min="1"
                         disabled={!sellInRetail}
                         value={sellInRetail ? (sellingPrice || '') : 0}
