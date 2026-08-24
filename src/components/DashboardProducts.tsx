@@ -775,6 +775,7 @@ export default function DashboardProducts({
   const [strengthUnit, setStrengthUnit] = useState('mg');
   const [prescriptionRequired, setPrescriptionRequired] = useState(false);
   const [trackExpiry, setTrackExpiry] = useState(true);
+  const [initialExpiryDate, setInitialExpiryDate] = useState('');
 
   // Pharmacy and Retail/Wholesale product fields stay fully separate by
   // tenant niche -- Pharmacy-only fields (packaging hierarchy, Medicine
@@ -1147,6 +1148,12 @@ export default function DashboardProducts({
       return;
     }
 
+    const openingStockQuantity = getTotalStockQty(shopStockQty, storeStockQty);
+    if (isPharmacyLike && productType === 'medicine' && trackExpiry && openingStockQuantity > 0 && !initialExpiryDate) {
+      setFormError('Expiry date is required when registering opening stock for a medicine that tracks expiry.');
+      return;
+    }
+
     const finalSellingPrice = sellInRetail ? sellingPrice : 0;
     const finalWholesalePrice = sellInWholesale ? wholesalePrice : 0;
     const finalMinWholesaleQty = sellInWholesale ? minWholesaleQty : 0;
@@ -1366,7 +1373,17 @@ export default function DashboardProducts({
       setProcessingStatus('');
     }
 
-    const finalProd = { ...newProd, image: finalImageUrl };
+    const openingStockBatch = productType === 'medicine' && trackExpiry && openingStockQuantity > 0
+      ? createInventoryBatch(newProd, openingStockQuantity, ledgerCostPrice, {
+        finalSellingPrice: ledgerSellingPrice,
+        expiryDate: initialExpiryDate,
+      })
+      : null;
+    const finalProd: Product = {
+      ...newProd,
+      image: finalImageUrl,
+      batches: openingStockBatch ? [openingStockBatch] : newProd.batches,
+    };
     onAddProduct(finalProd);
     setFormSuccess(true);
     
@@ -1384,6 +1401,7 @@ export default function DashboardProducts({
       setStrengthUnit('mg');
       setPrescriptionRequired(false);
       setTrackExpiry(true);
+      setInitialExpiryDate('');
       setCostPrice(0);
       setSellingPrice(0);
       setShopStockQty(0);
@@ -2129,12 +2147,12 @@ export default function DashboardProducts({
     <div id="products-view" className="space-y-4 md:space-y-6">
       
       {/* ── NATIVE APP TAB NAVIGATION ────────────────────────────────────
-          Mobile: 2×2 icon grid — all 4 visible, no scroll
+          Mobile/tablet: compact 1×4 icon grid — all 4 visible, no scroll
           Desktop: horizontal pill tabs — clean and fast
       ──────────────────────────────────────────────────────────────── */}
 
-      {/* MOBILE/TABLET: 2×2 grid */}
-      <div className="stock-tabs-two-column-grid xl:hidden grid grid-cols-2 auto-rows-fr gap-3 px-0 w-full">
+      {/* MOBILE/TABLET: all four actions in one compact row */}
+      <div className="stock-tabs-two-column-grid xl:hidden grid grid-cols-4 auto-rows-fr gap-1.5 sm:gap-2 px-0 w-full">
         {[
           { id: 'catalog',  icon: '📦', label: 'Product List',     sub: 'View all products' },
           { id: 'category', icon: '📁', label: 'Categories',        sub: 'Browse by type' },
@@ -2146,7 +2164,7 @@ export default function DashboardProducts({
             <button
               key={tab.id}
               onClick={() => handleTabSwitch(tab.id as any)}
-              className="relative flex min-w-0 flex-col items-center justify-center py-4 px-2 sm:px-3 rounded-2xl text-center transition-all active:scale-95"
+              className="relative flex min-w-0 flex-col items-center justify-center py-2.5 px-1 sm:py-3 sm:px-2 rounded-xl sm:rounded-2xl text-center transition-all active:scale-95"
               style={{
                 background: active ? '#059669' : '#ffffff',
                 border: active ? '2px solid #059669' : '2px solid #f1f5f9',
@@ -2154,13 +2172,13 @@ export default function DashboardProducts({
               }}
             >
               {active && (
-                <div className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-emerald-400" />
+                <div className="absolute top-1.5 right-1.5 sm:top-2 sm:right-2 w-1.5 h-1.5 rounded-full bg-emerald-400" />
               )}
-              <span className="stock-tab-icon text-2xl mb-1.5 leading-none">{tab.icon}</span>
-              <span className="stock-tab-label text-[11px] sm:text-[12px] font-extrabold leading-tight break-words" style={{ color: active ? '#ffffff' : '#475569' }}>
+              <span className="stock-tab-icon text-lg sm:text-xl mb-1 leading-none">{tab.icon}</span>
+              <span className="stock-tab-label text-[8.5px] sm:text-[10px] font-extrabold leading-tight break-words" style={{ color: active ? '#ffffff' : '#475569' }}>
                 {tab.label}
               </span>
-              <span className="stock-tab-sub text-[10px] mt-0.5 font-medium" style={{ color: active ? 'rgba(255,255,255,0.6)' : '#94a3b8' }}>
+              <span className="stock-tab-sub text-[7.5px] sm:text-[8.5px] mt-0.5 font-medium leading-tight" style={{ color: active ? 'rgba(255,255,255,0.6)' : '#94a3b8' }}>
                 {tab.sub}
               </span>
             </button>
@@ -2414,8 +2432,15 @@ export default function DashboardProducts({
                     />
                   </div>
 
-                  <div className="grid gap-3" style={{ display: 'grid', gridTemplateColumns: isPharmacyLike ? '1fr' : 'repeat(2, minmax(0, 1fr))', gap: '0.75rem' }}>
-                    <div className="space-y-1">
+                  <div
+                    className="grid gap-3"
+                    style={{
+                      gridTemplateColumns: isDesktopAddProductLayout && isPharmacyLike
+                        ? '1fr'
+                        : 'repeat(2, minmax(0, 1fr))',
+                    }}
+                  >
+                    <div className="order-1 space-y-1">
                       <label className="text-[10px] font-bold text-slate-500 uppercase block">Category</label>
                       <ModernSelect
                         value={category}
@@ -2429,8 +2454,31 @@ export default function DashboardProducts({
                       />
                     </div>
 
+                    <div className={`${isDesktopAddProductLayout && !isPharmacyLike ? 'order-3' : 'order-2'} space-y-1`}>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase block">Product Type</label>
+                      <ModernSelect
+                        value={!isPharmacyLike && isBulkProduct ? 'retail_package' : productType}
+                        options={isPharmacyLike
+                          ? PRODUCT_TYPE_OPTIONS
+                          : [
+                            ...PRODUCT_TYPE_OPTIONS.filter(option => option.value !== 'medicine'),
+                            { value: 'retail_package', label: 'Retail Package' },
+                          ]}
+                        onChange={(next) => {
+                          if (next === 'retail_package') {
+                            setIsBulkProduct(true);
+                          } else {
+                            setIsBulkProduct(false);
+                            setProductType(next as ProductType);
+                          }
+                        }}
+                        title="Choose product type"
+                        placeholder="Select product type"
+                      />
+                    </div>
+
                     {!isPharmacyLike && (
-                      <div className="space-y-1">
+                      <div className={`${isDesktopAddProductLayout ? 'order-2' : 'order-3 col-span-2'} space-y-1`}>
                         <label className="text-[10px] font-bold text-slate-500 uppercase block">Units</label>
                         <ModernSelect
                           value={unit}
@@ -2446,29 +2494,6 @@ export default function DashboardProducts({
                         />
                       </div>
                     )}
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase block">Product Type</label>
-                    <ModernSelect
-                      value={!isPharmacyLike && isBulkProduct ? 'retail_package' : productType}
-                      options={isPharmacyLike
-                        ? PRODUCT_TYPE_OPTIONS
-                        : [
-                          ...PRODUCT_TYPE_OPTIONS.filter(option => option.value !== 'medicine'),
-                          { value: 'retail_package', label: 'Retail Package' },
-                        ]}
-                      onChange={(next) => {
-                        if (next === 'retail_package') {
-                          setIsBulkProduct(true);
-                        } else {
-                          setIsBulkProduct(false);
-                          setProductType(next as ProductType);
-                        }
-                      }}
-                      title="Choose product type"
-                      placeholder="Select product type"
-                    />
                   </div>
 
                   {productType === 'medicine' && isPharmacyLike && (
@@ -2533,6 +2558,23 @@ export default function DashboardProducts({
                         </button>
                         Track Expiry Dates
                       </div>
+                      {trackExpiry && (
+                        <div className="space-y-1.5 bg-white border border-emerald-100 rounded-xl px-3 py-2.5">
+                          <label htmlFor="new-medicine-expiry-date" className="text-[9px] font-bold text-slate-500 uppercase block">
+                            Opening Stock Expiry Date
+                          </label>
+                          <input
+                            id="new-medicine-expiry-date"
+                            type="date"
+                            value={initialExpiryDate}
+                            onChange={(event) => setInitialExpiryDate(event.target.value)}
+                            className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-xl text-slate-800 outline-none focus:border-emerald-500"
+                          />
+                          <p className="text-[9px] normal-case font-medium text-slate-400">
+                            Required when Shop or Store opening stock is greater than zero. Future purchases keep their own batch expiry dates.
+                          </p>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -3029,27 +3071,68 @@ export default function DashboardProducts({
                     </div>
                   </div>
                   <div className="pharmacy-hierarchy-grid grid grid-cols-2 gap-3 bg-emerald-50/40 border border-emerald-100 rounded-2xl p-3">
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-slate-500 uppercase">Product Type</label>
-                      <ModernSelect value={pharmacyProductType} options={PHARMACY_PRODUCT_TYPE_OPTIONS} onChange={(nextValue) => {
-                        const next = nextValue as 'pharmaceutical' | 'non_pharmaceutical';
-                        setPharmacyProductType(next);
-                        setPharmacyHierarchyStart(next === 'pharmaceutical' ? 'packet' : 'carton');
-                        setPharmacyBaseUnit(next === 'pharmaceutical' ? 'Tablet' : 'Piece');
-                      }} title="Choose product type" />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-slate-500 uppercase">Starting Level</label>
-                      <ModernSelect
-                        value={pharmacyHierarchyStart}
-                        options={pharmacyProductType === 'pharmaceutical'
-                          ? PHARMACY_START_OPTIONS.pharmaceutical
-                          : PHARMACY_START_OPTIONS.nonPharmaceutical}
-                        onChange={(nextValue) => setPharmacyHierarchyStart(nextValue as any)}
-                        title="Choose starting level"
-                      />
-                    </div>
-                    {pharmacyProductType === 'pharmaceutical' && (
+                    {!isDesktopAddProductLayout ? (
+                      <>
+                        <div className="space-y-1 min-w-0">
+                          <label className="text-[9px] font-bold text-slate-500 uppercase">Product Type</label>
+                          <ModernSelect value={pharmacyProductType} options={PHARMACY_PRODUCT_TYPE_OPTIONS} onChange={(nextValue) => {
+                            const next = nextValue as 'pharmaceutical' | 'non_pharmaceutical';
+                            setPharmacyProductType(next);
+                            setPharmacyHierarchyStart(next === 'pharmaceutical' ? 'packet' : 'carton');
+                            setPharmacyBaseUnit(next === 'pharmaceutical' ? 'Tablet' : 'Piece');
+                          }} title="Choose product type" />
+                        </div>
+                        <div className="space-y-1 min-w-0">
+                          <label className="text-[9px] font-bold text-slate-500 uppercase">Starting Level</label>
+                          <ModernSelect
+                            value={pharmacyHierarchyStart}
+                            options={pharmacyProductType === 'pharmaceutical'
+                              ? PHARMACY_START_OPTIONS.pharmaceutical
+                              : PHARMACY_START_OPTIONS.nonPharmaceutical}
+                            onChange={(nextValue) => setPharmacyHierarchyStart(nextValue as any)}
+                            title="Choose starting level"
+                          />
+                        </div>
+                        <div className="space-y-1 min-w-0">
+                          <label className="text-[9px] font-bold text-slate-500 uppercase">Lowest Unit</label>
+                          <input type="text" value={pharmacyBaseUnit} onChange={e => setPharmacyBaseUnit(e.target.value)} placeholder="e.g. Tablet" className="w-full min-w-0 bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                        </div>
+                        <div className="space-y-1 min-w-0">
+                          <label className="text-[9px] font-bold text-slate-500 uppercase">{pharmacyProductType === 'pharmaceutical' ? 'Strips per Box' : 'Cartons per Master Box'}</label>
+                          <input type="number" min={1} value={pharmacyTopContains} onChange={e => setPharmacyTopContains(e.target.value === '' ? '' : Number(e.target.value))} className="w-full min-w-0 bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                        </div>
+                        <div className="space-y-1 min-w-0">
+                          <label className="text-[9px] font-bold text-slate-500 uppercase">{pharmacyProductType === 'pharmaceutical' ? `${pharmacyBaseUnit || 'Tablet'}s per Dose/Strip` : 'Pieces per Carton'}</label>
+                          <input type="number" min={1} value={pharmacyMiddleContains} onChange={e => setPharmacyMiddleContains(e.target.value === '' ? '' : Number(e.target.value))} className="w-full min-w-0 bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                        </div>
+                        <div className="space-y-1 min-w-0">
+                          <label className="text-[9px] font-bold text-slate-500 uppercase">{pharmacyProductType === 'pharmaceutical' ? `${pharmacyBaseUnit || 'Tablet'}s per Dose` : 'Units per Pack'}</label>
+                          <input type="number" min={1} value={pharmacyDoseContains} onChange={e => setPharmacyDoseContains(e.target.value === '' ? '' : Number(e.target.value))} className="w-full min-w-0 bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold text-slate-500 uppercase">Product Type</label>
+                          <ModernSelect value={pharmacyProductType} options={PHARMACY_PRODUCT_TYPE_OPTIONS} onChange={(nextValue) => {
+                            const next = nextValue as 'pharmaceutical' | 'non_pharmaceutical';
+                            setPharmacyProductType(next);
+                            setPharmacyHierarchyStart(next === 'pharmaceutical' ? 'packet' : 'carton');
+                            setPharmacyBaseUnit(next === 'pharmaceutical' ? 'Tablet' : 'Piece');
+                          }} title="Choose product type" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold text-slate-500 uppercase">Starting Level</label>
+                          <ModernSelect
+                            value={pharmacyHierarchyStart}
+                            options={pharmacyProductType === 'pharmaceutical'
+                              ? PHARMACY_START_OPTIONS.pharmaceutical
+                              : PHARMACY_START_OPTIONS.nonPharmaceutical}
+                            onChange={(nextValue) => setPharmacyHierarchyStart(nextValue as any)}
+                            title="Choose starting level"
+                          />
+                        </div>
+                        {pharmacyProductType === 'pharmaceutical' && (
                       <div className="space-y-1">
                         <label className="text-[9px] font-bold text-slate-500 uppercase">Lowest Unit</label>
                         <ModernSelect value={pharmacyBaseUnit} options={PHARMACY_BASE_UNIT_OPTIONS} onChange={setPharmacyBaseUnit} title="Choose lowest unit" />
@@ -3076,6 +3159,8 @@ export default function DashboardProducts({
                         <label className="text-[9px] font-bold text-slate-500 uppercase">{pharmacyBaseUnit}s per Dose</label>
                         <input type="number" min={1} value={pharmacyDoseContains} onChange={e => setPharmacyDoseContains(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
                       </div>
+                        )}
+                      </>
                     )}
                     <div className="pharmacy-hierarchy-levels-grid col-span-2 grid grid-cols-2 gap-3">
                       {pharmacyFormHierarchy.levels.map(level => (
@@ -3085,18 +3170,37 @@ export default function DashboardProducts({
                         </div>
                       ))}
                     </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-slate-500 uppercase">{pharmacyFormHierarchy.levels[0]?.unit || 'Top Unit'} price</label>
-                      <input type="number" value={sellingPrice || ''} onChange={e => setSellingPrice(Number(e.target.value) || 0)} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-slate-500 uppercase">Dose / middle price</label>
-                      <input type="number" value={fullDosePrice} onChange={e => setFullDosePrice(e.target.value === '' ? '' : Number(e.target.value))} placeholder="Auto if empty" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-slate-500 uppercase">Price per {pharmacyFormHierarchy.baseUnit}</label>
-                      <input type="number" value={tabPrice} onChange={e => setTabPrice(e.target.value === '' ? '' : Number(e.target.value))} placeholder="Auto if empty" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-                    </div>
+                    {!isDesktopAddProductLayout ? (
+                      <div className="col-span-2 grid grid-cols-3 gap-1.5 sm:gap-2">
+                        <div className="space-y-1 min-w-0">
+                          <label className="block min-h-6 text-[8px] sm:text-[9px] leading-tight font-bold text-slate-500 uppercase">{pharmacyFormHierarchy.levels[0]?.unit || 'Strip'} price</label>
+                          <input type="number" value={sellingPrice || ''} onChange={e => setSellingPrice(Number(e.target.value) || 0)} className="w-full min-w-0 bg-white border border-slate-200 text-[10px] px-2 py-2 rounded-xl" />
+                        </div>
+                        <div className="space-y-1 min-w-0">
+                          <label className="block min-h-6 text-[8px] sm:text-[9px] leading-tight font-bold text-slate-500 uppercase">Dose / middle price</label>
+                          <input type="number" value={fullDosePrice} onChange={e => setFullDosePrice(e.target.value === '' ? '' : Number(e.target.value))} placeholder="Auto" className="w-full min-w-0 bg-white border border-slate-200 text-[10px] px-2 py-2 rounded-xl" />
+                        </div>
+                        <div className="space-y-1 min-w-0">
+                          <label className="block min-h-6 text-[8px] sm:text-[9px] leading-tight font-bold text-slate-500 uppercase">Price per {pharmacyFormHierarchy.baseUnit}</label>
+                          <input type="number" value={tabPrice} onChange={e => setTabPrice(e.target.value === '' ? '' : Number(e.target.value))} placeholder="Auto" className="w-full min-w-0 bg-white border border-slate-200 text-[10px] px-2 py-2 rounded-xl" />
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold text-slate-500 uppercase">{pharmacyFormHierarchy.levels[0]?.unit || 'Top Unit'} price</label>
+                          <input type="number" value={sellingPrice || ''} onChange={e => setSellingPrice(Number(e.target.value) || 0)} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold text-slate-500 uppercase">Dose / middle price</label>
+                          <input type="number" value={fullDosePrice} onChange={e => setFullDosePrice(e.target.value === '' ? '' : Number(e.target.value))} placeholder="Auto if empty" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold text-slate-500 uppercase">Price per {pharmacyFormHierarchy.baseUnit}</label>
+                          <input type="number" value={tabPrice} onChange={e => setTabPrice(e.target.value === '' ? '' : Number(e.target.value))} placeholder="Auto if empty" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                        </div>
+                      </>
+                    )}
                     <div className="col-span-2 text-[10px] font-mono text-emerald-800 bg-white/70 border border-emerald-100 rounded-xl px-3 py-2">
                       Total shop stock: {shopStockQty} {pharmacyFormHierarchy.baseUnit}. Total store stock: {storeStockQty} {pharmacyFormHierarchy.baseUnit}. POS will sell by {pharmacyFormHierarchy.levels.map(level => level.unit).join(', ')} and deduct from {pharmacyFormHierarchy.baseUnit}.
                     </div>
