@@ -3316,7 +3316,7 @@ export default function DashboardSalesList({
       {/* DIALOG: VIEW AND PRINT RECEIPT RE-PRINT OVERLAY */}
       {/* ------------------------------------------------------------- */}
       {selectedSale && !viewPaymentsOpen && (
-        <div className={viewA4InvoiceOpen ? "fixed inset-0 z-[200] flex flex-col bg-[#404040] font-sans" : "fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm text-slate-800"}
+        <div className={viewA4InvoiceOpen ? "sales-invoice-a4-overlay fixed inset-0 z-[200] flex flex-col bg-[#404040] font-sans" : "fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm text-slate-800"}
           style={viewA4InvoiceOpen ? {paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)'} : {}}>
           
           {/* CONDITION A: A4 CORPORATE INVOICE MODE */}

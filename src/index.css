@@ -13,6 +13,15 @@
   --modal-footer-height: 76px;
 }
 
+/* Dashboard desktop header sits in a higher stacking context than document
+   previews. Reserve its exact height so the A4 toolbar and action buttons are
+   fully visible instead of being clipped underneath it. */
+@media (min-width: 1280px) {
+  #dashboard-scaffold .sales-invoice-a4-overlay {
+    padding-top: calc(var(--app-header-height) + env(safe-area-inset-top)) !important;
+  }
+}
+
 /* Lock to portrait in PWA / installed mode */
 @media (display-mode: standalone) {
   html {
