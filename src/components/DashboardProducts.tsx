@@ -2484,14 +2484,34 @@ export default function DashboardProducts({
                           </div>
                         </div>
                       </div>
-                      <label className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 uppercase">
-                        <input type="checkbox" checked={prescriptionRequired} onChange={(e) => setPrescriptionRequired(e.target.checked)} className="accent-emerald-600" />
+                      <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 uppercase">
+                        <button
+                          type="button"
+                          onClick={() => setPrescriptionRequired(prev => !prev)}
+                          aria-pressed={prescriptionRequired}
+                          aria-label="Prescription Required"
+                          className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors cursor-pointer ${
+                            prescriptionRequired ? 'border-emerald-600 bg-emerald-600' : 'border-slate-300 bg-white'
+                          }`}
+                        >
+                          {prescriptionRequired && <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />}
+                        </button>
                         Prescription Required
-                      </label>
-                      <label className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 uppercase">
-                        <input type="checkbox" checked={trackExpiry} onChange={(e) => setTrackExpiry(e.target.checked)} className="accent-emerald-600" />
+                      </div>
+                      <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 uppercase">
+                        <button
+                          type="button"
+                          onClick={() => setTrackExpiry(prev => !prev)}
+                          aria-pressed={trackExpiry}
+                          aria-label="Track Expiry Dates"
+                          className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors cursor-pointer ${
+                            trackExpiry ? 'border-emerald-600 bg-emerald-600' : 'border-slate-300 bg-white'
+                          }`}
+                        >
+                          {trackExpiry && <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />}
+                        </button>
                         Track Expiry Dates
-                      </label>
+                      </div>
                     </div>
                   )}
 
