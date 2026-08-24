@@ -2576,6 +2576,27 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     return res.json({ available: !exists, slug, domain: `${slug}.${getBaseDomain()}` });
   });
 
+  // activeTenant on the client bootstraps from a local cache written once at
+  // registration time and otherwise never re-synced -- a Super Admin business
+  // type correction only reaches an already-open tab via Realtime. This gives
+  // every fresh session a one-time, authoritative check against the database
+  // so a closed/reopened tab always ends up correct too.
+  app.get('/api/tenant/business-type', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, max-age=0');
+    try {
+      const tenantId = String(req.query?.tenantId || '');
+      await requireTenantUser(req, tenantId);
+      const { data: tenant, error } = await adminTable('tenants')
+        .select('business_type')
+        .eq('id', tenantId)
+        .maybeSingle();
+      if (error) throw error;
+      return res.json({ businessType: (tenant as any)?.business_type === 'pharmacy' ? 'pharmacy' : 'retail' });
+    } catch (error: any) {
+      return res.status(error?.status || 500).json({ error: error?.message || 'Unable to load business type.' });
+    }
+  });
+
   app.post('/api/tenant/slug', async (req, res) => {
     res.setHeader('Cache-Control', 'no-store, max-age=0');
     try {

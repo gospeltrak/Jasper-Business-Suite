@@ -801,6 +801,33 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       unsubscribeBusinessType = cleanup;
     });
 
+    // The Realtime subscription above only corrects an already-open tab. A
+    // tenant whose business type was changed by Super Admin while their tab
+    // was closed would otherwise keep reading the stale locally-cached value
+    // forever, since activeTenant bootstraps from that cache, not a live
+    // fetch. One authoritative check per session load closes that gap.
+    (async () => {
+      try {
+        const client: any = await getSecureDataBridgeClient();
+        const { data: sessionData } = await client.auth.getSession();
+        const token = sessionData?.session?.access_token;
+        if (!token || !active) return;
+        const response = await fetch(`/api/tenant/business-type?tenantId=${encodeURIComponent(activeTenant.id)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok || !active) return;
+        const payload = await response.json().catch(() => null);
+        const businessType = payload?.businessType;
+        if ((businessType === 'pharmacy' || businessType === 'retail') && businessType !== activeTenant.businessType) {
+          setActiveTenant(prev => prev.businessType === businessType ? prev : { ...prev, businessType });
+          patchCachedTenantBusinessType(activeTenant.id, businessType);
+        }
+      } catch {
+        // Best-effort correction only -- Realtime and the existing cache
+        // remain the primary paths; a failed check here is silently skipped.
+      }
+    })();
+
     const handleOnline = () => {
       refreshWorkspaceFromDatabase(true);
     };
