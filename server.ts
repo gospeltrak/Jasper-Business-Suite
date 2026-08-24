@@ -1222,6 +1222,22 @@ function buildVerifiedLucySalesWalkthrough(
   };
 }
 
+function normalizeLucyResponseText(value: unknown) {
+  return sanitizeLucyText(value, 8_000)
+    .replace(/\*\*([^*]+)\*\*/g, (match, content, offset, fullText) => {
+      const before = fullText[offset - 1] || '';
+      const after = fullText[offset + match.length] || '';
+      const leadingSpace = before && /[A-Za-zÀ-ž0-9)]/.test(before) ? ' ' : '';
+      const trailingSpace = after && /[A-Za-zÀ-ž0-9(]/.test(after) ? ' ' : '';
+      return `${leadingSpace}**${String(content).trim()}**${trailingSpace}`;
+    })
+    .replace(/([0-9),])(?=[A-Za-zÀ-ž])/g, '$1 ')
+    .replace(/([.!?])(?=[A-Za-zÀ-ž])/g, '$1 ')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/ *\n */g, '\n')
+    .trim();
+}
+
 // Resilient GenAI Content generator with retries and lite-model fallbacks
 async function generateResilientContent(ai: GoogleGenAI, params: any) {
   const originalModel = params.model || 'gemini-3.6-flash';
@@ -1494,14 +1510,14 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
 
       const ai = new GoogleGenAI({ apiKey });
       const prompt = language === 'sw'
-        ? `Speak the transcript in fluent, natural Tanzanian Swahili. Use a warm, confident female business-coach style, clear pronunciation, medium pace, and no added words. Transcript:\n${text}`
-        : `Speak the transcript in fluent, natural English. Use a warm, confident female business-coach style, clear pronunciation, medium pace, and no added words. Transcript:\n${text}`;
+        ? `# AUDIO PROFILE: Lucy\nVoice: A young adult Kenyan woman.\nAccent: Natural Kenyan East African Swahili; fluent, clear, and locally authentic.\nStyle: Warm, friendly business coach with a gentle vocal smile.\nPace: Medium and conversational, with short pauses between numbered steps.\nPronunciation: Observe correct Swahili word boundaries and punctuation. Do not introduce English words except exact interface labels already present in the transcript.\nRule: Read only the transcript. Do not add, translate, summarize, or explain anything.\n\nTRANSCRIPT:\n${text}`
+        : `# AUDIO PROFILE: Lucy\nVoice: A young adult Kenyan woman.\nAccent: Natural, clear Kenyan English.\nStyle: Warm, friendly business coach with a gentle vocal smile.\nPace: Medium and conversational, with short pauses between numbered steps.\nRule: Read only the transcript. Do not add, translate, summarize, or explain anything.\n\nTRANSCRIPT:\n${text}`;
       const interaction: any = await Promise.race([
         ai.interactions.create({
           model: 'gemini-3.1-flash-tts-preview',
           input: prompt,
           response_format: { type: 'audio' },
-          generation_config: { speech_config: [{ voice: 'Sulafat', language }] },
+          generation_config: { speech_config: [{ voice: 'Leda', language }] },
         } as any),
         new Promise((_, reject) => setTimeout(() => reject(new Error('Lucy speech timed out.')), 18_000)),
       ]);
@@ -4952,6 +4968,10 @@ Your output must be in JSON matching the specified Response Schema exactly. All 
       const useMarketGrounding = planId === 'tanzanite' && needsLucyMarketGrounding(message, intent);
       const tenantCity = sanitizeLucyText(body.activeTenant?.city || body.city, 80);
       const tenantCountry = sanitizeLucyText(body.activeTenant?.country || body.country, 80);
+      const conversation = safeLucyRecords(body.conversation || [], 10, (entry: any) => ({
+        role: entry?.role === 'assistant' ? 'assistant' : 'user',
+        content: sanitizeLucyText(entry?.content, 1_200),
+      })).filter((entry: any) => entry.content);
       const limits = LUCY_LIMITS[planId];
       const { usage } = getLucyUsage(tenantId);
       const remaining = Math.max(0, limits[intent] - usage[intent]);
@@ -5253,6 +5273,7 @@ Your output must be in JSON matching the specified Response Schema exactly. All 
         `3. Simple Language: Use clear, direct, and straightforward language. Avoid over-complicating answers or using unnecessary jargon. ` +
         `4. Interactive Coach: Vary your wording. If the user seems unsure, ask one focused follow-up question. If they ask how to do something, give numbered steps. If they ask for business meaning, explain it with a simple example. ` +
         `4a. GUIDED WALKTHROUGH MODE: When the user asks how to use any system function, begin from their current tab and device layout. Give one concrete action per numbered step, use only visible Jasper menu/button labels supported by the supplied context, explain the expected result after important clicks, and finish with a clear completion check. Use very simple language suitable for a first-time user. Offer to continue interactively when they say "nimefika", "endelea", or "I am there". Never invent a button label. ` +
+        `4b. NUMBERED CHOICE MODE: Whenever you ask what the user wants to do next, provide 2 to 5 numbered choices. Each choice must be on its own line in the form "1. Choice name — one short explanation." Never provide unnumbered alternatives. If the user's latest message is only a number, use the recent conversation to select that exact numbered choice and continue immediately without greeting, restarting, or asking what the number means. ` +
         `5. Clean Output: Use standard Markdown formatting cleanly (like **bold**) to emphasize key points. Never output raw HTML code tags like <b> or </b>. ` +
         `` +
         `Handling Casual vs. Complex Prompts: ` +
@@ -5282,7 +5303,7 @@ Your output must be in JSON matching the specified Response Schema exactly. All 
         `` +
         `5. Diamond plan may receive chat and limited reports only. If the user asks for forecasting while plan is diamond, explain politely that forecasting is available on Tanzanite and offer a simple non-forecast business summary instead. ` +
         `6. Keep in mind that standard platform features (like Sales records, POS tills, Inventory, Expenses, and Reports) ARE FULLY SUPPORTED in our system. If the database of sales or expenses is currently empty, it means the user simply hasn't added or recorded any transactions yet—not that the feature is missing. Do NOT report standard supported features (like sales or expenses) as unsupported missing features! Only set "unsupportedFeature" to a standardized English category name if they request an entirely new, non-existent platform capability that the system truly does not have (for example: Automated real-time M-Pesa callbacks & APIs, bulk automated WhatsApp marketing campaigns, print sticky barcode price tags, automated bulk payroll bank transfers, active employee clock-in HR portal); otherwise set "unsupportedFeature" to null. ` +
-        `7. Keep your response highly useful, polite, concise, compassionate, and professional. Match the user's language. If lang is "sw", reply entirely in clear, natural Tanzanian Swahili even when the user's spelling is informal, abbreviated, or mixed with unavoidable interface labels. Do not drift into English sentences; retain only exact Jasper button/menu names in English and immediately explain them in Swahili. ` +
+        `7. Keep your response highly useful, polite, concise, compassionate, and professional. The authoritative conversation language is "${lang === 'sw' ? 'Swahili' : 'English'}". If it is Swahili, reply entirely in grammatical, natural Tanzanian Swahili even when spelling is informal, abbreviated, mixed, or the latest reply is only a number. Do not translate literally from English, do not mix English sentences, and do not repeat a greeting mid-conversation. Retain only exact Jasper button/menu names in English and explain each one briefly in Swahili. Put spaces around bold values and after punctuation. ` +
         `8. When current market research is enabled, compare the tenant's actual internal performance with current public market evidence. Focus on the tenant's niche and location, check relevant global marketplaces such as Amazon, eBay, and Alibaba plus discoverable local retailers, and never present an unverified trend as guaranteed demand. Clearly separate INTERNAL BUSINESS DATA, CURRENT MARKET SIGNALS, RECOMMENDATIONS, and RISKS. ` +
         `Return your final response strictly as a JSON matching the requested structure.`;
 
@@ -5310,6 +5331,9 @@ ${JSON.stringify(expenses, null, 2)}
 ${marketResearchContext || 'Not requested for this message.'}
 
 USER MESSAGE: "${sanitizeLucyText(message)}"
+
+RECENT CONVERSATION (OLDEST TO NEWEST; USE ONLY FOR CONTINUITY):
+${JSON.stringify(conversation, null, 2)}
 `;
 
       const geminiResponse = await generateResilientContent(ai, {
@@ -5332,6 +5356,7 @@ USER MESSAGE: "${sanitizeLucyText(message)}"
       });
 
       const parsed = JSON.parse((geminiResponse.text || '{}').trim());
+      parsed.responseText = normalizeLucyResponseText(parsed.responseText);
       usage[intent] += 1;
       return res.json({
         ...parsed,

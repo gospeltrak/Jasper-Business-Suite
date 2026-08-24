@@ -696,7 +696,8 @@ test('Lucy uses authenticated Gemini Swahili speech and current market grounding
   assert.match(serverSource, /app\.post\('\/api\/lucy\/speech'/);
   assert.match(serverSource, /await requireTenantUser\(req, tenantId\)/);
   assert.match(serverSource, /gemini-3\.1-flash-tts-preview/);
-  assert.match(serverSource, /voice: 'Sulafat'/);
+  assert.match(serverSource, /voice: 'Leda'/);
+  assert.match(serverSource, /young adult Kenyan woman/);
   assert.match(serverSource, /interaction\.outputs\.find/);
   assert.match(serverSource, /tools: \[\{ googleSearch: \{\} \}\]/);
   assert.match(lucySource, /tools: \[\{ googleSearch: \{\} \}\]/);
@@ -705,6 +706,8 @@ test('Lucy uses authenticated Gemini Swahili speech and current market grounding
   assert.match(speechSource, /unlockLucySpeech/);
   assert.match(copilotSource, /speakWithGeminiLucy/);
   assert.match(copilotSource, /lastLucyMessage/);
+  assert.match(copilotSource, /conversationLanguage/);
+  assert.match(copilotSource, /messages\.slice\(-8\)/);
   assert.match(copilotSource, /deviceClass: window\.innerWidth < 768/);
   assert.match(copilotSource, /Current market sources/);
   assert.match(forecastingSource, /speakWithGeminiLucy/);
@@ -714,6 +717,9 @@ test('Lucy uses authenticated Gemini Swahili speech and current market grounding
   assert.match(serverSource, /Choose Payment Method/);
   assert.match(serverSource, /Confirm Payment/);
   assert.match(serverSource, /GUIDED WALKTHROUGH MODE/);
+  assert.match(serverSource, /NUMBERED CHOICE MODE/);
+  assert.match(serverSource, /normalizeLucyResponseText/);
+  assert.match(serverSource, /RECENT CONVERSATION \(OLDEST TO NEWEST/);
 });
 
 test('reports use branded, searchable, multi-page PDF mode', async () => {

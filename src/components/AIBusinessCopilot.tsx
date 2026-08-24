@@ -276,6 +276,19 @@ export default function AIBusinessCopilot({
     setIsLoading(true);
 
     const intent = inferLucyIntent(textToSend);
+    const latestLanguageBearingUserMessage = [...messages]
+      .reverse()
+      .find(message => message.sender === 'user' && /[a-zA-Z]{2,}/.test(message.text));
+    const conversationLanguage = /^\s*\d+\s*$/.test(textToSend)
+      ? detectLucyLanguage(latestLanguageBearingUserMessage?.text || textToSend)
+      : detectLucyLanguage(textToSend);
+    const conversation = [
+      ...messages.slice(-8).map(message => ({
+        role: message.sender === 'ai' ? 'assistant' : 'user',
+        content: message.text,
+      })),
+      { role: 'user', content: textToSend },
+    ];
     const localLucy = createLucyResponse(textToSend, {
       activeTenant,
       activeTab,
@@ -300,7 +313,8 @@ export default function AIBusinessCopilot({
           activeTab,
           deviceClass: window.innerWidth < 768 ? 'mobile' : window.innerWidth < 1280 ? 'tablet' : 'desktop',
           businessType: activeTenant.businessType || 'retail',
-          lang: detectLucyLanguage(textToSend),
+          lang: conversationLanguage,
+          conversation,
           tenantId: activeTenant.id,
           planId,
           intent,
