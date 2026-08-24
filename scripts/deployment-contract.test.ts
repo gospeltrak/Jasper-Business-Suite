@@ -706,7 +706,9 @@ test('Lucy uses authenticated Gemini Swahili speech and current market grounding
   assert.match(speechSource, /unlockLucySpeech/);
   assert.match(copilotSource, /speakWithGeminiLucy/);
   assert.match(copilotSource, /lastLucyMessage/);
+  assert.doesNotMatch(copilotSource, /Open POS|Check low stock|Generate today report|Forecast next month/);
   assert.match(copilotSource, /conversationLanguage/);
+  assert.match(copilotSource, /option\|number\|namba\|chaguo/);
   assert.match(copilotSource, /messages\.slice\(-8\)/);
   assert.match(copilotSource, /deviceClass: window\.innerWidth < 768/);
   assert.match(copilotSource, /Current market sources/);
@@ -717,7 +719,9 @@ test('Lucy uses authenticated Gemini Swahili speech and current market grounding
   assert.match(serverSource, /Choose Payment Method/);
   assert.match(serverSource, /Confirm Payment/);
   assert.match(serverSource, /GUIDED WALKTHROUGH MODE/);
-  assert.match(serverSource, /NUMBERED CHOICE MODE/);
+  assert.match(serverSource, /CHOICE MODE/);
+  assert.match(serverSource, /resolveLucyConversationChoice/);
+  assert.match(lucySource, /Use choices only when a real decision is required/);
   assert.match(serverSource, /normalizeLucyResponseText/);
   assert.match(serverSource, /RECENT CONVERSATION \(OLDEST TO NEWEST/);
 });

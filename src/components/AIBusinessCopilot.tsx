@@ -279,7 +279,8 @@ export default function AIBusinessCopilot({
     const latestLanguageBearingUserMessage = [...messages]
       .reverse()
       .find(message => message.sender === 'user' && /[a-zA-Z]{2,}/.test(message.text));
-    const conversationLanguage = /^\s*\d+\s*$/.test(textToSend)
+    const isShortChoiceReply = /^\s*(?:(?:option|number|namba|chaguo)\s*)?(?:\d+|[a-e])\s*$/i.test(textToSend);
+    const conversationLanguage = isShortChoiceReply
       ? detectLucyLanguage(latestLanguageBearingUserMessage?.text || textToSend)
       : detectLucyLanguage(textToSend);
     const conversation = [
@@ -626,25 +627,6 @@ export default function AIBusinessCopilot({
                 </div>
               )}
               <div ref={chatEndRef} />
-            </div>
-
-            <div className="px-3 py-2 bg-white border-t border-slate-100 flex gap-2 overflow-x-auto scrollbar-hide">
-              {[
-                'Open POS',
-                'Check low stock',
-                'Generate today report',
-                planId === 'tanzanite' ? 'Forecast next month' : 'Nisaidie kwa Kiswahili'
-              ].map((prompt) => (
-                <button
-                  key={prompt}
-                  type="button"
-                  disabled={!isLucyEnabled}
-                  onClick={() => handleSend(prompt)}
-                  className="shrink-0 px-3 py-1.5 rounded-full bg-slate-50 hover:bg-slate-100 disabled:opacity-50 border border-slate-200 text-[11px] font-semibold text-slate-600 transition-colors"
-                >
-                  {prompt}
-                </button>
-              ))}
             </div>
 
             {/* Input Form */}

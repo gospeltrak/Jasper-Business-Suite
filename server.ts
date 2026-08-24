@@ -1238,6 +1238,27 @@ function normalizeLucyResponseText(value: unknown) {
     .trim();
 }
 
+function resolveLucyConversationChoice(message: string, conversation: Array<{ role: string; content: string }>) {
+  const lastAssistant = [...conversation].reverse().find(entry => entry.role === 'assistant')?.content || '';
+  const choices = [...lastAssistant.matchAll(/^\s*(\d+|[A-E])[.)]\s+(.+)$/gim)]
+    .slice(0, 5)
+    .map(match => ({ key: match[1].toUpperCase(), label: match[2].trim() }));
+  if (choices.length < 2) return { choices: [], selected: null, invalid: false };
+
+  const normalizedReply = message.toLowerCase().trim();
+  const codedReply = normalizedReply.match(/^(?:(?:option|number|namba|chaguo)\s*)?(\d+|[a-e])$/i)?.[1]?.toUpperCase();
+  const byCode = codedReply ? choices.find(choice => choice.key === codedReply) : null;
+  const normalizedWords = normalizedReply.replace(/[^a-z0-9À-ž\s]/g, ' ').replace(/\s+/g, ' ').trim();
+  const byName = normalizedWords.length > 1
+    ? choices.find(choice => {
+        const label = choice.label.toLowerCase().replace(/[^a-z0-9À-ž\s]/g, ' ').replace(/\s+/g, ' ').trim();
+        return label === normalizedWords || label.startsWith(`${normalizedWords} `) || normalizedWords.startsWith(`${label} `);
+      })
+    : null;
+  const selected = byCode || byName || null;
+  return { choices, selected, invalid: Boolean(codedReply && !selected) };
+}
+
 // Resilient GenAI Content generator with retries and lite-model fallbacks
 async function generateResilientContent(ai: GoogleGenAI, params: any) {
   const originalModel = params.model || 'gemini-3.6-flash';
@@ -4972,6 +4993,7 @@ Your output must be in JSON matching the specified Response Schema exactly. All 
         role: entry?.role === 'assistant' ? 'assistant' : 'user',
         content: sanitizeLucyText(entry?.content, 1_200),
       })).filter((entry: any) => entry.content);
+      const conversationChoice = resolveLucyConversationChoice(String(message || ''), conversation);
       const limits = LUCY_LIMITS[planId];
       const { usage } = getLucyUsage(tenantId);
       const remaining = Math.max(0, limits[intent] - usage[intent]);
@@ -5273,7 +5295,8 @@ Your output must be in JSON matching the specified Response Schema exactly. All 
         `3. Simple Language: Use clear, direct, and straightforward language. Avoid over-complicating answers or using unnecessary jargon. ` +
         `4. Interactive Coach: Vary your wording. If the user seems unsure, ask one focused follow-up question. If they ask how to do something, give numbered steps. If they ask for business meaning, explain it with a simple example. ` +
         `4a. GUIDED WALKTHROUGH MODE: When the user asks how to use any system function, begin from their current tab and device layout. Give one concrete action per numbered step, use only visible Jasper menu/button labels supported by the supplied context, explain the expected result after important clicks, and finish with a clear completion check. Use very simple language suitable for a first-time user. Offer to continue interactively when they say "nimefika", "endelea", or "I am there". Never invent a button label. ` +
-        `4b. NUMBERED CHOICE MODE: Whenever you ask what the user wants to do next, provide 2 to 5 numbered choices. Each choice must be on its own line in the form "1. Choice name — one short explanation." Never provide unnumbered alternatives. If the user's latest message is only a number, use the recent conversation to select that exact numbered choice and continue immediately without greeting, restarting, or asking what the number means. ` +
+        `4b. CHOICE MODE: Use choices only when a real user decision is required before you can continue. Never turn a direct data question or a question with one clear answer into a menu. When a decision is required, provide 2 to 5 choices, one per line, preferably numbered: "1. Choice name — one short explanation." End with a short instruction such as "Jibu 1, 2 au 3." Accept the number, letter, "option 2", "namba 2", "chaguo 2", or the option name. After a valid selection, continue immediately without confirmation unless the action is destructive, sensitive, irreversible, or financially significant. If a code is invalid, say it is unavailable and repeat only the valid choices; do not restart the conversation. For complex workflows ask one decision at a time and never ask again for information already supplied. ` +
+        `4c. RESPONSE ORDER: For direct questions, give the main answer first, then only important details, then a next action only if genuinely needed. Business-data answers must state the value, period, and branch when applicable. Use short everyday Swahili, short paragraphs, and no unnecessary repetition. Never invent unavailable business data. ` +
         `5. Clean Output: Use standard Markdown formatting cleanly (like **bold**) to emphasize key points. Never output raw HTML code tags like <b> or </b>. ` +
         `` +
         `Handling Casual vs. Complex Prompts: ` +
@@ -5334,6 +5357,15 @@ USER MESSAGE: "${sanitizeLucyText(message)}"
 
 RECENT CONVERSATION (OLDEST TO NEWEST; USE ONLY FOR CONTINUITY):
 ${JSON.stringify(conversation, null, 2)}
+
+CHOICE RESOLUTION:
+${conversationChoice.selected
+  ? `The latest reply validly selects ${conversationChoice.selected.key}: ${conversationChoice.selected.label}. Continue with it immediately.`
+  : conversationChoice.invalid
+    ? `The latest choice code is invalid. Repeat these valid choices only: ${JSON.stringify(conversationChoice.choices)}.`
+    : conversationChoice.choices.length
+      ? `The previous assistant message offered these choices: ${JSON.stringify(conversationChoice.choices)}. Interpret a matching code or option name contextually.`
+      : 'No active choice menu exists.'}
 `;
 
       const geminiResponse = await generateResilientContent(ai, {
