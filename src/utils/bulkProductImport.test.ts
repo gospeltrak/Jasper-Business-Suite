@@ -33,7 +33,7 @@ const headerIndex = Object.fromEntries(UNIVERSAL_IMPORT_HEADERS.map((label, inde
 const amoxicillinColumns = [
   'Amoxicillin 500mg', '', 'Medicine', 'Antibiotics', 'Jasper Pharma',
   'Amoxicillin', 'GlobalPharma Ltd', 'capsule', '500', 'mg',
-  'Capsule', 'Box',
+  'Capsule',
   'Blister', '10', '3500',
   'Box', '100', '30000',
   '400', '20000',
@@ -81,7 +81,7 @@ describe('parseUniversalImportRow', () => {
     const columns = [
       'Nivea Body Lotion', '', 'Personal Care', 'Body Care', 'Nivea',
       '', '', '', '', '',
-      'Bottle', '',
+      'Bottle',
       '', '', '',
       '', '', '',
       '8500', '6000',

@@ -42,7 +42,7 @@ export function parseCsvText(text: string): string[][] {
 export const UNIVERSAL_IMPORT_HEADERS = [
   'Product Name', 'Barcode', 'Product Type', 'Category', 'Brand',
   'Generic Name', 'Manufacturer', 'Dosage Form', 'Strength Value', 'Strength Unit',
-  'Base Unit', 'Purchase Unit',
+  'Base Unit',
   'Package 1 Unit', 'Package 1 Qty in Base', 'Package 1 Selling Price',
   'Package 2 Unit', 'Package 2 Qty in Base', 'Package 2 Selling Price',
   'Base Unit Selling Price', 'Cost Price',
@@ -81,7 +81,7 @@ export function downloadableUniversalTemplate(): string {
   const sampleAmoxicillin = [
     'Amoxicillin 500mg', '', 'Medicine', 'Antibiotics', 'Jasper Pharma',
     'Amoxicillin', 'GlobalPharma Ltd', 'capsule', '500', 'mg',
-    'Capsule', 'Box',
+    'Capsule',
     'Blister', '10', '3500',
     'Box', '100', '30000',
     '400', '20000',
@@ -91,7 +91,7 @@ export function downloadableUniversalTemplate(): string {
   const sampleNivea = [
     'Nivea Body Lotion', '', 'Personal Care', 'Body Care', 'Nivea',
     '', '', '', '', '',
-    'Bottle', '',
+    'Bottle',
     '', '', '',
     '', '', '',
     '8500', '6000',
