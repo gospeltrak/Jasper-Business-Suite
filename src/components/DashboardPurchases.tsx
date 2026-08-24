@@ -238,9 +238,17 @@ export default function DashboardPurchases({
   };
 
   const handleUpdateUnitLevel = (productId: string, unitLevelId: string) => {
-    setCart(cart.map(item =>
-      item.product.id === productId ? { ...item, unitLevelId } : item
-    ));
+    setCart(cart.map(item => {
+      if (item.product.id !== productId) return item;
+      // Re-express the cost in the newly selected unit instead of silently
+      // keeping the old unit's number under a different label -- switching
+      // "Buying as" from Kg (e.g. 1,000/Kg) to Sack (50 Kg) should suggest
+      // 50,000/Sack, not leave 1,000 sitting there misread as a Sack price.
+      const costPerBase = calculateBaseCost(item.costPrice, item.unitLevelId, item.product);
+      const newLevelBaseQty = convertToBaseQuantity(1, unitLevelId, item.product);
+      const nextCostPrice = Number((costPerBase * newLevelBaseQty).toFixed(2));
+      return { ...item, unitLevelId, costPrice: nextCostPrice };
+    }));
   };
 
   const handleUpdateExpiryDate = (productId: string, expiryDate: string) => {
@@ -1480,7 +1488,9 @@ export default function DashboardPurchases({
                         )}
                         <div className="flex items-center justify-between gap-4 pt-1.5 border-t border-slate-200/60 font-mono text-xs">
                           <div className="flex items-center space-x-1">
-                            <span className="text-slate-400 text-[10px] font-black">COST:</span>
+                            <span className="text-slate-400 text-[10px] font-black">
+                              COST/{item.unitLevelId === 'base' ? getBaseUnitLabel(item.product) : (resolvePackageLevels(item.product).find(level => level.id === item.unitLevelId)?.label || getBaseUnitLabel(item.product))}:
+                            </span>
                             <div className="flex items-center bg-white border border-slate-250 rounded-lg px-2 py-0.5">
                               <span className="text-slate-500 font-bold text-[10px]">{currency}</span>
                               <input 
