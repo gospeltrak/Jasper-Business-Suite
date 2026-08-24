@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Product, Sale, Tenant } from '../types';
-import { createLucyResponse, getLucyGreeting } from '../utils/lucyBrain';
+import { createLucyResponse, detectLucyLanguage, getLucyGreeting } from '../utils/lucyBrain';
 import { getSecureDataBridgeClient } from '../secureDataBridge';
 import { speakWithGeminiLucy, stopLucySpeech } from '../utils/lucySpeech';
 import { 
@@ -326,12 +326,7 @@ export default function DashboardForecasting({
       .trim();
 
   // ── Detect message language (Swahili or English) ──
-  const detectLang = (text: string): 'sw' | 'en' => {
-    const swWords = ['habari', 'mauzo', 'bidhaa', 'stock', 'faida', 'madeni', 'ripoti', 'biashara', 'leo', 'sawa', 'poa', 'nzuri', 'karibu', 'asante', 'tafadhali', 'nakushukuru', 'ungependa', 'naweza', 'nitakusaidia', 'kuangalia'];
-    const lower = text.toLowerCase();
-    const swCount = swWords.filter(w => lower.includes(w)).length;
-    return swCount >= 2 ? 'sw' : 'en';
-  };
+  const detectLang = (text: string): 'sw' | 'en' => detectLucyLanguage(text);
 
   // ── Lucy speak function ──
   const lucySpeak = async (text: string, msgIdx?: number) => {

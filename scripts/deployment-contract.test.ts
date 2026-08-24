@@ -697,11 +697,14 @@ test('Lucy uses authenticated Gemini Swahili speech and current market grounding
   assert.match(serverSource, /await requireTenantUser\(req, tenantId\)/);
   assert.match(serverSource, /gemini-3\.1-flash-tts-preview/);
   assert.match(serverSource, /voice: 'Sulafat'/);
+  assert.match(serverSource, /interaction\.outputs\.find/);
   assert.match(serverSource, /tools: \[\{ googleSearch: \{\} \}\]/);
   assert.match(lucySource, /tools: \[\{ googleSearch: \{\} \}\]/);
   assert.match(lucySource, /groundingMetadata\?\.groundingChunks/);
   assert.match(speechSource, /Authorization: `Bearer \$\{session\.access_token\}`/);
+  assert.match(speechSource, /unlockLucySpeech/);
   assert.match(copilotSource, /speakWithGeminiLucy/);
+  assert.match(copilotSource, /lastLucyMessage/);
   assert.match(copilotSource, /deviceClass: window\.innerWidth < 768/);
   assert.match(copilotSource, /Current market sources/);
   assert.match(forecastingSource, /speakWithGeminiLucy/);

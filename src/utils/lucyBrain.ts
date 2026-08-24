@@ -28,6 +28,14 @@ const swahiliSignals = [
   'kujua', 'kifurushi', 'vifurushi', 'jaribio'
 ];
 
+const swahiliConversationSignals = [
+  'nime', 'nina', 'nita', 'nili', 'niki', 'naweza', 'nataka', 'sitaki', 'kwenye',
+  'kuna', 'hapa', 'hiyo', 'ile', 'yangu', 'yako', 'vipi', 'mbona', 'sawa',
+  'halafu', 'alafu', 'lakini', 'bado', 'ndiyo', 'hapana', 'vizuri', 'vizur',
+  'sijui', 'nielekeze', 'nionyeshe', 'inafanya', 'inakuja', 'imefanya', 'kwa nini',
+  'ili', 'pia'
+];
+
 const systemRiskSignals = [
   'hack', 'bypass', 'breach', 'exploit', 'sql injection', 'steal', 'token', 'api key',
   'secret key', 'admin password', 'database password', 'delete all', 'drop table',
@@ -76,9 +84,17 @@ const navigationIntents: Array<{ tab: string; sw: string; en: string; keys: stri
 ];
 
 export const detectLucyLanguage = (input: string): LucyLanguage => {
-  const lower = input.toLowerCase();
-  const swScore = swahiliSignals.reduce((score, word) => score + (lower.includes(word) ? 1 : 0), 0);
-  return swScore > 0 ? 'sw' : 'en';
+  const lower = input.toLowerCase().replace(/[^a-z0-9\s'-]/g, ' ');
+  const padded = ` ${lower.replace(/\s+/g, ' ').trim()} `;
+  const tokens = padded.trim().split(/\s+/).filter(Boolean);
+  const exactSignalScore = [...swahiliSignals, ...swahiliConversationSignals]
+    .reduce((score, signal) => score + (padded.includes(` ${signal} `) ? 2 : 0), 0);
+  const grammarScore = tokens.reduce((score, token) => score + (
+    /^(nita|nili|nime|nina|niki|aki|ame|ana|una|ume|uta|tuna|tume|wame|wana|kina|zime|ina|iliyo|ambayo)/.test(token) ? 1 : 0
+  ), 0);
+  const englishScore = ['the', 'please', 'how', 'why', 'what', 'where', 'show', 'help', 'with', 'from', 'this', 'that']
+    .reduce((score, signal) => score + (padded.includes(` ${signal} `) ? 1 : 0), 0);
+  return exactSignalScore + grammarScore > englishScore ? 'sw' : 'en';
 };
 
 export const getLucyGreeting = (language: LucyLanguage = 'en', tenantName?: string, businessType?: string): string => {

@@ -2,6 +2,14 @@ import { getSecureDataBridgeClient, isPlaceholderSecureDataBridgeClient } from '
 
 let activeLucyAudio: HTMLAudioElement | null = null;
 let activeLucyAudioUrl: string | null = null;
+let lucyAudioContext: AudioContext | null = null;
+
+export const unlockLucySpeech = () => {
+  const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+  if (!AudioContextClass) return;
+  lucyAudioContext ||= new AudioContextClass();
+  if (lucyAudioContext.state === 'suspended') void lucyAudioContext.resume();
+};
 
 export const stopLucySpeech = () => {
   activeLucyAudio?.pause();
@@ -44,6 +52,8 @@ export const speakWithGeminiLucy = async (
     stopLucySpeech();
     activeLucyAudioUrl = URL.createObjectURL(audioBlob);
     activeLucyAudio = new Audio(activeLucyAudioUrl);
+    activeLucyAudio.preload = 'auto';
+    activeLucyAudio.setAttribute('playsinline', 'true');
     activeLucyAudio.onplay = () => events?.onStart?.();
     activeLucyAudio.onended = () => { stopLucySpeech(); events?.onEnd?.(); };
     activeLucyAudio.onerror = () => { stopLucySpeech(); events?.onEnd?.(); };

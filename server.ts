@@ -1505,11 +1505,16 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         } as any),
         new Promise((_, reject) => setTimeout(() => reject(new Error('Lucy speech timed out.')), 18_000)),
       ]);
-      const audioData = interaction?.outputAudio?.data || interaction?.output_audio?.data;
+      const interactionAudio = Array.isArray(interaction?.outputs)
+        ? interaction.outputs.find((output: any) => output?.type === 'audio' && output?.data)
+        : null;
+      const audioData = interactionAudio?.data || interaction?.outputAudio?.data || interaction?.output_audio?.data;
       if (!audioData) return res.status(502).json({ error: 'Lucy voice could not be generated.' });
 
-      const wav = pcmToWav(Buffer.from(audioData, 'base64'));
-      res.setHeader('Content-Type', 'audio/wav');
+      const audioMimeType = String(interactionAudio?.mime_type || '').toLowerCase();
+      const isEncodedAudio = /audio\/(wav|mpeg|mp3|aac|ogg|flac|m4a)/.test(audioMimeType);
+      const wav = isEncodedAudio ? Buffer.from(audioData, 'base64') : pcmToWav(Buffer.from(audioData, 'base64'));
+      res.setHeader('Content-Type', isEncodedAudio ? audioMimeType : 'audio/wav');
       res.setHeader('Cache-Control', 'private, max-age=300');
       res.setHeader('Content-Length', String(wav.length));
       return res.status(200).send(wav);
@@ -5277,7 +5282,7 @@ Your output must be in JSON matching the specified Response Schema exactly. All 
         `` +
         `5. Diamond plan may receive chat and limited reports only. If the user asks for forecasting while plan is diamond, explain politely that forecasting is available on Tanzanite and offer a simple non-forecast business summary instead. ` +
         `6. Keep in mind that standard platform features (like Sales records, POS tills, Inventory, Expenses, and Reports) ARE FULLY SUPPORTED in our system. If the database of sales or expenses is currently empty, it means the user simply hasn't added or recorded any transactions yet—not that the feature is missing. Do NOT report standard supported features (like sales or expenses) as unsupported missing features! Only set "unsupportedFeature" to a standardized English category name if they request an entirely new, non-existent platform capability that the system truly does not have (for example: Automated real-time M-Pesa callbacks & APIs, bulk automated WhatsApp marketing campaigns, print sticky barcode price tags, automated bulk payroll bank transfers, active employee clock-in HR portal); otherwise set "unsupportedFeature" to null. ` +
-        `7. Keep your response highly useful, polite, concise, compassionate, and professional. Match the user's language. ` +
+        `7. Keep your response highly useful, polite, concise, compassionate, and professional. Match the user's language. If lang is "sw", reply entirely in clear, natural Tanzanian Swahili even when the user's spelling is informal, abbreviated, or mixed with unavoidable interface labels. Do not drift into English sentences; retain only exact Jasper button/menu names in English and immediately explain them in Swahili. ` +
         `8. When current market research is enabled, compare the tenant's actual internal performance with current public market evidence. Focus on the tenant's niche and location, check relevant global marketplaces such as Amazon, eBay, and Alibaba plus discoverable local retailers, and never present an unverified trend as guaranteed demand. Clearly separate INTERNAL BUSINESS DATA, CURRENT MARKET SIGNALS, RECOMMENDATIONS, and RISKS. ` +
         `Return your final response strictly as a JSON matching the requested structure.`;
 

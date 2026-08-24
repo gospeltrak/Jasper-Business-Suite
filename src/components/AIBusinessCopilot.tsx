@@ -20,7 +20,7 @@ import {
   Zap
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { speakWithGeminiLucy, stopLucySpeech } from '../utils/lucySpeech';
+import { speakWithGeminiLucy, stopLucySpeech, unlockLucySpeech } from '../utils/lucySpeech';
 
 interface AIBusinessCopilotProps {
   activeTenant: Tenant;
@@ -168,8 +168,9 @@ export default function AIBusinessCopilot({
     return cleaned.trim();
   };
 
-  const speakAIResponse = async (text: string) => {
-    if (!isSpokenOutputEnabled) return;
+  const speakAIResponse = async (text: string, force = false) => {
+    if (!force && !isSpokenOutputEnabled) return;
+    setSpeechError(null);
     const language = detectLucyLanguage(text) === 'sw' ? 'sw' : 'en';
     try {
       await speakWithGeminiLucy(cleanSpokenText(text), activeTenant.id, language);
@@ -193,9 +194,13 @@ export default function AIBusinessCopilot({
       }
       utterance.pitch = 1.08;
       utterance.rate = 0.92;
+      utterance.onerror = () => setSpeechError(language === 'sw'
+        ? 'Sauti imezuiwa na browser. Bonyeza speaker tena kisha ongeza volume ya kifaa.'
+        : 'The browser blocked audio. Tap the speaker again and check the device volume.');
       window.speechSynthesis.speak(utterance);
     } catch (e) {
       console.warn('Speech synthesis fail', e);
+      setSpeechError(language === 'sw' ? 'Sauti haikuweza kuanza. Tafadhali bonyeza speaker tena.' : 'Voice could not start. Please tap the speaker again.');
     }
   };
 
@@ -458,7 +463,13 @@ export default function AIBusinessCopilot({
                   onClick={() => {
                     const state = !isSpokenOutputEnabled;
                     setIsSpokenOutputEnabled(state);
-                    if (!state) stopLucySpeech();
+                    if (!state) {
+                      stopLucySpeech();
+                      return;
+                    }
+                    unlockLucySpeech();
+                    const lastLucyMessage = [...messages].reverse().find(message => message.sender === 'ai');
+                    if (lastLucyMessage) void speakAIResponse(lastLucyMessage.text, true);
                   }}
                   className={`p-1.5 rounded-full transition-colors cursor-pointer ${
                     isSpokenOutputEnabled ? 'bg-emerald-400/15 text-emerald-300' : 'text-slate-400 hover:bg-white/10'
