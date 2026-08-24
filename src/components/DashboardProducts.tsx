@@ -2195,28 +2195,41 @@ export default function DashboardProducts({
       </div>
       {!isPharmacyLike && isBulkProduct && (
         <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 space-y-3">
-          <div className="flex flex-wrap items-end gap-x-2 gap-y-3">
-            <div className="space-y-1">
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '0.5rem', alignItems: 'end' }}>
+            <div className="space-y-1 min-w-0">
               <label className="text-[9px] font-bold text-slate-500 uppercase">Package Name</label>
-              <input value={purchaseUnit} onChange={(e) => setPurchaseUnit(e.target.value)} placeholder="e.g. Sack" className="w-28 bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+              <input value={purchaseUnit} onChange={(e) => setPurchaseUnit(e.target.value)} placeholder="e.g. Sack" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
             </div>
             <span className="text-[10px] font-bold text-slate-400 uppercase pb-2.5 shrink-0">contains</span>
-            <div className="space-y-1">
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.5rem' }}>
+            <div className="space-y-1 min-w-0">
               <label className="text-[9px] font-bold text-slate-500 uppercase">Quantity</label>
-              <input type="number" step="0.001" value={conversionToBaseUnit} onChange={(e) => setConversionToBaseUnit(e.target.value === '' ? '' : Number(e.target.value))} placeholder="e.g. 24" className="w-24 bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+              <input type="number" step="0.001" value={conversionToBaseUnit} onChange={(e) => setConversionToBaseUnit(e.target.value === '' ? '' : Number(e.target.value))} placeholder="e.g. 24" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1 min-w-0">
               <label className="text-[9px] font-bold text-slate-500 uppercase">Sell / Count Unit</label>
-              <input value={baseUnit} onChange={(e) => setBaseUnit(e.target.value)} placeholder="e.g. Pcs" className="w-28 bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+              <input value={baseUnit} onChange={(e) => setBaseUnit(e.target.value)} placeholder="e.g. Pcs" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
             </div>
           </div>
-          <label className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 uppercase w-fit">
-            <input type="checkbox" checked={allowScaleSelling} onChange={(e) => {
-              setAllowScaleSelling(e.target.checked);
-              if (e.target.checked && !sellingMode) setSellingMode('scale');
-            }} className="accent-emerald-600" />
+          <button
+            type="button"
+            onClick={() => {
+              const next = !allowScaleSelling;
+              setAllowScaleSelling(next);
+              if (next && !sellingMode) setSellingMode('scale');
+            }}
+            aria-pressed={allowScaleSelling}
+            aria-label="Fraction Sale"
+            className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 uppercase w-fit cursor-pointer"
+          >
+            <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors ${
+              allowScaleSelling ? 'border-emerald-600 bg-emerald-600' : 'border-slate-300 bg-white'
+            }`}>
+              {allowScaleSelling && <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />}
+            </span>
             Fraction Sale
-          </label>
+          </button>
         </div>
       )}
 
