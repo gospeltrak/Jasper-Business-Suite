@@ -709,6 +709,26 @@ const waitForDocumentAssets = async (root: HTMLElement) => {
   }));
 };
 
+// Documents (receipts, invoices, delivery notes, reports) must always render
+// light regardless of the tenant's dashboard dark-mode setting. The clone is
+// appended under document.body, which still sits inside <html class="dark">
+// when dark mode is on, so any dark: utility class present -- today or added
+// later -- would otherwise render with dark colors in the captured PDF.
+const stripDarkModeClasses = (root: HTMLElement) => {
+  // getAttribute/setAttribute (not .className) so this also works for SVG
+  // icons, whose className is an SVGAnimatedString rather than a plain string.
+  const strip = (el: Element) => {
+    if (!el.getAttribute('class')?.includes('dark:')) return;
+    const next = (el.getAttribute('class') || '')
+      .split(' ')
+      .filter((cls) => !cls.startsWith('dark:'))
+      .join(' ');
+    el.setAttribute('class', next);
+  };
+  strip(root);
+  root.querySelectorAll('[class*="dark:"]').forEach(strip);
+};
+
 const createVisualA4Pdf = async (source: HTMLElement) => {
   const host = document.createElement('div');
   host.setAttribute('aria-hidden', 'true');
@@ -724,6 +744,7 @@ const createVisualA4Pdf = async (source: HTMLElement) => {
 
   const clone = source.cloneNode(true) as HTMLElement;
   clone.removeAttribute('id');
+  stripDarkModeClasses(clone);
   Object.assign(clone.style, {
     display: 'block',
     width: '794px',
@@ -812,6 +833,7 @@ const createVisualReceiptPdf = async (source: HTMLElement) => {
 
   const clone = source.cloneNode(true) as HTMLElement;
   clone.removeAttribute('id');
+  stripDarkModeClasses(clone);
   Object.assign(clone.style, {
     display: 'block',
     width: `${RECEIPT_CAPTURE_WIDTH_PX}px`,
