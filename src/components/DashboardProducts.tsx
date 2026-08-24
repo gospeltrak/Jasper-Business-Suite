@@ -820,7 +820,12 @@ export default function DashboardProducts({
   const [allowPosMethodOverride, setAllowPosMethodOverride] = useState(false);
   const [allowScaleSelling, setAllowScaleSelling] = useState(false);
   const [purchaseUnit, setPurchaseUnit] = useState('Sack');
-  const [baseUnit, setBaseUnit] = useState('Kg');
+  // Kept in sync with the tenant's own "Units" selection (unit) rather than a
+  // hardcoded default, so every unit label in the Retail Package / Smart
+  // Batch Costing section (Sell/Count Unit, Portion Qty, Price per unit)
+  // reflects whatever unit the tenant actually registered -- weight, volume,
+  // length, or count -- instead of assuming weight ("Kg").
+  const [baseUnit, setBaseUnit] = useState(unit);
   const [conversionToBaseUnit, setConversionToBaseUnit] = useState<number | ''>('');
   const [allowCustomQuantity, setAllowCustomQuantity] = useState(true);
   const [dosesPerPacket, setDosesPerPacket] = useState<number | ''>('');
@@ -1423,7 +1428,7 @@ export default function DashboardProducts({
       setAllowPosMethodOverride(false);
       setAllowScaleSelling(false);
       setPurchaseUnit('Sack');
-      setBaseUnit('Kg');
+      setBaseUnit(unit);
       setConversionToBaseUnit('');
       setAllowCustomQuantity(true);
       setIsOpen(false);
@@ -2206,7 +2211,10 @@ export default function DashboardProducts({
             </div>
             <div className="space-y-1 min-w-0">
               <label className="text-[9px] font-bold text-slate-500 uppercase">Sell / Count Unit</label>
-              <input value={baseUnit} onChange={(e) => setBaseUnit(e.target.value)} placeholder="e.g. Pcs" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+              <div className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl font-bold text-slate-700 truncate">
+                {baseUnit || 'Unit'}
+              </div>
+              <p className="text-[8px] normal-case text-slate-400">Follows the Units field above.</p>
             </div>
           </div>
           <button
@@ -2849,7 +2857,7 @@ export default function DashboardProducts({
                           options={unitSelectOptions}
                           onChange={(nextUnit) => {
                             setUnit(nextUnit);
-                            if (!isBulkProduct) setBaseUnit(nextUnit);
+                            setBaseUnit(nextUnit);
                           }}
                           title="Choose unit"
                           placeholder="Select unit"
@@ -3168,7 +3176,7 @@ export default function DashboardProducts({
                           ? `${pharmacyFormHierarchy.levels[0]?.unit || 'Top Unit'} Buy Cost`
                           : isBulkProduct
                             ? `Package Buy Cost (${purchaseUnit || 'Package'})`
-                            : 'Cost Buy Price'}
+                            : `Cost Buy Price (${unit || 'Unit'})`}
                       </label>
                       <input
                         type="number"
@@ -3184,7 +3192,7 @@ export default function DashboardProducts({
                           ? `${pharmacyFormHierarchy.levels[0]?.unit || 'Top Unit'} Retail Price`
                           : isBulkProduct
                             ? `Package Retail Price (${purchaseUnit || 'Package'})`
-                            : 'Retail Price'} {!sellInRetail && <span className="text-red-500 font-mono text-[9px]">(LOCKED)</span>}
+                            : `Retail Price (${unit || 'Unit'})`} {!sellInRetail && <span className="text-red-500 font-mono text-[9px]">(LOCKED)</span>}
                       </label>
                       <input
                         type="number"
@@ -3202,10 +3210,10 @@ export default function DashboardProducts({
                   <div className="grid gap-3.5" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.875rem' }}>
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-slate-500 uppercase block">
-                        Wholesale Price {!sellInWholesale && <span className="text-red-500 font-mono text-[9px]">(LOCKED)</span>}
+                        {isPharmacyLike ? 'Wholesale Price' : `Wholesale Price (${isBulkProduct ? (purchaseUnit || 'Package') : (unit || 'Unit')})`} {!sellInWholesale && <span className="text-red-500 font-mono text-[9px]">(LOCKED)</span>}
                       </label>
-                      <input 
-                        type="number" 
+                      <input
+                        type="number"
                         min="1"
                         disabled={!sellInWholesale}
                         value={sellInWholesale ? (wholesalePrice || '') : 0}
@@ -3216,7 +3224,7 @@ export default function DashboardProducts({
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-slate-505 uppercase block">
-                        Min Wholesale Qty {!sellInWholesale && <span className="text-red-500 font-mono text-[9px]">(LOCKED)</span>}
+                        {isPharmacyLike ? 'Min Wholesale Qty' : `Min Wholesale Qty (${baseUnit || unit || 'Unit'})`} {!sellInWholesale && <span className="text-red-500 font-mono text-[9px]">(LOCKED)</span>}
                       </label>
                       <input 
                         type="number" 
@@ -5044,7 +5052,7 @@ export default function DashboardProducts({
                         onChange={(nextUnit) => setEditForm(prev => ({
                           ...prev,
                           unit: nextUnit,
-                          ...(prev.isBulkProduct || prev.allowScaleSelling ? {} : { baseUnit: nextUnit }),
+                          baseUnit: nextUnit,
                         }))}
                         title="Choose unit"
                         placeholder="No unit"
@@ -5229,7 +5237,7 @@ export default function DashboardProducts({
 
                   <div className="grid gap-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.75rem' }}>
                     <div className="space-y-1">
-                      <label className="text-[9.5px] font-bold text-slate-500 uppercase block">{editForm.isBulkProduct && activeTenant.businessType !== 'pharmacy' ? `Package Buy Cost (${editForm.purchaseUnit || editForm.inventorySettings?.purchaseUnit || editForm.bulkUnit || 'Package'})` : 'Cost buy Price'}</label>
+                      <label className="text-[9.5px] font-bold text-slate-500 uppercase block">{activeTenant.businessType === 'pharmacy' ? 'Cost buy Price' : editForm.isBulkProduct ? `Package Buy Cost (${editForm.purchaseUnit || editForm.inventorySettings?.purchaseUnit || editForm.bulkUnit || 'Package'})` : `Cost buy Price (${editForm.unit || 'Unit'})`}</label>
                       <input 
                         type="number" 
                         min="0"
@@ -5247,7 +5255,7 @@ export default function DashboardProducts({
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Retail price</label>
+                      <label className="text-[9.5px] font-bold text-slate-500 uppercase block">{activeTenant.businessType === 'pharmacy' ? 'Retail price' : `Retail price (${editForm.isBulkProduct ? (editForm.purchaseUnit || editForm.inventorySettings?.purchaseUnit || editForm.bulkUnit || 'Package') : (editForm.unit || 'Unit')})`}</label>
                       <input 
                         type="number" 
                         min="1"
@@ -5264,7 +5272,7 @@ export default function DashboardProducts({
 
                   <div className="grid gap-3 border-b border-dashed border-slate-200 pb-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.75rem' }}>
                     <div className="space-y-1">
-                      <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Wholesale price</label>
+                      <label className="text-[9.5px] font-bold text-slate-500 uppercase block">{activeTenant.businessType === 'pharmacy' ? 'Wholesale price' : `Wholesale price (${editForm.isBulkProduct ? (editForm.purchaseUnit || editForm.inventorySettings?.purchaseUnit || editForm.bulkUnit || 'Package') : (editForm.unit || 'Unit')})`}</label>
                       <input 
                         type="number" 
                         min="1"
@@ -5278,7 +5286,7 @@ export default function DashboardProducts({
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Wholesale Min Qty</label>
+                      <label className="text-[9.5px] font-bold text-slate-500 uppercase block">{activeTenant.businessType === 'pharmacy' ? 'Wholesale Min Qty' : `Wholesale Min Qty (${editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.unit || 'Unit'})`}</label>
                       <input 
                         type="number" 
                         min="1"
@@ -5377,7 +5385,9 @@ export default function DashboardProducts({
                       </div>
                       <div className="space-y-1">
                         <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Sell / Count Unit</label>
-                        <input value={editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.sellUnit || ''} onChange={e => setEditForm(prev => ({ ...prev, baseUnit: e.target.value }))} className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                        <div className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-xl font-bold text-slate-700 truncate">
+                          {editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.unit || 'Unit'}
+                        </div>
                       </div>
                       <div className="space-y-1">
                         <label className="text-[9.5px] font-bold text-slate-500 uppercase block">1 Package Contains</label>
@@ -5549,7 +5559,9 @@ export default function DashboardProducts({
                         </div>
                         <div className="space-y-1">
                           <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Base Unit</label>
-                          <input value={editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.sellUnit || ''} onChange={e => setEditForm(prev => ({ ...prev, baseUnit: e.target.value, sellUnit: e.target.value }))} placeholder="kg, litre, pcs" className="w-full bg-slate-50 border border-slate-200 text-[11px] px-2 py-2 rounded-xl" />
+                          <div className="w-full bg-slate-50 border border-slate-200 text-[11px] px-2 py-2 rounded-xl font-bold text-slate-700 truncate">
+                            {editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.unit || 'Unit'}
+                          </div>
                         </div>
                       </div>
 
@@ -5565,7 +5577,7 @@ export default function DashboardProducts({
                                  { label: '3/4', value: 0.75 },
                                  { label: '1', value: 1 },
                                ].map(f => (
-                                 <button type="button" key={f.label} onClick={() => setEditForm(prev => ({ ...prev, sellUnit: prev.baseUnit || prev.inventorySettings?.baseUnit || 'kg', sellUnitQty: f.value }))} className="px-1.5 py-0.5 text-[9px] font-bold bg-slate-50 border border-slate-200 rounded">{f.label} {editForm.baseUnit || editForm.inventorySettings?.baseUnit || 'kg'}</button>
+                                 <button type="button" key={f.label} onClick={() => setEditForm(prev => ({ ...prev, sellUnit: prev.baseUnit || prev.inventorySettings?.baseUnit || prev.unit || 'Unit', sellUnitQty: f.value }))} className="px-1.5 py-0.5 text-[9px] font-bold bg-slate-50 border border-slate-200 rounded">{f.label} {editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.unit || 'Unit'}</button>
                                ))}
                              </div>
                             </div>
@@ -5577,7 +5589,7 @@ export default function DashboardProducts({
                           <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Default Portion Qty</label>
                           {editForm.sellingMode === 'scale' ? (
                             <div className="w-full bg-slate-50 border border-slate-200 text-[11px] px-3 py-2 rounded-xl font-bold text-slate-700">
-                              {editForm.sellUnitQty === 0.25 ? '1/4' : editForm.sellUnitQty === 0.5 ? '1/2' : editForm.sellUnitQty === 0.75 ? '3/4' : '1'} {editForm.baseUnit || editForm.inventorySettings?.baseUnit || 'kg'}
+                              {editForm.sellUnitQty === 0.25 ? '1/4' : editForm.sellUnitQty === 0.5 ? '1/2' : editForm.sellUnitQty === 0.75 ? '3/4' : '1'} {editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.unit || 'Unit'}
                             </div>
                           ) : (
                             <input type="number" step="1" value={editForm.sellUnitQty ?? ''} onChange={e => setEditForm(prev => ({ ...prev, sellUnitQty: e.target.value === '' ? undefined : Number(e.target.value) }))} className="w-full bg-slate-50 border border-slate-200 text-[11px] px-3 py-2 rounded-xl" />
