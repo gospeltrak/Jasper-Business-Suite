@@ -1202,6 +1202,11 @@ export default function DashboardProducts({
     const pharmacyTabPrice = Number(tabPrice) || (pharmacyPacketPrice / pharmacyTabsPerPacket);
     const pharmacyFullDosePrice = Number(fullDosePrice) || (pharmacyTabPrice * (hierarchy.levels.find(level => level.id === 'dose')?.quantityToBaseUnit || pharmacyTabsPerDose));
     const pharmacyHalfDosePrice = Number(halfDosePrice) || (pharmacyFullDosePrice / 2);
+    // Cost Buy Price is entered per the top hierarchy unit (e.g. per Box), the
+    // same way Retail Price already is for pharmacyPacketPrice above -- it must
+    // divide down to a per-base-unit cost the same way, or COGS/profit come out
+    // wildly wrong (a Box's cost would be recorded as one Tablet's cost).
+    const pharmacyCostPrice = costPrice / pharmacyTabsPerPacket;
     // A simple product's selected unit is its stock and sales unit. Packaging and
     // scale products may explicitly use a different base unit for conversion.
     const retailBaseUnit = (isBulkProduct || allowScaleSelling) ? (baseUnit || unit || 'Unit') : (unit || 'Unit');
@@ -1209,9 +1214,18 @@ export default function DashboardProducts({
     const retailConversionToBaseUnit = Math.max(0.001, Number(conversionToBaseUnit) || Number(bulkPurchaseQty) || 1);
     const retailPricePerBaseUnit = Number(sellUnitPrice) || finalSellingPrice;
     const retailPackageBuyingCost = costPrice;
-    const ledgerCostPrice = !isPharmacyLike && isBulkProduct
-      ? retailPackageBuyingCost / retailConversionToBaseUnit
-      : costPrice;
+    const ledgerCostPrice = isPharmacyLike
+      ? pharmacyCostPrice
+      : isBulkProduct
+        ? retailPackageBuyingCost / retailConversionToBaseUnit
+        : costPrice;
+    // sellingPrice must be expressed in the same unit as costPrice/stockQty
+    // (the base unit) for reports/valuations that multiply price by stock
+    // quantity to stay correct -- packetPrice/tabPrice/fullDosePrice below
+    // remain the actual per-dose-level prices POS sells at; this is only the
+    // generic reference price kept consistent with everything else on the
+    // record.
+    const ledgerSellingPrice = isPharmacyLike ? pharmacyTabPrice : finalSellingPrice;
 
     const newProd: Product = {
       id: 'p-' + Math.random().toString(36).substr(2, 9),
@@ -1221,7 +1235,7 @@ export default function DashboardProducts({
       category,
       unit: isPharmacyLike ? hierarchy.baseUnit : unit,
       costPrice: ledgerCostPrice,
-      sellingPrice: finalSellingPrice,
+      sellingPrice: ledgerSellingPrice,
       stockQty: getTotalStockQty(shopStockQty, storeStockQty),
       shopStockQty: shopStockQty,
       storeStockQty: storeStockQty,
@@ -2395,7 +2409,7 @@ export default function DashboardProducts({
                     />
                   </div>
 
-                  <div className="grid gap-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.75rem' }}>
+                  <div className="grid gap-3" style={{ display: 'grid', gridTemplateColumns: isPharmacyLike ? '1fr' : 'repeat(2, minmax(0, 1fr))', gap: '0.75rem' }}>
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-slate-500 uppercase block">Category</label>
                       <ModernSelect
@@ -2410,21 +2424,23 @@ export default function DashboardProducts({
                       />
                     </div>
 
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase block">Units</label>
-                      <ModernSelect
-                        value={unit}
-                        options={unitSelectOptions}
-                        onChange={(nextUnit) => {
-                          setUnit(nextUnit);
-                          if (!isBulkProduct) setBaseUnit(nextUnit);
-                        }}
-                        title="Choose unit"
-                        placeholder="Select unit"
-                        searchPlaceholder="Search units"
-                        searchable={unitSelectOptions.length > 7}
-                      />
-                    </div>
+                    {!isPharmacyLike && (
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase block">Units</label>
+                        <ModernSelect
+                          value={unit}
+                          options={unitSelectOptions}
+                          onChange={(nextUnit) => {
+                            setUnit(nextUnit);
+                            if (!isBulkProduct) setBaseUnit(nextUnit);
+                          }}
+                          title="Choose unit"
+                          placeholder="Select unit"
+                          searchPlaceholder="Search units"
+                          searchable={unitSelectOptions.length > 7}
+                        />
+                      </div>
+                    )}
                   </div>
 
                   <div className="space-y-1">
@@ -2732,9 +2748,15 @@ export default function DashboardProducts({
 
                   <div className="grid gap-3.5" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.875rem' }}>
                     <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase block">{isBulkProduct && !isPharmacyLike ? `Package Buy Cost (${purchaseUnit || 'Package'})` : 'Cost Buy Price'}</label>
-                      <input 
-                        type="number" 
+                      <label className="text-[10px] font-bold text-slate-500 uppercase block">
+                        {isPharmacyLike
+                          ? `${pharmacyFormHierarchy.levels[0]?.unit || 'Top Unit'} Buy Cost`
+                          : isBulkProduct
+                            ? `Package Buy Cost (${purchaseUnit || 'Package'})`
+                            : 'Cost Buy Price'}
+                      </label>
+                      <input
+                        type="number"
                         min="0"
                         value={costPrice || ''}
                         onChange={(e) => setCostPrice(Math.max(0, parseFloat(e.target.value) || 0))}
