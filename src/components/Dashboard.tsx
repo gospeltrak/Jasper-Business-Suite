@@ -48,7 +48,7 @@ import DuressDashboard from './DuressDashboard';
 import CachedImage from './CachedImage';
 import { savePendingSaleOffline } from '../utils/offlineDb';
 import { createCleanTenantSettings, isDemoTenant } from '../utils/tenantIsolation';
-import { flushPendingTenantWorkspace, hasPendingTenantWorkspaceSave, loadTenantWorkspace, markTenantProductsUpdated, readCachedWorkspace, saveTenantSettings, saveTenantWorkspace, scheduleTenantWorkspaceSave, subscribeToTenantBusinessType, subscribeToTenantWorkspace, TenantWorkspace, workspaceHasBusinessData } from '../utils/tenantWorkspace';
+import { flushPendingTenantWorkspace, hasPendingTenantWorkspaceSave, loadTenantWorkspace, loadTenantWorkspaceCore, markTenantProductsUpdated, readCachedWorkspace, saveTenantSettings, saveTenantWorkspace, scheduleTenantWorkspaceSave, subscribeToTenantBusinessType, subscribeToTenantWorkspace, TenantWorkspace, waitForTenantWorkspaceLoad, workspaceHasBusinessData } from '../utils/tenantWorkspace';
 import { safeSetJsonItem, safeSetTenantMapItem } from '../utils/dataSafety';
 import { findPaymentChannel, getTreasuryPaymentMethods, reconcilePaymentChannels } from '../utils/paymentAccounts';
 import { attachPayloadProductTombstones, markLocalProductTombstones, readLocalProductTombstones, stampProductsForSync } from '../utils/productSync';
@@ -716,7 +716,8 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     setWorkspaceLoadFailed(false);
     let initialLoadRetryTimer: number | null = null;
 
-    const applyWorkspace = (workspace: TenantWorkspace) => {
+    const applyWorkspace = (workspace: TenantWorkspace, options: { ledgersReady?: boolean } = {}) => {
+      const { ledgersReady = true } = options;
       if (!active) return;
       const cloudBusinessName = String(workspace.settings?.business?.businessName || '').trim();
       setDatabaseBusinessName(cloudBusinessName);
@@ -735,11 +736,18 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       setBranchesMap(prev => ({ ...prev, [activeTenant.id]: workspace.branches || [] }));
       setBranchStocksMap(prev => ({ ...prev, [activeTenant.id]: workspace.branchStocks || [] }));
       setBranchStaffAssignmentsMap(prev => ({ ...prev, [activeTenant.id]: workspace.branchStaffAssignments || [] }));
-      setSalesMap(prev => ({ ...prev, [activeTenant.id]: workspace.sales || [] }));
-      setExpensesMap(prev => ({ ...prev, [activeTenant.id]: workspace.expenses || [] }));
-      setDeliveriesMap(prev => ({ ...prev, [activeTenant.id]: workspace.deliveries || [] }));
-      setPendingDeliveryNotesMap(prev => ({ ...prev, [activeTenant.id]: workspace.pendingDeliveryNotes || [] }));
-      setPurchasesMap(prev => ({ ...prev, [activeTenant.id]: workspace.purchases || [] }));
+      // Historical ledgers (sales/expenses/deliveries/purchases) may still be
+      // paginating in from the background completion of a core-first load --
+      // skip them here so an empty placeholder never overwrites data the
+      // dashboard is already showing; the follow-up full apply once loading
+      // finishes carries the real values instead.
+      if (ledgersReady) {
+        setSalesMap(prev => ({ ...prev, [activeTenant.id]: workspace.sales || [] }));
+        setExpensesMap(prev => ({ ...prev, [activeTenant.id]: workspace.expenses || [] }));
+        setDeliveriesMap(prev => ({ ...prev, [activeTenant.id]: workspace.deliveries || [] }));
+        setPendingDeliveryNotesMap(prev => ({ ...prev, [activeTenant.id]: workspace.pendingDeliveryNotes || [] }));
+        setPurchasesMap(prev => ({ ...prev, [activeTenant.id]: workspace.purchases || [] }));
+      }
       if (workspace.settings) {
         // Realtime and recovery reads can arrive out of order. Merge using the
         // per-field clocks so an older payload cannot hide a newly saved staff
@@ -770,11 +778,18 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     };
 
     const loadInitialWorkspace = async (attempt = 0): Promise<void> => {
-      const workspace = await loadTenantWorkspace(activeTenant.id);
+      // Core (settings, products, stock, branches, permissions) unblocks the
+      // dashboard immediately; historical ledgers stream in behind it without
+      // making the user wait through the full paginated fetch first.
+      const core = await loadTenantWorkspaceCore(activeTenant.id);
       if (!active) return;
-      if (workspace) {
+      if (core) {
         cloudWorkspaceLoadedRef.current = true;
-        applyWorkspace(workspace);
+        applyWorkspace(core, { ledgersReady: false });
+        await waitForTenantWorkspaceLoad(activeTenant.id);
+        if (!active) return;
+        const full = readCachedWorkspace(activeTenant.id);
+        if (full) applyWorkspace(full);
         return;
       }
 
