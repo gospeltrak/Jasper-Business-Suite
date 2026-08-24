@@ -46,6 +46,9 @@ type BrandableBranch = {
   businessName?: string | null;
   logoLightUrl?: string | null;
   logoDarkUrl?: string | null;
+  address?: string | null;
+  phone?: string | null;
+  email?: string | null;
 };
 
 // Branch-aware variants of the two resolvers above — used by document
@@ -79,3 +82,24 @@ export const getActiveBranchLogo = (
   }
   return getBusinessLogo(settings);
 };
+
+export const getActiveBranchAddress = (
+  settings: Pick<SystemSettings, 'business' | 'company'> | null | undefined,
+  selectedBranch: BrandableBranch | null | undefined,
+): string => cleanName(selectedBranch?.isPhysical ? selectedBranch.address : '')
+  || cleanName((settings?.business as any)?.businessAddress || (settings?.business as any)?.address)
+  || cleanName((settings?.company as any)?.address);
+
+export const getActiveBranchPhone = (
+  settings: Pick<SystemSettings, 'business' | 'company'> | null | undefined,
+  selectedBranch: BrandableBranch | null | undefined,
+): string => cleanName(selectedBranch?.isPhysical ? selectedBranch.phone : '')
+  || cleanName((settings?.business as any)?.businessPhone || (settings?.business as any)?.phone)
+  || cleanName((settings?.company as any)?.phone);
+
+export const getActiveBranchEmail = (
+  settings: Pick<SystemSettings, 'business' | 'company'> | null | undefined,
+  selectedBranch: BrandableBranch | null | undefined,
+): string => cleanName(selectedBranch?.isPhysical ? selectedBranch.email : '')
+  || cleanName((settings?.business as any)?.businessEmail || (settings?.business as any)?.email)
+  || cleanName((settings?.company as any)?.email);

@@ -25,6 +25,7 @@ import {
 import type { Tenant } from '../types';
 import { useBranchContext } from '../branches/BranchContext';
 import type { BranchRelationshipType, BranchSummary, CreateBranchInput } from '../branches/branchTypes';
+import { loadBranchContactProfile, updateBranchContactProfile } from '../branches/branchApi';
 
 interface DashboardBranchesSettingsProps {
   activeTenant: Tenant;
@@ -483,6 +484,42 @@ function BranchLogoUploadCard({
 }
 
 function BranchDetailsDialog({ activeTenant, branch, onClose }: { activeTenant: Tenant; branch: BranchSummary; onClose: () => void }) {
+  const [contact, setContact] = useState({ address: '', phone: '', email: '' });
+  const [contactLoading, setContactLoading] = useState(Boolean(branch.id));
+  const [contactSaving, setContactSaving] = useState(false);
+  const [contactStatus, setContactStatus] = useState('');
+
+  useEffect(() => {
+    if (!branch.id) return;
+    let cancelled = false;
+    setContactLoading(true);
+    loadBranchContactProfile(branch.id)
+      .then(profile => {
+        if (!cancelled) setContact({
+          address: profile.address || '',
+          phone: profile.phone || '',
+          email: profile.email || '',
+        });
+      })
+      .catch(() => { if (!cancelled) setContactStatus('Branch contacts could not be loaded.'); })
+      .finally(() => { if (!cancelled) setContactLoading(false); });
+    return () => { cancelled = true; };
+  }, [branch.id]);
+
+  const saveContact = async () => {
+    if (!branch.id) return;
+    setContactSaving(true);
+    setContactStatus('');
+    try {
+      await updateBranchContactProfile(branch.id, contact);
+      setContactStatus('Address and contacts saved.');
+    } catch (error) {
+      setContactStatus(error instanceof Error ? error.message : 'Branch contacts could not be saved.');
+    } finally {
+      setContactSaving(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-[84] flex items-end justify-center bg-slate-950/50 p-0 backdrop-blur-sm md:items-center md:p-5" role="dialog" aria-modal="true" aria-labelledby="branch-details-title">
       <div className="flex max-h-[88dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-[24px] border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-950 md:max-h-[85vh] md:rounded-[22px]">
@@ -513,6 +550,22 @@ function BranchDetailsDialog({ activeTenant, branch, onClose }: { activeTenant: 
           </div>
           {branch.isPhysical && branch.id && (
             <div className="space-y-3 border-t border-slate-200 px-5 py-5 dark:border-slate-800">
+              <div>
+                <span className="block text-[11px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Address & contacts</span>
+                <p className="mt-1 text-[11px] font-semibold leading-relaxed text-slate-500">Used on this branch&apos;s invoices, receipts and reports.</p>
+              </div>
+              {contactLoading ? (
+                <div className="flex min-h-24 items-center justify-center"><LoaderCircle className="h-5 w-5 animate-spin text-slate-400" /></div>
+              ) : (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <label className="sm:col-span-2"><span className="mb-1.5 block text-[10px] font-black uppercase text-slate-500">Address</span><input value={contact.address} onChange={event => setContact(current => ({ ...current, address: event.target.value }))} disabled={!branch.canWrite} maxLength={500} className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:border-emerald-500 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900" /></label>
+                  <label><span className="mb-1.5 block text-[10px] font-black uppercase text-slate-500">Phone</span><input value={contact.phone} onChange={event => setContact(current => ({ ...current, phone: event.target.value }))} disabled={!branch.canWrite} maxLength={40} inputMode="tel" className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:border-emerald-500 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900" /></label>
+                  <label><span className="mb-1.5 block text-[10px] font-black uppercase text-slate-500">Email</span><input value={contact.email} onChange={event => setContact(current => ({ ...current, email: event.target.value }))} disabled={!branch.canWrite} maxLength={254} type="email" className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:border-emerald-500 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900" /></label>
+                  {branch.canWrite ? <button type="button" onClick={() => void saveContact()} disabled={contactSaving} className="min-h-11 rounded-xl bg-emerald-600 px-4 text-sm font-black text-white disabled:opacity-60 sm:col-span-2">{contactSaving ? 'Saving…' : 'Save branch contacts'}</button> : null}
+                  {contactStatus ? <p className="text-xs font-bold text-slate-500 sm:col-span-2">{contactStatus}</p> : null}
+                </div>
+              )}
+              <div className="border-t border-slate-200 pt-4 dark:border-slate-800">
               <div className="flex items-center gap-2.5">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-sm shadow-indigo-500/20">
                   <ImagePlus className="h-4.5 w-4.5 text-white" />
@@ -532,6 +585,7 @@ function BranchDetailsDialog({ activeTenant, branch, onClose }: { activeTenant: 
               ) : (
                 <p className="rounded-xl bg-slate-50 px-3 py-2.5 text-xs font-semibold text-slate-400 dark:bg-slate-900">Read-only access — branch logo cannot be changed from here.</p>
               )}
+              </div>
             </div>
           )}
           <div className="border-t border-slate-200 bg-slate-50 px-5 py-4 text-xs font-semibold leading-5 text-slate-500 dark:border-slate-800 dark:bg-slate-900/70 dark:text-slate-400">

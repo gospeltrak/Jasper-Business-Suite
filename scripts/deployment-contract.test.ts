@@ -129,6 +129,28 @@ test('workspace entry and branch switching stay fast and non-blocking', async ()
   assert.doesNotMatch(dashboardSource, /Switching branch workspace/);
 });
 
+test('branch contact settings are tenant-scoped and non-destructive', async () => {
+  const serverSource = await read('server.ts');
+  const branchSettingsSource = await read('src/components/DashboardBranchesSettings.tsx');
+  const brandingSource = await read('src/utils/businessBranding.ts');
+  const salesSource = await read('src/components/DashboardSalesList.tsx');
+  const posSource = await read('src/components/DashboardPOS.tsx');
+  const migrationSource = await read('supabase/migrations/20260824170138_branch_contact_settings.sql');
+  assert.match(serverSource, /app\.get\('\/api\/branches\/:branchId\/profile'/);
+  assert.match(serverSource, /app\.patch\('\/api\/branches\/:branchId\/profile'/);
+  assert.match(serverSource, /update_current_tenant_branch_profile/);
+  assert.match(branchSettingsSource, /Address & contacts/);
+  assert.match(branchSettingsSource, /Save branch contacts/);
+  assert.match(serverSource, /enrichBranchContacts/);
+  assert.match(brandingSource, /getActiveBranchAddress/);
+  assert.match(brandingSource, /getActiveBranchPhone/);
+  assert.match(salesSource, /getActiveBranchAddress\(systemSettings, activeBranch\)/);
+  assert.match(posSource, /getActiveBranchPhone\(systemSettings, activeBranch\)/);
+  assert.match(migrationSource, /private\.can_write_branch\(v_tenant_id, p_branch_id, 'branches\.manage'\)/);
+  assert.match(migrationSource, /where branch\.tenant_id = v_tenant_id[\s\S]*branch\.id = p_branch_id/);
+  assert.doesNotMatch(migrationSource, /\b(delete|truncate|drop table)\b/i);
+});
+
 test('subscription checkout uses the native plan summary without inline mobile-money fields', async () => {
   const dashboardSource = await read('src/components/Dashboard.tsx');
   const serverSource = await read('server.ts');

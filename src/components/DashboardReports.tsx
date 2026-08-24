@@ -56,7 +56,7 @@ import { getDisplayStockBreakdown, resolvePackageLevels } from '../utils/univers
 import { downloadPdfFromElement } from '../utils/pdfShare';
 import CachedImage from './CachedImage';
 import ModernSelect from './ui/ModernSelect';
-import { getActiveBranchDisplayName } from '../utils/businessBranding';
+import { getActiveBranchAddress, getActiveBranchDisplayName, getActiveBranchEmail, getActiveBranchPhone } from '../utils/businessBranding';
 import type { BranchSummary } from '../branches/branchTypes';
 
 // Revenue helper: exclude delivery fees from product revenue calculations
@@ -140,9 +140,9 @@ export default function DashboardReports({
             ? (systemSettings?.business as any)?.businessLogo
             : '')
           || '',
-        address: systemSettings?.business?.address || systemSettings?.company?.address || activeTenant.city,
-        phone: systemSettings?.business?.phone || systemSettings?.company?.phone || '',
-        email: systemSettings?.business?.email || systemSettings?.company?.email || '',
+        address: getActiveBranchAddress(systemSettings, activeBranch) || activeTenant.city,
+        phone: getActiveBranchPhone(systemSettings, activeBranch),
+        email: getActiveBranchEmail(systemSettings, activeBranch),
         documentTitle: REPORT_DOCUMENT_TITLES[reportTab] || 'Business Report',
         dateRange: `${startDateStr} to ${endDateStr}`,
         // Deliberately no `generatedBy` — the report should read as an

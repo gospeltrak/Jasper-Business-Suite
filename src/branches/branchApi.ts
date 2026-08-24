@@ -109,6 +109,36 @@ export const updateBranchLogo = async (
   return response.branch;
 };
 
+export interface BranchContactProfile {
+  id: string;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  logoLightUrl?: string | null;
+  logoDarkUrl?: string | null;
+}
+
+export const loadBranchContactProfile = async (branchId: string) => {
+  const token = await getAccessToken();
+  const response = await requestBranchApi<{ branch: BranchContactProfile }>(
+    `/api/branches/${encodeURIComponent(branchId)}/profile`, token,
+  );
+  return response.branch;
+};
+
+export const updateBranchContactProfile = async (
+  branchId: string,
+  profile: Pick<BranchContactProfile, 'address' | 'phone' | 'email'>,
+) => {
+  const token = await getAccessToken();
+  const response = await requestBranchApi<{ branch: BranchContactProfile }>(
+    `/api/branches/${encodeURIComponent(branchId)}/profile`,
+    token,
+    { method: 'PATCH', body: JSON.stringify(profile) },
+  );
+  return response.branch;
+};
+
 export interface CrossBranchDocumentSourceBranch {
   id: string;
   branchName: string;

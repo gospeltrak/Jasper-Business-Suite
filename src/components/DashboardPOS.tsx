@@ -8,7 +8,7 @@ import {
 } from '../utils/inventoryCosting';
 import { formatProductQuantity, formatSaleItemQuantity } from '../utils/unitFormatter';
 import { getPaymentModeName } from '../utils/paymentAccounts';
-import { getActiveBranchDisplayName, getActiveBranchLogo } from '../utils/businessBranding';
+import { getActiveBranchAddress, getActiveBranchDisplayName, getActiveBranchLogo, getActiveBranchPhone } from '../utils/businessBranding';
 import type { BranchSummary } from '../branches/branchTypes';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -2274,8 +2274,8 @@ export default function DashboardPOS({
                     <h4 className="text-base font-black tracking-tight text-black">
                       {getActiveBranchDisplayName(activeTenant, systemSettings, userName, activeBranch)}
                     </h4>
-                    {activeTenant.city && <p className="text-[11px] text-black uppercase font-semibold">{activeTenant.city}</p>}
-                    {systemSettings?.business?.businessPhone && <p className="text-[11px] text-black">Tel:{systemSettings.business.businessPhone}</p>}
+                    {(getActiveBranchAddress(systemSettings, activeBranch) || activeTenant.city) && <p className="text-[11px] text-black uppercase font-semibold">{getActiveBranchAddress(systemSettings, activeBranch) || activeTenant.city}</p>}
+                    {getActiveBranchPhone(systemSettings, activeBranch) && <p className="text-[11px] text-black">Tel:{getActiveBranchPhone(systemSettings, activeBranch)}</p>}
                   </div>
 
                   <div className="border-t border-dashed border-slate-300" />

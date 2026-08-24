@@ -29,7 +29,7 @@ import {
   Wallet
 } from 'lucide-react';
 import { printPdfFromElement, downloadPdfFromElement, shareElementPdfToWhatsApp } from '../utils/pdfShare';
-import { getActiveBranchDisplayName, getActiveBranchLogo } from '../utils/businessBranding';
+import { getActiveBranchAddress, getActiveBranchDisplayName, getActiveBranchEmail, getActiveBranchLogo, getActiveBranchPhone } from '../utils/businessBranding';
 import type { BranchSummary } from '../branches/branchTypes';
 import { formatSaleItemQuantity } from '../utils/unitFormatter';
 import { buildWhatsAppLink } from '../utils/whatsapp';
@@ -286,9 +286,9 @@ export default function DashboardDeliveries({
   const computedLogo = getActiveBranchLogo(systemSettings, activeBranch) || '';
   const computedLogoName = getActiveBranchDisplayName(activeTenant, systemSettings, undefined, activeBranch);
   const computedCompanyTitle = getActiveBranchDisplayName(activeTenant, systemSettings, undefined, activeBranch);
-  const computedCompanyAddress = systemSettings?.business?.businessAddress || '';
-  const computedCompanyPhone = systemSettings?.business?.businessPhone || '';
-  const computedCompanyEmail = systemSettings?.business?.businessEmail || '';
+  const computedCompanyAddress = getActiveBranchAddress(systemSettings, activeBranch);
+  const computedCompanyPhone = getActiveBranchPhone(systemSettings, activeBranch);
+  const computedCompanyEmail = getActiveBranchEmail(systemSettings, activeBranch);
   const computedTIN = systemSettings?.invoiceSettings?.tin || systemSettings?.invoiceSettings?.tinNumber || '';
   const computedInvoiceColor = systemSettings?.invoiceSettings?.invoiceColor || '#102d68';
   const noteDriverOptions: DeliveryRider[] = [

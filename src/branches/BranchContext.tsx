@@ -153,7 +153,19 @@ export function BranchProvider({
     }
     try {
       const context = await selectBranch(branchId, scope);
-      const next = previousSnapshot ? { ...previousSnapshot, context, directory: context } : null;
+      const knownBranches = previousSnapshot?.directory.branches || [];
+      const enrichedBranches = context.branches.map(branch => ({
+        ...knownBranches.find(known => known.id === branch.id),
+        ...branch,
+      }));
+      const enrichedContext = {
+        ...context,
+        branches: enrichedBranches,
+        selectedBranch: context.selectedBranch
+          ? enrichedBranches.find(branch => branch.id === context.selectedBranch?.id) || context.selectedBranch
+          : context.selectedBranch,
+      };
+      const next = previousSnapshot ? { ...previousSnapshot, context: enrichedContext, directory: enrichedContext } : null;
       if (next) branchSnapshotCache.set(tenantKey, next);
       setSnapshot(next);
       publishBranchContext(next);

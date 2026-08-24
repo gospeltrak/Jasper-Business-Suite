@@ -1996,6 +1996,32 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     next();
   });
 
+  const enrichBranchContacts = async (branchClient: any, value: any) => {
+    const branches = Array.isArray(value?.branches) ? value.branches : [];
+    const ids = branches.map((branch: any) => branch?.id).filter(isUuid);
+    if (!ids.length) return value;
+    const { data, error } = await branchClient
+      .from('branches')
+      .select('id,address,phone,email')
+      .in('id', ids);
+    if (error || !Array.isArray(data)) return value;
+    const contacts = new Map(data.map((branch: any) => [String(branch.id), branch]));
+    const enrichedBranches = branches.map((branch: any) => ({
+      ...branch,
+      address: contacts.get(String(branch.id))?.address ?? branch.address ?? null,
+      phone: contacts.get(String(branch.id))?.phone ?? branch.phone ?? null,
+      email: contacts.get(String(branch.id))?.email ?? branch.email ?? null,
+    }));
+    const selectedId = value?.selectedBranch?.id;
+    return {
+      ...value,
+      branches: enrichedBranches,
+      selectedBranch: selectedId
+        ? enrichedBranches.find((branch: any) => branch.id === selectedId) || value.selectedBranch
+        : value?.selectedBranch,
+    };
+  };
+
   app.get('/api/branches/bootstrap', async (req, res) => {
     const branchClient = await requireBranchRpcClient(req, res);
     if (!branchClient) return;
@@ -2003,11 +2029,16 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     const bootstrap = await branchClient.rpc('get_current_branch_bootstrap');
     const missingBootstrapRpc = isBranchRpcUnavailable(bootstrap.error);
     if (!bootstrap.error) {
+      const context = await enrichBranchContacts(branchClient, bootstrap.data?.context);
+      const directory = {
+        ...bootstrap.data?.directory,
+        branches: context?.branches || bootstrap.data?.directory?.branches || [],
+      };
       return res.json({
         entitlement: bootstrap.data?.entitlement,
         serverRolloutEnabled: multiBranchFeatureEnabled,
-        directory: bootstrap.data?.directory,
-        context: bootstrap.data?.context,
+        directory,
+        context,
       });
     }
     if (!missingBootstrapRpc) return sendBranchRpcError(res, bootstrap.error);
@@ -2020,11 +2051,12 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     ]);
     if (entitlementResult.error) return sendBranchRpcError(res, entitlementResult.error);
     if (contextResult.error) return sendBranchRpcError(res, contextResult.error);
+    const context = await enrichBranchContacts(branchClient, contextResult.data);
     return res.json({
       entitlement: entitlementResult.data,
       serverRolloutEnabled: multiBranchFeatureEnabled,
-      directory: contextResult.data,
-      context: contextResult.data,
+      directory: context,
+      context,
     });
   });
 
@@ -2306,6 +2338,52 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       p_branch_id: branchId,
       p_logo_light_url: normalizeText(req.body?.logoLightUrl, 2048) || null,
       p_logo_dark_url: normalizeText(req.body?.logoDarkUrl, 2048) || null,
+    });
+    if (error) return sendBranchRpcError(res, error);
+    return res.json({ branch: data });
+  });
+
+  app.get('/api/branches/:branchId/profile', async (req, res) => {
+    const branchClient = await requireBranchRpcClient(req, res);
+    if (!branchClient) return;
+    const branchId = String(req.params.branchId || '');
+    if (!isUuid(branchId)) return res.status(400).json({ error: 'A valid branch ID is required.' });
+    const { data, error } = await branchClient
+      .from('branches')
+      .select('id,address,phone,email,logo_light_url,logo_dark_url')
+      .eq('id', branchId)
+      .maybeSingle();
+    if (error) return sendBranchRpcError(res, error);
+    if (!data) return res.status(404).json({ error: 'Branch not found.' });
+    return res.json({ branch: {
+      id: data.id,
+      address: data.address,
+      phone: data.phone,
+      email: data.email,
+      logoLightUrl: data.logo_light_url,
+      logoDarkUrl: data.logo_dark_url,
+    } });
+  });
+
+  app.patch('/api/branches/:branchId/profile', async (req, res) => {
+    const branchClient = await requireBranchRpcClient(req, res);
+    if (!branchClient) return;
+    if (!requireMultiBranchFeature(res)) return;
+    const branchId = String(req.params.branchId || '');
+    if (!isUuid(branchId)) return res.status(400).json({ error: 'A valid branch ID is required.' });
+    for (const [label, value, max] of [
+      ['Address', req.body?.address, 500],
+      ['Phone', req.body?.phone, 40],
+      ['Email', req.body?.email, 254],
+    ] as const) {
+      if (value != null && typeof value !== 'string') return res.status(400).json({ error: `${label} must be text.` });
+      if (String(value || '').trim().length > max) return res.status(400).json({ error: `${label} is too long.` });
+    }
+    const { data, error } = await branchClient.rpc('update_current_tenant_branch_profile', {
+      p_branch_id: branchId,
+      p_address: normalizeText(req.body?.address, 500) || null,
+      p_phone: normalizeText(req.body?.phone, 40) || null,
+      p_email: normalizeEmail(req.body?.email) || null,
     });
     if (error) return sendBranchRpcError(res, error);
     return res.json({ branch: data });

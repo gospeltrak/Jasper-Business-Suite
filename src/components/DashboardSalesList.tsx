@@ -52,7 +52,7 @@ import {
 } from 'lucide-react';
 import { downloadPdfFromElement, shareElementPdfToWhatsApp } from '../utils/pdfShare';
 import CachedImage from './CachedImage';
-import { getActiveBranchDisplayName, getActiveBranchLogo } from '../utils/businessBranding';
+import { getActiveBranchAddress, getActiveBranchDisplayName, getActiveBranchEmail, getActiveBranchLogo, getActiveBranchPhone } from '../utils/businessBranding';
 import type { BranchSummary } from '../branches/branchTypes';
 import { normalizeSubscriptionPlanId } from '../utils/subscription';
 import { findPaymentChannel, getPaymentModeName } from '../utils/paymentAccounts';
@@ -431,9 +431,9 @@ export default function DashboardSalesList({
     return {
       name: snapshot.businessName || snapshot.branchName || getActiveBranchDisplayName(activeTenant, systemSettings, undefined, activeBranch),
       city: snapshot.city || activeTenant.city || '',
-      address: snapshot.address || systemSettings?.business?.businessAddress || '',
-      phone: snapshot.phone || systemSettings?.business?.businessPhone || '',
-      email: snapshot.email || systemSettings?.business?.businessEmail || '',
+      address: snapshot.address || getActiveBranchAddress(systemSettings, activeBranch),
+      phone: snapshot.phone || getActiveBranchPhone(systemSettings, activeBranch),
+      email: snapshot.email || getActiveBranchEmail(systemSettings, activeBranch),
       logo: snapshot.logo || getActiveBranchLogo(systemSettings, activeBranch) || '',
     };
   };
@@ -3620,9 +3620,9 @@ export default function DashboardSalesList({
                       {/* Address block stays plain black/gray, never the brand color, so it always
                           reads as the legal business address rather than decorative branding. */}
                       {activeTenant.city && <p className="text-[11px] text-slate-400 uppercase font-bold mt-1">{activeTenant.city}</p>}
-                      {systemSettings?.business?.businessAddress && <p className="text-[11px] text-slate-500 mt-1">{systemSettings.business.businessAddress}</p>}
-                      {systemSettings?.business?.businessPhone && <p className="text-[11px] text-slate-500 font-semibold">Tel: {systemSettings.business.businessPhone}</p>}
-                      {systemSettings?.business?.businessEmail && <p className="text-[11px] text-slate-500">{systemSettings.business.businessEmail}</p>}
+                      {getActiveBranchAddress(systemSettings, activeBranch) && <p className="text-[11px] text-slate-500 mt-1">{getActiveBranchAddress(systemSettings, activeBranch)}</p>}
+                      {getActiveBranchPhone(systemSettings, activeBranch) && <p className="text-[11px] text-slate-500 font-semibold">Tel: {getActiveBranchPhone(systemSettings, activeBranch)}</p>}
+                      {getActiveBranchEmail(systemSettings, activeBranch) && <p className="text-[11px] text-slate-500">{getActiveBranchEmail(systemSettings, activeBranch)}</p>}
                       {/* TIN and VAT — from Invoice Settings, directly below the address */}
                       {systemSettings?.invoiceSettings?.tinNumber && <p className="text-[11px] text-slate-500 font-mono">TIN: {systemSettings.invoiceSettings.tinNumber}</p>}
                       {systemSettings?.invoiceSettings?.vatNumber && <p className="text-[11px] text-slate-500 font-mono">VAT: {systemSettings.invoiceSettings.vatNumber}</p>}
@@ -3780,8 +3780,8 @@ export default function DashboardSalesList({
                     />
                   )}
                   <h4 className="text-base font-black tracking-tight text-black">{getActiveBranchDisplayName(activeTenant, systemSettings, undefined, activeBranch)}</h4>
-                  {activeTenant.city && <p className="text-[11px] text-black uppercase font-semibold">{activeTenant.city}</p>}
-                  {systemSettings?.business?.businessPhone && <p className="text-[11px] text-black">Tel:{systemSettings.business.businessPhone}</p>}
+                  {(getActiveBranchAddress(systemSettings, activeBranch) || activeTenant.city) && <p className="text-[11px] text-black uppercase font-semibold">{getActiveBranchAddress(systemSettings, activeBranch) || activeTenant.city}</p>}
+                  {getActiveBranchPhone(systemSettings, activeBranch) && <p className="text-[11px] text-black">Tel:{getActiveBranchPhone(systemSettings, activeBranch)}</p>}
                 </div>
 
                 <div className="border-t border-dashed border-slate-300" />
