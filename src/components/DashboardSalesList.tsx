@@ -277,7 +277,11 @@ export default function DashboardSalesList({
       || activeTenant.selectedPackageId
       || (activeTenant as any).subscriptionPlan
   );
-  const canUseCrossBranchDocuments = activePlanId === 'tanzanite';
+  // The database authorizes consolidated documents only while Tanzanite is
+  // current. Checking the plan name alone routed an expired tenant into the
+  // protected RPC, so both Price Quote and Proforma Invoice creation were
+  // rejected instead of using the standard tenant document store.
+  const canUseCrossBranchDocuments = activePlanId === 'tanzanite' && !subscriptionStatus?.isExpired;
   const canUseTillSettlement = activePlanId !== 'ruby';
 
   useEffect(() => {

@@ -158,6 +158,15 @@ test('critical sale actions remain wired to visible controls', async () => {
   assert.match(dashboardSource, /saveData\(\s*(?:activeTenant\.id|tid|tenantId),\s*'sales_map'/);
 });
 
+test('expired Tanzanite tenants save quotes through the standard tenant document flow', async () => {
+  const salesSource = await read('src/components/DashboardSalesList.tsx');
+  assert.match(
+    salesSource,
+    /const canUseCrossBranchDocuments = activePlanId === 'tanzanite' && !subscriptionStatus\?\.isExpired/,
+  );
+  assert.match(salesSource, /if \(!canUseCrossBranchDocuments\) \{[\s\S]*setDocuments/);
+});
+
 test('header uses active business profile and has no decorative workspace search box', async () => {
   const dashboardSource = await read('src/components/Dashboard.tsx');
   const branchContextSource = await read('src/branches/BranchContext.tsx');
