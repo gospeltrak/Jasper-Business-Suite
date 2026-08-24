@@ -204,7 +204,45 @@ interface DashboardSalesListProps {
   onSendToDeliveryNote?: (sale: Sale) => void;
 }
 
-export default function DashboardSalesList({ 
+const documentSyncTime = (doc: SalesDocument): number => {
+  const parse = (value?: string) => {
+    if (!value) return 0;
+    const time = new Date(value).getTime();
+    return Number.isFinite(time) ? time : 0;
+  };
+  return Math.max(parse(doc.deletedAt), parse(doc.convertedAt), parse(doc.timestamp));
+};
+
+// A remote refetch/realtime snapshot must never silently erase a document
+// that was just created locally and hasn't finished syncing yet -- this was
+// the exact cause of invoices/quotations "disappearing after a while": the
+// debounced save to onlineStorage hadn't landed yet, a focus/visibility
+// refresh pulled the still-old server list, and blindly replacing local
+// state with it (then re-saving that shorter list) permanently erased the
+// new document. Merging by id instead means a document that only exists
+// locally is always kept. A delete is recorded as a deletedAt-stamped
+// document rather than a removed array entry, so it can't be resurrected by
+// an older snapshot that predates the deletion.
+const mergeDocumentsForSync = (incoming: SalesDocument[], current: SalesDocument[]): SalesDocument[] => {
+  const chosen = new Map<string, SalesDocument>();
+  for (const doc of [...current, ...incoming]) {
+    if (!doc?.id) continue;
+    const existing = chosen.get(doc.id);
+    if (!existing || documentSyncTime(doc) >= documentSyncTime(existing)) {
+      chosen.set(doc.id, doc);
+    }
+  }
+  const ordered: SalesDocument[] = [];
+  for (const doc of current) {
+    if (doc?.id && chosen.has(doc.id)) { ordered.push(chosen.get(doc.id)!); chosen.delete(doc.id); }
+  }
+  for (const doc of incoming) {
+    if (doc?.id && chosen.has(doc.id)) { ordered.push(chosen.get(doc.id)!); chosen.delete(doc.id); }
+  }
+  return ordered;
+};
+
+export default function DashboardSalesList({
   activeTenant, 
   sales, 
   onUpdateSales, 
@@ -502,7 +540,10 @@ export default function DashboardSalesList({
           });
         });
         if (!disposed) {
-          setDocuments(current => JSON.stringify(current) === JSON.stringify(normalized) ? current : normalized);
+          setDocuments(current => {
+            const merged = mergeDocumentsForSync(normalized, current);
+            return JSON.stringify(current) === JSON.stringify(merged) ? current : merged;
+          });
         }
       } catch {
         // Ignore malformed legacy cache values and keep the last valid document list.
@@ -662,6 +703,7 @@ export default function DashboardSalesList({
   const [documentSendPhone, setDocumentSendPhone] = useState('');
   const [pdfShareStatus, setPdfShareStatus] = useState<string | null>(null);
   const [selectedDocTypeFilter, setSelectedDocTypeFilter] = useState<'all' | 'price quote' | 'proforma invoice'>('all');
+  const [docToDelete, setDocToDelete] = useState<SalesDocument | null>(null);
   
   // States for wizard: document creator
   const [newDocType, setNewDocType] = useState<'price quote' | 'proforma invoice'>('price quote');
@@ -3254,6 +3296,7 @@ export default function DashboardSalesList({
       {/* SECTION D: QUOTATIONS, PROFORMA & INVOICES (STOCK-INDEPENDENT) */}
       {activeSubTab === 'documents' && (() => {
         const filteredDocs = documents.filter(doc => {
+          if (doc.deletedAt) return false;
           const matchType = selectedDocTypeFilter === 'all' || doc.type === selectedDocTypeFilter;
           const matchSearch = doc.customerName.toLowerCase().includes(searchTerm.toLowerCase()) || doc.documentNumber.toLowerCase().includes(searchTerm.toLowerCase());
           return matchType && matchSearch;
@@ -3393,6 +3436,14 @@ export default function DashboardSalesList({
                               <span>Done</span>
                             </span>
                           )}
+                          <button
+                            type="button"
+                            onClick={() => setDocToDelete(doc)}
+                            title="Delete"
+                            className="p-1.5 rounded-lg border border-rose-100 bg-rose-50 text-rose-600"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -3409,6 +3460,62 @@ export default function DashboardSalesList({
           </div>
         );
       })()}
+
+      {/* ------------------------------------------------------------- */}
+      {/* DIALOG: CONFIRM DELETE DOCUMENT (QUOTE / PROFORMA INVOICE) */}
+      {/* ------------------------------------------------------------- */}
+      {docToDelete && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in text-slate-800">
+          <div className="relative bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col font-sans">
+            <div className="bg-rose-950 text-white px-6 py-4 flex items-center justify-between border-b border-rose-900 shrink-0 select-none">
+              <div className="flex items-center space-x-2">
+                <Trash2 className="w-5 h-5 text-rose-400" />
+                <div>
+                  <h4 className="text-sm font-black tracking-tight">Delete {getDocumentLabel(docToDelete.type)}</h4>
+                  <span className="text-[10px] font-mono text-rose-450 uppercase tracking-widest block font-bold leading-none mt-1">Confirm before continuing</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDocToDelete(null)}
+                className="p-1 text-slate-400 hover:text-white rounded-lg transition-colors cursor-pointer border-none bg-transparent"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4 text-left">
+              <div className="p-4 bg-rose-50/50 border border-rose-100 rounded-2xl flex items-start space-x-3">
+                <span className="text-xl">⚠️</span>
+                <p className="text-xs text-slate-700 font-semibold leading-relaxed">
+                  You are about to delete <strong className="font-bold text-rose-700 font-mono">{docToDelete.documentNumber}</strong> for {docToDelete.customerName || 'Customer'}. This does not affect stock or any recorded sale.
+                </p>
+              </div>
+            </div>
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end items-center gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => setDocToDelete(null)}
+                className="px-5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-600 font-bold hover:bg-slate-100 transition-colors cursor-pointer text-xs uppercase select-none"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const deletedAt = new Date().toISOString();
+                  setDocuments(prev => prev.map(d => d.id === docToDelete.id ? { ...d, deletedAt } : d));
+                  if (viewingDocument?.id === docToDelete.id) setViewingDocument(null);
+                  setDocToDelete(null);
+                }}
+                className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-black rounded-xl border-none transition-all text-xs uppercase flex items-center space-x-1.5 cursor-pointer shadow-md select-none"
+              >
+                <Trash2 className="w-4 h-4 text-white" />
+                <span>Confirm Delete</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ------------------------------------------------------------- */}
       {/* DIALOG: VIEW AND PRINT RECEIPT RE-PRINT OVERLAY */}

@@ -770,6 +770,7 @@ export interface SalesDocument {
   issuingBranchName?: string;
   serverDocumentId?: string;
   brandingSnapshot?: Record<string, any>;
+  deletedAt?: string;
 }
 
 export interface PaymentChannel {
