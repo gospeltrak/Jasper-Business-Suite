@@ -22,6 +22,7 @@ import {
   FileText,
   Printer,
   Download,
+  Send,
   Trash2,
   Edit,
   MoreVertical,
@@ -612,26 +613,27 @@ export default function DashboardDeliveries({
     }
   };
 
-  const handleFinishDeliveryNote = () => {
-    // Validate mandatory fields
+  const validateNoteMandatoryFields = (): boolean => {
     if (!noteDeliveryToAddress.trim() || noteDeliveryToAddress === '123 Main Street, City') {
       alert('⚠️ Mandatory delivery location/address is missing or needs to be customized! Please provide the exact location address.');
-      return;
+      return false;
     }
     if (!noteTransportType.trim()) {
       alert('⚠️ Type of transport is a mandatory field! Please select standard type of transport.');
-      return;
+      return false;
     }
     if (!noteVehiclePlate.trim()) {
       alert('⚠️ Vehicle registration plate is a mandatory field! Please specify.');
-      return;
+      return false;
     }
     if (!noteDeliveredByName.trim()) {
       alert('⚠️ Name of person delivering is a mandatory field! Please fill.');
-      return;
+      return false;
     }
+    return true;
+  };
 
-    // Process completion
+  const markNoteCompleted = () => {
     if (activeEditingPendingNoteId) {
       if (onUpdatePendingNotes) {
         // Remove it from draft as it's completed
@@ -639,11 +641,30 @@ export default function DashboardDeliveries({
       }
       setActiveEditingPendingNoteId(null);
     }
+  };
 
-    alert('🎉 Success! Delivery Note completed successfully. Ready to Print!');
-    
-    // Auto trigger print
-    handlePrintNote();
+  const handleSendNoteWhatsApp = async () => {
+    if (!validateNoteMandatoryFields()) return;
+
+    const phone = window.prompt('Enter the WhatsApp number to send this delivery note to:');
+    if (!phone || !phone.trim()) return;
+
+    try {
+      setDeliveryPdfStatus('Generating delivery note PDF...');
+      await shareElementPdfToWhatsApp({
+        elementId: 'delivery-note-print-area',
+        fileName: `delivery-note-${notePINo || Date.now()}.pdf`,
+        format: 'a4',
+        phone: phone.trim(),
+        message: 'Please find attached your delivery note.',
+      });
+      setDeliveryPdfStatus('✅ Delivery note sent.');
+      markNoteCompleted();
+    } catch (err: any) {
+      setDeliveryPdfStatus('Send failed: ' + (err?.message || 'Please try again.'));
+    } finally {
+      setTimeout(() => setDeliveryPdfStatus(null), 4000);
+    }
   };
 
   const currency = activeTenant.currency;
@@ -2404,19 +2425,20 @@ Vehicle Plate Number: ${plateNumber}
                   <span className="w-2 h-2 rounded-full bg-emerald-500 mr-2 animate-ping"></span>
                   LIVE A4 DOCUMENT PREVIEW
                 </span>
-                <div className="grid grid-cols-1 sm:flex sm:items-center gap-2">
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={handleFinishDeliveryNote}
-                    className="bg-emerald-600 hover:bg-emerald-550 text-white font-extrabold px-3.5 py-3 sm:py-2 rounded-xl text-xs flex items-center justify-center space-x-1 cursor-pointer shadow-sm transition-all border-none min-h-[46px] sm:min-h-0"
-                    title="Validate and print"
+                    onClick={handleSendNoteWhatsApp}
+                    className="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-550 text-white font-extrabold px-3.5 py-3 sm:py-2 rounded-xl text-xs flex items-center justify-center space-x-1.5 cursor-pointer shadow-sm transition-all border-none min-h-[46px] sm:min-h-0"
+                    title="Validate and send via WhatsApp"
                   >
-                    <span>✅ Complete & Print Note</span>
+                    <Send className="w-4 h-4" />
+                    <span>Send</span>
                   </button>
                   <button
                     type="button"
                     onClick={handleDownloadNote}
-                    className="bg-white/10 hover:bg-white/20 text-white font-extrabold px-3.5 py-3 sm:py-2 rounded-xl text-xs flex items-center justify-center space-x-1.5 cursor-pointer shadow-sm transition-all border-none min-h-[46px] sm:min-h-0"
+                    className="flex-1 sm:flex-none bg-white/10 hover:bg-white/20 text-white font-extrabold px-3.5 py-3 sm:py-2 rounded-xl text-xs flex items-center justify-center space-x-1.5 cursor-pointer shadow-sm transition-all border-none min-h-[46px] sm:min-h-0"
                     title="Download PDF"
                   >
                     <Download className="w-4 h-4" />
@@ -2425,11 +2447,11 @@ Vehicle Plate Number: ${plateNumber}
                   <button
                     type="button"
                     onClick={handlePrintNote}
-                    className="bg-[#102d68] hover:bg-[#1b438c] text-white font-extrabold px-3.5 py-3 sm:py-2 rounded-xl text-xs flex items-center justify-center space-x-1.5 cursor-pointer shadow-sm transition-all border-none min-h-[46px] sm:min-h-0"
+                    className="flex-1 sm:flex-none bg-[#102d68] hover:bg-[#1b438c] text-white font-extrabold px-3.5 py-3 sm:py-2 rounded-xl text-xs flex items-center justify-center space-x-1.5 cursor-pointer shadow-sm transition-all border-none min-h-[46px] sm:min-h-0"
                     title="Print the current document without saving"
                   >
                     <Printer className="w-4 h-4" />
-                    <span>Print Draft</span>
+                    <span>Print</span>
                   </button>
                 </div>
               </div>
