@@ -1824,11 +1824,26 @@ button:active:not(:disabled),
   /* Add Product > Pharmacy Unit Hierarchy: same literal grid-cols-2 trap,
      forced to a single column and overlapping/crowding its many conditional
      fields on tablet. Restore two columns; the nested levels-preview grid
-     and the full-width summary line still span correctly via col-span-2,
-     which is a different CSS property untouched by the collapse rule. */
+     and the full-width summary line still span correctly via col-span-2
+     once two real columns exist here. */
   #dashboard-scaffold .pharmacy-hierarchy-grid,
   #dashboard-scaffold .pharmacy-hierarchy-levels-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+/* Add Product > Pharmacy Unit Hierarchy, phone only (<768px): the outer grid
+   is correctly forced to a single explicit column here by the global
+   [class*="grid-cols-2"] safety net, but its levels-preview grid and summary
+   line still carry col-span-2 (meant for the 2-column tablet/desktop
+   layout). Spanning 2 columns inside a grid that only has 1 explicit column
+   makes the browser silently add an implicit second column sized from
+   content, which then also swallows every other field in the section --
+   producing the squeezed/overlapping labels this was reported for. Neutralize
+   the span on phone only, where the parent really does have just 1 column. */
+@media (max-width: 767px) {
+  #dashboard-scaffold .pharmacy-hierarchy-grid > [class*="col-span-2"] {
+    grid-column: span 1 / span 1 !important;
   }
 }
 
