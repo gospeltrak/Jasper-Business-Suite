@@ -2255,12 +2255,22 @@ export default function DashboardProducts({
 
           {/* Open-ended stock — for items like a cable roll where the exact
               total quantity isn't known upfront, only a price per unit. */}
-          <label className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 uppercase">
-            <input type="checkbox" checked={stockTrackingMode === 'open-ended'} onChange={(e) => setStockTrackingMode(e.target.checked ? 'open-ended' : 'quantity')} className="accent-emerald-600" />
-            Unknown total quantity (price by unit only)
-          </label>
+          <button
+            type="button"
+            onClick={() => setStockTrackingMode(stockTrackingMode === 'open-ended' ? 'quantity' : 'open-ended')}
+            aria-pressed={stockTrackingMode === 'open-ended'}
+            aria-label="Open-Ended Stock"
+            className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 uppercase w-full cursor-pointer"
+          >
+            <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors ${
+              stockTrackingMode === 'open-ended' ? 'border-emerald-600 bg-emerald-600' : 'border-slate-300 bg-white'
+            }`}>
+              {stockTrackingMode === 'open-ended' && <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />}
+            </span>
+            Open-Ended Stock
+          </button>
           {stockTrackingMode === 'open-ended' && (
-            <p className="text-[9.5px] text-slate-400 -mt-2">
+            <p className="text-[9.5px] normal-case text-slate-400 -mt-2">
               For a cable roll or similar: enter a rough estimate below (or a large number) so it never shows as low/out of stock by accident. When the roll actually finishes, open Edit Product and tick "Mark as Finished".
             </p>
           )}
@@ -5468,25 +5478,43 @@ export default function DashboardProducts({
                     <div className="p-4 bg-white border-t border-slate-200 space-y-4">
                       {/* Open-ended stock — for items like a cable roll where the exact
                           total quantity isn't known upfront, only a price per unit. */}
-                      <label className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 uppercase">
-                        <input
-                          type="checkbox"
-                          checked={editForm.stockTrackingMode === 'open-ended'}
-                          onChange={(e) => setEditForm(prev => ({ ...prev, stockTrackingMode: e.target.checked ? 'open-ended' : 'quantity' }))}
-                          className="accent-emerald-600"
-                        />
-                        Unknown total quantity (price by unit only)
-                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setEditForm(prev => ({ ...prev, stockTrackingMode: prev.stockTrackingMode === 'open-ended' ? 'quantity' : 'open-ended' }))}
+                        aria-pressed={editForm.stockTrackingMode === 'open-ended'}
+                        aria-label="Open-Ended Stock"
+                        className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 uppercase w-full cursor-pointer"
+                      >
+                        <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors ${
+                          editForm.stockTrackingMode === 'open-ended' ? 'border-emerald-600 bg-emerald-600' : 'border-slate-300 bg-white'
+                        }`}>
+                          {editForm.stockTrackingMode === 'open-ended' && <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />}
+                        </span>
+                        Open-Ended Stock
+                      </button>
                       {editForm.stockTrackingMode === 'open-ended' && (
-                        <label className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 text-[10px] font-bold text-amber-700 uppercase">
-                          <input
-                            type="checkbox"
-                            checked={!!editForm.markedFinished}
-                            onChange={(e) => setEditForm(prev => ({ ...prev, markedFinished: e.target.checked, shopStockQty: e.target.checked ? 0 : prev.shopStockQty, storeStockQty: e.target.checked ? 0 : prev.storeStockQty }))}
-                            className="accent-amber-600"
-                          />
+                        <button
+                          type="button"
+                          onClick={() => setEditForm(prev => {
+                            const nextFinished = !prev.markedFinished;
+                            return {
+                              ...prev,
+                              markedFinished: nextFinished,
+                              shopStockQty: nextFinished ? 0 : prev.shopStockQty,
+                              storeStockQty: nextFinished ? 0 : prev.storeStockQty,
+                            };
+                          })}
+                          aria-pressed={!!editForm.markedFinished}
+                          aria-label="Mark as Finished"
+                          className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 text-[10px] font-bold text-amber-700 uppercase w-full cursor-pointer"
+                        >
+                          <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors ${
+                            editForm.markedFinished ? 'border-amber-600 bg-amber-600' : 'border-amber-300 bg-white'
+                          }`}>
+                            {editForm.markedFinished && <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />}
+                          </span>
                           Mark as Finished (out of stock)
-                        </label>
+                        </button>
                       )}
 
                       {/* Mode Selector */}
