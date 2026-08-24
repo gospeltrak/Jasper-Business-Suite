@@ -1731,7 +1731,6 @@ button:active:not(:disabled),
   }
 
   #dashboard-scaffold .dashboard-kpi-two-column-grid,
-  #dashboard-scaffold .stock-tabs-two-column-grid,
   #dashboard-scaffold .product-import-actions-grid,
   #dashboard-scaffold .mobile-tablet-kpi-grid,
   #dashboard-scaffold .native-report-kpi-grid,
@@ -1741,6 +1740,25 @@ button:active:not(:disabled),
   }
 
   #dashboard-scaffold .staff-three-column-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  /* Product navigation stays in one compact row on both phone and tablet. */
+  #dashboard-scaffold .stock-tabs-two-column-grid {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+
+  /* Pharmacy registration uses the same explicit hierarchy on phone and
+     tablet, independent of the general mobile grid-collapse safety rule. */
+  #dashboard-scaffold .pharmacy-hierarchy-grid,
+  #dashboard-scaffold .pharmacy-hierarchy-levels-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  #dashboard-scaffold .pharmacy-price-grid {
     display: grid !important;
     grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
   }
@@ -1760,13 +1778,8 @@ button:active:not(:disabled),
   }
 }
 
-/* Stock tab nav (Product List / Categories / Brands / Barcode & Labels),
-   tablet only (768-1279px): one row of 4 instead of the phone's 2x2 grid, to
-   save vertical space. Later in source than the shared 2-column rule above
-   (max-width:1279px, no min-width floor) so it wins on tablet width via
-   cascade order while phone (<768px) still matches only that earlier rule
-   and stays 2x2. Same design/colors, just proportionally smaller so all 4
-   fit on one row without wrapping. */
+/* Stock tab nav sizing for tablet; both phone and tablet already use the
+   four-column row established above. */
 @media (min-width: 768px) and (max-width: 1279px) {
   #dashboard-scaffold .stock-tabs-two-column-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
@@ -1820,30 +1833,6 @@ button:active:not(:disabled),
      right above the reports list. */
   #dashboard-scaffold .reports-overview-tablet-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-  }
-  /* Add Product > Pharmacy Unit Hierarchy: same literal grid-cols-2 trap,
-     forced to a single column and overlapping/crowding its many conditional
-     fields on tablet. Restore two columns; the nested levels-preview grid
-     and the full-width summary line still span correctly via col-span-2
-     once two real columns exist here. */
-  #dashboard-scaffold .pharmacy-hierarchy-grid,
-  #dashboard-scaffold .pharmacy-hierarchy-levels-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-  }
-}
-
-/* Add Product > Pharmacy Unit Hierarchy, phone only (<768px): the outer grid
-   is correctly forced to a single explicit column here by the global
-   [class*="grid-cols-2"] safety net, but its levels-preview grid and summary
-   line still carry col-span-2 (meant for the 2-column tablet/desktop
-   layout). Spanning 2 columns inside a grid that only has 1 explicit column
-   makes the browser silently add an implicit second column sized from
-   content, which then also swallows every other field in the section --
-   producing the squeezed/overlapping labels this was reported for. Neutralize
-   the span on phone only, where the parent really does have just 1 column. */
-@media (max-width: 767px) {
-  #dashboard-scaffold .pharmacy-hierarchy-grid > [class*="col-span-2"] {
-    grid-column: span 1 / span 1 !important;
   }
 }
 

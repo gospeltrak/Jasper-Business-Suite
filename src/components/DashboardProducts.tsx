@@ -3171,7 +3171,7 @@ export default function DashboardProducts({
                       ))}
                     </div>
                     {!isDesktopAddProductLayout ? (
-                      <div className="col-span-2 grid grid-cols-3 gap-1.5 sm:gap-2">
+                      <div className="pharmacy-price-grid col-span-2 grid grid-cols-3 gap-1.5 sm:gap-2">
                         <div className="space-y-1 min-w-0">
                           <label className="block min-h-6 text-[8px] sm:text-[9px] leading-tight font-bold text-slate-500 uppercase">{pharmacyFormHierarchy.levels[0]?.unit || 'Strip'} price</label>
                           <input type="number" value={sellingPrice || ''} onChange={e => setSellingPrice(Number(e.target.value) || 0)} className="w-full min-w-0 bg-white border border-slate-200 text-[10px] px-2 py-2 rounded-xl" />
