@@ -2384,22 +2384,34 @@ export default function DashboardProducts({
                 title="Choose starting level"
               />
             </div>
-            <div className="space-y-1 min-w-0">
-              <label className="text-[9px] font-bold text-slate-500 uppercase">Lowest Unit</label>
-              <input type="text" value={pharmacyBaseUnit} onChange={e => setPharmacyBaseUnit(e.target.value)} placeholder="e.g. Tablet" className="w-full min-w-0 bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-            </div>
-            <div className="space-y-1 min-w-0">
-              <label className="text-[9px] font-bold text-slate-500 uppercase">{pharmacyProductType === 'pharmaceutical' ? 'Strips per Box' : 'Cartons per Master Box'}</label>
-              <input type="number" min={1} value={pharmacyTopContains} onChange={e => setPharmacyTopContains(e.target.value === '' ? '' : Number(e.target.value))} className="w-full min-w-0 bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-            </div>
+            {pharmacyProductType === 'pharmaceutical' && (
+              <div className="space-y-1 min-w-0">
+                <label className="text-[9px] font-bold text-slate-500 uppercase">Lowest Unit</label>
+                <input type="text" value={pharmacyBaseUnit} onChange={e => setPharmacyBaseUnit(e.target.value)} placeholder="e.g. Tablet" className="w-full min-w-0 bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+              </div>
+            )}
+            {pharmacyHierarchyStart === 'box' && (
+              <div className="space-y-1 min-w-0">
+                <label className="text-[9px] font-bold text-slate-500 uppercase">Strips per Box</label>
+                <input type="number" min={1} value={pharmacyTopContains} onChange={e => setPharmacyTopContains(e.target.value === '' ? '' : Number(e.target.value))} className="w-full min-w-0 bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+              </div>
+            )}
+            {pharmacyHierarchyStart === 'master_box' && (
+              <div className="space-y-1 min-w-0">
+                <label className="text-[9px] font-bold text-slate-500 uppercase">Cartons per Master Box</label>
+                <input type="number" min={1} value={pharmacyTopContains} onChange={e => setPharmacyTopContains(e.target.value === '' ? '' : Number(e.target.value))} className="w-full min-w-0 bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+              </div>
+            )}
             <div className="space-y-1 min-w-0">
               <label className="text-[9px] font-bold text-slate-500 uppercase">{pharmacyProductType === 'pharmaceutical' ? `${pharmacyBaseUnit || 'Tablet'}s per Dose/Strip` : 'Pieces per Carton'}</label>
               <input type="number" min={1} value={pharmacyMiddleContains} onChange={e => setPharmacyMiddleContains(e.target.value === '' ? '' : Number(e.target.value))} className="w-full min-w-0 bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
             </div>
-            <div className="space-y-1 min-w-0">
-              <label className="text-[9px] font-bold text-slate-500 uppercase">{pharmacyProductType === 'pharmaceutical' ? `${pharmacyBaseUnit || 'Tablet'}s per Dose` : 'Units per Pack'}</label>
-              <input type="number" min={1} value={pharmacyDoseContains} onChange={e => setPharmacyDoseContains(e.target.value === '' ? '' : Number(e.target.value))} className="w-full min-w-0 bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-            </div>
+            {pharmacyProductType === 'pharmaceutical' && (
+              <div className="space-y-1 min-w-0">
+                <label className="text-[9px] font-bold text-slate-500 uppercase">{pharmacyBaseUnit || 'Tablet'}s per Dose</label>
+                <input type="number" min={1} value={pharmacyDoseContains} onChange={e => setPharmacyDoseContains(e.target.value === '' ? '' : Number(e.target.value))} className="w-full min-w-0 bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+              </div>
+            )}
           </>
         ) : (
           <>
