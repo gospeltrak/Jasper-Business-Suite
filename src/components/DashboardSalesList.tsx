@@ -1793,9 +1793,16 @@ export default function DashboardSalesList({
                   {/* Row 1: customer + amount + menu */}
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
-                      <p className="font-extrabold text-slate-900 text-[14px] leading-tight truncate">
-                        {sale.customerName || 'Customer'}
-                      </p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="font-extrabold text-slate-900 text-[14px] leading-tight truncate">
+                          {sale.customerName || 'Customer'}
+                        </p>
+                        {sale.items.some(i => i.prescriptionRequired) && (
+                          <span title="Includes a prescription medicine" className="shrink-0 px-1.5 py-0.5 rounded-full text-[8.5px] font-mono font-black uppercase tracking-wider bg-rose-100 text-rose-700 border border-rose-200">
+                            Rx
+                          </span>
+                        )}
+                      </div>
                       <p className="text-[10px] text-slate-400 font-mono mt-0.5">
                         #{sale.reference || sale.id.substring(0,6)} · {sale.items.length} line item{sale.items.length === 1 ? '' : 's'}
                       </p>
@@ -1931,7 +1938,14 @@ export default function DashboardSalesList({
 
                       {/* Items */}
                       <td className="py-3.5 px-4 max-w-[160px]">
-                        <p className="font-bold text-slate-700 text-[12px]">{sale.items.length} line item{sale.items.length === 1 ? '' : 's'}</p>
+                        <div className="flex items-center gap-1.5">
+                          <p className="font-bold text-slate-700 text-[12px]">{sale.items.length} line item{sale.items.length === 1 ? '' : 's'}</p>
+                          {sale.items.some(i => i.prescriptionRequired) && (
+                            <span title="Includes a prescription medicine" className="shrink-0 px-1.5 py-0.5 rounded-full text-[8.5px] font-mono font-black uppercase tracking-wider bg-rose-100 text-rose-700 border border-rose-200">
+                              Rx
+                            </span>
+                          )}
+                        </div>
                         <p className="text-[10px] text-slate-400 truncate">{sale.items.slice(0,2).map(i => i.productName).join(', ')}{sale.items.length > 2 ? ` +${sale.items.length-2}` : ''}</p>
                       </td>
 

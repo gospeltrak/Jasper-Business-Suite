@@ -623,6 +623,12 @@ export default function DashboardPOS({
     const initialDosage = isPharmacy ? 'packet' : undefined;
     const initialTabs = isPharmacy ? 1 : undefined;
 
+    // Non-blocking reminder only -- the sale proceeds either way, this just
+    // alerts the cashier so they can ask for/verify a prescription.
+    if (prod.prescriptionRequired) {
+      setPosWarning(`Prescription required: "${prod.name}" needs a valid prescription.`);
+    }
+
     setCart(prev => {
       const existing = prev.find(i => i.product.id === prod.id);
       if (existing) {
@@ -1077,6 +1083,7 @@ export default function DashboardPOS({
         tabsSelected: i.tabsSelected,
         tabsPerPack: i.product.tabsPerPack,
         channel: sellingChannel,
+        prescriptionRequired: i.product.prescriptionRequired || undefined,
         isBulkProduct: isBulk,
         unit: isPharmacy ? (pharmacyCfg?.baseUnit || i.product.baseUnit || 'Unit') : getRetailPackageConfig(i.product).baseUnit,
         baseUnit: isPharmacy ? (pharmacyCfg?.baseUnit || i.product.baseUnit || 'Unit') : getRetailPackageConfig(i.product).baseUnit,

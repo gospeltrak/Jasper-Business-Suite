@@ -369,6 +369,10 @@ export interface SaleItem {
   tabsSelected?: number;
   tabsPerPack?: number;
   channel?: 'retail' | 'wholesale';
+  // Immutable snapshot of the product's Prescription Required flag at the
+  // moment of sale -- editing the product afterward must not change what a
+  // past sale's report shows.
+  prescriptionRequired?: boolean;
   // Internal Tanzanite document routing. Customer-facing PDFs must never render
   // these source fields.
   sourceBranchId?: string;

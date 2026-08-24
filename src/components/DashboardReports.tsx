@@ -2171,9 +2171,16 @@ export default function DashboardReports({
                             )}
                           </td>
                           <td className="p-4 max-w-[240px]">
-                            <p className="font-medium text-slate-700 truncate" title={sale.items.map(it => `${it.qty}x ${it.productName}`).join(', ')}>
-                              {sale.items.map(it => `${it.qty}x ${it.productName}`).join(', ')}
-                            </p>
+                            <div className="flex items-center gap-1.5">
+                              <p className="font-medium text-slate-700 truncate" title={sale.items.map(it => `${it.qty}x ${it.productName}`).join(', ')}>
+                                {sale.items.map(it => `${it.qty}x ${it.productName}`).join(', ')}
+                              </p>
+                              {sale.items.some(it => it.prescriptionRequired) && (
+                                <span title="Includes a prescription medicine" className="shrink-0 px-1.5 py-0.5 rounded-full text-[8.5px] font-mono font-black uppercase tracking-wider bg-rose-100 text-rose-700 border border-rose-200">
+                                  Rx
+                                </span>
+                              )}
+                            </div>
                             <span className="text-[9px] font-mono text-slate-400 uppercase mt-0.5 block">{totalItemsCount} total unit{totalItemsCount !== 1 ? 's' : ''} sold</span>
                           </td>
                           <td className="p-4 whitespace-nowrap font-medium text-slate-705">
@@ -4675,7 +4682,14 @@ export default function DashboardReports({
                         <div key={sale.id} className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 overflow-hidden text-left">
                           <div className="flex items-center justify-between px-4 py-3">
                             <div className="min-w-0">
-                              <p className="text-[13px] font-bold text-slate-800 dark:text-slate-100 truncate">{sale.customerName || 'Walk-In'}</p>
+                              <div className="flex items-center gap-1.5">
+                                <p className="text-[13px] font-bold text-slate-800 dark:text-slate-100 truncate">{sale.customerName || 'Walk-In'}</p>
+                                {sale.items.some(it => it.prescriptionRequired) && (
+                                  <span title="Includes a prescription medicine" className="shrink-0 px-1.5 py-0.5 rounded-full text-[8.5px] font-mono font-black uppercase tracking-wider bg-rose-100 text-rose-700 border border-rose-200">
+                                    Rx
+                                  </span>
+                                )}
+                              </div>
                               <p className="text-[9px] font-mono text-slate-400 mt-0.5">{new Date(sale.timestamp).toLocaleDateString()} · {sale.paymentMethod}</p>
                             </div>
                             <div className="text-right shrink-0 ml-3">
