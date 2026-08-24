@@ -41,13 +41,13 @@ export function parseCsvText(text: string): string[][] {
 
 export const UNIVERSAL_IMPORT_HEADERS = [
   'Product Name', 'Barcode', 'Product Type', 'Category', 'Brand',
-  'Generic Name', 'Dosage Form', 'Strength Value', 'Strength Unit',
+  'Generic Name', 'Manufacturer', 'Dosage Form', 'Strength Value', 'Strength Unit',
   'Base Unit', 'Purchase Unit',
   'Package 1 Unit', 'Package 1 Qty in Base', 'Package 1 Selling Price',
   'Package 2 Unit', 'Package 2 Qty in Base', 'Package 2 Selling Price',
   'Base Unit Selling Price', 'Cost Price',
   'Shop Stock', 'Store Stock', 'Alert Level',
-  'Track Batch', 'Track Expiry',
+  'Prescription Required', 'Track Batch', 'Track Expiry',
 ] as const;
 
 const PRODUCT_TYPE_LABEL_TO_VALUE: Record<string, ProductType> = {
@@ -80,23 +80,23 @@ export function downloadableUniversalTemplate(): string {
   const header = UNIVERSAL_IMPORT_HEADERS.join(',');
   const sampleAmoxicillin = [
     'Amoxicillin 500mg', '', 'Medicine', 'Antibiotics', 'Jasper Pharma',
-    'Amoxicillin', 'capsule', '500', 'mg',
+    'Amoxicillin', 'GlobalPharma Ltd', 'capsule', '500', 'mg',
     'Capsule', 'Box',
     'Blister', '10', '3500',
     'Box', '100', '30000',
     '400', '20000',
     '50', '100', '10',
-    'Yes', 'Yes',
+    'Yes', 'Yes', 'Yes',
   ].join(',');
   const sampleNivea = [
     'Nivea Body Lotion', '', 'Personal Care', 'Body Care', 'Nivea',
-    '', '', '', '',
+    '', '', '', '', '',
     'Bottle', '',
     '', '', '',
     '', '', '',
     '8500', '6000',
     '15', '30', '5',
-    'No', 'No',
+    'No', 'No', 'No',
   ].join(',');
   return `${header}\r\n${sampleAmoxicillin}\r\n${sampleNivea}\r\n`;
 }
@@ -191,9 +191,11 @@ export function parseUniversalImportRow(
       sellInWholesale: false,
       productType,
       genericName: get('Generic Name') || undefined,
+      manufacturer: get('Manufacturer') || undefined,
       dosageForm: VALID_DOSAGE_FORMS.includes(dosageFormRaw) ? dosageFormRaw : undefined,
       strengthValue: parseNum(get('Strength Value')),
       strengthUnit: get('Strength Unit') || undefined,
+      prescriptionRequired: get('Prescription Required') ? parseBool(get('Prescription Required')) : false,
       trackBatch: true,
       trackExpiry: get('Track Expiry') ? parseBool(get('Track Expiry')) : true,
       packageLevels: packageLevels.length > 0 ? packageLevels : undefined,

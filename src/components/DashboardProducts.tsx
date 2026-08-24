@@ -2403,7 +2403,7 @@ export default function DashboardProducts({
               </div>
             )}
             <div className="space-y-1 min-w-0">
-              <label className="text-[9px] font-bold text-slate-500 uppercase">{pharmacyProductType === 'pharmaceutical' ? `${pharmacyBaseUnit || 'Tablet'}s per Dose/Strip` : 'Pieces per Carton'}</label>
+              <label className="text-[9px] font-bold text-slate-500 uppercase">{pharmacyProductType === 'pharmaceutical' ? 'Doses per Packet/Strip' : 'Pieces per Carton'}</label>
               <input type="number" min={1} value={pharmacyMiddleContains} onChange={e => setPharmacyMiddleContains(e.target.value === '' ? '' : Number(e.target.value))} className="w-full min-w-0 bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
             </div>
             {pharmacyProductType === 'pharmaceutical' && (
@@ -2454,7 +2454,7 @@ export default function DashboardProducts({
           </div>
         )}
         <div className="space-y-1">
-          <label className="text-[9px] font-bold text-slate-500 uppercase">{pharmacyProductType === 'pharmaceutical' ? `${pharmacyBaseUnit}s per Dose/Strip` : 'Pieces per Carton'}</label>
+          <label className="text-[9px] font-bold text-slate-500 uppercase">{pharmacyProductType === 'pharmaceutical' ? 'Doses per Packet/Strip' : 'Pieces per Carton'}</label>
           <input type="number" min={1} value={pharmacyMiddleContains} onChange={e => setPharmacyMiddleContains(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
         </div>
         {pharmacyProductType === 'pharmaceutical' && (
@@ -5419,7 +5419,7 @@ export default function DashboardProducts({
                       : structure.hierarchyStart === 'master_box'
                         ? 'Cartons per Master Box'
                         : '';
-                    const middleLabel = structure.productType === 'non_pharmaceutical' ? 'Pieces per Carton' : `${structure.base}s per Strip`;
+                    const middleLabel = structure.productType === 'non_pharmaceutical' ? 'Pieces per Carton' : 'Doses per Packet/Strip';
                     return (
                       <div className="border border-emerald-100 bg-emerald-50/40 rounded-2xl p-4 space-y-3">
                         <div>

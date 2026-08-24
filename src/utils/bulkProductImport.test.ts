@@ -32,13 +32,13 @@ const headerIndex = Object.fromEntries(UNIVERSAL_IMPORT_HEADERS.map((label, inde
 
 const amoxicillinColumns = [
   'Amoxicillin 500mg', '', 'Medicine', 'Antibiotics', 'Jasper Pharma',
-  'Amoxicillin', 'capsule', '500', 'mg',
+  'Amoxicillin', 'GlobalPharma Ltd', 'capsule', '500', 'mg',
   'Capsule', 'Box',
   'Blister', '10', '3500',
   'Box', '100', '30000',
   '400', '20000',
   '50', '100', '10',
-  'Yes', 'Yes',
+  'Yes', 'Yes', 'Yes',
 ];
 
 describe('parseUniversalImportRow', () => {
@@ -47,6 +47,8 @@ describe('parseUniversalImportRow', () => {
     expect(result.status).toBe('ready');
     expect(result.product?.productType).toBe('medicine');
     expect(result.product?.genericName).toBe('Amoxicillin');
+    expect(result.product?.manufacturer).toBe('GlobalPharma Ltd');
+    expect(result.product?.prescriptionRequired).toBe(true);
     expect(result.product?.trackExpiry).toBe(true);
     expect(result.product?.packageLevels).toEqual([
       { id: 'package1', label: 'Blister', quantityInBaseUnit: 10 },
@@ -78,13 +80,13 @@ describe('parseUniversalImportRow', () => {
   it('builds a non-medicine product without any clinical fields', () => {
     const columns = [
       'Nivea Body Lotion', '', 'Personal Care', 'Body Care', 'Nivea',
-      '', '', '', '',
+      '', '', '', '', '',
       'Bottle', '',
       '', '', '',
       '', '', '',
       '8500', '6000',
       '15', '30', '5',
-      'No', 'No',
+      'No', 'No', 'No',
     ];
     const result = parseUniversalImportRow(headerIndex, columns, 5);
     expect(result.status).toBe('ready');
