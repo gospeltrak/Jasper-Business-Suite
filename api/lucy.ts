@@ -194,6 +194,23 @@ function getFallbackMessage(userMsg: string): string {
   return "Samahani 😊 Lucy ameshindwa kupata majibu ya kina kwa sasa. Lakini naweza kukusaidia kuangalia sales, stock, reports, au debts — unataka tuanze na ipi?";
 }
 
+const needsCurrentMarketResearch = (message: string) => [
+  'report', 'ripoti', 'forecast', 'utabiri', 'trend', 'trending', 'market', 'soko',
+  'amazon', 'ebay', 'alibaba', 'online', 'mtandaoni', 'niche', 'local store', 'duka la eneo',
+].some(keyword => message.toLowerCase().includes(keyword));
+
+const getGroundingSources = (response: any) => {
+  const chunks = response?.candidates?.[0]?.groundingMetadata?.groundingChunks;
+  if (!Array.isArray(chunks)) return [];
+  const seen = new Set<string>();
+  return chunks.flatMap((chunk: any) => {
+    const url = String(chunk?.web?.uri || '').trim();
+    if (!url.startsWith('https://') || seen.has(url)) return [];
+    seen.add(url);
+    return [{ title: String(chunk?.web?.title || 'Market source').slice(0, 100), url }];
+  }).slice(0, 6);
+};
+
 // ─── Lucy API Handler ─────────────────────────────────────────────────────────
 
 export default async function handler(req: any, res: any) {
@@ -272,7 +289,10 @@ STRICT RULES:
 - Business topics only — no politics, sports, celebrities, general knowledge
 
 CURRENT BUSINESS DATA:
-${businessContext}`;
+${businessContext}
+
+CURRENT MARKET RESEARCH:
+When Google Search is enabled, use current public evidence for the tenant's niche and location. Compare relevant global marketplaces (Amazon, eBay, Alibaba) with discoverable retailers near the tenant. Separate internal facts, market signals, recommendations, and risks. Never claim that online popularity guarantees local demand.`;
 
   // ── Step 4: Call Gemini ──
   try {
@@ -282,10 +302,14 @@ ${businessContext}`;
       role: m.role === 'assistant' || m.role === 'model' ? 'model' : 'user',
       parts: [{ text: m.content || '' }],
     }));
+    const useMarketResearch = needsCurrentMarketResearch(lastUserMsg);
 
     const response = await ai.models.generateContent({
       model: 'gemini-3.6-flash',
-      config: { systemInstruction },
+      config: {
+        systemInstruction,
+        ...(useMarketResearch ? { tools: [{ googleSearch: {} }] } : {}),
+      },
       contents: geminiContents,
     });
 
@@ -298,7 +322,8 @@ ${businessContext}`;
       return res.json({ success: false, text: getFallbackMessage(lastUserMsg), source: 'fallback_empty', errorCode: 'GEMINI_EMPTY' });
     }
 
-    return res.json({ success: true, text, source: 'gemini' });
+    const sources = useMarketResearch ? getGroundingSources(response) : [];
+    return res.json({ success: true, text, source: 'gemini', sources, grounded: sources.length > 0 });
 
   } catch (err: any) {
     console.error('[Lucy] Gemini request failed.', {

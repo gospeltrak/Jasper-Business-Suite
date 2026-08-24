@@ -686,6 +686,33 @@ test('Lucy text generation uses current stable Gemini models', async () => {
   assert.doesNotMatch(serverSource, /\/api\/health\/gemini[\s\S]{0,1200}(error\?\.message|error\.stack)/);
 });
 
+test('Lucy uses authenticated Gemini Swahili speech and current market grounding', async () => {
+  const serverSource = await read('server.ts');
+  const lucySource = await read('api/lucy.ts');
+  const copilotSource = await read('src/components/AIBusinessCopilot.tsx');
+  const forecastingSource = await read('src/components/DashboardForecasting.tsx');
+  const speechSource = await read('src/utils/lucySpeech.ts');
+
+  assert.match(serverSource, /app\.post\('\/api\/lucy\/speech'/);
+  assert.match(serverSource, /await requireTenantUser\(req, tenantId\)/);
+  assert.match(serverSource, /gemini-3\.1-flash-tts-preview/);
+  assert.match(serverSource, /voice: 'Sulafat'/);
+  assert.match(serverSource, /tools: \[\{ googleSearch: \{\} \}\]/);
+  assert.match(lucySource, /tools: \[\{ googleSearch: \{\} \}\]/);
+  assert.match(lucySource, /groundingMetadata\?\.groundingChunks/);
+  assert.match(speechSource, /Authorization: `Bearer \$\{session\.access_token\}`/);
+  assert.match(copilotSource, /speakWithGeminiLucy/);
+  assert.match(copilotSource, /deviceClass: window\.innerWidth < 768/);
+  assert.match(copilotSource, /Current market sources/);
+  assert.match(forecastingSource, /speakWithGeminiLucy/);
+  assert.match(forecastingSource, /sources: Array\.isArray\(data\.sources\)/);
+  assert.match(serverSource, /buildVerifiedLucySalesWalkthrough/);
+  assert.match(serverSource, /Proceed to Payment/);
+  assert.match(serverSource, /Choose Payment Method/);
+  assert.match(serverSource, /Confirm Payment/);
+  assert.match(serverSource, /GUIDED WALKTHROUGH MODE/);
+});
+
 test('reports use branded, searchable, multi-page PDF mode', async () => {
   const reportsSource = await read('src/components/DashboardReports.tsx');
   const pdfSource = await read('src/utils/pdfShare.ts');

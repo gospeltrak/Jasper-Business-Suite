@@ -375,6 +375,43 @@ const classifyLucyIntent = (message: unknown, requestedIntent?: unknown): LucyIn
   return 'chat';
 };
 
+const needsLucyMarketGrounding = (message: unknown, intent: LucyIntent) => {
+  if (intent === 'report' || intent === 'forecast') return true;
+  const lower = String(message || '').toLowerCase();
+  return ['trend', 'trending', 'market', 'amazon', 'ebay', 'alibaba', 'online', 'mtandaoni', 'soko', 'niche', 'local store', 'duka la eneo']
+    .some(keyword => lower.includes(keyword));
+};
+
+const extractLucyGroundingSources = (response: any) => {
+  const chunks = response?.candidates?.[0]?.groundingMetadata?.groundingChunks;
+  if (!Array.isArray(chunks)) return [];
+  const seen = new Set<string>();
+  return chunks.flatMap((chunk: any) => {
+    const url = String(chunk?.web?.uri || '').trim();
+    if (!url.startsWith('https://') || seen.has(url)) return [];
+    seen.add(url);
+    return [{ title: sanitizeLucyText(chunk?.web?.title || 'Market source', 100), url }];
+  }).slice(0, 6);
+};
+
+const pcmToWav = (pcm: Buffer, sampleRate = 24_000) => {
+  const header = Buffer.alloc(44);
+  header.write('RIFF', 0);
+  header.writeUInt32LE(36 + pcm.length, 4);
+  header.write('WAVE', 8);
+  header.write('fmt ', 12);
+  header.writeUInt32LE(16, 16);
+  header.writeUInt16LE(1, 20);
+  header.writeUInt16LE(1, 22);
+  header.writeUInt32LE(sampleRate, 24);
+  header.writeUInt32LE(sampleRate * 2, 28);
+  header.writeUInt16LE(2, 32);
+  header.writeUInt16LE(16, 34);
+  header.write('data', 36);
+  header.writeUInt32LE(pcm.length, 40);
+  return Buffer.concat([header, pcm]);
+};
+
 const getLucyUsage = (tenantId: unknown) => {
   const key = `${sanitizeScopeId(tenantId)}:${getLucyDayKey()}`;
   const existing = lucyUsageBuckets.get(key);
@@ -1141,6 +1178,50 @@ Let me know how I can guide you today, or tell me where to navigate (e.g., "Go t
   };
 }
 
+function buildVerifiedLucySalesWalkthrough(
+  message: string,
+  activeTab: string,
+  deviceClass: 'mobile' | 'tablet' | 'desktop',
+  lang: string,
+) {
+  const normalized = message.toLowerCase();
+  const mentionsSelling = /\b(sell|selling|sale|sales|pos|cashier|checkout|uza|kuuza|mauzo|muuz|kasi[ea])\b/i.test(normalized);
+  const requestsGuidance = /\b(how|guide|steps?|teach|help|start|do|use|namna|jinsi|hatua|elekeza|ongoza|fundisha|anzia|nifanye|nitumie|nisaidie)\b/i.test(normalized);
+  if (!mentionsSelling || !requestsGuidance) return null;
+
+  const compactDevice = deviceClass === 'desktop' ? 'desktop' : deviceClass;
+  const checkoutLabel = compactDevice === 'desktop' ? 'Proceed to Payment' : 'Checkout';
+  const alreadyAtPos = activeTab === 'pos';
+  const responseText = lang === 'sw'
+    ? `${alreadyAtPos ? 'Upo tayari kwenye ukurasa wa mauzo.' : `Nitakupeleka kwenye **Sell / Cashier Till (POS)** kutoka sehemu uliyo sasa.`}\n\n` +
+      `1. ${alreadyAtPos ? 'Baki kwenye ukurasa huu' : 'Fungua **Sell**; kwenye simu au tablet ipo kwenye menu ya chini, na kwenye PC ipo sidebar'}.\n` +
+      `2. Kwenye kisanduku cha kutafuta, andika jina au barcode ya bidhaa. Gusa bidhaa ili iingie kwenye kikapu.\n` +
+      `3. Hakikisha bidhaa, idadi na jumla ni sahihi; tumia alama za kuongeza au kupunguza kurekebisha idadi.\n` +
+      `4. Bonyeza **${checkoutLabel}**.\n` +
+      `5. Kwenye **Payment Mode**, bonyeza **Choose Payment Method** na uchague njia ya malipo ya mteja.\n` +
+      `6. Jaza taarifa nyingine zinazoombwa, kisha hakiki kiasi kilicholipwa na baki.\n` +
+      `7. Bonyeza **Confirm Payment** mara moja. Subiri ujumbe wa mafanikio; usifunge ukurasa wakati unasave.\n` +
+      `8. Risiti ikifunguka, tumia **Send**, **Download**, au **Close**. Mauzo yatakuwa yamekamilika.\n\n` +
+      `Ukinambia **“nimefika”**, nitakuongoza hatua inayofuata kwa sentensi fupi.`
+    : `${alreadyAtPos ? 'You are already on the sales screen.' : `I will take you to **Sell / Cashier Till (POS)** from your current screen.`}\n\n` +
+      `1. ${alreadyAtPos ? 'Stay on this screen' : 'Open **Sell** from the bottom menu on mobile/tablet or the sidebar on desktop'}.\n` +
+      `2. Search by product name or barcode, then tap the product to add it to the basket.\n` +
+      `3. Verify the items, quantities, and total; use the quantity controls if needed.\n` +
+      `4. Press **${checkoutLabel}**.\n` +
+      `5. Under **Payment Mode**, press **Choose Payment Method** and select how the customer paid.\n` +
+      `6. Complete any requested details and verify the amount paid and change.\n` +
+      `7. Press **Confirm Payment** once and wait for the success message while the sale is saved.\n` +
+      `8. When the receipt opens, choose **Send**, **Download**, or **Close**. The sale is complete.\n\n` +
+      `Tell me **“I am there”** and I will continue one short step at a time.`;
+
+  return {
+    responseText,
+    action: alreadyAtPos ? 'GUIDE_ONLY' : 'NAVIGATE',
+    targetTab: alreadyAtPos ? null : 'pos',
+    unsupportedFeature: null,
+  };
+}
+
 // Resilient GenAI Content generator with retries and lite-model fallbacks
 async function generateResilientContent(ai: GoogleGenAI, params: any) {
   const originalModel = params.model || 'gemini-3.6-flash';
@@ -1387,6 +1468,55 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         message: status === 500 ? 'Lucy is temporarily unavailable.' : error.message,
         errorCode: status === 401 ? 'AUTH_REQUIRED' : status === 403 ? 'TENANT_ACCESS_DENIED' : 'LUCY_REQUEST_FAILED',
       });
+    }
+  });
+
+  app.post('/api/lucy/speech', async (req, res) => {
+    try {
+      const tenantId = sanitizeScopeId(req.body?.tenantId);
+      if (!isUuid(tenantId)) return res.status(400).json({ error: 'Invalid tenant identifier.' });
+      await requireTenantUser(req, tenantId);
+      const { data: tenantPlan, error: tenantPlanError } = await supabaseAdmin
+        .from('tenants')
+        .select('active_package_id, selected_package_id')
+        .eq('id', tenantId)
+        .maybeSingle();
+      if (tenantPlanError || !tenantPlan) return res.status(403).json({ error: 'Lucy voice access could not be verified.' });
+      if (normalizeLucyPlanId(tenantPlan.active_package_id || tenantPlan.selected_package_id) === 'ruby') {
+        return res.status(403).json({ error: 'Lucy voice is available from Diamond.' });
+      }
+
+      const text = sanitizeLucyText(req.body?.text, 1_800);
+      if (!text) return res.status(400).json({ error: 'Speech text is required.' });
+      const language = String(req.body?.language || '').toLowerCase() === 'sw' ? 'sw' : 'en';
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) return res.status(503).json({ error: 'Lucy voice is temporarily unavailable.' });
+
+      const ai = new GoogleGenAI({ apiKey });
+      const prompt = language === 'sw'
+        ? `Speak the transcript in fluent, natural Tanzanian Swahili. Use a warm, confident female business-coach style, clear pronunciation, medium pace, and no added words. Transcript:\n${text}`
+        : `Speak the transcript in fluent, natural English. Use a warm, confident female business-coach style, clear pronunciation, medium pace, and no added words. Transcript:\n${text}`;
+      const interaction: any = await Promise.race([
+        ai.interactions.create({
+          model: 'gemini-3.1-flash-tts-preview',
+          input: prompt,
+          response_format: { type: 'audio' },
+          generation_config: { speech_config: [{ voice: 'Sulafat', language }] },
+        } as any),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Lucy speech timed out.')), 18_000)),
+      ]);
+      const audioData = interaction?.outputAudio?.data || interaction?.output_audio?.data;
+      if (!audioData) return res.status(502).json({ error: 'Lucy voice could not be generated.' });
+
+      const wav = pcmToWav(Buffer.from(audioData, 'base64'));
+      res.setHeader('Content-Type', 'audio/wav');
+      res.setHeader('Cache-Control', 'private, max-age=300');
+      res.setHeader('Content-Length', String(wav.length));
+      return res.status(200).send(wav);
+    } catch (error: any) {
+      const status = Number(error?.status || 500);
+      console.warn('[Lucy Speech] Request failed.', { status, name: error?.name || 'Error' });
+      return res.status(status < 500 ? status : 503).json({ error: status < 500 ? error.message : 'Lucy voice is temporarily unavailable.' });
     }
   });
 
@@ -4806,10 +4936,17 @@ Your output must be in JSON matching the specified Response Schema exactly. All 
     try {
       message = body.message;
       activeTab = body.activeTab;
+      const requestedDeviceClass = sanitizeLucyText(body.deviceClass, 20);
+      const deviceClass: 'mobile' | 'tablet' | 'desktop' = requestedDeviceClass === 'mobile' || requestedDeviceClass === 'tablet'
+        ? requestedDeviceClass
+        : 'desktop';
       businessType = body.businessType;
       lang = body.lang;
       const planId = normalizeLucyPlanId(body.planId || body.activeTenant?.activePackageId || body.activeTenant?.selectedPackageId);
       const intent = classifyLucyIntent(message, body.intent);
+      const useMarketGrounding = planId === 'tanzanite' && needsLucyMarketGrounding(message, intent);
+      const tenantCity = sanitizeLucyText(body.activeTenant?.city || body.city, 80);
+      const tenantCountry = sanitizeLucyText(body.activeTenant?.country || body.country, 80);
       const limits = LUCY_LIMITS[planId];
       const { usage } = getLucyUsage(tenantId);
       const remaining = Math.max(0, limits[intent] - usage[intent]);
@@ -4928,6 +5065,24 @@ Your output must be in JSON matching the specified Response Schema exactly. All 
           targetTab: targetGuideTab,
           unsupportedFeature: null,
           usage: { planId, intent, remaining, limit: limits[intent] }
+        });
+      }
+
+      // The most common novice workflow is deterministic so Lucy answers instantly,
+      // uses the real responsive labels, and remains useful when Gemini is unavailable.
+      const verifiedSalesWalkthrough = buildVerifiedLucySalesWalkthrough(userMessage, activeTab, deviceClass, lang);
+      if (verifiedSalesWalkthrough) {
+        usage[intent] += 1;
+        return res.json({
+          ...verifiedSalesWalkthrough,
+          guided: true,
+          usage: {
+            planId,
+            intent,
+            used: usage[intent],
+            limit: limits[intent],
+            remaining: Math.max(0, limits[intent] - usage[intent]),
+          },
         });
       }
 
@@ -5065,10 +5220,23 @@ Your output must be in JSON matching the specified Response Schema exactly. All 
       }      // AI Core analysis
       const ai = new GoogleGenAI({ apiKey });
       const selectedModel = LUCY_MODELS[planId];
+      let marketResearchContext = '';
+      let sources: Array<{ title: string; url: string }> = [];
+      if (useMarketGrounding) {
+        const marketResponse = await generateResilientContent(ai, {
+          model: selectedModel,
+          contents: `Find current, verifiable market signals relevant to a ${businessType} business in ${tenantCity || 'the tenant city'}, ${tenantCountry || 'the tenant country'}. Focus on the user's request: ${sanitizeLucyText(message)}. Check suitable global marketplaces such as Amazon, eBay, and Alibaba, and discoverable local retailers. Be concise and do not infer that online popularity guarantees local demand.`,
+          config: { tools: [{ googleSearch: {} }] },
+        });
+        marketResearchContext = sanitizeLucyText(marketResponse.text, 6_000);
+        sources = extractLucyGroundingSources(marketResponse);
+      }
       const systemPrompt = 
         `You are Lucy, a premium, modern AI assistant for Jasper Business Suite. Your personality is polite, warm, practical, and highly adaptive. You operate inside a multi-tenant business suite with business type: "${businessType}". ` +
         `The tenant plan is "${planId}" and the requested intent is "${intent}". ` +
+        `The tenant location is "${tenantCity || 'unknown city'}, ${tenantCountry || 'unknown country'}". ` +
         `Currently, the active tab view is: "${activeTab}". ` +
+        `The user is on a "${deviceClass}" layout. ` +
         `` +
         `CRITICAL RULE: STRICT SCOPE, NATURAL GUIDANCE & DIRECT COMPLETION ` +
         `- Answer the exact question first. Then, when helpful, add one useful next step or one gentle follow-up question so the conversation feels alive and supportive. Do not dump long feature lists unless the user asks for them. ` +
@@ -5079,6 +5247,7 @@ Your output must be in JSON matching the specified Response Schema exactly. All 
         `2. Friendly & Natural: Speak in a warm, engaging, sweet, approachable, and supportive tone. Be professional but personable; never sound like a rigid textbook, a stiff corporate machine, or a repeated template. ` +
         `3. Simple Language: Use clear, direct, and straightforward language. Avoid over-complicating answers or using unnecessary jargon. ` +
         `4. Interactive Coach: Vary your wording. If the user seems unsure, ask one focused follow-up question. If they ask how to do something, give numbered steps. If they ask for business meaning, explain it with a simple example. ` +
+        `4a. GUIDED WALKTHROUGH MODE: When the user asks how to use any system function, begin from their current tab and device layout. Give one concrete action per numbered step, use only visible Jasper menu/button labels supported by the supplied context, explain the expected result after important clicks, and finish with a clear completion check. Use very simple language suitable for a first-time user. Offer to continue interactively when they say "nimefika", "endelea", or "I am there". Never invent a button label. ` +
         `5. Clean Output: Use standard Markdown formatting cleanly (like **bold**) to emphasize key points. Never output raw HTML code tags like <b> or </b>. ` +
         `` +
         `Handling Casual vs. Complex Prompts: ` +
@@ -5109,6 +5278,7 @@ Your output must be in JSON matching the specified Response Schema exactly. All 
         `5. Diamond plan may receive chat and limited reports only. If the user asks for forecasting while plan is diamond, explain politely that forecasting is available on Tanzanite and offer a simple non-forecast business summary instead. ` +
         `6. Keep in mind that standard platform features (like Sales records, POS tills, Inventory, Expenses, and Reports) ARE FULLY SUPPORTED in our system. If the database of sales or expenses is currently empty, it means the user simply hasn't added or recorded any transactions yet—not that the feature is missing. Do NOT report standard supported features (like sales or expenses) as unsupported missing features! Only set "unsupportedFeature" to a standardized English category name if they request an entirely new, non-existent platform capability that the system truly does not have (for example: Automated real-time M-Pesa callbacks & APIs, bulk automated WhatsApp marketing campaigns, print sticky barcode price tags, automated bulk payroll bank transfers, active employee clock-in HR portal); otherwise set "unsupportedFeature" to null. ` +
         `7. Keep your response highly useful, polite, concise, compassionate, and professional. Match the user's language. ` +
+        `8. When current market research is enabled, compare the tenant's actual internal performance with current public market evidence. Focus on the tenant's niche and location, check relevant global marketplaces such as Amazon, eBay, and Alibaba plus discoverable local retailers, and never present an unverified trend as guaranteed demand. Clearly separate INTERNAL BUSINESS DATA, CURRENT MARKET SIGNALS, RECOMMENDATIONS, and RISKS. ` +
         `Return your final response strictly as a JSON matching the requested structure.`;
 
       // Build rich runtime database summary context for Lucy to read
@@ -5130,6 +5300,9 @@ ${JSON.stringify(sales, null, 2)}
 
 === ACTIVE EXPENSES HISTORY SUMMARY DETAIL (READ-ONLY, SANITIZED) ===
 ${JSON.stringify(expenses, null, 2)}
+
+=== CURRENT PUBLIC MARKET EVIDENCE (GOOGLE SEARCH GROUNDED) ===
+${marketResearchContext || 'Not requested for this message.'}
 
 USER MESSAGE: "${sanitizeLucyText(message)}"
 `;
@@ -5157,6 +5330,8 @@ USER MESSAGE: "${sanitizeLucyText(message)}"
       usage[intent] += 1;
       return res.json({
         ...parsed,
+        sources,
+        grounded: sources.length > 0,
         usage: {
           planId,
           intent,

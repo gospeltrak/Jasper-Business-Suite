@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Product, Sale, Tenant } from '../types';
 import { createLucyResponse, getLucyGreeting } from '../utils/lucyBrain';
 import { getSecureDataBridgeClient } from '../secureDataBridge';
+import { speakWithGeminiLucy, stopLucySpeech } from '../utils/lucySpeech';
 import { 
   ResponsiveContainer, 
   LineChart, 
@@ -106,6 +107,7 @@ interface ChatMessage {
   chartData?: { label: string; value: number; extra?: number }[];
   chartType?: 'bar' | 'line' | 'low-stock';
   chartTitle?: string;
+  sources?: Array<{ title: string; url: string }>;
 }
 
 const parseBoldTags = (text: string): React.ReactNode[] => {
@@ -332,9 +334,8 @@ export default function DashboardForecasting({
   };
 
   // ── Lucy speak function ──
-  const lucySpeak = (text: string, msgIdx?: number) => {
-    if (!speechSupported) return;
-    window.speechSynthesis.cancel();
+  const lucySpeak = async (text: string, msgIdx?: number) => {
+    stopLucySpeech();
     setIsSpeaking(false);
     setSpeakingIdx(null);
 
@@ -342,6 +343,17 @@ export default function DashboardForecasting({
     if (!clean) return;
 
     const lang = detectLang(clean);
+    try {
+      await speakWithGeminiLucy(clean, activeTenant.id, lang, {
+        onStart: () => { setIsSpeaking(true); if (msgIdx !== undefined) setSpeakingIdx(msgIdx); },
+        onEnd: () => { setIsSpeaking(false); setSpeakingIdx(null); },
+      });
+      return;
+    } catch {
+      // Fall through to the device voice when Gemini TTS is unavailable.
+    }
+    if (!speechSupported) return;
+    window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(clean);
 
     // Voice settings — youthful, friendly, clear
@@ -372,7 +384,7 @@ export default function DashboardForecasting({
 
   // ── Stop speaking ──
   const stopSpeaking = () => {
-    window.speechSynthesis?.cancel();
+    stopLucySpeech();
     setIsSpeaking(false);
     setSpeakingIdx(null);
   };
@@ -729,7 +741,8 @@ export default function DashboardForecasting({
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           chartData: chartConf?.chartData,
           chartType: chartConf?.chartType,
-          chartTitle: chartConf?.chartTitle
+          chartTitle: chartConf?.chartTitle,
+          sources: Array.isArray(data.sources) ? data.sources : [],
         }
       ]);
 
@@ -1362,6 +1375,22 @@ export default function DashboardForecasting({
                           {isAi ? formatLucyMessage(m.text) : m.text}
                         </div>
 
+                        {isAi && m.sources && m.sources.length > 0 && (
+                          <div className="mt-2 flex max-w-[85%] flex-wrap gap-1.5">
+                            {m.sources.map((source, sourceIndex) => (
+                              <a
+                                key={`${source.url}-${sourceIndex}`}
+                                href={source.url}
+                                target="_blank"
+                                rel="noreferrer noopener"
+                                className="max-w-full truncate rounded-full border border-blue-200 bg-blue-50 px-2 py-1 text-[9px] font-bold text-blue-700"
+                              >
+                                {source.title || `Source ${sourceIndex + 1}`}
+                              </a>
+                            ))}
+                          </div>
+                        )}
+
                         {isAi && m.chartData && m.chartData.length > 0 && (
                           <div className="mt-2 w-64 md:w-80 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-3 rounded-2xl shadow-sm space-y-2 animate-fade-in">
                             <div className="flex items-center justify-between text-[11px] font-bold text-slate-700 dark:text-slate-200">
@@ -1407,7 +1436,7 @@ export default function DashboardForecasting({
                           {!isAi && (
                             <span className="text-emerald-500 dark:text-emerald-400 text-[10px] leading-none font-bold" title="Delivered & Read">✓✓</span>
                           )}
-                          {isAi && speechSupported && (
+                          {isAi && (
                             <button
                               type="button"
                               onClick={() => thisBubbleSpeaking ? stopSpeaking() : lucySpeak(m.text, idx)}
