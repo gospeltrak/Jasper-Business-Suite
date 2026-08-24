@@ -5400,19 +5400,8 @@ export default function DashboardSalesList({
                     </div>
 
                     {/* Totals */}
-                    <div className="flex items-start justify-between gap-6">
-                      {viewingDocument.paymentMethod && (
-                        <div className="bg-slate-50 rounded-xl px-4 py-3.5 border border-slate-100 min-w-[200px] text-xs">
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-mono">Payment Details</p>
-                          <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
-                            <span className="text-slate-400">Mode</span><strong className="text-right text-slate-700">{viewingDocument.paymentMethod}</strong>
-                            {viewingDocument.paymentAccountNumber && <><span className="text-slate-400">Account No.</span><strong className="text-right text-slate-700 font-mono">{viewingDocument.paymentAccountNumber}</strong></>}
-                            {viewingDocument.paymentAccountName && <><span className="text-slate-400">Account Name</span><strong className="text-right text-slate-700">{viewingDocument.paymentAccountName}</strong></>}
-                            <span className="text-slate-400">Kiasi</span><strong className="text-right text-slate-900 font-mono">{money(viewingDocument.paymentAmount ?? totals.total)}</strong>
-                          </div>
-                        </div>
-                      )}
-                      <div className="w-72 space-y-2 font-mono text-xs shrink-0 ml-auto">
+                    <div className="flex justify-end">
+                      <div className="w-72 space-y-2 font-mono text-xs shrink-0">
                         <div className="flex justify-between text-slate-500 pb-1">
                           <span>Jumla Ndogo</span>
                           <span className="font-bold text-slate-800">{money(totals.subTotal)}</span>
@@ -5451,6 +5440,19 @@ export default function DashboardSalesList({
                         </div>
                       </div>
                     </div>
+
+                    {/* Payment Details — below the totals/Due line, its own full row */}
+                    {viewingDocument.paymentMethod && (
+                      <div className="bg-slate-50 rounded-xl px-4 py-3.5 border border-slate-100 text-xs">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-mono">Payment Details</p>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-1">
+                          <div><span className="text-slate-400 block">Mode</span><strong className="text-slate-700">{viewingDocument.paymentMethod}</strong></div>
+                          {viewingDocument.paymentAccountNumber && <div><span className="text-slate-400 block">Account No.</span><strong className="text-slate-700 font-mono">{viewingDocument.paymentAccountNumber}</strong></div>}
+                          {viewingDocument.paymentAccountName && <div><span className="text-slate-400 block">Account Name</span><strong className="text-slate-700">{viewingDocument.paymentAccountName}</strong></div>}
+                          <div><span className="text-slate-400 block">Kiasi</span><strong className="text-slate-900 font-mono">{money(viewingDocument.paymentAmount ?? totals.total)}</strong></div>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Signature row — Prepared by (left) | Authorized Sahihi (right) */}
                     <div className="border-t border-slate-100 pt-5 flex items-end justify-between gap-6">
