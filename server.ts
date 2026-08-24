@@ -1894,6 +1894,49 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     return res.json({ sources: data });
   });
 
+  app.get('/api/sales/documents', async (req, res) => {
+    const branchClient = await requireBranchRpcClient(req, res);
+    if (!branchClient) return;
+    const { data, error } = await branchClient.rpc('list_current_commercial_documents');
+    if (error) return sendBranchRpcError(res, error);
+    return res.json({ documents: Array.isArray(data) ? data : [] });
+  });
+
+  app.post('/api/sales/documents', async (req, res) => {
+    const branchClient = await requireBranchRpcClient(req, res);
+    if (!branchClient) return;
+    const documentPayload = req.body?.document;
+    if (!documentPayload || typeof documentPayload !== 'object' || Array.isArray(documentPayload)) {
+      return res.status(400).json({ error: 'A sales document payload is required.' });
+    }
+    if (!Array.isArray(documentPayload.items) || documentPayload.items.length < 1 || documentPayload.items.length > 500) {
+      return res.status(400).json({ error: 'A sales document requires between 1 and 500 items.' });
+    }
+    if (Buffer.byteLength(JSON.stringify(documentPayload), 'utf8') > 512_000) {
+      return res.status(413).json({ error: 'Sales document payload is too large.' });
+    }
+    const { data, error } = await branchClient.rpc('save_current_sales_document', { p_document: documentPayload });
+    if (error) return sendBranchRpcError(res, error);
+    return res.status(201).json({ document: data });
+  });
+
+  app.patch('/api/sales/documents/:documentId', async (req, res) => {
+    const branchClient = await requireBranchRpcClient(req, res);
+    if (!branchClient) return;
+    const documentId = String(req.params.documentId || '');
+    const patch = req.body?.patch;
+    if (!isUuid(documentId)) return res.status(400).json({ error: 'A valid sales document ID is required.' });
+    if (!patch || typeof patch !== 'object' || Array.isArray(patch)) {
+      return res.status(400).json({ error: 'A sales document patch is required.' });
+    }
+    const { data, error } = await branchClient.rpc('update_current_sales_document', {
+      p_document_id: documentId,
+      p_patch: patch,
+    });
+    if (error) return sendBranchRpcError(res, error);
+    return res.json({ document: data });
+  });
+
   app.post('/api/branches/commercial-documents', async (req, res) => {
     const branchClient = await requireBranchRpcClient(req, res);
     if (!branchClient) return;

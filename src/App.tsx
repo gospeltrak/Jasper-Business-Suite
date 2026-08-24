@@ -10,6 +10,8 @@ import { configureOnlineStorage, resetOnlineStorage } from './utils/onlineStorag
 import { lazyWithReload } from './utils/lazyWithReload';
 import SystemErrorPage, { type SystemErrorStatus } from './components/SystemErrorPage';
 import { resolveProfileRolePermissions } from './utils/profilePermissions';
+import { loadTenantWorkspace } from './utils/tenantWorkspace';
+import { preloadBranchWorkspace } from './branches/BranchContext';
 
 // Route-level code splitting keeps the large business workspaces out of the
 // login bundle. No feature is removed; it is downloaded only when opened.
@@ -183,6 +185,12 @@ export default function App() {
 
     let cancelled = false;
     setWorkspaceStorageReady(false);
+
+    // These authoritative sources do not depend on legacy application_state.
+    // Start them together so Safari/mobile no longer waits for the optional
+    // onlineStorage hydration before beginning workspace and branch requests.
+    void loadTenantWorkspace(storageTenantId);
+    void preloadBranchWorkspace(storageTenantId).catch(() => undefined);
 
     configureOnlineStorage(storageTenantId)
       .catch(error => {

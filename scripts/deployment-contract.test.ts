@@ -450,6 +450,25 @@ test('quotation and proforma preview, download and WhatsApp share one A4 templat
   assert.match(salesSource, /\{invoiceFooter\.poweredBy\}/);
 });
 
+test('commercial documents persist in authoritative tenant tables and reload across devices', async () => {
+  const salesSource = await read('src/components/DashboardSalesList.tsx');
+  const branchApiSource = await read('src/branches/branchApi.ts');
+  const serverSource = await read('server.ts');
+  const migrationSource = await read('supabase/migrations/20260824103801_persist_and_load_commercial_documents.sql');
+
+  assert.match(salesSource, /await createStandardCommercialDocument\(localDocument\)/);
+  assert.match(salesSource, /const remoteDocuments = await loadCommercialDocuments\(\)/);
+  assert.doesNotMatch(salesSource, /\.from\('tenant_data'\)[\s\S]{0,240}application_state/);
+  assert.match(branchApiSource, /export const loadCommercialDocuments/);
+  assert.match(branchApiSource, /export const createStandardCommercialDocument/);
+  assert.match(serverSource, /app\.get\('\/api\/sales\/documents'/);
+  assert.match(serverSource, /app\.post\('\/api\/sales\/documents'/);
+  assert.match(serverSource, /app\.patch\('\/api\/sales\/documents\/:documentId'/);
+  assert.match(migrationSource, /create or replace function public\.save_current_sales_document/);
+  assert.match(migrationSource, /create or replace function public\.list_current_commercial_documents/);
+  assert.match(migrationSource, /where document\.tenant_id = tenant\.id/);
+});
+
 test('sales invoice and receipt exports use recognizable document filenames', async () => {
   const salesSource = await read('src/components/DashboardSalesList.tsx');
   assert.equal(

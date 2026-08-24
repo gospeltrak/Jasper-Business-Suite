@@ -58,12 +58,14 @@ import { normalizeSubscriptionPlanId } from '../utils/subscription';
 import { findPaymentChannel, getPaymentModeName } from '../utils/paymentAccounts';
 import { calculateSalesDocumentTotals } from '../utils/salesDocumentTotals';
 import {
+  createStandardCommercialDocument,
   createCrossBranchCommercialDocument,
   convertCrossBranchCommercialDocument,
+  loadCommercialDocuments,
   loadCrossBranchDocumentSources,
+  updateStandardCommercialDocument,
   type CrossBranchDocumentSources,
 } from '../branches/branchApi';
-import { getSecureDataBridgeClient } from '../secureDataBridge';
 
 // A high-fidelity composite component representing a rider on a motorcycle with a delivery basket on their back
 function DeliveryMotorcycleIcon({ className, size = 14 }: { className?: string; size?: number }) {
@@ -506,23 +508,16 @@ export default function DashboardSalesList({
     });
   }, [documents, activeTenant.id]);
 
-  // Keep commercial documents visible across already-open phones, tablets, and PCs.
-  // onlineStorage hydrates at login, so without this focused subscription a device
-  // that was already open would keep showing its older in-memory document list.
+  // The database is authoritative. onlineStorage above remains only a fast UI
+  // cache for legacy sessions; it must never be the source that decides whether
+  // an invoice survives a reload or appears on another device.
   useEffect(() => {
     let disposed = false;
-    let removeRealtime: (() => void) | undefined;
-    const storageKey = `jasper_docs_${activeTenant.id}`;
-
-    const applyRemoteDocuments = (payload: unknown) => {
-      if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return;
-      const rawDocuments = (payload as Record<string, unknown>)[storageKey];
-      if (typeof rawDocuments !== 'string') return;
-
+    const refreshDocuments = async () => {
+      if (!navigator.onLine) return;
       try {
-        const parsed = JSON.parse(rawDocuments);
-        if (!Array.isArray(parsed)) return;
-        const normalized = parsed.map((document: SalesDocument) => {
+        const remoteDocuments = await loadCommercialDocuments();
+        const normalized = remoteDocuments.map((document: SalesDocument) => {
           const normalizedItems = (document.items || []).map(item => ({
             ...item,
             productName: getDocumentItemName(item),
@@ -546,43 +541,7 @@ export default function DashboardSalesList({
           });
         }
       } catch {
-        // Ignore malformed legacy cache values and keep the last valid document list.
-      }
-    };
-
-    const refreshDocuments = async () => {
-      if (!navigator.onLine) return;
-      try {
-        const client: any = await getSecureDataBridgeClient();
-        const { data, error } = await client
-          .from('tenant_data')
-          .select('payload')
-          .eq('tenant_id', activeTenant.id)
-          .eq('data_key', 'application_state')
-          .maybeSingle();
-        if (!error) applyRemoteDocuments(data?.payload);
-      } catch {
-        // The cached list remains usable if a refresh is temporarily unavailable.
-      }
-    };
-
-    const connectRealtime = async () => {
-      try {
-        const client: any = await getSecureDataBridgeClient();
-        if (disposed) return;
-        const channel = client
-          .channel(`sales-documents:${activeTenant.id}:${Date.now()}`)
-          .on(
-            'postgres_changes',
-            { event: '*', schema: 'public', table: 'tenant_data', filter: `tenant_id=eq.${activeTenant.id}` },
-            (event: any) => {
-              if (event.new?.data_key === 'application_state') applyRemoteDocuments(event.new?.payload);
-            },
-          )
-          .subscribe();
-        removeRealtime = () => { try { client.removeChannel(channel); } catch { /* ignore */ } };
-      } catch {
-        // Focus/visibility refresh below remains the recovery path.
+        // Keep the last valid cached list during a temporary network failure.
       }
     };
 
@@ -592,13 +551,11 @@ export default function DashboardSalesList({
     window.addEventListener('focus', refreshDocuments);
     document.addEventListener('visibilitychange', refreshWhenVisible);
     void refreshDocuments();
-    void connectRealtime();
 
     return () => {
       disposed = true;
       window.removeEventListener('focus', refreshDocuments);
       document.removeEventListener('visibilitychange', refreshWhenVisible);
-      removeRealtime?.();
     };
   }, [activeTenant.id]);
 
@@ -1342,8 +1299,16 @@ export default function DashboardSalesList({
     };
 
     if (!canUseCrossBranchDocuments) {
-      setDocuments(prev => [localDocument, ...prev]);
-      resetNewDocumentForm();
+      setDocumentMutationPending(true);
+      try {
+        const savedDocument = await createStandardCommercialDocument(localDocument);
+        setDocuments(prev => [normalizeDocumentDiscount(savedDocument), ...prev]);
+        resetNewDocumentForm();
+      } catch (error) {
+        alert(error instanceof Error ? error.message : 'The document could not be saved.');
+      } finally {
+        setDocumentMutationPending(false);
+      }
       return;
     }
     if (!issuingBranch || newDocItems.some(item => !item.sourceBranchId)) {
@@ -1458,6 +1423,19 @@ export default function DashboardSalesList({
     }
 
     if (!onPreloadCartForPOS) return;
+    const convertedAt = new Date().toISOString();
+    const convertedPatch: Partial<SalesDocument> = {
+      items: normalizedItems,
+      status: 'converted',
+      convertedSaleId: `pending-pos-${Date.now()}`,
+      convertedAt,
+    };
+    try {
+      await updateStandardCommercialDocument(doc.id, convertedPatch);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'The document could not be updated.');
+      return;
+    }
     onPreloadCartForPOS(normalizedItems, doc.timestamp, {
       deliveryCost: toNumber(doc.deliveryCost),
       paymentMethod: doc.paymentMethod || 'Cash',
@@ -1465,13 +1443,9 @@ export default function DashboardSalesList({
       customerPhone: doc.customerPhone,
       hasVat: !!doc.hasVat
     });
-
     setDocuments(prev => prev.map(d => d.id === doc.id ? {
       ...d,
-      items: normalizedItems,
-      status: 'converted',
-      convertedSaleId: `pending-pos-${Date.now()}`,
-      convertedAt: new Date().toISOString()
+      ...convertedPatch,
     } : d));
     setViewingDocument(null);
   };
@@ -3514,8 +3488,14 @@ export default function DashboardSalesList({
               </button>
               <button
                 type="button"
-                onClick={() => {
+                onClick={async () => {
                   const deletedAt = new Date().toISOString();
+                  try {
+                    await updateStandardCommercialDocument(docToDelete.id, { deletedAt });
+                  } catch (error) {
+                    alert(error instanceof Error ? error.message : 'The document could not be deleted.');
+                    return;
+                  }
                   setDocuments(prev => prev.map(d => d.id === docToDelete.id ? { ...d, deletedAt } : d));
                   if (viewingDocument?.id === docToDelete.id) setViewingDocument(null);
                   setDocToDelete(null);

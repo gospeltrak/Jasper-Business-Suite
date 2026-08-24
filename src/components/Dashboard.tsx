@@ -48,7 +48,7 @@ import DuressDashboard from './DuressDashboard';
 import CachedImage from './CachedImage';
 import { savePendingSaleOffline } from '../utils/offlineDb';
 import { createCleanTenantSettings, isDemoTenant } from '../utils/tenantIsolation';
-import { flushPendingTenantWorkspace, hasPendingTenantWorkspaceSave, loadTenantWorkspace, markTenantProductsUpdated, saveTenantSettings, saveTenantWorkspace, scheduleTenantWorkspaceSave, subscribeToTenantBusinessType, subscribeToTenantWorkspace, TenantWorkspace, workspaceHasBusinessData } from '../utils/tenantWorkspace';
+import { flushPendingTenantWorkspace, hasPendingTenantWorkspaceSave, loadTenantWorkspace, markTenantProductsUpdated, readCachedWorkspace, saveTenantSettings, saveTenantWorkspace, scheduleTenantWorkspaceSave, subscribeToTenantBusinessType, subscribeToTenantWorkspace, TenantWorkspace, workspaceHasBusinessData } from '../utils/tenantWorkspace';
 import { safeSetJsonItem, safeSetTenantMapItem } from '../utils/dataSafety';
 import { findPaymentChannel, getTreasuryPaymentMethods, reconcilePaymentChannels } from '../utils/paymentAccounts';
 import { attachPayloadProductTombstones, markLocalProductTombstones, readLocalProductTombstones, stampProductsForSync } from '../utils/productSync';
@@ -787,6 +787,8 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       }, retryDelay);
     };
 
+    const prefetchedWorkspace = readCachedWorkspace(activeTenant.id);
+    if (prefetchedWorkspace) applyWorkspace(prefetchedWorkspace);
     void loadInitialWorkspace();
 
     subscribeToTenantWorkspace(activeTenant.id, applyWorkspace).then((cleanup) => {

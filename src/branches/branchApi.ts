@@ -7,6 +7,7 @@ import type {
   CreateBranchInput,
   CreatedBranchResult,
 } from './branchTypes';
+import type { SalesDocument } from '../types';
 
 export class BranchApiError extends Error {
   readonly status: number;
@@ -166,6 +167,38 @@ export const loadCrossBranchDocumentSources = async (): Promise<CrossBranchDocum
     token,
   );
   return response.sources;
+};
+
+export const loadCommercialDocuments = async (): Promise<SalesDocument[]> => {
+  const token = await getAccessToken();
+  const response = await requestBranchApi<{ documents: SalesDocument[] }>(
+    '/api/sales/documents',
+    token,
+  );
+  return Array.isArray(response.documents) ? response.documents : [];
+};
+
+export const createStandardCommercialDocument = async (document: SalesDocument): Promise<SalesDocument> => {
+  const token = await getAccessToken();
+  const response = await requestBranchApi<{ document: SalesDocument }>(
+    '/api/sales/documents',
+    token,
+    { method: 'POST', body: JSON.stringify({ document }) },
+  );
+  return response.document;
+};
+
+export const updateStandardCommercialDocument = async (
+  documentId: string,
+  patch: Partial<SalesDocument>,
+): Promise<SalesDocument> => {
+  const token = await getAccessToken();
+  const response = await requestBranchApi<{ document: SalesDocument }>(
+    `/api/sales/documents/${encodeURIComponent(documentId)}`,
+    token,
+    { method: 'PATCH', body: JSON.stringify({ patch }) },
+  );
+  return response.document;
 };
 
 export const createCrossBranchCommercialDocument = async (

@@ -32,6 +32,12 @@ interface BranchContextValue {
 const BranchContext = createContext<BranchContextValue | null>(null);
 const branchSnapshotCache = new Map<string, BranchWorkspaceSnapshot>();
 
+export const preloadBranchWorkspace = async (tenantKey: string): Promise<void> => {
+  if (!tenantKey || branchSnapshotCache.has(tenantKey)) return;
+  const snapshot = await loadBranchWorkspace();
+  branchSnapshotCache.set(tenantKey, snapshot);
+};
+
 const publishBranchContext = (snapshot: BranchWorkspaceSnapshot | null) => {
   if (typeof window === 'undefined') return;
   window.dispatchEvent(new CustomEvent('jasper_branch_context_changed', {
@@ -89,7 +95,7 @@ export function BranchProvider({
     const cached = branchSnapshotCache.get(tenantKey) || null;
     setSnapshot(cached);
     if (cached) publishBranchContext(cached);
-    void refresh();
+    else void refresh();
     return () => {
       requestIdRef.current += 1;
       refreshAbortRef.current?.abort();
