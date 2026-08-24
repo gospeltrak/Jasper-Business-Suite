@@ -2195,16 +2195,13 @@ export default function DashboardProducts({
       </div>
       {!isPharmacyLike && isBulkProduct && (
         <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 space-y-3">
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '0.5rem', alignItems: 'end' }}>
-            <div className="space-y-1 min-w-0">
-              <label className="text-[9px] font-bold text-slate-500 uppercase">Package Name</label>
-              <input value={purchaseUnit} onChange={(e) => setPurchaseUnit(e.target.value)} placeholder="e.g. Sack" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-            </div>
-            <span className="text-[10px] font-bold text-slate-400 uppercase pb-2.5 shrink-0">contains</span>
+          <div className="space-y-1">
+            <label className="text-[9px] font-bold text-slate-500 uppercase">Package Name</label>
+            <input value={purchaseUnit} onChange={(e) => setPurchaseUnit(e.target.value)} placeholder="e.g. Sack" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.5rem' }}>
             <div className="space-y-1 min-w-0">
-              <label className="text-[9px] font-bold text-slate-500 uppercase">Quantity</label>
+              <label className="text-[9px] font-bold text-slate-500 uppercase">Contains Quantity</label>
               <input type="number" step="0.001" value={conversionToBaseUnit} onChange={(e) => setConversionToBaseUnit(e.target.value === '' ? '' : Number(e.target.value))} placeholder="e.g. 24" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
             </div>
             <div className="space-y-1 min-w-0">
@@ -2253,13 +2250,6 @@ export default function DashboardProducts({
               >
                 {t('pcsMode')}
               </button>
-              <button
-                type="button"
-                onClick={() => setSellingMode('hybrid')}
-                className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${sellingMode === 'hybrid' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-500 hover:bg-slate-50'}`}
-              >
-                {t('hybridMode')}
-              </button>
             </div>
           </div>
 
@@ -2278,7 +2268,7 @@ export default function DashboardProducts({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <label className="text-[10px] font-bold text-slate-500 uppercase">Quick Sale Portions</label>
-              {sellingMode === 'scale' || sellingMode === 'hybrid' ? (
+              {sellingMode === 'scale' ? (
                  <div className="flex space-x-1 overflow-x-auto scrollbar-hide flex-wrap gap-y-1">
                    {[
                      { label: '1/4', value: 0.25 },
@@ -2295,7 +2285,7 @@ export default function DashboardProducts({
             </div>
             <div className="space-y-1">
               <label className="text-[10px] font-bold text-slate-500 uppercase">Default Portion Qty</label>
-              {sellingMode === 'scale' || sellingMode === 'hybrid' ? (
+              {sellingMode === 'scale' ? (
                 <div className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-xl font-bold text-slate-700">
                   {sellUnitQty === 0.25 ? '1/4' : sellUnitQty === 0.5 ? '1/2' : sellUnitQty === 0.75 ? '3/4' : '1'} {baseUnit}
                 </div>
@@ -5510,19 +5500,12 @@ export default function DashboardProducts({
                           >
                             {t('scaleMode')}
                           </button>
-                          <button 
+                          <button
                             type="button"
                             onClick={() => setEditForm(prev => ({ ...prev, sellingMode: 'pcs' }))}
                             className={`flex-1 py-1 text-[10.5px] font-bold rounded transition-all ${editForm.sellingMode === 'pcs' ? 'bg-emerald-100 text-emerald-700 shadow-sm' : 'text-slate-500 hover:bg-white'}`}
                           >
                             {t('pcsMode')}
-                          </button>
-                          <button 
-                            type="button"
-                            onClick={() => setEditForm(prev => ({ ...prev, sellingMode: 'hybrid' }))}
-                            className={`flex-1 py-1 text-[10.5px] font-bold rounded transition-all ${editForm.sellingMode === 'hybrid' ? 'bg-emerald-100 text-emerald-700 shadow-sm' : 'text-slate-500 hover:bg-white'}`}
-                          >
-                            {t('hybridMode')}
                           </button>
                         </div>
                       </div>
@@ -5545,7 +5528,7 @@ export default function DashboardProducts({
                       <div className="grid gap-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.75rem' }}>
                         <div className="space-y-1">
                           <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Quick Sale Portions</label>
-                          {editForm.sellingMode === 'scale' || editForm.sellingMode === 'hybrid' ? (
+                          {editForm.sellingMode === 'scale' ? (
                             <div className="flex flex-col space-y-1">
                              <div className="flex space-x-1 overflow-x-auto scrollbar-hide flex-wrap gap-y-1">
                                {[
@@ -5564,7 +5547,7 @@ export default function DashboardProducts({
                         </div>
                         <div className="space-y-1">
                           <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Default Portion Qty</label>
-                          {editForm.sellingMode === 'scale' || editForm.sellingMode === 'hybrid' ? (
+                          {editForm.sellingMode === 'scale' ? (
                             <div className="w-full bg-slate-50 border border-slate-200 text-[11px] px-3 py-2 rounded-xl font-bold text-slate-700">
                               {editForm.sellUnitQty === 0.25 ? '1/4' : editForm.sellUnitQty === 0.5 ? '1/2' : editForm.sellUnitQty === 0.75 ? '3/4' : '1'} {editForm.baseUnit || editForm.inventorySettings?.baseUnit || 'kg'}
                             </div>
