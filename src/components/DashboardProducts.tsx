@@ -2223,33 +2223,33 @@ export default function DashboardProducts({
             {/* ── MOBILE: stacked native app style ── */}
             <div className="xl:hidden">
               {/* Hero strip */}
-              <div className="px-5 pt-5 pb-4 flex items-center gap-4"
+              <div className="px-5 pt-4 pb-3 flex items-center gap-3"
                 style={{ background: 'linear-gradient(135deg,#059669 0%,#047857 100%)' }}>
-                <div className="w-12 h-12 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center shrink-0">
-                  <span className="text-2xl">📦</span>
+                <div className="w-10 h-10 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center shrink-0">
+                  <span className="text-xl">📦</span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-white font-extrabold text-[15px] leading-tight">Register New Product</p>
-                  <p className="text-white/50 text-[11px] mt-0.5">{products.length} product{products.length !== 1 ? 's' : ''} in catalogue</p>
+                  <p className="text-white font-extrabold text-[14px] leading-tight">Register New Product</p>
+                  <p className="text-white/50 text-[10px] mt-0.5">{products.length} product{products.length !== 1 ? 's' : ''} in catalogue</p>
                 </div>
                 {/* Add product FAB */}
                 <button
                   onClick={() => setIsOpen(!isOpen)}
-                  className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 active:scale-95"
+                  className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 active:scale-95"
                   style={{ background: isOpen ? '#ef4444' : '#22c55e' }}
                 >
-                  {isOpen ? <X className="w-5 h-5 text-white" /> : <Plus className="w-5 h-5 text-white" />}
+                  {isOpen ? <X className="w-4 h-4 text-white" /> : <Plus className="w-4 h-4 text-white" />}
                 </button>
               </div>
 
               {/* Action tiles */}
-              <div className="product-import-actions-grid grid grid-cols-2 gap-3 p-4">
+              <div className="product-import-actions-grid grid grid-cols-2 gap-2 p-3">
                 <button
                   onClick={downloadCsvTemplate}
-                  className="flex items-center gap-3 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 active:bg-slate-100 text-left"
+                  className="flex items-center gap-2.5 p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 active:bg-slate-100 text-left"
                 >
-                  <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-900/40 flex items-center justify-center shrink-0">
-                    <Download className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                  <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-900/40 flex items-center justify-center shrink-0">
+                    <Download className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                   </div>
                   <div>
                     <p className="text-[12px] font-bold text-slate-800 dark:text-white leading-tight">Template</p>
@@ -2260,9 +2260,9 @@ export default function DashboardProducts({
                 <div className="relative">
                   <input type="file" accept=".csv,.json,application/json" ref={csvInputRef} onChange={handleCsvImport}
                     className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" />
-                  <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-left">
-                    <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-900/40 flex items-center justify-center shrink-0">
-                      <Upload className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  <div className="flex items-center gap-2.5 p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-left">
+                    <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-900/40 flex items-center justify-center shrink-0">
+                      <Upload className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                     </div>
                     <div>
                       <p className="text-[12px] font-bold text-slate-800 dark:text-white leading-tight">Import</p>
@@ -2273,10 +2273,10 @@ export default function DashboardProducts({
                 {isPharmacyLike && (
                   <button
                     onClick={downloadUniversalTemplate}
-                    className="flex items-center gap-3 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 active:bg-slate-100 text-left"
+                    className="flex items-center gap-2.5 p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 active:bg-slate-100 text-left"
                   >
-                    <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-900/40 flex items-center justify-center shrink-0">
-                      <Download className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                    <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-900/40 flex items-center justify-center shrink-0">
+                      <Download className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                     </div>
                     <div>
                       <p className="text-[12px] font-bold text-slate-800 dark:text-white leading-tight">Medicine Template</p>
@@ -2289,9 +2289,9 @@ export default function DashboardProducts({
                   <div className="relative">
                     <input type="file" accept=".csv" ref={universalCsvInputRef} onChange={handleUniversalCsvImport}
                       className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" />
-                    <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-left">
-                      <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-900/40 flex items-center justify-center shrink-0">
-                        <Upload className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                    <div className="flex items-center gap-2.5 p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-left">
+                      <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-900/40 flex items-center justify-center shrink-0">
+                        <Upload className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                       </div>
                       <div>
                         <p className="text-[12px] font-bold text-slate-800 dark:text-white leading-tight">Medicine Import</p>
@@ -2304,9 +2304,9 @@ export default function DashboardProducts({
                 <button
                   onClick={downloadProductCatalogue}
                   disabled={products.length === 0}
-                  className="col-span-2 flex items-center justify-center gap-3 p-3.5 rounded-2xl bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-100 dark:border-emerald-800 active:bg-emerald-100 text-left disabled:opacity-50"
+                  className="col-span-2 flex items-center justify-center gap-2.5 p-2.5 rounded-2xl bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-100 dark:border-emerald-800 active:bg-emerald-100 text-left disabled:opacity-50"
                 >
-                  <Database className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
+                  <Database className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" />
                   <div>
                     <p className="text-[12px] font-bold text-emerald-900 dark:text-emerald-100 leading-tight">Download Product Catalogue</p>
                     <p className="product-catalogue-subtitle text-[10px] text-emerald-700/70 dark:text-emerald-400 mt-0.5">Full restore backup · {products.length} products</p>
