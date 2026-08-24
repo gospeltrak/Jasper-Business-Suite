@@ -2469,7 +2469,7 @@ export default function DashboardProducts({
                         options={isPharmacyLike
                           ? PRODUCT_TYPE_OPTIONS
                           : [
-                            ...PRODUCT_TYPE_OPTIONS.filter(option => option.value !== 'medicine'),
+                            ...PRODUCT_TYPE_OPTIONS.filter(option => option.value === 'general_retail'),
                             { value: 'retail_package', label: 'Retail Package' },
                           ]}
                         onChange={(next) => {
