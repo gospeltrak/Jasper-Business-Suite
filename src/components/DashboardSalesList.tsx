@@ -3759,7 +3759,7 @@ export default function DashboardSalesList({
                         <div className="bg-slate-50 rounded-xl px-4 py-3.5 border border-slate-100 min-w-[200px] text-xs">
                           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-mono">Payment Details</p>
                           <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
-                            <span className="text-slate-400">Mode</span><strong className="text-right text-slate-700">{selectedSale.paymentMethod}</strong>
+                            <span className="text-slate-400">Payment Mode</span><strong className="text-right text-slate-700">{selectedSale.paymentMethod}</strong>
                             {accountNumber && <><span className="text-slate-400">Account No.</span><strong className="text-right text-slate-700 font-mono">{accountNumber}</strong></>}
                             {accountName && <><span className="text-slate-400">Account Name</span><strong className="text-right text-slate-700">{accountName}</strong></>}
                             <span className="text-slate-400">Amount</span><strong className="text-right text-slate-900 font-mono">{currency}{Math.round(selectedSale.total).toLocaleString()}</strong>
@@ -5748,7 +5748,7 @@ export default function DashboardSalesList({
                       <div className="bg-slate-50 rounded-xl px-4 py-3.5 border border-slate-100 text-xs w-1/2">
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-mono">Payment Details</p>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-1">
-                          <div><span className="text-slate-400 block">Mode</span><strong className="text-slate-700">{viewingDocument.paymentMethod}</strong></div>
+                          <div><span className="text-slate-400 block">Payment Mode</span><strong className="text-slate-700">{viewingDocument.paymentMethod}</strong></div>
                           {viewingDocument.paymentAccountNumber && <div><span className="text-slate-400 block">Account No.</span><strong className="text-slate-700 font-mono">{viewingDocument.paymentAccountNumber}</strong></div>}
                           {viewingDocument.paymentAccountName && <div><span className="text-slate-400 block">Account Name</span><strong className="text-slate-700">{viewingDocument.paymentAccountName}</strong></div>}
                           <div><span className="text-slate-400 block">Amount</span><strong className="text-slate-900 font-mono">{money(viewingDocument.paymentAmount ?? totals.total)}</strong></div>

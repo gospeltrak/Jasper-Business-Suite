@@ -135,9 +135,74 @@ export interface ReceiptData {
   status?: string;
   preparedByRole?: string;
   terms?: string[];
+  // Defaults to the tenant's current app language (localStorage 'jasper_lang')
+  // when omitted, so callers don't all need to thread it through explicitly.
+  language?: 'en' | 'sw';
+}
+
+// This generator draws text directly via jsPDF (no DOM), so it can't rely on
+// the app-wide LanguageContext DOM translator. A small, self-contained label
+// set covers the fixed strings on the document; free-text fields (item
+// names, customer names, notes) are never translated -- they're the
+// tenant's own data, verbatim.
+type ReceiptLabelKey =
+  | 'a4Receipt' | 'posReceipt' | 'no' | 'date' | 'preparedBy' | 'cashier' | 'customer'
+  | 'paid' | 'pending' | 'billTo' | 'from' | 'walkInCustomer' | 'sales' | 'item'
+  | 'description' | 'qty' | 'unitPrice' | 'total' | 'subtotal' | 'discount' | 'vatTax'
+  | 'delivery' | 'balance' | 'balanceDue' | 'change' | 'authorizedPerson' | 'staff'
+  | 'authorizedSignature' | 'termsConditions' | 'poweredBy' | 'payment' | 'thankYou';
+
+const RECEIPT_LABELS: Record<ReceiptLabelKey, { en: string; sw: string }> = {
+  a4Receipt: { en: 'A4 RECEIPT', sw: 'RISITI A4' },
+  posReceipt: { en: 'POS RECEIPT', sw: 'RISITI YA POS' },
+  no: { en: 'No', sw: 'Na' },
+  date: { en: 'Date', sw: 'Tarehe' },
+  preparedBy: { en: 'Prepared by', sw: 'Imeandaliwa na' },
+  cashier: { en: 'Cashier', sw: 'Mhudumu' },
+  customer: { en: 'Customer', sw: 'Mteja' },
+  paid: { en: 'PAID', sw: 'IMELIPWA' },
+  pending: { en: 'PENDING', sw: 'INASUBIRI' },
+  billTo: { en: 'BILL TO', sw: 'ANKARA KWA' },
+  from: { en: 'FROM', sw: 'KUTOKA' },
+  walkInCustomer: { en: 'Walk-In Customer', sw: 'Mteja wa Papo Hapo' },
+  sales: { en: 'Sales', sw: 'Mauzo' },
+  item: { en: 'ITEM', sw: 'BIDHAA' },
+  description: { en: 'DESCRIPTION', sw: 'MAELEZO' },
+  qty: { en: 'QTY', sw: 'IDADI' },
+  unitPrice: { en: 'UNIT PRICE', sw: 'BEI KWA KIMOJA' },
+  total: { en: 'TOTAL', sw: 'JUMLA' },
+  subtotal: { en: 'Subtotal', sw: 'Jumla Ndogo' },
+  discount: { en: 'Discount', sw: 'Punguzo' },
+  vatTax: { en: 'VAT / Tax', sw: 'VAT / Kodi' },
+  delivery: { en: 'Delivery', sw: 'Delivari' },
+  balance: { en: 'Balance', sw: 'Salio' },
+  balanceDue: { en: 'Balance due', sw: 'Salio Linalodaiwa' },
+  change: { en: 'Change', sw: 'Chenji' },
+  authorizedPerson: { en: 'Authorized Person', sw: 'Mtu Aliyeidhinishwa' },
+  staff: { en: 'Staff', sw: 'Mfanyakazi' },
+  authorizedSignature: { en: 'Authorized Signature', sw: 'Sahihi Iliyoidhinishwa' },
+  termsConditions: { en: 'TERMS & CONDITIONS', sw: 'MASHARTI NA VIGEZO' },
+  poweredBy: { en: 'Powered by Orvix', sw: 'Inaendeshwa na Orvix' },
+  payment: { en: 'Payment', sw: 'Malipo' },
+  thankYou: { en: 'Thank you for shopping with us.', sw: 'Asante kwa kununua nasi.' },
+};
+
+function resolveReceiptLanguage(explicit?: 'en' | 'sw'): 'en' | 'sw' {
+  if (explicit === 'sw' || explicit === 'en') return explicit;
+  try {
+    const stored = window.localStorage?.getItem('jasper_lang');
+    if (stored === 'sw') return 'sw';
+  } catch { /* localStorage unavailable */ }
+  return 'en';
+}
+
+function receiptLabelFor(lang: 'en' | 'sw') {
+  return (key: ReceiptLabelKey) => RECEIPT_LABELS[key][lang];
 }
 
 export function createReceiptPdfFromData(data: ReceiptData): File {
+  const lang = resolveReceiptLanguage(data.language);
+  const L = receiptLabelFor(lang);
   const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
   const W = pdf.internal.pageSize.getWidth();
   const H = pdf.internal.pageSize.getHeight();
@@ -172,36 +237,37 @@ export function createReceiptPdfFromData(data: ReceiptData): File {
     businessY += 12;
   });
 
-  const title = (data.documentTitle || 'A4 RECEIPT').toUpperCase();
+  const title = (data.documentTitle || L('a4Receipt')).toUpperCase();
   const titleWidth = Math.max(112, Math.min(178, title.length * 8 + 28));
   roundedBox(W - margin - titleWidth, 32, titleWidth, 28, 10, indigo);
   text(title, W - margin - titleWidth / 2, 51, { align: 'center', size: 11, bold: true, color: '#ffffff' });
   const metaX = W - margin;
-  text(`No:  ${data.receiptId}`, metaX, 78, { align: 'right', size: 8, bold: true });
-  text(`Date:  ${new Date(data.timestamp).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}`, metaX, 94, { align: 'right', size: 8, color: muted });
-  if (data.cashierName) text(`Prepared by:  ${data.cashierName}`, metaX, 110, { align: 'right', size: 8, color: muted });
-  const status = (data.status || ((data.amountPaid ?? 0) >= data.grandTotal ? 'PAID' : 'PENDING')).toUpperCase();
-  roundedBox(W - margin - 64, 121, 64, 18, 7, status === 'PAID' ? '#ecfdf5' : '#fffbeb', status === 'PAID' ? '#a7f3d0' : '#fde68a');
-  text(`• ${status}`, W - margin - 32, 133.5, { align: 'center', size: 7, bold: true, color: status === 'PAID' ? '#047857' : '#b45309' });
+  text(`${L('no')}:  ${data.receiptId}`, metaX, 78, { align: 'right', size: 8, bold: true });
+  text(`${L('date')}:  ${new Date(data.timestamp).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}`, metaX, 94, { align: 'right', size: 8, color: muted });
+  if (data.cashierName) text(`${L('preparedBy')}:  ${data.cashierName}`, metaX, 110, { align: 'right', size: 8, color: muted });
+  const isPaidStatus = (data.status || '').toUpperCase() === 'PAID' || (!data.status && (data.amountPaid ?? 0) >= data.grandTotal);
+  const status = isPaidStatus ? L('paid') : L('pending');
+  roundedBox(W - margin - 64, 121, 64, 18, 7, isPaidStatus ? '#ecfdf5' : '#fffbeb', isPaidStatus ? '#a7f3d0' : '#fde68a');
+  text(`• ${status}`, W - margin - 32, 133.5, { align: 'center', size: 7, bold: true, color: isPaidStatus ? '#047857' : '#b45309' });
 
   // Bill To / From panel.
   roundedBox(margin, 178, W - margin * 2, 80, 12, pale, '#e2e8f0');
-  text('BILL TO', margin + 16, 202, { size: 7, bold: true, color: '#94a3b8' });
-  text(data.customerName || 'Walk-In Customer', margin + 16, 224, { size: 11, bold: true });
+  text(L('billTo'), margin + 16, 202, { size: 7, bold: true, color: '#94a3b8' });
+  text(data.customerName || L('walkInCustomer'), margin + 16, 224, { size: 11, bold: true });
   if (data.customerPhone) text(data.customerPhone, margin + 16, 239, { size: 8, color: muted });
-  text('FROM', W / 2 + 8, 202, { size: 7, bold: true, color: '#94a3b8' });
+  text(L('from'), W / 2 + 8, 202, { size: 7, bold: true, color: '#94a3b8' });
   text(data.businessName, W / 2 + 8, 224, { size: 11, bold: true });
-  text(data.preparedByRole || data.paymentMethod || 'Sales', W / 2 + 8, 239, { size: 8, color: muted });
+  text(data.preparedByRole || data.paymentMethod || L('sales'), W / 2 + 8, 239, { size: 8, color: muted });
 
   // Items table, with automatic extra A4 pages when an invoice is long.
   let y = 284;
   const drawTableHeader = () => {
     roundedBox(margin, y, W - margin * 2, 30, 9, navy);
     text('#', margin + 14, y + 19, { size: 7, bold: true, color: '#ffffff' });
-    text('DESCRIPTION', margin + 44, y + 19, { size: 7, bold: true, color: '#ffffff' });
-    text('QTY', W - 250, y + 19, { size: 7, bold: true, color: '#ffffff', align: 'center' });
-    text('UNIT PRICE', W - 130, y + 19, { size: 7, bold: true, color: '#ffffff', align: 'right' });
-    text('TOTAL', W - margin - 12, y + 19, { size: 7, bold: true, color: '#ffffff', align: 'right' });
+    text(L('description'), margin + 44, y + 19, { size: 7, bold: true, color: '#ffffff' });
+    text(L('qty'), W - 250, y + 19, { size: 7, bold: true, color: '#ffffff', align: 'center' });
+    text(L('unitPrice'), W - 130, y + 19, { size: 7, bold: true, color: '#ffffff', align: 'right' });
+    text(L('total'), W - margin - 12, y + 19, { size: 7, bold: true, color: '#ffffff', align: 'right' });
     y += 46;
   };
   drawTableHeader();
@@ -229,34 +295,34 @@ export function createReceiptPdfFromData(data: ReceiptData): File {
     y += 22;
   };
   const isVatDoc = data.vatStatus === 'vat' || (!data.vatStatus && (data.tax || 0) > 0);
-  totalRow('Subtotal', fmt(data.subtotal));
-  if ((data.discount || 0) > 0) totalRow('Discount', `-${fmt(data.discount || 0)}`, '#b45309');
-  if (isVatDoc) totalRow('VAT / Tax', fmt(data.tax || 0));
-  if ((data.deliveryCost || 0) > 0) totalRow('Delivery', fmt(data.deliveryCost || 0));
+  totalRow(L('subtotal'), fmt(data.subtotal));
+  if ((data.discount || 0) > 0) totalRow(L('discount'), `-${fmt(data.discount || 0)}`, '#b45309');
+  if (isVatDoc) totalRow(L('vatTax'), fmt(data.tax || 0));
+  if ((data.deliveryCost || 0) > 0) totalRow(L('delivery'), fmt(data.deliveryCost || 0));
   roundedBox(totalsX, y - 7, W - margin - totalsX, 38, 9, navy);
-  text('TOTAL', totalsX + 14, y + 17, { size: 10, bold: true, color: '#ffffff' });
+  text(L('total'), totalsX + 14, y + 17, { size: 10, bold: true, color: '#ffffff' });
   text(fmt(data.grandTotal), W - margin - 14, y + 17, { align: 'right', size: 11, bold: true, color: '#ffffff' });
   y += 52;
   const balance = Math.max(0, data.grandTotal - (data.amountPaid || 0));
-  totalRow('Balance', fmt(balance));
+  totalRow(L('balance'), fmt(balance));
 
   // Signatures, terms and footer.
   const signatureY = Math.max(585, y + 34);
   pdf.setDrawColor('#cbd5e1');
   pdf.line(margin, signatureY, margin + 255, signatureY);
   pdf.line(W - margin - 255, signatureY, W - margin, signatureY);
-  text(data.cashierName || 'Authorized Person', margin, signatureY + 16, { size: 8, bold: true });
-  text(data.preparedByRole || 'Staff', margin, signatureY + 29, { size: 7, color: '#94a3b8' });
-  text('Authorized Signature', W - margin, signatureY + 16, { align: 'right', size: 7, color: '#94a3b8' });
+  text(data.cashierName || L('authorizedPerson'), margin, signatureY + 16, { size: 8, bold: true });
+  text(data.preparedByRole || L('staff'), margin, signatureY + 29, { size: 7, color: '#94a3b8' });
+  text(L('authorizedSignature'), W - margin, signatureY + 16, { align: 'right', size: 7, color: '#94a3b8' });
   const terms = data.terms?.filter(Boolean) || [];
   if (terms.length) {
     const termsY = signatureY + 72;
     pdf.setDrawColor('#f1f5f9'); pdf.line(margin, termsY - 18, W - margin, termsY - 18);
-    text('TERMS & CONDITIONS', margin, termsY, { size: 7, bold: true, color: '#94a3b8' });
+    text(L('termsConditions'), margin, termsY, { size: 7, bold: true, color: '#94a3b8' });
     terms.slice(0, 4).forEach((term, index) => text(`${index + 1}. ${term}`, margin, termsY + 19 + index * 17, { size: 8, color: muted }));
   }
   pdf.setDrawColor('#f1f5f9'); pdf.line(margin, H - 66, W - margin, H - 66);
-  text(data.footer || 'Powered by Orvix', W / 2, H - 48, { align: 'center', size: 6, color: '#cbd5e1' });
+  text(data.footer || L('poweredBy'), W / 2, H - 48, { align: 'center', size: 6, color: '#cbd5e1' });
 
   const cleanName = sanitizeFileName(`a4-receipt-${data.receiptId}.pdf`);
   return new File([pdf.output('blob')], cleanName, { type: 'application/pdf' });
@@ -268,6 +334,8 @@ export function createReceiptPdfFromData(data: ReceiptData): File {
 // A4 page, and with a layout built for that narrow column.
 
 function drawPosReceipt(pdf: jsPDF, data: ReceiptData, width: number): number {
+  const lang = resolveReceiptLanguage(data.language);
+  const L = receiptLabelFor(lang);
   const margin = 10;
   const contentWidth = width - margin * 2;
   const navy = '#0f172a';
@@ -313,24 +381,24 @@ function drawPosReceipt(pdf: jsPDF, data: ReceiptData, width: number): number {
   dashedLine(y);
   y += 12;
 
-  const title = (data.documentTitle || 'POS RECEIPT').toUpperCase();
+  const title = (data.documentTitle || L('posReceipt')).toUpperCase();
   center(title, y, { size: 8.5, bold: true });
   y += 12;
-  left(`No: ${data.receiptId}`, margin, y, { size: 7 });
+  left(`${L('no')}: ${data.receiptId}`, margin, y, { size: 7 });
   left(
     new Date(data.timestamp).toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
     width - margin, y, { size: 7, align: 'right', color: muted }
   );
   y += 11;
-  if (data.cashierName) { left(`Cashier: ${data.cashierName}`, margin, y, { size: 7, color: muted }); y += 11; }
-  if (data.customerName) { left(`Customer: ${data.customerName}`, margin, y, { size: 7, color: muted }); y += 11; }
+  if (data.cashierName) { left(`${L('cashier')}: ${data.cashierName}`, margin, y, { size: 7, color: muted }); y += 11; }
+  if (data.customerName) { left(`${L('customer')}: ${data.customerName}`, margin, y, { size: 7, color: muted }); y += 11; }
   y += 3;
   dashedLine(y);
   y += 12;
 
   pdf.setFont('helvetica', 'bold'); pdf.setFontSize(6.8); pdf.setTextColor(muted);
-  pdf.text('ITEM', margin, y);
-  pdf.text('TOTAL', width - margin, y, { align: 'right' });
+  pdf.text(L('item'), margin, y);
+  pdf.text(L('total'), width - margin, y, { align: 'right' });
   y += 10;
   dashedLine(y);
   y += 10;
@@ -358,20 +426,20 @@ function drawPosReceipt(pdf: jsPDF, data: ReceiptData, width: number): number {
     y += 12;
   };
   const isVatDoc = data.vatStatus === 'vat' || (!data.vatStatus && (data.tax || 0) > 0);
-  totalRow('Subtotal', fmt(data.subtotal));
-  if ((data.discount || 0) > 0) totalRow('Discount', `-${fmt(data.discount || 0)}`);
-  if (isVatDoc) totalRow('VAT / Tax', fmt(data.tax || 0));
-  if ((data.deliveryCost || 0) > 0) totalRow('Delivery', fmt(data.deliveryCost || 0));
+  totalRow(L('subtotal'), fmt(data.subtotal));
+  if ((data.discount || 0) > 0) totalRow(L('discount'), `-${fmt(data.discount || 0)}`);
+  if (isVatDoc) totalRow(L('vatTax'), fmt(data.tax || 0));
+  if ((data.deliveryCost || 0) > 0) totalRow(L('delivery'), fmt(data.deliveryCost || 0));
   y += 2;
   dashedLine(y);
   y += 12;
-  totalRow('TOTAL', fmt(data.grandTotal), { bold: true, size: 9.5 });
+  totalRow(L('total'), fmt(data.grandTotal), { bold: true, size: 9.5 });
   y += 2;
-  if (data.amountPaid !== undefined) totalRow('Paid', fmt(data.amountPaid));
+  if (data.amountPaid !== undefined) totalRow(L('paid'), fmt(data.amountPaid));
   const balance = Math.max(0, data.grandTotal - (data.amountPaid || 0));
-  if (balance > 0) totalRow('Balance due', fmt(balance));
-  else if ((data.change || 0) > 0) totalRow('Change', fmt(data.change || 0));
-  left(`Payment: ${data.paymentMethod}`, margin, y, { size: 7, color: muted });
+  if (balance > 0) totalRow(L('balanceDue'), fmt(balance));
+  else if ((data.change || 0) > 0) totalRow(L('change'), fmt(data.change || 0));
+  left(`${L('payment')}: ${data.paymentMethod}`, margin, y, { size: 7, color: muted });
   y += 11;
   if (data.paymentMethod === 'Multi-Channel' && Array.isArray(data.paymentBreakdown) && data.paymentBreakdown.length > 0) {
     data.paymentBreakdown.forEach(part => {
@@ -384,9 +452,9 @@ function drawPosReceipt(pdf: jsPDF, data: ReceiptData, width: number): number {
 
   dashedLine(y);
   y += 14;
-  center('Thank you for shopping with us.', y, { size: 7, bold: true });
+  center(L('thankYou'), y, { size: 7, bold: true });
   y += 12;
-  center(data.footer || 'Powered by Orvix', y, { size: 6, color: muted });
+  center(data.footer || L('poweredBy'), y, { size: 6, color: muted });
   y += 10;
 
   return y;
