@@ -16,7 +16,13 @@ function syncViewportVars() {
   const width = viewport?.width || window.innerWidth;
   const offsetTop = viewport?.offsetTop || 0;
   const offsetLeft = viewport?.offsetLeft || 0;
-  const bottomInset = viewport ? Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop) : 0;
+  const obscuredHeight = viewport ? Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop) : 0;
+  const focusedElement = document.activeElement;
+  const keyboardActive = isTextEntryElement(focusedElement) && obscuredHeight > 80;
+  // The large visual-viewport gap while a software keyboard is open is not a
+  // browser safe-area inset. Feeding it into bottom navigation positioning
+  // moves the entire menu above the keyboard and can collapse the workspace.
+  const bottomInset = keyboardActive ? 0 : Math.min(obscuredHeight, 80);
   document.documentElement.style.setProperty('--app-height', `${height}px`);
   document.documentElement.style.setProperty('--app-width', `${width}px`);
   document.documentElement.style.setProperty('--visual-viewport-top', `${offsetTop}px`);

@@ -63,59 +63,9 @@ html.landing-page #jasper-app-root {
   overflow-x: clip !important;
   display: block !important;
 }
-@media screen and (orientation: landscape) and (max-height: 500px) and (max-width: 767px) {
-  /* Phone landscape — show a rotate prompt instead of broken layout.
-     max-width added: without it, this also matched tablets — landscape
-     tablets sit comfortably above 500px tall normally, but the on-screen
-     keyboard opening (e.g. tapping a search field) shrinks the visible
-     content height enough to dip under 500px too, so this rule was firing
-     on tablets whenever the keyboard opened, blanking the whole screen —
-     confirmed from an iPad screenshot sequence: tap search -> keyboard
-     opens -> everything disappears. Capped to genuine phone widths, where
-     this rotate-prompt behavior is actually intended, fixes that without
-     touching the tablet landscape lock added separately below. */
-  #jasper-app-root > * {
-    display: none !important;
-  }
-  #jasper-app-root::before {
-    content: 'Please rotate your device to portrait mode';
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 100dvh;
-    width: 100%;
-    font-family: system-ui, sans-serif;
-    font-size: 14px;
-    font-weight: 600;
-    color: #64748b;
-    text-align: center;
-    padding: 24px;
-  }
-}
-
-/* Tablet portrait — this app's tablet layout (POS split-screen etc.) is
-   built landscape-only, same width range (768-1279px) used everywhere
-   else in this file for "tablet". Same rotate-prompt technique as the
-   phone-landscape lock above, inverted: block portrait, require landscape. */
-@media screen and (orientation: portrait) and (min-width: 768px) and (max-width: 1279px) {
-  #jasper-app-root > * {
-    display: none !important;
-  }
-  #jasper-app-root::before {
-    content: 'Please rotate your device to landscape mode';
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 100dvh;
-    width: 100%;
-    font-family: system-ui, sans-serif;
-    font-size: 14px;
-    font-weight: 600;
-    color: #64748b;
-    text-align: center;
-    padding: 24px;
-  }
-}
+/* Never hide the authenticated app based on orientation or current viewport
+   width. Safari changes the visual viewport dimensions while its keyboard is
+   opening, and an iPad can temporarily match phone media queries. */
 
 /* ── NATIVE APP STABILITY ──────────────────────────────────────────────────
    Prevents bounce scroll, prevents bottom nav shake, prevents iPhone swipe
@@ -742,9 +692,7 @@ body.rtl { font-family: 'Cairo', "Plus Jakarta Sans", "Inter", system-ui, sans-s
   width: 100%;
 }
 
-/* POS product catalog: 1-up on phone, 2-up on tablet and desktop -- each
-   card (and its product image) reads clearly and taps easily instead of
-   being packed into a dense multi-column grid, per request. */
+/* POS product catalog: 1-up on phone, 2-up on tablet, and 3-up on desktop. */
 #dashboard-scaffold #pos-product-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
 }
@@ -752,6 +700,12 @@ body.rtl { font-family: 'Cairo', "Plus Jakarta Sans", "Inter", system-ui, sans-s
 @media (max-width: 767px) {
   #dashboard-scaffold #pos-product-grid {
     grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (min-width: 1280px) {
+  #dashboard-scaffold #pos-product-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
   }
 }
 
