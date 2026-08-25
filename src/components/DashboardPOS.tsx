@@ -38,7 +38,8 @@ import {
   UserCheck,
   Calendar,
   Settings,
-  ChevronDown
+  ChevronDown,
+  Package
 } from 'lucide-react';
 import DashboardBarcodeScanner from './DashboardBarcodeScanner';
 import CachedImage from './CachedImage';
@@ -1400,9 +1401,9 @@ export default function DashboardPOS({
         </div>
 
         {/* Product listing grid */}
-        <div id="pos-product-grid" className={`${showProductImages ? 'grid grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4' : 'flex flex-col gap-2'} px-2 md:px-0 min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-2 scrollbar-thin scrollbar-thumb-slate-200`}>
+        <div id="pos-product-grid" className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3 lg:gap-4 px-2 md:px-0 min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-2 scrollbar-thin scrollbar-thumb-slate-200">
           {filteredProducts.length === 0 ? (
-            <div className="col-span-3 lg:col-span-4 text-center py-16 text-sm font-mono text-slate-500 bg-white border border-slate-200 rounded-3xl shadow-sm">
+            <div className="col-span-1 md:col-span-2 text-center py-16 text-sm font-mono text-slate-500 bg-white border border-slate-200 rounded-3xl shadow-sm">
               No matching {activeTenant.businessType === 'pharmacy' ? 'pharmaceutical products' : 'retail items'} in stock.
             </div>
           ) : (
@@ -1434,15 +1435,21 @@ export default function DashboardPOS({
                       : 'border-slate-200 hover:border-slate-350 cursor-pointer'
                   }`}
                 >
-                  {/* Product image — only shown if user uploaded one */}
-                  {showProductImages && getProductImage(prod) !== '' && (
+                  {/* Product image — falls back to a plain icon tile when the
+                      product has none, so every card in the row keeps the
+                      same height instead of the image block disappearing */}
+                  {showProductImages && (
                     <div className="pos-tablet-product-image w-full aspect-square lg:aspect-auto lg:h-36 xl:h-20 bg-slate-50 border-b lg:border border-slate-100 rounded-t-xl lg:rounded-2xl overflow-hidden flex items-center justify-center relative shrink-0">
-                      <CachedImage 
-                        src={getProductImage(prod)} 
-                        alt={prod.name} 
-                        className="w-full h-full lg:group-hover:scale-105 select-none pointer-events-none object-contain p-1.5"
-                        referrerPolicy="no-referrer"
-                      />
+                      {getProductImage(prod) !== '' ? (
+                        <CachedImage
+                          src={getProductImage(prod)}
+                          alt={prod.name}
+                          className="w-full h-full lg:group-hover:scale-105 select-none pointer-events-none object-contain p-1.5"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        <Package className="w-7 h-7 lg:w-10 lg:h-10 text-slate-300" strokeWidth={1.5} />
+                      )}
                       {isLow && !isOut && (
                         <span className="absolute top-1.5 left-1.5 md:top-2.5 md:left-2.5 bg-amber-500 text-white px-1.5 md:px-2 py-0.5 rounded-lg text-[8px] md:text-[8px] font-black tracking-wider uppercase font-mono shadow-xs">
                           LOW ({shopQty})

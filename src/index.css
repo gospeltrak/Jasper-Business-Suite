@@ -742,22 +742,16 @@ body.rtl { font-family: 'Cairo', "Plus Jakarta Sans", "Inter", system-ui, sans-s
   width: 100%;
 }
 
-/* POS product catalog: 2-up on phone, 3-up on tablet, 4-up from the
-   desktop boundary. Phone was 3-up like tablet; dropped to 2 so each card
-   (and its square product image) is noticeably bigger, per request. */
+/* POS product catalog: 1-up on phone, 2-up on tablet and desktop -- each
+   card (and its product image) reads clearly and taps easily instead of
+   being packed into a dense multi-column grid, per request. */
 #dashboard-scaffold #pos-product-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
 }
 
 @media (max-width: 767px) {
   #dashboard-scaffold #pos-product-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-  }
-}
-
-@media (min-width: 1024px) {
-  #dashboard-scaffold #pos-product-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
   }
 }
 
@@ -2132,13 +2126,6 @@ button:active:not(:disabled),
   background: #4b5563;
 }
 
-
-/* POS product grid — 4 columns on desktop */
-@media (min-width: 1024px) {
-  .pos-product-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-  }
-}
 
 /* ── Mobile Settings — Native App Feel ── */
 @media (max-width: 1279px) {
