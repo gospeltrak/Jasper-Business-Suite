@@ -2787,7 +2787,7 @@ export default function DashboardProducts({
                   className="h-9 px-4 flex items-center gap-1.5 rounded-xl text-white text-xs font-bold transition-colors shadow-sm"
                   style={{ background: isOpen ? '#ef4444' : '#22c55e' }}>
                   <Plus className="w-3.5 h-3.5" />
-                  <span>{isOpen ? 'Cancel' : 'Add Product'}</span>
+                  <span>{isOpen ? 'Close' : 'Add Product'}</span>
                 </button>
               </div>
             </div>
