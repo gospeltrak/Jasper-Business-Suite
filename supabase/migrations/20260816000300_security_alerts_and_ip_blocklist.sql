@@ -35,9 +35,11 @@ alter table public.security_threat_events force row level security;
 alter table public.ip_blocklist enable row level security;
 alter table public.ip_blocklist force row level security;
 
+drop policy if exists security_threat_events_platform_admin_read on public.security_threat_events;
 create policy security_threat_events_platform_admin_read
   on public.security_threat_events for select to authenticated
   using (private.is_platform_admin());
+drop policy if exists ip_blocklist_platform_admin_read on public.ip_blocklist;
 create policy ip_blocklist_platform_admin_read
   on public.ip_blocklist for select to authenticated
   using (private.is_platform_admin());
