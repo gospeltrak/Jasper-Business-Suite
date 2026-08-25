@@ -288,7 +288,7 @@ export default function SaaSStatusAndRequests() {
 
   const handleViewReceipt = async (proof: PaymentProof) => {
     if (!proof.receipt_file_url) {
-      setMessage({ text: 'This older request contains a receipt filename only. Ask the tenant to resubmit the actual file.', type: 'error' });
+      setMessage({ text: 'No receipt was submitted for this request — the tenant provided payment details/reference instead. See the note below.', type: 'error' });
       return;
     }
     try {
@@ -570,15 +570,21 @@ export default function SaaSStatusAndRequests() {
                   </div>
                   <div className="bg-slate-800 rounded-xl p-3">
                     <p className="text-[8px] text-slate-500 uppercase font-bold tracking-wider mb-1">Receipt</p>
-                    <p className="text-xs font-mono text-slate-300 truncate">{proof.receipt_file_name}</p>
-                    <button
-                      type="button"
-                      onClick={() => handleViewReceipt(proof)}
-                      className="mt-2 inline-flex items-center gap-1 rounded-lg border border-slate-600 px-2 py-1 text-[9px] font-bold text-emerald-300 transition-colors hover:border-emerald-500 hover:text-emerald-200"
-                    >
-                      <FileText className="h-3 w-3" />
-                      Open receipt
-                    </button>
+                    {proof.receipt_file_url ? (
+                      <>
+                        <p className="text-xs font-mono text-slate-300 truncate">{proof.receipt_file_name}</p>
+                        <button
+                          type="button"
+                          onClick={() => handleViewReceipt(proof)}
+                          className="mt-2 inline-flex items-center gap-1 rounded-lg border border-slate-600 px-2 py-1 text-[9px] font-bold text-emerald-300 transition-colors hover:border-emerald-500 hover:text-emerald-200"
+                        >
+                          <FileText className="h-3 w-3" />
+                          Open receipt
+                        </button>
+                      </>
+                    ) : (
+                      <p className="text-xs text-slate-500 italic">No receipt — see note</p>
+                    )}
                   </div>
                   <div className="bg-slate-800 rounded-xl p-3">
                     <p className="text-[8px] text-slate-500 uppercase font-bold tracking-wider mb-1">Submitted</p>

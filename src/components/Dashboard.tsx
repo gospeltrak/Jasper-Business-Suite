@@ -1476,22 +1476,20 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       setManualActivationMessage('Please choose Ruby, Diamond, or Tanzanite before submitting.');
       return;
     }
-    if (!manualActivationReceipt) {
-      setManualActivationMessage('Please attach the payment receipt before submitting.');
+    if (!manualActivationReceipt && !manualActivationNote.trim()) {
+      setManualActivationMessage('Attach a receipt image or add the transaction reference/payment details.');
       return;
     }
-    if (!manualActivationNote.trim()) {
-      setManualActivationMessage('Please add the transaction reference or payment details.');
-      return;
-    }
-    if (manualActivationReceipt.size > 2 * 1024 * 1024) {
-      setManualActivationMessage('Receipt must be 2 MB or smaller.');
-      return;
-    }
-    const allowedReceiptTypes = ['image/jpeg', 'image/png', 'image/webp'];
-    if (!allowedReceiptTypes.includes(manualActivationReceipt.type)) {
-      setManualActivationMessage('Use a JPG, PNG, or WebP receipt.');
-      return;
+    if (manualActivationReceipt) {
+      if (manualActivationReceipt.size > 2 * 1024 * 1024) {
+        setManualActivationMessage('Receipt must be 2 MB or smaller.');
+        return;
+      }
+      const allowedReceiptTypes = ['image/jpeg', 'image/png', 'image/webp'];
+      if (!allowedReceiptTypes.includes(manualActivationReceipt.type)) {
+        setManualActivationMessage('Use a JPG, PNG, or WebP receipt.');
+        return;
+      }
     }
 
     setManualActivationSubmitting(true);
@@ -1503,12 +1501,15 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       const { data: sessionData } = await client.auth.getSession();
       const token = sessionData?.session?.access_token;
       if (!token) throw new Error('Your secure session has expired. Sign in again.');
-      const receiptBase64 = await compressImageFile(manualActivationReceipt, {
-        maxWidth: 1600,
-        maxHeight: 1600,
-        quality: 0.85,
-        mimeType: 'image/webp',
-      });
+      const receiptBase64 = manualActivationReceipt
+        ? await compressImageFile(manualActivationReceipt, {
+            maxWidth: 1600,
+            maxHeight: 1600,
+            quality: 0.85,
+            mimeType: 'image/webp',
+          })
+        : null;
+      const trimmedNote = manualActivationNote.trim();
       const uploadResponse = await fetch('/api/subscriptions/payment-proof-file', {
         method: 'POST',
         headers: {
@@ -1517,12 +1518,12 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
         },
         body: JSON.stringify({
           tenantId: activeTenant.id,
-          fileName: `${manualActivationReceipt.name.replace(/\.[^.]+$/, '')}.webp`,
-          fileType: 'image/webp',
-          originalFileSize: manualActivationReceipt.size,
+          fileName: manualActivationReceipt ? `${manualActivationReceipt.name.replace(/\.[^.]+$/, '')}.webp` : null,
+          fileType: manualActivationReceipt ? 'image/webp' : null,
+          originalFileSize: manualActivationReceipt ? manualActivationReceipt.size : null,
           receiptBase64,
           requestedPackageId: selectedPlanId,
-          note: `Package: ${selectedPlan.name}. ${manualActivationNote.trim()}`,
+          note: `Package: ${selectedPlan.name}.${trimmedNote ? ` ${trimmedNote}` : ''}`,
         }),
       });
       const uploadPayload = await uploadResponse.json().catch(() => ({}));

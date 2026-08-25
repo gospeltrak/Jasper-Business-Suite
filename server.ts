@@ -2650,60 +2650,68 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       const originalFileSize = Number(req.body?.originalFileSize || 0);
       const requestedPackageId = String(req.body?.requestedPackageId || '').trim().toLowerCase();
       const note = normalizeText(req.body?.note, 500);
+      const hasReceipt = receiptBase64.length > 0;
       const allowedTypes = new Map([['image/webp', 'webp']]);
 
       const submittingUser = await requireTenantUser(req, tenantId);
       if (!SUBSCRIPTION_PACKAGE_IDS.has(requestedPackageId) || !SUBSCRIPTION_PACKAGE_PRICES.has(requestedPackageId)) {
         return res.status(400).json({ error: 'Choose Ruby, Diamond, or Tanzanite.' });
       }
-      if (!note) return res.status(400).json({ error: 'Transaction reference or payment details are required.' });
-      if (!Number.isFinite(originalFileSize) || originalFileSize <= 0 || originalFileSize > 2 * 1024 * 1024) {
-        return res.status(413).json({ error: 'Receipt must be 2 MB or smaller.' });
-      }
-      if (!allowedTypes.has(fileType)) {
-        return res.status(400).json({ error: 'Receipt must be converted to WebP before upload.' });
-      }
-      const dataUrlPrefix = `data:${fileType};base64,`;
-      if (!receiptBase64.startsWith(dataUrlPrefix)) {
-        return res.status(400).json({ error: 'Receipt content does not match its file type.' });
-      }
-      const encoded = receiptBase64.slice(dataUrlPrefix.length);
-      const fileBuffer = Buffer.from(encoded, 'base64');
-      if (!fileBuffer.length || fileBuffer.length > 2 * 1024 * 1024) {
-        return res.status(413).json({ error: 'Optimized receipt must be 2 MB or smaller.' });
-      }
-      const signatureMatches = fileBuffer.length >= 12
-        && fileBuffer.toString('ascii', 0, 4) === 'RIFF'
-        && fileBuffer.toString('ascii', 8, 12) === 'WEBP';
-      if (!signatureMatches) return res.status(400).json({ error: 'Receipt content does not match its declared file type.' });
-
-      const { data: buckets, error: bucketsError } = await supabaseAdmin.storage.listBuckets();
-      if (bucketsError) throw bucketsError;
-      if (!buckets.some((bucket: any) => bucket.name === 'payment-proofs')) {
-        const { error: bucketError } = await supabaseAdmin.storage.createBucket('payment-proofs', {
-          public: false,
-          fileSizeLimit: 2 * 1024 * 1024,
-          allowedMimeTypes: Array.from(allowedTypes.keys()),
-        });
-        if (bucketError) throw bucketError;
+      if (!note && !hasReceipt) {
+        return res.status(400).json({ error: 'Attach a receipt image or add the transaction reference/payment details.' });
       }
 
-      const extension = allowedTypes.get(fileType);
-      const receiptPath = `${tenantId}/${Date.now()}-${randomUUID()}.${extension}`;
-      const { error: uploadError } = await supabaseAdmin.storage
-        .from('payment-proofs')
-        .upload(receiptPath, fileBuffer, {
-          contentType: fileType,
-          upsert: false,
-        });
-      if (uploadError) throw uploadError;
+      let receiptPath: string | null = null;
+      let fileBuffer: Buffer | null = null;
+      if (hasReceipt) {
+        if (!Number.isFinite(originalFileSize) || originalFileSize <= 0 || originalFileSize > 2 * 1024 * 1024) {
+          return res.status(413).json({ error: 'Receipt must be 2 MB or smaller.' });
+        }
+        if (!allowedTypes.has(fileType)) {
+          return res.status(400).json({ error: 'Receipt must be converted to WebP before upload.' });
+        }
+        const dataUrlPrefix = `data:${fileType};base64,`;
+        if (!receiptBase64.startsWith(dataUrlPrefix)) {
+          return res.status(400).json({ error: 'Receipt content does not match its file type.' });
+        }
+        const encoded = receiptBase64.slice(dataUrlPrefix.length);
+        fileBuffer = Buffer.from(encoded, 'base64');
+        if (!fileBuffer.length || fileBuffer.length > 2 * 1024 * 1024) {
+          return res.status(413).json({ error: 'Optimized receipt must be 2 MB or smaller.' });
+        }
+        const signatureMatches = fileBuffer.length >= 12
+          && fileBuffer.toString('ascii', 0, 4) === 'RIFF'
+          && fileBuffer.toString('ascii', 8, 12) === 'WEBP';
+        if (!signatureMatches) return res.status(400).json({ error: 'Receipt content does not match its declared file type.' });
+
+        const { data: buckets, error: bucketsError } = await supabaseAdmin.storage.listBuckets();
+        if (bucketsError) throw bucketsError;
+        if (!buckets.some((bucket: any) => bucket.name === 'payment-proofs')) {
+          const { error: bucketError } = await supabaseAdmin.storage.createBucket('payment-proofs', {
+            public: false,
+            fileSizeLimit: 2 * 1024 * 1024,
+            allowedMimeTypes: Array.from(allowedTypes.keys()),
+          });
+          if (bucketError) throw bucketError;
+        }
+
+        const extension = allowedTypes.get(fileType);
+        receiptPath = `${tenantId}/${Date.now()}-${randomUUID()}.${extension}`;
+        const { error: uploadError } = await supabaseAdmin.storage
+          .from('payment-proofs')
+          .upload(receiptPath, fileBuffer, {
+            contentType: fileType,
+            upsert: false,
+          });
+        if (uploadError) throw uploadError;
+      }
 
       const { data: tenant, error: tenantError } = await adminTable('tenants')
         .select('id, name, currency, currency_code')
         .eq('id', tenantId)
         .maybeSingle();
       if (tenantError || !tenant) {
-        await supabaseAdmin.storage.from('payment-proofs').remove([receiptPath]);
+        if (receiptPath) await supabaseAdmin.storage.from('payment-proofs').remove([receiptPath]);
         throw tenantError || new Error('Tenant account was not found.');
       }
       const submittedAt = new Date().toISOString();
@@ -2716,11 +2724,11 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         amount: SUBSCRIPTION_PACKAGE_PRICES.get(requestedPackageId),
         currency: normalizeText(tenant.currency_code || tenant.currency, 10) || 'TZS',
         status: 'pending',
-        receipt_file_name: fileName,
-        receipt_file_type: fileType,
-        receipt_file_size: fileBuffer.length,
+        receipt_file_name: hasReceipt ? fileName : null,
+        receipt_file_type: hasReceipt ? fileType : null,
+        receipt_file_size: fileBuffer ? fileBuffer.length : null,
         receipt_file_url: receiptPath,
-        note,
+        note: note || null,
         submitted_by: submittingUser.id,
         submitted_at: submittedAt,
         created_at: submittedAt,
@@ -2731,12 +2739,12 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         .select('id, status, requested_package_id, submitted_at')
         .single();
       if (proofError || !proof) {
-        await supabaseAdmin.storage.from('payment-proofs').remove([receiptPath]);
+        if (receiptPath) await supabaseAdmin.storage.from('payment-proofs').remove([receiptPath]);
         throw proofError || new Error('Payment request was not created.');
       }
 
       void sendTelegramAlert(
-        `💰 <b>Payment approval needed</b>\n${normalizeText(tenant.name, 160)} submitted a receipt for the ${proofRecord.requested_package_name} plan.\nAmount: ${proofRecord.currency} ${proofRecord.amount}\nOpen Super Admin → Approvals to review.`
+        `💰 <b>Payment approval needed</b>\n${normalizeText(tenant.name, 160)} submitted ${hasReceipt ? 'a receipt' : 'payment details'} for the ${proofRecord.requested_package_name} plan.\nAmount: ${proofRecord.currency} ${proofRecord.amount}\nOpen Super Admin → Approvals to review.`
       );
 
       return res.status(201).json({ proof, receiptPath, fileName });
