@@ -109,6 +109,20 @@ export const updateBranchLogo = async (
   return response.branch;
 };
 
+export const uploadBranchLogoAsset = async (
+  branchId: string,
+  variant: 'light' | 'dark',
+  logoBase64: string,
+) => {
+  const token = await getAccessToken();
+  const response = await requestBranchApi<{ branch: { id: string; logoLightUrl: string | null; logoDarkUrl: string | null } }>(
+    `/api/branches/${encodeURIComponent(branchId)}/logo-upload`,
+    token,
+    { method: 'POST', body: JSON.stringify({ variant, logoBase64 }) },
+  );
+  return response.branch;
+};
+
 export interface BranchContactProfile {
   id: string;
   address: string | null;

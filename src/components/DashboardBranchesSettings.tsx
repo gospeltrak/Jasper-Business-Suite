@@ -359,15 +359,29 @@ function BranchLogoUploadCard({
     setIsUploading(true);
     setStatusMessage(null);
     try {
-      const { uploadBranchLogo } = await import('../utils/imageStorage');
-      const uploadedUrl = await uploadBranchLogo(file, activeTenant.id, branch.id, variant);
-      if (!uploadedUrl) throw new Error('Upload failed');
-      await updateLogo(branch.id, variant === 'light'
-        ? { logoLightUrl: uploadedUrl, logoDarkUrl: branch.logoDarkUrl }
-        : { logoLightUrl: branch.logoLightUrl, logoDarkUrl: uploadedUrl });
+      const [{ compressImage }, { uploadBranchLogoAsset }] = await Promise.all([
+        import('../utils/imageStorage'),
+        import('../branches/branchApi'),
+      ]);
+      const compressed = await compressImage(file);
+      const logoBase64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error('The selected image could not be read.'));
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.readAsDataURL(compressed);
+      });
+      const savedBranch = await uploadBranchLogoAsset(branch.id, variant, logoBase64);
+      // Refresh the shared branch directory using the URLs returned by the
+      // authenticated server upload; never send an empty logo payload because
+      // omitted values intentionally mean "remove" in the narrow logo RPC.
+      await updateLogo(branch.id, {
+        logoLightUrl: savedBranch.logoLightUrl,
+        logoDarkUrl: savedBranch.logoDarkUrl,
+      });
       setStatusMessage({ type: 'success', text: 'Logo saved' });
-    } catch {
-      setStatusMessage({ type: 'error', text: 'Upload failed — try again' });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Upload failed — try again';
+      setStatusMessage({ type: 'error', text: message });
     } finally {
       setIsUploading(false);
       setTimeout(() => setStatusMessage(null), 4000);

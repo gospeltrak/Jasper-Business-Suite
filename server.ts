@@ -2343,6 +2343,64 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     return res.json({ branch: data });
   });
 
+  app.post('/api/branches/:branchId/logo-upload', async (req, res) => {
+    const branchClient = await requireBranchRpcClient(req, res);
+    if (!branchClient) return;
+    if (!requireMultiBranchFeature(res)) return;
+    if (!supabaseAdmin) return res.status(503).json({ error: 'Secure logo storage is unavailable.' });
+
+    const branchId = String(req.params.branchId || '');
+    const variant = String(req.body?.variant || '');
+    const logoBase64 = String(req.body?.logoBase64 || '');
+    if (!isUuid(branchId)) return res.status(400).json({ error: 'A valid branch ID is required.' });
+    if (!['light', 'dark'].includes(variant)) return res.status(400).json({ error: 'A valid logo variant is required.' });
+    const encoded = /^data:image\/jpeg;base64,([A-Za-z0-9+/=]+)$/.exec(logoBase64)?.[1];
+    if (!encoded) return res.status(400).json({ error: 'The branch logo must be a valid image.' });
+    const buffer = Buffer.from(encoded, 'base64');
+    if (!buffer.length || buffer.length > 1_000_000 || buffer[0] !== 0xff || buffer[1] !== 0xd8 || buffer[2] !== 0xff) {
+      return res.status(400).json({ error: 'The optimized branch logo is invalid or too large.' });
+    }
+
+    const current = await branchClient
+      .from('branches')
+      .select('id,tenant_id,logo_light_url,logo_dark_url')
+      .eq('id', branchId)
+      .maybeSingle();
+    if (current.error) return sendBranchRpcError(res, current.error);
+    if (!current.data) return res.status(404).json({ error: 'Branch record was not found.' });
+
+    // Authorize the exact branch-management operation before using the
+    // server-side storage client. Supplying the current values makes this a
+    // no-op permission probe and cannot alter another tenant's branding.
+    const permission = await branchClient.rpc('update_current_tenant_branch_logo', {
+      p_branch_id: branchId,
+      p_logo_light_url: current.data.logo_light_url,
+      p_logo_dark_url: current.data.logo_dark_url,
+    });
+    if (permission.error) return sendBranchRpcError(res, permission.error);
+
+    const objectPath = `${current.data.tenant_id}/branches/${branchId}/logo-${variant}-${Date.now()}.jpg`;
+    const upload = await supabaseAdmin.storage.from('tenant-logos').upload(objectPath, buffer, {
+      contentType: 'image/jpeg',
+      cacheControl: '31536000',
+      upsert: false,
+    });
+    if (upload.error) {
+      console.warn('[Branch API] Logo storage upload failed:', normalizeText(upload.error.message, 180));
+      return res.status(502).json({ error: 'Branch logo could not be uploaded. Please try again.' });
+    }
+    const publicUrl = supabaseAdmin.storage.from('tenant-logos').getPublicUrl(objectPath).data?.publicUrl || '';
+    if (!publicUrl.startsWith('https://')) return res.status(502).json({ error: 'Branch logo URL could not be created.' });
+
+    const saved = await branchClient.rpc('update_current_tenant_branch_logo', {
+      p_branch_id: branchId,
+      p_logo_light_url: variant === 'light' ? publicUrl : current.data.logo_light_url,
+      p_logo_dark_url: variant === 'dark' ? publicUrl : current.data.logo_dark_url,
+    });
+    if (saved.error) return sendBranchRpcError(res, saved.error);
+    return res.json({ branch: saved.data });
+  });
+
   app.get('/api/branches/:branchId/profile', async (req, res) => {
     const branchClient = await requireBranchRpcClient(req, res);
     if (!branchClient) return;

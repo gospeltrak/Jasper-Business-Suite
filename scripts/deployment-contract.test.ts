@@ -536,6 +536,25 @@ test('standard invoices and quotations retry idempotently with a stable UUID', a
   assert.doesNotMatch(migrationSource, /\b(delete|truncate|drop table)\b/i);
 });
 
+test('branch logos upload through the authenticated backend instead of browser storage RLS', async () => {
+  const serverSource = await read('server.ts');
+  const branchApiSource = await read('src/branches/branchApi.ts');
+  const settingsSource = await read('src/components/DashboardBranchesSettings.tsx');
+  assert.match(serverSource, /\/api\/branches\/:branchId\/logo-upload/);
+  assert.match(serverSource, /update_current_tenant_branch_logo[\s\S]{0,1600}tenant-logos/);
+  assert.match(branchApiSource, /export const uploadBranchLogoAsset/);
+  assert.match(settingsSource, /uploadBranchLogoAsset\(branch\.id, variant, logoBase64\)/);
+  assert.doesNotMatch(settingsSource, /uploadBranchLogo\(file, activeTenant\.id, branch\.id/);
+});
+
+test('editing a sale persists the chosen local calendar date without UTC day rollback', async () => {
+  const salesSource = await read('src/components/DashboardSalesList.tsx');
+  assert.match(salesSource, /const \[year, month, day\] = editFormFields\.saleDate\.split\('-'\)\.map\(Number\)/);
+  assert.match(salesSource, /new Date\(year, \(month \|\| 1\) - 1, day \|\| 1, hours, minutes, seconds\)/);
+  assert.match(salesSource, /timestamp: updatedTimestamp/);
+  assert.doesNotMatch(salesSource, /new Date\(`\$\{editFormFields\.saleDate\}T\$\{hh\}:\$\{mm\}:\$\{ss\}\.000Z`\)/);
+});
+
 test('sales invoice and receipt exports use recognizable document filenames', async () => {
   const salesSource = await read('src/components/DashboardSalesList.tsx');
   assert.equal(
