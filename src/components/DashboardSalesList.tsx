@@ -1356,7 +1356,10 @@ export default function DashboardSalesList({
     const nextNum = `${prefix}-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
     const issuingBranch = crossBranchSources?.branches.find(branch => branch.id === newDocIssuingBranchId);
     const localDocument: SalesDocument = {
-      id: `doc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      // A stable UUID makes the server write idempotent. If Safari loses the
+      // response after the database committed, retrying cannot create a
+      // duplicate quotation/invoice.
+      id: crypto.randomUUID(),
       type: newDocType,
       documentNumber: nextNum,
       customerName: newDocCustomerName || 'Customer',
@@ -4862,10 +4865,17 @@ export default function DashboardSalesList({
                   const updatedTimestamp = (() => {
                     if (!editFormFields.saleDate) return editingSale.timestamp;
                     const original = editingSale.timestamp ? new Date(editingSale.timestamp) : new Date();
-                    const hh = String(isNaN(original.getTime()) ? 0 : original.getHours()).padStart(2, '0');
-                    const mm = String(isNaN(original.getTime()) ? 0 : original.getMinutes()).padStart(2, '0');
-                    const ss = String(isNaN(original.getTime()) ? 0 : original.getSeconds()).padStart(2, '0');
-                    const target = new Date(`${editFormFields.saleDate}T${hh}:${mm}:${ss}.000Z`);
+                    const hours = isNaN(original.getTime()) ? 0 : original.getHours();
+                    const minutes = isNaN(original.getTime()) ? 0 : original.getMinutes();
+                    const seconds = isNaN(original.getTime()) ? 0 : original.getSeconds();
+                    const [year, month, day] = editFormFields.saleDate.split('-').map(Number);
+                    // Build the target using local-time components throughout (both the
+                    // picked calendar date and the preserved time-of-day), then let
+                    // toISOString() do the local-to-UTC conversion -- mixing a local
+                    // hh:mm:ss with a UTC "Z" literal shifted the saved date by the
+                    // tenant's timezone offset, which could push it back across a day
+                    // boundary and make the edit look like it never took effect.
+                    const target = new Date(year, (month || 1) - 1, day || 1, hours, minutes, seconds);
                     return isNaN(target.getTime()) ? editingSale.timestamp : target.toISOString();
                   })();
 

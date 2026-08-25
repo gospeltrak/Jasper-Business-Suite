@@ -210,12 +210,23 @@ export const loadCommercialDocuments = async (): Promise<SalesDocument[]> => {
 
 export const createStandardCommercialDocument = async (document: SalesDocument): Promise<SalesDocument> => {
   const token = await getAccessToken();
-  const response = await requestBranchApi<{ document: SalesDocument }>(
-    '/api/sales/documents',
-    token,
-    { method: 'POST', body: JSON.stringify({ document }) },
-  );
-  return response.document;
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const response = await requestBranchApi<{ document: SalesDocument }>(
+        '/api/sales/documents',
+        token,
+        { method: 'POST', body: JSON.stringify({ document }) },
+      );
+      return response.document;
+    } catch (error) {
+      lastError = error;
+      const status = error instanceof BranchApiError ? error.status : 0;
+      if (attempt > 0 || (status !== 0 && ![502, 503, 504].includes(status))) throw error;
+      await new Promise(resolve => window.setTimeout(resolve, 350));
+    }
+  }
+  throw lastError;
 };
 
 export const updateStandardCommercialDocument = async (

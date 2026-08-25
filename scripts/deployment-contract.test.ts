@@ -498,6 +498,44 @@ test('commercial documents persist in authoritative tenant tables and reload acr
   assert.match(migrationSource, /where document\.tenant_id = tenant\.id/);
 });
 
+test('Safari keyboard layout never hides the app or lifts navigation by keyboard height', async () => {
+  const cssSource = await read('src/index.css');
+  const mainSource = await read('src/main.tsx');
+  const htmlSource = await read('index.html');
+  assert.doesNotMatch(cssSource, /#jasper-app-root > \*\s*\{\s*display:\s*none\s*!important/);
+  assert.match(mainSource, /keyboardActive \? 0 : Math\.min\(obscuredHeight, 80\)/);
+  assert.doesNotMatch(htmlSource, /function setViewportVars\(\)/);
+});
+
+test('navigation tolerates transient permission hydration without ejecting active work', async () => {
+  const dashboardSource = await read('src/components/Dashboard.tsx');
+  assert.match(dashboardSource, /const redirectTimer = window\.setTimeout/);
+  assert.match(dashboardSource, /if \(isTabAllowed\(activeTab\)\) return;[\s\S]{0,260}800/);
+});
+
+test('POS completion waits for a durable sale save and compensates treasury on failure', async () => {
+  const dashboardSource = await read('src/components/Dashboard.tsx');
+  const saleHandler = dashboardSource.slice(
+    dashboardSource.indexOf('const handleAddSale = async'),
+    dashboardSource.indexOf('const handleAddRider =', dashboardSource.indexOf('const handleAddSale = async')),
+  );
+  assert.match(saleHandler, /const saleSaved = await saveTenantWorkspace/);
+  assert.match(saleHandler, /await reverseTreasuryEntry\(postedTreasuryJournalId/);
+  assert.match(saleHandler, /if \(!saleSaved\)[\s\S]{0,700}return false/);
+});
+
+test('standard invoices and quotations retry idempotently with a stable UUID', async () => {
+  const salesSource = await read('src/components/DashboardSalesList.tsx');
+  const branchApiSource = await read('src/branches/branchApi.ts');
+  const migrationSource = await read('supabase/migrations/20260825190000_idempotent_standard_sales_documents.sql');
+  assert.match(salesSource, /id: crypto\.randomUUID\(\)/);
+  assert.match(branchApiSource, /for \(let attempt = 0; attempt < 2/);
+  assert.match(branchApiSource, /\[502, 503, 504\]\.includes\(status\)/);
+  assert.match(migrationSource, /coalesce\(private\.safe_uuid\(p_document ->> 'id'\), gen_random_uuid\(\)\)/);
+  assert.match(migrationSource, /where document\.id = v_id[\s\S]{0,100}document\.tenant_id = v_tenant_id/);
+  assert.doesNotMatch(migrationSource, /\b(delete|truncate|drop table)\b/i);
+});
+
 test('sales invoice and receipt exports use recognizable document filenames', async () => {
   const salesSource = await read('src/components/DashboardSalesList.tsx');
   assert.equal(
