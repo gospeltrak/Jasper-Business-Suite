@@ -1529,7 +1529,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       if (!uploadResponse.ok || !uploadPayload?.proof?.id) {
         throw new Error(uploadPayload?.error || 'Receipt upload failed.');
       }
-      setManualActivationMessage(`Activation request sent for ${selectedPlan.name}. Admin will verify the receipt.`);
+      setManualActivationMessage(`Your ${selectedPlan.name} activation request has been sent. Please wait about 5 minutes, then log in again. If it still hasn't activated, contact Jasper Deployments using the WhatsApp button below.`);
       setManualActivationReceipt(null);
       setManualActivationNote('');
     } catch (err: any) {
@@ -1553,7 +1553,11 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       return;
     }
     setOnlinePaymentSubmitting(true);
-    setOnlinePaymentMessage(null);
+    // Shown immediately, before the redirect below takes the tenant to the
+    // external AzamPay checkout page -- there's no chance to show anything
+    // in-app again until they're redirected back, so this needs to set
+    // expectations up front rather than after the payment starts.
+    setOnlinePaymentMessage('Processing your payment… you will be redirected to a secure checkout page. Your subscription unlocks automatically as soon as the payment is approved.');
     try {
       const client: any = await getSecureDataBridgeClient();
       const { data: sessionData } = await client.auth.getSession();
@@ -4650,7 +4654,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                     </div>
 
                     {onlinePaymentMessage ? (
-                      <p className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold leading-5 text-amber-800">{onlinePaymentMessage}</p>
+                      <p className={`mt-3 rounded-2xl border px-4 py-3 text-xs font-semibold leading-5 ${onlinePaymentMessage.startsWith('Processing your payment') ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-amber-200 bg-amber-50 text-amber-800'}`}>{onlinePaymentMessage}</p>
                     ) : null}
 
                     <button
@@ -4710,7 +4714,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                       />
                       <div className="flex min-h-14 items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 text-slate-600">
                         <CloudLightning className="h-5 w-5" />
-                        <span className="truncate text-xs font-bold">{manualActivationReceipt ? manualActivationReceipt.name : 'Upload PNG, JPG or WebP receipt (max 2 MB)'}</span>
+                        <span className="truncate text-xs font-bold">{manualActivationReceipt ? manualActivationReceipt.name : 'Click here to upload a receipt image (PNG, JPG, or WebP, max 2 MB)'}</span>
                       </div>
                     </div>
 
@@ -4718,13 +4722,13 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                       type="button"
                       onClick={() => submitManualActivationRequest(selectedPlanId)}
                       disabled={manualActivationSubmitting}
-                      className="subscription-desktop-action mt-3 min-h-14 w-full rounded-2xl bg-slate-950 px-5 text-sm font-black text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="subscription-desktop-action mt-3 min-h-14 w-full cursor-pointer rounded-2xl bg-slate-950 px-5 text-sm font-black text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {manualActivationSubmitting ? 'Sending…' : 'Submit receipt for activation'}
                     </button>
 
                     {manualActivationMessage ? (
-                      <p className="mt-3 rounded-2xl bg-slate-100 px-4 py-3 text-xs font-semibold leading-5 text-slate-700">{manualActivationMessage}</p>
+                      <p className={`mt-3 rounded-2xl px-4 py-3 text-xs font-semibold leading-5 ${manualActivationMessage.includes('has been sent') ? 'border border-emerald-200 bg-emerald-50 text-emerald-800' : 'border border-amber-200 bg-amber-50 text-amber-800'}`}>{manualActivationMessage}</p>
                     ) : null}
 
                     <a
@@ -4757,7 +4761,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                   type="button"
                   onClick={() => submitManualActivationRequest(selectedPlanId)}
                   disabled={manualActivationSubmitting}
-                  className="min-h-14 w-full rounded-2xl bg-slate-950 px-5 text-sm font-black text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+                  className="min-h-14 w-full cursor-pointer rounded-2xl bg-slate-950 px-5 text-sm font-black text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {manualActivationSubmitting ? 'Sending…' : 'Submit receipt for activation'}
                 </button>
