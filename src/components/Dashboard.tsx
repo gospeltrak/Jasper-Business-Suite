@@ -716,11 +716,9 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     setWorkspaceLoadFailed(false);
     let initialLoadRetryTimer: number | null = null;
 
-    const applyWorkspace = (workspace: TenantWorkspace, options: { ledgersReady?: boolean } = {}) => {
-      const { ledgersReady = true } = options;
+    const applyWorkspace = (workspace: TenantWorkspace, options: { ledgersReady?: boolean; coreReady?: boolean } = {}) => {
+      const { ledgersReady = true, coreReady = true } = options;
       if (!active) return;
-      const cloudBusinessName = String(workspace.settings?.business?.businessName || '').trim();
-      setDatabaseBusinessName(cloudBusinessName);
       if (Date.now() - localWorkspaceChangedAtRef.current < LOCAL_WORKSPACE_PROTECTION_MS) {
         return;
       }
@@ -732,10 +730,30 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
         return;
       }
       skipNextWorkspaceSaveRef.current = true;
-      setProductsMap(prev => ({ ...prev, [activeTenant.id]: workspace.products || [] }));
-      setBranchesMap(prev => ({ ...prev, [activeTenant.id]: workspace.branches || [] }));
-      setBranchStocksMap(prev => ({ ...prev, [activeTenant.id]: workspace.branchStocks || [] }));
-      setBranchStaffAssignmentsMap(prev => ({ ...prev, [activeTenant.id]: workspace.branchStaffAssignments || [] }));
+      // Core fields (products, branches, settings) are only applied when this
+      // call actually carries fresh core data. The follow-up apply once a
+      // core-first load's background ledger fetch completes reuses the SAME
+      // core snapshot captured before the ledgers started loading -- applying
+      // it again here would silently undo any product/settings/branch edit
+      // (e.g. deleting a product) made locally while ledgers were still in
+      // flight, since that snapshot has no idea the edit happened.
+      if (coreReady) {
+        const cloudBusinessName = String(workspace.settings?.business?.businessName || '').trim();
+        setDatabaseBusinessName(cloudBusinessName);
+        setProductsMap(prev => ({ ...prev, [activeTenant.id]: workspace.products || [] }));
+        setBranchesMap(prev => ({ ...prev, [activeTenant.id]: workspace.branches || [] }));
+        setBranchStocksMap(prev => ({ ...prev, [activeTenant.id]: workspace.branchStocks || [] }));
+        setBranchStaffAssignmentsMap(prev => ({ ...prev, [activeTenant.id]: workspace.branchStaffAssignments || [] }));
+        if (workspace.settings) {
+          // Realtime and recovery reads can arrive out of order. Merge using the
+          // per-field clocks so an older payload cannot hide a newly saved staff
+          // member or their role from the current session.
+          setSystemSettings(current => normalizeSystemSettings(
+            activeTenant,
+            mergeSettingsForSync(workspace.settings, current),
+          ));
+        }
+      }
       // Historical ledgers (sales/expenses/deliveries/purchases) may still be
       // paginating in from the background completion of a core-first load --
       // skip them here so an empty placeholder never overwrites data the
@@ -747,15 +765,6 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
         setDeliveriesMap(prev => ({ ...prev, [activeTenant.id]: workspace.deliveries || [] }));
         setPendingDeliveryNotesMap(prev => ({ ...prev, [activeTenant.id]: workspace.pendingDeliveryNotes || [] }));
         setPurchasesMap(prev => ({ ...prev, [activeTenant.id]: workspace.purchases || [] }));
-      }
-      if (workspace.settings) {
-        // Realtime and recovery reads can arrive out of order. Merge using the
-        // per-field clocks so an older payload cannot hide a newly saved staff
-        // member or their role from the current session.
-        setSystemSettings(current => normalizeSystemSettings(
-          activeTenant,
-          mergeSettingsForSync(workspace.settings, current),
-        ));
       }
       setWorkspaceLoadFailed(false);
       setWorkspaceReady(true);
@@ -789,7 +798,13 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
         await waitForTenantWorkspaceLoad(activeTenant.id);
         if (!active) return;
         const full = readCachedWorkspace(activeTenant.id);
-        if (full) applyWorkspace(full);
+        // coreReady: false -- this is the SAME core snapshot already applied
+        // above (loadTenantWorkspaceCore's background ledger completion only
+        // adds sales/expenses/deliveries/purchases to it, it never re-fetches
+        // products/settings/branches). Re-applying those stale core fields
+        // here would silently revert any edit made locally while ledgers
+        // were still loading.
+        if (full) applyWorkspace(full, { coreReady: false });
         return;
       }
 
