@@ -1830,6 +1830,13 @@ button:active:not(:disabled),
     display: grid !important;
     grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
   }
+
+  /* Same trap, same fix, for the current-package/status/data-status stat
+     row in the same gate's hero card. */
+  #dashboard-scaffold .subscription-stat-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
   #dashboard-scaffold .stock-cards-tablet-grid > * {
     margin-top: 0 !important;
   }

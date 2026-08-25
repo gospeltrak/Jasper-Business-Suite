@@ -3780,7 +3780,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                   <div className="relative overflow-hidden rounded-[2rem] border border-slate-800 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white shadow-2xl shadow-slate-950/20">
                     <div className="pointer-events-none absolute -top-24 -right-24 h-72 w-72 rounded-full bg-emerald-500/20 blur-3xl" />
                     <div className="pointer-events-none absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-cyan-500/10 blur-3xl" />
-                    <div className="relative grid gap-6 p-6 md:grid-cols-[1.15fr_0.85fr] md:p-8">
+                    <div className={`relative grid gap-6 p-6 md:p-8 ${isTrialAccount ? 'md:grid-cols-[1.15fr_0.85fr]' : ''}`}>
                       <div className="space-y-5">
                         <div className="inline-flex items-center gap-2 rounded-full border border-amber-400/25 bg-amber-400/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-amber-300">
                           <AlertTriangle className="h-3.5 w-3.5" />
@@ -3796,7 +3796,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                               : `Your business data is still preserved. Renew ${expiredPlan.name}${expiredOnLabel ? ` (expired ${expiredOnLabel})` : ''} to continue exactly as before, or choose a different package below, submit payment proof, and continue with the package limits you select.`}
                           </p>
                         </div>
-                        <div className="grid gap-3 sm:grid-cols-3">
+                        <div className="subscription-stat-grid grid gap-3 sm:grid-cols-3">
                           <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
                             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{isTrialAccount ? 'Trial package' : 'Current package'}</p>
                             <p className="mt-1 text-lg font-black text-emerald-300">{isTrialAccount ? 'Diamond' : expiredPlan.name}</p>
@@ -3880,15 +3880,6 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                         </article>
                       );
                     })}
-                  </div>
-
-                  <div className="rounded-3xl border border-cyan-200 bg-cyan-50 p-5">
-                    <h3 className="text-sm font-black uppercase tracking-wider text-cyan-900">If you choose Tanzanite you gain</h3>
-                    <div className="mt-3 grid gap-2 sm:grid-cols-2 md:grid-cols-3">
-                      {tanzaniteUpgradeNotes.map((note) => (
-                        <div key={note} className="rounded-2xl bg-white px-3 py-2 text-xs font-semibold text-cyan-950 shadow-sm">{note}</div>
-                      ))}
-                    </div>
                   </div>
                 </section>
               </div>
