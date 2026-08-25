@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Activity, ShieldAlert, CheckCircle, XCircle, Gift, Search, RefreshCw, FileText, Clock, Package, User, AlertCircle, Bell, Check } from 'lucide-react';
+import { Activity, ShieldAlert, CheckCircle, XCircle, Gift, Search, RefreshCw, FileText, Clock, Package, User, AlertCircle, Bell, Check, type LucideIcon } from 'lucide-react';
 import { getSecureDataBridgeClient } from '../secureDataBridge';
 import { normalizeSubscriptionPlanId, SUBSCRIPTION_PLANS } from '../utils/subscription';
 import {
@@ -46,7 +46,18 @@ interface NamedRecipient {
   name: string;
 }
 
+type StatusSection = 'approvals' | 'emergency' | 'select-tenants' | 'grant' | 'notify';
+
+const STATUS_SECTIONS: ReadonlyArray<{ id: StatusSection; label: string; icon: LucideIcon }> = [
+  { id: 'approvals', label: 'Payment Approvals', icon: FileText },
+  { id: 'emergency', label: 'Emergency Override', icon: ShieldAlert },
+  { id: 'select-tenants', label: 'Select Tenants', icon: User },
+  { id: 'grant', label: 'Grant Free Time', icon: Gift },
+  { id: 'notify', label: 'Send Notification', icon: Bell },
+];
+
 export default function SaaSStatusAndRequests() {
+  const [activeSection, setActiveSection] = useState<StatusSection>('approvals');
   const [proofs, setProofs] = useState<PaymentProof[]>([]);
   const [tenants, setTenants] = useState<TenantRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -484,19 +495,12 @@ export default function SaaSStatusAndRequests() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-black text-white">Payment Approvals</h2>
-          <p className="text-xs text-slate-400 mt-0.5">Approve payment receipts to activate tenant packages</p>
+          <h2 className="text-xl font-black text-white">Status & Requests</h2>
+          <p className="text-xs text-slate-400 mt-0.5">Approvals, overrides, and tenant communication in one place</p>
         </div>
-        <div className="flex items-center gap-2">
-          {pendingCount > 0 && (
-            <span className="px-2.5 py-1 bg-amber-500/20 text-amber-400 text-[10px] font-black rounded-full border border-amber-500/30">
-              {pendingCount} Pending
-            </span>
-          )}
-          <button onClick={() => loadData()} className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl border border-slate-700 cursor-pointer transition-colors">
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          </button>
-        </div>
+        <button onClick={() => loadData()} className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl border border-slate-700 cursor-pointer transition-colors">
+          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+        </button>
       </div>
 
       {/* Message */}
@@ -507,6 +511,37 @@ export default function SaaSStatusAndRequests() {
         </div>
       )}
 
+      {/* Section navigation — each opens on its own, only one shown at a time */}
+      <div className="flex flex-wrap gap-2">
+        {STATUS_SECTIONS.map(section => {
+          const isActive = activeSection === section.id;
+          const Icon = section.icon;
+          return (
+            <button
+              key={section.id}
+              type="button"
+              onClick={() => setActiveSection(section.id)}
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border ${isActive ? 'bg-cyan-600 text-white border-cyan-600' : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700'}`}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              {section.label}
+              {section.id === 'approvals' && pendingCount > 0 && (
+                <span className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-black ${isActive ? 'bg-white/20 text-white' : 'bg-amber-500/20 text-amber-400'}`}>
+                  {pendingCount}
+                </span>
+              )}
+              {section.id === 'select-tenants' && selectedTenantIds.size > 0 && (
+                <span className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-black ${isActive ? 'bg-white/20 text-white' : 'bg-cyan-500/20 text-cyan-400'}`}>
+                  {selectedTenantIds.size}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {activeSection === 'approvals' && (
+        <div className="space-y-4">
       {/* Filter tabs */}
       <div className="flex gap-1.5">
         {(['pending', 'approved', 'rejected', 'all'] as const).map(s => (
@@ -646,8 +681,10 @@ export default function SaaSStatusAndRequests() {
           })}
         </div>
       )}
+        </div>
+      )}
 
-      {/* Emergency Override */}
+      {activeSection === 'emergency' && (
       <div className="bg-slate-900 border border-slate-700 rounded-2xl p-5 space-y-4">
         <div className="flex items-center gap-2">
           <ShieldAlert className="w-4 h-4 text-amber-400" />
@@ -809,9 +846,9 @@ export default function SaaSStatusAndRequests() {
           </div>
         ) : null}
       </div>
+      )}
 
-      {/* Shared tenant picker — search + multi-select, used by Grant Free
-          Time and Send Notification below */}
+      {activeSection === 'select-tenants' && (
       <div className="bg-slate-900 border border-slate-700 rounded-2xl p-5 space-y-4">
         <div className="flex items-center gap-2">
           <User className="w-4 h-4 text-cyan-400" />
@@ -863,15 +900,21 @@ export default function SaaSStatusAndRequests() {
           })}
         </div>
       </div>
+      )}
 
-      {/* Grant Free Time */}
+      {activeSection === 'grant' && (
       <div className="bg-slate-900 border border-slate-700 rounded-2xl p-5 space-y-4">
         <div className="flex items-center gap-2">
           <Gift className="w-4 h-4 text-emerald-400" />
           <h3 className="text-sm font-black text-white">Grant Free Time</h3>
           <span className="text-[9px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20 font-bold uppercase">Admin Only</span>
         </div>
-        <p className="text-[10px] text-slate-400">Give the selected tenant(s) free access for a set number of days or months, no payment required. Applies to everyone selected above.</p>
+        <p className="text-[10px] text-slate-400">
+          Give the selected tenant(s) free access for a set number of days or months, no payment required.{' '}
+          {selectedTenantIds.size > 0
+            ? `Applies to ${selectedTenantIds.size} tenant${selectedTenantIds.size === 1 ? '' : 's'} chosen in Select Tenants.`
+            : 'Go to Select Tenants first to choose who this applies to.'}
+        </p>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <select value={grantPackage} onChange={e => setGrantPackage(e.target.value as 'ruby' | 'diamond' | 'tanzanite')}
             className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white outline-none focus:border-emerald-500 cursor-pointer">
@@ -942,8 +985,9 @@ export default function SaaSStatusAndRequests() {
           </div>
         )}
       </div>
+      )}
 
-      {/* Send Notification */}
+      {activeSection === 'notify' && (
       <div className="bg-slate-900 border border-slate-700 rounded-2xl p-5 space-y-4">
         <div className="flex items-center gap-2">
           <Bell className="w-4 h-4 text-amber-400" />
@@ -961,7 +1005,11 @@ export default function SaaSStatusAndRequests() {
         </div>
 
         {notifyRecipientType === 'tenants' ? (
-          <p className="text-[10px] text-slate-500">Uses the tenant selection above ({selectedTenantIds.size} selected).</p>
+          <p className="text-[10px] text-slate-500">
+            {selectedTenantIds.size > 0
+              ? `Uses the ${selectedTenantIds.size} tenant${selectedTenantIds.size === 1 ? '' : 's'} chosen in Select Tenants.`
+              : 'Go to Select Tenants first to choose recipients.'}
+          </p>
         ) : notifyRecipientType === 'affiliates' ? (
           <div className="space-y-2">
             <div className="relative">
@@ -1058,6 +1106,7 @@ export default function SaaSStatusAndRequests() {
           {notifySubmitting ? 'Sending…' : `Send to ${notifyRecipientCount} ${notifyRecipientType === 'tenants' ? 'tenant' : notifyRecipientType === 'affiliates' ? 'affiliate' : 'partner'}${notifyRecipientCount === 1 ? '' : 's'}`}
         </button>
       </div>
+      )}
     </div>
   );
 }

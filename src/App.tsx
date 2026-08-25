@@ -500,6 +500,22 @@ export default function App() {
     return () => { cancelled = true; };
   }, [currentPath, tenantDomainContext.kind, user]);
 
+  // Supabase auth already succeeded by the time handleLoginSuccess runs its
+  // portal checks below, so a rejected login (wrong portal for the account
+  // type) must actively close that session -- otherwise the browser is left
+  // signed in at the auth layer even though the app refused to route the
+  // user anywhere.
+  const signOutRejectedLogin = async () => {
+    try {
+      const client: any = await getSecureDataBridgeClient();
+      if (!isPlaceholderSecureDataBridgeClient(client)) {
+        await client.auth.signOut({ scope: 'local' });
+      }
+    } catch (error) {
+      console.warn('Rejected login session could not be closed', error);
+    }
+  };
+
   const handleLoginSuccess = (authenticatedUser: User) => {
     logoutInProgressRef.current = false;
     const domainTenantId = tenantDomainContext.kind === 'tenant' ? tenantDomainContext.tenant?.id : null;
@@ -511,10 +527,12 @@ export default function App() {
     }
     if (tenantDomainContext.kind === 'admin' && !isPlatformAdmin) {
       setRedirectMessage('This login is for Orvix platform administrators only. Please use your business login instead.');
+      void signOutRejectedLogin();
       return;
     }
     if (isPlatformAdmin && tenantDomainContext.kind !== 'admin' && currentPath !== '/admin') {
       setRedirectMessage('Super Admin must sign in through the dedicated /admin portal.');
+      void signOutRejectedLogin();
       return;
     }
     const storageTenantId = authenticatedUser.activeTenant || authenticatedUser.tenantId;
