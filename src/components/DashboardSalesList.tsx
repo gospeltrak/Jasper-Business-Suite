@@ -54,6 +54,7 @@ import { downloadPdfFromElement, shareElementPdfToWhatsApp } from '../utils/pdfS
 import CachedImage from './CachedImage';
 import { getActiveBranchAddress, getActiveBranchDisplayName, getActiveBranchEmail, getActiveBranchLogo, getActiveBranchPhone } from '../utils/businessBranding';
 import type { BranchSummary } from '../branches/branchTypes';
+import { useOptionalBranchContext } from '../branches/BranchContext';
 import { normalizeSubscriptionPlanId } from '../utils/subscription';
 import { findPaymentChannel, getPaymentModeName } from '../utils/paymentAccounts';
 import { calculateSalesDocumentTotals } from '../utils/salesDocumentTotals';
@@ -322,7 +323,18 @@ export default function DashboardSalesList({
   // current. Checking the plan name alone routed an expired tenant into the
   // protected RPC, so both Price Quote and Proforma Invoice creation were
   // rejected instead of using the standard tenant document store.
-  const canUseCrossBranchDocuments = activePlanId === 'tanzanite' && !subscriptionStatus?.isExpired;
+  //
+  // A single-branch Tanzanite tenant was also being routed into this path
+  // even though "cross-branch" sourcing is meaningless with one branch --
+  // its product list comes from a separate server RPC (list_cross_branch_
+  // document_sources) that only reflects products with stock already synced
+  // to the server, so a product just added locally (still mid-sync, or
+  // simply not the exact stock/branch shape that RPC expects) could vanish
+  // from the New Document picker even though it's right there in Products.
+  // Require more than one physical branch before using this path at all.
+  const branchWorkspace = useOptionalBranchContext();
+  const physicalBranchCount = branchWorkspace?.snapshot?.directory?.physicalBranchCount ?? 1;
+  const canUseCrossBranchDocuments = activePlanId === 'tanzanite' && !subscriptionStatus?.isExpired && physicalBranchCount > 1;
   const canUseTillSettlement = activePlanId !== 'ruby';
 
   useEffect(() => {
