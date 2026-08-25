@@ -2275,6 +2275,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       branchId: sale.branchId || activeBranchSelection.activeBranchId || undefined,
       syncUpdatedAt,
     } as Sale;
+    let postedTreasuryJournalId = '';
     const saleIncome = Math.max(0, Number(sale.total || 0) - Number(sale.deliveryCost || 0));
     const collectedAmount = sale.paymentStatus === 'unpaid'
       ? 0
@@ -2335,18 +2336,42 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
           branchId: posted.branchId,
           treasuryJournalId: posted.journalId,
         };
+        postedTreasuryJournalId = posted.journalId;
       } catch (error: any) {
         addToast(error?.message || 'Money & Bank could not post this sale safely.', 'error');
         return false;
       }
     }
-    setSalesMap(prev => {
-      const currentTenantSales = prev[activeTenant.id] || [];
-      return {
-        ...prev,
-        [activeTenant.id]: [saleToStore, ...currentTenantSales]
-      };
+    const nextTenantSales = [
+      saleToStore,
+      ...(salesMap[activeTenant.id] || []).filter(existing => existing.id !== saleToStore.id),
+    ];
+    const saleSaved = await saveTenantWorkspace(activeTenant.id, {
+      branches: branchesMap[activeTenant.id] || [],
+      branchStocks: branchStocksMap[activeTenant.id] || [],
+      branchStaffAssignments: branchStaffAssignmentsMap[activeTenant.id] || [],
+      products: productsMap[activeTenant.id] || [],
+      sales: nextTenantSales,
+      expenses: expensesMap[activeTenant.id] || [],
+      settings: systemSettings,
+      deliveries: deliveriesMap[activeTenant.id] || [],
+      pendingDeliveryNotes: pendingDeliveryNotesMap[activeTenant.id] || [],
+      purchases: purchasesMap[activeTenant.id] || [],
+      productTombstones: readLocalProductTombstones(activeTenant.id),
+      saleTombstones: readLocalSaleTombstones(activeTenant.id),
     });
+    if (!saleSaved) {
+      if (postedTreasuryJournalId) {
+        try {
+          await reverseTreasuryEntry(postedTreasuryJournalId, sale.id, 'Sale workspace save failed');
+        } catch (error) {
+          console.error('Failed to reverse treasury entry after sale save failure', error);
+        }
+      }
+      addToast('Sale could not be saved. Your cart is still available; please try again.', 'error');
+      return false;
+    }
+    setSalesMap(prev => ({ ...prev, [activeTenant.id]: nextTenantSales }));
 
     // Handle Global Owner Sale Notification
     try {
@@ -3189,8 +3214,17 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
 
   useEffect(() => {
     if (isTabAllowed(activeTab)) return;
-    const firstAllowed = visibleSidebarItems.find((item) => isTabAllowed(item.tabId || item.id));
-    if (firstAllowed?.tabId) setActiveTab(firstAllowed.tabId);
+    // Role/package data can briefly pass through its safe fallback while a
+    // realtime workspace payload is being merged. Redirecting synchronously
+    // during that transient frame ejects users from POS/forms back to Home.
+    // Re-check after the hydration burst; a genuinely forbidden route still
+    // redirects, while a temporary permission gap leaves navigation intact.
+    const redirectTimer = window.setTimeout(() => {
+      if (isTabAllowed(activeTab)) return;
+      const firstAllowed = visibleSidebarItems.find((item) => isTabAllowed(item.tabId || item.id));
+      if (firstAllowed?.tabId) setActiveTab(firstAllowed.tabId);
+    }, 800);
+    return () => window.clearTimeout(redirectTimer);
   }, [activeRoleName, activeTab, subStatus.plan.id, user.isSaaSStaff]);
 
   if (user.isDuress) {
