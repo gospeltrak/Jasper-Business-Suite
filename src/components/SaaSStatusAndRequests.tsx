@@ -8,6 +8,7 @@ import {
   configureTenantBranchCapacity,
   loadTenantBranchAccess,
   sendSuperAdminNotification,
+  sendSuperAdminAffiliateNotification,
   type SuperAdminBranchAccess,
 } from '../utils/superAdminData';
 
@@ -38,6 +39,11 @@ interface TenantRecord {
   active_package_id?: string | null;
   subscription_status?: string;
   created_at: string;
+}
+
+interface NamedRecipient {
+  id: string;
+  name: string;
 }
 
 export default function SaaSStatusAndRequests() {
@@ -79,6 +85,18 @@ export default function SaaSStatusAndRequests() {
   const [notifyMessage, setNotifyMessage] = useState('');
   const [notifySubmitting, setNotifySubmitting] = useState(false);
 
+  // Send Notification can also target affiliates or partners instead of
+  // tenants -- these have their own recipient lists/search, independent of
+  // the shared tenant picker above (Grant Free Time only ever applies to
+  // tenants, so it stays wired to selectedTenantIds alone).
+  const [affiliates, setAffiliates] = useState<NamedRecipient[]>([]);
+  const [partners, setPartners] = useState<NamedRecipient[]>([]);
+  const [notifyRecipientType, setNotifyRecipientType] = useState<'tenants' | 'affiliates' | 'partners'>('tenants');
+  const [affiliateSearchQuery, setAffiliateSearchQuery] = useState('');
+  const [selectedAffiliateIds, setSelectedAffiliateIds] = useState<Set<string>>(new Set());
+  const [partnerSearchQuery, setPartnerSearchQuery] = useState('');
+  const [selectedPartnerIds, setSelectedPartnerIds] = useState<Set<string>>(new Set());
+
   const filteredTenantsForPicker = tenants.filter(t =>
     !tenantSearchQuery.trim() || t.name.toLowerCase().includes(tenantSearchQuery.trim().toLowerCase())
   );
@@ -96,6 +114,32 @@ export default function SaaSStatusAndRequests() {
   };
 
   const clearTenantSelection = () => setSelectedTenantIds(new Set());
+
+  const filteredAffiliatesForPicker = affiliates.filter(a =>
+    !affiliateSearchQuery.trim() || a.name.toLowerCase().includes(affiliateSearchQuery.trim().toLowerCase())
+  );
+  const toggleAffiliateSelection = (id: string) => {
+    setSelectedAffiliateIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const selectAllFilteredAffiliates = () => setSelectedAffiliateIds(new Set(filteredAffiliatesForPicker.map(a => a.id)));
+  const clearAffiliateSelection = () => setSelectedAffiliateIds(new Set());
+
+  const filteredPartnersForPicker = partners.filter(p =>
+    !partnerSearchQuery.trim() || p.name.toLowerCase().includes(partnerSearchQuery.trim().toLowerCase())
+  );
+  const togglePartnerSelection = (id: string) => {
+    setSelectedPartnerIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const selectAllFilteredPartners = () => setSelectedPartnerIds(new Set(filteredPartnersForPicker.map(p => p.id)));
+  const clearPartnerSelection = () => setSelectedPartnerIds(new Set());
 
   const loadData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -119,6 +163,25 @@ export default function SaaSStatusAndRequests() {
         .limit(100);
 
       if (!tenantsError && tenantsData) setTenants(tenantsData);
+
+      // Load affiliates and partners for the Send Notification recipient picker
+      const { data: affiliatesData, error: affiliatesError } = await client
+        .from('affiliates')
+        .select('id, display_name')
+        .order('display_name', { ascending: true })
+        .limit(500);
+      if (!affiliatesError && affiliatesData) {
+        setAffiliates(affiliatesData.map((a: any) => ({ id: a.id, name: a.display_name || 'Unnamed affiliate' })));
+      }
+
+      const { data: partnersData, error: partnersError } = await client
+        .from('affiliate_partners')
+        .select('id, display_name')
+        .order('display_name', { ascending: true })
+        .limit(500);
+      if (!partnersError && partnersData) {
+        setPartners(partnersData.map((p: any) => ({ id: p.id, name: p.display_name || 'Unnamed partner' })));
+      }
     } catch (e) {
       if (!silent) setMessage({ text: 'Failed to load data. Check Supabase connection.', type: 'error' });
     } finally {
@@ -358,18 +421,35 @@ export default function SaaSStatusAndRequests() {
   };
 
   // ── SEND NOTIFICATION (bulk) ─────────────────────────────────────────────
+  const notifyRecipientCount = notifyRecipientType === 'tenants'
+    ? selectedTenantIds.size
+    : notifyRecipientType === 'affiliates'
+      ? selectedAffiliateIds.size
+      : selectedPartnerIds.size;
+
   const handleSendNotification = async () => {
-    if (selectedTenantIds.size === 0) { setMessage({ text: 'Select at least one tenant first.', type: 'error' }); return; }
+    if (notifyRecipientCount === 0) { setMessage({ text: `Select at least one ${notifyRecipientType === 'tenants' ? 'tenant' : notifyRecipientType === 'affiliates' ? 'affiliate' : 'partner'} first.`, type: 'error' }); return; }
     if (!notifyTitle.trim() || !notifyMessage.trim()) { setMessage({ text: 'Enter a title and message first.', type: 'error' }); return; }
     setNotifySubmitting(true);
     setMessage(null);
     try {
-      const result = await sendSuperAdminNotification({
-        tenantIds: Array.from(selectedTenantIds),
-        title: notifyTitle.trim(),
-        message: notifyMessage.trim(),
-      });
-      setMessage({ text: `✅ Notification sent to ${result?.tenantsSent ?? selectedTenantIds.size} tenant(s). It will appear in their notification inbox.`, type: 'success' });
+      if (notifyRecipientType === 'tenants') {
+        const result = await sendSuperAdminNotification({
+          tenantIds: Array.from(selectedTenantIds),
+          title: notifyTitle.trim(),
+          message: notifyMessage.trim(),
+        });
+        setMessage({ text: `✅ Notification sent to ${result?.tenantsSent ?? selectedTenantIds.size} tenant(s). It will appear in their notification inbox.`, type: 'success' });
+      } else {
+        const result = await sendSuperAdminAffiliateNotification({
+          affiliateIds: notifyRecipientType === 'affiliates' ? Array.from(selectedAffiliateIds) : [],
+          partnerIds: notifyRecipientType === 'partners' ? Array.from(selectedPartnerIds) : [],
+          title: notifyTitle.trim(),
+          message: notifyMessage.trim(),
+        });
+        const sentCount = notifyRecipientType === 'affiliates' ? (result?.affiliatesSent ?? selectedAffiliateIds.size) : (result?.partnersSent ?? selectedPartnerIds.size);
+        setMessage({ text: `✅ Notification sent to ${sentCount} ${notifyRecipientType === 'affiliates' ? 'affiliate' : 'partner'}(s). It will appear in their notification inbox.`, type: 'success' });
+      }
       setNotifyTitle('');
       setNotifyMessage('');
     } catch (e: any) {
@@ -863,7 +943,91 @@ export default function SaaSStatusAndRequests() {
           <Bell className="w-4 h-4 text-amber-400" />
           <h3 className="text-sm font-black text-white">Send Notification</h3>
         </div>
-        <p className="text-[10px] text-slate-400">Sends a real in-app notification to everyone in the selected tenant(s) — it lands in their notification inbox.</p>
+        <p className="text-[10px] text-slate-400">Sends a real in-app notification — it lands in the recipient's notification inbox.</p>
+
+        <div className="grid grid-cols-3 rounded-xl bg-slate-800 p-1 border border-slate-700">
+          {(['tenants', 'affiliates', 'partners'] as const).map(type => (
+            <button key={type} type="button" onClick={() => setNotifyRecipientType(type)}
+              className={`py-1.5 rounded-lg text-[10px] font-bold capitalize cursor-pointer transition-all ${notifyRecipientType === type ? 'bg-amber-600 text-white' : 'text-slate-400'}`}>
+              {type}
+            </button>
+          ))}
+        </div>
+
+        {notifyRecipientType === 'tenants' ? (
+          <p className="text-[10px] text-slate-500">Uses the tenant selection above ({selectedTenantIds.size} selected).</p>
+        ) : notifyRecipientType === 'affiliates' ? (
+          <div className="space-y-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+              <input type="text" value={affiliateSearchQuery} onChange={e => setAffiliateSearchQuery(e.target.value)}
+                placeholder="Search affiliates by name..."
+                className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-9 pr-3 py-2.5 text-xs text-white outline-none focus:border-amber-500" />
+            </div>
+            <div className="flex gap-2">
+              <button type="button" onClick={selectAllFilteredAffiliates}
+                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-bold rounded-lg border border-slate-700 cursor-pointer">
+                Select all {affiliateSearchQuery.trim() ? 'shown' : `(${filteredAffiliatesForPicker.length})`}
+              </button>
+              <button type="button" onClick={clearAffiliateSelection}
+                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-bold rounded-lg border border-slate-700 cursor-pointer">
+                Clear selection
+              </button>
+            </div>
+            <div className="max-h-48 overflow-y-auto space-y-1 rounded-xl border border-slate-800 p-2">
+              {filteredAffiliatesForPicker.length === 0 ? (
+                <p className="text-xs text-slate-500 text-center py-4">No affiliates match your search.</p>
+              ) : filteredAffiliatesForPicker.map(a => {
+                const isChecked = selectedAffiliateIds.has(a.id);
+                return (
+                  <button key={a.id} type="button" onClick={() => toggleAffiliateSelection(a.id)} aria-pressed={isChecked}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left cursor-pointer transition-colors ${isChecked ? 'bg-amber-500/10 border border-amber-500/30' : 'bg-slate-800/50 border border-transparent hover:bg-slate-800'}`}>
+                    <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border-2 transition-colors ${isChecked ? 'border-amber-500 bg-amber-500' : 'border-slate-600 bg-slate-900'}`}>
+                      {isChecked && <Check className="h-2.5 w-2.5 text-slate-950" strokeWidth={4} />}
+                    </span>
+                    <span className="text-xs font-bold text-white truncate">{a.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+              <input type="text" value={partnerSearchQuery} onChange={e => setPartnerSearchQuery(e.target.value)}
+                placeholder="Search partners by name..."
+                className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-9 pr-3 py-2.5 text-xs text-white outline-none focus:border-amber-500" />
+            </div>
+            <div className="flex gap-2">
+              <button type="button" onClick={selectAllFilteredPartners}
+                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-bold rounded-lg border border-slate-700 cursor-pointer">
+                Select all {partnerSearchQuery.trim() ? 'shown' : `(${filteredPartnersForPicker.length})`}
+              </button>
+              <button type="button" onClick={clearPartnerSelection}
+                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-bold rounded-lg border border-slate-700 cursor-pointer">
+                Clear selection
+              </button>
+            </div>
+            <div className="max-h-48 overflow-y-auto space-y-1 rounded-xl border border-slate-800 p-2">
+              {filteredPartnersForPicker.length === 0 ? (
+                <p className="text-xs text-slate-500 text-center py-4">No partners match your search.</p>
+              ) : filteredPartnersForPicker.map(p => {
+                const isChecked = selectedPartnerIds.has(p.id);
+                return (
+                  <button key={p.id} type="button" onClick={() => togglePartnerSelection(p.id)} aria-pressed={isChecked}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left cursor-pointer transition-colors ${isChecked ? 'bg-amber-500/10 border border-amber-500/30' : 'bg-slate-800/50 border border-transparent hover:bg-slate-800'}`}>
+                    <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border-2 transition-colors ${isChecked ? 'border-amber-500 bg-amber-500' : 'border-slate-600 bg-slate-900'}`}>
+                      {isChecked && <Check className="h-2.5 w-2.5 text-slate-950" strokeWidth={4} />}
+                    </span>
+                    <span className="text-xs font-bold text-white truncate">{p.name}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <input
           type="text"
           value={notifyTitle}
@@ -881,11 +1045,11 @@ export default function SaaSStatusAndRequests() {
         <button
           type="button"
           onClick={handleSendNotification}
-          disabled={notifySubmitting || selectedTenantIds.size === 0}
+          disabled={notifySubmitting || notifyRecipientCount === 0}
           className="w-full py-2.5 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-black rounded-xl transition-colors cursor-pointer border-none flex items-center justify-center gap-1.5"
         >
           <Bell className="w-3.5 h-3.5" />
-          {notifySubmitting ? 'Sending…' : `Send to ${selectedTenantIds.size} tenant${selectedTenantIds.size === 1 ? '' : 's'}`}
+          {notifySubmitting ? 'Sending…' : `Send to ${notifyRecipientCount} ${notifyRecipientType === 'tenants' ? 'tenant' : notifyRecipientType === 'affiliates' ? 'affiliate' : 'partner'}${notifyRecipientCount === 1 ? '' : 's'}`}
         </button>
       </div>
     </div>

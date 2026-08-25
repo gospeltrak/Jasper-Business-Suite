@@ -405,6 +405,19 @@ export async function sendSuperAdminNotification(payload: {
   });
 }
 
+export async function sendSuperAdminAffiliateNotification(payload: {
+  affiliateIds: string[];
+  partnerIds: string[];
+  title: string;
+  message: string;
+  priority?: 'low' | 'normal' | 'high' | 'critical';
+}) {
+  return apiRequest('/api/super-admin/affiliate-notifications', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function configureTenantBranchCapacity(
   tenantId: string,
   payload: {

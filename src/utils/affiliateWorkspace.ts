@@ -133,6 +133,15 @@ export interface AffiliateActivityEvent {
   created_at: string;
 }
 
+export interface AffiliateNotification {
+  id: string;
+  title: string;
+  message: string;
+  priority: 'low' | 'normal' | 'high' | 'critical';
+  created_at: string;
+  read_at: string | null;
+}
+
 export interface AffiliateWorkspaceData {
   profile: AffiliateWorkspaceProfile;
   tasks: AffiliateTask[];
@@ -143,6 +152,7 @@ export interface AffiliateWorkspaceData {
   commissions: AffiliateCommission[];
   payouts: AffiliatePayout[];
   activities: AffiliateActivityEvent[];
+  notifications: AffiliateNotification[];
 }
 
 export interface ManagedAffiliate {
@@ -293,7 +303,7 @@ export async function loadAffiliateWorkspace(options: AffiliateWorkspaceLoadOpti
     promoCode ? `referral_code_used.eq.${promoCode}` : '',
   ].filter(Boolean).join(',');
 
-  const [tasksResult, meetingsResult, assignmentsResult, sspBanners, referralsResult, subscribersResult, sourceTrackingResult, commissionsResult, payoutsResult, activitiesResult] = await Promise.all([
+  const [tasksResult, meetingsResult, assignmentsResult, sspBanners, referralsResult, subscribersResult, sourceTrackingResult, commissionsResult, payoutsResult, activitiesResult, notificationsResult] = await Promise.all([
     requiredQuery('affiliate_tasks', () => client.from('affiliate_tasks').select('*').eq('affiliate_id', profile.id).order('created_at', { ascending: false }).limit(50)),
     requiredQuery('affiliate_meetings', () => client.from('affiliate_meetings').select('*').eq('affiliate_id', profile.id).order('starts_at', { ascending: true }).limit(50)),
     requiredQuery('affiliate_ad_assignments', () => client.from('affiliate_ad_assignments').select('campaign:affiliate_ad_campaigns(*)').eq('affiliate_id', profile.id).order('created_at', { ascending: false }).limit(50)),
@@ -306,6 +316,7 @@ export async function loadAffiliateWorkspace(options: AffiliateWorkspaceLoadOpti
     requiredQuery('affiliate_commissions', () => client.from('affiliate_commissions').select('id, amount, gross_revenue, gross_commission, withholding_tax, net_payout, currency, status, created_at, available_at, paid_at').eq('affiliate_id', profile.id).order('created_at', { ascending: false }).limit(500)),
     requiredQuery('affiliate_payouts', () => client.from('affiliate_payouts').select('id, amount, currency, payout_method, payout_reference, status, requested_at, processed_at, notes').eq('affiliate_id', profile.id).order('requested_at', { ascending: false }).limit(100)),
     requiredQuery('affiliate_activity_events', () => client.from('affiliate_activity_events').select('*').eq('affiliate_id', profile.id).order('created_at', { ascending: false }).limit(200)),
+    optionalQuery('affiliate_notification_events', () => client.from('affiliate_notification_events').select('id, title, message, priority, created_at, read_at').eq('affiliate_id', profile.id).order('created_at', { ascending: false }).limit(100)),
   ]);
 
   const assignedCampaigns = asArray<any>(assignmentsResult.data)
@@ -347,7 +358,17 @@ export async function loadAffiliateWorkspace(options: AffiliateWorkspaceLoadOpti
       amount: Number(payout.amount),
     })),
     activities: asArray<AffiliateActivityEvent>(activitiesResult.data),
+    notifications: asArray<AffiliateNotification>(notificationsResult.data),
   };
+}
+
+export async function markAffiliateNotificationRead(notificationId: string) {
+  const client: any = await getSecureDataBridgeClient();
+  const { error } = await client
+    .from('affiliate_notification_events')
+    .update({ read_at: new Date().toISOString() })
+    .eq('id', notificationId);
+  if (error) throw error;
 }
 
 export async function completeAffiliateTask(taskId: string) {

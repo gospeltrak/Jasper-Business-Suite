@@ -18,13 +18,15 @@ import {
   HardDrive, Info, LoaderCircle, Lock, Menu, MessageSquare, Monitor,
   RefreshCw, Send, Settings, ShieldAlert, ShieldCheck, TrendingUp,
   Users, Video, Wallet, XCircle, Zap, AlertCircle,
-  Download, LogOut, PhoneCall,
+  Download, LogOut, PhoneCall, Bell,
 } from 'lucide-react';
 import {
   AffiliateAgentWorkspace,
+  AffiliateNotification,
   createAffiliateMeeting,
   createAffiliateTask,
   loadAffiliateAgentWorkspace,
+  markAffiliateNotificationRead,
 } from '../../utils/affiliateWorkspace';
 import {
   isOnline,
@@ -315,6 +317,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
   });
   const [partnerProfileDraft, setPartnerProfileDraft] = useState({ name: '', phone: '', payoutMethod: '', payoutPhone: '' });
   const [partnerPrefs, setPartnerPrefs] = useState({ emailUpdates: true, compactView: false });
+  const [partnerNotifications, setPartnerNotifications] = useState<AffiliateNotification[]>([]);
 
   useEffect(() => {
     const prefsKey = `jasper_partner_preferences_${partnerInfo?.id || 'local'}`;
@@ -395,6 +398,31 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
 
   const partnerName = partnerInfo?.name || workspace?.agentName || 'Partner';
   const partnerId   = partnerInfo?.id || 'partner-local';
+
+  useEffect(() => {
+    if (!partnerInfo?.id) return;
+    const loadNotifications = async () => {
+      try {
+        const { getSecureDataBridgeClient } = await import('../../secureDataBridge');
+        const client: any = await getSecureDataBridgeClient();
+        const { data } = await client
+          .from('affiliate_notification_events')
+          .select('id, title, message, priority, created_at, read_at')
+          .eq('partner_id', partnerInfo.id)
+          .order('created_at', { ascending: false })
+          .limit(50);
+        if (data) setPartnerNotifications(data);
+      } catch { /* Notifications are non-critical -- fail silently. */ }
+    };
+    loadNotifications();
+  }, [partnerInfo?.id]);
+
+  const handleMarkPartnerNotificationRead = async (notificationId: string) => {
+    setPartnerNotifications(prev => prev.map(n => n.id === notificationId ? { ...n, read_at: new Date().toISOString() } : n));
+    try {
+      await markAffiliateNotificationRead(notificationId);
+    } catch { /* Best-effort. */ }
+  };
 
   // partnerCode: reads from session — NEVER generates random (that caused disappearing)
   const partnerCode = useMemo(() => {
@@ -1174,6 +1202,29 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
               })()}
 
               <WhtNotice />
+
+              {partnerNotifications.length > 0 && (
+                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-1">
+                  <h3 className="text-sm font-black text-white mb-3 flex items-center gap-2">
+                    <Bell className="w-4 h-4 text-amber-400" /> Notifications
+                  </h3>
+                  <div className="divide-y divide-slate-800">
+                    {partnerNotifications.slice(0, 5).map(n => (
+                      <div key={n.id}
+                        className={`py-3 cursor-pointer ${!n.read_at ? 'bg-amber-500/5 -mx-2 px-2 rounded-lg' : ''}`}
+                        onClick={() => !n.read_at && handleMarkPartnerNotificationRead(n.id)}
+                      >
+                        <div className="flex items-center gap-2">
+                          <p className="text-xs font-bold text-white">{n.title}</p>
+                          {!n.read_at && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" />}
+                        </div>
+                        <p className="mt-1 text-xs text-slate-400 leading-5">{n.message}</p>
+                        <p className="mt-1 text-[10px] text-slate-600">{new Date(n.created_at).toLocaleString()}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* 8 KPI cards */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

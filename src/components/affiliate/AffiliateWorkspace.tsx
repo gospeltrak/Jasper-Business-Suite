@@ -34,13 +34,16 @@ import {
   Building2,
   Calendar,
   SlidersHorizontal,
+  Bell,
   type LucideIcon,
 } from 'lucide-react';
 import {
   AffiliateCampaign,
+  AffiliateNotification,
   AffiliateWorkspaceData,
   completeAffiliateTask,
   loadAffiliateWorkspace,
+  markAffiliateNotificationRead,
   recordAffiliateActivity,
 } from '../../utils/affiliateWorkspace';
 import {
@@ -364,6 +367,19 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
     }
   };
 
+  const handleMarkNotificationRead = async (notificationId: string) => {
+    if (mirrorMode) return;
+    setWorkspace((prev) => prev ? {
+      ...prev,
+      notifications: prev.notifications.map((n) => n.id === notificationId ? { ...n, read_at: new Date().toISOString() } : n),
+    } : prev);
+    try {
+      await markAffiliateNotificationRead(notificationId);
+    } catch {
+      // Best-effort — the read marker is not critical enough to surface an error for.
+    }
+  };
+
   const saveAffiliateSettings = async () => {
     if (!workspace?.profile) return;
     if (!isNetworkOnline) {
@@ -532,6 +548,7 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
   const profile = workspace!.profile;
   const openTasks = workspace!.tasks.filter((task) => !['completed', 'reviewed'].includes(task.status));
   const upcomingMeetings = workspace!.meetings.filter((meeting) => ['upcoming', 'live'].includes(meeting.status));
+  const notifications = workspace!.notifications || [];
   const allNavItems: ReadonlyArray<readonly [TabId, string, LucideIcon]> = [
     ['overview', 'Overview', BarChart3],
     ['tenants', 'My Subscribers', Users],
@@ -652,6 +669,11 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
                 </div>
               );
             })()}
+            {notifications.length > 0 && (
+              <Panel title="Notifications">
+                {notifications.slice(0, 5).map((n) => <NotificationRow key={n.id} notification={n} onMarkRead={handleMarkNotificationRead} />)}
+              </Panel>
+            )}
             <section className="grid gap-5 xl:grid-cols-2">
               <Panel title="Latest tasks" action="View all" onAction={() => setActiveTab('tasks')}>
                 {openTasks.slice(0, 3).map((task) => <TaskRow key={task.id} task={task} busy={busyTaskId === task.id} readOnly={mirrorMode} onComplete={handleTaskComplete} onDownload={() => task.attachment_url && handleTrackedLink('task_download', 'task', task.id, task.attachment_url, task.attachment_name)} />)}
@@ -1489,6 +1511,25 @@ function Empty({ text }: { text: string }) {
 
 function TaskRow({ task, busy, readOnly = false, onComplete, onDownload }: { key?: unknown; task: any; busy: boolean; readOnly?: boolean; onComplete: (id: string) => void; onDownload: () => void }) {
   return <article className="p-4"><div className="flex justify-between gap-3"><div className="min-w-0"><p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">{task.task_type} · {task.status}</p><h3 className="mt-1 text-sm font-bold text-slate-950">{task.title}</h3>{task.body && <p className="mt-1 text-sm leading-5 text-slate-600">{task.body}</p>}<p className="mt-2 text-xs text-slate-400">{task.sender_name ? `From ${task.sender_name}` : 'From assigned agent'}{task.due_at ? ` · Due ${formatDateTime(task.due_at)}` : ''}</p></div><ClipboardList className="h-5 w-5 shrink-0 text-slate-400" /></div><div className="mt-3 flex flex-wrap gap-2">{task.attachment_url ? <button type="button" onClick={onDownload} className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700"><Download className="h-3.5 w-3.5" /> {task.attachment_name || 'Download file'}</button> : null}{!readOnly && !['completed', 'reviewed'].includes(task.status) ? <button type="button" disabled={busy} onClick={() => onComplete(task.id)} className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"><CheckCircle2 className="h-3.5 w-3.5" /> {busy ? 'Updating' : 'Mark complete'}</button> : null}</div></article>;
+}
+
+function NotificationRow({ notification, onMarkRead }: { key?: unknown; notification: AffiliateNotification; onMarkRead: (id: string) => void }) {
+  const priorityColor = notification.priority === 'critical' || notification.priority === 'high'
+    ? 'text-rose-600'
+    : 'text-emerald-700';
+  return (
+    <article className={`flex items-start gap-3 p-4 ${!notification.read_at ? 'bg-emerald-50/40' : ''}`} onClick={() => !notification.read_at && onMarkRead(notification.id)}>
+      <Bell className={`h-4 w-4 shrink-0 ${priorityColor}`} />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <h3 className="text-sm font-bold text-slate-950">{notification.title}</h3>
+          {!notification.read_at && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-600" />}
+        </div>
+        <p className="mt-1 text-sm leading-5 text-slate-600">{notification.message}</p>
+        <p className="mt-2 text-xs text-slate-400">{formatDateTime(notification.created_at)}</p>
+      </div>
+    </article>
+  );
 }
 
 function MeetingRow({ meeting, onJoin }: { key?: unknown; meeting: any; onJoin: () => void }) {

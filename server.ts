@@ -3275,6 +3275,38 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     }
   });
 
+  app.post('/api/super-admin/affiliate-notifications', async (req, res) => {
+    try {
+      await requirePlatformAdmin(req);
+      const affiliateIdsRaw = Array.isArray(req.body?.affiliateIds) ? req.body.affiliateIds : [];
+      const partnerIdsRaw = Array.isArray(req.body?.partnerIds) ? req.body.partnerIds : [];
+      const affiliateIds = affiliateIdsRaw.map((id: unknown) => String(id || '')).filter((id: string) => isUuid(id));
+      const partnerIds = partnerIdsRaw.map((id: unknown) => String(id || '')).filter((id: string) => isUuid(id));
+      if (affiliateIds.length === 0 && partnerIds.length === 0) {
+        return res.status(400).json({ error: 'At least one valid target affiliate or partner is required.' });
+      }
+      const title = normalizeText(req.body?.title, 200);
+      const message = normalizeText(req.body?.message, 2000);
+      const priority = String(req.body?.priority || 'normal').trim().toLowerCase();
+      if (!title) return res.status(400).json({ error: 'A notification title is required.' });
+      if (!message) return res.status(400).json({ error: 'A notification message is required.' });
+
+      const rpcClient = createAuthenticatedSupabaseClient(req);
+      if (!rpcClient) return res.status(503).json({ error: 'Authenticated Supabase client is not configured.' });
+      const { data, error } = await rpcClient.rpc('super_admin_send_affiliate_notification', {
+        p_affiliate_ids: affiliateIds,
+        p_partner_ids: partnerIds,
+        p_title: title,
+        p_message: message,
+        p_priority: priority,
+      });
+      if (error) throw error;
+      return res.json(data);
+    } catch (error: any) {
+      return platformAdminError(res, error);
+    }
+  });
+
   app.put('/api/super-admin/tenants/:tenantId/branch-capacity', async (req, res) => {
     try {
       await requirePlatformAdmin(req);
