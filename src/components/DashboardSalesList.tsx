@@ -48,7 +48,8 @@ import {
   ChevronLeft,
   Barcode,
   ScanLine,
-  RefreshCw
+  RefreshCw,
+  Minus
 } from 'lucide-react';
 import { downloadPdfFromElement, shareElementPdfToWhatsApp } from '../utils/pdfShare';
 import CachedImage from './CachedImage';
@@ -623,6 +624,7 @@ export default function DashboardSalesList({
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [menuPos, setMenuPos] = useState<{top:number;right:number} | null>(null);
   const [mobileActionsSale, setMobileActionsSale] = useState<Sale | null>(null);
+  const [mobileActionsDocument, setMobileActionsDocument] = useState<SalesDocument | null>(null);
 
   // Modal triggers
   const [viewPaymentsOpen, setViewPaymentsOpen] = useState(false);
@@ -3487,59 +3489,14 @@ export default function DashboardSalesList({
                         <p className="font-black text-slate-900 text-[15px] font-mono">
                           {money(totals.total)}
                         </p>
-                        <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
-                          <button
-                            type="button"
-                            onClick={() => { setViewingDocument(doc); setDocZoom(computeInvoiceFitZoom()); }}
-                            className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold flex items-center gap-1 border border-slate-200 bg-slate-50 text-slate-700"
-                          >
-                            <FileText className="w-3 h-3" />
-                            <span>View</span>
-                          </button>
-                          {isDocumentEditable(doc) && (
-                            <button
-                              type="button"
-                              onClick={() => openEditDocument(doc)}
-                              title="Edit items, quantities, or customer details"
-                              className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold flex items-center gap-1 border border-indigo-200 bg-indigo-50 text-indigo-700"
-                            >
-                              <Pencil className="w-3 h-3" />
-                              <span>Edit</span>
-                            </button>
-                          )}
-                          {doc.status === 'pending' ? (
-                            isMixedBranchDocument(doc) ? (
-                              <span
-                                className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-slate-100 text-slate-400 flex items-center gap-1"
-                                title="Mixes products from two branches — cannot be recorded as a sale from here."
-                              >
-                                <span>Multi-branch</span>
-                              </span>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => sendDocumentToSales(doc)}
-                                className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold flex items-center gap-1 bg-emerald-600 text-white border-none"
-                              >
-                                <ArrowRight className="w-3 h-3" />
-                                <span>Record</span>
-                              </button>
-                            )
-                          ) : (
-                            <span className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-slate-100 text-slate-400 flex items-center gap-1">
-                              <Check className="w-3 h-3 text-emerald-500" />
-                              <span>Done</span>
-                            </span>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => setDocToDelete(doc)}
-                            title="Delete"
-                            className="p-1.5 rounded-lg border border-rose-100 bg-rose-50 text-rose-600"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                        </div>
+                        <button
+                          type="button"
+                          onClick={e => { e.stopPropagation(); setMobileActionsDocument(doc); }}
+                          className="w-8 h-8 flex items-center justify-center rounded-xl active:bg-slate-100"
+                          aria-label="Document actions"
+                        >
+                          <MoreVertical className="w-4 h-4 text-slate-400" />
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -5337,6 +5294,11 @@ export default function DashboardSalesList({
                         <div className="flex-1 min-w-0">
                           <p className="text-[13px] font-bold text-slate-800 dark:text-slate-100 truncate">{item.productName}</p>
                           <div className="flex items-center gap-1.5 mt-1">
+                            <button type="button"
+                              onClick={() => setNewDocItems(prev => prev.map((it, i) => i === idx ? { ...it, qty: Math.max(1, it.qty - 1) } : it))}
+                              className="w-6 h-6 flex items-center justify-center rounded-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-slate-100 cursor-pointer shrink-0">
+                              <Minus className="w-3 h-3" />
+                            </button>
                             <input
                               type="number"
                               min="1"
@@ -5345,8 +5307,13 @@ export default function DashboardSalesList({
                                 const nextQty = Math.max(1, Number(e.target.value) || 1);
                                 setNewDocItems(prev => prev.map((it, i) => i === idx ? { ...it, qty: nextQty } : it));
                               }}
-                              className="w-16 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-[11px] font-bold text-slate-800 dark:text-slate-100 font-mono focus:outline-none focus:border-indigo-500"
+                              className="w-12 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-1.5 py-1 text-[11px] font-bold text-slate-800 dark:text-slate-100 font-mono text-center focus:outline-none focus:border-indigo-500"
                             />
+                            <button type="button"
+                              onClick={() => setNewDocItems(prev => prev.map((it, i) => i === idx ? { ...it, qty: it.qty + 1 } : it))}
+                              className="w-6 h-6 flex items-center justify-center rounded-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-slate-100 cursor-pointer shrink-0">
+                              <Plus className="w-3 h-3" />
+                            </button>
                             <span className="text-[10px] text-slate-400 font-mono">× {currency}{item.price}</span>
                           </div>
                           {item.sourceBranchName && (
@@ -6058,6 +6025,161 @@ export default function DashboardSalesList({
                     </div>
                   </div>
                   <ChevronRight className="w-4 h-4 text-rose-400 flex items-center justify-center" />
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+
+        {mobileActionsDocument && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setMobileActionsDocument(null)}
+              className="fixed inset-0 z-[110] bg-slate-900/40 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 280 }}
+              className="fixed left-0 right-0 max-w-lg mx-auto bg-white rounded-t-3xl shadow-xl z-[120] overflow-hidden font-sans flex flex-col text-[#0f172a] border border-slate-100" style={{bottom: "calc(var(--dashboard-bottom-nav-height, 56px) + env(safe-area-inset-bottom))", maxHeight: "calc(85vh - var(--dashboard-bottom-nav-height, 56px) - env(safe-area-inset-bottom))"}}
+            >
+              <div className="w-full flex justify-center py-2 shrink-0">
+                <div className="w-12 h-1 bg-slate-250 rounded-full" />
+              </div>
+
+              <div className="px-5 pb-3 pt-1 text-left shrink-0">
+                <h3 className="text-base font-extrabold text-slate-800 leading-tight">
+                  {mobileActionsDocument.customerName || 'Customer'} — <span className="font-mono text-indigo-700">{mobileActionsDocument.documentNumber}</span>
+                </h3>
+                <p className="text-xs text-slate-500 mt-1 flex items-center justify-between">
+                  <span>{getDocumentLabel(mobileActionsDocument.type)}</span>
+                  <span>{money(getDocumentTotals(mobileActionsDocument).total)}</span>
+                </p>
+              </div>
+
+              <div className="bg-slate-100 h-[1px] w-full" />
+
+              <div className="overflow-y-auto divide-y divide-slate-100 p-4 max-h-[calc(70vh-20px)] space-y-2.5">
+
+                {/* 1. View */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setViewingDocument(mobileActionsDocument);
+                    setDocZoom(computeInvoiceFitZoom());
+                    setMobileActionsDocument(null);
+                  }}
+                  className="w-full h-14 min-h-[52px] bg-white hover:bg-slate-50 flex items-center justify-between px-3.5 py-2.5 rounded-2xl border border-slate-100 shadow-3xs cursor-pointer text-left transition-colors font-semibold"
+                >
+                  <div className="flex items-center space-x-3.5">
+                    <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 shrink-0 select-none">
+                      <Eye className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <span className="text-sm font-bold text-slate-800 block">View</span>
+                      <span className="text-[10px] text-slate-400 block mt-0.5">Open the full document preview</span>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-slate-400" />
+                </button>
+
+                {/* 2. Edit */}
+                {isDocumentEditable(mobileActionsDocument) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      openEditDocument(mobileActionsDocument);
+                      setMobileActionsDocument(null);
+                    }}
+                    className="w-full h-14 min-h-[52px] bg-white hover:bg-slate-50 flex items-center justify-between px-3.5 py-2.5 rounded-2xl border border-slate-100 shadow-3xs cursor-pointer text-left transition-colors font-semibold"
+                  >
+                    <div className="flex items-center space-x-3.5">
+                      <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-500 shrink-0 select-none">
+                        <Pencil className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <span className="text-sm font-bold text-slate-800 block">Edit</span>
+                        <span className="text-[10px] text-slate-400 block mt-0.5">Add, remove, or change items and details</span>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-400" />
+                  </button>
+                )}
+
+                {/* 3. Send to Sale */}
+                {mobileActionsDocument.status === 'pending' ? (
+                  isMixedBranchDocument(mobileActionsDocument) ? (
+                    <div className="w-full min-h-[52px] bg-slate-50 flex items-center px-3.5 py-2.5 rounded-2xl border border-slate-100">
+                      <div className="flex items-center space-x-3.5">
+                        <div className="w-10 h-10 rounded-xl bg-slate-200 flex items-center justify-center text-slate-400 shrink-0 select-none">
+                          <ArrowRight className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <span className="text-sm font-bold text-slate-500 block">Send to Sale unavailable</span>
+                          <span className="text-[10px] text-slate-400 block mt-0.5">Mixes products from two branches — cannot be recorded as a sale from here</span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        sendDocumentToSales(mobileActionsDocument);
+                        setMobileActionsDocument(null);
+                      }}
+                      className="w-full h-14 min-h-[52px] bg-white hover:bg-slate-50 flex items-center justify-between px-3.5 py-2.5 rounded-2xl border border-slate-100 shadow-3xs cursor-pointer text-left transition-colors font-semibold"
+                    >
+                      <div className="flex items-center space-x-3.5">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0 select-none">
+                          <ArrowRight className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <span className="text-sm font-bold text-slate-800 block">Send to Sale</span>
+                          <span className="text-[10px] text-slate-400 block mt-0.5">Record this document as a completed sale</span>
+                        </div>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-slate-400" />
+                    </button>
+                  )
+                ) : (
+                  <div className="w-full min-h-[52px] bg-slate-50 flex items-center px-3.5 py-2.5 rounded-2xl border border-slate-100">
+                    <div className="flex items-center space-x-3.5">
+                      <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0 select-none">
+                        <Check className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <span className="text-sm font-bold text-slate-800 block">Already sent to sale</span>
+                        <span className="text-[10px] text-slate-400 block mt-0.5">This document has been recorded</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="my-2 border-t border-slate-100" />
+
+                {/* 4. Delete */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDocToDelete(mobileActionsDocument);
+                    setMobileActionsDocument(null);
+                  }}
+                  className="w-full h-14 min-h-[52px] bg-rose-50/30 hover:bg-rose-50 flex items-center justify-between px-3.5 py-2.5 rounded-2xl border border-rose-100 shadow-3xs cursor-pointer text-left transition-colors font-semibold"
+                >
+                  <div className="flex items-center space-x-3.5">
+                    <div className="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center text-rose-600 shrink-0 select-none">
+                      <Trash2 className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <span className="text-sm font-black text-rose-700 block">Delete</span>
+                      <span className="text-[10px] text-slate-400 block mt-0.5">Remove this document (does not affect stock or sales)</span>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-rose-400" />
                 </button>
               </div>
             </motion.div>
