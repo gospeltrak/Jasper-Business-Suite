@@ -661,7 +661,10 @@ export default function DashboardSalesList({
   const [pdfShareStatus, setPdfShareStatus] = useState<string | null>(null);
   const [selectedDocTypeFilter, setSelectedDocTypeFilter] = useState<'all' | 'price quote' | 'proforma invoice'>('all');
   const [docToDelete, setDocToDelete] = useState<SalesDocument | null>(null);
-  
+  // Non-null while the wizard below is editing an existing pending document
+  // (opened via openEditDocument) instead of creating a new one.
+  const [editingDocumentId, setEditingDocumentId] = useState<string | null>(null);
+
   // States for wizard: document creator
   const [newDocType, setNewDocType] = useState<'price quote' | 'proforma invoice'>('price quote');
   const [newDocCustomerName, setNewDocCustomerName] = useState('');
@@ -726,14 +729,19 @@ export default function DashboardSalesList({
     const justOpened = showNewDocModal && !prevShowNewDocModal.current;
     prevShowNewDocModal.current = showNewDocModal;
     if (justOpened) {
-      setNewDocHasVat(!!systemSettings?.invoiceSettings?.hasVatByDefault);
-      setNewDocDeliveryCost(0);
-      setNewDocDiscountValue(0);
-      setNewDocDiscountType('percent');
-      setNewDocPaymentMethod(documentPaymentMethods[0]);
-      const paymentAccount = getDocumentPaymentAccount(documentPaymentMethods[0]);
-      setNewDocPaymentAccountNumber(paymentAccount.accountNumber);
-      setNewDocPaymentAccountName(paymentAccount.accountName);
+      // Editing an existing document: openEditDocument already populated
+      // these fields from the saved document -- resetting them to defaults
+      // here would immediately overwrite that pre-filled data.
+      if (!editingDocumentId) {
+        setNewDocHasVat(!!systemSettings?.invoiceSettings?.hasVatByDefault);
+        setNewDocDeliveryCost(0);
+        setNewDocDiscountValue(0);
+        setNewDocDiscountType('percent');
+        setNewDocPaymentMethod(documentPaymentMethods[0]);
+        const paymentAccount = getDocumentPaymentAccount(documentPaymentMethods[0]);
+        setNewDocPaymentAccountNumber(paymentAccount.accountNumber);
+        setNewDocPaymentAccountName(paymentAccount.accountName);
+      }
       if (canUseCrossBranchDocuments) {
         setCrossBranchSourcesLoading(true);
         setCrossBranchSourcesError('');
@@ -763,7 +771,7 @@ export default function DashboardSalesList({
           .finally(() => setCrossBranchSourcesLoading(false));
       }
     }
-  }, [showNewDocModal, canUseCrossBranchDocuments, documentPaymentMethods, getDocumentPaymentAccount, activeBranchId]); // reset only when opening
+  }, [showNewDocModal, canUseCrossBranchDocuments, documentPaymentMethods, getDocumentPaymentAccount, activeBranchId, editingDocumentId]); // reset only when opening
 
   useEffect(() => {
     if (!documentPaymentMethods.includes(newDocPaymentMethod)) {
@@ -1253,7 +1261,34 @@ export default function DashboardSalesList({
     setNewDocCustomerPhone('');
     setNewDocCustomerAddress('');
     setNewDocDiscountValue(0);
+    setEditingDocumentId(null);
     setShowNewDocModal(false);
+  };
+
+  // Only pending, single-branch documents are editable -- a converted
+  // document is already tied to a real Sale and deducted stock (changing its
+  // items afterward would desync both), and cross-branch documents don't yet
+  // have an update API to reuse (createCrossBranchCommercialDocument has no
+  // update counterpart, unlike updateStandardCommercialDocument).
+  const isDocumentEditable = (doc: SalesDocument) => doc.status === 'pending' && !doc.issuingBranchId;
+
+  const openEditDocument = (doc: SalesDocument) => {
+    if (!isDocumentEditable(doc)) return;
+    setEditingDocumentId(doc.id);
+    setNewDocType(doc.type === 'proforma invoice' ? 'proforma invoice' : 'price quote');
+    setNewDocCustomerName(doc.customerName || '');
+    setNewDocCustomerPhone(doc.customerPhone || '');
+    setNewDocCustomerAddress(doc.customerAddress || '');
+    setNewDocDate(doc.timestamp ? doc.timestamp.split('T')[0] : new Date().toISOString().split('T')[0]);
+    setNewDocItems(doc.items || []);
+    setNewDocDeliveryCost(doc.deliveryCost || 0);
+    setNewDocDiscountValue(doc.discountValue || 0);
+    setNewDocDiscountType(doc.discountType || 'percent');
+    setNewDocPaymentMethod(doc.paymentMethod || documentPaymentMethods[0]);
+    setNewDocPaymentAccountNumber(doc.paymentAccountNumber || '');
+    setNewDocPaymentAccountName(doc.paymentAccountName || '');
+    setNewDocHasVat(!!doc.hasVat);
+    setShowNewDocModal(true);
   };
 
   const handleCreateCommercialDocument = async () => {
@@ -1267,6 +1302,41 @@ export default function DashboardSalesList({
       alert('You appear to be offline. Reconnect and try again — this document was not saved.');
       return;
     }
+
+    if (editingDocumentId) {
+      const patch: Partial<SalesDocument> = {
+        customerName: newDocCustomerName || 'Customer',
+        customerPhone: newDocCustomerPhone || '',
+        customerAddress: newDocCustomerAddress || '',
+        items: newDocItems.map(item => ({ ...item, discount: 0, discountType: 'percent' as const })),
+        total: newDocGrandTotal,
+        tax: newDocTaxAmount,
+        discountAmount: newDocDiscountAmount,
+        discountValue: cappedDiscountValue,
+        discountType: newDocDiscountType,
+        hasVat: newDocHasVat,
+        taxRate: newDocTaxRate,
+        deliveryCost: Number(newDocDeliveryCost) || 0,
+        paymentMethod: newDocPaymentMethod,
+        paymentAccountNumber: newDocPaymentAccountNumber.trim() || undefined,
+        paymentAccountName: newDocPaymentAccountName.trim() || undefined,
+        paymentAmount: newDocGrandTotal,
+        timestamp: new Date(`${newDocDate || new Date().toISOString().split('T')[0]}T12:00:00`).toISOString(),
+      };
+      setDocumentMutationPending(true);
+      try {
+        const editedId = editingDocumentId;
+        const updated = await updateStandardCommercialDocument(editedId, patch);
+        setDocuments(prev => prev.map(d => d.id === editedId ? normalizeDocumentDiscount({ ...d, ...updated }) : d));
+        resetNewDocumentForm();
+      } catch (error) {
+        alert(error instanceof Error ? error.message : 'The document could not be updated.');
+      } finally {
+        setDocumentMutationPending(false);
+      }
+      return;
+    }
+
     const prefixMap = { 'price quote': 'QUO', 'proforma invoice': 'PFI' };
     const prefix = prefixMap[newDocType] || 'DOC';
     const nextNum = `${prefix}-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -3339,6 +3409,7 @@ export default function DashboardSalesList({
               <button
                 type="button"
                 onClick={() => {
+                  setEditingDocumentId(null);
                   setNewDocItems([]);
                   setNewDocCustomerName('');
                   setNewDocCustomerPhone('');
@@ -3413,6 +3484,17 @@ export default function DashboardSalesList({
                             <FileText className="w-3 h-3" />
                             <span>View</span>
                           </button>
+                          {isDocumentEditable(doc) && (
+                            <button
+                              type="button"
+                              onClick={() => openEditDocument(doc)}
+                              title="Edit items, quantities, or customer details"
+                              className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold flex items-center gap-1 border border-indigo-200 bg-indigo-50 text-indigo-700"
+                            >
+                              <Pencil className="w-3 h-3" />
+                              <span>Edit</span>
+                            </button>
+                          )}
                           {doc.status === 'pending' ? (
                             isMixedBranchDocument(doc) ? (
                               <span
@@ -4981,10 +5063,10 @@ export default function DashboardSalesList({
             {/* ── Header ── */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0">
               <div>
-                <h3 className="text-[15px] font-black text-slate-900 dark:text-white">New Document</h3>
+                <h3 className="text-[15px] font-black text-slate-900 dark:text-white">{editingDocumentId ? 'Edit Document' : 'New Document'}</h3>
                 <p className="text-[10px] text-slate-400 mt-0.5">Quotation or Proforma Invoice</p>
               </div>
-              <button type="button" onClick={() => setShowNewDocModal(false)}
+              <button type="button" onClick={resetNewDocumentForm}
                 className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:text-slate-800 cursor-pointer border-none transition-colors">
                 <X className="w-4 h-4" />
               </button>
@@ -5242,7 +5324,19 @@ export default function DashboardSalesList({
                       <div key={idx} className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2">
                         <div className="flex-1 min-w-0">
                           <p className="text-[13px] font-bold text-slate-800 dark:text-slate-100 truncate">{item.productName}</p>
-                          <p className="text-[10px] text-slate-400 font-mono mt-0.5">{item.qty} × {currency}{item.price}</p>
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <input
+                              type="number"
+                              min="1"
+                              value={item.qty}
+                              onChange={e => {
+                                const nextQty = Math.max(1, Number(e.target.value) || 1);
+                                setNewDocItems(prev => prev.map((it, i) => i === idx ? { ...it, qty: nextQty } : it));
+                              }}
+                              className="w-16 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-[11px] font-bold text-slate-800 dark:text-slate-100 font-mono focus:outline-none focus:border-indigo-500"
+                            />
+                            <span className="text-[10px] text-slate-400 font-mono">× {currency}{item.price}</span>
+                          </div>
                           {item.sourceBranchName && (
                             <p className="text-[9px] text-indigo-500 font-semibold mt-0.5">Internal source: {item.sourceBranchName}</p>
                           )}
@@ -5346,15 +5440,15 @@ export default function DashboardSalesList({
 
             {/* ── Footer ── */}
             <div className="shrink-0 px-4 py-3 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex gap-2">
-              <button type="button" onClick={() => setShowNewDocModal(false)}
+              <button type="button" onClick={resetNewDocumentForm}
                 className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 font-bold text-sm cursor-pointer transition-colors hover:bg-slate-50 dark:hover:bg-slate-800">
                 Cancel
               </button>
               <button type="button"
-                disabled={newDocItems.length === 0 || documentMutationPending || (canUseCrossBranchDocuments && (!newDocIssuingBranchId || crossBranchSourcesLoading || !!crossBranchSourcesError))}
+                disabled={newDocItems.length === 0 || documentMutationPending || (!editingDocumentId && canUseCrossBranchDocuments && (!newDocIssuingBranchId || crossBranchSourcesLoading || !!crossBranchSourcesError))}
                 onClick={() => void handleCreateCommercialDocument()}
                 className="flex-[2] py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 disabled:cursor-not-allowed text-white font-black text-sm cursor-pointer transition-colors border-none">
-                {documentMutationPending ? 'Saving…' : `Create ${getDocumentLabel(newDocType)}`}
+                {documentMutationPending ? 'Saving…' : editingDocumentId ? 'Save Changes' : `Create ${getDocumentLabel(newDocType)}`}
               </button>
             </div>
 
