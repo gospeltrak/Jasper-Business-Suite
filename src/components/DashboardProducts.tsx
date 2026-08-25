@@ -2198,7 +2198,44 @@ export default function DashboardProducts({
           </button>
         ))}
       </div>
-      {!isPharmacyLike && isBulkProduct && (
+      {!isPharmacyLike && isBulkProduct && isDesktopAddProductLayout && (
+        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '0.75rem', alignItems: 'end' }}>
+          <div className="space-y-1">
+            <label className="text-[9px] font-bold text-slate-500 uppercase">Package Name</label>
+            <input value={purchaseUnit} onChange={(e) => setPurchaseUnit(e.target.value)} placeholder="e.g. Sack" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+          </div>
+          <div className="space-y-1 min-w-0">
+            <label className="text-[9px] font-bold text-slate-500 uppercase">Contains Quantity</label>
+            <input type="number" step="0.001" value={conversionToBaseUnit} onChange={(e) => setConversionToBaseUnit(e.target.value === '' ? '' : Number(e.target.value))} placeholder="e.g. 24" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+          </div>
+          <div className="space-y-1 min-w-0">
+            <label className="text-[9px] font-bold text-slate-500 uppercase">Sell / Count Unit</label>
+            <div className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl font-bold text-slate-700 truncate">
+              {baseUnit || 'Unit'}
+            </div>
+            <p className="text-[8px] normal-case text-slate-400">Follows the Units field above.</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              const next = !allowScaleSelling;
+              setAllowScaleSelling(next);
+              if (next && !sellingMode) setSellingMode('scale');
+            }}
+            aria-pressed={allowScaleSelling}
+            aria-label="Fraction Sale"
+            className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 uppercase cursor-pointer h-[34px]"
+          >
+            <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors ${
+              allowScaleSelling ? 'border-emerald-600 bg-emerald-600' : 'border-slate-300 bg-white'
+            }`}>
+              {allowScaleSelling && <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />}
+            </span>
+            Fraction Sale
+          </button>
+        </div>
+      )}
+      {!isPharmacyLike && isBulkProduct && !isDesktopAddProductLayout && (
         <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 space-y-3">
           <div className="space-y-1">
             <label className="text-[9px] font-bold text-slate-500 uppercase">Package Name</label>
@@ -3267,13 +3304,18 @@ export default function DashboardProducts({
                       <span>{currency}{Math.round(profit).toLocaleString()}</span>
                     </div>
                   </div>
-
-                  {isTabletWidthOrWider && smartBatchCostingSection}
                 </div>
 
               </div>
 
+              {/* Smart Batch Costing and Pharmacy Unit Hierarchy render full-width
+                  below the 3-column grid on tablet/desktop instead of being
+                  packed into a single column -- their content (FIFO/Average/
+                  Batch, Package Name, Contains Quantity, hierarchy levels) is
+                  substantial and previously made column 3 much taller than
+                  columns 1 and 2, leaving a large empty gap under them. */}
               {isTabletWidthOrWider && pharmacyUnitHierarchySection}
+              {isTabletWidthOrWider && smartBatchCostingSection}
 
               {/* Commit Trigger */}
               <button
