@@ -1625,7 +1625,17 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     currentStaffCount
   );
   const isTrialAccount = normalizeSubscriptionPlanId(subStatus.state.planId) === 'trial' && !subStatus.state.isSubscribedPaid;
-  const isTrialAccessLocked = user.role !== 'SuperAdmin' && isTrialAccount && subStatus.isExpired;
+  // Locks the whole dashboard behind the renew/upgrade screen the instant a
+  // subscription expires -- previously this only fired for expired trials
+  // (isTrialAccount &&), so a paid plan (Ruby/Diamond/Tanzanite) that ran out
+  // left the tenant with normal, unrestricted access except a dismissible
+  // banner. No grace period, per explicit instruction.
+  const isSubscriptionAccessLocked = user.role !== 'SuperAdmin' && subStatus.isExpired;
+  const expiredPlanId = normalizeSubscriptionPlanId(subStatus.state.planId);
+  const expiredPlan = SUBSCRIPTION_PLANS[expiredPlanId];
+  const expiredOnLabel = subStatus.state.subscriptionEndAt
+    ? new Date(subStatus.state.subscriptionEndAt).toLocaleDateString()
+    : null;
   const trialDurationDays = subStatus.state.promoCodeUsed ? 20 : 10;
   const rubyDowngradeNotes = [
     'Lucy AI online assistant is not included',
@@ -3764,7 +3774,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
               onReturnToDashboard={() => setActiveTab(getDefaultDashboardTab())}
             >
 
-            {isTrialAccessLocked ? (
+            {isSubscriptionAccessLocked ? (
               <div className="min-h-[calc(100dvh-120px)]">
                 <section className="mx-auto flex w-full max-w-6xl flex-col gap-5">
                   <div className="overflow-hidden rounded-[2rem] border border-slate-200 bg-slate-950 text-white shadow-xl dark:border-slate-800">
@@ -3772,22 +3782,26 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                       <div className="space-y-5">
                         <div className="inline-flex items-center gap-2 rounded-full border border-amber-400/25 bg-amber-400/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-amber-300">
                           <AlertTriangle className="h-3.5 w-3.5" />
-                          Trial expired
+                          {isTrialAccount ? 'Trial expired' : 'Subscription expired'}
                         </div>
                         <div className="space-y-2">
-                          <h2 className="text-3xl font-black tracking-tight md:text-4xl">Your Diamond free trial has ended</h2>
+                          <h2 className="text-3xl font-black tracking-tight md:text-4xl">
+                            {isTrialAccount ? 'Your Diamond free trial has ended' : `Your ${expiredPlan.name} package has expired`}
+                          </h2>
                           <p className="max-w-2xl text-sm leading-6 text-slate-300">
-                            During your free trial you were using the Diamond package experience for {trialDurationDays} days. Your business data is still preserved. Choose Ruby, Diamond, or Tanzanite below, submit payment proof, and continue with the package limits you select.
+                            {isTrialAccount
+                              ? `During your free trial you were using the Diamond package experience for ${trialDurationDays} days. Your business data is still preserved. Choose Ruby, Diamond, or Tanzanite below, submit payment proof, and continue with the package limits you select.`
+                              : `Your business data is still preserved. Renew ${expiredPlan.name}${expiredOnLabel ? ` (expired ${expiredOnLabel})` : ''} to continue exactly as before, or choose a different package below, submit payment proof, and continue with the package limits you select.`}
                           </p>
                         </div>
                         <div className="grid gap-3 sm:grid-cols-3">
                           <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Trial package</p>
-                            <p className="mt-1 text-lg font-black text-emerald-300">Diamond</p>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{isTrialAccount ? 'Trial package' : 'Current package'}</p>
+                            <p className="mt-1 text-lg font-black text-emerald-300">{isTrialAccount ? 'Diamond' : expiredPlan.name}</p>
                           </div>
                           <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Trial length</p>
-                            <p className="mt-1 text-lg font-black text-white">{trialDurationDays} days</p>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{isTrialAccount ? 'Trial length' : 'Status'}</p>
+                            <p className="mt-1 text-lg font-black text-white">{isTrialAccount ? `${trialDurationDays} days` : 'Expired'}</p>
                           </div>
                           <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
                             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Data status</p>
@@ -3795,29 +3809,34 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                           </div>
                         </div>
                       </div>
-                      <div className="rounded-3xl border border-amber-300/20 bg-amber-300/10 p-5">
-                        <h3 className="text-sm font-black uppercase tracking-wider text-amber-200">Before choosing Ruby</h3>
-                        <p className="mt-2 text-xs leading-5 text-amber-50/85">Ruby is cheaper, but because your trial was Diamond, these Diamond features will no longer be available on Ruby:</p>
-                        <ul className="mt-3 space-y-2 text-xs text-amber-50/90">
-                          {rubyDowngradeNotes.map((note) => <li key={note} className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-300" />{note}</li>)}
-                        </ul>
-                      </div>
+                      {isTrialAccount && (
+                        <div className="rounded-3xl border border-amber-300/20 bg-amber-300/10 p-5">
+                          <h3 className="text-sm font-black uppercase tracking-wider text-amber-200">Before choosing Ruby</h3>
+                          <p className="mt-2 text-xs leading-5 text-amber-50/85">Ruby is cheaper, but because your trial was Diamond, these Diamond features will no longer be available on Ruby:</p>
+                          <ul className="mt-3 space-y-2 text-xs text-amber-50/90">
+                            {rubyDowngradeNotes.map((note) => <li key={note} className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-300" />{note}</li>)}
+                          </ul>
+                        </div>
+                      )}
                     </div>
                   </div>
 
                   <div className="grid gap-4 xl:grid-cols-3">
                     {([
-                      { id: 'ruby' as const, tag: 'Lower cost', tone: 'border-rose-200 bg-white', cta: 'Choose Ruby', notes: ['TZS 15,000 / month', '1,000 products', '1 store', '2 staff users'] },
-                      { id: 'diamond' as const, tag: 'Same as trial', tone: 'border-emerald-300 bg-emerald-50', cta: 'Keep Diamond', notes: ['TZS 30,000 / month', '5,000 products', 'Diamond Lucy AI', '5 staff users'] },
-                      { id: 'tanzanite' as const, tag: 'Full upgrade', tone: 'border-cyan-300 bg-white', cta: 'Upgrade Tanzanite', notes: ['TZS 50,000 / month', 'Unlimited products', 'Forecasting + higher Lucy limits', '15 staff users'] },
+                      { id: 'ruby' as const, tag: 'Lower cost', tone: 'border-rose-200 bg-white', trialCta: 'Choose Ruby', notes: ['TZS 15,000 / month', '1,000 products', '1 store', '2 staff users'] },
+                      { id: 'diamond' as const, tag: 'Same as trial', tone: 'border-emerald-300 bg-emerald-50', trialCta: 'Keep Diamond', notes: ['TZS 30,000 / month', '5,000 products', 'Diamond Lucy AI', '5 staff users'] },
+                      { id: 'tanzanite' as const, tag: 'Full upgrade', tone: 'border-cyan-300 bg-white', trialCta: 'Upgrade Tanzanite', notes: ['TZS 50,000 / month', 'Unlimited products', 'Forecasting + higher Lucy limits', '15 staff users'] },
                     ]).map((pkg) => {
                       const plan = SUBSCRIPTION_PLANS[pkg.id];
                       const isDiamond = pkg.id === 'diamond';
+                      const isCurrentPlan = !isTrialAccount && pkg.id === expiredPlanId;
+                      const cta = isTrialAccount ? pkg.trialCta : (isCurrentPlan ? `Renew ${plan.name}` : `Switch to ${plan.name}`);
+                      const tag = isTrialAccount ? pkg.tag : (isCurrentPlan ? 'Your current plan' : pkg.tag);
                       return (
                         <article key={pkg.id} className={`rounded-3xl border p-5 shadow-sm ${pkg.tone}`}>
                           <div className="flex items-center justify-between gap-3">
                             <div>
-                              <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-widest ${isDiamond ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600'}`}>{pkg.tag}</span>
+                              <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-widest ${isDiamond ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600'}`}>{tag}</span>
                               <h3 className="mt-3 text-2xl font-black text-slate-950">{plan.name}</h3>
                             </div>
                             <div className="text-right">
@@ -3842,14 +3861,14 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                               setManualActivationPackage(pkg.id);
                               setSubModal({
                                 show: true,
-                                title: `${pkg.cta}`,
+                                title: cta,
                                 limitType: 'expired',
                                 description: `Select ${plan.name}, pay, and upload your receipt for activation.`
                               });
                             }}
                             className={`mt-5 w-full rounded-2xl px-4 py-3 text-sm font-black transition-colors ${isDiamond ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-slate-950 text-white hover:bg-slate-800'}`}
                           >
-                            {pkg.cta}
+                            {cta}
                           </button>
                         </article>
                       );
