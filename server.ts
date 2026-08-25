@@ -3149,9 +3149,11 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       if (paymentProofId && !isUuid(paymentProofId)) {
         return res.status(400).json({ error: 'Invalid payment proof identifier.' });
       }
+      let paidAmount: number | null = null;
+      let paidCurrency: string | null = null;
       if (paymentProofId) {
         const { data: proof, error: proofError } = await adminTable('tenant_payment_proofs')
-          .select('id, tenant_id, requested_package_id, status')
+          .select('id, tenant_id, requested_package_id, status, amount, currency')
           .eq('id', paymentProofId)
           .maybeSingle();
         if (proofError) throw proofError;
@@ -3161,6 +3163,8 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         if (String(proof.requested_package_id || '').toLowerCase() !== packageId) {
           return res.status(400).json({ error: 'The activated package must match the package on the payment proof.' });
         }
+        paidAmount = Number.isFinite(Number(proof.amount)) && Number(proof.amount) > 0 ? Number(proof.amount) : null;
+        paidCurrency = proof.currency || null;
       }
       if (!idempotencyKey) {
         return res.status(400).json({ error: 'An activation idempotency key is required.' });
@@ -3182,6 +3186,60 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       });
       if (error) throw error;
       void sendTelegramAlert(`✅ <b>Payment approved</b>\n${packageId.charAt(0).toUpperCase() + packageId.slice(1)} package activated for ${durationDays} days.\nReason: ${reason}`);
+
+      // Real, paid activation: if this tenant was referred by an affiliate
+      // (a pending referred_customers/commission_ledger row from signup-time
+      // attribution), recognize the revenue and commission now. Never runs
+      // for free/emergency admin grants, since those never carry a
+      // paymentProofId. Best-effort — must never fail the activation itself.
+      if (paymentProofId && paidAmount !== null) {
+        try {
+          const { data: referral } = await adminTable('referred_customers')
+            .select('id')
+            .eq('customer_id', tenantId)
+            .eq('payment_status', 'pending')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (referral?.id) {
+            const subAffiliateGross15 = paidAmount * 0.15;
+            const managerCommission5 = paidAmount * 0.05;
+            const networkPool20 = paidAmount * 0.20;
+            const withholdingTax = subAffiliateGross15 * 0.05;
+            const netPayout = subAffiliateGross15 - withholdingTax;
+            const approvedAt = new Date().toISOString();
+
+            await adminTable('referred_customers')
+              .update({
+                amount_paid: paidAmount,
+                payment_status: 'paid',
+                commission_status: 'approved',
+                commission_amount: subAffiliateGross15,
+                package_name: packageId,
+                package_price: paidAmount,
+              })
+              .eq('id', referral.id);
+
+            await adminTable('commission_ledger')
+              .update({
+                revenue_amount: paidAmount,
+                network_pool_20: networkPool20,
+                manager_commission_5: managerCommission5,
+                sub_affiliate_gross_commission_15: subAffiliateGross15,
+                withholding_tax_amount: withholdingTax,
+                sub_affiliate_net_payout: netPayout,
+                status: 'approved',
+                currency: paidCurrency || 'TZS',
+                approved_at: approvedAt,
+              })
+              .eq('customer_id', tenantId)
+              .eq('status', 'pending');
+          }
+        } catch (commissionError) {
+          console.warn('[activate-package] affiliate commission update failed (non-blocking):', commissionError);
+        }
+      }
+
       return res.json(data);
     } catch (error: any) {
       return platformAdminError(res, error);
