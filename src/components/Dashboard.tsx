@@ -3775,10 +3775,12 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
             >
 
             {isSubscriptionAccessLocked ? (
-              <div className="min-h-[calc(100dvh-120px)]">
+              <div className="min-h-[calc(100dvh-120px)] px-4 py-6 sm:px-6 sm:py-8">
                 <section className="mx-auto flex w-full max-w-6xl flex-col gap-5">
-                  <div className="overflow-hidden rounded-[2rem] border border-slate-200 bg-slate-950 text-white shadow-xl dark:border-slate-800">
-                    <div className="grid gap-6 p-6 md:grid-cols-[1.15fr_0.85fr] md:p-8">
+                  <div className="relative overflow-hidden rounded-[2rem] border border-slate-800 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white shadow-2xl shadow-slate-950/20">
+                    <div className="pointer-events-none absolute -top-24 -right-24 h-72 w-72 rounded-full bg-emerald-500/20 blur-3xl" />
+                    <div className="pointer-events-none absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-cyan-500/10 blur-3xl" />
+                    <div className="relative grid gap-6 p-6 md:grid-cols-[1.15fr_0.85fr] md:p-8">
                       <div className="space-y-5">
                         <div className="inline-flex items-center gap-2 rounded-full border border-amber-400/25 bg-amber-400/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-amber-300">
                           <AlertTriangle className="h-3.5 w-3.5" />
@@ -3821,7 +3823,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                     </div>
                   </div>
 
-                  <div className="grid gap-4 xl:grid-cols-3">
+                  <div className="subscription-plan-grid grid gap-4 md:grid-cols-3">
                     {([
                       { id: 'ruby' as const, tag: 'Lower cost', tone: 'border-rose-200 bg-white', trialCta: 'Choose Ruby', notes: ['TZS 15,000 / month', '1,000 products', '1 store', '2 staff users'] },
                       { id: 'diamond' as const, tag: 'Same as trial', tone: 'border-emerald-300 bg-emerald-50', trialCta: 'Keep Diamond', notes: ['TZS 30,000 / month', '5,000 products', 'Diamond Lucy AI', '5 staff users'] },
@@ -3833,7 +3835,12 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                       const cta = isTrialAccount ? pkg.trialCta : (isCurrentPlan ? `Renew ${plan.name}` : `Switch to ${plan.name}`);
                       const tag = isTrialAccount ? pkg.tag : (isCurrentPlan ? 'Your current plan' : pkg.tag);
                       return (
-                        <article key={pkg.id} className={`rounded-3xl border p-5 shadow-sm ${pkg.tone}`}>
+                        <article key={pkg.id} className={`group relative flex h-full flex-col rounded-3xl border p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-xl ${pkg.tone} ${isDiamond ? 'ring-2 ring-emerald-400 md:scale-[1.03] md:hover:scale-[1.05]' : ''}`}>
+                          {isDiamond && (
+                            <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-emerald-600 px-3 py-1 text-[9px] font-black uppercase tracking-widest text-white shadow-md">
+                              Recommended
+                            </span>
+                          )}
                           <div className="flex items-center justify-between gap-3">
                             <div>
                               <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-widest ${isDiamond ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600'}`}>{tag}</span>
@@ -3866,7 +3873,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                                 description: `Select ${plan.name}, pay, and upload your receipt for activation.`
                               });
                             }}
-                            className={`mt-5 w-full rounded-2xl px-4 py-3 text-sm font-black transition-colors ${isDiamond ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-slate-950 text-white hover:bg-slate-800'}`}
+                            className={`mt-5 md:mt-auto w-full rounded-2xl px-4 py-3 text-sm font-black transition-colors ${isDiamond ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-slate-950 text-white hover:bg-slate-800'}`}
                           >
                             {cta}
                           </button>
@@ -3877,7 +3884,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
 
                   <div className="rounded-3xl border border-cyan-200 bg-cyan-50 p-5">
                     <h3 className="text-sm font-black uppercase tracking-wider text-cyan-900">If you choose Tanzanite you gain</h3>
-                    <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2 md:grid-cols-3">
                       {tanzaniteUpgradeNotes.map((note) => (
                         <div key={note} className="rounded-2xl bg-white px-3 py-2 text-xs font-semibold text-cyan-950 shadow-sm">{note}</div>
                       ))}
