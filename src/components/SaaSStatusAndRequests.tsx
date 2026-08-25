@@ -97,8 +97,8 @@ export default function SaaSStatusAndRequests() {
 
   const clearTenantSelection = () => setSelectedTenantIds(new Set());
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
+  const loadData = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const client: any = await getSecureDataBridgeClient();
 
@@ -120,13 +120,19 @@ export default function SaaSStatusAndRequests() {
 
       if (!tenantsError && tenantsData) setTenants(tenantsData);
     } catch (e) {
-      setMessage({ text: 'Failed to load data. Check Supabase connection.', type: 'error' });
+      if (!silent) setMessage({ text: 'Failed to load data. Check Supabase connection.', type: 'error' });
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
-  useEffect(() => { loadData(); }, [loadData]);
+  // Poll in the background so newly-submitted tenant requests show up without
+  // an admin needing to manually reload the tab.
+  useEffect(() => {
+    loadData();
+    const interval = setInterval(() => loadData(true), 20000);
+    return () => clearInterval(interval);
+  }, [loadData]);
 
   const loadSelectedTenantBranchAccess = useCallback(async (tenantId: string) => {
     if (!tenantId) {
@@ -407,7 +413,7 @@ export default function SaaSStatusAndRequests() {
               {pendingCount} Pending
             </span>
           )}
-          <button onClick={loadData} className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl border border-slate-700 cursor-pointer transition-colors">
+          <button onClick={() => loadData()} className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl border border-slate-700 cursor-pointer transition-colors">
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>

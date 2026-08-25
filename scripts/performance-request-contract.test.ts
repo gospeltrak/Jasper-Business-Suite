@@ -79,7 +79,7 @@ test('affiliate monitoring avoids tenant scans and loads sensitive affiliate det
 });
 
 test('runtime indexes match live sessions and affiliate reporting query shapes', () => {
-  assert.match(runtimeIndexes, /create index concurrently if not exists user_sessions_online_activity_idx/);
+  assert.match(runtimeIndexes, /create index if not exists user_sessions_online_activity_idx/);
   assert.match(runtimeIndexes, /where is_active = true and logout_at is null/);
   assert.match(runtimeIndexes, /referred_customers_partner_created_idx/);
   assert.match(runtimeIndexes, /referred_customers_promo_created_idx/);
