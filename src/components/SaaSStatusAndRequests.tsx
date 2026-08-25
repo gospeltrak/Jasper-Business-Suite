@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Activity, ShieldAlert, CheckCircle, XCircle, Gift, Search, RefreshCw, FileText, Clock, Package, User, AlertCircle } from 'lucide-react';
+import { Activity, ShieldAlert, CheckCircle, XCircle, Gift, Search, RefreshCw, FileText, Clock, Package, User, AlertCircle, Bell, Check } from 'lucide-react';
 import { getSecureDataBridgeClient } from '../secureDataBridge';
 import { normalizeSubscriptionPlanId, SUBSCRIPTION_PLANS } from '../utils/subscription';
 import {
@@ -7,6 +7,7 @@ import {
   configureMultiBranchRollout,
   configureTenantBranchCapacity,
   loadTenantBranchAccess,
+  sendSuperAdminNotification,
   type SuperAdminBranchAccess,
 } from '../utils/superAdminData';
 
@@ -57,6 +58,44 @@ export default function SaaSStatusAndRequests() {
   const [additionalBranchSlots, setAdditionalBranchSlots] = useState(0);
   const [rolloutReason, setRolloutReason] = useState('');
   const emergencyActivationKeyRef = useRef<{ fingerprint: string; key: string } | null>(null);
+
+  // Shared tenant search + multi-select, used by the Grant Free Time and
+  // Send Notification tools below -- independent from emergencyTenantId
+  // (Emergency Override stays single-tenant, tied to its own branch-access
+  // panel, which doesn't make sense for a bulk action).
+  const [tenantSearchQuery, setTenantSearchQuery] = useState('');
+  const [selectedTenantIds, setSelectedTenantIds] = useState<Set<string>>(new Set());
+
+  const [grantDurationValue, setGrantDurationValue] = useState(30);
+  const [grantDurationUnit, setGrantDurationUnit] = useState<'days' | 'months'>('days');
+  const [grantPackage, setGrantPackage] = useState<'ruby' | 'diamond' | 'tanzanite'>('diamond');
+  const [grantReason, setGrantReason] = useState('');
+  const [grantSubmitting, setGrantSubmitting] = useState(false);
+  // Free/emergency grants bypass payment entirely, so a second explicit
+  // confirmation step is required before they actually execute.
+  const [grantConfirmOpen, setGrantConfirmOpen] = useState(false);
+
+  const [notifyTitle, setNotifyTitle] = useState('');
+  const [notifyMessage, setNotifyMessage] = useState('');
+  const [notifySubmitting, setNotifySubmitting] = useState(false);
+
+  const filteredTenantsForPicker = tenants.filter(t =>
+    !tenantSearchQuery.trim() || t.name.toLowerCase().includes(tenantSearchQuery.trim().toLowerCase())
+  );
+
+  const toggleTenantSelection = (id: string) => {
+    setSelectedTenantIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAllFilteredTenants = () => {
+    setSelectedTenantIds(new Set(filteredTenantsForPicker.map(t => t.id)));
+  };
+
+  const clearTenantSelection = () => setSelectedTenantIds(new Set());
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -257,6 +296,80 @@ export default function SaaSStatusAndRequests() {
       await loadSelectedTenantBranchAccess(emergencyTenantId);
     } catch (e: any) {
       setMessage({ text: `Branch capacity update failed: ${e.message}`, type: 'error' });
+    }
+  };
+
+  // ── GRANT FREE TIME (bulk) ───────────────────────────────────────────────
+  // Free grants bypass payment, so requesting one only validates the form
+  // and opens a confirmation step; executeGrantFreeTime (below) is the one
+  // that actually calls the activation API, only reachable after confirming.
+  const requestGrantFreeTime = () => {
+    if (selectedTenantIds.size === 0) { setMessage({ text: 'Select at least one tenant first.', type: 'error' }); return; }
+    if (!grantReason.trim()) { setMessage({ text: 'Enter an administrator reason first.', type: 'error' }); return; }
+    const durationDays = grantDurationUnit === 'months' ? Math.round(grantDurationValue * 30) : Math.round(grantDurationValue);
+    if (!Number.isFinite(durationDays) || durationDays < 1 || durationDays > 366) {
+      setMessage({ text: 'Duration must be between 1 day and 366 days.', type: 'error' });
+      return;
+    }
+    setMessage(null);
+    setGrantConfirmOpen(true);
+  };
+
+  const executeGrantFreeTime = async () => {
+    const durationDays = grantDurationUnit === 'months' ? Math.round(grantDurationValue * 30) : Math.round(grantDurationValue);
+    setGrantConfirmOpen(false);
+    setGrantSubmitting(true);
+    setMessage(null);
+    const targetIds = Array.from(selectedTenantIds);
+    let succeeded = 0;
+    let failed = 0;
+    for (const tenantId of targetIds) {
+      try {
+        await activateTenantPackage(tenantId, {
+          packageId: grantPackage,
+          durationDays,
+          reason: grantReason.trim(),
+          enableBranches: false,
+          idempotencyKey: `admin-grant:${tenantId}:${crypto.randomUUID()}`,
+        });
+        succeeded += 1;
+      } catch {
+        failed += 1;
+      }
+    }
+    setTenants(prev => prev.map(t => selectedTenantIds.has(t.id) ? {
+      ...t,
+      subscription_plan: grantPackage,
+      active_package_id: grantPackage,
+      subscription_status: 'active',
+    } : t));
+    setMessage({
+      text: `✅ Granted ${SUBSCRIPTION_PLANS[grantPackage]?.name} for ${durationDays} day${durationDays === 1 ? '' : 's'} to ${succeeded} tenant${succeeded === 1 ? '' : 's'}.${failed > 0 ? ` ${failed} failed.` : ''}`,
+      type: failed > 0 && succeeded === 0 ? 'error' : 'success',
+    });
+    setGrantReason('');
+    setGrantSubmitting(false);
+  };
+
+  // ── SEND NOTIFICATION (bulk) ─────────────────────────────────────────────
+  const handleSendNotification = async () => {
+    if (selectedTenantIds.size === 0) { setMessage({ text: 'Select at least one tenant first.', type: 'error' }); return; }
+    if (!notifyTitle.trim() || !notifyMessage.trim()) { setMessage({ text: 'Enter a title and message first.', type: 'error' }); return; }
+    setNotifySubmitting(true);
+    setMessage(null);
+    try {
+      const result = await sendSuperAdminNotification({
+        tenantIds: Array.from(selectedTenantIds),
+        title: notifyTitle.trim(),
+        message: notifyMessage.trim(),
+      });
+      setMessage({ text: `✅ Notification sent to ${result?.tenantsSent ?? selectedTenantIds.size} tenant(s). It will appear in their notification inbox.`, type: 'success' });
+      setNotifyTitle('');
+      setNotifyMessage('');
+    } catch (e: any) {
+      setMessage({ text: `Notification failed: ${e.message}`, type: 'error' });
+    } finally {
+      setNotifySubmitting(false);
     }
   };
 
@@ -603,6 +716,171 @@ export default function SaaSStatusAndRequests() {
             )}
           </div>
         ) : null}
+      </div>
+
+      {/* Shared tenant picker — search + multi-select, used by Grant Free
+          Time and Send Notification below */}
+      <div className="bg-slate-900 border border-slate-700 rounded-2xl p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <User className="w-4 h-4 text-cyan-400" />
+          <h3 className="text-sm font-black text-white">Select Tenants</h3>
+          <span className="text-[9px] bg-cyan-500/10 text-cyan-400 px-2 py-0.5 rounded border border-cyan-500/20 font-bold uppercase">
+            {selectedTenantIds.size} selected
+          </span>
+        </div>
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+          <input
+            type="text"
+            value={tenantSearchQuery}
+            onChange={e => setTenantSearchQuery(e.target.value)}
+            placeholder="Search tenants by name..."
+            className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-9 pr-3 py-2.5 text-xs text-white outline-none focus:border-cyan-500"
+          />
+        </div>
+        <div className="flex gap-2">
+          <button type="button" onClick={selectAllFilteredTenants}
+            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-bold rounded-lg border border-slate-700 cursor-pointer">
+            Select all {tenantSearchQuery.trim() ? 'shown' : `(${filteredTenantsForPicker.length})`}
+          </button>
+          <button type="button" onClick={clearTenantSelection}
+            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-bold rounded-lg border border-slate-700 cursor-pointer">
+            Clear selection
+          </button>
+        </div>
+        <div className="max-h-64 overflow-y-auto space-y-1 rounded-xl border border-slate-800 p-2">
+          {filteredTenantsForPicker.length === 0 ? (
+            <p className="text-xs text-slate-500 text-center py-4">No tenants match your search.</p>
+          ) : filteredTenantsForPicker.map(t => {
+            const isChecked = selectedTenantIds.has(t.id);
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => toggleTenantSelection(t.id)}
+                aria-pressed={isChecked}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left cursor-pointer transition-colors ${isChecked ? 'bg-cyan-500/10 border border-cyan-500/30' : 'bg-slate-800/50 border border-transparent hover:bg-slate-800'}`}
+              >
+                <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border-2 transition-colors ${isChecked ? 'border-cyan-500 bg-cyan-500' : 'border-slate-600 bg-slate-900'}`}>
+                  {isChecked && <Check className="h-2.5 w-2.5 text-slate-950" strokeWidth={4} />}
+                </span>
+                <span className="text-xs font-bold text-white truncate">{t.name}</span>
+                <span className="text-[9px] text-slate-500 font-mono shrink-0">{t.active_package_id || t.subscription_plan || 'trial'}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Grant Free Time */}
+      <div className="bg-slate-900 border border-slate-700 rounded-2xl p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <Gift className="w-4 h-4 text-emerald-400" />
+          <h3 className="text-sm font-black text-white">Grant Free Time</h3>
+          <span className="text-[9px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20 font-bold uppercase">Admin Only</span>
+        </div>
+        <p className="text-[10px] text-slate-400">Give the selected tenant(s) free access for a set number of days or months, no payment required. Applies to everyone selected above.</p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <select value={grantPackage} onChange={e => setGrantPackage(e.target.value as 'ruby' | 'diamond' | 'tanzanite')}
+            className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white outline-none focus:border-emerald-500 cursor-pointer">
+            <option value="ruby">Ruby</option>
+            <option value="diamond">Diamond</option>
+            <option value="tanzanite">Tanzanite</option>
+          </select>
+          <input
+            type="number"
+            min={1}
+            max={366}
+            value={grantDurationValue}
+            onChange={e => setGrantDurationValue(Math.max(1, Number(e.target.value) || 1))}
+            className="bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white outline-none focus:border-emerald-500"
+          />
+          <div className="grid grid-cols-2 rounded-xl bg-slate-800 p-1 border border-slate-700">
+            <button type="button" onClick={() => setGrantDurationUnit('days')}
+              className={`py-1.5 rounded-lg text-[10px] font-bold cursor-pointer transition-all ${grantDurationUnit === 'days' ? 'bg-emerald-600 text-white' : 'text-slate-400'}`}>
+              Days
+            </button>
+            <button type="button" onClick={() => setGrantDurationUnit('months')}
+              className={`py-1.5 rounded-lg text-[10px] font-bold cursor-pointer transition-all ${grantDurationUnit === 'months' ? 'bg-emerald-600 text-white' : 'text-slate-400'}`}>
+              Months
+            </button>
+          </div>
+        </div>
+        <input
+          type="text"
+          value={grantReason}
+          onChange={e => setGrantReason(e.target.value)}
+          placeholder="Required administrator reason / ticket reference"
+          className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white outline-none focus:border-emerald-500"
+        />
+        <button
+          type="button"
+          onClick={requestGrantFreeTime}
+          disabled={grantSubmitting || selectedTenantIds.size === 0}
+          className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-black rounded-xl transition-colors cursor-pointer border-none flex items-center justify-center gap-1.5"
+        >
+          <Gift className="w-3.5 h-3.5" />
+          {grantSubmitting ? 'Granting…' : `Grant to ${selectedTenantIds.size} tenant${selectedTenantIds.size === 1 ? '' : 's'}`}
+        </button>
+
+        {grantConfirmOpen && (
+          <div className="fixed inset-0 z-[300] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+            <div className="bg-slate-900 border border-emerald-500/30 rounded-2xl p-5 max-w-sm w-full space-y-4">
+              <div className="flex items-center gap-2">
+                <ShieldAlert className="w-5 h-5 text-amber-400" />
+                <h4 className="text-sm font-black text-white">Confirm free grant</h4>
+              </div>
+              <p className="text-xs text-slate-300 leading-5">
+                You are about to grant <span className="font-black text-emerald-400">{SUBSCRIPTION_PLANS[grantPackage]?.name}</span> for{' '}
+                <span className="font-black text-white">{grantDurationValue} {grantDurationUnit}</span> to{' '}
+                <span className="font-black text-white">{selectedTenantIds.size} tenant{selectedTenantIds.size === 1 ? '' : 's'}</span>, free of charge.
+                This will not be recorded as revenue.
+              </p>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setGrantConfirmOpen(false)}
+                  className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl cursor-pointer border-none">
+                  Cancel
+                </button>
+                <button type="button" onClick={executeGrantFreeTime}
+                  className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black rounded-xl cursor-pointer border-none">
+                  Yes, grant it
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Send Notification */}
+      <div className="bg-slate-900 border border-slate-700 rounded-2xl p-5 space-y-4">
+        <div className="flex items-center gap-2">
+          <Bell className="w-4 h-4 text-amber-400" />
+          <h3 className="text-sm font-black text-white">Send Notification</h3>
+        </div>
+        <p className="text-[10px] text-slate-400">Sends a real in-app notification to everyone in the selected tenant(s) — it lands in their notification inbox.</p>
+        <input
+          type="text"
+          value={notifyTitle}
+          onChange={e => setNotifyTitle(e.target.value)}
+          placeholder="Notification title"
+          className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white outline-none focus:border-amber-500"
+        />
+        <textarea
+          value={notifyMessage}
+          onChange={e => setNotifyMessage(e.target.value)}
+          placeholder="Notification message"
+          rows={3}
+          className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-xs text-white outline-none focus:border-amber-500 resize-none"
+        />
+        <button
+          type="button"
+          onClick={handleSendNotification}
+          disabled={notifySubmitting || selectedTenantIds.size === 0}
+          className="w-full py-2.5 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-black rounded-xl transition-colors cursor-pointer border-none flex items-center justify-center gap-1.5"
+        >
+          <Bell className="w-3.5 h-3.5" />
+          {notifySubmitting ? 'Sending…' : `Send to ${selectedTenantIds.size} tenant${selectedTenantIds.size === 1 ? '' : 's'}`}
+        </button>
       </div>
     </div>
   );

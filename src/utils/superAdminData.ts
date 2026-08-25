@@ -393,6 +393,18 @@ export async function activateTenantPackage(
   });
 }
 
+export async function sendSuperAdminNotification(payload: {
+  tenantIds: string[];
+  title: string;
+  message: string;
+  priority?: 'low' | 'normal' | 'high' | 'critical';
+}) {
+  return apiRequest('/api/super-admin/notifications', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function configureTenantBranchCapacity(
   tenantId: string,
   payload: {

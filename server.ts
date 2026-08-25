@@ -3188,6 +3188,35 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     }
   });
 
+  app.post('/api/super-admin/notifications', async (req, res) => {
+    try {
+      await requirePlatformAdmin(req);
+      const tenantIdsRaw = Array.isArray(req.body?.tenantIds) ? req.body.tenantIds : [];
+      const tenantIds = tenantIdsRaw.map((id: unknown) => String(id || '')).filter((id: string) => isUuid(id));
+      if (tenantIds.length === 0) {
+        return res.status(400).json({ error: 'At least one valid target tenant is required.' });
+      }
+      const title = normalizeText(req.body?.title, 200);
+      const message = normalizeText(req.body?.message, 2000);
+      const priority = String(req.body?.priority || 'normal').trim().toLowerCase();
+      if (!title) return res.status(400).json({ error: 'A notification title is required.' });
+      if (!message) return res.status(400).json({ error: 'A notification message is required.' });
+
+      const rpcClient = createAuthenticatedSupabaseClient(req);
+      if (!rpcClient) return res.status(503).json({ error: 'Authenticated Supabase client is not configured.' });
+      const { data, error } = await rpcClient.rpc('super_admin_send_notification', {
+        p_tenant_ids: tenantIds,
+        p_title: title,
+        p_message: message,
+        p_priority: priority,
+      });
+      if (error) throw error;
+      return res.json(data);
+    } catch (error: any) {
+      return platformAdminError(res, error);
+    }
+  });
+
   app.put('/api/super-admin/tenants/:tenantId/branch-capacity', async (req, res) => {
     try {
       await requirePlatformAdmin(req);
