@@ -79,7 +79,7 @@ const parseNum = (value: string): number | undefined => {
 export function downloadableUniversalTemplate(): string {
   const header = UNIVERSAL_IMPORT_HEADERS.join(',');
   const sampleAmoxicillin = [
-    'Amoxicillin 500mg', '', 'Medicine', 'Antibiotics', 'Jasper Pharma',
+    'Amoxicillin 500mg', '', 'Medicine', 'Antibiotics', 'Orvix Pharma',
     'Amoxicillin', 'GlobalPharma Ltd', 'capsule', '500', 'mg',
     'Capsule',
     'Blister', '10', '3500',

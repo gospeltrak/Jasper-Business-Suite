@@ -3808,7 +3808,7 @@ export default function DashboardReports({
             const url = URL.createObjectURL(blob);
             const link = document.createElement("a");
             link.setAttribute("href", url);
-            link.setAttribute("download", `Jasper_Dual_Channel_Profits_${startDateStr}_to_${endDateStr}.csv`);
+            link.setAttribute("download", `Orvix_Dual_Channel_Profits_${startDateStr}_to_${endDateStr}.csv`);
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);

@@ -408,7 +408,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
   // Video conferencing simulation state representors
   const [isConferenceActive, setIsConferenceActive] = useState(false);
   const [conferenceRoomId, setConferenceRoomId] = useState(
-    "CONF-JASPER-MASTERCLASS",
+    "CONF-ORVIX-MASTERCLASS",
   );
   const [videoHostMutedAll, setVideoHostMutedAll] = useState(false);
   const [conferenceMembers, setConferenceMembers] = useState([
@@ -1011,7 +1011,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     }
 
     const name = `${firstName.trim()} ${secondName.trim()}`;
-    const email = `${firstName.toLowerCase().replace(/[^A-Za-z0-9]/g, "")}.${secondName.toLowerCase().replace(/[^A-Za-z0-9]/g, "")}${Math.floor(100 + Math.random() * 900)}@jasper-affiliate.com`;
+    const email = `${firstName.toLowerCase().replace(/[^A-Za-z0-9]/g, "")}.${secondName.toLowerCase().replace(/[^A-Za-z0-9]/g, "")}${Math.floor(100 + Math.random() * 900)}@orvix-affiliate.com`;
     // Generate a short promo code from first name only.
     // If the base code is taken, append 2 digits (e.g. MAGRETH → MAGRETH12).
     const baseName = firstName.replace(/[^A-Za-z0-9]/g, '').toUpperCase().substring(0, 8);
@@ -1616,7 +1616,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
       ctx.fillStyle = "#34d399";
       ctx.font = "bold 24px sans-serif";
-      ctx.fillText("JISAJILI KATIKA: https://jasper.africa", 50, 730);
+      ctx.fillText("JISAJILI KATIKA: https://orvix.africa", 50, 730);
     } else if (size === "9:16") {
       ctx.font = "bold 26px sans-serif";
       ctx.fillText("NDIVA SAAS POWERHOUSE", 30, 80);
@@ -3740,7 +3740,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                           required
                           value={addAffEmail}
                           onChange={(e) => setAddAffEmail(e.target.value)}
-                          placeholder="partner@jasper.com"
+                          placeholder="partner@orvix.africa"
                           className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white outline-none focus:border-teal-500"
                         />
                       </div>
@@ -4324,7 +4324,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                       <button
                         onClick={() =>
                           copyToClipboard(
-                            `https://jasper.africa/?ref=${activeAffiliate?.promoCode}`,
+                            `https://orvix.africa/?ref=${activeAffiliate?.promoCode}`,
                             setCopiedLink,
                           )
                         }
@@ -4339,7 +4339,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                       </button>
                     </div>
                     <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800 text-xs font-mono text-emerald-400 select-all truncate">
-                      https://jasper.africa/?ref={activeAffiliate?.promoCode}
+                      https://orvix.africa/?ref={activeAffiliate?.promoCode}
                     </div>
                   </div>
 
@@ -4595,7 +4595,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                           <div className="w-full max-w-[600px] bg-slate-905 bg-slate-900 border border-emerald-500/30 rounded px-4 py-2 text-left font-sans flex items-center justify-between text-white shrink-0">
                             <div>
                               <h4 className="text-xs font-black text-emerald-400">
-                                JASPER POS — 100% OFFLINE BIASHARA
+                                ORVIX POS — 100% OFFLINE BIASHARA
                               </h4>
                               <p className="text-[9px] text-slate-400">
                                 Kodi ya Promo:{" "}
@@ -4698,7 +4698,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                               </span>
                             </div>
                             <div className="text-[8px] text-slate-500 text-center">
-                              Register in milliseconds at https://jasper.africa
+                              Register in milliseconds at https://orvix.africa
                             </div>
                           </div>
                         )}
@@ -4885,7 +4885,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                                     : "400";
                             const iframeSrc = sspMatch
                               ? `${sspMatch.url}?ref=${activeAffiliate?.promoCode}`
-                              : `https://jasper.africa/embed/ad?size=${activeCreativeTab}&ref=${activeAffiliate?.promoCode}`;
+                              : `https://orvix.africa/embed/ad?size=${activeCreativeTab}&ref=${activeAffiliate?.promoCode}`;
                             const codeStr = `<iframe src="${iframeSrc}" width="${widthObj}" height="${heightObj}" style="border:none;overflow:hidden"></iframe>`;
                             copyToClipboard(codeStr, setCopiedBanner);
                           }}
@@ -4923,7 +4923,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                         unaweza kuona ripoti zote za mauzo moja kwa moja kwenye
                         simu yako! Jisajili sasa upate siku 30 za majaribio ya
                         BURE ukitumia code yangu: {activeAffiliate?.promoCode}{" "}
-                        katika https://jasper.africa/?ref=
+                        katika https://orvix.africa/?ref=
                         {activeAffiliate?.promoCode}"
                       </p>
                     </div>

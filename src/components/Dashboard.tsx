@@ -220,7 +220,7 @@ const getInitialSystemSettings = (tenant: Tenant): SystemSettings => {
       companyName: tenant.name,
       usernameKey: tenant.id,
       phone: tenant.id === 't-lagos-01' ? '+234 803 444 5555' : '+254 722 000 111',
-      email: 'info@jasper-wholesale.com',
+      email: 'info@orvix-wholesale.com',
       address: `${tenant.city}, ${tenant.country}`,
       tin: 'TIN-492942-A',
       vat: 'VAT-492040-B',
@@ -1530,7 +1530,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       if (!uploadResponse.ok || !uploadPayload?.proof?.id) {
         throw new Error(uploadPayload?.error || 'Receipt upload failed.');
       }
-      setManualActivationMessage(`Your ${selectedPlan.name} activation request has been sent. Please wait about 5 minutes, then log in again. If it still hasn't activated, contact Jasper Deployments using the WhatsApp button below.`);
+      setManualActivationMessage(`Your ${selectedPlan.name} activation request has been sent. Please wait about 5 minutes, then log in again. If it still hasn't activated, contact Orvix Deployments using the WhatsApp button below.`);
       setManualActivationReceipt(null);
       setManualActivationNote('');
     } catch (err: any) {
@@ -4668,7 +4668,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                     </button>
 
                     <a
-                      href="https://wa.me/255655746552?text=Hello%20Jasper%20Deployments%2C%20I%20need%20help%20with%20subscription%20payment."
+                      href="https://wa.me/255655746552?text=Hello%20Orvix%20Deployments%2C%20I%20need%20help%20with%20subscription%20payment."
                       target="_blank"
                       rel="noopener noreferrer"
                       className="mt-3 flex min-h-12 items-center justify-center gap-2 rounded-2xl text-sm font-bold text-emerald-700 transition-colors hover:bg-emerald-50"

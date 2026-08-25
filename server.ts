@@ -1148,7 +1148,7 @@ function generateLocalCopilotResponse(
       : 'Navigating you to stock calculations and prediction workspace.';
   } else {
     if (isSwahili) {
-      responseText = `Habari gani! Mimi ni Lucy wako, msaidizi wa biashara wa Jasper. (Nimeingia kwenye mfumo wa dharura wa ndani kwa sababu mfumo wa mbali wa AI una shughuli nyingi kwa sasa!)
+      responseText = `Habari gani! Mimi ni Lucy wako, msaidizi wa biashara wa Orvix. (Nimeingia kwenye mfumo wa dharura wa ndani kwa sababu mfumo wa mbali wa AI una shughuli nyingi kwa sasa!)
 
 Hapa kuna muhtasari wa biashara yako:
 - **Jumla ya Bidhaa uliyosajili:** ${products.length}
@@ -1158,7 +1158,7 @@ Hapa kuna muhtasari wa biashara yako:
 
 Nambie kama unataka nikupeleke ukurasa wowote wa biashara yako leo au kukuhesabia kitu kingine!`;
     } else {
-      responseText = `Hello! I am Lucy, your Jasper Executive Business Assistant. (I am running in local safe-mode layout because our primary remote intelligence service is currently experiencing extremely high traffic).
+      responseText = `Hello! I am Lucy, your Orvix Executive Business Assistant. (I am running in local safe-mode layout because our primary remote intelligence service is currently experiencing extremely high traffic).
 
 Here is a quick summary of your current session:
 - **Total Registered Products:** ${products.length}
@@ -5230,8 +5230,8 @@ Your output must be in JSON matching the specified Response Schema exactly. All 
       if (isLucySecurityProbe(message)) {
         return res.status(400).json({
           responseText: lang === 'sw'
-            ? 'Samahani, siwezi kusaidia maswali yanayohusu siri za mfumo, API keys, tokens, data za tenant mwingine, au kujaribu kuvunja ulinzi. Ninaweza kukusaidia kutumia Jasper na kusoma taarifa zako za biashara kwa usalama.'
-            : 'Sorry, I cannot help with system secrets, API keys, tokens, other tenants’ data, or attempts to bypass security. I can safely help you use Jasper and understand your own business data.',
+            ? 'Samahani, siwezi kusaidia maswali yanayohusu siri za mfumo, API keys, tokens, data za tenant mwingine, au kujaribu kuvunja ulinzi. Ninaweza kukusaidia kutumia Orvix na kusoma taarifa zako za biashara kwa usalama.'
+            : 'Sorry, I cannot help with system secrets, API keys, tokens, other tenants’ data, or attempts to bypass security. I can safely help you use Orvix and understand your own business data.',
           action: 'GUIDE_ONLY',
           targetTab: null,
           unsupportedFeature: 'Security Boundary',
@@ -5348,8 +5348,8 @@ Your output must be in JSON matching the specified Response Schema exactly. All 
       } else if (userMessage.includes('payroll') || userMessage.includes('salary') || userMessage.includes('mshahara') || userMessage.includes('mishahara') || userMessage.includes('payslip') || userMessage.includes('payslips') || userMessage.includes('hr portal')) {
         unsupportedFeatureHeuristic = 'Automated Payroll Salary Ledger';
         heuristicResponse = lang === 'sw'
-          ? 'Samahani sana faraja yetu, kwa sasa mfumo wa Jasper hauna uwezo wa kusimamia mishahara ya wafanyikazi (Payroll) wala kutoa payslips.'
-          : 'Sorry, for now Jasper Suite does not support employee payroll automated calculations or automated payslips dispatching.';
+          ? 'Samahani sana faraja yetu, kwa sasa mfumo wa Orvix hauna uwezo wa kusimamia mishahara ya wafanyikazi (Payroll) wala kutoa payslips.'
+          : 'Sorry, for now Orvix Suite does not support employee payroll automated calculations or automated payslips dispatching.';
       } else if (userMessage.includes('sms blast') || userMessage.includes('newsletter') || userMessage.includes('loyalty points') || userMessage.includes('campaign') || userMessage.includes('pointi za wateja') || userMessage.includes('zawadi')) {
         unsupportedFeatureHeuristic = 'Loyalty Rewards & SMS Broadcast Campaigns';
         heuristicResponse = lang === 'sw'
@@ -5484,7 +5484,7 @@ Your output must be in JSON matching the specified Response Schema exactly. All 
         sources = extractLucyGroundingSources(marketResponse);
       }
       const systemPrompt = 
-        `You are Lucy, a premium, modern AI assistant for Jasper Business Suite. Your personality is polite, warm, practical, and highly adaptive. You operate inside a multi-tenant business suite with business type: "${businessType}". ` +
+        `You are Lucy, a premium, modern AI assistant for Orvix Business Suite. Your personality is polite, warm, practical, and highly adaptive. You operate inside a multi-tenant business suite with business type: "${businessType}". ` +
         `The tenant plan is "${planId}" and the requested intent is "${intent}". ` +
         `The tenant location is "${tenantCity || 'unknown city'}, ${tenantCountry || 'unknown country'}". ` +
         `Currently, the active tab view is: "${activeTab}". ` +
@@ -5499,7 +5499,7 @@ Your output must be in JSON matching the specified Response Schema exactly. All 
         `2. Friendly & Natural: Speak in a warm, engaging, sweet, approachable, and supportive tone. Be professional but personable; never sound like a rigid textbook, a stiff corporate machine, or a repeated template. ` +
         `3. Simple Language: Use clear, direct, and straightforward language. Avoid over-complicating answers or using unnecessary jargon. ` +
         `4. Interactive Coach: Vary your wording. If the user seems unsure, ask one focused follow-up question. If they ask how to do something, give numbered steps. If they ask for business meaning, explain it with a simple example. ` +
-        `4a. GUIDED WALKTHROUGH MODE: When the user asks how to use any system function, begin from their current tab and device layout. Give one concrete action per numbered step, use only visible Jasper menu/button labels supported by the supplied context, explain the expected result after important clicks, and finish with a clear completion check. Use very simple language suitable for a first-time user. Offer to continue interactively when they say "nimefika", "endelea", or "I am there". Never invent a button label. ` +
+        `4a. GUIDED WALKTHROUGH MODE: When the user asks how to use any system function, begin from their current tab and device layout. Give one concrete action per numbered step, use only visible Orvix menu/button labels supported by the supplied context, explain the expected result after important clicks, and finish with a clear completion check. Use very simple language suitable for a first-time user. Offer to continue interactively when they say "nimefika", "endelea", or "I am there". Never invent a button label. ` +
         `4b. CHOICE MODE: Use choices only when a real user decision is required before you can continue. Never turn a direct data question or a question with one clear answer into a menu. When a decision is required, provide 2 to 5 choices, one per line, preferably numbered: "1. Choice name — one short explanation." End with a short instruction such as "Jibu 1, 2 au 3." Accept the number, letter, "option 2", "namba 2", "chaguo 2", or the option name. After a valid selection, continue immediately without confirmation unless the action is destructive, sensitive, irreversible, or financially significant. If a code is invalid, say it is unavailable and repeat only the valid choices; do not restart the conversation. For complex workflows ask one decision at a time and never ask again for information already supplied. ` +
         `4c. RESPONSE ORDER: For direct questions, give the main answer first, then only important details, then a next action only if genuinely needed. Business-data answers must state the value, period, and branch when applicable. Use short everyday Swahili, short paragraphs, and no unnecessary repetition. Never invent unavailable business data. ` +
         `5. Clean Output: Use standard Markdown formatting cleanly (like **bold**) to emphasize key points. Never output raw HTML code tags like <b> or </b>. ` +
@@ -5516,7 +5516,7 @@ Your output must be in JSON matching the specified Response Schema exactly. All 
         `  - Swahili Refusal Example: "Samahani sana, mimi kama Lucy msaidizi wako wa biashara, ninaruhusiwa tu kusaidia masuala ya kiutawala, usimamizi wa stoki, makadirio ya fedha na mauzo ya duka lako. Kwa maswali mengine ya kawaida yaliyo nje ya biashara, nakushauri utumie mtandao wa Google au mifumo mingine ya ujuzi wetu wa kijamii." ` +
         `` +
         `Your goals are: ` +
-        `1. Main mission: teach the user how to use Jasper step-by-step, answer business questions, explain what each module does, and help the user grow their business using safe read-only insights. ` +
+        `1. Main mission: teach the user how to use Orvix step-by-step, answer business questions, explain what each module does, and help the user grow their business using safe read-only insights. ` +
         `2. Help the user interact, find settings, read business data, or navigate. If they want to perform an action that matches any tab, navigate there. ` +
         `Available tabs: 'overview', 'pos', 'sales-list', 'purchases-list', 'deliveries', 'expenses', 'inventory', 'forecasting', 'products', 'suppliers', 'reports', 'sync', 'whitelabel', 'sandbox-pms'. ` +
         `If they request navigation, set action "NAVIGATE" and targetTab with the correct tab ID. ` +
@@ -5531,7 +5531,7 @@ Your output must be in JSON matching the specified Response Schema exactly. All 
         `` +
         `5. Diamond plan may receive chat and limited reports only. If the user asks for forecasting while plan is diamond, explain politely that forecasting is available on Tanzanite and offer a simple non-forecast business summary instead. ` +
         `6. Keep in mind that standard platform features (like Sales records, POS tills, Inventory, Expenses, and Reports) ARE FULLY SUPPORTED in our system. If the database of sales or expenses is currently empty, it means the user simply hasn't added or recorded any transactions yet—not that the feature is missing. Do NOT report standard supported features (like sales or expenses) as unsupported missing features! Only set "unsupportedFeature" to a standardized English category name if they request an entirely new, non-existent platform capability that the system truly does not have (for example: Automated real-time M-Pesa callbacks & APIs, bulk automated WhatsApp marketing campaigns, print sticky barcode price tags, automated bulk payroll bank transfers, active employee clock-in HR portal); otherwise set "unsupportedFeature" to null. ` +
-        `7. Keep your response highly useful, polite, concise, compassionate, and professional. The authoritative conversation language is "${lang === 'sw' ? 'Swahili' : 'English'}". If it is Swahili, reply entirely in grammatical, natural Tanzanian Swahili even when spelling is informal, abbreviated, mixed, or the latest reply is only a number. Do not translate literally from English, do not mix English sentences, and do not repeat a greeting mid-conversation. Retain only exact Jasper button/menu names in English and explain each one briefly in Swahili. Put spaces around bold values and after punctuation. ` +
+        `7. Keep your response highly useful, polite, concise, compassionate, and professional. The authoritative conversation language is "${lang === 'sw' ? 'Swahili' : 'English'}". If it is Swahili, reply entirely in grammatical, natural Tanzanian Swahili even when spelling is informal, abbreviated, mixed, or the latest reply is only a number. Do not translate literally from English, do not mix English sentences, and do not repeat a greeting mid-conversation. Retain only exact Orvix button/menu names in English and explain each one briefly in Swahili. Put spaces around bold values and after punctuation. ` +
         `8. When current market research is enabled, compare the tenant's actual internal performance with current public market evidence. Focus on the tenant's niche and location, check relevant global marketplaces such as Amazon, eBay, and Alibaba plus discoverable local retailers, and never present an unverified trend as guaranteed demand. Clearly separate INTERNAL BUSINESS DATA, CURRENT MARKET SIGNALS, RECOMMENDATIONS, and RISKS. ` +
         `Return your final response strictly as a JSON matching the requested structure.`;
 

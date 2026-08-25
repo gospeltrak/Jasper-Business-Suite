@@ -49,7 +49,7 @@ export default function DuressDashboard({ onLogout }: DuressDashboardProps) {
   // Settings mock states
   const [decoySaaSTitle, setDecoySaaSTitle] = useState('Orvix Lite Console');
   const [billCycle, setBillCycle] = useState('Every 30 Days');
-  const [webhookUrl, setWebhookUrl] = useState('https://api.jaspersaas.com/v1/webhooks/tz_notify');
+  const [webhookUrl, setWebhookUrl] = useState('https://api.orvix.africa/v1/webhooks/tz_notify');
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -72,7 +72,7 @@ export default function DuressDashboard({ onLogout }: DuressDashboardProps) {
   // Add ad material
   const handleFakeUploadAd = (e: FormEvent) => {
     e.preventDefault();
-    const fileName = newAdFile ? newAdFile.trim() : `Jasper_Material_${Math.floor(Math.random() * 9000 + 1000)}.jpg`;
+    const fileName = newAdFile ? newAdFile.trim() : `Orvix_Material_${Math.floor(Math.random() * 9000 + 1000)}.jpg`;
     const newAd = {
       id: `ad-${Date.now()}`,
       file: fileName,
@@ -854,7 +854,7 @@ export default function DuressDashboard({ onLogout }: DuressDashboardProps) {
                     <input
                       type="text"
                       required
-                      placeholder="e.g. Jasper_Spring_Promo_Mobile.jpg"
+                      placeholder="e.g. Orvix_Spring_Promo_Mobile.jpg"
                       value={newAdFile}
                       onChange={(e) => setNewAdFile(e.target.value)}
                       className="w-full bg-slate-950 border border-slate-850 p-2 text-white text-xs focus:outline-none rounded"

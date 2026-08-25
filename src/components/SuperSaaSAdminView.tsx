@@ -1090,7 +1090,7 @@ export default function SuperSaaSAdminView({
                       <label className="text-[9.5px] font-mono text-slate-500 uppercase">Target user</label>
                       <input 
                         type="text"
-                        placeholder="e.g. @sarah_jasper"
+                        placeholder="e.g. @sarah_orvix"
                         value={dmSearchQuery}
                         onChange={(e) => setDmSearchQuery(e.target.value)}
                         className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white outline-none focus:border-cyan-500"
@@ -1295,7 +1295,7 @@ export default function SuperSaaSAdminView({
                     <label className="text-[9.5px] font-mono text-slate-500 uppercase">Destination URL Override</label>
                     <input 
                       type="text"
-                      placeholder="https://jasper.africa/promo"
+                      placeholder="https://orvix.africa/promo"
                       value={newBannerDestination}
                       onChange={(e) => setNewBannerDestination(e.target.value)}
                       className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white outline-none focus:border-emerald-500"

@@ -353,7 +353,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                  const staffRole = staff.role || 'Cashier';
                  systemUsers.push({
                    id: staff.id,
-                   email: staff.phone || staff.name.toLowerCase().replace(' ', '') + '@jasper.com',
+                   email: staff.phone || staff.name.toLowerCase().replace(' ', '') + '@orvix.africa',
                    phone: staff.phone || '',
                    name: staff.name,
                    role: staffRole,

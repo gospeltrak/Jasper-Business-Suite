@@ -280,7 +280,7 @@ export default function SaaSStaffManager() {
                   required
                   onChange={e => setEmail(e.target.value)} 
                   className="w-full bg-slate-900 border border-slate-700 focus:border-amber-500 text-xs px-3 py-2.5 rounded-xl text-white outline-none" 
-                  placeholder="admin.joe@jasper.com"
+                  placeholder="admin.joe@orvix.africa"
                 />
               </div>
               <div className="space-y-1.5">

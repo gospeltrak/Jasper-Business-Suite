@@ -258,7 +258,7 @@ export default function DashboardProducts({
           { name: 'Coca Cola', logo: '' },
           { name: 'Nestle', logo: '' },
           { name: 'Unilever', logo: '' },
-          { name: 'Jasper Foods', logo: '' }
+          { name: 'Orvix Foods', logo: '' }
         ]
       : []
   ));
@@ -1525,8 +1525,8 @@ export default function DashboardProducts({
   const downloadCsvTemplate = () => {
     const csvContent = "data:text/csv;charset=utf-8," 
       + "Product Name,Barcode,Category,Brand,Cost Price,Selling Price,Shop Stock,Store Stock,Alert Level,Sell Retail,Sell Wholesale,Wholesale Price,Min Wholesale Qty\r\n"
-      + "Premium Rice (5kg),6153094850239,Groceries,Jasper Foods,4500,5500,20,50,5,Yes,No,0,10\r\n"
-      + "Spaghetti Bolognese,39185012,Groceries,Jasper Foods,800,1200,15,30,8,Yes,Yes,1100,50\r\n"
+      + "Premium Rice (5kg),6153094850239,Groceries,Orvix Foods,4500,5500,20,50,5,Yes,No,0,10\r\n"
+      + "Spaghetti Bolognese,39185012,Groceries,Orvix Foods,800,1200,15,30,8,Yes,Yes,1100,50\r\n"
       + "Organic Coconut Milk,,Beverages,Nestle,1100,1600,10,25,3,Yes,No,0,10\r\n"; // Empty barcode tested inside
       
     const encodedUri = encodeURI(csvContent);
@@ -4214,7 +4214,7 @@ export default function DashboardProducts({
               <span className="text-[9px] font-black text-slate-400 font-bold block">*** PHYSICAL PRINT FEEDOUT ***</span>
               
               <div className="space-y-1">
-                <p className="font-sans font-black text-xs uppercase text-slate-800">JASPER HARDWARE LABS</p>
+                <p className="font-sans font-black text-xs uppercase text-slate-800">ORVIX HARDWARE LABS</p>
                 <p className="text-[10px] text-slate-500">Port-Link diagnostics output</p>
                 <p className="text-[9px] text-slate-505 font-medium leading-tight">Server-Ingress: Active node</p>
               </div>
