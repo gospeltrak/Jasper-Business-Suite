@@ -3722,24 +3722,7 @@ export default function DashboardSalesList({
                     </tbody>
                   </table>
 
-                  <div className="flex items-start justify-between gap-6">
-                    {(() => {
-                      const channel = findPaymentChannel(systemSettings?.paymentChannels || [], selectedSale.paymentMethod);
-                      const accountNumber = channel?.accountNumber || systemSettings?.invoiceSettings?.accountNumber;
-                      const accountName = systemSettings?.invoiceSettings?.accountName || channel?.name || channel?.provider;
-                      return (
-                        <div className="bg-slate-50 rounded-xl px-4 py-3.5 border border-slate-100 min-w-[200px] text-xs">
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-mono">Payment Details</p>
-                          <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
-                            <span className="text-slate-400">Payment Mode</span><strong className="text-right text-slate-700">{selectedSale.paymentMethod}</strong>
-                            {accountNumber && <><span className="text-slate-400">Account No.</span><strong className="text-right text-slate-700 font-mono">{accountNumber}</strong></>}
-                            {accountName && <><span className="text-slate-400">Account Name</span><strong className="text-right text-slate-700">{accountName}</strong></>}
-                            <span className="text-slate-400">Amount</span><strong className="text-right text-slate-900 font-mono">{currency}{Math.round(selectedSale.total).toLocaleString()}</strong>
-                          </div>
-                        </div>
-                      );
-                    })()}
-
+                  <div className="flex justify-end">
                     <div className="w-72 space-y-2 font-mono text-xs shrink-0">
                       {(() => {
                         const subtotal = selectedSale.items.reduce((sum, item) => sum + item.price * item.qty, 0);
@@ -3756,6 +3739,24 @@ export default function DashboardSalesList({
                       })()}
                     </div>
                   </div>
+
+                  {/* Payment Details — below the totals/Amount Due line, its own row, half-width */}
+                  {(() => {
+                    const channel = findPaymentChannel(systemSettings?.paymentChannels || [], selectedSale.paymentMethod);
+                    const accountNumber = channel?.accountNumber || systemSettings?.invoiceSettings?.accountNumber;
+                    const accountName = systemSettings?.invoiceSettings?.accountName || channel?.name || channel?.provider;
+                    return (
+                      <div className="bg-slate-50 rounded-xl px-4 py-3.5 border border-slate-100 text-xs w-1/2">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-mono">Payment Details</p>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-1">
+                          <div><span className="text-slate-400 block">Payment Mode</span><strong className="text-slate-700">{selectedSale.paymentMethod}</strong></div>
+                          {accountNumber && <div><span className="text-slate-400 block">Account No.</span><strong className="text-slate-700 font-mono">{accountNumber}</strong></div>}
+                          {accountName && <div><span className="text-slate-400 block">Account Name</span><strong className="text-slate-700">{accountName}</strong></div>}
+                          <div><span className="text-slate-400 block">Amount</span><strong className="text-slate-900 font-mono">{currency}{Math.round(selectedSale.total).toLocaleString()}</strong></div>
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   <div className="border-t border-slate-100 pt-5 flex items-end justify-between gap-6">
                     {(() => {
