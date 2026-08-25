@@ -1596,13 +1596,6 @@ button:active:not(:disabled),
   }
 }
 
-#dashboard-scaffold {
-  height: 100vh;
-  height: 100dvh;
-  max-height: 100vh;
-  max-height: 100dvh;
-}
-
 #dashboard-scaffold > *,
 #workspace-content,
 #workspace-content > *,
