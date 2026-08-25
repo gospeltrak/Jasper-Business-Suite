@@ -1833,7 +1833,7 @@ export default function DashboardSalesList({
       <div className="bg-transparent md:bg-white dark:md:bg-slate-800/60 md:rounded-2xl md:border md:border-slate-200 dark:md:border-slate-700 shadow-none md:shadow-xs md:overflow-hidden">
         
         {/* Mobile View: Cards */}
-        <div className="xl:hidden flex flex-col space-y-3 pb-[calc(80px+env(safe-area-inset-bottom))]">
+        <div className="sales-cards-tablet-grid xl:hidden flex flex-col space-y-3 pb-[calc(80px+env(safe-area-inset-bottom))]">
           {filteredSales.map((sale) => {
             const totalVal = sale.total;
             const isCredit = sale.paymentMethod === 'Credit';
