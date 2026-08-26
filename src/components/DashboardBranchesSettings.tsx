@@ -26,6 +26,7 @@ import type { Tenant } from '../types';
 import { useBranchContext } from '../branches/BranchContext';
 import type { BranchRelationshipType, BranchSummary, CreateBranchInput } from '../branches/branchTypes';
 import { loadBranchContactProfile, updateBranchContactProfile } from '../branches/branchApi';
+import { formatLocalDate } from '../utils/localDate';
 
 interface DashboardBranchesSettingsProps {
   activeTenant: Tenant;
@@ -59,7 +60,7 @@ const createEmptyDraft = (tenant: Tenant): BranchDraft => ({
   country: tenant.country || 'Tanzania',
   phone: '',
   email: '',
-  openingDate: new Date().toISOString().slice(0, 10),
+  openingDate: formatLocalDate(),
 });
 
 const buildBranchCode = (value: string) => value

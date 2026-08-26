@@ -42,6 +42,7 @@ import { isSettledPaymentStatus } from '../../utils/financialStatus';
 import GlobalStickyAd from '../GlobalStickyAd';
 import SaaSHardwarePOS from '../SaaSHardwarePOS';
 import SaaSHardwareInventory from '../SaaSHardwareInventory';
+import { formatLocalMonth } from '../../utils/localDate';
 import {
   SubAffiliateProfile,
   MonthlyReconciliationRow,
@@ -305,7 +306,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
   const [editPayoutMethod, setEditPayoutMethod] = useState('');
 
   // Month filter for reconciliation
-  const [reconMonth, setReconMonth] = useState(() => new Date().toISOString().slice(0, 7));
+  const [reconMonth, setReconMonth] = useState(() => formatLocalMonth());
 
   // Partner identity — useState so it updates immediately after code change
   const [partnerInfo, setPartnerInfo] = useState<any>(() => {

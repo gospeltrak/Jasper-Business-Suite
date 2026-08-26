@@ -58,6 +58,7 @@ import CachedImage from './CachedImage';
 import ModernSelect from './ui/ModernSelect';
 import { getActiveBranchAddress, getActiveBranchDisplayName, getActiveBranchEmail, getActiveBranchPhone } from '../utils/businessBranding';
 import type { BranchSummary } from '../branches/branchTypes';
+import { formatLocalDate, parseLocalDate, timestampToLocalDate } from '../utils/localDate';
 
 // Revenue helper: exclude delivery fees from product revenue calculations
 const saleProductRevenue = (s: any): number =>
@@ -171,10 +172,10 @@ export default function DashboardReports({
   const [startDateStr, setStartDateStr] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() - 30); // Default to last 30 days
-    return d.toISOString().split('T')[0];
+    return formatLocalDate(d);
   });
   const [endDateStr, setEndDateStr] = useState(() => {
-    return new Date().toISOString().split('T')[0];
+    return formatLocalDate();
   });
   
   // Product Monitoring local states
@@ -223,7 +224,7 @@ export default function DashboardReports({
 
   const setPresetDateRange = (preset: 'today' | 'this-week' | 'this-month' | 'last-30') => {
     const today = new Date();
-    const endStr = today.toISOString().split('T')[0];
+    const endStr = formatLocalDate(today);
     let startStr = '';
 
     if (preset === 'today') {
@@ -232,16 +233,14 @@ export default function DashboardReports({
       const dayOfWeek = today.getDay(); // 0 is Sunday, 1 is Monday...
       const diff = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
       const monday = new Date(today.setDate(diff));
-      startStr = monday.toISOString().split('T')[0];
+      startStr = formatLocalDate(monday);
     } else if (preset === 'this-month') {
       const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-      const tzOffset = firstDay.getTimezoneOffset() * 60000;
-      const localFirstDay = new Date(firstDay.getTime() - tzOffset);
-      startStr = localFirstDay.toISOString().split('T')[0];
+      startStr = formatLocalDate(firstDay);
     } else if (preset === 'last-30') {
       const past30 = new Date();
       past30.setDate(past30.getDate() - 30);
-      startStr = past30.toISOString().split('T')[0];
+      startStr = formatLocalDate(past30);
     }
 
     setStartDateStr(startStr);
@@ -543,8 +542,8 @@ export default function DashboardReports({
   // -------------------------------------------------------------
   const isWithinDateRange = (timestampISO: string) => {
     const date = new Date(timestampISO);
-    const start = new Date(startDateStr);
-    const end = new Date(endDateStr);
+    const start = parseLocalDate(startDateStr);
+    const end = parseLocalDate(endDateStr, 23);
     end.setHours(23, 59, 59, 999); // Include full end date
     return date >= start && date <= end;
   };
@@ -672,7 +671,7 @@ export default function DashboardReports({
     let daysCount = 0;
     // Cap at 100 days to prevent browser hanging on extreme select range
     while (current <= end && daysCount < 100) {
-      const dStr = current.toISOString().split('T')[0];
+      const dStr = formatLocalDate(current);
       dateMap[dStr] = {
         salesCount: 0,
         salesRevenue: 0,
@@ -685,13 +684,13 @@ export default function DashboardReports({
     }
 
     if (Object.keys(dateMap).length === 0) {
-      const todayStr = new Date().toISOString().split('T')[0];
+      const todayStr = formatLocalDate();
       dateMap[todayStr] = { salesCount: 0, salesRevenue: 0, cogs: 0, expenses: 0, profit: 0 };
     }
 
     filteredSales.forEach(sale => {
       if (!sale.timestamp) return;
-      const dStr = sale.timestamp.split('T')[0];
+      const dStr = timestampToLocalDate(sale.timestamp);
       if (dateMap[dStr]) {
         dateMap[dStr].salesCount += 1;
         dateMap[dStr].salesRevenue += saleProductRevenue(sale);
@@ -708,7 +707,7 @@ export default function DashboardReports({
 
     filteredExpenses.forEach(exp => {
       if (!exp.timestamp) return;
-      const dStr = exp.timestamp.split('T')[0];
+      const dStr = timestampToLocalDate(exp.timestamp);
       if (dateMap[dStr]) {
         dateMap[dStr].expenses += exp.amount;
       }
@@ -1305,16 +1304,16 @@ export default function DashboardReports({
   };
 
   // Helper date-preset triggers for the mobile quick action pills
-  const getTodayRange = () => new Date().toISOString().split('T')[0];
+  const getTodayRange = () => formatLocalDate();
   const getYesterdayRange = () => {
     const d = new Date();
     d.setDate(d.getDate() - 1);
-    return d.toISOString().split('T')[0];
+    return formatLocalDate(d);
   };
   const getLast7DaysRange = () => {
     const d = new Date();
     d.setDate(d.getDate() - 7);
-    return d.toISOString().split('T')[0];
+    return formatLocalDate(d);
   };
   const checkActivePreset = () => {
     const today = getTodayRange();
@@ -1389,7 +1388,7 @@ export default function DashboardReports({
           {[
             {l:'Today', f:()=>{const t=getTodayRange();setStartDateStr(t);setEndDateStr(t);}},
             {l:'7 days', f:()=>{setStartDateStr(getLast7DaysRange());setEndDateStr(getTodayRange());}},
-            {l:'30 days', f:()=>{const d=new Date();d.setDate(d.getDate()-29);setStartDateStr(d.toISOString().split('T')[0]);setEndDateStr(getTodayRange());}},
+            {l:'30 days', f:()=>{const d=new Date();d.setDate(d.getDate()-29);setStartDateStr(formatLocalDate(d));setEndDateStr(getTodayRange());}},
             {l:'All', f:()=>{setStartDateStr('2020-01-01');setEndDateStr(getTodayRange());}},
           ].map(p=>(
             <button key={p.l} type="button" onClick={p.f}
@@ -1432,7 +1431,7 @@ export default function DashboardReports({
           {[
             {l:'Today',   f:()=>{const t=getTodayRange();setStartDateStr(t);setEndDateStr(t);}},
             {l:'7 Days',  f:()=>{setStartDateStr(getLast7DaysRange());setEndDateStr(getTodayRange());}},
-            {l:'30 Days', f:()=>{const d=new Date();d.setDate(d.getDate()-29);setStartDateStr(d.toISOString().split('T')[0]);setEndDateStr(getTodayRange());}},
+            {l:'30 Days', f:()=>{const d=new Date();d.setDate(d.getDate()-29);setStartDateStr(formatLocalDate(d));setEndDateStr(getTodayRange());}},
             {l:'All',     f:()=>{setStartDateStr('2020-01-01');setEndDateStr(getTodayRange());}},
           ].map(p=>(
             <button key={p.l} type="button" onClick={p.f}
@@ -3004,7 +3003,7 @@ export default function DashboardReports({
             const dailyMap: Record<string, { date: string; qty: number; revenue: number; profit: number; txCount: number }> = {};
             
             salesForMonitoredProduct.forEach(sale => {
-              const key = new Date(sale.timestamp).toISOString().split('T')[0];
+              const key = timestampToLocalDate(sale.timestamp);
               if (!dailyMap[key]) {
                 dailyMap[key] = { date: key, qty: 0, revenue: 0, profit: 0, txCount: 0 };
               }
@@ -3112,13 +3111,13 @@ export default function DashboardReports({
             if (checked) {
               setEndDateStr(startDateStr);
             } else {
-              setEndDateStr(new Date().toISOString().split('T')[0]);
+              setEndDateStr(formatLocalDate());
             }
           };
 
           const setPresetDateRangeMode = (preset: 'today' | 'this-week' | 'this-month' | 'last-30') => {
             const today = new Date();
-            const endStr = today.toISOString().split('T')[0];
+            const endStr = formatLocalDate(today);
             let startStr = '';
 
             if (preset === 'today') {
@@ -3127,16 +3126,16 @@ export default function DashboardReports({
               const dayOfWeek = today.getDay();
               const diff = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
               const monday = new Date(today.setDate(diff));
-              startStr = monday.toISOString().split('T')[0];
+              startStr = formatLocalDate(monday);
             } else if (preset === 'this-month') {
               const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
               const tzOffset = firstDay.getTimezoneOffset() * 60000;
               const localFirstDay = new Date(firstDay.getTime() - tzOffset);
-              startStr = localFirstDay.toISOString().split('T')[0];
+              startStr = formatLocalDate(localFirstDay);
             } else if (preset === 'last-30') {
               const past30 = new Date();
               past30.setDate(past30.getDate() - 30);
-              startStr = past30.toISOString().split('T')[0];
+              startStr = formatLocalDate(past30);
             }
 
             setStartDateStr(startStr);

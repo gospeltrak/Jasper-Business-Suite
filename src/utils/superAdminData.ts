@@ -1,5 +1,6 @@
 import { getSecureDataBridgeClient } from '../secureDataBridge';
 import { isEarnedCommissionStatus, isPaidPayoutStatus, isSettledPaymentStatus } from './financialStatus';
+import { formatLocalDate } from './localDate';
 
 export interface SuperAdminOverview {
   tenants: any[];
@@ -440,7 +441,7 @@ export async function configureMultiBranchRollout(payload: { enabled: boolean; r
 }
 
 const money = (value: unknown) => Number(value || 0);
-const formatDate = (value: unknown) => value ? new Date(String(value)).toISOString().slice(0, 10) : '';
+const formatDate = (value: unknown) => value ? formatLocalDate(String(value)) : '';
 const formatDateTime = (value: unknown) => value ? new Date(String(value)).toISOString().replace('T', ' ').slice(0, 16) : '';
 const isPlatformUser = (user: any) => {
   const accountType = String(user?.account_type || '').toLowerCase();

@@ -12,6 +12,8 @@
  * User types: 'tenant' | 'affiliate' | 'partner'
  */
 
+import { formatLocalDate } from './localDate';
+
 export type PresenceUserType = 'tenant' | 'affiliate' | 'partner';
 
 export interface VisitLogEntry {
@@ -43,7 +45,7 @@ let currentUserName: string | null = null;
 // ─── VISIT LOG ────────────────────────────────────────────────────────────────
 
 function getTodayStr(): string {
-  return new Date().toISOString().split('T')[0];
+  return formatLocalDate();
 }
 
 function getVisitLog(): VisitLogEntry[] {
@@ -60,7 +62,7 @@ function saveVisitLog(log: VisitLogEntry[]): void {
     // Keep last 90 days of data only — prevent unbounded growth
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - 90);
-    const cutoffStr = cutoff.toISOString().split('T')[0];
+    const cutoffStr = formatLocalDate(cutoff);
     const trimmed = log.filter(e => e.date >= cutoffStr);
     onlineStorage.setItem(VISIT_LOG_KEY, JSON.stringify(trimmed));
   } catch {

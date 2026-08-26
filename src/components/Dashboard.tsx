@@ -76,6 +76,7 @@ import { getSecureDataBridgeClient, isPlaceholderSecureDataBridgeClient } from '
 import { postTreasuryEntry, postTreasurySplitIncome, reverseTreasuryEntry } from '../utils/treasuryApi';
 import { getSubscriptionReminder, getSubscriptionReminderKey } from '../utils/subscriptionReminder';
 import { compressImageFile } from '../utils/imageCompression';
+import { formatLocalDate } from '../utils/localDate';
 import { Shield, Sparkles as SparklesIcon, AlertTriangle, CheckCircle, HelpCircle as HelpIcon, Play, RefreshCcw, CreditCard as CardIcon, Bell } from 'lucide-react';
 import { 
   getSubscriptionState, 
@@ -1044,7 +1045,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       salaryType: 'monthly' as const,
       status: 'active' as const,
       staffType: 'permanent' as const,
-      dateJoined: new Date().toISOString().split('T')[0],
+      dateJoined: formatLocalDate(),
       isOwner: true,
       profileImage: user.profileImage || undefined,
       notes: 'Business owner account — auto-created on first login',

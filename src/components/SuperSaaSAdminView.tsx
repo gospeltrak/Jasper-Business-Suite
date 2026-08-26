@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 
 import SaaSUserDesk from './SaaSUserDesk';
+import { formatLocalDate } from '../utils/localDate';
 import SuperAffiliateControlCenter from './SuperAffiliateControlCenter';
 import Dashboard from './Dashboard';
 import AffiliateWorkspace from './affiliate/AffiliateWorkspace';
@@ -578,7 +579,7 @@ export default function SuperSaaSAdminView({
       email: `${newAffFirstName.toLowerCase()}@dukaplus-marketer.co.tz`,
       phone: '+255 777 000 000',
       status: 'Active',
-      joinedDate: new Date().toISOString().split('T')[0],
+      joinedDate: formatLocalDate(),
       affiliateLink: campaignLink,
       promoCode: uniqueCode,
       conversionsLink: 0,

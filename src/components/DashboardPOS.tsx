@@ -44,6 +44,7 @@ import {
 import DashboardBarcodeScanner from './DashboardBarcodeScanner';
 import CachedImage from './CachedImage';
 import { downloadPdfFromElement, shareElementPdfToWhatsApp } from '../utils/pdfShare';
+import { localDateToIso, timestampToLocalDate } from '../utils/localDate';
 
 // Web Audio API helper for offline-friendly beep sound
 // Shared AudioContext singleton — created once, reused for all beeps (eliminates init lag)
@@ -244,7 +245,7 @@ export default function DashboardPOS({
       setOrderDiscountType('percent');
       
       if (preloadedCart.backdate) {
-        setSaleDate(preloadedCart.backdate.split('T')[0]);
+        setSaleDate(timestampToLocalDate(preloadedCart.backdate));
       }
       
       if (onClearPreloadedCart) {
@@ -1130,8 +1131,7 @@ export default function DashboardPOS({
         if (saleDate) {
           try {
             const now = new Date();
-            const target = new Date(`${saleDate}T${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}.000Z`);
-            return isNaN(target.getTime()) ? new Date().toISOString() : target.toISOString();
+            return localDateToIso(saleDate, now);
           } catch (e) {
             return new Date().toISOString();
           }

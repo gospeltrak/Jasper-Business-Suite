@@ -12,6 +12,7 @@ import {
   deletePartner,
 } from '../utils/superAffiliateAdmin';
 import { verifySuperAdminPassword } from '../utils/superAdminData';
+import { formatLocalDate } from '../utils/localDate';
 
 const money = new Intl.NumberFormat('en-TZ', { style: 'currency', currency: 'TZS', maximumFractionDigits: 0 });
 const csvValue = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`;
@@ -164,7 +165,7 @@ export default function SuperAffiliateControlCenter({ initialTab = 'agents' }: {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = `${filename}-${new Date().toISOString().slice(0, 10)}.csv`;
+    anchor.download = `${filename}-${formatLocalDate()}.csv`;
     anchor.click();
     URL.revokeObjectURL(url);
   };

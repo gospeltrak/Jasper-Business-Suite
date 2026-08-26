@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Receipt, Trash } from 'lucide-react';
 import { loadPlatformRecord, savePlatformRecord } from '../utils/superAdminPlatformRecords';
 import { ONLINE_ONLY_WRITE_MESSAGE } from '../utils/onlineOnly';
+import { formatLocalDate } from '../utils/localDate';
 
 interface ExpenseRecord {
   id: string;
@@ -43,7 +44,7 @@ export default function SaaSExpensesView() {
       title: expTitle,
       category: expCategory,
       amount: amountNum,
-      date: new Date().toISOString().split('T')[0],
+      date: formatLocalDate(),
       recipient: expRecipient || 'General Vendor'
     };
 

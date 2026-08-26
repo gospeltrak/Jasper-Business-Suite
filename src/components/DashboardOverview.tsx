@@ -7,6 +7,7 @@ import { formatProductQuantity, formatSaleItemQuantity } from '../utils/unitForm
 import { canShowDashboardAd, useGlobalAdSettings } from '../utils/adPlacement';
 import { sanitizeTrustedHtml } from '../utils/safeHtml';
 import { getBusinessDisplayName } from '../utils/businessBranding';
+import { formatLocalDate, timestampToLocalDate } from '../utils/localDate';
 import { 
   ResponsiveContainer, 
   ComposedChart, 
@@ -98,11 +99,11 @@ export default function DashboardOverview({
   // Filter sales based on selected timeframe — exact date boundaries
   const filteredSales = useMemo(() => {
     const now = new Date();
-    const todayStr = now.toISOString().split('T')[0];
+    const todayStr = formatLocalDate(now);
 
     return sales.filter(sale => {
       if (!sale.timestamp) return false;
-      const saleDateStr = new Date(sale.timestamp).toISOString().split('T')[0];
+      const saleDateStr = timestampToLocalDate(sale.timestamp);
 
       if (timeframe === 'today') {
         // Exact today only — same calendar date

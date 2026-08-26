@@ -53,6 +53,7 @@ import AffiliateAgentDesk from "./affiliate/AffiliateAgentDesk";
 // AffiliateWorkspace.tsx) load their own workspace data after an explicit
 // login, so this portal-level component never auto-loads a dashboard.
 import { getSecureDataBridgeClient } from "../secureDataBridge";
+import { formatLocalDate } from "../utils/localDate";
 import {
   requireOnline,
   isOnline,
@@ -302,7 +303,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     const newEntry = {
       fullName: waitlistName.trim(),
       phoneNumber: phoneNo,
-      addedAt: new Date().toISOString().split('T')[0]
+      addedAt: formatLocalDate()
     };
     currentWaitlist.push(newEntry);
     onlineStorage.setItem('jasper_partner_waitlist', JSON.stringify(currentWaitlist));
@@ -992,7 +993,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       onlineStorage.setItem("saas_immersive_affiliates", JSON.stringify([{
         ...mappedAffiliate,
         status: 'Active',
-        joinedDate: new Date().toISOString().split('T')[0],
+        joinedDate: formatLocalDate(),
         affiliateLink: `https://dukaplus.co.tz/ref/${mappedAffiliate.promoCode.toLowerCase()}`,
       }, ...immersive]));
 
@@ -1112,7 +1113,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       phone,
       payoutPhone: payoutPhone || phone,
       status: "Active",
-      joinedDate: new Date().toISOString().split("T")[0],
+      joinedDate: formatLocalDate(),
       affiliateLink: `https://dukaplus.co.tz/ref/${cleanCode.toLowerCase()}`,
       promoCode: cleanCode,
       conversionsLink: 0,
@@ -1356,7 +1357,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
           const immersive = JSON.parse(onlineStorage.getItem('saas_immersive_affiliates') || '[]');
           const exists = immersive.find((a: any) => a.id === profile.id);
           if (!exists) {
-            immersive.unshift({ ...mappedAff, status: 'Active', joinedDate: new Date().toISOString().split('T')[0] });
+            immersive.unshift({ ...mappedAff, status: 'Active', joinedDate: formatLocalDate() });
             onlineStorage.setItem('saas_immersive_affiliates', JSON.stringify(immersive));
           }
           setActiveAffiliate(mappedAff);
@@ -2658,7 +2659,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                             type="button"
                             onClick={() => downloadPdfFromElement({
                               elementId: "affiliate-monthly-payout-pdf-template",
-                              fileName: `affiliate-monthly-payout-summary-${new Date().toISOString().split("T")[0]}.pdf`,
+                              fileName: `affiliate-monthly-payout-summary-${formatLocalDate()}.pdf`,
                               format: "a4"
                             })}
                             className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-xs font-mono font-bold uppercase tracking-wider cursor-pointer inline-flex items-center justify-center gap-2 print:hidden"
@@ -5030,7 +5031,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                             "sub-dyn-" +
                             Math.random().toString(36).substr(2, 9),
                           storeName: newName,
-                          registeredAt: new Date().toISOString().split("T")[0],
+                          registeredAt: formatLocalDate(),
                           tier,
                           status: "Paid",
                           charge,

@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Tenant, User, Sale, SaleItem } from '../types';
+import { formatLocalDate } from '../utils/localDate';
 import { 
   Pill, 
   Sparkles, 
@@ -479,7 +480,7 @@ export default function DashboardSandboxVerticals({ activeTenant, currentUser, o
       phone: newPatientPhone.replace(/[^0-9]/g, ''),
       insurer: newPatientInsurer,
       allergies: newPatientAllergies,
-      registeredDate: new Date().toISOString().split('T')[0]
+      registeredDate: formatLocalDate()
     };
 
     setPatients(prev => [...prev, pObj]);

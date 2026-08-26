@@ -57,6 +57,7 @@ import { canShowDashboardAd, useGlobalAdSettings } from '../../utils/adPlacement
 import { sanitizeTrustedHtml } from '../../utils/safeHtml';
 import { isEarnedCommissionStatus, isSettledPaymentStatus } from '../../utils/financialStatus';
 import GlobalStickyAd from '../GlobalStickyAd';
+import { formatLocalMonth } from '../../utils/localDate';
 
 const currency = new Intl.NumberFormat('en-TZ', { style: 'currency', currency: 'TZS', maximumFractionDigits: 0 });
 
@@ -101,7 +102,7 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
   const [isNetworkOnline, setIsNetworkOnline] = useState(isOnline());
   const [profileDraft, setProfileDraft] = useState({ displayName: '', payoutMethod: '', payoutAccount: '' });
   const [profilePrefs, setProfilePrefs] = useState({ emailUpdates: true, compactView: false });
-  const [reportMonth, setReportMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [reportMonth, setReportMonth] = useState(formatLocalMonth());
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [withdrawForm, setWithdrawForm] = useState({ name: '', phone: '', amount: '', password: '' });
   const [withdrawing, setWithdrawing] = useState(false);

@@ -4,6 +4,7 @@ import { isDemoTenant } from '../utils/tenantIsolation';
 import { safeSetJsonItem } from '../utils/dataSafety';
 import { findPaymentChannel, getMaskedAccountReference, getTreasuryPaymentMethods, reconcilePaymentChannels } from '../utils/paymentAccounts';
 import { postTreasuryEntry, syncTreasuryPaymentAccounts, transferTreasuryFunds } from '../utils/treasuryApi';
+import { formatLocalDate } from '../utils/localDate';
 import { 
   Landmark, 
   Wallet, 
@@ -112,7 +113,7 @@ export default function DashboardCashBank({
     return getRelativeRange(29).start.slice(0, 10);
   });
   const [endDateStr, setEndDateStr] = useState<string>(() => {
-    return new Date().toISOString().slice(0, 10);
+    return formatLocalDate();
   });
 
   // Calculate dates based on option selected

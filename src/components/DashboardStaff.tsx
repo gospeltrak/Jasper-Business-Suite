@@ -37,6 +37,7 @@ import { compressImageFile } from '../utils/imageCompression';
 import { getMaskedAccountReference } from '../utils/paymentAccounts';
 import { loadBranchWorkspace } from '../branches/branchApi';
 import { getSecureDataBridgeClient } from '../secureDataBridge';
+import { formatLocalDate } from '../utils/localDate';
 
 const currency = 'TSh';
 
@@ -76,13 +77,13 @@ const defaultAllowanceCategories = [
   'Other allowance'
 ];
 
-const todayIsoDate = () => new Date().toISOString().slice(0, 10);
+const todayIsoDate = () => formatLocalDate();
 
 const toDateOnly = (value?: string) => {
   if (!value) return '';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value.slice(0, 10);
-  return date.toISOString().slice(0, 10);
+  return formatLocalDate(date);
 };
 
 const getPeriodFromPreset = (preset: PayrollPeriodPreset, current?: PayrollPeriod): PayrollPeriod => {

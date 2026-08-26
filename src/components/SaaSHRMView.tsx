@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Plus, Trash, Shield, Activity, Edit2, DollarSign } from 'lucide-react';
+import { formatLocalDate } from '../utils/localDate';
 
 interface HiredStaff {
   id: string;
@@ -60,7 +61,7 @@ export default function SaaSHRMView() {
       role,
       monthlySalary: salNum,
       status,
-      joinedDate: new Date().toISOString().split('T')[0],
+      joinedDate: formatLocalDate(),
       notes: notes || 'Assigned to SaaS platform support workspace.'
     };
 

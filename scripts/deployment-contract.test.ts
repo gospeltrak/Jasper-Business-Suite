@@ -552,10 +552,33 @@ test('branch logos upload through the authenticated backend instead of browser s
 
 test('editing a sale persists the chosen local calendar date without UTC day rollback', async () => {
   const salesSource = await read('src/components/DashboardSalesList.tsx');
-  assert.match(salesSource, /const \[year, month, day\] = editFormFields\.saleDate\.split\('-'\)\.map\(Number\)/);
-  assert.match(salesSource, /new Date\(year, \(month \|\| 1\) - 1, day \|\| 1, hours, minutes, seconds\)/);
+  const dateSource = await read('src/utils/localDate.ts');
+  assert.match(salesSource, /localDateToIso\(editFormFields\.saleDate, original\)/);
+  assert.match(dateSource, /new Date\([\s\S]{0,180}Number\(month\) - 1/);
   assert.match(salesSource, /timestamp: updatedTimestamp/);
   assert.doesNotMatch(salesSource, /new Date\(`\$\{editFormFields\.saleDate\}T\$\{hh\}:\$\{mm\}:\$\{ss\}\.000Z`\)/);
+});
+
+test('tenant operational dates use local calendar helpers instead of UTC date slicing', async () => {
+  const sources = await Promise.all([
+    read('src/components/DashboardPOS.tsx'),
+    read('src/components/DashboardExpenses.tsx'),
+    read('src/components/DashboardReports.tsx'),
+    read('src/components/DashboardOverview.tsx'),
+  ]);
+  assert.match(sources[0], /localDateToIso\(saleDate, now\)/);
+  assert.match(sources[1], /localDateToIso\(cleanDate, new Date\(\), 12\)/);
+  assert.match(sources[2], /timestampToLocalDate\(sale\.timestamp\)/);
+  assert.match(sources[3], /timestampToLocalDate\(sale\.timestamp\)/);
+  for (const source of sources) {
+    assert.doesNotMatch(source, /new Date\(\)\.toISOString\(\)\.(?:split\('T'\)\[0\]|slice\(0,\s*10\))/);
+  }
+});
+
+test('authenticated branch reads can execute their tenant-scoped RLS predicate', async () => {
+  const migration = await read('supabase/migrations/20260826083904_grant_authenticated_can_read_branch.sql');
+  assert.match(migration, /grant execute on function private\.can_read_branch\(uuid, uuid\) to authenticated/i);
+  assert.doesNotMatch(migration, /grant .* to anon/i);
 });
 
 test('sales invoice and receipt exports use recognizable document filenames', async () => {

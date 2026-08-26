@@ -43,6 +43,7 @@ import {
   mapCostingMethodToLegacy,
 } from '../utils/inventoryCosting';
 import { formatProductQuantity } from '../utils/unitFormatter';
+import { formatLocalDate } from '../utils/localDate';
 import { classifyUniversalImportRows, downloadableUniversalTemplate } from '../utils/bulkProductImport';
 import { compressImageFile } from '../utils/imageCompression';
 import { safeSetJsonItem } from '../utils/dataSafety';
@@ -1889,7 +1890,7 @@ export default function DashboardProducts({
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `jasper_thermal_labels_${chosenLabels.length}pcs_${new Date().toISOString().split('T')[0]}.html`;
+    link.download = `jasper_thermal_labels_${chosenLabels.length}pcs_${formatLocalDate()}.html`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -2076,7 +2077,7 @@ export default function DashboardProducts({
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `jasper_a4_stickers_${new Date().toISOString().split('T')[0]}.html`;
+    link.download = `jasper_a4_stickers_${formatLocalDate()}.html`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

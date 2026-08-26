@@ -6,6 +6,7 @@ import { formatSaleItemQuantity } from '../utils/unitFormatter';
 import { isDemoTenant } from '../utils/tenantIsolation';
 import { safeSetJsonItem } from '../utils/dataSafety';
 import { canWriteBusinessDataOnline } from '../utils/onlineOnly';
+import { formatLocalDate, localDateToIso, timestampToLocalDate } from '../utils/localDate';
 import {
   Search, 
   Calendar, 
@@ -905,7 +906,7 @@ export default function DashboardSalesList({
   // -----------------------------------------------------------------
   // Live Cashier Register Math (Daily Expected Collections Today)
   // -----------------------------------------------------------------
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = formatLocalDate();
   
   // 1. Sum up cash paid from primary sale tickets logged today
   const todayCashSalesVolume = sales
@@ -1294,7 +1295,7 @@ export default function DashboardSalesList({
     setNewDocCustomerName(doc.customerName || '');
     setNewDocCustomerPhone(doc.customerPhone || '');
     setNewDocCustomerAddress(doc.customerAddress || '');
-    setNewDocDate(doc.timestamp ? doc.timestamp.split('T')[0] : new Date().toISOString().split('T')[0]);
+    setNewDocDate(doc.timestamp ? timestampToLocalDate(doc.timestamp) : formatLocalDate());
     setNewDocItems(doc.items || []);
     setNewDocDeliveryCost(doc.deliveryCost || 0);
     setNewDocDiscountValue(doc.discountValue || 0);
@@ -1336,7 +1337,7 @@ export default function DashboardSalesList({
         paymentAccountNumber: newDocPaymentAccountNumber.trim() || undefined,
         paymentAccountName: newDocPaymentAccountName.trim() || undefined,
         paymentAmount: newDocGrandTotal,
-        timestamp: new Date(`${newDocDate || new Date().toISOString().split('T')[0]}T12:00:00`).toISOString(),
+        timestamp: localDateToIso(newDocDate || formatLocalDate(), new Date(), 12),
       };
       setDocumentMutationPending(true);
       try {
@@ -1379,7 +1380,7 @@ export default function DashboardSalesList({
       paymentAccountNumber: newDocPaymentAccountNumber.trim() || undefined,
       paymentAccountName: newDocPaymentAccountName.trim() || undefined,
       paymentAmount: newDocGrandTotal,
-      timestamp: new Date(`${newDocDate || new Date().toISOString().split('T')[0]}T12:00:00`).toISOString(),
+      timestamp: localDateToIso(newDocDate || formatLocalDate(), new Date(), 12),
       tenantId: activeTenant.id,
       status: 'pending',
       issuingBranchId: issuingBranch?.id,
@@ -2293,7 +2294,7 @@ export default function DashboardSalesList({
                       const payAmt = parseFloat((form.elements.namedItem('pay-amount') as HTMLInputElement).value);
                       const payMethod = (form.elements.namedItem('pay-method') as HTMLSelectElement).value;
                       const payDateVal = (form.elements.namedItem('pay-date') as HTMLInputElement).value;
-                      const timestamp = payDateVal ? new Date(payDateVal).toISOString() : new Date().toISOString();
+                      const timestamp = payDateVal ? localDateToIso(payDateVal, new Date(), 12) : new Date().toISOString();
                       if (payAmt > 0) {
                         handleAddInstallment(s.id, payAmt, payMethod, timestamp);
                         form.reset();
@@ -2332,7 +2333,7 @@ export default function DashboardSalesList({
                         <input
                           type="date"
                           name="pay-date"
-                          defaultValue={new Date().toISOString().split('T')[0]}
+                          defaultValue={formatLocalDate()}
                           required
                           className={`w-full bg-white border border-slate-200 rounded-lg font-sans outline-none text-slate-800 ${compact ? 'px-3 py-2.5 text-xs min-h-[42px]' : 'px-2 py-1 text-xs'}`}
                         />
@@ -4294,7 +4295,7 @@ export default function DashboardSalesList({
                              const form = e.currentTarget;
                              const channel = (form.elements.namedItem('channel') as HTMLSelectElement).value;
                               const payDateVal = (form.elements.namedItem('paymentDate') as HTMLInputElement)?.value;
-                              const timestamp = payDateVal ? new Date(payDateVal).toISOString() : new Date().toISOString();
+                              const timestamp = payDateVal ? localDateToIso(payDateVal, new Date(), 12) : new Date().toISOString();
                              if (amt > 0) {
                                handleAddInstallment(selectedSale.id, Math.min(amt, dueRemainder), channel, timestamp);
                                setPayInInputVal('');
@@ -4333,7 +4334,7 @@ export default function DashboardSalesList({
                                  <option value="Card">Visa/Card Till</option>
                                  <option value="M-Pesa">M-Pesa Express</option>
                                  <option value="MTN MoMo">MTN MoMo API</option>
-                                 <option value="Paystack">Direct Paystack</option><option value="Airtel Money">Airtel Money</option></select></div><div><label className="block text-[9px] uppercase font-mono text-slate-500 font-bold mb-1">Payment Date</label><input type="date" name="paymentDate" defaultValue={new Date().toISOString().split("T")[0]} required className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-bold font-sans cursor-pointer focus:outline-none text-slate-800" /></div></div><div className="hidden"><div><select>
+                                 <option value="Paystack">Direct Paystack</option><option value="Airtel Money">Airtel Money</option></select></div><div><label className="block text-[9px] uppercase font-mono text-slate-500 font-bold mb-1">Payment Date</label><input type="date" name="paymentDate" defaultValue={formatLocalDate()} required className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-bold font-sans cursor-pointer focus:outline-none text-slate-800" /></div></div><div className="hidden"><div><select>
                                  <option value="Airtel Money">Airtel Money</option>
                                </select>
                              </div>
@@ -4867,18 +4868,13 @@ export default function DashboardSalesList({
                   const updatedTimestamp = (() => {
                     if (!editFormFields.saleDate) return editingSale.timestamp;
                     const original = editingSale.timestamp ? new Date(editingSale.timestamp) : new Date();
-                    const hours = isNaN(original.getTime()) ? 0 : original.getHours();
-                    const minutes = isNaN(original.getTime()) ? 0 : original.getMinutes();
-                    const seconds = isNaN(original.getTime()) ? 0 : original.getSeconds();
-                    const [year, month, day] = editFormFields.saleDate.split('-').map(Number);
                     // Build the target using local-time components throughout (both the
                     // picked calendar date and the preserved time-of-day), then let
                     // toISOString() do the local-to-UTC conversion -- mixing a local
                     // hh:mm:ss with a UTC "Z" literal shifted the saved date by the
                     // tenant's timezone offset, which could push it back across a day
                     // boundary and make the edit look like it never took effect.
-                    const target = new Date(year, (month || 1) - 1, day || 1, hours, minutes, seconds);
-                    return isNaN(target.getTime()) ? editingSale.timestamp : target.toISOString();
+                    return localDateToIso(editFormFields.saleDate, original);
                   })();
 
                   const updatedSale: Sale = {
