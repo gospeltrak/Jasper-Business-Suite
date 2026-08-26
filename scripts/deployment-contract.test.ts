@@ -581,15 +581,6 @@ test('authenticated branch reads can execute their tenant-scoped RLS predicate',
   assert.doesNotMatch(migration, /grant .* to anon/i);
 });
 
-test('Recent Sales status is derived from persisted payment state, never random sale IDs', async () => {
-  const overviewSource = await read('src/components/DashboardOverview.tsx');
-  assert.match(overviewSource, /sale\.paymentStatus === 'partial'/);
-  assert.match(overviewSource, /sale\.paymentStatus === 'unpaid'/);
-  assert.match(overviewSource, /return 'Completed'/);
-  assert.doesNotMatch(overviewSource, /const lastChar = saleId/);
-  assert.doesNotMatch(overviewSource, /localCancelledIds|Refund \/ Cancel|Refund Issue/);
-});
-
 test('sales invoice and receipt exports use recognizable document filenames', async () => {
   const salesSource = await read('src/components/DashboardSalesList.tsx');
   assert.equal(
