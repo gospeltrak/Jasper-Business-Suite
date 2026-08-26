@@ -484,6 +484,7 @@ test('commercial documents persist in authoritative tenant tables and reload acr
   const branchApiSource = await read('src/branches/branchApi.ts');
   const serverSource = await read('server.ts');
   const migrationSource = await read('supabase/migrations/20260824103801_persist_and_load_commercial_documents.sql');
+  const updateTimeMigration = await read('supabase/migrations/20260826000100_include_document_update_time.sql');
 
   assert.match(salesSource, /await createStandardCommercialDocument\(localDocument\)/);
   assert.match(salesSource, /const remoteDocuments = await loadCommercialDocuments\(\)/);
@@ -496,6 +497,8 @@ test('commercial documents persist in authoritative tenant tables and reload acr
   assert.match(migrationSource, /create or replace function public\.save_current_sales_document/);
   assert.match(migrationSource, /create or replace function public\.list_current_commercial_documents/);
   assert.match(migrationSource, /where document\.tenant_id = tenant\.id/);
+  assert.match(updateTimeMigration, /'updatedAt', document\.updated_at/);
+  assert.match(salesSource, /serverUpdatedAt = parse\(\(doc as SalesDocument & \{ updatedAt\?: string \}\)\.updatedAt\)/);
 });
 
 test('Safari keyboard layout never hides the app or lifts navigation by keyboard height', async () => {

@@ -214,7 +214,8 @@ const documentSyncTime = (doc: SalesDocument): number => {
     const time = new Date(value).getTime();
     return Number.isFinite(time) ? time : 0;
   };
-  return Math.max(parse(doc.deletedAt), parse(doc.convertedAt), parse(doc.timestamp));
+  const serverUpdatedAt = parse((doc as SalesDocument & { updatedAt?: string }).updatedAt);
+  return Math.max(serverUpdatedAt, parse(doc.deletedAt), parse(doc.convertedAt), parse(doc.timestamp));
 };
 
 // A remote refetch/realtime snapshot must never silently erase a document
