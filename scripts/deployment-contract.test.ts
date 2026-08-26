@@ -581,6 +581,15 @@ test('authenticated branch reads can execute their tenant-scoped RLS predicate',
   assert.doesNotMatch(migration, /grant .* to anon/i);
 });
 
+test('Recent Sales status is derived from persisted payment state, never random sale IDs', async () => {
+  const overviewSource = await read('src/components/DashboardOverview.tsx');
+  assert.match(overviewSource, /sale\.paymentStatus === 'partial'/);
+  assert.match(overviewSource, /sale\.paymentStatus === 'unpaid'/);
+  assert.match(overviewSource, /return 'Completed'/);
+  assert.doesNotMatch(overviewSource, /const lastChar = saleId/);
+  assert.doesNotMatch(overviewSource, /localCancelledIds|Refund \/ Cancel|Refund Issue/);
+});
+
 test('sales invoice and receipt exports use recognizable document filenames', async () => {
   const salesSource = await read('src/components/DashboardSalesList.tsx');
   assert.equal(
@@ -609,6 +618,13 @@ test('product action menus cannot delete catalogue records in one click', async 
   assert.match(productSource, /Confirm Delete Product/);
   assert.match(productSource, /Transfer Stock/);
   assert.match(productSource, /aria-label="Transfer stock"/);
+});
+
+test('cloud product tombstones survive core and branch workspace hydration', async () => {
+  const dashboardSource = await read('src/components/Dashboard.tsx');
+  assert.match(dashboardSource, /const workspaceProductTombstones = mergeProductTombstones\(/g);
+  assert.equal((dashboardSource.match(/writeLocalProductTombstones\(activeTenant\.id, workspaceProductTombstones\)/g) || []).length, 2);
+  assert.equal((dashboardSource.match(/workspaceProductTombstones,\n\s*\)/g) || []).length, 2);
 });
 
 test('purchase edit and delete actions call tenant-scoped persistence callbacks', async () => {

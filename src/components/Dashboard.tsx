@@ -51,7 +51,7 @@ import { createCleanTenantSettings, isDemoTenant } from '../utils/tenantIsolatio
 import { flushPendingTenantWorkspace, hasPendingTenantWorkspaceSave, loadTenantWorkspace, loadTenantWorkspaceCore, markTenantProductsUpdated, readCachedWorkspace, saveTenantSettings, saveTenantWorkspace, scheduleTenantWorkspaceSave, subscribeToTenantBusinessType, subscribeToTenantWorkspace, TenantWorkspace, waitForTenantWorkspaceLoad, workspaceHasBusinessData } from '../utils/tenantWorkspace';
 import { safeSetJsonItem, safeSetTenantMapItem } from '../utils/dataSafety';
 import { findPaymentChannel, getTreasuryPaymentMethods, reconcilePaymentChannels } from '../utils/paymentAccounts';
-import { attachPayloadProductTombstones, markLocalProductTombstones, mergeProductsForSync, readLocalProductTombstones, stampProductsForSync } from '../utils/productSync';
+import { attachPayloadProductTombstones, markLocalProductTombstones, mergeProductTombstones, mergeProductsForSync, readLocalProductTombstones, stampProductsForSync, writeLocalProductTombstones } from '../utils/productSync';
 import {
   attachPayloadSaleTombstones,
   markLocalSaleTombstone,
@@ -741,6 +741,11 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       if (coreReady) {
         const cloudBusinessName = String(workspace.settings?.business?.businessName || '').trim();
         setDatabaseBusinessName(cloudBusinessName);
+        const workspaceProductTombstones = mergeProductTombstones(
+          readLocalProductTombstones(activeTenant.id),
+          workspace.productTombstones,
+        );
+        writeLocalProductTombstones(activeTenant.id, workspaceProductTombstones);
         // A locally-deleted product must stay deleted even if this payload was
         // fetched/cached before the deletion reached the server -- merge against
         // local tombstones instead of trusting the incoming array verbatim.
@@ -749,7 +754,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
           [activeTenant.id]: mergeProductsForSync(
             workspace.products || [],
             prev[activeTenant.id] || [],
-            readLocalProductTombstones(activeTenant.id),
+            workspaceProductTombstones,
           ),
         }));
         setBranchesMap(prev => ({ ...prev, [activeTenant.id]: workspace.branches || [] }));
@@ -925,6 +930,11 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     };
     const applyBranchWorkspace = (workspace: TenantWorkspace) => {
       skipNextWorkspaceSaveRef.current = true;
+      const workspaceProductTombstones = mergeProductTombstones(
+        readLocalProductTombstones(activeTenant.id),
+        workspace.productTombstones,
+      );
+      writeLocalProductTombstones(activeTenant.id, workspaceProductTombstones);
       // Same tombstone protection as applyWorkspace above -- this path is fed
       // by a branch-context cache (branchWorkspaceCacheRef) that can be older
       // than a product deleted moments ago, and by design re-applies on every
@@ -935,7 +945,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
         [activeTenant.id]: mergeProductsForSync(
           workspace.products || [],
           previous[activeTenant.id] || [],
-          readLocalProductTombstones(activeTenant.id),
+          workspaceProductTombstones,
         ),
       }));
       setBranchesMap(previous => ({ ...previous, [activeTenant.id]: workspace.branches || [] }));
