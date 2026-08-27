@@ -2761,14 +2761,15 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     return true;
   };
 
-  const handleCreateProduct = (newProd: Product) => {
+  const handleCreateProducts = (newProducts: Product[]) => {
     if (blockOfflineBusinessWrite('product creation')) return;
 
-    const branchScopedProduct = {
+    if (newProducts.length === 0) return;
+    const branchScopedProducts = newProducts.map(newProd => ({
       ...newProd,
       branchId: activeBranchSelection.activeBranchId || undefined,
-    };
-    const updatedProducts = [branchScopedProduct, ...(productsMap[activeTenant.id] || [])];
+    }));
+    const updatedProducts = [...branchScopedProducts, ...(productsMap[activeTenant.id] || [])];
     const syncedProducts = persistTenantProductsNow(updatedProducts);
     setProductsMap(prev => {
       return {
@@ -2786,10 +2787,14 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       id: 'l-' + Math.random().toString(36).substr(2, 9),
       type: 'product_update',
       status: 'success',
-      message: `Registered new catalog item: ${newProd.name} (Code: ${newProd.barcode || newProd.sku}) at branch ${activeTenant.name}.`,
+      message: `Registered ${branchScopedProducts.length} catalog item${branchScopedProducts.length === 1 ? '' : 's'} at branch ${activeTenant.name}.`,
       timestamp: new Date().toISOString()
     };
     setLogs(prev => [newLog, ...prev]);
+  };
+
+  const handleCreateProduct = (newProd: Product) => {
+    handleCreateProducts([newProd]);
   };
 
   const handleDeleteProduct = (id: string) => {
@@ -4019,6 +4024,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                 persistSystemSettingsNow(updated);
               }}
               onAddProduct={handleCreateProduct}
+              onAddProducts={handleCreateProducts}
               onDeleteProduct={handleDeleteProduct}
               onUpdateProducts={handleUpdateActiveStocks}
               subscriptionStatus={subStatus}

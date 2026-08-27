@@ -73,6 +73,7 @@ interface DashboardProductsProps {
   systemSettings?: SystemSettings;
   onUpdateSettings: (settings: SystemSettings) => void;
   onAddProduct: (prod: Product) => void;
+  onAddProducts: (products: Product[]) => void;
   onDeleteProduct: (id: string) => void;
   onUpdateProducts: (updatedProducts: Product[]) => void;
   subscriptionStatus?: any;
@@ -167,6 +168,7 @@ export default function DashboardProducts({
   systemSettings,
   onUpdateSettings,
   onAddProduct,
+  onAddProducts,
   onDeleteProduct,
   onUpdateProducts,
   subscriptionStatus,
@@ -1597,7 +1599,7 @@ export default function DashboardProducts({
           }
         }
 
-        summary.readyProducts.forEach(item => onAddProduct(item));
+        onAddProducts(summary.readyProducts);
         registerImportedCategories(summary.readyProducts);
 
         const errorNote = summary.error > 0
@@ -1656,7 +1658,7 @@ export default function DashboardProducts({
               return;
             }
           }
-          importedItems.forEach(item => onAddProduct(item));
+          onAddProducts(importedItems);
           setCsvUploadSuccess(`Catalogue restored successfully! Imported ${importedItems.length} products; matching barcodes were safely skipped.`);
           if (csvInputRef.current) csvInputRef.current.value = '';
           return;
@@ -1740,7 +1742,7 @@ export default function DashboardProducts({
         }
 
         // Add imports directly to the system
-        importedItems.forEach(item => onAddProduct(item));
+        onAddProducts(importedItems);
 
         // Auto-register any new categories from the spreadsheet into settings
         // so they appear in the POS category filter immediately after import.

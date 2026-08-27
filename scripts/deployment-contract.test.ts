@@ -611,6 +611,16 @@ test('product action menus cannot delete catalogue records in one click', async 
   assert.match(productSource, /aria-label="Transfer stock"/);
 });
 
+test('bulk product imports persist the complete batch in one parent update', async () => {
+  const productSource = await read('src/components/DashboardProducts.tsx');
+  const dashboardSource = await read('src/components/Dashboard.tsx');
+  assert.match(productSource, /onAddProducts\(summary\.readyProducts\)/);
+  assert.match(productSource, /onAddProducts\(importedItems\)/);
+  assert.match(dashboardSource, /const handleCreateProducts = \(newProducts: Product\[\]\)/);
+  assert.match(dashboardSource, /const updatedProducts = \[\.\.\.branchScopedProducts, \.\.\.\(productsMap\[activeTenant\.id\] \|\| \[\]\)\]/);
+  assert.match(dashboardSource, /onAddProducts=\{handleCreateProducts\}/);
+});
+
 test('cloud product tombstones survive core and branch workspace hydration', async () => {
   const dashboardSource = await read('src/components/Dashboard.tsx');
   assert.match(dashboardSource, /const workspaceProductTombstones = mergeProductTombstones\(/g);
