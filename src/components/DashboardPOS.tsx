@@ -45,6 +45,7 @@ import DashboardBarcodeScanner from './DashboardBarcodeScanner';
 import CachedImage from './CachedImage';
 import { downloadPdfFromElement, shareElementPdfToWhatsApp } from '../utils/pdfShare';
 import { localDateToIso, timestampToLocalDate } from '../utils/localDate';
+import { getPharmacyDoseConfig, resolvePharmacyPosLine } from '../utils/pharmacyPosPricing';
 
 // Web Audio API helper for offline-friendly beep sound
 // Shared AudioContext singleton — created once, reused for all beeps (eliminates init lag)
@@ -489,49 +490,8 @@ export default function DashboardPOS({
   })();
   const categories = ['All', ...configuredCategories];
 
-  const getPharmacyDoseConfig = useCallback((product: Product) => {
-    const hierarchyLevels = product.pharmacyUnitLevels && product.pharmacyUnitLevels.length > 0
-      ? product.pharmacyUnitLevels
-      : null;
-    if (hierarchyLevels) {
-      const topLevel = hierarchyLevels[0];
-      const doseLevel = hierarchyLevels.find(level => level.id === 'dose') || hierarchyLevels[1] || topLevel;
-      const baseLevel = hierarchyLevels[hierarchyLevels.length - 1];
-      const tabsPerPacket = Math.max(1, Number(topLevel.quantityToBaseUnit || product.conversionToBaseUnit || product.tabsPerPack || 1));
-      const tabsPerDose = Math.max(1, Number(doseLevel.quantityToBaseUnit || product.tabsPerDose || 1));
-      const packetPrice = Number(product.packetPrice ?? product.sellingPrice ?? 0);
-      const tabPrice = Number(product.tabPrice || product.defaultPricePerBaseUnit || product.inventorySettings?.defaultPricePerBaseUnit || (packetPrice / tabsPerPacket));
-      const fullDosePrice = Number(product.fullDosePrice || (tabPrice * tabsPerDose));
-      const halfDoseTabs = Math.max(1, Math.ceil(tabsPerDose / 2));
-      const halfDosePrice = Number(product.halfDosePrice || (tabPrice * halfDoseTabs));
-      return { dosesPerPacket: tabsPerPacket, tabsPerDose, tabsPerPacket, halfDoseTabs, packetPrice, fullDosePrice, halfDosePrice, tabPrice, hierarchyLevels, baseUnit: product.pharmacyBaseUnit || baseLevel.unit };
-    }
-    const dosesPerPacket = Math.max(1, Number(product.dosesPerPacket || product.pharmacyUnitBreakdown?.stripsPerBox || 1));
-    const tabsPerDose = Math.max(1, Number(product.tabsPerDose || product.pharmacyUnitBreakdown?.tabletsPerStrip || product.tabsPerPack || 1));
-    const tabsPerPacket = Math.max(1, Number(product.tabsPerPack || (dosesPerPacket * tabsPerDose)));
-    const halfDoseTabs = Math.max(1, Math.ceil(tabsPerDose / 2));
-    const packetPrice = Number(product.packetPrice ?? product.sellingPrice ?? 0);
-    const fullDosePrice = Number(product.fullDosePrice || (packetPrice / dosesPerPacket));
-    const halfDosePrice = Number(product.halfDosePrice || (fullDosePrice / 2));
-    const tabPrice = Number(product.tabPrice || (packetPrice / tabsPerPacket));
-    return { dosesPerPacket, tabsPerDose, tabsPerPacket, halfDoseTabs, packetPrice, fullDosePrice, halfDosePrice, tabPrice, hierarchyLevels: null, baseUnit: product.pharmacyBaseUnit || product.pharmacyUnitBreakdown?.baseUnit || 'Tab' };
-  }, []); // product fields are stable — no external deps needed
-
   const getPharmacyDoseWeight = (product: Product, dosageType: 'packet' | 'full' | 'half' | 'tabs' | 'strip' | 'dose' | 'unit' = 'packet', tabsSelected?: number) => {
-    const cfg = getPharmacyDoseConfig(product);
-    if (cfg.hierarchyLevels) {
-      if (dosageType === 'tabs' || dosageType === 'unit') return Math.max(1, tabsSelected || 1);
-      const level = cfg.hierarchyLevels.find(item => item.id === dosageType)
-        || (dosageType === 'full' ? cfg.hierarchyLevels.find(item => item.id === 'dose') : undefined)
-        || (dosageType === 'half' ? cfg.hierarchyLevels.find(item => item.id === 'dose') : undefined)
-        || cfg.hierarchyLevels[0];
-      const baseQty = Math.max(1, Number(level.quantityToBaseUnit || 1));
-      return dosageType === 'half' ? Math.max(1, Math.ceil(baseQty / 2)) : baseQty;
-    }
-    if (dosageType === 'packet') return cfg.tabsPerPacket;
-    if (dosageType === 'full' || dosageType === 'dose') return cfg.tabsPerDose;
-    if (dosageType === 'half') return cfg.halfDoseTabs;
-    return Math.max(1, tabsSelected || 1);
+    return resolvePharmacyPosLine({ product, selectedLevel: dosageType, tabsSelected }).unitsPerSelectedLevel;
   };
 
   const formatPharmacyRemaining = (baseQuantity: number, product: Product) => {
@@ -851,23 +811,11 @@ export default function DashboardPOS({
 
     if (isPharmacy) {
       const dType = item.dosageType || 'packet';
-      const doseCfg = getPharmacyDoseConfig(item.product);
-      if (doseCfg.hierarchyLevels) {
-        const selectedLevel = doseCfg.hierarchyLevels.find(level => level.id === dType) || doseCfg.hierarchyLevels[0];
-        const baseUnits = dType === 'tabs' || dType === 'unit'
-          ? Math.max(1, item.tabsSelected || 1)
-          : Math.max(1, Number(selectedLevel.quantityToBaseUnit || 1));
-        unitPrice = doseCfg.tabPrice * baseUnits;
-      } else if (dType === 'packet') {
-        unitPrice = doseCfg.packetPrice || channelBasePrice;
-      } else if (dType === 'full') {
-        unitPrice = doseCfg.fullDosePrice;
-      } else if (dType === 'half') {
-        unitPrice = doseCfg.halfDosePrice;
-      } else if (dType === 'tabs') {
-        const tSelected = item.tabsSelected || 1;
-        unitPrice = doseCfg.tabPrice * tSelected;
-      }
+      unitPrice = resolvePharmacyPosLine({
+        product: item.product,
+        selectedLevel: dType,
+        tabsSelected: item.tabsSelected,
+      }).selectedUnitPrice;
     }
 
     return unitPrice;
@@ -931,6 +879,16 @@ export default function DashboardPOS({
   // though the line itself displayed the correct amount.
   const subtotal = useMemo(() => {
     return cart.reduce((sum, item) => {
+      if (activeTenant.businessType === 'pharmacy') {
+        return sum + resolvePharmacyPosLine({
+          product: item.product,
+          selectedLevel: item.dosageType || 'packet',
+          tabsSelected: item.tabsSelected,
+          quantity: item.qty,
+          discount: item.discount,
+          discountType: item.discountType,
+        }).lineTotal;
+      }
       const basePrice = getCartUnitPrice(item);
       const isCash = item.discountType === 'cash';
       const discountPrice = isCash
@@ -938,7 +896,7 @@ export default function DashboardPOS({
         : basePrice * (1 - (item.discount || 0) / 100);
       return sum + (discountPrice * item.qty);
     }, 0);
-  }, [cart, getCartUnitPrice]);
+  }, [cart, getCartUnitPrice, activeTenant.businessType]);
 
   const orderDiscountAmt = useMemo(() =>
     orderDiscountType === 'cash'
@@ -1018,28 +976,16 @@ export default function DashboardPOS({
       }
 
       if (isPharmacy) {
-        const doseCfg = getPharmacyDoseConfig(i.product);
-        if (doseCfg.hierarchyLevels) {
-          const selectedLevel = doseCfg.hierarchyLevels.find(level => level.id === dType) || doseCfg.hierarchyLevels[0];
-          const baseUnits = dType === 'tabs' || dType === 'unit'
-            ? Math.max(1, i.tabsSelected || 1)
-            : Math.max(1, Number(selectedLevel.quantityToBaseUnit || 1));
-          unitPrice = doseCfg.tabPrice * baseUnits;
-          ratioScaling = baseUnits;
-        } else if (dType === 'packet') {
-          unitPrice = doseCfg.packetPrice || channelBasePrice;
-          ratioScaling = doseCfg.tabsPerPacket;
-        } else if (dType === 'full') {
-          unitPrice = doseCfg.fullDosePrice;
-          ratioScaling = doseCfg.tabsPerDose;
-        } else if (dType === 'half') {
-          unitPrice = doseCfg.halfDosePrice;
-          ratioScaling = doseCfg.halfDoseTabs;
-        } else if (dType === 'tabs') {
-          const tSelected = i.tabsSelected || 1;
-          unitPrice = doseCfg.tabPrice * tSelected;
-          ratioScaling = tSelected;
-        }
+        const pharmacyLine = resolvePharmacyPosLine({
+          product: i.product,
+          selectedLevel: dType,
+          tabsSelected: i.tabsSelected,
+          quantity: i.qty,
+          discount: i.discount,
+          discountType: i.discountType,
+        });
+        unitPrice = pharmacyLine.selectedUnitPrice;
+        ratioScaling = pharmacyLine.unitsPerSelectedLevel;
       }
 
       // Process Batches deduction!
@@ -1057,20 +1003,30 @@ export default function DashboardPOS({
           batchesUsed.push(...deduction.batchesUsed);
           pendingBatchUpdates[i.product.id] = deduction.updatedBatches;
 
-          if (sellMethod === 'average_price') {
+          if (!isPharmacy && sellMethod === 'average_price') {
               blendedCost = i.product.averageBuyingCost || calculateWeightedAverageCost(i.product.batches, i.product.costPrice);
               unitPrice = getPosSellingPriceForCostingMethod(i.product, unitPrice, 'average_price');
-          } else if (sellMethod === 'batch_price') {
+          } else if (!isPharmacy && sellMethod === 'batch_price') {
               blendedCost = deduction.batchesUsed[0]?.buyingPrice || i.product.latestBuyingPrice || i.product.costPrice;
+              unitPrice = deduction.batchesUsed[0]?.sellingPrice || unitPrice;
+          } else if (!isPharmacy) {
+              blendedCost = deduction.unitCost;
               unitPrice = deduction.batchesUsed[0]?.sellingPrice || unitPrice;
           } else {
               blendedCost = deduction.unitCost;
-              unitPrice = deduction.batchesUsed[0]?.sellingPrice || unitPrice;
           }
       }
       const saleUnitCost = i.qty > 0 ? blendedCost * (deductQtyReal / i.qty) : blendedCost;
 
       const pharmacyCfg = isPharmacy ? getPharmacyDoseConfig(i.product) : null;
+      const pharmacyLine = isPharmacy ? resolvePharmacyPosLine({
+        product: i.product,
+        selectedLevel: dType,
+        tabsSelected: i.tabsSelected,
+        quantity: i.qty,
+        discount: i.discount,
+        discountType: i.discountType,
+      }) : null;
       const pharmacyLevelLabel = pharmacyCfg?.hierarchyLevels?.find(level => level.id === dType)?.unit
         || (dType === 'packet' ? 'Packet' : dType === 'full' ? 'Full Dose' : dType === 'half' ? 'Half Dose' : `${i.tabsSelected || 1} ${pharmacyCfg?.baseUnit || 'Units'}`);
 
@@ -1086,6 +1042,11 @@ export default function DashboardPOS({
         dosageType: i.dosageType,
         tabsSelected: i.tabsSelected,
         tabsPerPack: i.product.tabsPerPack,
+        selectedLevel: pharmacyLine?.selectedLevel,
+        selectedLevelQuantity: pharmacyLine?.selectedLevelQuantity,
+        unitsPerSelectedLevel: pharmacyLine?.unitsPerSelectedLevel,
+        selectedUnitPrice: pharmacyLine?.selectedUnitPrice,
+        lineTotal: pharmacyLine?.lineTotal,
         channel: sellingChannel,
         prescriptionRequired: i.product.prescriptionRequired || undefined,
         isBulkProduct: isBulk,

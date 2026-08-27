@@ -368,6 +368,11 @@ export interface SaleItem {
   dosageType?: 'packet' | 'full' | 'half' | 'tabs' | 'strip' | 'dose' | 'unit';
   tabsSelected?: number;
   tabsPerPack?: number;
+  selectedLevel?: 'packet' | 'full' | 'half' | 'tabs' | 'strip' | 'dose' | 'unit';
+  selectedLevelQuantity?: number;
+  unitsPerSelectedLevel?: number;
+  selectedUnitPrice?: number;
+  lineTotal?: number;
   channel?: 'retail' | 'wholesale';
   // Immutable snapshot of the product's Prescription Required flag at the
   // moment of sale -- editing the product afterward must not change what a
