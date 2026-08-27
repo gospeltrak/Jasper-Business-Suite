@@ -889,7 +889,7 @@ export default function DashboardProducts({
     return {
       baseUnit: resolvedBase,
       levels: [
-        { id: 'packet', label: 'Packet / Strip', unit: 'Strip', quantityToBaseUnit: safeMiddle * safeDose },
+        { id: 'packet', label: 'Packet / Strip', unit: 'Packet', quantityToBaseUnit: safeMiddle * safeDose },
         { id: 'dose', label: 'Dose', unit: 'Dose', quantityToBaseUnit: safeDose },
         { id: 'tabs', label: resolvedBase, unit: resolvedBase, quantityToBaseUnit: 1 },
       ]
@@ -2516,7 +2516,7 @@ export default function DashboardProducts({
         {!isDesktopAddProductLayout ? (
           <div className="pharmacy-price-grid col-span-2 grid grid-cols-3 gap-1.5 sm:gap-2">
             <div className="space-y-1 min-w-0">
-              <label className="block min-h-6 text-[8px] sm:text-[9px] leading-tight font-bold text-slate-500 uppercase">{pharmacyFormHierarchy.levels[0]?.unit || 'Strip'} price</label>
+              <label className="block min-h-6 text-[8px] sm:text-[9px] leading-tight font-bold text-slate-500 uppercase">{pharmacyFormHierarchy.levels[0]?.unit || 'Packet'} price</label>
               <input type="number" value={sellingPrice || ''} onChange={e => setSellingPrice(Number(e.target.value) || 0)} className="w-full min-w-0 bg-white border border-slate-200 text-[10px] px-2 py-2 rounded-xl" />
             </div>
             <div className="space-y-1 min-w-0">
