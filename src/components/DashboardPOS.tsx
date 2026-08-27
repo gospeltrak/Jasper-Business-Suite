@@ -1619,7 +1619,21 @@ export default function DashboardPOS({
               return (
                 <div key={item.product.id} className="p-2.5 bg-slate-50 border border-slate-200/60 rounded-xl space-y-1.5 relative group text-left">
                   {/* Main Line: Name + price on Left, Qty Controls + Total Price on Right */}
-                  <div className="flex items-center justify-between gap-2.5">
+                    <div className="flex items-center justify-between gap-2.5">
+                    {showProductImages && (
+                      <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-white flex items-center justify-center">
+                        {getProductImage(item.product) ? (
+                          <CachedImage
+                            src={getProductImage(item.product)}
+                            alt={item.product.name}
+                            className="h-full w-full object-contain p-0.5"
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          <Package className="h-5 w-5 text-slate-300" strokeWidth={1.5} />
+                        )}
+                      </div>
+                    )}
                     {/* Left: Name and price directly below it */}
                     <div className="text-left font-sans flex-grow min-w-0">
                       <h6 className="text-[11.5px] font-bold text-slate-800 line-clamp-1 flex items-center gap-1">
