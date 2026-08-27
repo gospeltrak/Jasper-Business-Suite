@@ -2522,7 +2522,7 @@ export default function DashboardProducts({
           ))}
         </div>
         {!isDesktopAddProductLayout ? (
-          <div className="pharmacy-price-grid col-span-2 grid grid-cols-2 gap-1.5 sm:gap-2">
+          <div className="pharmacy-price-grid col-span-2 grid grid-cols-3 gap-1.5 sm:gap-2">
             <div className="space-y-1 min-w-0">
               <label className="block min-h-6 text-[8px] sm:text-[9px] leading-tight font-bold text-slate-500 uppercase">{pharmacyFormHierarchy.levels[0]?.unit || 'Packet'} price</label>
               <input type="number" value={packetPriceOverride !== '' ? packetPriceOverride : (pharmacyAutoPacketPrice || '')} onChange={e => setPacketPriceOverride(e.target.value === '' ? '' : Number(e.target.value))} placeholder="Auto" className="w-full min-w-0 bg-white border border-slate-200 text-[10px] px-2 py-2 rounded-xl" />
@@ -2530,6 +2530,10 @@ export default function DashboardProducts({
             <div className="space-y-1 min-w-0">
               <label className="block min-h-6 text-[8px] sm:text-[9px] leading-tight font-bold text-slate-500 uppercase">Dose / middle price</label>
               <input type="number" value={fullDosePrice} onChange={e => setFullDosePrice(e.target.value === '' ? '' : Number(e.target.value))} placeholder="Auto" className="w-full min-w-0 bg-white border border-slate-200 text-[10px] px-2 py-2 rounded-xl" />
+            </div>
+            <div className="space-y-1 min-w-0">
+              <label className="block min-h-6 text-[8px] sm:text-[9px] leading-tight font-bold text-slate-500 uppercase">Price per {pharmacyFormHierarchy.baseUnit}</label>
+              <input type="number" readOnly value={sellingPrice || ''} title="Set from Selling Price above" className="w-full min-w-0 bg-slate-100 border border-slate-200 text-[10px] px-2 py-2 rounded-xl text-slate-500 cursor-not-allowed" />
             </div>
           </div>
         ) : (
@@ -2541,6 +2545,10 @@ export default function DashboardProducts({
             <div className="space-y-1">
               <label className="text-[9px] font-bold text-slate-500 uppercase">Dose / middle price</label>
               <input type="number" value={fullDosePrice} onChange={e => setFullDosePrice(e.target.value === '' ? '' : Number(e.target.value))} placeholder="Auto if empty" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[9px] font-bold text-slate-500 uppercase">Price per {pharmacyFormHierarchy.baseUnit}</label>
+              <input type="number" readOnly value={sellingPrice || ''} title="Set from Selling Price above" className="w-full bg-slate-100 border border-slate-200 text-xs px-3 py-2 rounded-xl text-slate-500 cursor-not-allowed" />
             </div>
           </>
         )}
@@ -5516,6 +5524,10 @@ export default function DashboardProducts({
                           <div className="space-y-1">
                             <label className="text-[9px] font-bold text-slate-500 uppercase">{structure.hierarchy.levels[0]?.unit || 'Top unit'} price</label>
                             <input type="number" value={editForm.packetPrice ?? ((structure.hierarchy.levels[0]?.quantityToBaseUnit || 1) * (editForm.sellingPrice || 0) || '')} onChange={e => setEditForm(prev => ({ ...prev, packetPrice: e.target.value === '' ? undefined : Number(e.target.value) }))} placeholder="Auto" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-slate-500 uppercase">Price per {structure.hierarchy.baseUnit}</label>
+                            <input type="number" readOnly value={editNumberValue(editForm.sellingPrice)} title="Set from Retail Price above" className="w-full bg-slate-100 border border-slate-200 text-xs px-3 py-2 rounded-xl text-slate-500 cursor-not-allowed" />
                           </div>
                           <div className="col-span-2 text-[10px] font-mono text-emerald-800 bg-white/70 border border-emerald-100 rounded-xl px-3 py-2">
                             POS levels: {structure.hierarchy.levels.map(level => `${level.unit} (${level.quantityToBaseUnit} ${structure.hierarchy.baseUnit})`).join(' -> ')}
