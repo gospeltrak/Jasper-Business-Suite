@@ -454,9 +454,12 @@ export default function DashboardProducts({
         const editTopLevel = editPharmacy.hierarchy.levels[0];
         const editDoseLevel = editPharmacy.hierarchy.levels.find(level => level.id === 'dose') || editPharmacy.hierarchy.levels[1] || editTopLevel;
         const editTabsPerPacket = Math.max(1, Number(editTopLevel?.quantityToBaseUnit || editDosesPerPacket * editTabsPerDose));
-        const editFullDosePrice = Number(editForm.fullDosePrice || (Number(editDoseLevel?.quantityToBaseUnit || editTabsPerDose) * Number(editForm.tabPrice || (editTabsPerPacket > 0 ? sellPrice / editTabsPerPacket : sellPrice))));
+        // Base unit (e.g. Tablet) price is what the tenant enters as "Retail
+        // Price" -- packet price is derived from it unless explicitly overridden.
+        const editTabPrice = sellPrice;
+        const editPacketPrice = Number(editForm.packetPrice) || (editTabPrice * editTabsPerPacket);
+        const editFullDosePrice = Number(editForm.fullDosePrice || (Number(editDoseLevel?.quantityToBaseUnit || editTabsPerDose) * editTabPrice));
         const editHalfDosePrice = Number(editForm.halfDosePrice || editFullDosePrice / 2);
-        const editTabPrice = Number(editForm.tabPrice || (editTabsPerPacket > 0 ? sellPrice / editTabsPerPacket : sellPrice));
         const editUsesMeasuredUnit = !!editForm.isBulkProduct || !!editForm.allowScaleSelling ||
           !!editForm.inventorySettings?.allowScaleSelling || editForm.sellingMode === 'scale' || editForm.sellingMode === 'hybrid';
         const editBaseUnit = editUsesMeasuredUnit
@@ -519,7 +522,7 @@ export default function DashboardProducts({
           pharmacyBaseUnit: activeTenant.businessType === 'pharmacy' ? editPharmacy.hierarchy.baseUnit : editForm.pharmacyBaseUnit,
           pharmacyUnitLevels: activeTenant.businessType === 'pharmacy' ? editPharmacy.hierarchy.levels : editForm.pharmacyUnitLevels,
           allowsDosageDividing: activeTenant.businessType === 'pharmacy' ? true : editForm.allowsDosageDividing,
-          packetPrice: activeTenant.businessType === 'pharmacy' ? sellPrice : editForm.packetPrice,
+          packetPrice: activeTenant.businessType === 'pharmacy' ? editPacketPrice : editForm.packetPrice,
           fullDosePrice: activeTenant.businessType === 'pharmacy' ? editFullDosePrice : editForm.fullDosePrice,
           halfDosePrice: activeTenant.businessType === 'pharmacy' ? editHalfDosePrice : editForm.halfDosePrice,
           tabPrice: activeTenant.businessType === 'pharmacy' ? editTabPrice : editForm.tabPrice,
@@ -835,7 +838,7 @@ export default function DashboardProducts({
   const [tabsPerDose, setTabsPerDose] = useState<number | ''>('');
   const [fullDosePrice, setFullDosePrice] = useState<number | ''>(0);
   const [halfDosePrice, setHalfDosePrice] = useState<number | ''>(0);
-  const [tabPrice, setTabPrice] = useState<number | ''>(0);
+  const [packetPriceOverride, setPacketPriceOverride] = useState<number | ''>('');
   const [pharmacyProductType, setPharmacyProductType] = useState<'pharmaceutical' | 'non_pharmaceutical'>('pharmaceutical');
   const [pharmacyHierarchyStart, setPharmacyHierarchyStart] = useState<'box' | 'packet' | 'master_box' | 'carton'>('packet');
   const [pharmacyBaseUnit, setPharmacyBaseUnit] = useState('Tablet');
@@ -904,6 +907,11 @@ export default function DashboardProducts({
     Number(pharmacyMiddleContains || dosesPerPacket) || 1,
     Number(pharmacyDoseContains || tabsPerDose) || 1
   ), [pharmacyProductType, pharmacyHierarchyStart, pharmacyBaseUnit, pharmacyTopContains, pharmacyMiddleContains, pharmacyDoseContains, dosesPerPacket, tabsPerDose]);
+
+  // Base unit (e.g. Tablet) price is what the tenant enters as "Selling Price" --
+  // packet price is derived from it (tablets per packet x tablet price) unless
+  // the tenant explicitly overrides it for a different packet-level price.
+  const pharmacyAutoPacketPrice = (pharmacyFormHierarchy.levels[0]?.quantityToBaseUnit || 1) * sellingPrice;
 
   // Real camera/USB/manual scanner in the product form.
   const [isFormScannerOpen, setIsFormScannerOpen] = useState(false);
@@ -1213,8 +1221,8 @@ export default function DashboardProducts({
     const pharmacyDosesPerPacket = Math.max(1, Number(pharmacyMiddleContains || dosesPerPacket) || 1);
     const pharmacyTabsPerDose = Math.max(1, Number(pharmacyDoseContains || tabsPerDose) || 1);
     const pharmacyTabsPerPacket = Math.max(1, pharmacyTopLevel.quantityToBaseUnit);
-    const pharmacyPacketPrice = finalSellingPrice;
-    const pharmacyTabPrice = Number(tabPrice) || (pharmacyPacketPrice / pharmacyTabsPerPacket);
+    const pharmacyTabPrice = finalSellingPrice;
+    const pharmacyPacketPrice = Number(packetPriceOverride) || (pharmacyTabPrice * pharmacyTabsPerPacket);
     const pharmacyFullDosePrice = Number(fullDosePrice) || (pharmacyTabPrice * (hierarchy.levels.find(level => level.id === 'dose')?.quantityToBaseUnit || pharmacyTabsPerDose));
     const pharmacyHalfDosePrice = Number(halfDosePrice) || (pharmacyFullDosePrice / 2);
     // Cost Buy Price is entered per the top hierarchy unit (e.g. per Box), the
@@ -1426,7 +1434,7 @@ export default function DashboardProducts({
       setTabsPerDose('');
       setFullDosePrice(0);
       setHalfDosePrice(0);
-      setTabPrice(0);
+      setPacketPriceOverride('');
       setCostingMethod('fifo');
       setAllowPosMethodOverride(false);
       setAllowScaleSelling(false);
@@ -2514,33 +2522,25 @@ export default function DashboardProducts({
           ))}
         </div>
         {!isDesktopAddProductLayout ? (
-          <div className="pharmacy-price-grid col-span-2 grid grid-cols-3 gap-1.5 sm:gap-2">
+          <div className="pharmacy-price-grid col-span-2 grid grid-cols-2 gap-1.5 sm:gap-2">
             <div className="space-y-1 min-w-0">
               <label className="block min-h-6 text-[8px] sm:text-[9px] leading-tight font-bold text-slate-500 uppercase">{pharmacyFormHierarchy.levels[0]?.unit || 'Packet'} price</label>
-              <input type="number" value={sellingPrice || ''} onChange={e => setSellingPrice(Number(e.target.value) || 0)} className="w-full min-w-0 bg-white border border-slate-200 text-[10px] px-2 py-2 rounded-xl" />
+              <input type="number" value={packetPriceOverride !== '' ? packetPriceOverride : (pharmacyAutoPacketPrice || '')} onChange={e => setPacketPriceOverride(e.target.value === '' ? '' : Number(e.target.value))} placeholder="Auto" className="w-full min-w-0 bg-white border border-slate-200 text-[10px] px-2 py-2 rounded-xl" />
             </div>
             <div className="space-y-1 min-w-0">
               <label className="block min-h-6 text-[8px] sm:text-[9px] leading-tight font-bold text-slate-500 uppercase">Dose / middle price</label>
               <input type="number" value={fullDosePrice} onChange={e => setFullDosePrice(e.target.value === '' ? '' : Number(e.target.value))} placeholder="Auto" className="w-full min-w-0 bg-white border border-slate-200 text-[10px] px-2 py-2 rounded-xl" />
             </div>
-            <div className="space-y-1 min-w-0">
-              <label className="block min-h-6 text-[8px] sm:text-[9px] leading-tight font-bold text-slate-500 uppercase">Price per {pharmacyFormHierarchy.baseUnit}</label>
-              <input type="number" value={tabPrice} onChange={e => setTabPrice(e.target.value === '' ? '' : Number(e.target.value))} placeholder="Auto" className="w-full min-w-0 bg-white border border-slate-200 text-[10px] px-2 py-2 rounded-xl" />
-            </div>
           </div>
         ) : (
           <>
             <div className="space-y-1">
-              <label className="text-[9px] font-bold text-slate-500 uppercase">{pharmacyFormHierarchy.levels[0]?.unit || 'Top Unit'} price</label>
-              <input type="number" value={sellingPrice || ''} onChange={e => setSellingPrice(Number(e.target.value) || 0)} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+              <label className="text-[9px] font-bold text-slate-500 uppercase">{pharmacyFormHierarchy.levels[0]?.unit || 'Packet'} price</label>
+              <input type="number" value={packetPriceOverride !== '' ? packetPriceOverride : (pharmacyAutoPacketPrice || '')} onChange={e => setPacketPriceOverride(e.target.value === '' ? '' : Number(e.target.value))} placeholder="Auto" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
             </div>
             <div className="space-y-1">
               <label className="text-[9px] font-bold text-slate-500 uppercase">Dose / middle price</label>
               <input type="number" value={fullDosePrice} onChange={e => setFullDosePrice(e.target.value === '' ? '' : Number(e.target.value))} placeholder="Auto if empty" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-            </div>
-            <div className="space-y-1">
-              <label className="text-[9px] font-bold text-slate-500 uppercase">Price per {pharmacyFormHierarchy.baseUnit}</label>
-              <input type="number" value={tabPrice} onChange={e => setTabPrice(e.target.value === '' ? '' : Number(e.target.value))} placeholder="Auto if empty" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
             </div>
           </>
         )}
@@ -3240,7 +3240,7 @@ export default function DashboardProducts({
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-slate-505 uppercase block">
                         {isPharmacyLike
-                          ? `${pharmacyFormHierarchy.levels[0]?.unit || 'Top Unit'} Retail Price`
+                          ? `${pharmacyFormHierarchy.baseUnit} Retail Price`
                           : isBulkProduct
                             ? `Package Retail Price (${purchaseUnit || 'Package'})`
                             : `Retail Price (${unit || 'Unit'})`} {!sellInRetail && <span className="text-red-500 font-mono text-[9px]">(LOCKED)</span>}
@@ -5311,7 +5311,7 @@ export default function DashboardProducts({
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[9.5px] font-bold text-slate-500 uppercase block">{activeTenant.businessType === 'pharmacy' ? 'Retail price' : `Retail price (${editForm.isBulkProduct ? (editForm.purchaseUnit || editForm.inventorySettings?.purchaseUnit || editForm.bulkUnit || 'Package') : (editForm.unit || 'Unit')})`}</label>
+                      <label className="text-[9.5px] font-bold text-slate-500 uppercase block">{activeTenant.businessType === 'pharmacy' ? `${getEditPharmacyStructure(editForm).base} Retail Price` : `Retail price (${editForm.isBulkProduct ? (editForm.purchaseUnit || editForm.inventorySettings?.purchaseUnit || editForm.bulkUnit || 'Package') : (editForm.unit || 'Unit')})`}</label>
                       <input 
                         type="number" 
                         min="1"
@@ -5515,11 +5515,7 @@ export default function DashboardProducts({
                           )}
                           <div className="space-y-1">
                             <label className="text-[9px] font-bold text-slate-500 uppercase">{structure.hierarchy.levels[0]?.unit || 'Top unit'} price</label>
-                            <input type="number" value={editNumberValue(editForm.sellingPrice)} onChange={e => setEditForm(prev => ({ ...prev, sellingPrice: e.target.value === '' ? undefined : Number(e.target.value) || 0 }))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-                          </div>
-                          <div className="space-y-1">
-                            <label className="text-[9px] font-bold text-slate-500 uppercase">Price per {structure.hierarchy.baseUnit}</label>
-                            <input type="number" value={editForm.tabPrice ?? ''} onChange={e => setEditForm(prev => ({ ...prev, tabPrice: e.target.value === '' ? undefined : Number(e.target.value) }))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                            <input type="number" value={editForm.packetPrice ?? ((structure.hierarchy.levels[0]?.quantityToBaseUnit || 1) * (editForm.sellingPrice || 0) || '')} onChange={e => setEditForm(prev => ({ ...prev, packetPrice: e.target.value === '' ? undefined : Number(e.target.value) }))} placeholder="Auto" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
                           </div>
                           <div className="col-span-2 text-[10px] font-mono text-emerald-800 bg-white/70 border border-emerald-100 rounded-xl px-3 py-2">
                             POS levels: {structure.hierarchy.levels.map(level => `${level.unit} (${level.quantityToBaseUnit} ${structure.hierarchy.baseUnit})`).join(' -> ')}
