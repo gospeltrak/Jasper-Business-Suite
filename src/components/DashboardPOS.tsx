@@ -1401,7 +1401,7 @@ export default function DashboardPOS({
         </div>
 
         {/* Product listing grid */}
-        <div id="pos-product-grid" className="grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3 lg:gap-4 px-2 md:px-0 min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-2 scrollbar-thin scrollbar-thumb-slate-200">
+        <div id="pos-product-grid" className={`grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3 lg:gap-4 px-2 md:px-0 min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-2 scrollbar-thin scrollbar-thumb-slate-200 ${showProductImages ? '' : 'pos-product-grid-no-images'}`}>
           {filteredProducts.length === 0 ? (
             <div className="col-span-1 md:col-span-2 text-center py-16 text-sm font-mono text-slate-500 bg-white border border-slate-200 rounded-3xl shadow-sm">
               No matching {activeTenant.businessType === 'pharmacy' ? 'pharmaceutical products' : 'retail items'} in stock.
@@ -1425,7 +1425,7 @@ export default function DashboardPOS({
                       playOutOfStockBeep();
                     }
                   }}
-                  className={`w-full min-w-0 bg-white border rounded-xl select-none relative shadow-xs active:scale-95 group ${
+                  className={`w-full min-w-0 bg-white border rounded-xl select-none relative shadow-xs active:scale-95 group ${!showProductImages ? 'pos-product-card-no-image' : ''} ${
                     showProductImages
                       ? 'p-0 lg:p-5 xl:p-3 flex flex-col justify-between overflow-hidden lg:overflow-visible lg:rounded-3xl'
                       : 'p-3 md:p-4 flex items-center gap-3 overflow-hidden'

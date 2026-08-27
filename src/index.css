@@ -709,6 +709,26 @@ body.rtl { font-family: 'Cairo', "Plus Jakarta Sans", "Inter", system-ui, sans-s
   }
 }
 
+/* Image-disabled POS mode keeps the full product details readable: one card
+   per row on phones and two cards per row on tablets and desktop. */
+#dashboard-scaffold #pos-product-grid.pos-product-grid-no-images {
+  grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
+}
+
+#dashboard-scaffold #pos-product-grid.pos-product-grid-no-images .pos-product-card-no-image {
+  min-height: 4.75rem;
+}
+
+@media (min-width: 768px) {
+  #dashboard-scaffold #pos-product-grid.pos-product-grid-no-images {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  #dashboard-scaffold #pos-product-grid.pos-product-grid-no-images .pos-product-card-no-image {
+    min-height: 5.5rem;
+  }
+}
+
 /* POS category selector: text-only buttons ("All" first) on tablet+desktop,
    the compact dropdown on phone only. Custom classes (not hidden/md:flex)
    deliberately sidestep the tablet-native-mode display overrides above,
