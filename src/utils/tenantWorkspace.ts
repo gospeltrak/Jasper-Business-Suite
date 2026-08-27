@@ -81,7 +81,7 @@ const PAGINATED_WORKSPACE_COLLECTIONS: PaginatedWorkspaceCollection[] = [
   'deliveries',
   'purchases',
 ];
-const WORKSPACE_PAGE_SIZE = 200;
+const WORKSPACE_PAGE_SIZE = 1000;
 
 export const readCachedWorkspace = (tenantId: string): TenantWorkspace | null => {
   return runtimeWorkspaces.get(tenantId) || null;
