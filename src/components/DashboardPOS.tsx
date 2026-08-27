@@ -921,22 +921,24 @@ export default function DashboardPOS({
     });
   }, [cart, activeTenant.businessType, getCartUnitPrice]);
 
-  // Pricing calculations — fully memoized for instant updates
-  // subtotal depends ONLY on cart + sellingChannel — zero external prop dependencies.
-  // cart items carry item.product.sellingPrice already set at add-to-cart time.
-  // This guarantees subtotal updates in the EXACT same render as any cart change.
+  // Pricing calculations — fully memoized for instant updates.
+  // Must use getCartUnitPrice (the same dosage/bulk/channel-aware pricing
+  // already used for each cart line's own displayed total) rather than
+  // reading item.product.sellingPrice directly -- that raw packet/base
+  // price ignores a pharmacy line's selected dosage level (e.g. a "2
+  // tablets" selection priced at the full packet price instead of
+  // tabPrice * tabsSelected), silently overcharging the till total even
+  // though the line itself displayed the correct amount.
   const subtotal = useMemo(() => {
     return cart.reduce((sum, item) => {
-      const basePrice = sellingChannel === 'wholesale'
-        ? (item.product.wholesalePrice ?? item.product.sellingPrice ?? 0)
-        : (item.product.sellingPrice ?? 0);
+      const basePrice = getCartUnitPrice(item);
       const isCash = item.discountType === 'cash';
       const discountPrice = isCash
         ? Math.max(0, basePrice - (item.discount || 0))
         : basePrice * (1 - (item.discount || 0) / 100);
       return sum + (discountPrice * item.qty);
     }, 0);
-  }, [cart, sellingChannel]);
+  }, [cart, getCartUnitPrice]);
 
   const orderDiscountAmt = useMemo(() =>
     orderDiscountType === 'cash'
