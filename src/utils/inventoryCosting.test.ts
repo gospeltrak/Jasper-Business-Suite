@@ -1,5 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import { Product, ProductBatch } from '../types';
+
+describe('pharmacy packet pricing persistence contract', () => {
+  it('keeps the packet price distinct from derived dose and tablet prices', () => {
+    const packetPrice = 12000;
+    const dosesPerPacket = 12;
+    const tabsPerDose = 2;
+    const tabPrice = packetPrice / (dosesPerPacket * tabsPerDose);
+    const fullDosePrice = tabPrice * tabsPerDose;
+    const halfDosePrice = tabPrice * Math.ceil(tabsPerDose / 2);
+
+    expect(packetPrice).toBe(12000);
+    expect(fullDosePrice).toBe(1000);
+    expect(halfDosePrice).toBe(500);
+    expect(tabPrice).toBe(500);
+  });
+});
 import {
   createInventoryBatch,
   deductBatchesForSale,

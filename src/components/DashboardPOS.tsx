@@ -499,7 +499,7 @@ export default function DashboardPOS({
       const baseLevel = hierarchyLevels[hierarchyLevels.length - 1];
       const tabsPerPacket = Math.max(1, Number(topLevel.quantityToBaseUnit || product.conversionToBaseUnit || product.tabsPerPack || 1));
       const tabsPerDose = Math.max(1, Number(doseLevel.quantityToBaseUnit || product.tabsPerDose || 1));
-      const packetPrice = Number(product.packetPrice || product.sellingPrice || 0);
+      const packetPrice = Number(product.packetPrice ?? product.sellingPrice ?? 0);
       const tabPrice = Number(product.tabPrice || product.defaultPricePerBaseUnit || product.inventorySettings?.defaultPricePerBaseUnit || (packetPrice / tabsPerPacket));
       const fullDosePrice = Number(product.fullDosePrice || (tabPrice * tabsPerDose));
       const halfDoseTabs = Math.max(1, Math.ceil(tabsPerDose / 2));
@@ -510,7 +510,7 @@ export default function DashboardPOS({
     const tabsPerDose = Math.max(1, Number(product.tabsPerDose || product.pharmacyUnitBreakdown?.tabletsPerStrip || product.tabsPerPack || 1));
     const tabsPerPacket = Math.max(1, Number(product.tabsPerPack || (dosesPerPacket * tabsPerDose)));
     const halfDoseTabs = Math.max(1, Math.ceil(tabsPerDose / 2));
-    const packetPrice = Number(product.packetPrice || product.sellingPrice || 0);
+    const packetPrice = Number(product.packetPrice ?? product.sellingPrice ?? 0);
     const fullDosePrice = Number(product.fullDosePrice || (packetPrice / dosesPerPacket));
     const halfDosePrice = Number(product.halfDosePrice || (fullDosePrice / 2));
     const tabPrice = Number(product.tabPrice || (packetPrice / tabsPerPacket));
