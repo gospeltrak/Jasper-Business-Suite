@@ -3200,7 +3200,7 @@ export default function DashboardProducts({
                               setSellingPrice(0);
                             }
                           }}
-                          className={isDesktopAddProductLayout ? "accent-teal-600 w-3.5 h-3.5" : "sr-only"}
+                          className={isDesktopAddProductLayout ? "accent-teal-600 w-4 h-4 appearance-auto" : "sr-only"}
                         />
                         {!isDesktopAddProductLayout && sellInRetail && <Check className="w-3 h-3 text-white flex-shrink-0" />}
                         <span className={isDesktopAddProductLayout ? "font-semibold text-[11px] text-slate-700" : `font-bold text-[11px] ${sellInRetail ? 'text-white' : 'text-slate-600'}`}>Sell Retail</span>
@@ -3212,7 +3212,7 @@ export default function DashboardProducts({
                           type="checkbox" 
                           checked={sellInWholesale} 
                           onChange={(e) => setSellInWholesale(e.target.checked)}
-                          className={isDesktopAddProductLayout ? "accent-teal-600 w-3.5 h-3.5" : "sr-only"}
+                          className={isDesktopAddProductLayout ? "accent-teal-600 w-4 h-4 appearance-auto" : "sr-only"}
                         />
                         {!isDesktopAddProductLayout && sellInWholesale && <Check className="w-3 h-3 text-white flex-shrink-0" />}
                         <span className={isDesktopAddProductLayout ? "font-semibold text-[11px] text-slate-700" : `font-bold text-[11px] ${sellInWholesale ? 'text-white' : 'text-slate-600'}`}>Sell Wholesale</span>
