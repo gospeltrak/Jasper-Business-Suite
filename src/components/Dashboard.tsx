@@ -1938,9 +1938,15 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     return true;
   };
 
-  const persistTenantProductsNow = (updatedProducts: Product[]) => {
+  // Returns both the optimistically-applied products (for callers that need
+  // the value immediately) and the underlying database-write promise, so a
+  // failed save can be surfaced to the user and rolled back instead of
+  // silently leaving the UI showing an edit that never actually reached the
+  // server -- the same "looks saved, reverts on next real reload" gap
+  // already fixed for settings via persistSystemSettingsNow.
+  const persistTenantProductsNow = (updatedProducts: Product[]): { products: Product[]; saved: Promise<boolean> } => {
     if (blockOfflineBusinessWrite('product or stock changes')) {
-      return productsMap[activeTenant.id] || [];
+      return { products: productsMap[activeTenant.id] || [], saved: Promise.resolve(false) };
     }
 
     const previousProducts = productsMap[activeTenant.id] || [];
@@ -1985,10 +1991,22 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       productTombstones:    readLocalProductTombstones(activeTenant.id),
     };
 
-    saveTenantWorkspace(activeTenant.id, workspace).catch((error) => {
-      console.warn('[Dashboard] Unable to immediately sync updated products workspace:', error);
-    });
-    return syncedProducts;
+    const saved = saveTenantWorkspace(activeTenant.id, workspace)
+      .then((didSave) => {
+        if (!didSave) {
+          setProductsMap(prev => ({ ...prev, [activeTenant.id]: previousProducts }));
+          addToast('Product changes could not be saved. Your previous saved data was kept — please check your connection and try again.', 'error');
+        }
+        return didSave;
+      })
+      .catch((error) => {
+        console.warn('[Dashboard] Unable to immediately sync updated products workspace:', error);
+        setProductsMap(prev => ({ ...prev, [activeTenant.id]: previousProducts }));
+        addToast('Product changes could not be saved. Your previous saved data was kept — please check your connection and try again.', 'error');
+        return false;
+      });
+
+    return { products: syncedProducts, saved };
   };
 
   // Returns both the optimistically-applied settings (for callers that need
@@ -2069,12 +2087,12 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
         return { ...previous, [activeTenant.id]: [...retained, ...branchStockUpdates] };
       });
     }
-    const syncedProducts = persistTenantProductsNow(nextTenantProducts);
+    const { products: syncedProducts } = persistTenantProductsNow(nextTenantProducts);
     setProductsMap(prev => ({
       ...prev,
       [activeTenant.id]: syncedProducts
     }));
-    
+
     // Add real-time log action
     const newLog: SyncLog = {
       id: 'l-' + Math.random().toString(36).substr(2, 9),
@@ -2770,7 +2788,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       branchId: activeBranchSelection.activeBranchId || undefined,
     }));
     const updatedProducts = [...branchScopedProducts, ...(productsMap[activeTenant.id] || [])];
-    const syncedProducts = persistTenantProductsNow(updatedProducts);
+    const { products: syncedProducts } = persistTenantProductsNow(updatedProducts);
     setProductsMap(prev => {
       return {
         ...prev,
@@ -2815,7 +2833,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       return;
     }
     const updatedProducts = tenantProducts.filter(p => p.id !== id);
-    const syncedProducts = persistTenantProductsNow(updatedProducts);
+    const { products: syncedProducts } = persistTenantProductsNow(updatedProducts);
     setProductsMap(prev => {
       return {
         ...prev,
