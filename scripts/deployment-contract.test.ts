@@ -581,6 +581,15 @@ test('authenticated branch reads can execute their tenant-scoped RLS predicate',
   assert.doesNotMatch(migration, /grant .* to anon/i);
 });
 
+test('Recent Sales status is derived from persisted payment state, never random sale IDs', async () => {
+  const overviewSource = await read('src/components/DashboardOverview.tsx');
+  assert.match(overviewSource, /sale\.paymentStatus === 'partial'/);
+  assert.match(overviewSource, /sale\.paymentStatus === 'unpaid'/);
+  assert.match(overviewSource, /return 'Completed'/);
+  assert.doesNotMatch(overviewSource, /const lastChar = saleId/);
+  assert.doesNotMatch(overviewSource, /localCancelledIds|Refund \/ Cancel|Refund Issue/);
+});
+
 test('sales invoice and receipt exports use recognizable document filenames', async () => {
   const salesSource = await read('src/components/DashboardSalesList.tsx');
   assert.equal(
@@ -619,6 +628,15 @@ test('bulk product imports persist the complete batch in one parent update', asy
   assert.match(dashboardSource, /const handleCreateProducts = \(newProducts: Product\[\]\)/);
   assert.match(dashboardSource, /const updatedProducts = \[\.\.\.branchScopedProducts, \.\.\.\(productsMap\[activeTenant\.id\] \|\| \[\]\)\]/);
   assert.match(dashboardSource, /onAddProducts=\{handleCreateProducts\}/);
+});
+
+test('Add and Edit Product show native selling-channel checkboxes on desktop', async () => {
+  const productSource = await read('src/components/DashboardProducts.tsx');
+  assert.equal((productSource.match(/appearance-auto/g) || []).length, 2);
+  assert.match(productSource, /checked=\{sellInRetail\}/);
+  assert.match(productSource, /checked=\{sellInWholesale\}/);
+  assert.match(productSource, /checked=\{editForm\.sellInRetail !== false\}/);
+  assert.match(productSource, /checked=\{!!editForm\.sellInWholesale\}/);
 });
 
 test('cloud product tombstones survive core and branch workspace hydration', async () => {
