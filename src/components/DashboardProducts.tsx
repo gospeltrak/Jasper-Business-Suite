@@ -48,6 +48,7 @@ import { classifyUniversalImportRows, downloadableUniversalTemplate } from '../u
 import { compressImageFile } from '../utils/imageCompression';
 import { safeSetJsonItem } from '../utils/dataSafety';
 import { generateUniqueEan13Barcode } from '../utils/barcode';
+import { calculateFractionSalePacketPrice } from '../utils/fractionSale';
 import ModernSelect, { ModernSelectOption } from './ui/ModernSelect';
 import DashboardBarcodeScanner from './DashboardBarcodeScanner';
 import { loadBranchWorkspace, transferStockBetweenBranches } from '../branches/branchApi';
@@ -461,6 +462,11 @@ export default function DashboardProducts({
         const editPacketPrice = Number(editForm.packetPrice) || (editTabPrice * editTabsPerPacket);
         const editFullDosePrice = Number(editForm.fullDosePrice || (Number(editDoseLevel?.quantityToBaseUnit || editTabsPerDose) * editTabPrice));
         const editHalfDosePrice = Number(editForm.halfDosePrice || editFullDosePrice / 2);
+        const editUsesPharmacyHierarchy = activeTenant.businessType === 'pharmacy' && editForm.productType === 'medicine';
+        const editFractionEligible = editForm.productType !== 'medicine' && (activeTenant.businessType === 'pharmacy' || !!editForm.isBulkProduct);
+        const editFractionEnabled = editFractionEligible && (activeTenant.businessType === 'pharmacy'
+          ? !!(editForm.fractionSaleEnabled ?? editForm.inventorySettings?.fractionSaleEnabled)
+          : !!editForm.isBulkProduct);
         const editUsesMeasuredUnit = !!editForm.isBulkProduct || !!editForm.allowScaleSelling ||
           !!editForm.inventorySettings?.allowScaleSelling || editForm.sellingMode === 'scale' || editForm.sellingMode === 'hybrid';
         const editBaseUnit = editUsesMeasuredUnit
@@ -469,6 +475,13 @@ export default function DashboardProducts({
         const editPurchaseUnit = editForm.purchaseUnit || editForm.inventorySettings?.purchaseUnit || editForm.bulkUnit || 'Package';
         const editConversionToBase = Math.max(0.001, Number(editForm.conversionToBaseUnit || editForm.inventorySettings?.conversionToBaseUnit || editForm.bulkPurchaseQty || 1));
         const editPricePerBase = Number(editForm.defaultPricePerBaseUnit || editForm.inventorySettings?.defaultPricePerBaseUnit || editForm.sellUnitPrice || sellPrice || 0);
+        const editPacketPricing = calculateFractionSalePacketPrice(
+          editPricePerBase,
+          editConversionToBase,
+          (editForm.packetPriceOverridden ?? editForm.inventorySettings?.packetPriceOverridden)
+            ? Number(editForm.wholePackagePrice ?? editForm.inventorySettings?.wholePackagePrice)
+            : undefined,
+        );
         const editPackageBuyingCost = Number(editForm.packageBuyingCost || editForm.inventorySettings?.packageBuyingCost || rawCostPrice || 0);
         const editLedgerCostPrice = activeTenant.businessType !== 'pharmacy' && editForm.isBulkProduct
           ? editPackageBuyingCost / editConversionToBase
@@ -478,7 +491,7 @@ export default function DashboardProducts({
           name: editForm.name || '',
           brand: editForm.brand ? editForm.brand.trim() : undefined,
           category: editForm.category || '',
-          unit: activeTenant.businessType === 'pharmacy' ? editPharmacy.hierarchy.baseUnit : (editForm.unit || ''),
+          unit: editUsesPharmacyHierarchy ? editPharmacy.hierarchy.baseUnit : (editForm.unit || editBaseUnit),
           barcode: b,
           costPrice: editLedgerCostPrice,
           sellingPrice: sellPrice,
@@ -504,14 +517,16 @@ export default function DashboardProducts({
           costingMethod: editForm.costingMethod || editForm.inventorySettings?.costingMethod || 'fifo',
           sellingMethod: mapCostingMethodToLegacy(editForm.costingMethod || editForm.inventorySettings?.costingMethod || 'fifo'),
           allowPosMethodOverride: !!editForm.allowPosMethodOverride,
-          allowScaleSelling: activeTenant.businessType === 'pharmacy' ? false : (!!editForm.allowScaleSelling || !!editForm.isBulkProduct),
-          purchaseUnit: activeTenant.businessType === 'pharmacy' ? editTopLevel.unit : editPurchaseUnit,
-          baseUnit: activeTenant.businessType === 'pharmacy' ? editPharmacy.hierarchy.baseUnit : editBaseUnit,
-          conversionToBaseUnit: activeTenant.businessType === 'pharmacy' ? editTabsPerPacket : editConversionToBase,
-          packageUnitPrice: activeTenant.businessType === 'pharmacy' ? undefined : editPricePerBase,
-          wholePackagePrice: activeTenant.businessType === 'pharmacy' ? undefined : editPricePerBase * editConversionToBase,
-          halfPackagePrice: activeTenant.businessType === 'pharmacy' ? undefined : editPricePerBase * (editConversionToBase / 2),
-          packageBuyingCost: activeTenant.businessType === 'pharmacy' ? undefined : editPackageBuyingCost,
+          allowScaleSelling: activeTenant.businessType !== 'pharmacy' && (!!editForm.allowScaleSelling || !!editForm.isBulkProduct),
+          fractionSaleEnabled: editFractionEnabled,
+          packetPriceOverridden: editFractionEnabled ? editPacketPricing.packetPriceOverridden : editForm.packetPriceOverridden,
+          purchaseUnit: editUsesPharmacyHierarchy ? editTopLevel.unit : editPurchaseUnit,
+          baseUnit: editUsesPharmacyHierarchy ? editPharmacy.hierarchy.baseUnit : editBaseUnit,
+          conversionToBaseUnit: editUsesPharmacyHierarchy ? editTabsPerPacket : editConversionToBase,
+          packageUnitPrice: editUsesPharmacyHierarchy ? undefined : editPricePerBase,
+          wholePackagePrice: editFractionEnabled ? editPacketPricing.packetPrice : editForm.wholePackagePrice,
+          halfPackagePrice: editUsesPharmacyHierarchy ? undefined : editPricePerBase * (editConversionToBase / 2),
+          packageBuyingCost: editUsesPharmacyHierarchy ? undefined : editPackageBuyingCost,
           allowCustomQuantity: editForm.allowCustomQuantity !== false,
           defaultPricePerBaseUnit: editPricePerBase,
           fractionSaleOptions: activeTenant.businessType === 'pharmacy' ? undefined : (editForm.fractionSaleOptions || editForm.inventorySettings?.fractionSaleOptions),
@@ -539,14 +554,16 @@ export default function DashboardProducts({
           inventorySettings: {
             costingMethod: editForm.costingMethod || editForm.inventorySettings?.costingMethod || 'fifo',
             allowPosMethodOverride: !!editForm.allowPosMethodOverride,
-            allowScaleSelling: activeTenant.businessType === 'pharmacy' ? false : (!!editForm.allowScaleSelling || !!editForm.isBulkProduct),
-            purchaseUnit: activeTenant.businessType === 'pharmacy' ? editTopLevel.unit : editPurchaseUnit,
-            baseUnit: activeTenant.businessType === 'pharmacy' ? editPharmacy.hierarchy.baseUnit : editBaseUnit,
-            conversionToBaseUnit: activeTenant.businessType === 'pharmacy' ? editTabsPerPacket : editConversionToBase,
-            packageUnitPrice: activeTenant.businessType === 'pharmacy' ? undefined : editPricePerBase,
-            wholePackagePrice: activeTenant.businessType === 'pharmacy' ? undefined : editPricePerBase * editConversionToBase,
-            halfPackagePrice: activeTenant.businessType === 'pharmacy' ? undefined : editPricePerBase * (editConversionToBase / 2),
-            packageBuyingCost: activeTenant.businessType === 'pharmacy' ? undefined : editPackageBuyingCost,
+            allowScaleSelling: activeTenant.businessType !== 'pharmacy' && (!!editForm.allowScaleSelling || !!editForm.isBulkProduct),
+            fractionSaleEnabled: editFractionEnabled,
+            packetPriceOverridden: editFractionEnabled ? editPacketPricing.packetPriceOverridden : editForm.inventorySettings?.packetPriceOverridden,
+            purchaseUnit: editUsesPharmacyHierarchy ? editTopLevel.unit : editPurchaseUnit,
+            baseUnit: editUsesPharmacyHierarchy ? editPharmacy.hierarchy.baseUnit : editBaseUnit,
+            conversionToBaseUnit: editUsesPharmacyHierarchy ? editTabsPerPacket : editConversionToBase,
+            packageUnitPrice: editUsesPharmacyHierarchy ? undefined : editPricePerBase,
+            wholePackagePrice: editFractionEnabled ? editPacketPricing.packetPrice : editForm.inventorySettings?.wholePackagePrice,
+            halfPackagePrice: editUsesPharmacyHierarchy ? undefined : editPricePerBase * (editConversionToBase / 2),
+            packageBuyingCost: editUsesPharmacyHierarchy ? undefined : editPackageBuyingCost,
             allowCustomQuantity: editForm.allowCustomQuantity !== false,
             defaultPricePerBaseUnit: editPricePerBase,
             fractionSaleOptions: activeTenant.businessType === 'pharmacy' ? undefined : (editForm.fractionSaleOptions || editForm.inventorySettings?.fractionSaleOptions),
@@ -835,6 +852,7 @@ export default function DashboardProducts({
   const [costingMethod, setCostingMethod] = useState<'fifo' | 'average_price' | 'batch_price'>('fifo');
   const [allowPosMethodOverride, setAllowPosMethodOverride] = useState(false);
   const [allowScaleSelling, setAllowScaleSelling] = useState(false);
+  const [fractionPacketPriceOverride, setFractionPacketPriceOverride] = useState<number | ''>('');
   const [purchaseUnit, setPurchaseUnit] = useState('Sack');
   // Kept in sync with the tenant's own "Units" selection (unit) rather than a
   // hardcoded default, so every unit label in the Retail Package / Smart
@@ -1189,6 +1207,12 @@ export default function DashboardProducts({
       return;
     }
 
+    const wantsFractionSale = productType !== 'medicine' && (isPharmacyLike ? allowScaleSelling : isBulkProduct);
+    if (wantsFractionSale && Number(conversionToBaseUnit || bulkPurchaseQty) <= 0) {
+      setFormError('Pieces per packet must be greater than zero for Fraction Sale.');
+      return;
+    }
+
     if (sellInWholesale) {
       if (finalWholesalePrice <= 0) {
         setFormError('Wholesale price must be greater than zero when selling in wholesale.');
@@ -1250,7 +1274,16 @@ export default function DashboardProducts({
     // it must divide down to a per-base-unit (Pcs) price the same way, or POS
     // would sell each Pcs at the full Sack price. The explicit "Price per 1
     // {unit}" field (Fraction Sale) always wins when the tenant filled it in.
-    const retailPricePerBaseUnit = Number(sellUnitPrice) || (isBulkProduct ? finalSellingPrice / retailConversionToBaseUnit : finalSellingPrice);
+    const fractionSaleEligible = productType !== 'medicine' && (isPharmacyLike || isBulkProduct);
+    const fractionSaleEnabled = fractionSaleEligible && (isPharmacyLike ? allowScaleSelling : isBulkProduct);
+    // Sale Retail Price is the price of one base unit. Packet price is derived
+    // from it unless the tenant explicitly supplies an override.
+    const retailPricePerBaseUnit = Number(sellUnitPrice) || finalSellingPrice;
+    const retailPacketPricing = calculateFractionSalePacketPrice(
+      retailPricePerBaseUnit,
+      retailConversionToBaseUnit,
+      fractionPacketPriceOverride === '' ? undefined : fractionPacketPriceOverride,
+    );
     const retailPackageBuyingCost = costPrice;
     const ledgerCostPrice = isPharmacyLike
       ? pharmacyCostPrice
@@ -1296,13 +1329,15 @@ export default function DashboardProducts({
       costingMethod,
       sellingMethod: mapCostingMethodToLegacy(costingMethod),
       allowPosMethodOverride,
-      allowScaleSelling: isPharmacyLike ? false : (allowScaleSelling || isBulkProduct),
-      purchaseUnit: isPharmacyLike ? pharmacyTopLevel.unit : retailPurchaseUnit,
-      baseUnit: isPharmacyLike ? hierarchy.baseUnit : retailBaseUnit,
-      conversionToBaseUnit: isPharmacyLike ? pharmacyTabsPerPacket : retailConversionToBaseUnit,
-      packageUnitPrice: isPharmacyLike ? undefined : retailPricePerBaseUnit,
-      wholePackagePrice: isPharmacyLike ? undefined : retailPricePerBaseUnit * retailConversionToBaseUnit,
-      halfPackagePrice: isPharmacyLike ? undefined : retailPricePerBaseUnit * (retailConversionToBaseUnit / 2),
+      allowScaleSelling: !isPharmacyLike && (allowScaleSelling || isBulkProduct),
+      fractionSaleEnabled,
+      packetPriceOverridden: fractionSaleEnabled ? retailPacketPricing.packetPriceOverridden : undefined,
+      purchaseUnit: productType === 'medicine' && isPharmacyLike ? pharmacyTopLevel.unit : retailPurchaseUnit,
+      baseUnit: productType === 'medicine' && isPharmacyLike ? hierarchy.baseUnit : retailBaseUnit,
+      conversionToBaseUnit: productType === 'medicine' && isPharmacyLike ? pharmacyTabsPerPacket : retailConversionToBaseUnit,
+      packageUnitPrice: productType === 'medicine' && isPharmacyLike ? undefined : retailPricePerBaseUnit,
+      wholePackagePrice: fractionSaleEnabled ? retailPacketPricing.packetPrice : undefined,
+      halfPackagePrice: productType === 'medicine' && isPharmacyLike ? undefined : retailPricePerBaseUnit * (retailConversionToBaseUnit / 2),
       packageBuyingCost: isPharmacyLike ? undefined : retailPackageBuyingCost,
       allowCustomQuantity,
       defaultPricePerBaseUnit: isPharmacyLike ? pharmacyTabPrice : retailPricePerBaseUnit,
@@ -1333,12 +1368,14 @@ export default function DashboardProducts({
       inventorySettings: {
         costingMethod,
         allowPosMethodOverride,
-        allowScaleSelling: isPharmacyLike ? false : (allowScaleSelling || isBulkProduct),
-        purchaseUnit: isPharmacyLike ? pharmacyTopLevel.unit : retailPurchaseUnit,
-        baseUnit: isPharmacyLike ? hierarchy.baseUnit : retailBaseUnit,
-        conversionToBaseUnit: isPharmacyLike ? pharmacyTabsPerPacket : retailConversionToBaseUnit,
-        packageUnitPrice: isPharmacyLike ? undefined : retailPricePerBaseUnit,
-        wholePackagePrice: isPharmacyLike ? undefined : retailPricePerBaseUnit * retailConversionToBaseUnit,
+        allowScaleSelling: !isPharmacyLike && (allowScaleSelling || isBulkProduct),
+        fractionSaleEnabled,
+        packetPriceOverridden: fractionSaleEnabled ? retailPacketPricing.packetPriceOverridden : undefined,
+        purchaseUnit: productType === 'medicine' && isPharmacyLike ? pharmacyTopLevel.unit : retailPurchaseUnit,
+        baseUnit: productType === 'medicine' && isPharmacyLike ? hierarchy.baseUnit : retailBaseUnit,
+        conversionToBaseUnit: productType === 'medicine' && isPharmacyLike ? pharmacyTabsPerPacket : retailConversionToBaseUnit,
+        packageUnitPrice: productType === 'medicine' && isPharmacyLike ? undefined : retailPricePerBaseUnit,
+        wholePackagePrice: fractionSaleEnabled ? retailPacketPricing.packetPrice : undefined,
         halfPackagePrice: isPharmacyLike ? undefined : retailPricePerBaseUnit * (retailConversionToBaseUnit / 2),
         packageBuyingCost: isPharmacyLike ? undefined : retailPackageBuyingCost,
         allowCustomQuantity,
@@ -1445,6 +1482,7 @@ export default function DashboardProducts({
       setFullDosePrice(0);
       setHalfDosePrice(0);
       setPacketPriceOverride('');
+      setFractionPacketPriceOverride('');
       setCostingMethod('fifo');
       setAllowPosMethodOverride(false);
       setAllowScaleSelling(false);
@@ -2296,6 +2334,45 @@ export default function DashboardProducts({
         </div>
       )}
 
+      {isPharmacyLike && productType !== 'medicine' && (
+        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 space-y-3">
+          <button
+            type="button"
+            onClick={() => setAllowScaleSelling(!allowScaleSelling)}
+            aria-pressed={allowScaleSelling}
+            aria-label="Enable Fraction Sale"
+            className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 uppercase cursor-pointer"
+          >
+            <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors ${
+              allowScaleSelling ? 'border-emerald-600 bg-emerald-600' : 'border-slate-300 bg-white'
+            }`}>
+              {allowScaleSelling && <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />}
+            </span>
+            Enable Fraction Sale
+          </button>
+          {allowScaleSelling && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold text-slate-500 uppercase">Packet Name</label>
+                <input value={purchaseUnit} onChange={e => setPurchaseUnit(e.target.value)} placeholder="Packet" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold text-slate-500 uppercase">Pieces per Packet</label>
+                <input type="number" min={1} value={conversionToBaseUnit} onChange={e => setConversionToBaseUnit(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold text-slate-500 uppercase">Piece Unit</label>
+                <input value={baseUnit} onChange={e => setBaseUnit(e.target.value)} placeholder="Piece" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold text-slate-500 uppercase">Packet Price</label>
+                <input type="number" min={0} value={fractionPacketPriceOverride} onChange={e => setFractionPacketPriceOverride(e.target.value === '' ? '' : Number(e.target.value))} placeholder={`Auto: ${((Number(conversionToBaseUnit) || 0) * sellingPrice).toLocaleString()}`} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {allowScaleSelling && !isPharmacyLike && (
         <div className="p-4 bg-slate-50 border border-emerald-100 rounded-2xl space-y-4">
           {/* Mode Selector */}
@@ -2374,6 +2451,23 @@ export default function DashboardProducts({
           <div className="space-y-1">
             <label className="text-[10px] font-bold text-slate-500 uppercase">Price per 1 {baseUnit || 'unit'}</label>
             <input type="number" value={sellUnitPrice} onChange={e => setSellUnitPrice(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl font-bold" />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-slate-500 uppercase">Packet Price</label>
+            <input
+              type="number"
+              min={0}
+              value={fractionPacketPriceOverride}
+              onChange={e => setFractionPacketPriceOverride(e.target.value === '' ? '' : Number(e.target.value))}
+              placeholder={`Auto: ${((Number(conversionToBaseUnit) || 0) * (Number(sellUnitPrice) || sellingPrice)).toLocaleString()}`}
+              className="w-full bg-white border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl font-bold"
+            />
+            {fractionPacketPriceOverride !== '' && (
+              <button type="button" onClick={() => setFractionPacketPriceOverride('')} className="text-[9px] font-bold text-emerald-700">
+                Reset to automatic price
+              </button>
+            )}
           </div>
 
           {/* Auto-calculation display */}
@@ -5430,20 +5524,25 @@ export default function DashboardProducts({
                       />
                       POS Override
                     </label>
-                    {activeTenant.businessType !== 'pharmacy' && (
+                    {(activeTenant.businessType !== 'pharmacy' || editForm.productType !== 'medicine') && (
                       <label className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 uppercase">
                         <input
                           type="checkbox"
-                          checked={!!(editForm.allowScaleSelling ?? editForm.inventorySettings?.allowScaleSelling)}
-                          onChange={(e) => setEditForm(prev => ({
-                            ...prev,
-                            allowScaleSelling: e.target.checked,
-                            isBulkProduct: e.target.checked,
-                            sellingMode: prev.sellingMode || 'scale',
-                            bulkPurchaseQty: prev.bulkPurchaseQty || 100,
-                            sellUnitQty: prev.sellUnitQty || 1,
-                            sellUnitPrice: prev.sellUnitPrice || 0,
-                          }))}
+                          checked={activeTenant.businessType === 'pharmacy'
+                            ? !!(editForm.fractionSaleEnabled ?? editForm.inventorySettings?.fractionSaleEnabled)
+                            : !!editForm.isBulkProduct}
+                          onChange={(e) => setEditForm(prev => activeTenant.businessType === 'pharmacy'
+                            ? ({ ...prev, fractionSaleEnabled: e.target.checked })
+                            : ({
+                              ...prev,
+                              allowScaleSelling: e.target.checked,
+                              isBulkProduct: e.target.checked,
+                              fractionSaleEnabled: e.target.checked,
+                              sellingMode: prev.sellingMode || 'scale',
+                              bulkPurchaseQty: prev.bulkPurchaseQty || 100,
+                              sellUnitQty: prev.sellUnitQty || 1,
+                              sellUnitPrice: prev.sellUnitPrice || 0,
+                            }))}
                           className="accent-emerald-600"
                         />
                         Fraction Sale
@@ -5466,6 +5565,35 @@ export default function DashboardProducts({
                       <div className="space-y-1">
                         <label className="text-[9.5px] font-bold text-slate-500 uppercase block">1 Package Contains</label>
                         <input type="number" step="0.001" value={editNumberValue(editForm.conversionToBaseUnit || editForm.inventorySettings?.conversionToBaseUnit)} onChange={e => setEditForm(prev => ({ ...prev, conversionToBaseUnit: e.target.value === '' ? undefined : Number(e.target.value) || 1 }))} className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                      </div>
+                    </div>
+                  )}
+
+                  {activeTenant.businessType === 'pharmacy' && editForm.productType !== 'medicine' &&
+                    !!(editForm.fractionSaleEnabled ?? editForm.inventorySettings?.fractionSaleEnabled) && (
+                    <div className="grid gap-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.75rem' }}>
+                      <div className="space-y-1">
+                        <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Packet Name</label>
+                        <input value={editForm.purchaseUnit || editForm.inventorySettings?.purchaseUnit || 'Packet'} onChange={e => setEditForm(prev => ({ ...prev, purchaseUnit: e.target.value }))} className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Pieces per Packet</label>
+                        <input type="number" min={1} value={editNumberValue(editForm.conversionToBaseUnit || editForm.inventorySettings?.conversionToBaseUnit)} onChange={e => setEditForm(prev => ({ ...prev, conversionToBaseUnit: e.target.value === '' ? undefined : Number(e.target.value) }))} className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Piece Unit</label>
+                        <input value={editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.unit || 'Piece'} onChange={e => setEditForm(prev => ({ ...prev, baseUnit: e.target.value, unit: e.target.value }))} className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Packet Price</label>
+                        <input
+                          type="number"
+                          min={0}
+                          value={(editForm.packetPriceOverridden ?? editForm.inventorySettings?.packetPriceOverridden) ? editNumberValue(editForm.wholePackagePrice ?? editForm.inventorySettings?.wholePackagePrice) : ''}
+                          onChange={e => setEditForm(prev => ({ ...prev, wholePackagePrice: e.target.value === '' ? undefined : Number(e.target.value), packetPriceOverridden: e.target.value !== '' }))}
+                          placeholder={`Auto: ${(Number(editForm.sellingPrice || 0) * Number(editForm.conversionToBaseUnit || editForm.inventorySettings?.conversionToBaseUnit || 1)).toLocaleString()}`}
+                          className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-xl"
+                        />
                       </div>
                     </div>
                   )}
@@ -5674,6 +5802,27 @@ export default function DashboardProducts({
                       <div className="space-y-1">
                         <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Price per 1 {editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.sellUnit || 'unit'}</label>
                         <input type="number" value={editForm.sellUnitPrice ?? editForm.defaultPricePerBaseUnit ?? editForm.inventorySettings?.defaultPricePerBaseUnit ?? ''} onChange={e => setEditForm(prev => ({ ...prev, sellUnitPrice: e.target.value === '' ? undefined : Number(e.target.value), defaultPricePerBaseUnit: e.target.value === '' ? undefined : Number(e.target.value) }))} className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl font-bold" />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Packet Price</label>
+                        <input
+                          type="number"
+                          min={0}
+                          value={(editForm.packetPriceOverridden ?? editForm.inventorySettings?.packetPriceOverridden) ? editNumberValue(editForm.wholePackagePrice ?? editForm.inventorySettings?.wholePackagePrice) : ''}
+                          onChange={e => setEditForm(prev => ({
+                            ...prev,
+                            wholePackagePrice: e.target.value === '' ? undefined : Number(e.target.value),
+                            packetPriceOverridden: e.target.value !== '',
+                          }))}
+                          placeholder={`Auto: ${(Number(editForm.sellUnitPrice || editForm.defaultPricePerBaseUnit || editForm.inventorySettings?.defaultPricePerBaseUnit || editForm.sellingPrice || 0) * Number(editForm.conversionToBaseUnit || editForm.inventorySettings?.conversionToBaseUnit || 1)).toLocaleString()}`}
+                          className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl font-bold"
+                        />
+                        {(editForm.packetPriceOverridden ?? editForm.inventorySettings?.packetPriceOverridden) && (
+                          <button type="button" onClick={() => setEditForm(prev => ({ ...prev, wholePackagePrice: undefined, packetPriceOverridden: false }))} className="text-[9px] font-bold text-emerald-700">
+                            Reset to automatic price
+                          </button>
+                        )}
                       </div>
 
                       {/* Auto-calculation display */}
@@ -5919,6 +6068,7 @@ export default function DashboardProducts({
                       {mobileProductMenu.category && <span className="ml-1 text-slate-300">· {mobileProductMenu.category}</span>}
                     </p>
                   </div>
+
                 </div>
                 <button
                   type="button"

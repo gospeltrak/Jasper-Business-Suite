@@ -59,6 +59,7 @@ import ModernSelect from './ui/ModernSelect';
 import { getActiveBranchAddress, getActiveBranchDisplayName, getActiveBranchEmail, getActiveBranchPhone } from '../utils/businessBranding';
 import type { BranchSummary } from '../branches/branchTypes';
 import { formatLocalDate, parseLocalDate, timestampToLocalDate } from '../utils/localDate';
+import { getSaleItemGrossTotal, getSaleItemLineTotal } from '../utils/saleItemTotals';
 
 // Revenue helper: exclude delivery fees from product revenue calculations
 const saleProductRevenue = (s: any): number =>
@@ -295,7 +296,7 @@ export default function DashboardReports({
     
     filteredSales.forEach(s => {
       const itemsCount = s.items.length;
-      const originalSub = s.items.reduce((sum, item) => sum + (item.price * item.qty), 0);
+      const originalSub = s.items.reduce((sum, item) => sum + getSaleItemGrossTotal(item), 0);
       const discountVal = s.discountType === 'percent' ? (originalSub * (s.discount || 0)) / 100 : (s.discount || 0);
       const totalPaid = saleProductRevenue(s);
       const unpaidDue = s.amountDue || 0;
@@ -366,7 +367,7 @@ export default function DashboardReports({
         if (matchingProd) {
           estimatedCOGS += ((item.costPriceAtSale ?? matchingProd.costPrice) * item.qty);
         } else {
-          estimatedCOGS += (item.price * item.qty * 0.75);
+          estimatedCOGS += (getSaleItemGrossTotal(item) * 0.75);
         }
       });
     });
@@ -628,7 +629,7 @@ export default function DashboardReports({
 
   // Compute total gross sales before discounts or VAT
   const totalGrossSales = filteredSales.reduce((sum, s) => {
-    return sum + s.items.reduce((iSum, item) => iSum + (item.price * item.qty), 0);
+    return sum + s.items.reduce((iSum, item) => iSum + getSaleItemGrossTotal(item), 0);
   }, 0);
 
   // Compute Cost of Goods Sold (COGS) for completed sales
@@ -1049,8 +1050,8 @@ export default function DashboardReports({
         const prodMatch = products.find(pr => pr.id === item.productId);
         const costVal = item.costPriceAtSale ?? (prodMatch ? prodMatch.costPrice : (item.price * 0.6));
         
-        state.unitsSold += item.qty;
-        state.totalRevenue += (item.price * item.qty * (1 - item.discount / 100));
+        state.unitsSold += item.baseQuantityDeducted ?? item.qty;
+        state.totalRevenue += getSaleItemLineTotal(item);
         state.totalCogs += (costVal * item.qty);
         state.profit = state.totalRevenue - state.totalCogs;
       });
@@ -2975,14 +2976,8 @@ export default function DashboardReports({
           salesForMonitoredProduct.forEach(sale => {
             sale.items.forEach(item => {
               if (isAll || item.productId === selectedMonitoredProductId) {
-                totalQtySold += item.qty;
-                const itemDiscount = item.discount || 0;
-                let itemSub = item.price * item.qty;
-                if (item.discountType === 'cash') {
-                  itemSub = Math.max(0, itemSub - itemDiscount);
-                } else {
-                  itemSub = itemSub * (1 - itemDiscount / 100);
-                }
+                totalQtySold += item.baseQuantityDeducted ?? item.qty;
+                const itemSub = getSaleItemLineTotal(item);
                 totalRevenue += itemSub;
                 
                 const itemProd = products.find(p => p.id === item.productId);
@@ -3012,14 +3007,8 @@ export default function DashboardReports({
               dayData.txCount += 1;
               sale.items.forEach(item => {
                 if (isAll || item.productId === selectedMonitoredProductId) {
-                  dayData.qty += item.qty;
-                  const itemDiscount = item.discount || 0;
-                  let itemSub = item.price * item.qty;
-                  if (item.discountType === 'cash') {
-                    itemSub = Math.max(0, itemSub - itemDiscount);
-                  } else {
-                    itemSub = itemSub * (1 - itemDiscount / 100);
-                  }
+                  dayData.qty += item.baseQuantityDeducted ?? item.qty;
+                  const itemSub = getSaleItemLineTotal(item);
                   dayData.revenue += itemSub;
                   const itemProd = products.find(p => p.id === item.productId);
                   dayData.profit += itemSub - (item.costPriceAtSale ?? itemProd?.costPrice ?? 0) * item.qty;
@@ -3047,14 +3036,8 @@ export default function DashboardReports({
             filteredSales.forEach(sale => {
               sale.items.forEach(item => {
                 if (item.productId === p.id) {
-                  qtySold += item.qty;
-                  const itemDiscount = item.discount || 0;
-                  let itemSub = item.price * item.qty;
-                  if (item.discountType === 'cash') {
-                    itemSub = Math.max(0, itemSub - itemDiscount);
-                  } else {
-                    itemSub = itemSub * (1 - itemDiscount / 100);
-                  }
+                  qtySold += item.baseQuantityDeducted ?? item.qty;
+                  const itemSub = getSaleItemLineTotal(item);
                   revenue += itemSub;
                   cogs += (item.costPriceAtSale ?? p.costPrice ?? 0) * item.qty;
                 }
@@ -3616,13 +3599,12 @@ export default function DashboardReports({
                             const saleItem = sale.items.find(it => it.productId === selectedMonitoredProductId);
                             if (!saleItem) return null;
 
-                            let itemValue = saleItem.price * saleItem.qty;
-                            const disc = saleItem.discount || 0;
-                            if (saleItem.discountType === 'cash') {
-                              itemValue = Math.max(0, itemValue - disc);
-                            } else {
-                              itemValue = itemValue * (1 - disc / 100);
-                            }
+                            const itemValue = getSaleItemLineTotal(saleItem);
+                            const discountLabel = (saleItem.discount || 0) > 0
+                              ? saleItem.discountType === 'cash'
+                                ? `${currency}${saleItem.discount.toLocaleString()} off`
+                                : `${saleItem.discount}% off`
+                              : '';
 
                             const designCogs = (saleItem.costPriceAtSale ?? monitoredProduct?.costPrice ?? 0) * saleItem.qty;
                             const designProfit = itemValue - designCogs;
@@ -3638,7 +3620,7 @@ export default function DashboardReports({
                                     Guest/Client: <span className="font-bold text-slate-700">{sale.customerName || 'Walk-In Customer'}</span>
                                   </p>
                                   <p className="text-slate-500 leading-normal">
-                                    Quantity Ordered: <span className="font-black text-slate-800 font-mono font-sans">{formatProductQuantity(saleItem.qty, monitoredProduct)}</span> {disc > 0 && <span className="text-rose-600 font-black font-mono">({disc}% off)</span>}
+                                    Quantity Ordered: <span className="font-black text-slate-800 font-mono font-sans">{formatSaleItemQuantity(saleItem, monitoredProduct)}</span> {discountLabel && <span className="text-rose-600 font-black font-mono">({discountLabel})</span>}
                                   </p>
                                 </div>
 

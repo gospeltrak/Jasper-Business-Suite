@@ -6,6 +6,7 @@ import ModernSelect from './ui/ModernSelect';
 import { addBatchToProduct, createInventoryBatch } from '../utils/inventoryCosting';
 import { formatProductQuantity } from '../utils/unitFormatter';
 import { calculateBaseCost, convertToBaseQuantity, getBaseUnitLabel, resolvePackageLevels } from '../utils/universalUnits';
+import { calculateFractionPurchaseLine, isFractionSaleEnabled, resolveFractionSaleConfig } from '../utils/fractionSale';
 import { 
   Truck, 
   Package, 
@@ -107,9 +108,9 @@ function ViewPurchaseModal({ pc, currency, onClose, onEdit, onDelete }: {
                 <div key={i} className="flex justify-between items-center bg-slate-50 rounded-xl px-3.5 py-2.5 text-xs">
                   <span className="font-semibold text-slate-700 truncate max-w-[55%]">{it.productName}</span>
                   <div className="text-right">
-                    <span className="font-black text-slate-800 font-mono">×{it.qty}{it.packageLevelLabel ? ` ${it.packageLevelLabel}` : ''}</span>
-                    {it.packageLevelLabel && it.baseQty !== undefined && (
-                      <span className="text-slate-400 ml-1.5 font-mono text-[10px]">({it.baseQty} base)</span>
+                    <span className="font-black text-slate-800 font-mono">×{it.qty}{it.packageLevelLabel ? ` ${it.packageLevelLabel}` : it.selectedLevel === 'piece' ? ` ${it.baseUnit || 'Piece'}` : ''}</span>
+                    {it.baseQty !== undefined && (
+                      <span className="text-slate-400 ml-1.5 font-mono text-[10px]">({it.baseQty} {it.baseUnit || 'base'})</span>
                     )}
                     <span className="text-slate-400 ml-2 font-mono">{currency}{it.costPrice?.toLocaleString()}</span>
                   </div>
@@ -490,6 +491,31 @@ export default function DashboardPurchases({
     ));
   };
 
+  const getPurchaseUnitLevels = (product: Product) => {
+    if (isFractionSaleEnabled(product, activeTenant.businessType)) {
+      const config = resolveFractionSaleConfig(product, activeTenant.businessType);
+      return [{ id: 'fraction-packet', label: config.packetUnit, quantityInBaseUnit: config.unitsPerPacket }];
+    }
+    if (activeTenant.businessType === 'pharmacy' && product.productType === 'medicine') {
+      return resolvePackageLevels(product);
+    }
+    return [];
+  };
+
+  const getPurchaseBaseQuantity = (quantity: number, unitLevelId: string, product: Product) => {
+    if (unitLevelId === 'fraction-packet') {
+      return calculateFractionPurchaseLine('packet', quantity, 0, resolveFractionSaleConfig(product, activeTenant.businessType)).baseQty;
+    }
+    return convertToBaseQuantity(quantity, unitLevelId, product);
+  };
+
+  const getPurchaseBaseCost = (cost: number, unitLevelId: string, product: Product) => {
+    if (unitLevelId === 'fraction-packet') {
+      return calculateFractionPurchaseLine('packet', 1, cost, resolveFractionSaleConfig(product, activeTenant.businessType)).baseUnitCost;
+    }
+    return calculateBaseCost(cost, unitLevelId, product);
+  };
+
   const handleUpdateUnitLevel = (productId: string, unitLevelId: string) => {
     setCart(cart.map(item => {
       if (item.product.id !== productId) return item;
@@ -497,8 +523,8 @@ export default function DashboardPurchases({
       // keeping the old unit's number under a different label -- switching
       // "Buying as" from Kg (e.g. 1,000/Kg) to Sack (50 Kg) should suggest
       // 50,000/Sack, not leave 1,000 sitting there misread as a Sack price.
-      const costPerBase = calculateBaseCost(item.costPrice, item.unitLevelId, item.product);
-      const newLevelBaseQty = convertToBaseQuantity(1, unitLevelId, item.product);
+      const costPerBase = getPurchaseBaseCost(item.costPrice, item.unitLevelId, item.product);
+      const newLevelBaseQty = getPurchaseBaseQuantity(1, unitLevelId, item.product);
       const nextCostPrice = Number((costPerBase * newLevelBaseQty).toFixed(2));
       return { ...item, unitLevelId, costPrice: nextCostPrice };
     }));
@@ -536,8 +562,18 @@ export default function DashboardPurchases({
 
     const purchaseItems: PurchaseItem[] = cart.map(item => {
       const level = item.unitLevelId !== 'base'
-        ? resolvePackageLevels(item.product).find(candidate => candidate.id === item.unitLevelId)
+        ? getPurchaseUnitLevels(item.product).find(candidate => candidate.id === item.unitLevelId)
         : undefined;
+      const baseQty = getPurchaseBaseQuantity(item.qty, item.unitLevelId, item.product);
+      const isFractionPacket = item.unitLevelId === 'fraction-packet';
+      const fractionLine = isFractionSaleEnabled(item.product, activeTenant.businessType)
+        ? calculateFractionPurchaseLine(
+          isFractionPacket ? 'packet' : 'piece',
+          item.qty,
+          item.costPrice,
+          resolveFractionSaleConfig(item.product, activeTenant.businessType),
+        )
+        : null;
       return {
         productId: item.product.id,
         productName: item.product.name,
@@ -545,7 +581,13 @@ export default function DashboardPurchases({
         costPrice: item.costPrice,
         packageLevelId: level?.id,
         packageLevelLabel: level?.label,
-        baseQty: level ? convertToBaseQuantity(item.qty, item.unitLevelId, item.product) : undefined,
+        baseQty,
+        selectedLevel: isFractionPacket ? 'packet' : level ? 'package' : (isFractionSaleEnabled(item.product, activeTenant.businessType) ? 'piece' : 'base'),
+        selectedLevelQuantity: fractionLine?.selectedLevelQuantity ?? item.qty,
+        unitsPerSelectedLevel: fractionLine?.unitsPerSelectedLevel ?? level?.quantityInBaseUnit ?? 1,
+        selectedUnitCost: item.costPrice,
+        lineTotal: Number((item.costPrice * item.qty).toFixed(2)),
+        baseUnit: getBaseUnitLabel(item.product),
       };
     });
 
@@ -574,8 +616,8 @@ export default function DashboardPurchases({
         // Purchases can happen in a package unit (e.g. 2 Boxes) -- inventory
         // and batch costing always operate on base units (e.g. 200 Capsules),
         // never on the raw quantity the tenant typed.
-        const addedQty = convertToBaseQuantity(cartItem.qty, cartItem.unitLevelId, prod);
-        const baseCostPrice = calculateBaseCost(cartItem.costPrice, cartItem.unitLevelId, prod);
+        const addedQty = getPurchaseBaseQuantity(cartItem.qty, cartItem.unitLevelId, prod);
+        const baseCostPrice = getPurchaseBaseCost(cartItem.costPrice, cartItem.unitLevelId, prod);
         let newShopQty = prod.shopStockQty;
         let newStoreQty = prod.storeStockQty;
         if (destination === 'shop') {
@@ -1493,7 +1535,7 @@ export default function DashboardPurchases({
                           </button>
                         </div>
                         {(() => {
-                          const levels = resolvePackageLevels(item.product);
+                          const levels = getPurchaseUnitLevels(item.product);
                           if (levels.length === 0) return null;
                           return (
                             <div className="flex items-center gap-1.5">
@@ -1525,7 +1567,7 @@ export default function DashboardPurchases({
                         <div className="flex items-center justify-between gap-4 pt-1.5 border-t border-slate-200/60 font-mono text-xs">
                           <div className="flex items-center space-x-1">
                             <span className="text-slate-400 text-[10px] font-black">
-                              COST/{item.unitLevelId === 'base' ? getBaseUnitLabel(item.product) : (resolvePackageLevels(item.product).find(level => level.id === item.unitLevelId)?.label || getBaseUnitLabel(item.product))}:
+                              COST/{item.unitLevelId === 'base' ? getBaseUnitLabel(item.product) : (getPurchaseUnitLevels(item.product).find(level => level.id === item.unitLevelId)?.label || getBaseUnitLabel(item.product))}:
                             </span>
                             <div className="flex items-center bg-white border border-slate-250 rounded-lg px-2 py-0.5">
                               <span className="text-slate-500 font-bold text-[10px]">{currency}</span>

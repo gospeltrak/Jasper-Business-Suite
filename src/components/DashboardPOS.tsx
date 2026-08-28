@@ -46,6 +46,12 @@ import CachedImage from './CachedImage';
 import { downloadPdfFromElement, shareElementPdfToWhatsApp } from '../utils/pdfShare';
 import { localDateToIso, timestampToLocalDate } from '../utils/localDate';
 import { getPharmacyDoseConfig, resolvePharmacyPosLine } from '../utils/pharmacyPosPricing';
+import {
+  calculateFractionSaleLine,
+  isFractionSaleEnabled,
+  resolveFractionSaleConfig,
+  type FractionSaleLevel,
+} from '../utils/fractionSale';
 
 // Web Audio API helper for offline-friendly beep sound
 // Shared AudioContext singleton — created once, reused for all beeps (eliminates init lag)
@@ -194,6 +200,7 @@ export default function DashboardPOS({
     dosageType?: 'packet' | 'full' | 'half' | 'tabs' | 'strip' | 'dose' | 'unit';
     tabsSelected?: number;
     bulkSellMode?: 'scale' | 'pcs' | 'standard';
+    fractionSaleLevel?: FractionSaleLevel;
   }>>([]);
   const [deliveryCost, setDeliveryCost] = useState<number>(0);
   const [orderDiscount, setOrderDiscount] = useState<number>(0);
@@ -534,6 +541,29 @@ export default function DashboardPOS({
     };
   }, []); // product fields are stable
 
+  const supportsFractionSale = useCallback((product: Product) =>
+    isFractionSaleEnabled(product, activeTenant.businessType), [activeTenant.businessType]);
+
+  const usesPharmacyHierarchy = useCallback((product: Product) =>
+    activeTenant.businessType === 'pharmacy' && product.productType === 'medicine', [activeTenant.businessType]);
+
+  const getCartStockWeight = useCallback((item: {
+    product: Product;
+    dosageType?: 'packet' | 'full' | 'half' | 'tabs' | 'strip' | 'dose' | 'unit';
+    tabsSelected?: number;
+    fractionSaleLevel?: FractionSaleLevel;
+  }) => {
+    if (usesPharmacyHierarchy(item.product)) {
+      return getPharmacyDoseWeight(item.product, item.dosageType || 'packet', item.tabsSelected);
+    }
+    if (supportsFractionSale(item.product)) {
+      return item.fractionSaleLevel === 'packet'
+        ? resolveFractionSaleConfig(item.product, activeTenant.businessType).unitsPerPacket
+        : 1;
+    }
+    return 1;
+  }, [activeTenant.businessType, supportsFractionSale, usesPharmacyHierarchy]);
+
   const supportsMeasuredRetail = (product: Product) => (
     !!product.isBulkProduct ||
     !!product.allowScaleSelling ||
@@ -581,9 +611,10 @@ export default function DashboardPOS({
       return;
     }
 
-    const isPharmacy = activeTenant.businessType === 'pharmacy';
-    const initialDosage = isPharmacy ? 'packet' : undefined;
-    const initialTabs = isPharmacy ? 1 : undefined;
+    const isMedicine = usesPharmacyHierarchy(prod);
+    const isFraction = supportsFractionSale(prod);
+    const initialDosage = isMedicine ? 'packet' : undefined;
+    const initialTabs = isMedicine ? 1 : undefined;
 
     // Non-blocking reminder only -- the sale proceeds either way, this just
     // alerts the cashier so they can ask for/verify a prescription.
@@ -596,7 +627,7 @@ export default function DashboardPOS({
       if (existing) {
         // limit by stock with weight checks
         const activeType = existing.dosageType || 'packet';
-        const boxWeight = isPharmacy ? getPharmacyDoseWeight(existing.product, activeType, existing.tabsSelected) : 1;
+        const boxWeight = getCartStockWeight(existing);
         
         const nextQty = existing.qty + 1;
         if (nextQty * boxWeight > shopQty) {
@@ -607,15 +638,16 @@ export default function DashboardPOS({
       }
       return [...prev, { 
         product: prod, 
-        qty: supportsMeasuredRetail(prod) ? (prod.sellUnitQty || 1) : 1,
+        qty: isFraction ? 1 : supportsMeasuredRetail(prod) ? (prod.sellUnitQty || 1) : 1,
         discount: 0, 
         discountType: 'percent',
         dosageType: initialDosage,
         tabsSelected: initialTabs,
-        bulkSellMode: prod.isBulkProduct ? (prod.sellingMode === 'hybrid' ? 'scale' : prod.sellingMode) : undefined
+        bulkSellMode: !isFraction && prod.isBulkProduct ? (prod.sellingMode === 'hybrid' ? 'scale' : prod.sellingMode) : undefined,
+        fractionSaleLevel: isFraction ? 'piece' : undefined,
       }];
     });
-  }, [sellingChannel, activeTenant.businessType]);
+  }, [sellingChannel, supportsFractionSale, usesPharmacyHierarchy, getCartStockWeight]);
 
   const updateCartQty = useCallback((id: string, delta: number) => {
     setCart(prev => {
@@ -625,8 +657,7 @@ export default function DashboardPOS({
           if (nextQty <= 0) return null;
           
           const shopQty = i.product.shopStockQty ?? 0;
-          const activeType = i.dosageType || 'packet';
-          const boxWeight = activeTenant.businessType === 'pharmacy' ? getPharmacyDoseWeight(i.product, activeType, i.tabsSelected) : 1;
+          const boxWeight = getCartStockWeight(i);
 
           if (nextQty * boxWeight > shopQty) {
             setPosWarning(`Stock Limit: Cannot exceed active shop stock of ${formatProductQuantity(shopQty, i.product)} for "${i.product.name}"!`);
@@ -637,7 +668,7 @@ export default function DashboardPOS({
         return i;
       }).filter(Boolean) as any;
     });
-  }, [activeTenant.businessType]);
+  }, [getCartStockWeight]);
 
   const updateCartQtyDirect = (id: string, newQty: number) => {
     if (newQty <= 0) {
@@ -648,13 +679,10 @@ export default function DashboardPOS({
       return prev.map(i => {
         if (i.product.id === id) {
           const shopQty = i.product.shopStockQty ?? 0;
-          const activeType = i.dosageType || 'packet';
-          const boxWeight = activeTenant.businessType === 'pharmacy' ? getPharmacyDoseWeight(i.product, activeType, i.tabsSelected) : 1;
+          const boxWeight = getCartStockWeight(i);
 
           if (newQty * boxWeight > shopQty) {
-            const maxQty = activeTenant.businessType === 'pharmacy'
-              ? Math.max(1, Math.floor(shopQty / boxWeight))
-              : Number(shopQty.toFixed(3));
+            const maxQty = Math.max(1, Math.floor(shopQty / boxWeight));
             setPosWarning(`Stock Limit: Maximum possible quantity for "${i.product.name}" is ${formatProductQuantity(maxQty, i.product)} based on stock!`);
             return { ...i, qty: maxQty };
           }
@@ -663,6 +691,17 @@ export default function DashboardPOS({
         return i;
       });
     });
+  };
+
+  const updateCartFractionLevel = (id: string, level: FractionSaleLevel) => {
+    setCart(prev => prev.map(item => {
+      if (item.product.id !== id) return item;
+      const unitsPerLevel = level === 'packet'
+        ? resolveFractionSaleConfig(item.product, activeTenant.businessType).unitsPerPacket
+        : 1;
+      const maxQty = Math.floor(Number(item.product.shopStockQty || 0) / unitsPerLevel);
+      return { ...item, fractionSaleLevel: level, qty: Math.max(1, Math.min(item.qty, maxQty || 1)) };
+    }));
   };
 
   const updateCartBulkMode = (id: string, mode: 'scale' | 'pcs') => {
@@ -797,19 +836,23 @@ export default function DashboardPOS({
     bulkSellMode?: 'scale' | 'pcs' | 'standard';
     dosageType?: 'packet' | 'full' | 'half' | 'tabs' | 'strip' | 'dose' | 'unit';
     tabsSelected?: number;
+    fractionSaleLevel?: FractionSaleLevel;
   }) => {
-    const isPharmacy = activeTenant.businessType === 'pharmacy';
+    const isMedicine = usesPharmacyHierarchy(item.product);
     const channelBasePrice = getChannelPrice(item.product); // uses batchPriceCache — instant
     let unitPrice = channelBasePrice;
 
-    if (item.product.isBulkProduct) {
+    if (supportsFractionSale(item.product)) {
+      const config = resolveFractionSaleConfig(item.product, activeTenant.businessType);
+      unitPrice = item.fractionSaleLevel === 'packet' ? config.packetPrice : config.piecePrice;
+    } else if (item.product.isBulkProduct) {
       const bMode = item.bulkSellMode || (item.product.sellingMode === 'hybrid' ? 'scale' : item.product.sellingMode);
       if (bMode === 'scale' || bMode === 'pcs') {
         unitPrice = getRetailPackageConfig(item.product).pricePerBaseUnit || channelBasePrice;
       }
     }
 
-    if (isPharmacy) {
+    if (isMedicine) {
       const dType = item.dosageType || 'packet';
       unitPrice = resolvePharmacyPosLine({
         product: item.product,
@@ -819,7 +862,7 @@ export default function DashboardPOS({
     }
 
     return unitPrice;
-  }, [activeTenant.businessType, getChannelPrice, getPharmacyDoseConfig, getRetailPackageConfig]);
+  }, [activeTenant.businessType, getChannelPrice, getRetailPackageConfig, supportsFractionSale, usesPharmacyHierarchy]);
 
   // Pre-compute prices for ALL filtered products once — not per card per render
   const productPriceMap = useMemo(() => {
@@ -843,7 +886,10 @@ export default function DashboardPOS({
   // Pre-compute ALL cart item display values once — avoids calling getPharmacyDoseConfig etc per render
   const cartDisplayData = useMemo(() => {
     return cart.map(item => {
-      const isPharmacy = activeTenant.businessType === 'pharmacy';
+      const isPharmacy = usesPharmacyHierarchy(item.product);
+      const fractionConfig = supportsFractionSale(item.product)
+        ? resolveFractionSaleConfig(item.product, activeTenant.businessType)
+        : null;
       const dosageType = item.dosageType || 'packet';
       const doseCfg = getPharmacyDoseConfig(item.product);
       const tabsSelected = item.tabsSelected || 1;
@@ -862,12 +908,14 @@ export default function DashboardPOS({
       }
       const projectedRemaining = isPharmacy
         ? formatPharmacyRemaining((item.product.shopStockQty || 0) - (item.qty * getPharmacyDoseWeight(item.product, dosageType, item.tabsSelected)), item.product)
+        : fractionConfig
+          ? formatRetailPackageRemaining((item.product.shopStockQty || 0) - (item.qty * (item.fractionSaleLevel === 'packet' ? fractionConfig.unitsPerPacket : 1)), item.product)
         : supportsMeasuredRetail(item.product)
           ? formatRetailPackageRemaining((item.product.shopStockQty || 0) - item.qty, item.product)
           : '';
       return { item, dosageType, doseCfg, tabsSelected, basePrice, discountPrice, dosageLabel, projectedRemaining, isPharmacy };
     });
-  }, [cart, activeTenant.businessType, getCartUnitPrice]);
+  }, [cart, activeTenant.businessType, getCartUnitPrice, supportsFractionSale, usesPharmacyHierarchy]);
 
   // Pricing calculations — fully memoized for instant updates.
   // Must use getCartUnitPrice (the same dosage/bulk/channel-aware pricing
@@ -879,7 +927,7 @@ export default function DashboardPOS({
   // though the line itself displayed the correct amount.
   const subtotal = useMemo(() => {
     return cart.reduce((sum, item) => {
-      if (activeTenant.businessType === 'pharmacy') {
+      if (usesPharmacyHierarchy(item.product)) {
         return sum + resolvePharmacyPosLine({
           product: item.product,
           selectedLevel: item.dosageType || 'packet',
@@ -889,6 +937,14 @@ export default function DashboardPOS({
           discountType: item.discountType,
         }).lineTotal;
       }
+      if (supportsFractionSale(item.product)) {
+        const config = resolveFractionSaleConfig(item.product, activeTenant.businessType);
+        const line = calculateFractionSaleLine(item.fractionSaleLevel || 'piece', item.qty, config);
+        const discountedUnitPrice = item.discountType === 'cash'
+          ? Math.max(0, line.selectedUnitPrice - (item.discount || 0))
+          : line.selectedUnitPrice * (1 - (item.discount || 0) / 100);
+        return sum + (discountedUnitPrice * line.selectedLevelQuantity);
+      }
       const basePrice = getCartUnitPrice(item);
       const isCash = item.discountType === 'cash';
       const discountPrice = isCash
@@ -896,7 +952,7 @@ export default function DashboardPOS({
         : basePrice * (1 - (item.discount || 0) / 100);
       return sum + (discountPrice * item.qty);
     }, 0);
-  }, [cart, getCartUnitPrice, activeTenant.businessType]);
+  }, [cart, getCartUnitPrice, activeTenant.businessType, supportsFractionSale, usesPharmacyHierarchy]);
 
   const orderDiscountAmt = useMemo(() =>
     orderDiscountType === 'cash'
@@ -958,7 +1014,13 @@ export default function DashboardPOS({
 
     // Generate sale item models
     const saleItems: SaleItem[] = cart.map(i => {
-      const isPharmacy = activeTenant.businessType === 'pharmacy';
+      const isPharmacy = usesPharmacyHierarchy(i.product);
+      const fractionConfig = supportsFractionSale(i.product)
+        ? resolveFractionSaleConfig(i.product, activeTenant.businessType)
+        : null;
+      const fractionLine = fractionConfig
+        ? calculateFractionSaleLine(i.fractionSaleLevel || 'piece', i.qty, fractionConfig)
+        : null;
       const dType = i.dosageType || 'packet';
       
       const channelBasePrice = getChannelPrice(i.product); // cached — no repeated batch sort
@@ -969,7 +1031,10 @@ export default function DashboardPOS({
       let unitPrice = channelBasePrice;
       let ratioScaling = 1;
 
-      if (isBulk) {
+      if (fractionLine) {
+        unitPrice = fractionLine.selectedUnitPrice;
+        ratioScaling = fractionLine.unitsPerSelectedLevel;
+      } else if (isBulk) {
         if (bMode === 'scale' || bMode === 'pcs') {
            unitPrice = getRetailPackageConfig(i.product).pricePerBaseUnit || channelBasePrice;
         }
@@ -990,7 +1055,7 @@ export default function DashboardPOS({
 
       // Process Batches deduction!
       let deductQtyReal = i.qty;
-      if (isPharmacy) {
+      if (isPharmacy || fractionLine) {
           deductQtyReal = i.qty * ratioScaling;
       }
       
@@ -1003,13 +1068,13 @@ export default function DashboardPOS({
           batchesUsed.push(...deduction.batchesUsed);
           pendingBatchUpdates[i.product.id] = deduction.updatedBatches;
 
-          if (!isPharmacy && sellMethod === 'average_price') {
+          if (!isPharmacy && !fractionLine && sellMethod === 'average_price') {
               blendedCost = i.product.averageBuyingCost || calculateWeightedAverageCost(i.product.batches, i.product.costPrice);
               unitPrice = getPosSellingPriceForCostingMethod(i.product, unitPrice, 'average_price');
-          } else if (!isPharmacy && sellMethod === 'batch_price') {
+          } else if (!isPharmacy && !fractionLine && sellMethod === 'batch_price') {
               blendedCost = deduction.batchesUsed[0]?.buyingPrice || i.product.latestBuyingPrice || i.product.costPrice;
               unitPrice = deduction.batchesUsed[0]?.sellingPrice || unitPrice;
-          } else if (!isPharmacy) {
+          } else if (!isPharmacy && !fractionLine) {
               blendedCost = deduction.unitCost;
               unitPrice = deduction.batchesUsed[0]?.sellingPrice || unitPrice;
           } else {
@@ -1029,6 +1094,14 @@ export default function DashboardPOS({
       }) : null;
       const pharmacyLevelLabel = pharmacyCfg?.hierarchyLevels?.find(level => level.id === dType)?.unit
         || (dType === 'packet' ? 'Packet' : dType === 'full' ? 'Full Dose' : dType === 'half' ? 'Half Dose' : `${i.tabsSelected || 1} ${pharmacyCfg?.baseUnit || 'Units'}`);
+      const fractionLevelLabel = fractionLine?.selectedLevel === 'packet'
+        ? fractionConfig?.packetUnit
+        : fractionConfig?.pieceUnit;
+      const fractionDiscountedTotal = fractionLine
+        ? (i.discountType === 'cash'
+          ? Math.max(0, fractionLine.selectedUnitPrice - (i.discount || 0))
+          : fractionLine.selectedUnitPrice * (1 - (i.discount || 0) / 100)) * i.qty
+        : undefined;
 
       return {
         productId: i.product.id,
@@ -1042,19 +1115,19 @@ export default function DashboardPOS({
         dosageType: i.dosageType,
         tabsSelected: i.tabsSelected,
         tabsPerPack: i.product.tabsPerPack,
-        selectedLevel: pharmacyLine?.selectedLevel,
-        selectedLevelQuantity: pharmacyLine?.selectedLevelQuantity,
-        unitsPerSelectedLevel: pharmacyLine?.unitsPerSelectedLevel,
-        selectedUnitPrice: pharmacyLine?.selectedUnitPrice,
-        lineTotal: pharmacyLine?.lineTotal,
+        selectedLevel: pharmacyLine?.selectedLevel || fractionLine?.selectedLevel,
+        selectedLevelQuantity: pharmacyLine?.selectedLevelQuantity ?? fractionLine?.selectedLevelQuantity,
+        unitsPerSelectedLevel: pharmacyLine?.unitsPerSelectedLevel ?? fractionLine?.unitsPerSelectedLevel,
+        selectedUnitPrice: pharmacyLine?.selectedUnitPrice ?? fractionLine?.selectedUnitPrice,
+        lineTotal: pharmacyLine?.lineTotal ?? fractionDiscountedTotal,
         channel: sellingChannel,
         prescriptionRequired: i.product.prescriptionRequired || undefined,
         isBulkProduct: isBulk,
-        unit: isPharmacy ? (pharmacyCfg?.baseUnit || i.product.baseUnit || 'Unit') : getRetailPackageConfig(i.product).baseUnit,
-        baseUnit: isPharmacy ? (pharmacyCfg?.baseUnit || i.product.baseUnit || 'Unit') : getRetailPackageConfig(i.product).baseUnit,
-        conversionToBaseUnit: isPharmacy ? ratioScaling : getRetailPackageConfig(i.product).conversionToBaseUnit,
-        sellUnit: isPharmacy ? pharmacyLevelLabel : getRetailPackageConfig(i.product).baseUnit,
-        sellMode: bMode as 'scale' | 'pcs',
+        unit: isPharmacy ? (pharmacyCfg?.baseUnit || i.product.baseUnit || 'Unit') : (fractionConfig?.pieceUnit || getRetailPackageConfig(i.product).baseUnit),
+        baseUnit: isPharmacy ? (pharmacyCfg?.baseUnit || i.product.baseUnit || 'Unit') : (fractionConfig?.pieceUnit || getRetailPackageConfig(i.product).baseUnit),
+        conversionToBaseUnit: isPharmacy || fractionLine ? ratioScaling : getRetailPackageConfig(i.product).conversionToBaseUnit,
+        sellUnit: isPharmacy ? pharmacyLevelLabel : (fractionLevelLabel || getRetailPackageConfig(i.product).baseUnit),
+        sellMode: fractionLine ? 'pcs' : bMode as 'scale' | 'pcs',
         batchesUsed: batchesUsed.length > 0 ? batchesUsed : undefined,
         baseQuantityDeducted: Number(deductQtyReal.toFixed(3)),
         costingMethodUsed: sellMethod,
@@ -1137,10 +1210,16 @@ export default function DashboardPOS({
       if (soldItem) {
         let deductQty = soldItem.qty;
         
-        if (prod.isBulkProduct) {
+        if (supportsFractionSale(prod)) {
+          deductQty = calculateFractionSaleLine(
+            soldItem.fractionSaleLevel || 'piece',
+            soldItem.qty,
+            resolveFractionSaleConfig(prod, activeTenant.businessType),
+          ).baseQuantityDeducted;
+        } else if (prod.isBulkProduct) {
           const bMode = soldItem.bulkSellMode || (prod.sellingMode === 'hybrid' ? 'scale' : prod.sellingMode);
           deductQty = soldItem.qty;
-        } else if (activeTenant.businessType === 'pharmacy') {
+        } else if (usesPharmacyHierarchy(prod)) {
           const dType = soldItem.dosageType || 'packet';
           deductQty = soldItem.qty * getPharmacyDoseWeight(soldItem.product, dType, soldItem.tabsSelected);
         }
@@ -1616,11 +1695,42 @@ export default function DashboardPOS({
                           {dosageLabel}
                         </div>
                       )}
+                      {!isPharmacy && supportsFractionSale(item.product) && (
+                        <div className="text-[10px] text-emerald-750 font-bold bg-emerald-50 py-0.5 px-1.5 mt-0.5 rounded truncate w-max">
+                          {(item.fractionSaleLevel || 'piece') === 'packet'
+                            ? resolveFractionSaleConfig(item.product, activeTenant.businessType).packetUnit
+                            : resolveFractionSaleConfig(item.product, activeTenant.businessType).pieceUnit}
+                        </div>
+                      )}
                     </div>
 
                     {/* Right: Quantity increment/decrement box + delete button */}
                     <div className="flex items-center space-x-2 shrink-0">
-                      {supportsMeasuredRetail(item.product) ? (
+                      {supportsFractionSale(item.product) ? (
+                        <div className="flex flex-col items-end space-y-1">
+                          <div className="flex bg-slate-100 rounded p-0.5 border border-slate-200 text-[9px] font-bold">
+                            {(['piece', 'packet'] as FractionSaleLevel[]).map(level => {
+                              const config = resolveFractionSaleConfig(item.product, activeTenant.businessType);
+                              const active = (item.fractionSaleLevel || 'piece') === level;
+                              return (
+                                <button
+                                  type="button"
+                                  key={level}
+                                  onClick={() => updateCartFractionLevel(item.product.id, level)}
+                                  className={`px-2 py-0.5 rounded ${active ? 'bg-white shadow text-emerald-700' : 'text-slate-500'}`}
+                                >
+                                  {level === 'piece' ? config.pieceUnit : config.packetUnit}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          <div className="flex items-center bg-white border border-slate-200 rounded-lg p-0.5 shadow-xs">
+                            <button type="button" onClick={() => updateCartQty(item.product.id, -1)} className="p-1 hover:bg-slate-100 rounded text-slate-500"><Minus className="w-2.5 h-2.5" /></button>
+                            <input type="number" min="1" value={item.qty} onChange={e => updateCartQtyDirect(item.product.id, parseInt(e.target.value) || 1)} className="w-8 text-center font-black font-mono text-slate-800 bg-transparent py-0 text-[10.5px] focus:outline-none border-none" />
+                            <button type="button" onClick={() => updateCartQty(item.product.id, 1)} className="p-1 hover:bg-slate-100 rounded text-slate-500"><Plus className="w-2.5 h-2.5" /></button>
+                          </div>
+                        </div>
+                      ) : supportsMeasuredRetail(item.product) ? (
                         <div className="flex flex-col items-end space-y-1">
                           {item.product.isBulkProduct && item.product.sellingMode === 'hybrid' && (
                             <div className="flex bg-slate-100 rounded p-0.5 border border-slate-200 text-[9px] font-bold">
@@ -1739,7 +1849,19 @@ export default function DashboardPOS({
                       </div>
                     </div>
                   )}
-                  {!isPharmacy && supportsMeasuredRetail(item.product) && (
+                  {!isPharmacy && supportsFractionSale(item.product) && (
+                    <div className="pt-1.5 border-t border-dashed border-slate-200/50 flex flex-wrap gap-1.5 justify-start items-center text-[9px] font-mono text-slate-400">
+                      {(() => {
+                        const config = resolveFractionSaleConfig(item.product, activeTenant.businessType);
+                        const level = item.fractionSaleLevel || 'piece';
+                        const unit = level === 'packet' ? config.packetUnit : config.pieceUnit;
+                        const price = level === 'packet' ? config.packetPrice : config.piecePrice;
+                        return <span>{item.qty} {unit} × {currency}{Math.round(price).toLocaleString()}</span>;
+                      })()}
+                      <span>Remain: {projectedRemaining}</span>
+                    </div>
+                  )}
+                  {!isPharmacy && !supportsFractionSale(item.product) && supportsMeasuredRetail(item.product) && (
                     <div className="pt-1.5 border-t border-dashed border-slate-200/50 flex flex-wrap gap-1.5 justify-start items-center text-[9px] font-mono text-slate-400">
                       <span>
                         {formatProductQuantity(item.qty, { ...item.product, unit: getRetailPackageConfig(item.product).baseUnit } as Product)} x {currency}{Math.round(getRetailPackageConfig(item.product).pricePerBaseUnit).toLocaleString()}

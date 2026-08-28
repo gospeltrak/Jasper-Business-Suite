@@ -60,6 +60,7 @@ import { useOptionalBranchContext } from '../branches/BranchContext';
 import { normalizeSubscriptionPlanId } from '../utils/subscription';
 import { findPaymentChannel, getPaymentModeName } from '../utils/paymentAccounts';
 import { calculateSalesDocumentTotals } from '../utils/salesDocumentTotals';
+import { getSaleItemLineTotal } from '../utils/saleItemTotals';
 import {
   createStandardCommercialDocument,
   createCrossBranchCommercialDocument,
@@ -3717,8 +3718,8 @@ export default function DashboardSalesList({
                           <td className="py-3 px-4 text-slate-400 font-mono">{index + 1}</td>
                           <td className="py-3 px-4 font-semibold text-slate-800">{item.productName}</td>
                           <td className="py-3 px-4 text-center text-slate-700">{formatSaleItemQuantity(item, products.find(product => product.id === item.productId))}</td>
-                          <td className="py-3 px-4 text-right font-mono text-slate-600">{currency}{item.price.toLocaleString()}</td>
-                          <td className="py-3 px-4 text-right font-mono font-black text-slate-900">{currency}{Math.round(item.price * item.qty).toLocaleString()}</td>
+                          <td className="py-3 px-4 text-right font-mono text-slate-600">{currency}{(item.selectedUnitPrice ?? item.price).toLocaleString()}</td>
+                          <td className="py-3 px-4 text-right font-mono font-black text-slate-900">{currency}{Math.round(getSaleItemLineTotal(item)).toLocaleString()}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -3727,7 +3728,7 @@ export default function DashboardSalesList({
                   <div className="flex justify-end">
                     <div className="w-72 space-y-2 font-mono text-xs shrink-0">
                       {(() => {
-                        const subtotal = selectedSale.items.reduce((sum, item) => sum + item.price * item.qty, 0);
+                        const subtotal = selectedSale.items.reduce((sum, item) => sum + getSaleItemLineTotal(item), 0);
                         const paid = selectedSale.amountPaid !== undefined ? selectedSale.amountPaid : (selectedSale.paymentMethod === 'Credit' ? 0 : selectedSale.total);
                         const balance = Math.max(0, selectedSale.total - paid);
                         return <>
@@ -3885,8 +3886,8 @@ export default function DashboardSalesList({
                   {selectedSale.items.map((item, index) => {
                     const isItemCash = item.discountType === 'cash';
                     const priceAfterDiscount = isItemCash
-                      ? Math.max(0, item.price - item.discount)
-                      : item.price * (1 - item.discount / 100);
+                      ? Math.max(0, (item.selectedUnitPrice ?? item.price) - item.discount)
+                      : (item.selectedUnitPrice ?? item.price) * (1 - item.discount / 100);
                     const itemProduct = products.find(product => product.id === item.productId);
                     return (
                       <div key={index}>
@@ -4475,13 +4476,13 @@ export default function DashboardSalesList({
                         <div className="flex-1 min-w-0">
                           <p className="font-bold text-slate-800 text-[12px] truncate">{item.productName}</p>
                           <p className="text-[10px] text-slate-400 font-mono mt-0.5">
-                            {formatSaleItemQuantity(item, matchingProduct)} × {currency}{item.price.toLocaleString()}
+                            {formatSaleItemQuantity(item, matchingProduct)} × {currency}{(item.selectedUnitPrice ?? item.price).toLocaleString()}
                           </p>
                         </div>
 
                         <div className="text-right shrink-0">
                           <span className="font-mono font-black text-[12px] text-slate-900">
-                            {currency}{(item.price * item.qty).toLocaleString()}
+                            {currency}{getSaleItemLineTotal(item).toLocaleString()}
                           </span>
                         </div>
                       </div>
@@ -4493,7 +4494,7 @@ export default function DashboardSalesList({
               {/* Balance tally */}
               <div className="border-t border-slate-100 pt-4 space-y-2 text-xs">
                 {(() => {
-                  const itemsSubtotal = viewingSaleDetail.items.reduce((sum, item) => sum + (item.price * item.qty), 0);
+                  const itemsSubtotal = viewingSaleDetail.items.reduce((sum, item) => sum + getSaleItemLineTotal(item), 0);
                   const discountVal = viewingSaleDetail.discount !== undefined ? viewingSaleDetail.discount : 0;
                   const discountType = viewingSaleDetail.discountType || 'percent';
                   const computedDiscountAmount = discountType === 'percent' ? itemsSubtotal * (discountVal / 100) : discountVal;
@@ -4671,8 +4672,8 @@ export default function DashboardSalesList({
                   {editFormFields.items.map((item, index) => {
                     const isItemCash = item.discountType === 'cash';
                     const lineTotal = isItemCash
-                      ? Math.max(0, item.price - item.discount) * item.qty
-                      : item.price * (1 - item.discount / 100) * item.qty;
+                      ? Math.max(0, (item.selectedUnitPrice ?? item.price) - item.discount) * item.qty
+                      : (item.selectedUnitPrice ?? item.price) * (1 - item.discount / 100) * item.qty;
                     return (
                       <div key={index} className="p-3 hover:bg-slate-50/50 transition-colors flex items-center justify-between gap-4 text-xs">
                         <div className="space-y-0.5 max-w-[50%]">
@@ -4763,8 +4764,8 @@ export default function DashboardSalesList({
                 const subAmt = editFormFields.items.reduce((sum, item) => {
                   const isItemCash = item.discountType === 'cash';
                   const priceAfterDiscount = isItemCash
-                    ? Math.max(0, item.price - item.discount)
-                    : item.price * (1 - item.discount / 100);
+                    ? Math.max(0, (item.selectedUnitPrice ?? item.price) - item.discount)
+                    : (item.selectedUnitPrice ?? item.price) * (1 - item.discount / 100);
                   return sum + (priceAfterDiscount * item.qty);
                 }, 0);
                 // The sale's order-level discount (editingSale.discount/discountType,
@@ -4838,8 +4839,8 @@ export default function DashboardSalesList({
                   const itemSubtotal = editFormFields.items.reduce((sum, item) => {
                     const isItemCash = item.discountType === 'cash';
                     const priceAfterDiscount = isItemCash
-                      ? Math.max(0, item.price - item.discount)
-                      : item.price * (1 - item.discount / 100);
+                      ? Math.max(0, (item.selectedUnitPrice ?? item.price) - item.discount)
+                      : (item.selectedUnitPrice ?? item.price) * (1 - item.discount / 100);
                     return sum + (priceAfterDiscount * item.qty);
                   }, 0);
                   // The sale's order-level discount isn't editable in this dialog,

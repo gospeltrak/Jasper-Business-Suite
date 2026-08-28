@@ -142,6 +142,8 @@ export interface ProductInventorySettings {
   allowCustomQuantity: boolean;
   defaultPricePerBaseUnit?: number;
   fractionSaleOptions?: FractionSaleOption[];
+  fractionSaleEnabled?: boolean;
+  packetPriceOverridden?: boolean;
   pharmacyUnitBreakdown?: PharmacyUnitBreakdown;
 }
 
@@ -262,6 +264,10 @@ export interface Product {
   halfPackagePrice?: number;
   packageBuyingCost?: number;
   fractionSaleOptions?: FractionSaleOption[];
+  /** Enables Piece/Packet selling. Medicine products always use Pharmacy Unit Hierarchy instead. */
+  fractionSaleEnabled?: boolean;
+  /** Distinguishes a tenant-entered packet price from the calculated piece price × packet quantity. */
+  packetPriceOverridden?: boolean;
   allowCustomQuantity?: boolean;
   defaultPricePerBaseUnit?: number;
   pharmacyUnitBreakdown?: PharmacyUnitBreakdown;
@@ -368,7 +374,7 @@ export interface SaleItem {
   dosageType?: 'packet' | 'full' | 'half' | 'tabs' | 'strip' | 'dose' | 'unit';
   tabsSelected?: number;
   tabsPerPack?: number;
-  selectedLevel?: 'packet' | 'full' | 'half' | 'tabs' | 'strip' | 'dose' | 'unit';
+  selectedLevel?: 'piece' | 'packet' | 'full' | 'half' | 'tabs' | 'strip' | 'dose' | 'unit';
   selectedLevelQuantity?: number;
   unitsPerSelectedLevel?: number;
   selectedUnitPrice?: number;
@@ -484,6 +490,13 @@ export interface PurchaseItem {
   packageLevelId?: string;
   packageLevelLabel?: string;
   baseQty?: number;
+  /** Immutable purchase-unit snapshot used after the product configuration changes. */
+  selectedLevel?: 'piece' | 'packet' | 'package' | 'base';
+  selectedLevelQuantity?: number;
+  unitsPerSelectedLevel?: number;
+  selectedUnitCost?: number;
+  lineTotal?: number;
+  baseUnit?: string;
 }
 
 export interface Purchase {
