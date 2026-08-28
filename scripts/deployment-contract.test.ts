@@ -639,6 +639,19 @@ test('Add and Edit Product show native selling-channel checkboxes on desktop', a
   assert.match(productSource, /checked=\{!!editForm\.sellInWholesale\}/);
 });
 
+test('pharmacy hierarchy is medicine-only and product edits wait for durable persistence', async () => {
+  const productSource = await read('src/components/DashboardProducts.tsx');
+  const dashboardSource = await read('src/components/Dashboard.tsx');
+
+  assert.match(productSource, /isPharmacyLike && productType === 'medicine' \? \(/);
+  assert.match(productSource, /activeTenant\.businessType === 'pharmacy' && editForm\.productType === 'medicine'/);
+  assert.match(productSource, /const saved = await onUpdateProducts\(updated\)/);
+  assert.match(productSource, /if \(!saved\) return;/);
+  assert.match(dashboardSource, /const handleUpdateActiveStocks = async \(updatedProducts: Product\[\]\): Promise<boolean>/);
+  assert.match(dashboardSource, /const \{ products: syncedProducts, saved \} = persistTenantProductsNow\(nextTenantProducts\)/);
+  assert.match(dashboardSource, /const didSave = await saved;/);
+});
+
 test('cloud product tombstones survive core and branch workspace hydration', async () => {
   const dashboardSource = await read('src/components/Dashboard.tsx');
   assert.match(dashboardSource, /const workspaceProductTombstones = mergeProductTombstones\(/g);

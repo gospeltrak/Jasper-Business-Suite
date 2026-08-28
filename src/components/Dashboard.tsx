@@ -2044,8 +2044,8 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     return { settings: syncedSettings, saved };
   };
 
-  const handleUpdateActiveStocks = (updatedProducts: Product[]) => {
-    if (blockOfflineBusinessWrite('stock adjustment')) return;
+  const handleUpdateActiveStocks = async (updatedProducts: Product[]): Promise<boolean> => {
+    if (blockOfflineBusinessWrite('stock adjustment')) return false;
 
     const tenantProducts = productsMap[activeTenant.id] || [];
     const safeCatalogueUpdates = updatedProducts.map(updated => {
@@ -2087,11 +2087,14 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
         return { ...previous, [activeTenant.id]: [...retained, ...branchStockUpdates] };
       });
     }
-    const { products: syncedProducts } = persistTenantProductsNow(nextTenantProducts);
+    const { products: syncedProducts, saved } = persistTenantProductsNow(nextTenantProducts);
     setProductsMap(prev => ({
       ...prev,
       [activeTenant.id]: syncedProducts
     }));
+
+    const didSave = await saved;
+    if (!didSave) return false;
 
     // Add real-time log action
     const newLog: SyncLog = {
@@ -2102,6 +2105,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       timestamp: new Date().toISOString()
     };
     setLogs(prev => [newLog, ...prev]);
+    return true;
   };
 
   const handleUpdateSales = async (updatedSales: Sale[]): Promise<boolean> => {

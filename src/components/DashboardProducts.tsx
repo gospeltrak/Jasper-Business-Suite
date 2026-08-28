@@ -75,7 +75,7 @@ interface DashboardProductsProps {
   onAddProduct: (prod: Product) => void;
   onAddProducts: (products: Product[]) => void;
   onDeleteProduct: (id: string) => void;
-  onUpdateProducts: (updatedProducts: Product[]) => void;
+  onUpdateProducts: (updatedProducts: Product[]) => Promise<boolean>;
   subscriptionStatus?: any;
   onTriggerUpgrade?: (limitType: 'products' | 'stores' | 'staff' | 'expired') => void;
 }
@@ -187,6 +187,7 @@ export default function DashboardProducts({
 
   const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [isSavingProductEdit, setIsSavingProductEdit] = useState(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [editStockDraft, setEditStockDraft] = useState({ shop: '', store: '', alert: '' });
   const [editImageFile, setEditImageFile] = useState<File | null>(null);
@@ -565,9 +566,18 @@ export default function DashboardProducts({
       return p;
     });
 
-    onUpdateProducts(updated);
-    setEditingProduct(null);
-    setEditForm({});
+    setIsSavingProductEdit(true);
+    try {
+      const saved = await onUpdateProducts(updated);
+      // Keep the tenant's draft and the edit modal open when the durable
+      // workspace write fails. Closing optimistically made hierarchy changes
+      // appear saved until the next hydration restored the cloud copy.
+      if (!saved) return;
+      setEditingProduct(null);
+      setEditForm({});
+    } finally {
+      setIsSavingProductEdit(false);
+    }
   };
 
   const handleGenerateEditBarcode = () => {
@@ -2396,7 +2406,7 @@ export default function DashboardProducts({
     </div>
   );
 
-  const pharmacyUnitHierarchySection = isPharmacyLike ? (
+  const pharmacyUnitHierarchySection = isPharmacyLike && productType === 'medicine' ? (
     <div className="space-y-4 pt-2 border-t border-slate-200">
       <div className="flex items-center space-x-2">
         {!isDesktopAddProductLayout && (
@@ -5462,7 +5472,7 @@ export default function DashboardProducts({
                 </div>
               </div>
 
-              {activeTenant.businessType === 'pharmacy' && (
+              {activeTenant.businessType === 'pharmacy' && editForm.productType === 'medicine' && (
                 <div className="px-5 pb-5">
                   {(() => {
                     const structure = getEditPharmacyStructure(editForm);
@@ -5698,16 +5708,18 @@ export default function DashboardProducts({
             <div className="tenant-form-footer sticky bottom-0 z-10 bg-slate-50 p-3 sm:p-4 flex gap-2 border-t border-slate-200 shrink-0">
               <button 
                 type="button" 
+                disabled={isSavingProductEdit}
                 onClick={() => setEditingProduct(null)} 
-                className="flex-1 lg:flex-none px-4 sm:px-5 py-3 sm:py-2.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl uppercase tracking-wider text-[10.5px] cursor-pointer"
+                className="flex-1 lg:flex-none px-4 sm:px-5 py-3 sm:py-2.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed font-bold rounded-xl uppercase tracking-wider text-[10.5px] cursor-pointer"
               >
                 Cancel Adjustments
               </button>
               <button 
                 type="submit" 
-                className="flex-1 lg:flex-none px-4 sm:px-5 py-3 sm:py-2.5 bg-emerald-600 hover:bg-emerald-505 text-white font-bold rounded-xl uppercase tracking-wider text-[10.5px] cursor-pointer"
+                disabled={isSavingProductEdit}
+                className="flex-1 lg:flex-none px-4 sm:px-5 py-3 sm:py-2.5 bg-emerald-600 hover:bg-emerald-505 disabled:opacity-60 disabled:cursor-wait text-white font-bold rounded-xl uppercase tracking-wider text-[10.5px] cursor-pointer"
               >
-                Save Changes
+                {isSavingProductEdit ? 'Saving…' : 'Save Changes'}
               </button>
             </div>
           </form>
