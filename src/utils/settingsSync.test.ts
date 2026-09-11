@@ -57,6 +57,32 @@ describe('settings field persistence', () => {
     expect(mergeSettingsForSync(stale, newer).company.companyName).toBe('New Saved Name');
   });
 
+  it('never lets a stale settings write remove a newly registered staff member', () => {
+    const newer = {
+      staffs: [
+        { id: 'owner-1', name: 'Owner', role: 'Admin' },
+        { id: 'staff-2', name: 'New Staff', role: 'Stock Manager', branchId: 'branch-1' },
+      ],
+      settingsSync: {
+        staffs: '2026-08-21T10:00:00.000Z',
+      },
+    } as any;
+    const stale = {
+      staffs: [{ id: 'owner-1', name: 'Owner', role: 'Admin' }],
+      settingsSync: {
+        staffs: '2026-08-21T09:59:00.000Z',
+      },
+    } as any;
+
+    const merged = mergeSettingsForSync(stale, newer);
+    expect(merged.staffs).toHaveLength(2);
+    expect(merged.staffs?.[1]).toMatchObject({
+      id: 'staff-2',
+      role: 'Stock Manager',
+      branchId: 'branch-1',
+    });
+  });
+
   it('persists tenant-scoped alerts and expense categories, including an intentional empty list', () => {
     const current = {
       company: { companyName: 'Saved Company' },

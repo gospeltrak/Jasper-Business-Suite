@@ -1,9 +1,32 @@
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
+import path from 'node:path';
 
-const trackedFiles = execFileSync('git', ['ls-files', '-z'], { encoding: 'utf8' })
-  .split('\0')
-  .filter(Boolean);
+const listSourceFiles = () => {
+  try {
+    return execFileSync('git', ['ls-files', '-z'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).split('\0').filter(Boolean);
+  } catch {
+    // Vercel source archives intentionally omit .git. Scan the complete uploaded
+    // source tree there so the production gate remains active during remote builds.
+    const ignoredDirectories = new Set(['.git', '.vercel', 'coverage', 'dist', 'node_modules']);
+    const files = [];
+    const visit = (directory) => {
+      for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+        if (entry.isDirectory() && ignoredDirectories.has(entry.name)) continue;
+        const absolutePath = path.join(directory, entry.name);
+        if (entry.isDirectory()) visit(absolutePath);
+        else if (entry.isFile()) files.push(path.relative(process.cwd(), absolutePath));
+      }
+    };
+    visit(process.cwd());
+    return files;
+  }
+};
+
+const trackedFiles = listSourceFiles();
 
 const forbiddenFilePatterns = [
   /(^|\/)\.env(?:\.|$)/i,
@@ -58,4 +81,4 @@ if (forbiddenFiles.length || findings.length) {
   process.exit(1);
 }
 
-console.log(`Repository security audit passed (${trackedFiles.length} tracked files checked).`);
+console.log(`Repository security audit passed (${trackedFiles.length} source files checked).`);

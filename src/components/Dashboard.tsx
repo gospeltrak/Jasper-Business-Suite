@@ -39,7 +39,6 @@ const DashboardDeliveries = lazyWithReload('DashboardDeliveries', () => import('
 const DashboardSandboxVerticals = lazyWithReload('DashboardSandboxVerticals', () => import('./DashboardSandboxVerticals'));
 const DashboardWhiteLabel = lazyWithReload('DashboardWhiteLabel', () => import('./DashboardWhiteLabel'));
 const DashboardSettings = lazyWithReload('DashboardSettings', () => import('./DashboardSettings'));
-import { DEFAULT_CUSTOM_ROLES } from '../utils/defaultCustomRoles';
 const DashboardStaff = lazyWithReload('DashboardStaff', () => import('./DashboardStaff'));
 import DashboardScreenErrorBoundary from './DashboardScreenErrorBoundary';
 import AIBusinessCopilot from './AIBusinessCopilot';
@@ -49,10 +48,10 @@ import DuressDashboard from './DuressDashboard';
 import CachedImage from './CachedImage';
 import { savePendingSaleOffline } from '../utils/offlineDb';
 import { createCleanTenantSettings, isDemoTenant } from '../utils/tenantIsolation';
-import { flushPendingTenantWorkspace, hasPendingTenantWorkspaceSave, loadTenantWorkspace, markTenantProductsUpdated, saveTenantSettings, saveTenantWorkspace, scheduleTenantWorkspaceSave, subscribeToTenantWorkspace, TenantWorkspace, workspaceHasBusinessData } from '../utils/tenantWorkspace';
+import { flushPendingTenantWorkspace, hasPendingTenantWorkspaceSave, loadTenantWorkspace, loadTenantWorkspaceCore, markTenantProductsUpdated, readCachedWorkspace, saveTenantSettings, saveTenantWorkspace, scheduleTenantWorkspaceSave, subscribeToTenantBusinessType, subscribeToTenantWorkspace, TenantWorkspace, waitForTenantWorkspaceLoad, workspaceHasBusinessData } from '../utils/tenantWorkspace';
 import { safeSetJsonItem, safeSetTenantMapItem } from '../utils/dataSafety';
 import { findPaymentChannel, getTreasuryPaymentMethods, reconcilePaymentChannels } from '../utils/paymentAccounts';
-import { attachPayloadProductTombstones, markLocalProductTombstones, readLocalProductTombstones, stampProductsForSync } from '../utils/productSync';
+import { attachPayloadProductTombstones, markLocalProductTombstones, mergeProductTombstones, mergeProductsForSync, readLocalProductTombstones, stampProductsForSync, writeLocalProductTombstones } from '../utils/productSync';
 import {
   attachPayloadSaleTombstones,
   markLocalSaleTombstone,
@@ -62,7 +61,7 @@ import {
   writeLocalSaleTombstones,
 } from '../utils/saleSync';
 import { mergeSettingsForSync, stampSettingsForSync } from '../utils/settingsSync';
-import { BranchProvider, useOptionalBranchContext } from '../branches/BranchContext';
+import { BranchProvider, useBranchContext, useOptionalBranchContext } from '../branches/BranchContext';
 import GlobalBranchSwitcher from './GlobalBranchSwitcher';
 import {
   mergeScopedProducts,
@@ -77,6 +76,7 @@ import { getSecureDataBridgeClient, isPlaceholderSecureDataBridgeClient } from '
 import { postTreasuryEntry, postTreasurySplitIncome, reverseTreasuryEntry } from '../utils/treasuryApi';
 import { getSubscriptionReminder, getSubscriptionReminderKey } from '../utils/subscriptionReminder';
 import { compressImageFile } from '../utils/imageCompression';
+import { formatLocalDate } from '../utils/localDate';
 import { Shield, Sparkles as SparklesIcon, AlertTriangle, CheckCircle, HelpCircle as HelpIcon, Play, RefreshCcw, CreditCard as CardIcon, Bell } from 'lucide-react';
 import { 
   getSubscriptionState, 
@@ -221,7 +221,7 @@ const getInitialSystemSettings = (tenant: Tenant): SystemSettings => {
       companyName: tenant.name,
       usernameKey: tenant.id,
       phone: tenant.id === 't-lagos-01' ? '+234 803 444 5555' : '+254 722 000 111',
-      email: 'info@jasper-wholesale.com',
+      email: 'info@orvix-wholesale.com',
       address: `${tenant.city}, ${tenant.country}`,
       tin: 'TIN-492942-A',
       vat: 'VAT-492040-B',
@@ -255,28 +255,34 @@ const normalizeSystemSettings = (
   tenant: Tenant,
   incoming?: Partial<SystemSettings> | null,
 ): SystemSettings => {
+  // A tenant that has deliberately cleared a list down to zero (e.g.
+  // removing every seed category to replace them with their own) must stay
+  // empty — falling back to `fallback` here previously meant any list that
+  // reached zero items snapped back to the generic seed defaults on the very
+  // next save, silently destroying the tenant's real configuration. The
+  // fallback now only applies when `value` itself is missing/malformed
+  // (undefined, or not an array at all), which is the only case where we
+  // don't actually know what the tenant wants.
   const normalizeNamedList = (value: unknown, fallback: string[] = []) => {
     if (!Array.isArray(value)) return fallback;
-    const normalized = value
+    return value
       .map((item: any) => {
         if (typeof item === 'string') return item.trim();
         if (!item || typeof item !== 'object') return '';
         return String(item.name || item.label || item.provider || item.value || '').trim();
       })
       .filter(Boolean);
-    return normalized.length > 0 ? normalized : fallback;
   };
   const normalizeBrandList = (
     value: unknown,
     fallback: Array<{ name: string; logo?: string }> = [],
   ) => {
     if (!Array.isArray(value)) return fallback;
-    const normalized = value
+    return value
       .map((item: any) => typeof item === 'string'
         ? { name: item.trim() }
         : { name: String(item?.name || item?.label || '').trim(), logo: item?.logo || item?.logoUrl || undefined })
       .filter((item) => item.name);
-    return normalized.length > 0 ? normalized : fallback;
   };
   const defaults = getInitialSystemSettings(tenant);
   const merged = mergeSettingsForSync(incoming, defaults);
@@ -311,6 +317,21 @@ const normalizeSystemSettings = (
   };
 };
 
+// The local `jasper_custom_tenants` cache is written once at registration
+// and otherwise never re-synced from the server. Keep it in step so a
+// Super Admin-driven business type change (retail/pharmacy) still shows the
+// right value after this browser reloads or the tenant re-logs in later.
+const patchCachedTenantBusinessType = (tenantId: string, businessType: string) => {
+  try {
+    const cached = JSON.parse(onlineStorage.getItem('jasper_custom_tenants') || '[]');
+    if (!Array.isArray(cached)) return;
+    const next = cached.map((tenant: any) => (
+      tenant && tenant.id === tenantId ? { ...tenant, businessType } : tenant
+    ));
+    onlineStorage.setItem('jasper_custom_tenants', JSON.stringify(next));
+  } catch { /* ignore */ }
+};
+
 type SubscriptionCheckoutRenderState = {
   selectedPlanId: SubscriptionPlanId;
   setSelectedPlanId: React.Dispatch<React.SetStateAction<SubscriptionPlanId>>;
@@ -337,7 +358,7 @@ function SubscriptionCheckoutStateBridge({
 function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggleTheme, initialTab }: DashboardProps) {
   const { t, lang, setLang } = useTranslation();
   const { getFallbackInitials } = useTenantLogo();
-  const { addSaleNotification, unreadCount, hydrateTenantModuleSettings, configureInbox } = useJasperNotifications();
+  const { addSaleNotification, addSubscriptionReminderNotification, unreadCount, hydrateTenantModuleSettings, configureInbox } = useJasperNotifications();
   const [showDashLangMenu, setShowDashLangMenu] = useState(false);
   const [isNotificationCenterOpen, setIsNotificationCenterOpen] = useState(false);
 
@@ -446,16 +467,15 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     return 'overview';
   };
 
+  // Always opens on the default tab (Overview) rather than restoring
+  // whatever tab was open last time — a cached "last tab" was landing
+  // tenants back on screens like Money & Bank both on a fresh login and on
+  // simply reopening the app, since a resumed session never re-runs the
+  // login flow that would have cleared it.
   const [activeTab, setActiveTab ] = useState<string>(() => {
     if (initialTab && knownDashboardTabs.has(initialTab)) return initialTab;
-    const cachedTab = sessionStorage.getItem(`jasper_active_dashboard_tab_${user.id}_${activeTenant.id}`);
-    if (cachedTab && knownDashboardTabs.has(cachedTab)) return cachedTab;
     return getDefaultDashboardTab();
   });
-
-  useEffect(() => {
-    sessionStorage.setItem(`jasper_active_dashboard_tab_${user.id}_${activeTenant.id}`, activeTab);
-  }, [activeTab, activeTenant.id, user.id]);
 
   const [actingStaffId, setActingStaffId] = useState<string>('logged-in-user');
   const [productsMap, setProductsMap] = useState<Record<string, Product[]>>(() => isDemoTenant(activeTenant.id) ? DEFAULT_PRODUCTS : {});
@@ -663,6 +683,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     hasVat?: boolean;
   } | null>(null);
   const [workspaceReady, setWorkspaceReady] = useState(false);
+  const [workspaceLoadFailed, setWorkspaceLoadFailed] = useState(false);
   const cloudWorkspaceLoadedRef = useRef(false);
   const localWorkspaceChangedAtRef = useRef(0);
   const skipNextWorkspaceSaveRef = useRef(false);
@@ -688,15 +709,17 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
   useEffect(() => {
     let active = true;
     let unsubscribe = () => undefined;
+    let unsubscribeBusinessType = () => undefined;
     let refreshInFlight = false;
     cloudWorkspaceLoadedRef.current = false;
     localWorkspaceChangedAtRef.current = 0;
     setWorkspaceReady(false);
+    setWorkspaceLoadFailed(false);
+    let initialLoadRetryTimer: number | null = null;
 
-    const applyWorkspace = (workspace: TenantWorkspace) => {
+    const applyWorkspace = (workspace: TenantWorkspace, options: { ledgersReady?: boolean; coreReady?: boolean } = {}) => {
+      const { ledgersReady = true, coreReady = true } = options;
       if (!active) return;
-      const cloudBusinessName = String(workspace.settings?.business?.businessName || '').trim();
-      setDatabaseBusinessName(cloudBusinessName);
       if (Date.now() - localWorkspaceChangedAtRef.current < LOCAL_WORKSPACE_PROTECTION_MS) {
         return;
       }
@@ -708,18 +731,59 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
         return;
       }
       skipNextWorkspaceSaveRef.current = true;
-      setProductsMap(prev => ({ ...prev, [activeTenant.id]: workspace.products || [] }));
-      setBranchesMap(prev => ({ ...prev, [activeTenant.id]: workspace.branches || [] }));
-      setBranchStocksMap(prev => ({ ...prev, [activeTenant.id]: workspace.branchStocks || [] }));
-      setBranchStaffAssignmentsMap(prev => ({ ...prev, [activeTenant.id]: workspace.branchStaffAssignments || [] }));
-      setSalesMap(prev => ({ ...prev, [activeTenant.id]: workspace.sales || [] }));
-      setExpensesMap(prev => ({ ...prev, [activeTenant.id]: workspace.expenses || [] }));
-      setDeliveriesMap(prev => ({ ...prev, [activeTenant.id]: workspace.deliveries || [] }));
-      setPendingDeliveryNotesMap(prev => ({ ...prev, [activeTenant.id]: workspace.pendingDeliveryNotes || [] }));
-      setPurchasesMap(prev => ({ ...prev, [activeTenant.id]: workspace.purchases || [] }));
-      if (workspace.settings) {
-        setSystemSettings(normalizeSystemSettings(activeTenant, workspace.settings));
+      // Core fields (products, branches, settings) are only applied when this
+      // call actually carries fresh core data. The follow-up apply once a
+      // core-first load's background ledger fetch completes reuses the SAME
+      // core snapshot captured before the ledgers started loading -- applying
+      // it again here would silently undo any product/settings/branch edit
+      // (e.g. deleting a product) made locally while ledgers were still in
+      // flight, since that snapshot has no idea the edit happened.
+      if (coreReady) {
+        const cloudBusinessName = String(workspace.settings?.business?.businessName || '').trim();
+        setDatabaseBusinessName(cloudBusinessName);
+        const workspaceProductTombstones = mergeProductTombstones(
+          readLocalProductTombstones(activeTenant.id),
+          workspace.productTombstones,
+        );
+        writeLocalProductTombstones(activeTenant.id, workspaceProductTombstones);
+        // A locally-deleted product must stay deleted even if this payload was
+        // fetched/cached before the deletion reached the server -- merge against
+        // local tombstones instead of trusting the incoming array verbatim.
+        setProductsMap(prev => ({
+          ...prev,
+          [activeTenant.id]: mergeProductsForSync(
+            workspace.products || [],
+            prev[activeTenant.id] || [],
+            workspaceProductTombstones,
+          ),
+        }));
+        setBranchesMap(prev => ({ ...prev, [activeTenant.id]: workspace.branches || [] }));
+        setBranchStocksMap(prev => ({ ...prev, [activeTenant.id]: workspace.branchStocks || [] }));
+        setBranchStaffAssignmentsMap(prev => ({ ...prev, [activeTenant.id]: workspace.branchStaffAssignments || [] }));
+        if (workspace.settings) {
+          // Realtime and recovery reads can arrive out of order. Merge using the
+          // per-field clocks so an older payload cannot hide a newly saved staff
+          // member or their role from the current session.
+          setSystemSettings(current => normalizeSystemSettings(
+            activeTenant,
+            mergeSettingsForSync(workspace.settings, current),
+          ));
+        }
       }
+      // Historical ledgers (sales/expenses/deliveries/purchases) may still be
+      // paginating in from the background completion of a core-first load --
+      // skip them here so an empty placeholder never overwrites data the
+      // dashboard is already showing; the follow-up full apply once loading
+      // finishes carries the real values instead.
+      if (ledgersReady) {
+        setSalesMap(prev => ({ ...prev, [activeTenant.id]: workspace.sales || [] }));
+        setExpensesMap(prev => ({ ...prev, [activeTenant.id]: workspace.expenses || [] }));
+        setDeliveriesMap(prev => ({ ...prev, [activeTenant.id]: workspace.deliveries || [] }));
+        setPendingDeliveryNotesMap(prev => ({ ...prev, [activeTenant.id]: workspace.pendingDeliveryNotes || [] }));
+        setPurchasesMap(prev => ({ ...prev, [activeTenant.id]: workspace.purchases || [] }));
+      }
+      setWorkspaceLoadFailed(false);
+      setWorkspaceReady(true);
     };
 
     const refreshWorkspaceFromDatabase = async (force = false) => {
@@ -738,18 +802,79 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       }
     };
 
-    loadTenantWorkspace(activeTenant.id).then((workspace) => {
+    const loadInitialWorkspace = async (attempt = 0): Promise<void> => {
+      // Core (settings, products, stock, branches, permissions) unblocks the
+      // dashboard immediately; historical ledgers stream in behind it without
+      // making the user wait through the full paginated fetch first.
+      const core = await loadTenantWorkspaceCore(activeTenant.id);
       if (!active) return;
-      if (workspace) {
+      if (core) {
         cloudWorkspaceLoadedRef.current = true;
-        applyWorkspace(workspace);
+        applyWorkspace(core, { ledgersReady: false });
+        await waitForTenantWorkspaceLoad(activeTenant.id);
+        if (!active) return;
+        const full = readCachedWorkspace(activeTenant.id);
+        // coreReady: false -- this is the SAME core snapshot already applied
+        // above (loadTenantWorkspaceCore's background ledger completion only
+        // adds sales/expenses/deliveries/purchases to it, it never re-fetches
+        // products/settings/branches). Re-applying those stale core fields
+        // here would silently revert any edit made locally while ledgers
+        // were still loading.
+        if (full) applyWorkspace(full, { coreReady: false });
+        return;
       }
-      setWorkspaceReady(true);
-    });
+
+      // Null means the authoritative workspace was not available; it must not
+      // be treated as a real empty tenant. Keep writes disabled and retry.
+      setWorkspaceLoadFailed(true);
+      const retryDelay = Math.min(5000, 1000 * (attempt + 1));
+      initialLoadRetryTimer = window.setTimeout(() => {
+        void loadInitialWorkspace(attempt + 1);
+      }, retryDelay);
+    };
+
+    const prefetchedWorkspace = readCachedWorkspace(activeTenant.id);
+    if (prefetchedWorkspace) applyWorkspace(prefetchedWorkspace);
+    void loadInitialWorkspace();
 
     subscribeToTenantWorkspace(activeTenant.id, applyWorkspace).then((cleanup) => {
       unsubscribe = cleanup;
     });
+
+    subscribeToTenantBusinessType(activeTenant.id, (businessType) => {
+      if (!active) return;
+      setActiveTenant(prev => prev.businessType === businessType ? prev : { ...prev, businessType: businessType as Tenant['businessType'] });
+      patchCachedTenantBusinessType(activeTenant.id, businessType);
+    }).then((cleanup) => {
+      unsubscribeBusinessType = cleanup;
+    });
+
+    // The Realtime subscription above only corrects an already-open tab. A
+    // tenant whose business type was changed by Super Admin while their tab
+    // was closed would otherwise keep reading the stale locally-cached value
+    // forever, since activeTenant bootstraps from that cache, not a live
+    // fetch. One authoritative check per session load closes that gap.
+    (async () => {
+      try {
+        const client: any = await getSecureDataBridgeClient();
+        const { data: sessionData } = await client.auth.getSession();
+        const token = sessionData?.session?.access_token;
+        if (!token || !active) return;
+        const response = await fetch(`/api/tenant/business-type?tenantId=${encodeURIComponent(activeTenant.id)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok || !active) return;
+        const payload = await response.json().catch(() => null);
+        const businessType = payload?.businessType;
+        if ((businessType === 'pharmacy' || businessType === 'retail') && businessType !== activeTenant.businessType) {
+          setActiveTenant(prev => prev.businessType === businessType ? prev : { ...prev, businessType });
+          patchCachedTenantBusinessType(activeTenant.id, businessType);
+        }
+      } catch {
+        // Best-effort correction only -- Realtime and the existing cache
+        // remain the primary paths; a failed check here is silently skipped.
+      }
+    })();
 
     const handleOnline = () => {
       refreshWorkspaceFromDatabase(true);
@@ -765,15 +890,28 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       }
     }, 90_000);
 
+    // A tab closed/killed outright (backgrounded app swiped away, browser
+    // quit) never reaches this effect's own React cleanup below in time —
+    // the Realtime channel is left registered on Supabase's side until its
+    // own idle-connection reaper eventually closes it. Sending an explicit
+    // unsubscribe on pagehide (fires more reliably than beforeunload,
+    // including on iOS Safari) closes it immediately instead of leaving it
+    // for that server-side timeout to clean up.
+    const handlePageHide = () => { unsubscribe(); unsubscribeBusinessType(); };
+
     window.addEventListener('online', handleOnline);
     window.addEventListener('focus', handleFocus);
+    window.addEventListener('pagehide', handlePageHide);
 
     return () => {
       active = false;
+      if (initialLoadRetryTimer !== null) window.clearTimeout(initialLoadRetryTimer);
       window.clearInterval(liveRefreshTimer);
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('pagehide', handlePageHide);
       unsubscribe();
+      unsubscribeBusinessType();
     };
   }, [activeTenant.id]);
 
@@ -792,7 +930,24 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     };
     const applyBranchWorkspace = (workspace: TenantWorkspace) => {
       skipNextWorkspaceSaveRef.current = true;
-      setProductsMap(previous => ({ ...previous, [activeTenant.id]: workspace.products || [] }));
+      const workspaceProductTombstones = mergeProductTombstones(
+        readLocalProductTombstones(activeTenant.id),
+        workspace.productTombstones,
+      );
+      writeLocalProductTombstones(activeTenant.id, workspaceProductTombstones);
+      // Same tombstone protection as applyWorkspace above -- this path is fed
+      // by a branch-context cache (branchWorkspaceCacheRef) that can be older
+      // than a product deleted moments ago, and by design re-applies on every
+      // branch-context refresh (branch switches, but also unrelated events
+      // like a branch logo update), not just an explicit branch switch.
+      setProductsMap(previous => ({
+        ...previous,
+        [activeTenant.id]: mergeProductsForSync(
+          workspace.products || [],
+          previous[activeTenant.id] || [],
+          workspaceProductTombstones,
+        ),
+      }));
       setBranchesMap(previous => ({ ...previous, [activeTenant.id]: workspace.branches || [] }));
       setBranchStocksMap(previous => ({ ...previous, [activeTenant.id]: workspace.branchStocks || [] }));
       setBranchStaffAssignmentsMap(previous => ({
@@ -807,7 +962,10 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
         [activeTenant.id]: workspace.pendingDeliveryNotes || [],
       }));
       setPurchasesMap(previous => ({ ...previous, [activeTenant.id]: workspace.purchases || [] }));
-      setSystemSettings(normalizeSystemSettings(activeTenant, workspace.settings));
+      setSystemSettings(current => normalizeSystemSettings(
+        activeTenant,
+        mergeSettingsForSync(workspace.settings, current),
+      ));
       cloudWorkspaceLoadedRef.current = true;
     };
     const handleBranchContextChanged = async (event: Event) => {
@@ -897,7 +1055,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       salaryType: 'monthly' as const,
       status: 'active' as const,
       staffType: 'permanent' as const,
-      dateJoined: new Date().toISOString().split('T')[0],
+      dateJoined: formatLocalDate(),
       isOwner: true,
       profileImage: user.profileImage || undefined,
       notes: 'Business owner account — auto-created on first login',
@@ -1119,18 +1277,38 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
   }, [activeRoleName, activeTenant.id, canAccessNotificationInbox, configureInbox, user.id, user.role]);
 
   const getSimulatedPermissions = () => {
+    // The tenant owner (Admin, acting as themselves -- never a simulated
+    // staff role) must always have full access. This takes priority over
+    // user.rolePermissions below: a real tenant was found with a non-empty
+    // but wrong-shaped role_permissions row (missing/undefined per-module
+    // keys), which was being returned as-is by the check below, silently
+    // denying every module -- and since Settings is itself permission-
+    // gated, the owner had no self-service way to fix it. An owner's own
+    // access must never depend on that row's shape being correct.
+    if (actingStaffId === 'logged-in-user' && activeRoleName === 'Admin') {
+      return {
+        pos: { read: true, write: true, edit: true },
+        products: { read: true, write: true, edit: true },
+        purchases: { read: true, write: true, edit: true },
+        suppliers: { read: true, write: true, edit: true },
+        expenses: { read: true, write: true, edit: true },
+        reportsSalesExpenses: { read: true, write: true, edit: true },
+        reportsProfitCogs: { read: true, write: true, edit: true },
+        sync: { read: true, write: true, edit: true },
+        settings: { read: true, write: true, edit: true }
+      };
+    }
+
     if (actingStaffId === 'logged-in-user' && user.rolePermissions) return user.rolePermissions;
 
     const customRoles = systemSettings.customRoles || [];
     const matched = customRoles.find(r => r.name.toLowerCase() === activeRoleName.toLowerCase());
     if (matched) return matched.permissions;
 
-    const queryPreset = (activeRoleName.toLowerCase() === 'waiter' || activeRoleName.toLowerCase() === 'seller') ? 'seller' : activeRoleName.toLowerCase();
-    const preset = DEFAULT_CUSTOM_ROLES.find(r => r.name.toLowerCase() === queryPreset);
-    if (preset) return preset.permissions;
-
-    // Never turn an unrecognised staff role into an administrator. Access is
-    // denied until the owner assigns a known preset or custom role.
+    // Never turn an unrecognised staff role into an administrator, and never
+    // fall back to a hardcoded preset role — the tenant's own customRoles
+    // list (created in Settings → Roles & Permissions) is the only source
+    // of truth. Access is denied until the owner assigns a real role.
     return {
       pos: { read: false, write: false, edit: false },
       products: { read: false, write: false, edit: false },
@@ -1191,7 +1369,14 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     
     switch (tabId) {
       case 'overview':
-        return perms.reportsSalesExpenses?.read || perms.reportsProfitCogs?.read;
+        // Dashboard/Overview is the universal landing tab (see
+        // getDefaultDashboardTab) — every role can always reach it. Gating
+        // it behind report permissions meant a role without report access
+        // failed isTabAllowed('overview') on every mount, and the
+        // auto-redirect effect below sent them to the first ungated tab in
+        // the sidebar list instead (Money & Bank), which is what was
+        // actually landing tenants there, not any tab-caching behavior.
+        return true;
       case 'pos':
         return perms.pos?.read;
       case 'sales-list':
@@ -1324,22 +1509,20 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       setManualActivationMessage('Please choose Ruby, Diamond, or Tanzanite before submitting.');
       return;
     }
-    if (!manualActivationReceipt) {
-      setManualActivationMessage('Please attach the payment receipt before submitting.');
+    if (!manualActivationReceipt && !manualActivationNote.trim()) {
+      setManualActivationMessage('Attach a receipt image or add the transaction reference/payment details.');
       return;
     }
-    if (!manualActivationNote.trim()) {
-      setManualActivationMessage('Please add the transaction reference or payment details.');
-      return;
-    }
-    if (manualActivationReceipt.size > 2 * 1024 * 1024) {
-      setManualActivationMessage('Receipt must be 2 MB or smaller.');
-      return;
-    }
-    const allowedReceiptTypes = ['image/jpeg', 'image/png', 'image/webp'];
-    if (!allowedReceiptTypes.includes(manualActivationReceipt.type)) {
-      setManualActivationMessage('Use a JPG, PNG, or WebP receipt.');
-      return;
+    if (manualActivationReceipt) {
+      if (manualActivationReceipt.size > 2 * 1024 * 1024) {
+        setManualActivationMessage('Receipt must be 2 MB or smaller.');
+        return;
+      }
+      const allowedReceiptTypes = ['image/jpeg', 'image/png', 'image/webp'];
+      if (!allowedReceiptTypes.includes(manualActivationReceipt.type)) {
+        setManualActivationMessage('Use a JPG, PNG, or WebP receipt.');
+        return;
+      }
     }
 
     setManualActivationSubmitting(true);
@@ -1351,12 +1534,15 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       const { data: sessionData } = await client.auth.getSession();
       const token = sessionData?.session?.access_token;
       if (!token) throw new Error('Your secure session has expired. Sign in again.');
-      const receiptBase64 = await compressImageFile(manualActivationReceipt, {
-        maxWidth: 1600,
-        maxHeight: 1600,
-        quality: 0.85,
-        mimeType: 'image/webp',
-      });
+      const receiptBase64 = manualActivationReceipt
+        ? await compressImageFile(manualActivationReceipt, {
+            maxWidth: 1600,
+            maxHeight: 1600,
+            quality: 0.85,
+            mimeType: 'image/webp',
+          })
+        : null;
+      const trimmedNote = manualActivationNote.trim();
       const uploadResponse = await fetch('/api/subscriptions/payment-proof-file', {
         method: 'POST',
         headers: {
@@ -1365,19 +1551,19 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
         },
         body: JSON.stringify({
           tenantId: activeTenant.id,
-          fileName: `${manualActivationReceipt.name.replace(/\.[^.]+$/, '')}.webp`,
-          fileType: 'image/webp',
-          originalFileSize: manualActivationReceipt.size,
+          fileName: manualActivationReceipt ? `${manualActivationReceipt.name.replace(/\.[^.]+$/, '')}.webp` : null,
+          fileType: manualActivationReceipt ? 'image/webp' : null,
+          originalFileSize: manualActivationReceipt ? manualActivationReceipt.size : null,
           receiptBase64,
           requestedPackageId: selectedPlanId,
-          note: `Package: ${selectedPlan.name}. ${manualActivationNote.trim()}`,
+          note: `Package: ${selectedPlan.name}.${trimmedNote ? ` ${trimmedNote}` : ''}`,
         }),
       });
       const uploadPayload = await uploadResponse.json().catch(() => ({}));
       if (!uploadResponse.ok || !uploadPayload?.proof?.id) {
         throw new Error(uploadPayload?.error || 'Receipt upload failed.');
       }
-      setManualActivationMessage(`Activation request sent for ${selectedPlan.name}. Admin will verify the receipt.`);
+      setManualActivationMessage(`Your ${selectedPlan.name} activation request has been sent. Please wait about 5 minutes, then log in again. If it still hasn't activated, contact Orvix Deployments using the WhatsApp button below.`);
       setManualActivationReceipt(null);
       setManualActivationNote('');
     } catch (err: any) {
@@ -1401,7 +1587,11 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       return;
     }
     setOnlinePaymentSubmitting(true);
-    setOnlinePaymentMessage(null);
+    // Shown immediately, before the redirect below takes the tenant to the
+    // external AzamPay checkout page -- there's no chance to show anything
+    // in-app again until they're redirected back, so this needs to set
+    // expectations up front rather than after the payment starts.
+    setOnlinePaymentMessage('Processing your payment… you will be redirected to a secure checkout page. Your subscription unlocks automatically as soon as the payment is approved.');
     try {
       const client: any = await getSecureDataBridgeClient();
       const { data: sessionData } = await client.auth.getSession();
@@ -1473,7 +1663,17 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     currentStaffCount
   );
   const isTrialAccount = normalizeSubscriptionPlanId(subStatus.state.planId) === 'trial' && !subStatus.state.isSubscribedPaid;
-  const isTrialAccessLocked = user.role !== 'SuperAdmin' && isTrialAccount && subStatus.isExpired;
+  // Locks the whole dashboard behind the renew/upgrade screen the instant a
+  // subscription expires -- previously this only fired for expired trials
+  // (isTrialAccount &&), so a paid plan (Ruby/Diamond/Tanzanite) that ran out
+  // left the tenant with normal, unrestricted access except a dismissible
+  // banner. No grace period, per explicit instruction.
+  const isSubscriptionAccessLocked = user.role !== 'SuperAdmin' && subStatus.isExpired;
+  const expiredPlanId = normalizeSubscriptionPlanId(subStatus.state.planId);
+  const expiredPlan = SUBSCRIPTION_PLANS[expiredPlanId];
+  const expiredOnLabel = subStatus.state.subscriptionEndAt
+    ? new Date(subStatus.state.subscriptionEndAt).toLocaleDateString()
+    : null;
   const trialDurationDays = subStatus.state.promoCodeUsed ? 20 : 10;
   const rubyDowngradeNotes = [
     'Lucy AI online assistant is not included',
@@ -1494,13 +1694,15 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
 
   const subscriptionReminder = getSubscriptionReminder(
     subStatus.plan.id,
+    subStatus.plan.name,
     subStatus.daysRemaining,
     subStatus.isExpired,
+    isTrialAccount,
   );
   const subscriptionReminderKey = subscriptionReminder
     ? getSubscriptionReminderKey(
       activeTenant.id,
-      subStatus.state.subscriptionEndAt,
+      isTrialAccount ? subStatus.state.trialStartedAt : subStatus.state.subscriptionEndAt,
       subscriptionReminder,
     )
     : null;
@@ -1510,6 +1712,24 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       Boolean(subscriptionReminderKey && sessionStorage.getItem(subscriptionReminderKey) === 'dismissed'),
     );
   }, [subscriptionReminderKey]);
+
+  // Phone has no header to show the countdown badge in (Dashboard's top bar
+  // only exists from 768px up) — deliver the same 3/2/1-day reminder into
+  // the bell/inbox instead, once per key (matches the badge's own dismiss
+  // key: tenant + subscription end date + day count, so day 3, day 2, and
+  // day 1 are each a distinct key and each notify exactly once).
+  useEffect(() => {
+    if (!subscriptionReminder || !subscriptionReminderKey) return;
+    if (typeof window === 'undefined' || window.innerWidth >= 768) return;
+    const notifiedKey = `${subscriptionReminderKey}:notified`;
+    if (sessionStorage.getItem(notifiedKey) === 'sent') return;
+    addSubscriptionReminderNotification({
+      tenantId: activeTenant.id,
+      title: subscriptionReminder.title,
+      message: subscriptionReminder.message,
+    });
+    sessionStorage.setItem(notifiedKey, 'sent');
+  }, [subscriptionReminder, subscriptionReminderKey, activeTenant.id, addSubscriptionReminderNotification]);
 
   // Compact header countdown between search and online status.
   const renderSubscriptionCountdownBadge = () => {
@@ -1525,7 +1745,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
           onClick={() => {
           setSubModal({
             show: true,
-            title: subscriptionReminder.level === 'expired' ? 'Renew Tanzanite' : 'Renew Subscription',
+            title: subscriptionReminder.level === 'trial' ? 'Upgrade Now' : 'Renew Subscription',
             limitType: 'expired',
             description: subscriptionReminder.message,
           });
@@ -1534,8 +1754,8 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
           title={subscriptionReminder.message}
         >
           <Clock className="h-3.5 w-3.5 shrink-0 text-amber-500" />
-          <span className="hidden max-w-[260px] truncate md:inline">{subscriptionReminder.message}</span>
-          <span className="md:hidden">{subscriptionReminder.title}</span>
+          <span className="subscription-reminder-full max-w-[260px] truncate">{subscriptionReminder.message}</span>
+          <span className="subscription-reminder-short">{subscriptionReminder.title}</span>
         </button>
         <button
           type="button"
@@ -1718,9 +1938,15 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     return true;
   };
 
-  const persistTenantProductsNow = (updatedProducts: Product[]) => {
+  // Returns both the optimistically-applied products (for callers that need
+  // the value immediately) and the underlying database-write promise, so a
+  // failed save can be surfaced to the user and rolled back instead of
+  // silently leaving the UI showing an edit that never actually reached the
+  // server -- the same "looks saved, reverts on next real reload" gap
+  // already fixed for settings via persistSystemSettingsNow.
+  const persistTenantProductsNow = (updatedProducts: Product[]): { products: Product[]; saved: Promise<boolean> } => {
     if (blockOfflineBusinessWrite('product or stock changes')) {
-      return productsMap[activeTenant.id] || [];
+      return { products: productsMap[activeTenant.id] || [], saved: Promise.resolve(false) };
     }
 
     const previousProducts = productsMap[activeTenant.id] || [];
@@ -1765,10 +1991,22 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       productTombstones:    readLocalProductTombstones(activeTenant.id),
     };
 
-    saveTenantWorkspace(activeTenant.id, workspace).catch((error) => {
-      console.warn('[Dashboard] Unable to immediately sync updated products workspace:', error);
-    });
-    return syncedProducts;
+    const saved = saveTenantWorkspace(activeTenant.id, workspace)
+      .then((didSave) => {
+        if (!didSave) {
+          setProductsMap(prev => ({ ...prev, [activeTenant.id]: previousProducts }));
+          addToast('Product changes could not be saved. Your previous saved data was kept — please check your connection and try again.', 'error');
+        }
+        return didSave;
+      })
+      .catch((error) => {
+        console.warn('[Dashboard] Unable to immediately sync updated products workspace:', error);
+        setProductsMap(prev => ({ ...prev, [activeTenant.id]: previousProducts }));
+        addToast('Product changes could not be saved. Your previous saved data was kept — please check your connection and try again.', 'error');
+        return false;
+      });
+
+    return { products: syncedProducts, saved };
   };
 
   // Returns both the optimistically-applied settings (for callers that need
@@ -1785,7 +2023,11 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     const saveVersion = settingsSaveVersionRef.current + 1;
     settingsSaveVersionRef.current = saveVersion;
     const syncUpdatedAt = new Date().toISOString();
-    const safeUpdatedSettings = normalizeSystemSettings(activeTenant, updated);
+    // Merge against the latest in-memory settings before stamping. A queued
+    // settings write created from an older render must not replace a newer
+    // staff list after that staff registration has already been confirmed.
+    const mergedUpdatedSettings = mergeSettingsForSync(updated, systemSettings);
+    const safeUpdatedSettings = normalizeSystemSettings(activeTenant, mergedUpdatedSettings);
     const syncedSettings = stampSettingsForSync(safeUpdatedSettings, systemSettings, syncUpdatedAt);
     setDatabaseBusinessName(String(syncedSettings.business?.businessName || '').trim());
     localWorkspaceChangedAtRef.current = Date.now();
@@ -1802,8 +2044,8 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     return { settings: syncedSettings, saved };
   };
 
-  const handleUpdateActiveStocks = (updatedProducts: Product[]) => {
-    if (blockOfflineBusinessWrite('stock adjustment')) return;
+  const handleUpdateActiveStocks = async (updatedProducts: Product[]): Promise<boolean> => {
+    if (blockOfflineBusinessWrite('stock adjustment')) return false;
 
     const tenantProducts = productsMap[activeTenant.id] || [];
     const safeCatalogueUpdates = updatedProducts.map(updated => {
@@ -1845,12 +2087,15 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
         return { ...previous, [activeTenant.id]: [...retained, ...branchStockUpdates] };
       });
     }
-    const syncedProducts = persistTenantProductsNow(nextTenantProducts);
+    const { products: syncedProducts, saved } = persistTenantProductsNow(nextTenantProducts);
     setProductsMap(prev => ({
       ...prev,
       [activeTenant.id]: syncedProducts
     }));
-    
+
+    const didSave = await saved;
+    if (!didSave) return false;
+
     // Add real-time log action
     const newLog: SyncLog = {
       id: 'l-' + Math.random().toString(36).substr(2, 9),
@@ -1860,6 +2105,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       timestamp: new Date().toISOString()
     };
     setLogs(prev => [newLog, ...prev]);
+    return true;
   };
 
   const handleUpdateSales = async (updatedSales: Sale[]): Promise<boolean> => {
@@ -2084,6 +2330,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       branchId: sale.branchId || activeBranchSelection.activeBranchId || undefined,
       syncUpdatedAt,
     } as Sale;
+    let postedTreasuryJournalId = '';
     const saleIncome = Math.max(0, Number(sale.total || 0) - Number(sale.deliveryCost || 0));
     const collectedAmount = sale.paymentStatus === 'unpaid'
       ? 0
@@ -2144,18 +2391,42 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
           branchId: posted.branchId,
           treasuryJournalId: posted.journalId,
         };
+        postedTreasuryJournalId = posted.journalId;
       } catch (error: any) {
         addToast(error?.message || 'Money & Bank could not post this sale safely.', 'error');
         return false;
       }
     }
-    setSalesMap(prev => {
-      const currentTenantSales = prev[activeTenant.id] || [];
-      return {
-        ...prev,
-        [activeTenant.id]: [saleToStore, ...currentTenantSales]
-      };
+    const nextTenantSales = [
+      saleToStore,
+      ...(salesMap[activeTenant.id] || []).filter(existing => existing.id !== saleToStore.id),
+    ];
+    const saleSaved = await saveTenantWorkspace(activeTenant.id, {
+      branches: branchesMap[activeTenant.id] || [],
+      branchStocks: branchStocksMap[activeTenant.id] || [],
+      branchStaffAssignments: branchStaffAssignmentsMap[activeTenant.id] || [],
+      products: productsMap[activeTenant.id] || [],
+      sales: nextTenantSales,
+      expenses: expensesMap[activeTenant.id] || [],
+      settings: systemSettings,
+      deliveries: deliveriesMap[activeTenant.id] || [],
+      pendingDeliveryNotes: pendingDeliveryNotesMap[activeTenant.id] || [],
+      purchases: purchasesMap[activeTenant.id] || [],
+      productTombstones: readLocalProductTombstones(activeTenant.id),
+      saleTombstones: readLocalSaleTombstones(activeTenant.id),
     });
+    if (!saleSaved) {
+      if (postedTreasuryJournalId) {
+        try {
+          await reverseTreasuryEntry(postedTreasuryJournalId, sale.id, 'Sale workspace save failed');
+        } catch (error) {
+          console.error('Failed to reverse treasury entry after sale save failure', error);
+        }
+      }
+      addToast('Sale could not be saved. Your cart is still available; please try again.', 'error');
+      return false;
+    }
+    setSalesMap(prev => ({ ...prev, [activeTenant.id]: nextTenantSales }));
 
     // Handle Global Owner Sale Notification
     try {
@@ -2395,7 +2666,13 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
 
     localWorkspaceChangedAtRef.current = Date.now();
     cloudWorkspaceLoadedRef.current = true;
-    const nextDeliveries = (deliveriesMap[activeTenant.id] || []).map(del =>
+    // Applied against whichever delivery list is passed in — used both for
+    // the immediate save below (pre-await snapshot) and again against the
+    // *latest* state once the save resolves, so a delivery added/edited
+    // elsewhere during the await isn't silently dropped by committing a
+    // stale pre-await snapshot back into React state (that stale commit
+    // would then get persisted for real by the reactive autosave effect).
+    const applyUpdate = (list: Delivery[]) => list.map(del =>
       del.id === deliveryId
         ? {
             ...del,
@@ -2409,6 +2686,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
           }
         : del
     );
+    const nextDeliveries = applyUpdate(deliveriesMap[activeTenant.id] || []);
     const saved = await saveTenantWorkspace(activeTenant.id, {
       branches: branchesMap[activeTenant.id] || [],
       branchStocks: branchStocksMap[activeTenant.id] || [],
@@ -2424,7 +2702,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       saleTombstones: readLocalSaleTombstones(activeTenant.id),
     });
     if (!saved) return false;
-    setDeliveriesMap(prev => ({ ...prev, [activeTenant.id]: nextDeliveries }));
+    setDeliveriesMap(prev => ({ ...prev, [activeTenant.id]: applyUpdate(prev[activeTenant.id] || []) }));
 
     const newLog: SyncLog = {
       id: 'l-' + Math.random().toString(36).substr(2, 9),
@@ -2485,7 +2763,14 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
 
     localWorkspaceChangedAtRef.current = Date.now();
     cloudWorkspaceLoadedRef.current = true;
-    setDeliveriesMap(previous => ({ ...previous, [tenantId]: nextDeliveries }));
+    // Filter against the *latest* state, not the pre-await nextDeliveries
+    // snapshot — a delivery added/edited elsewhere during the awaits above
+    // (save + treasury reversal) would otherwise be silently dropped when
+    // this commits, and then persisted as gone by the reactive autosave.
+    setDeliveriesMap(previous => ({
+      ...previous,
+      [tenantId]: (previous[tenantId] || []).filter(delivery => delivery.id !== deliveryId),
+    }));
     saveData(tenantId, 'deliveries_map', { [tenantId]: nextDeliveries });
 
     setLogs(previous => [{
@@ -2498,15 +2783,16 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     return true;
   };
 
-  const handleCreateProduct = (newProd: Product) => {
+  const handleCreateProducts = (newProducts: Product[]) => {
     if (blockOfflineBusinessWrite('product creation')) return;
 
-    const branchScopedProduct = {
+    if (newProducts.length === 0) return;
+    const branchScopedProducts = newProducts.map(newProd => ({
       ...newProd,
       branchId: activeBranchSelection.activeBranchId || undefined,
-    };
-    const updatedProducts = [branchScopedProduct, ...(productsMap[activeTenant.id] || [])];
-    const syncedProducts = persistTenantProductsNow(updatedProducts);
+    }));
+    const updatedProducts = [...branchScopedProducts, ...(productsMap[activeTenant.id] || [])];
+    const { products: syncedProducts } = persistTenantProductsNow(updatedProducts);
     setProductsMap(prev => {
       return {
         ...prev,
@@ -2523,10 +2809,14 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       id: 'l-' + Math.random().toString(36).substr(2, 9),
       type: 'product_update',
       status: 'success',
-      message: `Registered new catalog item: ${newProd.name} (Code: ${newProd.barcode || newProd.sku}) at branch ${activeTenant.name}.`,
+      message: `Registered ${branchScopedProducts.length} catalog item${branchScopedProducts.length === 1 ? '' : 's'} at branch ${activeTenant.name}.`,
       timestamp: new Date().toISOString()
     };
     setLogs(prev => [newLog, ...prev]);
+  };
+
+  const handleCreateProduct = (newProd: Product) => {
+    handleCreateProducts([newProd]);
   };
 
   const handleDeleteProduct = (id: string) => {
@@ -2547,7 +2837,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       return;
     }
     const updatedProducts = tenantProducts.filter(p => p.id !== id);
-    const syncedProducts = persistTenantProductsNow(updatedProducts);
+    const { products: syncedProducts } = persistTenantProductsNow(updatedProducts);
     setProductsMap(prev => {
       return {
         ...prev,
@@ -3018,17 +3308,30 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
 
   useEffect(() => {
     if (isTabAllowed(activeTab)) return;
-    const firstAllowed = visibleSidebarItems.find((item) => isTabAllowed(item.tabId || item.id));
-    if (firstAllowed?.tabId) setActiveTab(firstAllowed.tabId);
+    // Role/package data can briefly pass through its safe fallback while a
+    // realtime workspace payload is being merged. Redirecting synchronously
+    // during that transient frame ejects users from POS/forms back to Home.
+    // Re-check after the hydration burst; a genuinely forbidden route still
+    // redirects, while a temporary permission gap leaves navigation intact.
+    const redirectTimer = window.setTimeout(() => {
+      if (isTabAllowed(activeTab)) return;
+      const firstAllowed = visibleSidebarItems.find((item) => isTabAllowed(item.tabId || item.id));
+      if (firstAllowed?.tabId) setActiveTab(firstAllowed.tabId);
+    }, 800);
+    return () => window.clearTimeout(redirectTimer);
   }, [activeRoleName, activeTab, subStatus.plan.id, user.isSaaSStaff]);
 
   if (user.isDuress) {
     return <DuressDashboard onLogout={onLogout} onNavigate={onNavigate} />;
   }
 
+  if (user.role !== 'SuperAdmin' && !workspaceReady) {
+    return <WorkspaceBootstrapScreen />;
+  }
+
   return (
     <div id="dashboard-scaffold" className="w-full h-dvh bg-[#f5f6fa] dark:bg-slate-950 flex text-slate-800 dark:text-slate-200 font-sans antialiased overflow-hidden select-none">
-      
+
       {/* PWA install banner — shows after login, not on login page */}
       {user.role === 'SuperAdmin' ? (
         <PWAInstallBanner
@@ -3511,6 +3814,18 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
               ) : null}
             </div>
 
+            {/* Tablet only (this whole header is xl:hidden, so 768-1279px
+                here) — same subscription countdown badge desktop shows,
+                invisible until now because the desktop header it lived in is
+                hidden below 1280px. Phone stays hidden; that reminder goes
+                through notifications instead (see below). A custom class,
+                not hidden/md:flex — the tablet-native-mode block elsewhere
+                in index.css forces any literal .hidden.md\:flex back to
+                display:none. */}
+            <div className="tablet-subscription-badge shrink-0">
+              {renderSubscriptionCountdownBadge()}
+            </div>
+
             {/* Right: Search icon + Dark Mode + Language + Notification bell */}
             <div className="flex items-center space-x-1">
               <button className="p-2 text-slate-500 dark:text-slate-400 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors active:scale-90 cursor-pointer">
@@ -3592,30 +3907,36 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
               onReturnToDashboard={() => setActiveTab(getDefaultDashboardTab())}
             >
 
-            {isTrialAccessLocked ? (
-              <div className="min-h-[calc(100dvh-120px)]">
+            {isSubscriptionAccessLocked ? (
+              <div className="min-h-[calc(100dvh-120px)] px-4 py-6 sm:px-6 sm:py-8">
                 <section className="mx-auto flex w-full max-w-6xl flex-col gap-5">
-                  <div className="overflow-hidden rounded-[2rem] border border-slate-200 bg-slate-950 text-white shadow-xl dark:border-slate-800">
-                    <div className="grid gap-6 p-6 md:grid-cols-[1.15fr_0.85fr] md:p-8">
+                  <div className="relative overflow-hidden rounded-[2rem] border border-slate-800 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white shadow-2xl shadow-slate-950/20">
+                    <div className="pointer-events-none absolute -top-24 -right-24 h-72 w-72 rounded-full bg-emerald-500/20 blur-3xl" />
+                    <div className="pointer-events-none absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-cyan-500/10 blur-3xl" />
+                    <div className={`relative grid gap-6 p-6 md:p-8 ${isTrialAccount ? 'md:grid-cols-[1.15fr_0.85fr]' : ''}`}>
                       <div className="space-y-5">
                         <div className="inline-flex items-center gap-2 rounded-full border border-amber-400/25 bg-amber-400/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-amber-300">
                           <AlertTriangle className="h-3.5 w-3.5" />
-                          Trial expired
+                          {isTrialAccount ? 'Trial expired' : 'Subscription expired'}
                         </div>
                         <div className="space-y-2">
-                          <h2 className="text-3xl font-black tracking-tight md:text-4xl">Your Diamond free trial has ended</h2>
+                          <h2 className="text-3xl font-black tracking-tight md:text-4xl">
+                            {isTrialAccount ? 'Your Diamond free trial has ended' : `Your ${expiredPlan.name} package has expired`}
+                          </h2>
                           <p className="max-w-2xl text-sm leading-6 text-slate-300">
-                            During your free trial you were using the Diamond package experience for {trialDurationDays} days. Your business data is still preserved. Choose Ruby, Diamond, or Tanzanite below, submit payment proof, and continue with the package limits you select.
+                            {isTrialAccount
+                              ? `During your free trial you were using the Diamond package experience for ${trialDurationDays} days. Your business data is still preserved. Choose Ruby, Diamond, or Tanzanite below, submit payment proof, and continue with the package limits you select.`
+                              : `Your business data is still preserved. Renew ${expiredPlan.name}${expiredOnLabel ? ` (expired ${expiredOnLabel})` : ''} to continue exactly as before, or choose a different package below, submit payment proof, and continue with the package limits you select.`}
                           </p>
                         </div>
-                        <div className="grid gap-3 sm:grid-cols-3">
+                        <div className="subscription-stat-grid grid gap-3 sm:grid-cols-3">
                           <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Trial package</p>
-                            <p className="mt-1 text-lg font-black text-emerald-300">Diamond</p>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{isTrialAccount ? 'Trial package' : 'Current package'}</p>
+                            <p className="mt-1 text-lg font-black text-emerald-300">{isTrialAccount ? 'Diamond' : expiredPlan.name}</p>
                           </div>
                           <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Trial length</p>
-                            <p className="mt-1 text-lg font-black text-white">{trialDurationDays} days</p>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{isTrialAccount ? 'Trial length' : 'Status'}</p>
+                            <p className="mt-1 text-lg font-black text-white">{isTrialAccount ? `${trialDurationDays} days` : 'Expired'}</p>
                           </div>
                           <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
                             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Data status</p>
@@ -3623,29 +3944,39 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                           </div>
                         </div>
                       </div>
-                      <div className="rounded-3xl border border-amber-300/20 bg-amber-300/10 p-5">
-                        <h3 className="text-sm font-black uppercase tracking-wider text-amber-200">Before choosing Ruby</h3>
-                        <p className="mt-2 text-xs leading-5 text-amber-50/85">Ruby is cheaper, but because your trial was Diamond, these Diamond features will no longer be available on Ruby:</p>
-                        <ul className="mt-3 space-y-2 text-xs text-amber-50/90">
-                          {rubyDowngradeNotes.map((note) => <li key={note} className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-300" />{note}</li>)}
-                        </ul>
-                      </div>
+                      {isTrialAccount && (
+                        <div className="rounded-3xl border border-amber-300/20 bg-amber-300/10 p-5">
+                          <h3 className="text-sm font-black uppercase tracking-wider text-amber-200">Before choosing Ruby</h3>
+                          <p className="mt-2 text-xs leading-5 text-amber-50/85">Ruby is cheaper, but because your trial was Diamond, these Diamond features will no longer be available on Ruby:</p>
+                          <ul className="mt-3 space-y-2 text-xs text-amber-50/90">
+                            {rubyDowngradeNotes.map((note) => <li key={note} className="flex gap-2"><span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-300" />{note}</li>)}
+                          </ul>
+                        </div>
+                      )}
                     </div>
                   </div>
 
-                  <div className="grid gap-4 xl:grid-cols-3">
+                  <div className="subscription-plan-grid grid gap-4 md:grid-cols-3">
                     {([
-                      { id: 'ruby' as const, tag: 'Lower cost', tone: 'border-rose-200 bg-white', cta: 'Choose Ruby', notes: ['TZS 15,000 / month', '1,000 products', '1 store', '2 staff users'] },
-                      { id: 'diamond' as const, tag: 'Same as trial', tone: 'border-emerald-300 bg-emerald-50', cta: 'Keep Diamond', notes: ['TZS 30,000 / month', '5,000 products', 'Diamond Lucy AI', '5 staff users'] },
-                      { id: 'tanzanite' as const, tag: 'Full upgrade', tone: 'border-cyan-300 bg-white', cta: 'Upgrade Tanzanite', notes: ['TZS 50,000 / month', 'Unlimited products', 'Forecasting + higher Lucy limits', '15 staff users'] },
+                      { id: 'ruby' as const, tag: 'Lower cost', tone: 'border-rose-200 bg-white', trialCta: 'Choose Ruby', notes: ['TZS 15,000 / month', '1,000 products', '1 store', '2 staff users'] },
+                      { id: 'diamond' as const, tag: 'Same as trial', tone: 'border-emerald-300 bg-emerald-50', trialCta: 'Keep Diamond', notes: ['TZS 30,000 / month', '5,000 products', 'Diamond Lucy AI', '5 staff users'] },
+                      { id: 'tanzanite' as const, tag: 'Full upgrade', tone: 'border-cyan-300 bg-white', trialCta: 'Upgrade Tanzanite', notes: ['TZS 50,000 / month', 'Unlimited products', 'Forecasting + higher Lucy limits', '15 staff users'] },
                     ]).map((pkg) => {
                       const plan = SUBSCRIPTION_PLANS[pkg.id];
                       const isDiamond = pkg.id === 'diamond';
+                      const isCurrentPlan = !isTrialAccount && pkg.id === expiredPlanId;
+                      const cta = isTrialAccount ? pkg.trialCta : (isCurrentPlan ? `Renew ${plan.name}` : `Switch to ${plan.name}`);
+                      const tag = isTrialAccount ? pkg.tag : (isCurrentPlan ? 'Your current plan' : pkg.tag);
                       return (
-                        <article key={pkg.id} className={`rounded-3xl border p-5 shadow-sm ${pkg.tone}`}>
+                        <article key={pkg.id} className={`group relative flex h-full flex-col rounded-3xl border p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-xl ${pkg.tone} ${isDiamond ? 'ring-2 ring-emerald-400 md:scale-[1.03] md:hover:scale-[1.05]' : ''}`}>
+                          {isDiamond && (
+                            <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-emerald-600 px-3 py-1 text-[9px] font-black uppercase tracking-widest text-white shadow-md">
+                              Recommended
+                            </span>
+                          )}
                           <div className="flex items-center justify-between gap-3">
                             <div>
-                              <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-widest ${isDiamond ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600'}`}>{pkg.tag}</span>
+                              <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-widest ${isDiamond ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600'}`}>{tag}</span>
                               <h3 className="mt-3 text-2xl font-black text-slate-950">{plan.name}</h3>
                             </div>
                             <div className="text-right">
@@ -3670,27 +4001,18 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                               setManualActivationPackage(pkg.id);
                               setSubModal({
                                 show: true,
-                                title: `${pkg.cta}`,
+                                title: cta,
                                 limitType: 'expired',
                                 description: `Select ${plan.name}, pay, and upload your receipt for activation.`
                               });
                             }}
-                            className={`mt-5 w-full rounded-2xl px-4 py-3 text-sm font-black transition-colors ${isDiamond ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-slate-950 text-white hover:bg-slate-800'}`}
+                            className={`mt-5 md:mt-auto w-full rounded-2xl px-4 py-3 text-sm font-black transition-colors ${isDiamond ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-slate-950 text-white hover:bg-slate-800'}`}
                           >
-                            {pkg.cta}
+                            {cta}
                           </button>
                         </article>
                       );
                     })}
-                  </div>
-
-                  <div className="rounded-3xl border border-cyan-200 bg-cyan-50 p-5">
-                    <h3 className="text-sm font-black uppercase tracking-wider text-cyan-900">If you choose Tanzanite you gain</h3>
-                    <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                      {tanzaniteUpgradeNotes.map((note) => (
-                        <div key={note} className="rounded-2xl bg-white px-3 py-2 text-xs font-semibold text-cyan-950 shadow-sm">{note}</div>
-                      ))}
-                    </div>
                   </div>
                 </section>
               </div>
@@ -3742,6 +4064,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
               onUpdateStocks={handleUpdateActiveStocks}
               onAddSale={handleAddSale}
               systemSettings={systemSettings}
+              activeBranch={branchContextSelectedBranch}
               preloadedCart={preloadedCart}
               onClearPreloadedCart={() => setPreloadedCart(null)}
             />
@@ -3757,6 +4080,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                 persistSystemSettingsNow(updated);
               }}
               onAddProduct={handleCreateProduct}
+              onAddProducts={handleCreateProducts}
               onDeleteProduct={handleDeleteProduct}
               onUpdateProducts={handleUpdateActiveStocks}
               subscriptionStatus={subStatus}
@@ -3839,6 +4163,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                 || activeBranchBusinessName
                 || activeTenant.name
               }
+              activeBranch={branchContextSelectedBranch}
             />
           )}
 
@@ -3867,12 +4192,13 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
               purchases={activePurchases}
               deliveries={activeDeliveries}
               systemSettings={systemSettings}
+              activeBranch={branchContextSelectedBranch}
             />
           )}
 
           {/* TAB ROOT: High-Fidelity Sales Receipts History list */}
           {activeTab === 'sales-list' && (
-            <DashboardSalesList 
+            <DashboardSalesList
               activeTenant={activeTenant}
               sales={activeSales}
               onUpdateSales={handleUpdateSales}
@@ -3881,6 +4207,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
               products={activeProducts}
               allTenantProducts={productsMap[activeTenant.id] || []}
               activeBranchId={activeBranchSelection.activeBranchId}
+              activeBranch={branchContextSelectedBranch}
               systemSettings={systemSettings}
               onPreloadCartForPOS={(items, backdate, options) => {
                 setPreloadedCart({ items, backdate, ...options });
@@ -3923,6 +4250,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
               suppliers={activeSuppliers}
               purchases={activePurchases}
               systemSettings={systemSettings}
+              activeBranch={branchContextSelectedBranch}
             />
           )}
 
@@ -3988,6 +4316,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
               sales={activeSales}
               expenses={activeExpenses}
               activeTenant={activeTenant}
+              activeBranchId={activeBranchSelection.activeBranchId}
               deliveries={activeDeliveries}
               onPayStaff={handleAddExpense}
               payrollEnabled={subStatus.plan.id === 'tanzanite'}
@@ -4262,7 +4591,6 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                   { id: 'admin-settings',   label: 'Settings',    icon: SettingsIcon,desc: 'System configuration',      color: 'text-slate-600 dark:text-slate-400', bg: 'bg-slate-100 dark:bg-slate-800' },
                   { id: 'install-orvix-app', label: 'Install Admin App', icon: Download, desc: 'Add Super Admin to your home screen', color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10', alwaysShow: true },
                 ] : [
-                  { id: 'sync', label: 'Sync', icon: RefreshCw, desc: isOfflineMode ? 'You are offline' : 'All data synced', color: isOfflineMode ? 'text-amber-600' : 'text-emerald-600', bg: isOfflineMode ? 'bg-amber-50 dark:bg-amber-500/10' : 'bg-emerald-50 dark:bg-emerald-500/10' },
                   { id: 'settings', label: 'Settings', icon: SettingsIcon, desc: 'Manage your business settings', color: 'text-slate-600 dark:text-slate-400', bg: 'bg-slate-100 dark:bg-slate-800' },
                   { id: 'subscription-modal', label: 'Subscription', icon: CardIcon, desc: 'Pay online or upload an offline receipt', color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10', alwaysShow: true },
                   { id: 'install-orvix-app', label: 'Install Orvix App', icon: Download, desc: 'Add this app to your home screen', color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10', alwaysShow: true },
@@ -4456,7 +4784,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                     </div>
 
                     {onlinePaymentMessage ? (
-                      <p className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-semibold leading-5 text-amber-800">{onlinePaymentMessage}</p>
+                      <p className={`mt-3 rounded-2xl border px-4 py-3 text-xs font-semibold leading-5 ${onlinePaymentMessage.startsWith('Processing your payment') ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-amber-200 bg-amber-50 text-amber-800'}`}>{onlinePaymentMessage}</p>
                     ) : null}
 
                     <button
@@ -4469,7 +4797,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                     </button>
 
                     <a
-                      href="https://wa.me/255655746552?text=Hello%20Jasper%20Deployments%2C%20I%20need%20help%20with%20subscription%20payment."
+                      href="https://wa.me/255655746552?text=Hello%20Orvix%20Deployments%2C%20I%20need%20help%20with%20subscription%20payment."
                       target="_blank"
                       rel="noopener noreferrer"
                       className="mt-3 flex min-h-12 items-center justify-center gap-2 rounded-2xl text-sm font-bold text-emerald-700 transition-colors hover:bg-emerald-50"
@@ -4516,7 +4844,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                       />
                       <div className="flex min-h-14 items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 text-slate-600">
                         <CloudLightning className="h-5 w-5" />
-                        <span className="truncate text-xs font-bold">{manualActivationReceipt ? manualActivationReceipt.name : 'Upload PNG, JPG or WebP receipt (max 2 MB)'}</span>
+                        <span className="truncate text-xs font-bold">{manualActivationReceipt ? manualActivationReceipt.name : 'Click here to upload a receipt image (PNG, JPG, or WebP, max 2 MB)'}</span>
                       </div>
                     </div>
 
@@ -4524,13 +4852,13 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                       type="button"
                       onClick={() => submitManualActivationRequest(selectedPlanId)}
                       disabled={manualActivationSubmitting}
-                      className="subscription-desktop-action mt-3 min-h-14 w-full rounded-2xl bg-slate-950 px-5 text-sm font-black text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="subscription-desktop-action mt-3 min-h-14 w-full cursor-pointer rounded-2xl bg-slate-950 px-5 text-sm font-black text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {manualActivationSubmitting ? 'Sending…' : 'Submit receipt for activation'}
                     </button>
 
                     {manualActivationMessage ? (
-                      <p className="mt-3 rounded-2xl bg-slate-100 px-4 py-3 text-xs font-semibold leading-5 text-slate-700">{manualActivationMessage}</p>
+                      <p className={`mt-3 rounded-2xl px-4 py-3 text-xs font-semibold leading-5 ${manualActivationMessage.includes('has been sent') ? 'border border-emerald-200 bg-emerald-50 text-emerald-800' : 'border border-amber-200 bg-amber-50 text-amber-800'}`}>{manualActivationMessage}</p>
                     ) : null}
 
                     <a
@@ -4563,7 +4891,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                   type="button"
                   onClick={() => submitManualActivationRequest(selectedPlanId)}
                   disabled={manualActivationSubmitting}
-                  className="min-h-14 w-full rounded-2xl bg-slate-950 px-5 text-sm font-black text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+                  className="min-h-14 w-full cursor-pointer rounded-2xl bg-slate-950 px-5 text-sm font-black text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {manualActivationSubmitting ? 'Sending…' : 'Submit receipt for activation'}
                 </button>
@@ -4638,7 +4966,32 @@ export default function Dashboard(props: DashboardProps) {
   const tenantKey = props.user.activeTenant || props.user.tenantId;
   return (
     <BranchProvider tenantKey={tenantKey}>
-      <DashboardContent {...props} />
+      <TenantDashboardGate {...props} />
     </BranchProvider>
   );
+}
+
+function WorkspaceBootstrapScreen() {
+  const { logoUrl } = useTenantLogo();
+
+  return (
+    <div className="flex min-h-[100dvh] w-full items-center justify-center bg-slate-50 px-6 dark:bg-slate-950">
+      <div role="status" aria-label="Loading business" className="flex flex-col items-center">
+        <img
+          src={logoUrl || '/icon-512.png'}
+          alt=""
+          className="max-h-28 w-auto max-w-[min(70vw,18rem)] animate-pulse object-contain"
+        />
+        <span className="sr-only">Loading…</span>
+      </div>
+    </div>
+  );
+}
+
+function TenantDashboardGate(props: DashboardProps) {
+  const branchContext = useBranchContext();
+  if (!branchContext.snapshot) {
+    return <WorkspaceBootstrapScreen />;
+  }
+  return <DashboardContent {...props} />;
 }

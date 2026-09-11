@@ -69,7 +69,7 @@ test('v3 bootstrap omits paginated ledgers only after normalized verification', 
 
 test('client batches normalized page reads and preserves the full ledger set', () => {
   assert.match(client, /PAGINATED_WORKSPACE_COLLECTIONS/);
-  assert.match(client, /WORKSPACE_PAGE_SIZE = 200/);
+  assert.match(client, /WORKSPACE_PAGE_SIZE = 1000/);
   assert.match(client, /Promise\.all\(pending\.map/);
   assert.match(client, /mergePageRecords/);
   assert.match(client, /page\.hasMore && page\.nextCursor/);

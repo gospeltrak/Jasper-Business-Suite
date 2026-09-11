@@ -30,6 +30,7 @@ import {
   Sparkle
 } from 'lucide-react';
 import { Tenant, User as AppUser, SyncLog } from '../types';
+import { formatLocalDate, parseLocalDate } from '../utils/localDate';
 
 interface DashboardHotelPMSProps {
   activeTenant: Tenant;
@@ -161,7 +162,7 @@ export default function DashboardHotelPMS({ activeTenant, currentUser, onAddSync
     for (let i = 0; i < 7; i++) {
       const d = new Date(base);
       d.setDate(base.getDate() + i);
-      dates.push(d.toISOString().split('T')[0]);
+      dates.push(formatLocalDate(d));
     }
     setCalendarDates(dates);
   }, []);
@@ -229,7 +230,7 @@ export default function DashboardHotelPMS({ activeTenant, currentUser, onAddSync
     // Auto-calculate check out as next day
     const d = new Date(date);
     d.setDate(d.getDate() + 2);
-    setCheckOutDate(d.toISOString().split('T')[0]);
+    setCheckOutDate(formatLocalDate(d));
     setIsNewBookingModalOpen(true);
   };
 
@@ -242,8 +243,8 @@ export default function DashboardHotelPMS({ activeTenant, currentUser, onAddSync
     const cost = matchedRoom ? matchedRoom.pricePerNight * surgeMultiplier : 8000;
     
     // Stay duration
-    const start = new Date(checkInDate);
-    const end = new Date(checkOutDate);
+    const start = parseLocalDate(checkInDate);
+    const end = parseLocalDate(checkOutDate);
     const nights = Math.max(1, Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
     const totalCharge = cost * nights;
 

@@ -145,6 +145,9 @@ test('tenant image uploads require JSON, tenant authorization, and verified file
 
 test('repository verification blocks tracked secrets and exposes a production dependency audit', () => {
   assert.match(repositoryAudit, /git', \['ls-files', '-z'\]/);
+  assert.match(repositoryAudit, /Vercel source archives intentionally omit \.git/);
+  assert.match(repositoryAudit, /fs\.readdirSync\(directory, \{ withFileTypes: true \}\)/);
+  assert.match(repositoryAudit, /ignoredDirectories\.has\(entry\.name\)/);
   assert.match(repositoryAudit, /\.env\.example/);
   assert.match(repositoryAudit, /PRIVATE KEY/);
   assert.match(repositoryAudit, /Secret values are intentionally redacted/);
@@ -206,8 +209,10 @@ test('manual receipts are optimized images and payment approval cannot change th
 test('system error pages are localized and never render technical error details', () => {
   for (const status of [401, 403, 404, 500]) assert.match(systemErrorPage, new RegExp(`${status}:`));
   assert.match(systemErrorPage, /en:[\s\S]*sw:[\s\S]*fr:/);
-  assert.match(appErrorBoundary, /<SystemErrorPage status=\{500\}/);
-  assert.match(dashboardErrorBoundary, /<SystemErrorPage status=\{500\}/);
+  assert.match(appErrorBoundary, /Orvix inarudisha mfumo wako/);
+  assert.match(dashboardErrorBoundary, /Tunarudisha sehemu yako/);
+  assert.doesNotMatch(appErrorBoundary, /SystemErrorPage status=\{500\}/);
+  assert.doesNotMatch(dashboardErrorBoundary, /SystemErrorPage status=\{500\}/);
   assert.doesNotMatch(appErrorBoundary, /this\.state\.error\.message|componentStack/);
   assert.doesNotMatch(dashboardErrorBoundary, /developmentError|this\.state\.error\.message/);
   assert.match(server, /app\.use\('\/api'[\s\S]*'NOT_FOUND', 404/);

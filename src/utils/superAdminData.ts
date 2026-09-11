@@ -1,5 +1,6 @@
 import { getSecureDataBridgeClient } from '../secureDataBridge';
 import { isEarnedCommissionStatus, isPaidPayoutStatus, isSettledPaymentStatus } from './financialStatus';
+import { formatLocalDate } from './localDate';
 
 export interface SuperAdminOverview {
   tenants: any[];
@@ -38,6 +39,7 @@ export interface SuperAdminUserRow {
   paymentMethod: string;
   dateCreated: string;
   status: 'Active' | 'Suspended' | 'Expired';
+  businessType: 'retail' | 'pharmacy';
   // Location — from tenant business setup, GPS, or region fields
   location: string;            // human-readable label shown in table
   locationSource: 'gps' | 'business_setup' | 'manual' | 'none';
@@ -392,6 +394,31 @@ export async function activateTenantPackage(
   });
 }
 
+export async function sendSuperAdminNotification(payload: {
+  tenantIds: string[];
+  title: string;
+  message: string;
+  priority?: 'low' | 'normal' | 'high' | 'critical';
+}) {
+  return apiRequest('/api/super-admin/notifications', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function sendSuperAdminAffiliateNotification(payload: {
+  affiliateIds: string[];
+  partnerIds: string[];
+  title: string;
+  message: string;
+  priority?: 'low' | 'normal' | 'high' | 'critical';
+}) {
+  return apiRequest('/api/super-admin/affiliate-notifications', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function configureTenantBranchCapacity(
   tenantId: string,
   payload: {
@@ -414,7 +441,7 @@ export async function configureMultiBranchRollout(payload: { enabled: boolean; r
 }
 
 const money = (value: unknown) => Number(value || 0);
-const formatDate = (value: unknown) => value ? new Date(String(value)).toISOString().slice(0, 10) : '';
+const formatDate = (value: unknown) => value ? formatLocalDate(String(value)) : '';
 const formatDateTime = (value: unknown) => value ? new Date(String(value)).toISOString().replace('T', ' ').slice(0, 16) : '';
 const isPlatformUser = (user: any) => {
   const accountType = String(user?.account_type || '').toLowerCase();
@@ -860,6 +887,7 @@ export function mapSuperAdminUsers(overview: SuperAdminOverview): SuperAdminUser
         paymentMethod: readTenantSettings(tenant)?.paymentMethod || 'Not recorded',
         dateCreated: formatDate(user.created_at || tenant?.created_at),
         status: (user.is_active === false ? 'Suspended' : 'Active') as SuperAdminUserRow['status'],
+        businessType: (tenant?.business_type === 'pharmacy' ? 'pharmacy' : 'retail') as SuperAdminUserRow['businessType'],
         ...resolveLocation(tenant, user),
         // Last activity is the latest cloud heartbeat, not tenant metadata or
         // the time at which an old session originally logged in.
@@ -939,6 +967,7 @@ export function mapSuperAdminUsers(overview: SuperAdminOverview): SuperAdminUser
         paymentMethod: readTenantSettings(tenant)?.paymentMethod || 'Not recorded',
         dateCreated: formatDate(tenant.created_at),
         status: (tenant.is_active === false ? 'Suspended' : 'Active') as SuperAdminUserRow['status'],
+        businessType: (tenant?.business_type === 'pharmacy' ? 'pharmacy' : 'retail') as SuperAdminUserRow['businessType'],
         ...resolveLocation(tenant, {}),
         lastActivity,
         lastActivityLabel: activityLabel(lastActivity, tenantIsOnline),

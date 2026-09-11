@@ -109,6 +109,19 @@ const normalizeProductStoreSettings = (settings?: Partial<ProductStoreSettings>)
 
 const SETTINGS_DRAFT_PROTECTION_MS = 15000;
 
+// Store Locations (registeredStores) is a legacy stock-bin concept, unrelated
+// to the real Tanzanite Branches feature (separate `branches` table, its own
+// entitlement/limit, its own Settings screen). Its embedded "Branch Logos"
+// sub-panel in particular was a naive stand-in that never followed the
+// tenant's actual active branch — see docs/multi-branch-audit-plan.md,
+// "Existing branch-like concepts that must remain independent" and gap
+// High-7. Hidden here (not deleted) while real per-branch logo support is
+// built on the `branches` table; existing registeredStores/branchBranding
+// data is left untouched so nothing already saved is lost, and the product
+// destination picker (Shop/Store in Purchases) is a separate hardcoded
+// concept unaffected by this toggle.
+const SHOW_LEGACY_STORE_LOCATIONS = false;
+
 export default function DashboardSettings({ 
   activeTenant, 
   systemSettings, 
@@ -124,7 +137,7 @@ export default function DashboardSettings({
   const incomingSettingsSyncRef = useRef(false);
   const settingsDraftTouchedAtRef = useRef(0);
   // Navigation tabs for Settings
-  const [activeSubTab, setActiveSubTab] = useState<'company' | 'business' | 'product-store' | 'invoice-settings' | 'hrm' | 'roles' | 'notifications' | 'branches'>('company');
+  const [activeSubTab, setActiveSubTab] = useState<'company' | 'business' | 'product-store' | 'invoice-settings' | 'roles' | 'notifications' | 'branches'>('company');
   const [isMobileSettingsMenuOpen, setIsMobileSettingsMenuOpen] = useState(true);
   const [settingsSearchTerm, setSettingsSearchTerm] = useState('');
   
@@ -188,10 +201,12 @@ export default function DashboardSettings({
   });
 
   const [viewingStaffReport, setViewingStaffReport] = useState<StaffSettings | null>(null);
+  // A brand-new tenant starts with zero roles — they build their own from
+  // scratch (see "Create New Role" below) rather than the system silently
+  // seeding a fixed preset list. A tenant that already has real, saved
+  // roles (customRoles.length > 0) is completely unaffected by this.
   const [customRolesList, setCustomRolesList] = useState<CustomRole[]>(() => {
-    const roles = systemSettings?.customRoles && systemSettings?.customRoles.length > 0
-      ? systemSettings?.customRoles
-      : DEFAULT_CUSTOM_ROLES;
+    const roles = systemSettings?.customRoles || [];
     if (activeTenant.businessType === 'restaurant') {
       return roles.map(r => r.name === 'Seller' ? { ...r, name: 'Waiter' } : r);
     }
@@ -349,6 +364,7 @@ export default function DashboardSettings({
   };
 
   const handleTogglePermission = (roleId: string, module: string, permissionType: 'read' | 'write' | 'edit') => {
+    markSettingsDraftChanged();
     setCustomRolesList(prev => prev.map(r => {
       if (r.id === roleId) {
         const currentModPerms = (r.permissions as any)[module] || { read: false, write: false, edit: false };
@@ -442,8 +458,14 @@ export default function DashboardSettings({
   };
 
   const handleDeleteRole = (id: string) => {
-    if (['role-admin', 'role-manager', 'role-cashier', 'role-seller'].includes(id)) {
-      alert("Preset baseline system roles are read-only-locked to preserve checkout safety!");
+    // No hardcoded preset IDs are protected anymore — every role here is
+    // one the tenant created themselves. The only real safety guard is not
+    // orphaning a staff member who currently holds this role, since an
+    // unmatched role string silently resolves to zero permissions.
+    const role = customRolesList.find(r => r.id === id);
+    const assignedCount = role ? staffsList.filter(s => s.role === role.name).length : 0;
+    if (assignedCount > 0) {
+      alert(`This role is assigned to ${assignedCount} staff member${assignedCount === 1 ? '' : 's'}. Reassign them to a different role before deleting it.`);
       return;
     }
     const remaining = customRolesList.filter(r => r.id !== id);
@@ -463,9 +485,7 @@ export default function DashboardSettings({
     setBusinessForm(normalizeBusinessSettings(systemSettings?.business));
     setProductForm(normalizeProductStoreSettings(systemSettings?.productStore));
     setStaffsList(systemSettings?.staffs || []);
-    setCustomRolesList(systemSettings?.customRoles && systemSettings.customRoles.length > 0
-      ? systemSettings?.customRoles
-      : DEFAULT_CUSTOM_ROLES);
+    setCustomRolesList(systemSettings?.customRoles || []);
     setInvoiceSettingsForm(systemSettings?.invoiceSettings || {});
     setPosSettingsForm({
       showProductImages: systemSettings?.posSettings?.showProductImages !== false,
@@ -536,10 +556,17 @@ export default function DashboardSettings({
             setBusinessForm(nextBusinessForm);
             persistBusinessSettings(nextBusinessForm);
           } else if (target === 'business_dark') {
+            // Deliberately does NOT fall back into the general `businessLogo`
+            // field the way the light-logo branch below does. `businessLogo`
+            // is the "safe on a white background" fallback used by Reports
+            // and the Light Theme preview card — leaking a dark-theme logo
+            // (which can carry a baked-in dark/black background) into it
+            // reproduces the exact black-logo-box artifact those call sites
+            // exist to avoid. Places that do want the dark logo already read
+            // `businessLogoDark` directly (see getBusinessLogo()).
             const nextBusinessForm = {
               ...businessForm,
-              businessLogoDark: urlToUse,
-              businessLogo: businessForm.businessLogo || urlToUse
+              businessLogoDark: urlToUse
             };
             setBusinessForm(nextBusinessForm);
             persistBusinessSettings(nextBusinessForm);
@@ -767,95 +794,6 @@ export default function DashboardSettings({
     persistProductStoreSettings(nextProductForm);
   };
 
-  // HRM states for registering staffs
-  const [credentialEditStaffId, setCredentialEditStaffId] = useState('');
-  const [credentialEditPhone, setCredentialEditPhone] = useState('');
-  const [staffForm, setStaffForm] = useState({
-    name: '',
-    phone: '',
-    role: (activeTenant.businessType === 'restaurant' ? 'Waiter' : 'Seller') as StaffSettings['role'],
-    salary: 0,
-    profileImage: '',
-    signatureImage: ''
-  });
-
-  const openStaffCredentialEditor = (staff: StaffSettings) => {
-    const isOpen = credentialEditStaffId === staff.id;
-    setCredentialEditStaffId(isOpen ? '' : staff.id);
-    setCredentialEditPhone(isOpen ? '' : staff.phone);
-  };
-
-  const persistStaffsList = (updatedStaffs: StaffSettings[]) => {
-    setStaffsList(updatedStaffs);
-    onSaveSettings(buildSettingsSnapshot({
-      staffs: updatedStaffs,
-    }));
-  };
-
-  const handleSaveStaffCredentials = (staffId: string) => {
-    if (!credentialEditPhone.trim()) return;
-    const updatedStaffs = staffsList.map(staff =>
-      staff.id === staffId
-        ? {
-            ...staff,
-            phone: credentialEditPhone.trim(),
-          }
-        : staff
-    );
-    persistStaffsList(updatedStaffs);
-    setCredentialEditStaffId('');
-    setCredentialEditPhone('');
-    setSaveSuccess('Staff login ID updated. Use Staff Members to issue a secure Google invitation.');
-    setTimeout(() => setSaveSuccess(null), 3500);
-  };
-
-  const handleStaffImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: 'profileImage' | 'signatureImage') => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const compressed = await compressImageFile(file, { maxWidth: 512, maxHeight: 512, quality: 0.72 });
-    setStaffForm(prev => ({ ...prev, [field]: compressed }));
-  };
-
-  const handleRegisterStaff = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!staffForm.name || !staffForm.phone) return;
-
-    if (subscriptionStatus) {
-      if (subscriptionStatus.isExpired) {
-        onTriggerUpgrade?.('expired');
-        return;
-      }
-      if (staffsList.length >= subscriptionStatus.plan.maxStaff) {
-        onTriggerUpgrade?.('staff');
-        return;
-      }
-    }
-
-    const newStaff: StaffSettings = {
-      id: 'staff-' + Math.random().toString(36).substr(2, 9),
-      name: staffForm.name,
-      phone: staffForm.phone,
-      role: staffForm.role,
-      salary: Number(staffForm.salary) || 0,
-      profileImage: staffForm.profileImage,
-      signatureImage: staffForm.signatureImage
-    };
-
-    persistStaffsList([...staffsList, newStaff]);
-    setStaffForm({
-      name: '',
-      phone: '',
-      role: activeTenant.businessType === 'restaurant' ? 'Waiter' : 'Seller',
-      salary: 0,
-      profileImage: '',
-      signatureImage: ''
-    });
-  };
-
-  const handleRemoveStaff = (id: string) => {
-    persistStaffsList(staffsList.filter(s => s.id !== id));
-  };
-
   // Global Save triggers
   const triggerSaveAll = async () => {
     let nextBusinessForm = businessForm;
@@ -896,7 +834,6 @@ export default function DashboardSettings({
     { id: 'business', label: 'Business Setup', shortLabel: 'Business', description: 'Brand, payment modes, stores', icon: Briefcase },
     { id: 'product-store', label: 'Product & Store Units', shortLabel: 'Stores', description: 'Units, product behavior, inventory bins', icon: Package },
     { id: 'invoice-settings', label: 'Invoice Settings', shortLabel: 'Invoice', description: 'Receipt branding and invoice fields', icon: FileText },
-    { id: 'hrm', label: 'HRM Permanent Staffs', shortLabel: 'Staff', description: 'Workers, roles, salaries, signatures', icon: Users },
     { id: 'roles', label: 'Staff Roles & Access', shortLabel: 'Access', description: 'Permissions and private role presets', icon: ShieldCheck },
     { id: 'notifications', label: 'Alerts & Reports', shortLabel: 'Alerts', description: 'Notification channels and reports', icon: Bell },
     { id: 'branches', label: 'Branches', shortLabel: 'Branches', description: 'Independent branch workspaces and access', icon: Building2, premium: true }
@@ -1463,7 +1400,7 @@ export default function DashboardSettings({
                     <span className="shrink-0 border-l border-slate-200 px-3 py-2.5 text-[11px] font-black text-slate-400">.{baseDomain}</span>
                   </div>
                   <p className="text-[10px] font-medium leading-relaxed text-slate-500">
-                    This will be your domain name. Example: <span className="font-black text-slate-700">lim.{baseDomain}</span>. Once saved, it cannot be changed.
+                    This will be your domain name. Example: <span className="font-black text-slate-700">yourname.{baseDomain}</span>. Once saved, it cannot be changed.
                   </p>
                   {currentBusinessDomain && (
                     <p className="text-[10px] font-black text-emerald-600">
@@ -1626,20 +1563,35 @@ export default function DashboardSettings({
                   </p>
                 </div>
 
-                <label className="flex items-center justify-between gap-4 bg-white border border-slate-220 rounded-2xl p-4 cursor-pointer">
+                <div className="flex items-center justify-between gap-4 bg-white border border-slate-220 rounded-2xl p-4">
                   <div className="min-w-0">
                     <span className="block text-xs font-black text-slate-800 uppercase tracking-wide">Show product pictures in POS</span>
                     <span className="block text-[10.5px] text-slate-500 mt-0.5">
                       Turn off to show a clean product list without images.
                     </span>
                   </div>
-                  <input
-                    type="checkbox"
-                    checked={posSettingsForm.showProductImages}
-                    onChange={(e) => setPosSettingsForm(prev => ({ ...prev, showProductImages: e.target.checked }))}
-                    className="w-5 h-5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 shrink-0"
-                  />
-                </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      // A native <input type="checkbox"> fires a DOM `change` event
+                      // that the settings shell's draft-protection guard listens for
+                      // (onChangeCapture, further down this file) to stop an incoming
+                      // settings sync from silently reverting an unsaved edit. This
+                      // custom button doesn't fire that event, so it must mark the
+                      // draft changed itself -- the exact bug already fixed once for
+                      // the Roles & Permissions checkboxes (bfd0d46).
+                      markSettingsDraftChanged();
+                      setPosSettingsForm(prev => ({ ...prev, showProductImages: !prev.showProductImages }));
+                    }}
+                    aria-pressed={posSettingsForm.showProductImages}
+                    aria-label="Show product pictures in POS"
+                    className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md border-2 transition-colors cursor-pointer ${
+                      posSettingsForm.showProductImages ? 'border-emerald-600 bg-emerald-600' : 'border-slate-300 bg-white'
+                    }`}
+                  >
+                    {posSettingsForm.showProductImages && <Check className="h-4 w-4 text-white" strokeWidth={3} />}
+                  </button>
+                </div>
               </div>
 
               {/* Payment modes register */}
@@ -1753,6 +1705,7 @@ export default function DashboardSettings({
               </div>
 
               {/* Stores Register */}
+              {SHOW_LEGACY_STORE_LOCATIONS && (
               <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4">
                 <div>
                   <h4 className="text-xs font-bold uppercase text-slate-700 font-mono flex items-center space-x-2">
@@ -1897,6 +1850,7 @@ export default function DashboardSettings({
                   )}
                 </div>
               </div>
+              )}
 
             </div>
           )}
@@ -2236,390 +2190,42 @@ export default function DashboardSettings({
             </div>
           )}
 
-          {/* TAB 4: HRM SETTINGS */}
-          {activeSubTab === 'hrm' && (
+          {/* TAB 5: CUSTOM ROLES MANAGEMENT */}
+          {activeSubTab === 'roles' && customRolesList.length === 0 && (
             <div className="bg-white rounded-2xl md:rounded-3xl border border-slate-200 p-4 sm:p-6 space-y-6 shadow-sm">
               <div className="border-b border-slate-100 pb-4">
-                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider font-mono">👥 HRM Permanent Staff Registry</h3>
-                <p className="text-xs text-slate-500 mt-1 font-sans">
-                  Register {activeTenant.businessType === 'restaurant' ? 'waiters' : 'sellers'}, permanent shop drivers, cashiers, and managers. Set their name, contact phone, login credentials, and default salary tiers.
+                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider font-mono">🛡️ System Security Roles & Permissions</h3>
+                <p className="text-xs text-slate-455 mt-1 font-sans">
+                  Construct fine-grain security roles for your floor {activeTenant.businessType === 'restaurant' ? 'waiters' : 'sellers'}, cashiers, and managers. Assign permissions checkmark-by-checkmark to restrict access to secret revenues, cost of goods (Cost of Goods), or system setup.
                 </p>
               </div>
-
-              {/* Staff Registry Form */}
-              <form onSubmit={handleRegisterStaff} className="bg-slate-50 border border-slate-200 rounded-2xl p-4 sm:p-5 space-y-4">
-                <h4 className="text-xs font-extrabold uppercase text-slate-700 font-mono">Add New Staff</h4>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-xs font-sans">
-                  
-                  <div className="space-y-1">
-                    <label className="text-[10px] uppercase font-bold text-slate-455 font-mono">Full Name</label>
-                    <input
-                      type="text"
-                      value={staffForm.name}
-                      onChange={(e) => setStaffForm(prev => ({ ...prev, name: e.target.value }))}
-                      placeholder="e.g. Jane Doe"
-                      className="w-full px-3 py-3 sm:py-2 bg-white border border-slate-200 rounded-xl font-semibold outline-none focus:ring-1 focus:ring-emerald-500 min-h-[46px] sm:min-h-0"
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[10px] uppercase font-bold text-slate-455 font-mono">Phone Number (Login ID)</label>
-                    <input
-                      type="text"
-                      value={staffForm.phone}
-                      onChange={(e) => setStaffForm(prev => ({ ...prev, phone: e.target.value }))}
-                      placeholder="e.g. +254 700 000000"
-                      className="w-full px-3 py-3 sm:py-2 bg-white border border-slate-200 rounded-xl font-semibold outline-none focus:ring-1 focus:ring-emerald-500 min-h-[46px] sm:min-h-0"
-                      required
-                    />
-                  </div>
-
-                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-xs font-bold text-emerald-800">
-                    Passwords are not stored here. Issue a secure Google invitation from Staff Members.
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[10px] uppercase font-bold text-slate-455 font-mono">System Role Badge</label>
-                    <select
-                      value={staffForm.role}
-                      onChange={(e) => setStaffForm(prev => ({ ...prev, role: e.target.value }))}
-                      className="w-full px-3 py-3 sm:py-2 bg-white border border-slate-220 rounded-xl font-extrabold outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer text-xs text-slate-705 min-h-[46px] sm:min-h-0"
-                    >
-                      {customRolesList.map(role => (
-                        <option key={role.id} value={role.name}>
-                          {role.name}
-                        </option>
-                      ))}
-                      <option value="Delivery Rider / Permanent Driver">Delivery Rider / Permanent Driver</option>
-                    </select>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[10px] uppercase font-bold text-slate-455 font-mono">Monthly Salary Value</label>
-                    <div className="flex bg-white border border-slate-200 rounded-xl overflow-hidden font-mono font-bold">
-                      <span className="px-3 py-2 bg-slate-100 text-slate-500 text-[10.5px] border-r border-slate-200 select-none">
-                        {companyForm.currency}
-                      </span>
-                      <input
-                        type="number"
-                        min="0"
-                        value={staffForm.salary || ''}
-                        onChange={(e) => setStaffForm(prev => ({ ...prev, salary: Number(e.target.value) }))}
-                        placeholder="e.g. 15000"
-                        className="w-full px-3 py-2 bg-transparent outline-none text-xs"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[10px] uppercase font-bold text-slate-455 font-mono">Profile Photo</label>
-                    <div className="flex items-center space-x-2 bg-white rounded-xl border border-slate-200 p-1.5 h-10 overflow-hidden">
-                      <div className="relative w-7 h-7 rounded-full bg-slate-100 border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center">
-                        {staffForm.profileImage ? (
-                          <img src={staffForm.profileImage} className="w-full h-full object-cover" alt="Profile" />
-                        ) : (
-                          <User className="w-3.5 h-3.5 text-slate-400" />
-                        )}
-                      </div>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => handleStaffImageUpload(e, 'profileImage')}
-                        className="w-full text-[10px] text-slate-500 file:mr-1 file:py-0.5 file:px-1.5 file:rounded-lg file:border-0 file:text-[9px] file:font-bold file:bg-slate-200 file:text-slate-700 hover:file:bg-slate-300 cursor-pointer"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[10px] uppercase font-bold text-slate-455 font-mono">Signature Image</label>
-                    <div className="flex items-center space-x-2 bg-white rounded-xl border border-slate-200 p-1.5 h-10 overflow-hidden">
-                      <div className="relative w-7 h-7 rounded-lg bg-slate-100 border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center">
-                        {staffForm.signatureImage ? (
-                          <img src={staffForm.signatureImage} className="w-full h-full object-contain" alt="Signature" />
-                        ) : (
-                          <span className="text-[8px] text-slate-400 font-bold uppercase font-mono">None</span>
-                        )}
-                      </div>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => handleStaffImageUpload(e, 'signatureImage')}
-                        className="w-full text-[10px] text-slate-500 file:mr-1 file:py-0.5 file:px-1.5 file:rounded-lg file:border-0 file:text-[9px] file:font-bold file:bg-slate-200 file:text-slate-700 hover:file:bg-slate-300 cursor-pointer"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex items-end">
-                    <button
-                      type="submit"
-                    className="w-full min-h-[48px] py-3 sm:py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-black text-xs uppercase rounded-2xl sm:rounded-xl shadow-xs cursor-pointer transition-all flex items-center justify-center space-x-1.5"
-                    >
-                      <Plus className="w-4 h-4" />
-                      <span>Register Staff</span>
-                    </button>
-                  </div>
-
-                </div>
-              </form>
-
-              {/* Registered staffs table list */}
-              <div className="space-y-3.5">
-                <span className="block text-[10px] uppercase font-black text-slate-400 font-mono tracking-wider">Registered Staff Accounts ({staffsList.length})</span>
-                
-                <div className="hidden xl:block overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-xs">
-                  <table className="w-full text-left border-collapse text-xs">
-                    <thead>
-                      <tr className="bg-slate-50 border-b border-slate-200 text-[10px] font-mono font-black text-slate-500 uppercase tracking-widest">
-                        <th className="p-3">Staff Member Details</th>
-                        <th className="p-3">System Role</th>
-                        <th className="p-3 font-mono">Login Credentials</th>
-                        <th className="p-3 text-right">Assigned Salary</th>
-                        <th className="p-3 text-center">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 font-sans font-medium text-slate-700">
-                      {staffsList.map(staff => {
-                        return (
-                          <tr key={staff.id} className="hover:bg-slate-50/50 transition-colors">
-                            <td className="p-3">
-                              <div className="flex items-center space-x-2">
-                                <div className="w-8 h-8 rounded-full border border-slate-200 overflow-hidden bg-slate-50 shrink-0 flex items-center justify-center">
-                                  {staff.profileImage ? (
-                                    <img src={staff.profileImage} className="w-full h-full object-cover" alt="Avatar" />
-                                  ) : (
-                                    <User className="w-4 h-4 text-slate-400" />
-                                  )}
-                                </div>
-                                <div>
-                                  <div className="font-bold text-slate-800 flex items-center space-x-1.5">
-                                    <span>{staff.name}</span>
-                                    {staff.signatureImage && (
-                                      <span className="text-[8px] bg-emerald-50 text-emerald-700 px-1 py-0.5 rounded border border-emerald-200 font-mono" title="Has PNG signature">✍️ SIGNED</span>
-                                    )}
-                                  </div>
-                                  <div className="text-[10px] font-mono text-slate-400 mt-0.5">Ph: {staff.phone}</div>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="p-3">
-                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-black ${
-                                staff.role === 'Admin' ? 'bg-indigo-100 text-indigo-800 border border-indigo-200' :
-                                staff.role === 'Manager' ? 'bg-purple-100 text-purple-800 border border-purple-200' :
-                                staff.role === 'Cashier' ? 'bg-blue-100 text-blue-800 border border-blue-200' :
-                                staff.role === 'Delivery Rider / Permanent Driver' ? 'bg-amber-100 text-amber-800 border border-amber-200' :
-                                'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                              }`}>
-                                {staff.role}
-                              </span>
-                            </td>
-                            <td className="p-3 font-mono">
-                              <div className="flex flex-col gap-1">
-                                <span className="bg-slate-100 px-2 py-0.5 rounded-md border text-slate-600 tracking-wide text-[11px] w-max">
-                                  Username: {staff.phone}
-                                </span>
-                                <span className="text-[10px] font-black uppercase text-emerald-700">
-                                  Supabase Auth protected
-                                </span>
-                              </div>
-                            </td>
-                            <td className="p-3 text-right font-mono font-black text-slate-800">
-                              {companyForm.currency}{staff.salary.toLocaleString()} / mo
-                            </td>
-                            <td className="p-3">
-                              <div className="flex items-center justify-center space-x-2">
-                                <button
-                                  type="button"
-                                  onClick={() => openStaffCredentialEditor(staff)}
-                                  className="p-1 px-2.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg text-indigo-700 font-mono text-[10.5px] font-bold tracking-tight cursor-pointer transition-colors active:scale-95 flex items-center space-x-1"
-                                >
-                                  <KeyRound className="w-3 h-3" />
-                                  <span>Login</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setViewingStaffReport(staff)}
-                                  className="p-1 px-2.5 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg text-blue-700 font-mono text-[10.5px] font-bold tracking-tight cursor-pointer transition-colors active:scale-95 flex items-center space-x-1"
-                                >
-                                  <FileText className="w-3 h-3" />
-                                  <span>Report</span>
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveStaff(staff.id)}
-                                  className="p-1 px-2.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg text-rose-700 font-mono text-[10.5px] font-bold tracking-tight cursor-pointer transition-colors active:scale-95 flex items-center space-x-1"
-                                >
-                                  <Trash2 className="w-3 h-3" />
-                                  <span>De-register</span>
-                                </button>
-                              </div>
-                              {credentialEditStaffId === staff.id && (
-                                <div className="mt-3 rounded-xl border border-indigo-100 bg-indigo-50 p-2">
-                                  <div className="grid grid-cols-2 gap-2">
-                                    <input
-                                      type="text"
-                                      value={credentialEditPhone}
-                                      onChange={(e) => setCredentialEditPhone(e.target.value)}
-                                      placeholder="Phone / Login ID"
-                                      className="min-w-0 rounded-lg border border-white bg-white px-2 py-2 text-[11px] font-bold outline-none focus:border-indigo-400"
-                                    />
-                                    <div className="rounded-lg border border-emerald-100 bg-emerald-50 px-2 py-2 text-[10px] font-bold text-emerald-800">No workspace password</div>
-                                  </div>
-                                  <div className="mt-2 flex justify-end gap-2">
-                                    <button
-                                      type="button"
-                                      onClick={() => setCredentialEditStaffId('')}
-                                      className="rounded-lg bg-white border border-slate-200 px-2.5 py-1.5 text-[10px] font-black text-slate-600"
-                                    >
-                                      Cancel
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleSaveStaffCredentials(staff.id)}
-                                      className="rounded-lg bg-slate-950 px-2.5 py-1.5 text-[10px] font-black text-white inline-flex items-center gap-1"
-                                    >
-                                      <Save className="w-3 h-3" />
-                                      Save
-                                    </button>
-                                  </div>
-                                </div>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                      {staffsList.length === 0 && (
-                        <tr>
-                          <td colSpan={5} className="p-8 text-center text-slate-400 text-xs font-sans">
-                            No staffs registered under this branch's core hrm configurations yet.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-                <div className="xl:hidden space-y-3">
-                  {staffsList.length === 0 ? (
-                    <div className="p-8 text-center text-slate-400 text-xs font-sans rounded-2xl border border-slate-200 bg-slate-50">
-                      No staffs registered under this branch's core hrm configurations yet.
-                    </div>
-                  ) : (
-                    staffsList.map(staff => {
-                      return (
-                        <div key={staff.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                          <div className="flex items-start gap-3">
-                            <div className="w-12 h-12 rounded-2xl border border-slate-200 overflow-hidden bg-white shrink-0 flex items-center justify-center">
-                              {staff.profileImage ? (
-                                <img src={staff.profileImage} className="w-full h-full object-cover" alt="Avatar" />
-                              ) : (
-                                <User className="w-5 h-5 text-slate-400" />
-                              )}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="min-w-0">
-                                  <p className="font-black text-slate-900 truncate">{staff.name}</p>
-                                  <p className="text-[11px] font-mono text-slate-500 mt-0.5">Ph: {staff.phone}</p>
-                                </div>
-                                {staff.signatureImage && (
-                                  <span className="shrink-0 text-[8px] bg-emerald-50 text-emerald-700 px-1.5 py-1 rounded border border-emerald-200 font-mono font-black">SIGNED</span>
-                                )}
-                              </div>
-                              <div className="flex flex-wrap gap-2 mt-3">
-                                <span className={`px-2.5 py-1 rounded-full text-[10px] font-mono font-black ${
-                                  staff.role === 'Admin' ? 'bg-indigo-100 text-indigo-800 border border-indigo-200' :
-                                  staff.role === 'Manager' ? 'bg-purple-100 text-purple-800 border border-purple-200' :
-                                  staff.role === 'Cashier' ? 'bg-blue-100 text-blue-800 border border-blue-200' :
-                                  staff.role === 'Delivery Rider / Permanent Driver' ? 'bg-amber-100 text-amber-800 border border-amber-200' :
-                                  'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                                }`}>
-                                  {staff.role}
-                                </span>
-                                <span className="px-2.5 py-1 rounded-full text-[10px] bg-white border border-slate-200 text-slate-700 font-mono font-black">
-                                  {companyForm.currency}{staff.salary.toLocaleString()} / mo
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="mt-4 rounded-xl bg-white border border-slate-200 p-3">
-                            <span className="block text-[10px] font-black uppercase text-slate-400">Login Details</span>
-                            <span className="mt-1 block text-[11px] font-mono text-slate-700 tracking-wide">Username: {staff.phone}</span>
-                            <span className="mt-1 block text-[10px] font-black uppercase text-emerald-700">Supabase Auth protected</span>
-                          </div>
-
-                          <div className="grid grid-cols-3 gap-2 mt-3">
-                            <button
-                              type="button"
-                              onClick={() => openStaffCredentialEditor(staff)}
-                              className="min-h-[44px] bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-2xl text-indigo-700 font-mono text-[10.5px] font-black tracking-tight cursor-pointer transition-colors active:scale-95 flex items-center justify-center space-x-1"
-                            >
-                              <KeyRound className="w-3.5 h-3.5" />
-                              <span>Login</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setViewingStaffReport(staff)}
-                              className="min-h-[44px] bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-2xl text-blue-700 font-mono text-[10.5px] font-black tracking-tight cursor-pointer transition-colors active:scale-95 flex items-center justify-center space-x-1"
-                            >
-                              <FileText className="w-3.5 h-3.5" />
-                              <span>Report</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveStaff(staff.id)}
-                              className="min-h-[44px] bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-2xl text-rose-700 font-mono text-[10.5px] font-black tracking-tight cursor-pointer transition-colors active:scale-95 flex items-center justify-center space-x-1"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                              <span>De-register</span>
-                            </button>
-                          </div>
-                          {credentialEditStaffId === staff.id && (
-                            <div className="mt-3 rounded-2xl border border-indigo-100 bg-indigo-50 p-3">
-                              <div className="space-y-2">
-                                <input
-                                  type="text"
-                                  value={credentialEditPhone}
-                                  onChange={(e) => setCredentialEditPhone(e.target.value)}
-                                  placeholder="Phone / Login ID"
-                                  className="w-full min-h-[44px] rounded-xl border border-white bg-white px-3 text-xs font-bold outline-none focus:border-indigo-400"
-                                />
-                                <div className="w-full min-h-[44px] rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800">No workspace password</div>
-                              </div>
-                              <div className="mt-3 grid grid-cols-2 gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => setCredentialEditStaffId('')}
-                                  className="min-h-[42px] rounded-xl bg-white border border-slate-200 text-xs font-black text-slate-600"
-                                >
-                                  Cancel
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleSaveStaffCredentials(staff.id)}
-                                  className="min-h-[42px] rounded-xl bg-slate-950 text-xs font-black text-white flex items-center justify-center gap-1"
-                                >
-                                  <Save className="w-3.5 h-3.5" />
-                                  Save
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })
-                  )}
+              <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50 p-8 text-center space-y-4">
+                <p className="text-sm font-black text-slate-700">No roles created yet</p>
+                <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                  Create your first role and choose exactly which permissions it has. You'll need at least one role before you can register staff.
+                </p>
+                <div className="max-w-xs mx-auto space-y-2 text-xs pt-2">
+                  <input
+                    type="text"
+                    value={newRoleName}
+                    onChange={(e) => setNewRoleName(e.target.value)}
+                    placeholder="e.g. Cashier"
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl outline-none focus:ring-1 focus:ring-emerald-500 font-bold"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleCreateNewRole}
+                    className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase text-[10px] tracking-wider rounded-xl transition-all cursor-pointer flex items-center justify-center space-x-1.5 active:scale-95 shadow-xs"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Create Role</span>
+                  </button>
                 </div>
               </div>
-
             </div>
           )}
-
-          {/* TAB 5: CUSTOM ROLES MANAGEMENT */}
-          {activeSubTab === 'roles' && (() => {
-            const activeRole = customRolesList.find(r => r.id === selectedRoleId) || customRolesList[0] || DEFAULT_CUSTOM_ROLES[0];
-            const isPreset = ['role-admin', 'role-manager', 'role-cashier', 'role-seller'].includes(activeRole.id);
+          {activeSubTab === 'roles' && customRolesList.length > 0 && (() => {
+            const activeRole = customRolesList.find(r => r.id === selectedRoleId) || customRolesList[0];
             const activePlanId = String(subscriptionStatus?.state?.planId || subscriptionStatus?.plan?.packageId || subscriptionStatus?.plan?.name || '').toLowerCase();
             const isTanzanitePlan = activePlanId === 'tanzanite';
 
@@ -2682,7 +2288,6 @@ export default function DashboardSettings({
                       <div className="settings-role-list flex xl:block gap-2 overflow-x-auto xl:overflow-y-auto xl:max-h-[320px] xl:space-y-1.5 xl:pr-1 pb-1">
                         {customRolesList.map(r => {
                           const isSel = r.id === selectedRoleId;
-                          const isStatic = ['role-admin', 'role-manager', 'role-cashier', 'role-seller'].includes(r.id);
                           return (
                             <div
                               key={r.id}
@@ -2706,28 +2311,26 @@ export default function DashboardSettings({
                                 <div className="min-w-0">
                                   <p className="font-bold truncate">{r.name}</p>
                                   <p className={`text-[9.5px] font-normal leading-relaxed ${isSel ? 'text-emerald-100' : 'text-slate-400'}`}>
-                                    {isStatic ? 'System default' : 'Custom designed'}
+                                    Custom role
                                   </p>
                                 </div>
                               </div>
-                              
-                              {!isStatic && (
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleDeleteRole(r.id);
-                                  }}
-                                  className={`p-1.5 rounded-lg transition-colors ${
-                                    isSel
-                                      ? 'text-emerald-100 hover:text-white hover:bg-emerald-700'
-                                      : 'text-slate-400 hover:text-rose-600 hover:bg-rose-50'
-                                  }`}
-                                  title="Delete Custom Role"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              )}
+
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteRole(r.id);
+                                }}
+                                className={`p-1.5 rounded-lg transition-colors ${
+                                  isSel
+                                    ? 'text-emerald-100 hover:text-white hover:bg-emerald-700'
+                                    : 'text-slate-400 hover:text-rose-600 hover:bg-rose-50'
+                                }`}
+                                title="Delete Role"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
                             </div>
                           );
                         })}
@@ -2766,27 +2369,15 @@ export default function DashboardSettings({
                         <div className="space-y-0.5">
                           <span className="text-[10px] font-mono font-bold uppercase text-emerald-600 font-bold">Current Setup</span>
                           <div className="flex items-center space-x-2">
-                            {isPreset ? (
-                              <h4 className="text-sm font-black text-slate-800">{activeRole.name} Preset (Locked)</h4>
-                            ) : (
-                              <div className="flex items-center space-x-2">
-                                <input
-                                  type="text"
-                                  value={activeRole.name}
-                                  onChange={(e) => handleRenameRole(activeRole.id, e.target.value)}
-                                  className="text-sm font-black text-slate-800 bg-slate-50 border border-slate-200 rounded-lg px-2 py-0.5 outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500"
-                                />
-                                <span className="text-[9.5px] bg-slate-100 text-slate-500 font-mono font-black border border-slate-200 px-1.5 py-0.5 rounded">CUSTOM</span>
-                              </div>
-                            )}
+                            <input
+                              type="text"
+                              value={activeRole.name}
+                              onChange={(e) => handleRenameRole(activeRole.id, e.target.value)}
+                              className="text-sm font-black text-slate-800 bg-slate-50 border border-slate-200 rounded-lg px-2 py-0.5 outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500"
+                            />
+                            <span className="text-[9.5px] bg-slate-100 text-slate-500 font-mono font-black border border-slate-200 px-1.5 py-0.5 rounded">CUSTOM</span>
                           </div>
                         </div>
-
-                        {isPreset && (
-                          <span className="text-[9.5px] bg-amber-50 text-amber-700 font-mono font-black border border-amber-200 px-2.5 py-1 rounded-full uppercase tracking-wider shrink-0 select-none">
-                            🔒 Baseline Rule
-                          </span>
-                        )}
                       </div>
 
                       {isTanzanitePlan && (
@@ -2839,35 +2430,24 @@ export default function DashboardSettings({
                                         <p className="text-[10px] text-slate-400 leading-normal font-normal">{mod.desc}</p>
                                       </td>
                                       
-                                      <td className="p-3 text-center">
-                                        <input
-                                          type="checkbox"
-                                          id={`perm-${activeRole.id}-${mod.key}-read`}
-                                          checked={permissions.read}
-                                          onChange={() => handleTogglePermission(activeRole.id, mod.key, 'read')}
-                                          className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer border-slate-300"
-                                        />
-                                      </td>
-                                      
-                                      <td className="p-3 text-center">
-                                        <input
-                                          type="checkbox"
-                                          id={`perm-${activeRole.id}-${mod.key}-write`}
-                                          checked={permissions.write}
-                                          onChange={() => handleTogglePermission(activeRole.id, mod.key, 'write')}
-                                          className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer border-slate-300"
-                                        />
-                                      </td>
-                                      
-                                      <td className="p-3 text-center">
-                                        <input
-                                          type="checkbox"
-                                          id={`perm-${activeRole.id}-${mod.key}-edit`}
-                                          checked={permissions.edit}
-                                          onChange={() => handleTogglePermission(activeRole.id, mod.key, 'edit')}
-                                          className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer border-slate-300"
-                                        />
-                                      </td>
+                                      {(['read', 'write', 'edit'] as const).map(permissionType => (
+                                        <td key={permissionType} className="p-3 text-center">
+                                          <button
+                                            type="button"
+                                            id={`perm-${activeRole.id}-${mod.key}-${permissionType}`}
+                                            aria-pressed={permissions[permissionType]}
+                                            aria-label={`${mod.name} — ${permissionType}`}
+                                            onClick={() => handleTogglePermission(activeRole.id, mod.key, permissionType)}
+                                            className={`inline-flex h-6 w-6 items-center justify-center rounded-lg border-2 cursor-pointer transition-colors ${
+                                              permissions[permissionType]
+                                                ? 'bg-emerald-600 border-emerald-600'
+                                                : 'bg-white border-slate-300 hover:border-emerald-400'
+                                            }`}
+                                          >
+                                            {permissions[permissionType] && <Check className="w-4 h-4 text-white" strokeWidth={3} />}
+                                          </button>
+                                        </td>
+                                      ))}
                                     </tr>
                                   </React.Fragment>
                                 );
@@ -2899,22 +2479,24 @@ export default function DashboardSettings({
                                   </div>
                                   <div className="grid grid-cols-3 gap-2 mt-4">
                                     {(['read', 'write', 'edit'] as const).map(permissionType => (
-                                      <label
+                                      <button
                                         key={permissionType}
-                                        className={`min-h-[52px] rounded-2xl border flex flex-col items-center justify-center gap-1 text-[10px] font-black uppercase tracking-wide ${
+                                        type="button"
+                                        aria-pressed={permissions[permissionType]}
+                                        onClick={() => handleTogglePermission(activeRole.id, mod.key, permissionType)}
+                                        className={`min-h-[56px] rounded-2xl border flex flex-col items-center justify-center gap-1.5 text-[10px] font-black uppercase tracking-wide cursor-pointer transition-colors ${
                                           permissions[permissionType]
-                                            ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                                            ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
                                             : 'bg-white border-slate-200 text-slate-500'
                                         }`}
                                       >
-                                        <input
-                                          type="checkbox"
-                                          checked={permissions[permissionType]}
-                                          onChange={() => handleTogglePermission(activeRole.id, mod.key, permissionType)}
-                                          className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 cursor-pointer border-slate-300"
-                                        />
+                                        <span className={`flex h-5 w-5 items-center justify-center rounded-md border-2 ${
+                                          permissions[permissionType] ? 'bg-emerald-600 border-emerald-600' : 'bg-white border-slate-300'
+                                        }`}>
+                                          {permissions[permissionType] && <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />}
+                                        </span>
                                         <span>{permissionType}</span>
-                                      </label>
+                                      </button>
                                     ))}
                                   </div>
                                 </div>

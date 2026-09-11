@@ -52,10 +52,14 @@ import {
   Scale
 } from 'lucide-react';
 import { formatProductQuantity, formatSaleItemQuantity, getProductUnitName } from '../utils/unitFormatter';
+import { getDisplayStockBreakdown, resolvePackageLevels } from '../utils/universalUnits';
 import { downloadPdfFromElement } from '../utils/pdfShare';
 import CachedImage from './CachedImage';
 import ModernSelect from './ui/ModernSelect';
-import { getBusinessDisplayName } from '../utils/businessBranding';
+import { getActiveBranchAddress, getActiveBranchDisplayName, getActiveBranchEmail, getActiveBranchPhone } from '../utils/businessBranding';
+import type { BranchSummary } from '../branches/branchTypes';
+import { formatLocalDate, parseLocalDate, timestampToLocalDate } from '../utils/localDate';
+import { getSaleItemGrossTotal, getSaleItemLineTotal } from '../utils/saleItemTotals';
 
 // Revenue helper: exclude delivery fees from product revenue calculations
 const saleProductRevenue = (s: any): number =>
@@ -75,6 +79,7 @@ interface DashboardReportsProps {
   deliveries?: any[];
   systemSettings?: any;
   headerSearchQuery?: string;
+  activeBranch?: BranchSummary | null;
 }
 
 const REPORT_DOCUMENT_TITLES: Record<string, string> = {
@@ -106,27 +111,47 @@ export default function DashboardReports({
   deliveries = [],
   systemSettings,
   headerSearchQuery = '',
+  activeBranch,
 }: DashboardReportsProps) {
   const currency = activeTenant.currency;
   const printActiveReportPdf = async () => {
     await downloadPdfFromElement({
       elementId: 'reports-a4-pdf-template',
-      fileName: `${activeTenant.name.replace(/\s+/g, '-')}-${reportTab}-report-${startDateStr}-${endDateStr}.pdf`,
+      // Identified by report type only (e.g. "Sales-Performance-Report-...") —
+      // deliberately no business/tenant name in the filename, matching the
+      // report itself no longer being tied to who generated it.
+      fileName: `${(REPORT_DOCUMENT_TITLES[reportTab] || 'Business-Report').replace(/\s+/g, '-')}-${startDateStr}-${endDateStr}.pdf`,
       format: 'a4',
       includeHidden: true,
       visual: false,
       branding: {
-        businessName: getBusinessDisplayName(activeTenant, systemSettings, userName),
+        businessName: getActiveBranchDisplayName(activeTenant, systemSettings, userName, activeBranch),
         // Skip getBusinessLogo()'s businessLogoDark fallback here — that
         // variant is meant for dark surfaces and can carry a baked-in dark
         // background, which looks like a black box on this white PDF page.
-        logo: (systemSettings?.business as any)?.businessLogoLight || (systemSettings?.business as any)?.businessLogo || '',
-        address: systemSettings?.business?.address || systemSettings?.company?.address || activeTenant.city,
-        phone: systemSettings?.business?.phone || systemSettings?.company?.phone || '',
-        email: systemSettings?.business?.email || systemSettings?.company?.email || '',
+        // The `businessLogo !== businessLogoDark` check guards against
+        // tenants who uploaded a dark logo before the upload handler was
+        // fixed to stop copying it into the general businessLogo field —
+        // for them businessLogo IS the dark logo, so trusting it here would
+        // still reproduce the black box. Same reasoning applies to the real
+        // branch's own logo below: only its light/document variant is safe
+        // here, never logoDarkUrl.
+        logo: (activeBranch?.isPhysical && activeBranch?.logoLightUrl)
+          || (systemSettings?.business as any)?.businessLogoLight
+          || ((systemSettings?.business as any)?.businessLogo !== (systemSettings?.business as any)?.businessLogoDark
+            ? (systemSettings?.business as any)?.businessLogo
+            : '')
+          || '',
+        address: getActiveBranchAddress(systemSettings, activeBranch) || activeTenant.city,
+        phone: getActiveBranchPhone(systemSettings, activeBranch),
+        email: getActiveBranchEmail(systemSettings, activeBranch),
         documentTitle: REPORT_DOCUMENT_TITLES[reportTab] || 'Business Report',
         dateRange: `${startDateStr} to ${endDateStr}`,
-        generatedBy: userName,
+        // Deliberately no `generatedBy` — the report should read as an
+        // official document identified by its title (e.g. "Sales Performance
+        // Report"), not tied to whichever staff member happened to click
+        // download. applyBrandedReportChrome only prints a "Prepared by"
+        // line when this is set.
       }
     });
   };
@@ -148,10 +173,10 @@ export default function DashboardReports({
   const [startDateStr, setStartDateStr] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() - 30); // Default to last 30 days
-    return d.toISOString().split('T')[0];
+    return formatLocalDate(d);
   });
   const [endDateStr, setEndDateStr] = useState(() => {
-    return new Date().toISOString().split('T')[0];
+    return formatLocalDate();
   });
   
   // Product Monitoring local states
@@ -200,7 +225,7 @@ export default function DashboardReports({
 
   const setPresetDateRange = (preset: 'today' | 'this-week' | 'this-month' | 'last-30') => {
     const today = new Date();
-    const endStr = today.toISOString().split('T')[0];
+    const endStr = formatLocalDate(today);
     let startStr = '';
 
     if (preset === 'today') {
@@ -209,16 +234,14 @@ export default function DashboardReports({
       const dayOfWeek = today.getDay(); // 0 is Sunday, 1 is Monday...
       const diff = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
       const monday = new Date(today.setDate(diff));
-      startStr = monday.toISOString().split('T')[0];
+      startStr = formatLocalDate(monday);
     } else if (preset === 'this-month') {
       const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-      const tzOffset = firstDay.getTimezoneOffset() * 60000;
-      const localFirstDay = new Date(firstDay.getTime() - tzOffset);
-      startStr = localFirstDay.toISOString().split('T')[0];
+      startStr = formatLocalDate(firstDay);
     } else if (preset === 'last-30') {
       const past30 = new Date();
       past30.setDate(past30.getDate() - 30);
-      startStr = past30.toISOString().split('T')[0];
+      startStr = formatLocalDate(past30);
     }
 
     setStartDateStr(startStr);
@@ -273,7 +296,7 @@ export default function DashboardReports({
     
     filteredSales.forEach(s => {
       const itemsCount = s.items.length;
-      const originalSub = s.items.reduce((sum, item) => sum + (item.price * item.qty), 0);
+      const originalSub = s.items.reduce((sum, item) => sum + getSaleItemGrossTotal(item), 0);
       const discountVal = s.discountType === 'percent' ? (originalSub * (s.discount || 0)) / 100 : (s.discount || 0);
       const totalPaid = saleProductRevenue(s);
       const unpaidDue = s.amountDue || 0;
@@ -344,7 +367,7 @@ export default function DashboardReports({
         if (matchingProd) {
           estimatedCOGS += ((item.costPriceAtSale ?? matchingProd.costPrice) * item.qty);
         } else {
-          estimatedCOGS += (item.price * item.qty * 0.75);
+          estimatedCOGS += (getSaleItemGrossTotal(item) * 0.75);
         }
       });
     });
@@ -520,8 +543,8 @@ export default function DashboardReports({
   // -------------------------------------------------------------
   const isWithinDateRange = (timestampISO: string) => {
     const date = new Date(timestampISO);
-    const start = new Date(startDateStr);
-    const end = new Date(endDateStr);
+    const start = parseLocalDate(startDateStr);
+    const end = parseLocalDate(endDateStr, 23);
     end.setHours(23, 59, 59, 999); // Include full end date
     return date >= start && date <= end;
   };
@@ -606,7 +629,7 @@ export default function DashboardReports({
 
   // Compute total gross sales before discounts or VAT
   const totalGrossSales = filteredSales.reduce((sum, s) => {
-    return sum + s.items.reduce((iSum, item) => iSum + (item.price * item.qty), 0);
+    return sum + s.items.reduce((iSum, item) => iSum + getSaleItemGrossTotal(item), 0);
   }, 0);
 
   // Compute Cost of Goods Sold (COGS) for completed sales
@@ -649,7 +672,7 @@ export default function DashboardReports({
     let daysCount = 0;
     // Cap at 100 days to prevent browser hanging on extreme select range
     while (current <= end && daysCount < 100) {
-      const dStr = current.toISOString().split('T')[0];
+      const dStr = formatLocalDate(current);
       dateMap[dStr] = {
         salesCount: 0,
         salesRevenue: 0,
@@ -662,13 +685,13 @@ export default function DashboardReports({
     }
 
     if (Object.keys(dateMap).length === 0) {
-      const todayStr = new Date().toISOString().split('T')[0];
+      const todayStr = formatLocalDate();
       dateMap[todayStr] = { salesCount: 0, salesRevenue: 0, cogs: 0, expenses: 0, profit: 0 };
     }
 
     filteredSales.forEach(sale => {
       if (!sale.timestamp) return;
-      const dStr = sale.timestamp.split('T')[0];
+      const dStr = timestampToLocalDate(sale.timestamp);
       if (dateMap[dStr]) {
         dateMap[dStr].salesCount += 1;
         dateMap[dStr].salesRevenue += saleProductRevenue(sale);
@@ -685,7 +708,7 @@ export default function DashboardReports({
 
     filteredExpenses.forEach(exp => {
       if (!exp.timestamp) return;
-      const dStr = exp.timestamp.split('T')[0];
+      const dStr = timestampToLocalDate(exp.timestamp);
       if (dateMap[dStr]) {
         dateMap[dStr].expenses += exp.amount;
       }
@@ -1027,8 +1050,8 @@ export default function DashboardReports({
         const prodMatch = products.find(pr => pr.id === item.productId);
         const costVal = item.costPriceAtSale ?? (prodMatch ? prodMatch.costPrice : (item.price * 0.6));
         
-        state.unitsSold += item.qty;
-        state.totalRevenue += (item.price * item.qty * (1 - item.discount / 100));
+        state.unitsSold += item.baseQuantityDeducted ?? item.qty;
+        state.totalRevenue += getSaleItemLineTotal(item);
         state.totalCogs += (costVal * item.qty);
         state.profit = state.totalRevenue - state.totalCogs;
       });
@@ -1282,16 +1305,16 @@ export default function DashboardReports({
   };
 
   // Helper date-preset triggers for the mobile quick action pills
-  const getTodayRange = () => new Date().toISOString().split('T')[0];
+  const getTodayRange = () => formatLocalDate();
   const getYesterdayRange = () => {
     const d = new Date();
     d.setDate(d.getDate() - 1);
-    return d.toISOString().split('T')[0];
+    return formatLocalDate(d);
   };
   const getLast7DaysRange = () => {
     const d = new Date();
     d.setDate(d.getDate() - 7);
-    return d.toISOString().split('T')[0];
+    return formatLocalDate(d);
   };
   const checkActivePreset = () => {
     const today = getTodayRange();
@@ -1366,7 +1389,7 @@ export default function DashboardReports({
           {[
             {l:'Today', f:()=>{const t=getTodayRange();setStartDateStr(t);setEndDateStr(t);}},
             {l:'7 days', f:()=>{setStartDateStr(getLast7DaysRange());setEndDateStr(getTodayRange());}},
-            {l:'30 days', f:()=>{const d=new Date();d.setDate(d.getDate()-29);setStartDateStr(d.toISOString().split('T')[0]);setEndDateStr(getTodayRange());}},
+            {l:'30 days', f:()=>{const d=new Date();d.setDate(d.getDate()-29);setStartDateStr(formatLocalDate(d));setEndDateStr(getTodayRange());}},
             {l:'All', f:()=>{setStartDateStr('2020-01-01');setEndDateStr(getTodayRange());}},
           ].map(p=>(
             <button key={p.l} type="button" onClick={p.f}
@@ -1409,7 +1432,7 @@ export default function DashboardReports({
           {[
             {l:'Today',   f:()=>{const t=getTodayRange();setStartDateStr(t);setEndDateStr(t);}},
             {l:'7 Days',  f:()=>{setStartDateStr(getLast7DaysRange());setEndDateStr(getTodayRange());}},
-            {l:'30 Days', f:()=>{const d=new Date();d.setDate(d.getDate()-29);setStartDateStr(d.toISOString().split('T')[0]);setEndDateStr(getTodayRange());}},
+            {l:'30 Days', f:()=>{const d=new Date();d.setDate(d.getDate()-29);setStartDateStr(formatLocalDate(d));setEndDateStr(getTodayRange());}},
             {l:'All',     f:()=>{setStartDateStr('2020-01-01');setEndDateStr(getTodayRange());}},
           ].map(p=>(
             <button key={p.l} type="button" onClick={p.f}
@@ -2148,9 +2171,16 @@ export default function DashboardReports({
                             )}
                           </td>
                           <td className="p-4 max-w-[240px]">
-                            <p className="font-medium text-slate-700 truncate" title={sale.items.map(it => `${it.qty}x ${it.productName}`).join(', ')}>
-                              {sale.items.map(it => `${it.qty}x ${it.productName}`).join(', ')}
-                            </p>
+                            <div className="flex items-center gap-1.5">
+                              <p className="font-medium text-slate-700 truncate" title={sale.items.map(it => `${it.qty}x ${it.productName}`).join(', ')}>
+                                {sale.items.map(it => `${it.qty}x ${it.productName}`).join(', ')}
+                              </p>
+                              {sale.items.some(it => it.prescriptionRequired) && (
+                                <span title="Includes a prescription medicine" className="shrink-0 px-1.5 py-0.5 rounded-full text-[8.5px] font-mono font-black uppercase tracking-wider bg-rose-100 text-rose-700 border border-rose-200">
+                                  Rx
+                                </span>
+                              )}
+                            </div>
                             <span className="text-[9px] font-mono text-slate-400 uppercase mt-0.5 block">{totalItemsCount} total unit{totalItemsCount !== 1 ? 's' : ''} sold</span>
                           </td>
                           <td className="p-4 whitespace-nowrap font-medium text-slate-705">
@@ -2326,6 +2356,21 @@ export default function DashboardReports({
         )}        {/* TAB 3: SKU STOCK & CREDIT VALUATIONS */}
         {reportTab === 'inventory' && (() => {
           const showProfitCogs = rolePermissions?.reportsProfitCogs?.read !== false;
+          // Backend already knows exact expiry dates (Stage 4 batches); this
+          // report only needs a simple human summary, never raw base units.
+          const getExpirySummary = (product: Product): string | null => {
+            const batches = (product.batches || []).filter(b => b.status === 'active' && b.expiryDate);
+            if (batches.length === 0) return null;
+            const now = Date.now();
+            const expired = batches.filter(b => new Date(b.expiryDate!).getTime() < now).length;
+            const expiringSoon = batches.filter(b => {
+              const daysLeft = (new Date(b.expiryDate!).getTime() - now) / 86400000;
+              return daysLeft >= 0 && daysLeft <= 30;
+            }).length;
+            if (expired > 0) return `${expired} batch${expired === 1 ? '' : 'es'} expired`;
+            if (expiringSoon > 0) return `${expiringSoon} batch${expiringSoon === 1 ? '' : 'es'} expiring soon`;
+            return null;
+          };
           return (
             <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 space-y-6">
               <div className="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-100 pb-4 gap-4">
@@ -2441,6 +2486,10 @@ export default function DashboardReports({
                         const product = p.product;
                         const stockIsLow = p.totalQty <= (product.alertQty || 0);
                         const totalCogsValue = p.cogsShop + p.cogsStore + p.cogsCredit > 0 ? p.totalCogs : 0;
+                        const hasPackaging = resolvePackageLevels(product).length > 0;
+                        const displayQty = (qty: number, prod: Product) => (
+                          hasPackaging ? getDisplayStockBreakdown(qty, prod) : formatProductQuantity(qty, prod)
+                        );
                         return (
                           <tr key={p.id} className="hover:bg-slate-50/70 transition-colors align-middle">
                             <td className="p-4">
@@ -2457,21 +2506,24 @@ export default function DashboardReports({
                                   <div className="flex flex-wrap gap-1.5 mt-1.5">
                                     <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-100 text-[9px] font-mono font-bold uppercase">SKU {p.sku || 'N/A'}</span>
                                     <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200 text-[9px] font-mono font-bold uppercase max-w-[160px] truncate">{p.category || 'Uncategorized'}</span>
+                                    {getExpirySummary(product) && (
+                                      <span className="px-2 py-0.5 rounded-full bg-rose-50 text-rose-600 border border-rose-100 text-[9px] font-mono font-bold uppercase">⏳ {getExpirySummary(product)}</span>
+                                    )}
                                   </div>
                                 </div>
                               </div>
                             </td>
                             <td className="p-4 text-center">
-                              <span className="inline-flex justify-center min-w-[92px] px-3 py-2 rounded-2xl bg-emerald-50 border border-emerald-100 font-black text-emerald-800">{formatProductQuantity(p.shopQty, product)}</span>
+                              <span className="inline-flex justify-center min-w-[92px] px-3 py-2 rounded-2xl bg-emerald-50 border border-emerald-100 font-black text-emerald-800">{displayQty(p.shopQty, product)}</span>
                             </td>
                             <td className="p-4 text-center">
-                              <span className="inline-flex justify-center min-w-[92px] px-3 py-2 rounded-2xl bg-blue-50 border border-blue-100 font-black text-blue-800">{formatProductQuantity(p.storeQty, product)}</span>
+                              <span className="inline-flex justify-center min-w-[92px] px-3 py-2 rounded-2xl bg-blue-50 border border-blue-100 font-black text-blue-800">{displayQty(p.storeQty, product)}</span>
                             </td>
                             <td className="p-4 text-center">
-                              <span className="inline-flex justify-center min-w-[92px] px-3 py-2 rounded-2xl bg-amber-50 border border-amber-100 font-black text-amber-800">{formatProductQuantity(p.creditIssuedQty, product)}</span>
+                              <span className="inline-flex justify-center min-w-[92px] px-3 py-2 rounded-2xl bg-amber-50 border border-amber-100 font-black text-amber-800">{displayQty(p.creditIssuedQty, product)}</span>
                             </td>
                             <td className="p-4 text-center">
-                              <span className={`inline-flex justify-center min-w-[92px] px-3 py-2 rounded-2xl border font-black ${stockIsLow ? 'bg-amber-50 border-amber-100 text-amber-800' : 'bg-slate-50 border-slate-200 text-slate-900'}`}>{formatProductQuantity(p.totalQty, product)}</span>
+                              <span className={`inline-flex justify-center min-w-[92px] px-3 py-2 rounded-2xl border font-black ${stockIsLow ? 'bg-amber-50 border-amber-100 text-amber-800' : 'bg-slate-50 border-slate-200 text-slate-900'}`}>{displayQty(p.totalQty, product)}</span>
                             </td>
                             {showProfitCogs && <td className="p-4 text-right font-mono text-slate-600">{currency}{totalCogsValue.toLocaleString()}</td>}
                             <td className="p-4 text-right font-mono font-black text-slate-900">{currency}{p.totalValue.toLocaleString()}</td>
@@ -2924,14 +2976,8 @@ export default function DashboardReports({
           salesForMonitoredProduct.forEach(sale => {
             sale.items.forEach(item => {
               if (isAll || item.productId === selectedMonitoredProductId) {
-                totalQtySold += item.qty;
-                const itemDiscount = item.discount || 0;
-                let itemSub = item.price * item.qty;
-                if (item.discountType === 'cash') {
-                  itemSub = Math.max(0, itemSub - itemDiscount);
-                } else {
-                  itemSub = itemSub * (1 - itemDiscount / 100);
-                }
+                totalQtySold += item.baseQuantityDeducted ?? item.qty;
+                const itemSub = getSaleItemLineTotal(item);
                 totalRevenue += itemSub;
                 
                 const itemProd = products.find(p => p.id === item.productId);
@@ -2952,7 +2998,7 @@ export default function DashboardReports({
             const dailyMap: Record<string, { date: string; qty: number; revenue: number; profit: number; txCount: number }> = {};
             
             salesForMonitoredProduct.forEach(sale => {
-              const key = new Date(sale.timestamp).toISOString().split('T')[0];
+              const key = timestampToLocalDate(sale.timestamp);
               if (!dailyMap[key]) {
                 dailyMap[key] = { date: key, qty: 0, revenue: 0, profit: 0, txCount: 0 };
               }
@@ -2961,14 +3007,8 @@ export default function DashboardReports({
               dayData.txCount += 1;
               sale.items.forEach(item => {
                 if (isAll || item.productId === selectedMonitoredProductId) {
-                  dayData.qty += item.qty;
-                  const itemDiscount = item.discount || 0;
-                  let itemSub = item.price * item.qty;
-                  if (item.discountType === 'cash') {
-                    itemSub = Math.max(0, itemSub - itemDiscount);
-                  } else {
-                    itemSub = itemSub * (1 - itemDiscount / 100);
-                  }
+                  dayData.qty += item.baseQuantityDeducted ?? item.qty;
+                  const itemSub = getSaleItemLineTotal(item);
                   dayData.revenue += itemSub;
                   const itemProd = products.find(p => p.id === item.productId);
                   dayData.profit += itemSub - (item.costPriceAtSale ?? itemProd?.costPrice ?? 0) * item.qty;
@@ -2996,14 +3036,8 @@ export default function DashboardReports({
             filteredSales.forEach(sale => {
               sale.items.forEach(item => {
                 if (item.productId === p.id) {
-                  qtySold += item.qty;
-                  const itemDiscount = item.discount || 0;
-                  let itemSub = item.price * item.qty;
-                  if (item.discountType === 'cash') {
-                    itemSub = Math.max(0, itemSub - itemDiscount);
-                  } else {
-                    itemSub = itemSub * (1 - itemDiscount / 100);
-                  }
+                  qtySold += item.baseQuantityDeducted ?? item.qty;
+                  const itemSub = getSaleItemLineTotal(item);
                   revenue += itemSub;
                   cogs += (item.costPriceAtSale ?? p.costPrice ?? 0) * item.qty;
                 }
@@ -3060,13 +3094,13 @@ export default function DashboardReports({
             if (checked) {
               setEndDateStr(startDateStr);
             } else {
-              setEndDateStr(new Date().toISOString().split('T')[0]);
+              setEndDateStr(formatLocalDate());
             }
           };
 
           const setPresetDateRangeMode = (preset: 'today' | 'this-week' | 'this-month' | 'last-30') => {
             const today = new Date();
-            const endStr = today.toISOString().split('T')[0];
+            const endStr = formatLocalDate(today);
             let startStr = '';
 
             if (preset === 'today') {
@@ -3075,16 +3109,16 @@ export default function DashboardReports({
               const dayOfWeek = today.getDay();
               const diff = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
               const monday = new Date(today.setDate(diff));
-              startStr = monday.toISOString().split('T')[0];
+              startStr = formatLocalDate(monday);
             } else if (preset === 'this-month') {
               const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
               const tzOffset = firstDay.getTimezoneOffset() * 60000;
               const localFirstDay = new Date(firstDay.getTime() - tzOffset);
-              startStr = localFirstDay.toISOString().split('T')[0];
+              startStr = formatLocalDate(localFirstDay);
             } else if (preset === 'last-30') {
               const past30 = new Date();
               past30.setDate(past30.getDate() - 30);
-              startStr = past30.toISOString().split('T')[0];
+              startStr = formatLocalDate(past30);
             }
 
             setStartDateStr(startStr);
@@ -3565,13 +3599,12 @@ export default function DashboardReports({
                             const saleItem = sale.items.find(it => it.productId === selectedMonitoredProductId);
                             if (!saleItem) return null;
 
-                            let itemValue = saleItem.price * saleItem.qty;
-                            const disc = saleItem.discount || 0;
-                            if (saleItem.discountType === 'cash') {
-                              itemValue = Math.max(0, itemValue - disc);
-                            } else {
-                              itemValue = itemValue * (1 - disc / 100);
-                            }
+                            const itemValue = getSaleItemLineTotal(saleItem);
+                            const discountLabel = (saleItem.discount || 0) > 0
+                              ? saleItem.discountType === 'cash'
+                                ? `${currency}${saleItem.discount.toLocaleString()} off`
+                                : `${saleItem.discount}% off`
+                              : '';
 
                             const designCogs = (saleItem.costPriceAtSale ?? monitoredProduct?.costPrice ?? 0) * saleItem.qty;
                             const designProfit = itemValue - designCogs;
@@ -3587,7 +3620,7 @@ export default function DashboardReports({
                                     Guest/Client: <span className="font-bold text-slate-700">{sale.customerName || 'Walk-In Customer'}</span>
                                   </p>
                                   <p className="text-slate-500 leading-normal">
-                                    Quantity Ordered: <span className="font-black text-slate-800 font-mono font-sans">{formatProductQuantity(saleItem.qty, monitoredProduct)}</span> {disc > 0 && <span className="text-rose-600 font-black font-mono">({disc}% off)</span>}
+                                    Quantity Ordered: <span className="font-black text-slate-800 font-mono font-sans">{formatSaleItemQuantity(saleItem, monitoredProduct)}</span> {discountLabel && <span className="text-rose-600 font-black font-mono">({discountLabel})</span>}
                                   </p>
                                 </div>
 
@@ -3756,7 +3789,7 @@ export default function DashboardReports({
             const url = URL.createObjectURL(blob);
             const link = document.createElement("a");
             link.setAttribute("href", url);
-            link.setAttribute("download", `Jasper_Dual_Channel_Profits_${startDateStr}_to_${endDateStr}.csv`);
+            link.setAttribute("download", `Orvix_Dual_Channel_Profits_${startDateStr}_to_${endDateStr}.csv`);
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -4020,7 +4053,7 @@ export default function DashboardReports({
             </div>
 
             {/* Quick Overview Cards for Mobile */}
-            <div className="grid grid-cols-2 gap-3 pb-2">
+            <div className="reports-overview-tablet-grid grid grid-cols-2 gap-3 pb-2">
               <div className="bg-slate-50 border border-slate-200/80 p-3 rounded-xl flex flex-col justify-between min-h-[76px] text-left">
                 <span className="text-[9px] font-bold text-slate-400 font-mono uppercase tracking-wider block">Branch Yield</span>
                 <span className="text-sm font-black text-slate-800 tracking-tight block mt-1">{currency}{Math.round(totalSalesRevenue).toLocaleString()}</span>
@@ -4032,7 +4065,7 @@ export default function DashboardReports({
             </div>
 
             {/* List of Reports Cards with Icons */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="reports-list-tablet-grid grid grid-cols-2 gap-3">
               {[
                 { id: 'p&l', label: 'Profit & Loss', icon: BarChart3, desc: 'Gross & net margin statement', colorClass: 'bg-emerald-50 text-emerald-700 border border-emerald-100', reqPerm: 'reportsSalesExpenses' },
                 { id: 'sales-report', label: 'Sales Report', icon: TrendingUp, desc: 'Transactions & VAT audit', colorClass: 'bg-indigo-50 text-indigo-605 border border-indigo-100', reqPerm: 'reportsSalesExpenses' },
@@ -4630,7 +4663,14 @@ export default function DashboardReports({
                         <div key={sale.id} className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 overflow-hidden text-left">
                           <div className="flex items-center justify-between px-4 py-3">
                             <div className="min-w-0">
-                              <p className="text-[13px] font-bold text-slate-800 dark:text-slate-100 truncate">{sale.customerName || 'Walk-In'}</p>
+                              <div className="flex items-center gap-1.5">
+                                <p className="text-[13px] font-bold text-slate-800 dark:text-slate-100 truncate">{sale.customerName || 'Walk-In'}</p>
+                                {sale.items.some(it => it.prescriptionRequired) && (
+                                  <span title="Includes a prescription medicine" className="shrink-0 px-1.5 py-0.5 rounded-full text-[8.5px] font-mono font-black uppercase tracking-wider bg-rose-100 text-rose-700 border border-rose-200">
+                                    Rx
+                                  </span>
+                                )}
+                              </div>
                               <p className="text-[9px] font-mono text-slate-400 mt-0.5">{new Date(sale.timestamp).toLocaleDateString()} · {sale.paymentMethod}</p>
                             </div>
                             <div className="text-right shrink-0 ml-3">
@@ -5759,7 +5799,7 @@ export default function DashboardReports({
                 
                 {/* Brand Banner */}
                 <div className="text-center pb-3 border-b border-dashed border-slate-200">
-                  <h3 className="text-sm font-black text-slate-800 uppercase tracking-tight font-sans leading-none">{getBusinessDisplayName(activeTenant, systemSettings, userName)}</h3>
+                  <h3 className="text-sm font-black text-slate-800 uppercase tracking-tight font-sans leading-none">{getActiveBranchDisplayName(activeTenant, systemSettings, userName, activeBranch)}</h3>
                   <p className="text-[10px] text-slate-500 font-mono mt-1.5 uppercase tracking-wider">
                     {activeTenant.businessType === 'pharmacy' ? 'Clinical Pharmacy Dispensary' : activeTenant.businessType === 'restaurant' ? 'Hospitality & Diner' : 'General Merchant Office'}
                   </p>
@@ -6072,28 +6112,28 @@ export default function DashboardReports({
                 const isLow = stockQty <= (p.alertQty || 5) && stockQty > 0;
                 const isOut = stockQty <= 0;
                 return (
-                  <div key={p.id} className="flex items-center gap-3 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+                  <div key={p.id} className="flex items-center gap-3 bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm">
                     {/* Product image */}
-                    <div className="w-[60px] h-[60px] shrink-0 bg-slate-50 dark:bg-slate-800 flex items-center justify-center overflow-hidden">
+                    <div className="w-[60px] h-[60px] shrink-0 bg-slate-50 flex items-center justify-center overflow-hidden">
                       {p.image ? (
                         <CachedImage src={p.image} alt={p.name} className="w-full h-full object-contain p-1" referrerPolicy="no-referrer" />
                       ) : (
-                        <span className="text-[13px] font-black text-slate-300 dark:text-slate-600">{p.name.slice(0,2).toUpperCase()}</span>
+                        <span className="text-[13px] font-black text-slate-300">{p.name.slice(0,2).toUpperCase()}</span>
                       )}
                     </div>
                     {/* Info */}
                     <div className="flex-1 min-w-0 py-2.5">
                       <div className="flex items-start justify-between gap-2">
-                        <p className="text-[12.5px] font-bold text-slate-800 dark:text-slate-100 truncate leading-tight">{p.name}</p>
+                        <p className="text-[12.5px] font-bold text-slate-800 truncate leading-tight">{p.name}</p>
                         {isOut ? (
-                          <span className="text-[9px] font-black text-rose-600 bg-rose-50 dark:bg-rose-900/30 px-1.5 py-0.5 rounded-md shrink-0">OUT</span>
+                          <span className="text-[9px] font-black text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded-md shrink-0">OUT</span>
                         ) : isLow ? (
-                          <span className="text-[9px] font-black text-amber-600 bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded-md shrink-0">LOW</span>
+                          <span className="text-[9px] font-black text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-md shrink-0">LOW</span>
                         ) : null}
                       </div>
                       <p className="text-[9px] text-slate-400 mt-0.5">{p.category || 'General'}{p.sku ? ` · ${p.sku}` : ''}</p>
                       <div className="flex items-center gap-3 mt-1.5 text-[10px] font-mono">
-                        <span className="text-slate-500">Cost <span className="text-slate-700 dark:text-slate-300 font-bold">{currency}{p.costPrice.toFixed(0)}</span></span>
+                        <span className="text-slate-500">Cost <span className="text-slate-700 font-bold">{currency}{p.costPrice.toFixed(0)}</span></span>
                         <span className="text-slate-500">Sell <span className="text-emerald-600 font-bold">{currency}{p.sellingPrice.toFixed(0)}</span></span>
                         <span className="text-indigo-500 font-bold">{margin}%</span>
                       </div>
@@ -6101,17 +6141,17 @@ export default function DashboardReports({
                       <div className="flex items-center gap-2 mt-1 text-[9px] font-mono">
                         <span className="flex items-center gap-1">
                           <span className="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0" />
-                          <span className="text-slate-400">Shop <span className="font-bold text-slate-600 dark:text-slate-300">{p.shopStockQty ?? 0}</span></span>
+                          <span className="text-slate-400">Shop <span className="font-bold text-slate-600">{p.shopStockQty ?? 0}</span></span>
                         </span>
                         <span className="flex items-center gap-1">
                           <span className="w-1.5 h-1.5 rounded-full bg-violet-400 shrink-0" />
-                          <span className="text-slate-400">Store <span className="font-bold text-slate-600 dark:text-slate-300">{p.storeStockQty ?? 0}</span></span>
+                          <span className="text-slate-400">Store <span className="font-bold text-slate-600">{p.storeStockQty ?? 0}</span></span>
                         </span>
                       </div>
                     </div>
                     {/* Stock + value */}
                     <div className="text-right pr-3.5 shrink-0">
-                      <p className={`text-[15px] font-black font-mono ${isOut ? 'text-rose-500' : isLow ? 'text-amber-500' : 'text-slate-800 dark:text-slate-100'}`}>{stockQty}</p>
+                      <p className={`text-[15px] font-black font-mono ${isOut ? 'text-rose-500' : isLow ? 'text-amber-500' : 'text-slate-800'}`}>{stockQty}</p>
                       <p className="text-[8.5px] text-slate-400 font-mono">{currency}{Math.round(assetVal).toLocaleString()}</p>
                     </div>
                   </div>
@@ -6560,26 +6600,6 @@ export default function DashboardReports({
             </div>
           )}
 
-        </div>
-
-        {/* Dynamic Signature Block — three "label | label" flex rows instead
-            of a 2-column grid. Each row is a single small unit the PDF
-            generator page-breaks together, so a lone trailing line (e.g.
-            "Branch Manager") never gets orphaned alone on its own page the
-            way per-fragment pagination of a tall grid column can do. */}
-        <div className="hidden print:block mt-12 pt-8 border-t border-dashed border-slate-300 space-y-2 text-[9px] text-slate-600 font-mono">
-          <div className="flex justify-between">
-            <span className="font-bold uppercase">Prepared By</span>
-            <span className="font-bold uppercase">Authorized By</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="font-semibold">{REPORT_DOCUMENT_TITLES[reportTab] || 'Business Report'}</span>
-            <span className="font-semibold text-slate-400">________________________</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-slate-400"></span>
-            <span className="text-slate-400 font-sans">Branch Manager</span>
-          </div>
         </div>
 
       </div>

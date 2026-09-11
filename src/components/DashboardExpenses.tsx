@@ -40,6 +40,7 @@ import {
 import { Tenant, Expense, Product, Sale, SystemSettings } from '../types';
 import { safeSetJsonItem } from '../utils/dataSafety';
 import { getMaskedAccountReference, getTreasuryPaymentMethods, reconcilePaymentChannels } from '../utils/paymentAccounts';
+import { formatLocalDate, localDateToIso, timestampToLocalDate } from '../utils/localDate';
 
 
 
@@ -234,10 +235,10 @@ export default function DashboardExpenses({
     if (!val) {
       setQuickDateOption('all');
     } else {
-      const todayStr = new Date().toISOString().split('T')[0];
+      const todayStr = formatLocalDate();
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
-      const yesterdayStr = yesterday.toISOString().split('T')[0];
+      const yesterdayStr = formatLocalDate(yesterday);
 
       if (val === todayStr) {
         setQuickDateOption('today');
@@ -252,7 +253,7 @@ export default function DashboardExpenses({
   // Filter expenses list by active dates/days
   const filteredExpenses = useMemo(() => {
     return expenses.filter(e => {
-      const expDateStr = e.timestamp.split('T')[0];
+      const expDateStr = timestampToLocalDate(e.timestamp);
 
       // Date range filter (From → To) takes priority
       if (dateFrom || dateTo) {
@@ -391,7 +392,7 @@ export default function DashboardExpenses({
       return;
     }
 
-    const cleanDate = formDate || new Date().toISOString().split('T')[0];
+    const cleanDate = formDate || formatLocalDate();
 
     let uniqueId = '';
     let isUnique = false;
@@ -406,7 +407,7 @@ export default function DashboardExpenses({
       id: uniqueId,
       category: formCategory,
       amount: Number(formAmount),
-      timestamp: new Date(cleanDate + 'T12:00:00Z').toISOString(),
+      timestamp: localDateToIso(cleanDate, new Date(), 12),
       description: formDescription.trim(),
       staffName: userName,
       tenantId: activeTenant.id,
@@ -468,7 +469,7 @@ export default function DashboardExpenses({
     for (let i = 29; i >= 0; i--) {
       const d = new Date();
       d.setDate(today.getDate() - i);
-      const dateStr = d.toISOString().split('T')[0];
+      const dateStr = formatLocalDate(d);
       dataMap[dateStr] = 0;
     }
     
@@ -476,7 +477,7 @@ export default function DashboardExpenses({
     if (expenses && expenses.length > 0) {
       expenses.forEach(e => {
         if (!e.timestamp) return;
-        const dateStr = e.timestamp.split('T')[0];
+        const dateStr = timestampToLocalDate(e.timestamp);
         if (dataMap[dateStr] !== undefined) {
           dataMap[dateStr] += e.amount || 0;
         }
@@ -827,7 +828,7 @@ export default function DashboardExpenses({
                           <Eye className="w-3.5 h-3.5" />
                         </button>
                         <button type="button" title="Edit"
-                          onClick={() => { setEditExpenseError(''); setEditingExpense(e); setEditForm({description: e.description, amount: String(e.amount), category: e.category, note: e.note || '', paidFromAccountId: e.paidFromAccountId || '', date: (e.timestamp || '').split('T')[0]}); }}
+                          onClick={() => { setEditExpenseError(''); setEditingExpense(e); setEditForm({description: e.description, amount: String(e.amount), category: e.category, note: e.note || '', paidFromAccountId: e.paidFromAccountId || '', date: timestampToLocalDate(e.timestamp)}); }}
                           className="p-1.5 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-500/10 text-slate-400 hover:text-amber-600 transition-colors cursor-pointer bg-transparent border-none"
                         >
                           <Edit className="w-3.5 h-3.5" />
@@ -1269,7 +1270,7 @@ export default function DashboardExpenses({
                 )}
                 <button
                   type="button"
-                  onClick={() => { setEditingExpense(expenseActionItem); setEditForm({description: expenseActionItem.description, amount: String(expenseActionItem.amount), category: expenseActionItem.category, note: expenseActionItem.note || '', paidFromAccountId: expenseActionItem.paidFromAccountId || '', date: (expenseActionItem.timestamp || '').split('T')[0]}); setExpenseActionItem(null); }}
+                  onClick={() => { setEditingExpense(expenseActionItem); setEditForm({description: expenseActionItem.description, amount: String(expenseActionItem.amount), category: expenseActionItem.category, note: expenseActionItem.note || '', paidFromAccountId: expenseActionItem.paidFromAccountId || '', date: timestampToLocalDate(expenseActionItem.timestamp)}); setExpenseActionItem(null); }}
                   className="w-full h-14 min-h-[52px] bg-white dark:bg-slate-800 hover:bg-slate-50 flex items-center justify-between px-3.5 py-2.5 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-xs cursor-pointer text-left transition-colors"
                 >
                   <div className="flex items-center space-x-3.5">
@@ -1473,7 +1474,7 @@ export default function DashboardExpenses({
                       setEditExpenseError('A posted payment cannot be silently changed. Reverse/delete it, then record the corrected expense.');
                       return;
                     }
-                    const nextTimestamp = editForm.date ? new Date(editForm.date + 'T12:00:00Z').toISOString() : editingExpense.timestamp;
+                    const nextTimestamp = editForm.date ? localDateToIso(editForm.date, new Date(editingExpense.timestamp), 12) : editingExpense.timestamp;
                     const saved = await onUpdateExpense?.({...editingExpense, description: editForm.description, amount: parseFloat(editForm.amount) || 0, category: editForm.category, note: editForm.note, paidFromAccountId: account.id, paymentMethod: account.paymentMethod || account.name, timestamp: nextTimestamp});
                     if (saved === false) {
                       setEditExpenseError('Expense changes could not be saved. Nothing was changed in the database.');

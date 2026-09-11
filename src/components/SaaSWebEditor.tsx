@@ -24,7 +24,6 @@ import {
 import { DEFAULT_TENANTS } from '../data';
 import { loadPlatformRecord, savePlatformRecord } from '../utils/superAdminPlatformRecords';
 import { ONLINE_ONLY_WRITE_MESSAGE } from '../utils/onlineOnly';
-import SaaSAdPlacementsPanel from './SaaSAdPlacementsPanel';
 import { compressImageFile } from '../utils/imageCompression';
 import { loadSuperAdminOverview } from '../utils/superAdminData';
 import { getSecureDataBridgeClient } from '../secureDataBridge';
@@ -51,7 +50,7 @@ const DEFAULT_TRANSLATIONS: Record<string, string> = {
   aboutEndpoints: "Over 2,400 active stores registered",
   contactPhone: "+255754002991",
   contactPhoneLabel: "Call Local Agent",
-  contactEmail: "deployments@jasper.africa",
+  contactEmail: "deployments@orvix.africa",
   contactEmailLabel: "Contact Deployments",
   footerCol1Title: "Company Suite",
   footerHome: "Home Page",
@@ -882,7 +881,7 @@ export default function SaaSWebEditor() {
                         value={customValues.contactEmail || ''}
                         onChange={(e) => handleInputChange('contactEmail', e.target.value)}
                         className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-emerald-500 font-mono"
-                        placeholder="e.g. deployments@jasper.africa"
+                        placeholder="e.g. deployments@orvix.africa"
                       />
                     </div>
                   </div>
@@ -1326,13 +1325,9 @@ export default function SaaSWebEditor() {
               {/* Footer mockup block */}
               <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-805 text-[10px] font-mono flex items-center justify-between text-slate-400">
                 <span className="font-bold text-white">🏢 System Footer</span>
-                <span className="text-[8px] text-slate-500">© 2026 JASPER SUITE</span>
+                <span className="text-[8px] text-slate-500">© 2026 ORVIX SUITE</span>
               </div>
             </div>
-          </div>
-
-          <div className="pt-4 border-t border-slate-800">
-            <SaaSAdPlacementsPanel compact />
           </div>
 
           <div className="pt-4 border-t border-slate-800 space-y-2">

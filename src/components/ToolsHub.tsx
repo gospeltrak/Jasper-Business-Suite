@@ -78,7 +78,7 @@ export default function ToolsHub({ onNavigate, isDark, onToggleTheme }: ToolsHub
   const [barcodeRef, setBarcodeRef] = useState<SVGSVGElement | null>(null);
 
   // States for QR Code
-  const [qrText, setQrText] = useState('https://jasper.africa/shop/JASPER-001');
+  const [qrText, setQrText] = useState('https://orvix.africa/shop/ORVIX-001');
   const [qrFgColor, setQrFgColor] = useState('#10b981'); // Emerald 500
   const [qrBgColor, setQrBgColor] = useState('#ffffff');
 
@@ -649,7 +649,7 @@ export default function ToolsHub({ onNavigate, isDark, onToggleTheme }: ToolsHub
         ctx.drawImage(img, 0, 0);
         
         const a = document.createElement('a');
-        a.download = `jasper-barcode-${barcodeText.toLowerCase()}.png`;
+        a.download = `orvix-barcode-${barcodeText.toLowerCase()}.png`;
         a.href = canvas.toDataURL('image/png');
         a.click();
       }
@@ -991,7 +991,7 @@ export default function ToolsHub({ onNavigate, isDark, onToggleTheme }: ToolsHub
                         <div className="flex justify-center gap-3">
                           <a 
                             href={bgOutput} 
-                            download="jasper-clean-subject.png"
+                            download="orvix-clean-subject.png"
                             className="bg-emerald-500 hover:bg-emerald-450 text-slate-950 font-bold text-xs uppercase tracking-wider py-3 px-5 rounded-xl cursor-pointer transition-all flex items-center gap-1.5 active:scale-95 shadow-md shadow-emerald-500/10"
                             id="download-bg-btn"
                           >
@@ -1141,7 +1141,7 @@ export default function ToolsHub({ onNavigate, isDark, onToggleTheme }: ToolsHub
                         <div className="flex justify-center gap-3">
                           <a 
                             href={scaleOutput} 
-                            download="jasper-catalog-500x500.png"
+                            download="orvix-catalog-500x500.png"
                             className="bg-emerald-500 hover:bg-emerald-450 text-slate-950 font-bold text-xs uppercase tracking-wider py-3 px-5 rounded-xl cursor-pointer transition-all flex items-center gap-1.5 active:scale-95 shadow-md shadow-emerald-500/10"
                             id="download-scaled-btn"
                           >
@@ -1337,7 +1337,7 @@ export default function ToolsHub({ onNavigate, isDark, onToggleTheme }: ToolsHub
 
                         <a 
                           href={qrCodeUrl} 
-                          download="jasper-qr-code.png"
+                          download="orvix-qr-code.png"
                           target="_blank"
                           rel="noopener noreferrer"
                           className="bg-emerald-500 hover:bg-emerald-450 text-slate-950 font-bold text-xs uppercase tracking-wider py-3.5 px-6 rounded-xl cursor-pointer transition-all flex items-center justify-center gap-1.5 active:scale-95 shadow-md shadow-emerald-500/10 mx-auto max-w-xs"

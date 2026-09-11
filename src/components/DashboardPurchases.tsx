@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Product, Supplier, Purchase, PurchaseItem, Tenant, SystemSettings } from '../types';
+import { Product, Supplier, Purchase, PurchaseItem, Tenant, SystemSettings, PaymentChannel } from '../types';
 import { getMaskedAccountReference } from '../utils/paymentAccounts';
 import ModernSelect from './ui/ModernSelect';
 import { addBatchToProduct, createInventoryBatch } from '../utils/inventoryCosting';
 import { formatProductQuantity } from '../utils/unitFormatter';
+import { calculateBaseCost, convertToBaseQuantity, getBaseUnitLabel, resolvePackageLevels } from '../utils/universalUnits';
+import { calculateFractionPurchaseLine, isFractionSaleEnabled, resolveFractionSaleConfig } from '../utils/fractionSale';
 import { 
   Truck, 
   Package, 
@@ -42,6 +44,259 @@ interface DashboardPurchasesProps {
   systemSettings: SystemSettings;
 }
 
+// Defined at module scope (not inside DashboardPurchases) so their component
+// identity stays stable across re-renders -- when they were declared inline,
+// every keystroke in a form field re-created these as "new" component types,
+// causing React to unmount and remount them (replaying the slide-up entrance
+// animation and dropping focus, which looked like the sheet "closing").
+
+function ViewPurchaseModal({ pc, currency, onClose, onEdit, onDelete }: {
+  pc: Purchase;
+  currency: string;
+  onClose: () => void;
+  onEdit: (pc: Purchase) => void;
+  onDelete: (id: string) => void;
+}) {
+  const diff = pc.totalAmount - pc.amountPaid;
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+      <div
+        className="relative bg-white w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden animate-slide-up"
+        onClick={e => e.stopPropagation()}
+        style={{ animation: 'slideUp 0.28s cubic-bezier(.32,1.2,.6,1) both' }}
+      >
+        {/* Handle bar (mobile) */}
+        <div className="flex justify-center pt-3 pb-1 sm:hidden">
+          <div className="w-10 h-1 bg-slate-200 rounded-full" />
+        </div>
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 pt-4 pb-4 border-b border-slate-100">
+          <div>
+            <h3 className="font-black text-slate-800 text-base">{pc.id}</h3>
+            <p className="text-[11px] text-slate-400 font-mono mt-0.5">{new Date(pc.timestamp).toLocaleString()}</p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 transition-colors">
+            <X className="w-4 h-4 text-slate-600" />
+          </button>
+        </div>
+        {/* Body */}
+        <div className="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-slate-50 rounded-2xl p-3.5">
+              <p className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest font-mono mb-1">Supplier</p>
+              <p className="font-bold text-slate-800 text-sm">{pc.supplierName}</p>
+            </div>
+            <div className="bg-slate-50 rounded-2xl p-3.5">
+              <p className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest font-mono mb-1">Destination</p>
+              <p className="font-bold text-slate-800 text-sm capitalize">{pc.destination === 'shop' ? '🏪 Shop Shelf' : '📦 Store Room'}</p>
+            </div>
+            <div className="bg-slate-50 rounded-2xl p-3.5">
+              <p className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest font-mono mb-1">Payment</p>
+              <p className="font-bold text-slate-800 text-sm">{pc.paymentMethod}</p>
+            </div>
+            <div className="bg-slate-50 rounded-2xl p-3.5">
+              <p className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest font-mono mb-1">Delivery</p>
+              <p className="font-bold text-slate-800 text-sm">{pc.deliveryStatus}</p>
+            </div>
+          </div>
+          {/* Items */}
+          <div>
+            <p className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest font-mono mb-2">Items Purchased</p>
+            <div className="space-y-2">
+              {pc.items.map((it, i) => (
+                <div key={i} className="flex justify-between items-center bg-slate-50 rounded-xl px-3.5 py-2.5 text-xs">
+                  <span className="font-semibold text-slate-700 truncate max-w-[55%]">{it.productName}</span>
+                  <div className="text-right">
+                    <span className="font-black text-slate-800 font-mono">×{it.qty}{it.packageLevelLabel ? ` ${it.packageLevelLabel}` : it.selectedLevel === 'piece' ? ` ${it.baseUnit || 'Piece'}` : ''}</span>
+                    {it.baseQty !== undefined && (
+                      <span className="text-slate-400 ml-1.5 font-mono text-[10px]">({it.baseQty} {it.baseUnit || 'base'})</span>
+                    )}
+                    <span className="text-slate-400 ml-2 font-mono">{currency}{it.costPrice?.toLocaleString()}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          {/* Financial */}
+          <div className="bg-slate-900 rounded-2xl p-4 space-y-2 font-mono text-xs">
+            <div className="flex justify-between text-slate-400">
+              <span>GROSS TOTAL</span>
+              <span className="text-white font-black">{currency}{Math.round(pc.totalAmount).toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between text-slate-400">
+              <span>AMOUNT PAID</span>
+              <span className="text-emerald-400 font-black">{currency}{Math.round(pc.amountPaid).toLocaleString()}</span>
+            </div>
+            {diff > 0 && (
+              <div className="flex justify-between border-t border-slate-700 pt-2">
+                <span className="text-slate-400">BALANCE DUE</span>
+                <span className="text-amber-400 font-black">{currency}{Math.round(diff).toLocaleString()}</span>
+              </div>
+            )}
+            {diff <= 0 && (
+              <div className="flex justify-between border-t border-slate-700 pt-2">
+                <span className="text-slate-400">STATUS</span>
+                <span className="text-emerald-400 font-black">✓ PAID IN FULL</span>
+              </div>
+            )}
+          </div>
+        </div>
+        {/* Footer actions */}
+        <div className="px-6 pb-6 pt-2 flex gap-3">
+          <button
+            onClick={() => { onClose(); onEdit(pc); }}
+            className="flex-1 py-3 bg-slate-900 hover:bg-slate-800 text-white text-xs font-black rounded-2xl flex items-center justify-center gap-2 transition-all"
+          >
+            <Pencil className="w-3.5 h-3.5" /> Edit
+          </button>
+          <button
+            onClick={() => { onClose(); onDelete(pc.id); }}
+            className="flex-1 py-3 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-black rounded-2xl flex items-center justify-center gap-2 transition-all"
+          >
+            <Trash2 className="w-3.5 h-3.5" /> Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DeletePurchaseModal({ id, onClose, onDeletePurchase }: {
+  id: string;
+  onClose: () => void;
+  onDeletePurchase: (id: string) => void | boolean | Promise<void | boolean>;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+      <div
+        className="relative bg-white w-full sm:max-w-sm rounded-t-3xl sm:rounded-3xl shadow-2xl p-6"
+        onClick={e => e.stopPropagation()}
+        style={{ animation: 'slideUp 0.28s cubic-bezier(.32,1.2,.6,1) both' }}
+      >
+        <div className="flex justify-center pt-1 pb-3 sm:hidden">
+          <div className="w-10 h-1 bg-slate-200 rounded-full" />
+        </div>
+        <div className="w-12 h-12 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <Trash2 className="w-6 h-6 text-red-500" />
+        </div>
+        <h3 className="font-black text-slate-800 text-lg text-center mb-1">Delete Purchase?</h3>
+        <p className="text-slate-400 text-sm text-center mb-6 font-sans">This action cannot be undone. The purchase record <span className="font-bold text-slate-600">{id}</span> will be permanently removed.</p>
+        <div className="flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-black rounded-2xl transition-all"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={async () => {
+              const deleted = await onDeletePurchase(id);
+              if (deleted !== false) onClose();
+            }}
+            className="flex-1 py-3 bg-red-600 hover:bg-red-500 text-white text-sm font-black rounded-2xl transition-all"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EditPurchaseModal({
+  pc, currency, editAmountPaid, setEditAmountPaid, editDeliveryStatus, setEditDeliveryStatus,
+  editPaymentMethod, setEditPaymentMethod, editPaidFromAccountId, setEditPaidFromAccountId,
+  paymentAccounts, editPurchaseError, onClose, onSave,
+}: {
+  pc: Purchase;
+  currency: string;
+  editAmountPaid: number;
+  setEditAmountPaid: (v: number) => void;
+  editDeliveryStatus: Purchase['deliveryStatus'];
+  setEditDeliveryStatus: (v: Purchase['deliveryStatus']) => void;
+  editPaymentMethod: string;
+  setEditPaymentMethod: (v: string) => void;
+  editPaidFromAccountId: string;
+  setEditPaidFromAccountId: (v: string) => void;
+  paymentAccounts: PaymentChannel[];
+  editPurchaseError: string;
+  onClose: () => void;
+  onSave: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+      <div
+        className="relative bg-white w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden"
+        onClick={e => e.stopPropagation()}
+        style={{ animation: 'slideUp 0.28s cubic-bezier(.32,1.2,.6,1) both' }}
+      >
+        <div className="flex justify-center pt-3 pb-1 sm:hidden">
+          <div className="w-10 h-1 bg-slate-200 rounded-full" />
+        </div>
+        <div className="flex items-center justify-between px-6 pt-4 pb-4 border-b border-slate-100">
+          <div>
+            <h3 className="font-black text-slate-800 text-base">Edit Purchase</h3>
+            <p className="text-[11px] text-slate-400 font-mono mt-0.5">{pc.id}</p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 transition-colors">
+            <X className="w-4 h-4 text-slate-600" />
+          </button>
+        </div>
+        <div className="px-6 py-5 space-y-4 max-h-[60vh] overflow-y-auto">
+          <div className="space-y-1">
+            <label className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest font-mono">Amount Paid</label>
+            <div className="flex items-center bg-slate-50 border border-slate-200 focus-within:border-emerald-500 px-3 py-2.5 rounded-xl transition-all">
+              <span className="text-slate-500 font-bold font-mono mr-1.5">{currency}</span>
+              <input type="number" min="0" max={pc.totalAmount} value={editAmountPaid} onChange={(event) => setEditAmountPaid(Number(event.target.value) || 0)} className="bg-transparent w-full text-sm text-slate-800 font-black font-mono focus:outline-none text-right" />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <label className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest font-mono">Delivery Status</label>
+            <select value={editDeliveryStatus} onChange={(event) => setEditDeliveryStatus(event.target.value as Purchase['deliveryStatus'])} className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-sm px-3 py-2.5 rounded-xl text-slate-800 font-bold outline-none cursor-pointer">
+              <option value="Full order delivered">Full Order Delivered</option>
+              <option value="Partial">Partial Delivery</option>
+              <option value="Pending">Pending / Not Shipped</option>
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest font-mono">Payment Method</label>
+            <select value={editPaymentMethod} onChange={(event) => setEditPaymentMethod(event.target.value)} className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-sm px-3 py-2.5 rounded-xl text-slate-800 font-bold outline-none cursor-pointer">
+              <option value="Cash">Cash</option>
+              <option value="Mobile Money">Mobile Money</option>
+              <option value="Bank Transfer">Bank Transfer</option>
+              <option value="Card">Credit/Debit Card</option>
+            </select>
+            {editAmountPaid > 0 && (
+              <select value={editPaidFromAccountId} onChange={(event) => setEditPaidFromAccountId(event.target.value)} className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-sm px-3 py-2.5 rounded-xl text-slate-800 font-bold outline-none cursor-pointer">
+                <option value="">Select paid-from account</option>
+                {paymentAccounts.map(account => (
+                  <option key={account.id} value={account.id}>{account.name}{getMaskedAccountReference(account) ? ` — ${getMaskedAccountReference(account)}` : ''}</option>
+                ))}
+              </select>
+            )}
+          </div>
+        </div>
+        <div className="px-6 pb-6 pt-2">
+          <button
+            onClick={onSave}
+            className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 text-white text-sm font-black rounded-2xl flex items-center justify-center gap-2 transition-all"
+          >
+            <CheckCircle className="w-4 h-4 text-emerald-400" /> Save Changes
+          </button>
+          {editPurchaseError && (
+            <p className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700">
+              {editPurchaseError}
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardPurchases({
   activeTenant,
   products,
@@ -72,7 +327,7 @@ export default function DashboardPurchases({
   const [deliveryStatus, setDeliveryStatus] = useState<'Pending' | 'Partial' | 'Full order delivered'>('Full order delivered');
   
   const [searchTerm, setSearchTerm] = useState('');
-  const [cart, setCart] = useState<Array<{ product: Product; qty: number; costPrice: number }>>([]);
+  const [cart, setCart] = useState<Array<{ product: Product; qty: number; costPrice: number; unitLevelId: string; expiryDate?: string }>>([]);
   const [amountPaid, setAmountPaid] = useState<number>(0);
   const [paymentMethod, setPaymentMethod] = useState<string>('Cash');
   const [paidFromAccountId, setPaidFromAccountId] = useState<string>('');
@@ -216,7 +471,7 @@ export default function DashboardPurchases({
           : item
       ));
     } else {
-      setCart([...cart, { product, qty: 1, costPrice: product.costPrice }]);
+      setCart([...cart, { product, qty: 1, costPrice: product.costPrice, unitLevelId: 'base' }]);
     }
   };
 
@@ -224,15 +479,60 @@ export default function DashboardPurchases({
     if (val <= 0) {
       setCart(cart.filter(item => item.product.id !== productId));
     } else {
-      setCart(cart.map(item => 
+      setCart(cart.map(item =>
         item.product.id === productId ? { ...item, qty: val } : item
       ));
     }
   };
 
   const handleUpdateCostPrice = (productId: string, cost: number) => {
-    setCart(cart.map(item => 
+    setCart(cart.map(item =>
       item.product.id === productId ? { ...item, costPrice: Math.max(0, cost) } : item
+    ));
+  };
+
+  const getPurchaseUnitLevels = (product: Product) => {
+    if (isFractionSaleEnabled(product, activeTenant.businessType)) {
+      const config = resolveFractionSaleConfig(product, activeTenant.businessType);
+      return [{ id: 'fraction-packet', label: config.packetUnit, quantityInBaseUnit: config.unitsPerPacket }];
+    }
+    if (activeTenant.businessType === 'pharmacy' && product.productType === 'medicine') {
+      return resolvePackageLevels(product);
+    }
+    return [];
+  };
+
+  const getPurchaseBaseQuantity = (quantity: number, unitLevelId: string, product: Product) => {
+    if (unitLevelId === 'fraction-packet') {
+      return calculateFractionPurchaseLine('packet', quantity, 0, resolveFractionSaleConfig(product, activeTenant.businessType)).baseQty;
+    }
+    return convertToBaseQuantity(quantity, unitLevelId, product);
+  };
+
+  const getPurchaseBaseCost = (cost: number, unitLevelId: string, product: Product) => {
+    if (unitLevelId === 'fraction-packet') {
+      return calculateFractionPurchaseLine('packet', 1, cost, resolveFractionSaleConfig(product, activeTenant.businessType)).baseUnitCost;
+    }
+    return calculateBaseCost(cost, unitLevelId, product);
+  };
+
+  const handleUpdateUnitLevel = (productId: string, unitLevelId: string) => {
+    setCart(cart.map(item => {
+      if (item.product.id !== productId) return item;
+      // Re-express the cost in the newly selected unit instead of silently
+      // keeping the old unit's number under a different label -- switching
+      // "Buying as" from Kg (e.g. 1,000/Kg) to Sack (50 Kg) should suggest
+      // 50,000/Sack, not leave 1,000 sitting there misread as a Sack price.
+      const costPerBase = getPurchaseBaseCost(item.costPrice, item.unitLevelId, item.product);
+      const newLevelBaseQty = getPurchaseBaseQuantity(1, unitLevelId, item.product);
+      const nextCostPrice = Number((costPerBase * newLevelBaseQty).toFixed(2));
+      return { ...item, unitLevelId, costPrice: nextCostPrice };
+    }));
+  };
+
+  const handleUpdateExpiryDate = (productId: string, expiryDate: string) => {
+    setCart(cart.map(item =>
+      item.product.id === productId ? { ...item, expiryDate: expiryDate || undefined } : item
     ));
   };
 
@@ -260,12 +560,36 @@ export default function DashboardPurchases({
     const supplier = availableSuppliers.find(s => s.id === selectedSupplierId) || availableSuppliers[0];
     const paidFromAccount = paymentAccounts.find(account => account.id === paidFromAccountId);
 
-    const purchaseItems: PurchaseItem[] = cart.map(item => ({
-      productId: item.product.id,
-      productName: item.product.name,
-      qty: item.qty,
-      costPrice: item.costPrice
-    }));
+    const purchaseItems: PurchaseItem[] = cart.map(item => {
+      const level = item.unitLevelId !== 'base'
+        ? getPurchaseUnitLevels(item.product).find(candidate => candidate.id === item.unitLevelId)
+        : undefined;
+      const baseQty = getPurchaseBaseQuantity(item.qty, item.unitLevelId, item.product);
+      const isFractionPacket = item.unitLevelId === 'fraction-packet';
+      const fractionLine = isFractionSaleEnabled(item.product, activeTenant.businessType)
+        ? calculateFractionPurchaseLine(
+          isFractionPacket ? 'packet' : 'piece',
+          item.qty,
+          item.costPrice,
+          resolveFractionSaleConfig(item.product, activeTenant.businessType),
+        )
+        : null;
+      return {
+        productId: item.product.id,
+        productName: item.product.name,
+        qty: item.qty,
+        costPrice: item.costPrice,
+        packageLevelId: level?.id,
+        packageLevelLabel: level?.label,
+        baseQty,
+        selectedLevel: isFractionPacket ? 'packet' : level ? 'package' : (isFractionSaleEnabled(item.product, activeTenant.businessType) ? 'piece' : 'base'),
+        selectedLevelQuantity: fractionLine?.selectedLevelQuantity ?? item.qty,
+        unitsPerSelectedLevel: fractionLine?.unitsPerSelectedLevel ?? level?.quantityInBaseUnit ?? 1,
+        selectedUnitCost: item.costPrice,
+        lineTotal: Number((item.costPrice * item.qty).toFixed(2)),
+        baseUnit: getBaseUnitLabel(item.product),
+      };
+    });
 
     const newPurchase: Purchase = {
       id: 'PC-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
@@ -289,7 +613,11 @@ export default function DashboardPurchases({
     const updatedProductsList = products.map(prod => {
       const cartItem = cart.find(item => item.product.id === prod.id);
       if (cartItem) {
-        const addedQty = cartItem.qty;
+        // Purchases can happen in a package unit (e.g. 2 Boxes) -- inventory
+        // and batch costing always operate on base units (e.g. 200 Capsules),
+        // never on the raw quantity the tenant typed.
+        const addedQty = getPurchaseBaseQuantity(cartItem.qty, cartItem.unitLevelId, prod);
+        const baseCostPrice = getPurchaseBaseCost(cartItem.costPrice, cartItem.unitLevelId, prod);
         let newShopQty = prod.shopStockQty;
         let newStoreQty = prod.storeStockQty;
         if (destination === 'shop') {
@@ -297,10 +625,11 @@ export default function DashboardPurchases({
         } else {
           newStoreQty += addedQty;
         }
-        const batch = createInventoryBatch(prod, addedQty, cartItem.costPrice, {
+        const batch = createInventoryBatch(prod, addedQty, baseCostPrice, {
           supplierName: supplier.name,
           finalSellingPrice: prod.sellingPrice,
           purchaseDate: newPurchase.timestamp,
+          expiryDate: prod.trackExpiry ? cartItem.expiryDate : undefined,
         });
         const updatedWithBatch = addBatchToProduct(prod, batch, destination);
         return {
@@ -333,220 +662,6 @@ export default function DashboardPurchases({
       setActiveSubTab('history');
     }, 1500);
   };
-
-  // ── VIEW MODAL ──────────────────────────────────────────────────────────────
-  const ViewModal = ({ pc }: { pc: Purchase }) => {
-    const diff = pc.totalAmount - pc.amountPaid;
-    return (
-      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={() => setViewPurchase(null)}>
-        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-        <div
-          className="relative bg-white w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden animate-slide-up"
-          onClick={e => e.stopPropagation()}
-          style={{ animation: 'slideUp 0.28s cubic-bezier(.32,1.2,.6,1) both' }}
-        >
-          {/* Handle bar (mobile) */}
-          <div className="flex justify-center pt-3 pb-1 sm:hidden">
-            <div className="w-10 h-1 bg-slate-200 rounded-full" />
-          </div>
-          {/* Header */}
-          <div className="flex items-center justify-between px-6 pt-4 pb-4 border-b border-slate-100">
-            <div>
-              <h3 className="font-black text-slate-800 text-base">{pc.id}</h3>
-              <p className="text-[11px] text-slate-400 font-mono mt-0.5">{new Date(pc.timestamp).toLocaleString()}</p>
-            </div>
-            <button onClick={() => setViewPurchase(null)} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 transition-colors">
-              <X className="w-4 h-4 text-slate-600" />
-            </button>
-          </div>
-          {/* Body */}
-          <div className="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-slate-50 rounded-2xl p-3.5">
-                <p className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest font-mono mb-1">Supplier</p>
-                <p className="font-bold text-slate-800 text-sm">{pc.supplierName}</p>
-              </div>
-              <div className="bg-slate-50 rounded-2xl p-3.5">
-                <p className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest font-mono mb-1">Destination</p>
-                <p className="font-bold text-slate-800 text-sm capitalize">{pc.destination === 'shop' ? '🏪 Shop Shelf' : '📦 Store Room'}</p>
-              </div>
-              <div className="bg-slate-50 rounded-2xl p-3.5">
-                <p className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest font-mono mb-1">Payment</p>
-                <p className="font-bold text-slate-800 text-sm">{pc.paymentMethod}</p>
-              </div>
-              <div className="bg-slate-50 rounded-2xl p-3.5">
-                <p className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest font-mono mb-1">Delivery</p>
-                <p className="font-bold text-slate-800 text-sm">{pc.deliveryStatus}</p>
-              </div>
-            </div>
-            {/* Items */}
-            <div>
-              <p className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest font-mono mb-2">Items Purchased</p>
-              <div className="space-y-2">
-                {pc.items.map((it, i) => (
-                  <div key={i} className="flex justify-between items-center bg-slate-50 rounded-xl px-3.5 py-2.5 text-xs">
-                    <span className="font-semibold text-slate-700 truncate max-w-[55%]">{it.productName}</span>
-                    <div className="text-right">
-                      <span className="font-black text-slate-800 font-mono">×{it.qty}</span>
-                      <span className="text-slate-400 ml-2 font-mono">{currency}{it.costPrice?.toLocaleString()}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            {/* Financial */}
-            <div className="bg-slate-900 rounded-2xl p-4 space-y-2 font-mono text-xs">
-              <div className="flex justify-between text-slate-400">
-                <span>GROSS TOTAL</span>
-                <span className="text-white font-black">{currency}{Math.round(pc.totalAmount).toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between text-slate-400">
-                <span>AMOUNT PAID</span>
-                <span className="text-emerald-400 font-black">{currency}{Math.round(pc.amountPaid).toLocaleString()}</span>
-              </div>
-              {diff > 0 && (
-                <div className="flex justify-between border-t border-slate-700 pt-2">
-                  <span className="text-slate-400">BALANCE DUE</span>
-                  <span className="text-amber-400 font-black">{currency}{Math.round(diff).toLocaleString()}</span>
-                </div>
-              )}
-              {diff <= 0 && (
-                <div className="flex justify-between border-t border-slate-700 pt-2">
-                  <span className="text-slate-400">STATUS</span>
-                  <span className="text-emerald-400 font-black">✓ PAID IN FULL</span>
-                </div>
-              )}
-            </div>
-          </div>
-          {/* Footer actions */}
-          <div className="px-6 pb-6 pt-2 flex gap-3">
-            <button
-              onClick={() => { setViewPurchase(null); openEditPurchase(pc); }}
-              className="flex-1 py-3 bg-slate-900 hover:bg-slate-800 text-white text-xs font-black rounded-2xl flex items-center justify-center gap-2 transition-all"
-            >
-              <Pencil className="w-3.5 h-3.5" /> Edit
-            </button>
-            <button
-              onClick={() => { setViewPurchase(null); setDeletePurchaseId(pc.id); }}
-              className="flex-1 py-3 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-black rounded-2xl flex items-center justify-center gap-2 transition-all"
-            >
-              <Trash2 className="w-3.5 h-3.5" /> Delete
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // ── DELETE CONFIRM MODAL ────────────────────────────────────────────────────
-  const DeleteModal = ({ id }: { id: string }) => (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={() => setDeletePurchaseId(null)}>
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-      <div
-        className="relative bg-white w-full sm:max-w-sm rounded-t-3xl sm:rounded-3xl shadow-2xl p-6"
-        onClick={e => e.stopPropagation()}
-        style={{ animation: 'slideUp 0.28s cubic-bezier(.32,1.2,.6,1) both' }}
-      >
-        <div className="flex justify-center pt-1 pb-3 sm:hidden">
-          <div className="w-10 h-1 bg-slate-200 rounded-full" />
-        </div>
-        <div className="w-12 h-12 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-          <Trash2 className="w-6 h-6 text-red-500" />
-        </div>
-        <h3 className="font-black text-slate-800 text-lg text-center mb-1">Delete Purchase?</h3>
-        <p className="text-slate-400 text-sm text-center mb-6 font-sans">This action cannot be undone. The purchase record <span className="font-bold text-slate-600">{id}</span> will be permanently removed.</p>
-        <div className="flex gap-3">
-          <button
-            onClick={() => setDeletePurchaseId(null)}
-            className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-black rounded-2xl transition-all"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={async () => {
-              const deleted = await onDeletePurchase(id);
-              if (deleted !== false) setDeletePurchaseId(null);
-            }}
-            className="flex-1 py-3 bg-red-600 hover:bg-red-500 text-white text-sm font-black rounded-2xl transition-all"
-          >
-            Delete
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-
-  // ── EDIT MODAL (simple stub — real edit would use a form like the till) ─────
-  const EditModal = ({ pc }: { pc: Purchase }) => (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={() => setEditPurchase(null)}>
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-      <div
-        className="relative bg-white w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden"
-        onClick={e => e.stopPropagation()}
-        style={{ animation: 'slideUp 0.28s cubic-bezier(.32,1.2,.6,1) both' }}
-      >
-        <div className="flex justify-center pt-3 pb-1 sm:hidden">
-          <div className="w-10 h-1 bg-slate-200 rounded-full" />
-        </div>
-        <div className="flex items-center justify-between px-6 pt-4 pb-4 border-b border-slate-100">
-          <div>
-            <h3 className="font-black text-slate-800 text-base">Edit Purchase</h3>
-            <p className="text-[11px] text-slate-400 font-mono mt-0.5">{pc.id}</p>
-          </div>
-          <button onClick={() => setEditPurchase(null)} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 transition-colors">
-            <X className="w-4 h-4 text-slate-600" />
-          </button>
-        </div>
-        <div className="px-6 py-5 space-y-4 max-h-[60vh] overflow-y-auto">
-          <div className="space-y-1">
-            <label className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest font-mono">Amount Paid</label>
-            <div className="flex items-center bg-slate-50 border border-slate-200 focus-within:border-emerald-500 px-3 py-2.5 rounded-xl transition-all">
-              <span className="text-slate-500 font-bold font-mono mr-1.5">{currency}</span>
-              <input type="number" min="0" max={pc.totalAmount} value={editAmountPaid} onChange={(event) => setEditAmountPaid(Number(event.target.value) || 0)} className="bg-transparent w-full text-sm text-slate-800 font-black font-mono focus:outline-none text-right" />
-            </div>
-          </div>
-          <div className="space-y-1">
-            <label className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest font-mono">Delivery Status</label>
-            <select value={editDeliveryStatus} onChange={(event) => setEditDeliveryStatus(event.target.value as Purchase['deliveryStatus'])} className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-sm px-3 py-2.5 rounded-xl text-slate-800 font-bold outline-none cursor-pointer">
-              <option value="Full order delivered">Full Order Delivered</option>
-              <option value="Partial">Partial Delivery</option>
-              <option value="Pending">Pending / Not Shipped</option>
-            </select>
-          </div>
-          <div className="space-y-1">
-            <label className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest font-mono">Payment Method</label>
-            <select value={editPaymentMethod} onChange={(event) => setEditPaymentMethod(event.target.value)} className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-sm px-3 py-2.5 rounded-xl text-slate-800 font-bold outline-none cursor-pointer">
-              <option value="Cash">Cash</option>
-              <option value="Mobile Money">Mobile Money</option>
-              <option value="Bank Transfer">Bank Transfer</option>
-              <option value="Card">Credit/Debit Card</option>
-            </select>
-            {editAmountPaid > 0 && (
-              <select value={editPaidFromAccountId} onChange={(event) => setEditPaidFromAccountId(event.target.value)} className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-sm px-3 py-2.5 rounded-xl text-slate-800 font-bold outline-none cursor-pointer">
-                <option value="">Select paid-from account</option>
-                {paymentAccounts.map(account => (
-                  <option key={account.id} value={account.id}>{account.name}{getMaskedAccountReference(account) ? ` — ${getMaskedAccountReference(account)}` : ''}</option>
-                ))}
-              </select>
-            )}
-          </div>
-        </div>
-        <div className="px-6 pb-6 pt-2">
-          <button
-            onClick={saveEditedPurchase}
-            className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 text-white text-sm font-black rounded-2xl flex items-center justify-center gap-2 transition-all"
-          >
-            <CheckCircle className="w-4 h-4 text-emerald-400" /> Save Changes
-          </button>
-          {editPurchaseError && (
-            <p className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700">
-              {editPurchaseError}
-            </p>
-          )}
-        </div>
-      </div>
-    </div>
-  );
 
   return (
     <>
@@ -1419,9 +1534,41 @@ export default function DashboardPurchases({
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
+                        {(() => {
+                          const levels = getPurchaseUnitLevels(item.product);
+                          if (levels.length === 0) return null;
+                          return (
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-slate-400 text-[10px] font-black font-mono">BUYING AS:</span>
+                              <ModernSelect
+                                title="Buying as"
+                                value={item.unitLevelId}
+                                onChange={(value) => handleUpdateUnitLevel(item.product.id, value)}
+                                options={[
+                                  { value: 'base', label: getBaseUnitLabel(item.product) },
+                                  ...levels.map(level => ({ value: level.id, label: level.label })),
+                                ]}
+                                buttonClassName="!min-h-[28px] !px-2 !text-[10px] !bg-white"
+                              />
+                            </div>
+                          );
+                        })()}
+                        {item.product.trackExpiry && (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-slate-400 text-[10px] font-black font-mono">EXPIRY DATE:</span>
+                            <input
+                              type="date"
+                              value={item.expiryDate || ''}
+                              onChange={(e) => handleUpdateExpiryDate(item.product.id, e.target.value)}
+                              className="bg-white border border-slate-250 rounded-lg px-2 py-0.5 text-[10px] font-mono text-slate-800 focus:outline-none focus:border-emerald-400"
+                            />
+                          </div>
+                        )}
                         <div className="flex items-center justify-between gap-4 pt-1.5 border-t border-slate-200/60 font-mono text-xs">
                           <div className="flex items-center space-x-1">
-                            <span className="text-slate-400 text-[10px] font-black">COST:</span>
+                            <span className="text-slate-400 text-[10px] font-black">
+                              COST/{item.unitLevelId === 'base' ? getBaseUnitLabel(item.product) : (getPurchaseUnitLevels(item.product).find(level => level.id === item.unitLevelId)?.label || getBaseUnitLabel(item.product))}:
+                            </span>
                             <div className="flex items-center bg-white border border-slate-250 rounded-lg px-2 py-0.5">
                               <span className="text-slate-500 font-bold text-[10px]">{currency}</span>
                               <input 
@@ -1579,9 +1726,40 @@ export default function DashboardPurchases({
       </div>
 
       {/* ── MODALS ── */}
-      {viewPurchase && <ViewModal pc={viewPurchase} />}
-      {editPurchase && <EditModal pc={editPurchase} />}
-      {deletePurchaseId && <DeleteModal id={deletePurchaseId} />}
+      {viewPurchase && (
+        <ViewPurchaseModal
+          pc={viewPurchase}
+          currency={currency}
+          onClose={() => setViewPurchase(null)}
+          onEdit={openEditPurchase}
+          onDelete={(id) => setDeletePurchaseId(id)}
+        />
+      )}
+      {editPurchase && (
+        <EditPurchaseModal
+          pc={editPurchase}
+          currency={currency}
+          editAmountPaid={editAmountPaid}
+          setEditAmountPaid={setEditAmountPaid}
+          editDeliveryStatus={editDeliveryStatus}
+          setEditDeliveryStatus={setEditDeliveryStatus}
+          editPaymentMethod={editPaymentMethod}
+          setEditPaymentMethod={setEditPaymentMethod}
+          editPaidFromAccountId={editPaidFromAccountId}
+          setEditPaidFromAccountId={setEditPaidFromAccountId}
+          paymentAccounts={paymentAccounts}
+          editPurchaseError={editPurchaseError}
+          onClose={() => setEditPurchase(null)}
+          onSave={saveEditedPurchase}
+        />
+      )}
+      {deletePurchaseId && (
+        <DeletePurchaseModal
+          id={deletePurchaseId}
+          onClose={() => setDeletePurchaseId(null)}
+          onDeletePurchase={onDeletePurchase}
+        />
+      )}
     </>
   );
 }

@@ -166,6 +166,58 @@ export async function uploadTenantLogo(
 }
 
 /**
+ * Upload a real branch's own logo to Supabase Storage.
+ * Path: tenant-logos/{tenantId}/branches/{branchId}/logo-{variant}.jpg
+ * Branch- and variant-scoped (unlike uploadTenantLogo's single fixed path)
+ * so multiple branches, and a branch's light/dark variants, never collide.
+ * Returns the permanent public URL, or null on failure.
+ */
+export async function uploadBranchLogo(
+  file: File,
+  tenantId: string,
+  branchId: string,
+  variant: 'light' | 'dark'
+): Promise<string | null> {
+  try {
+    const client: any = await getSecureDataBridgeClient();
+
+    let uploadBlob: Blob;
+    let contentType: string;
+    if (file.type === 'image/svg+xml') {
+      uploadBlob = file;
+      contentType = 'image/svg+xml';
+    } else {
+      uploadBlob = await compressImage(file);
+      contentType = 'image/jpeg';
+    }
+
+    const ext = file.type === 'image/svg+xml' ? 'svg' : 'jpg';
+    const path = `${tenantId}/branches/${branchId}/logo-${variant}.${ext}`;
+
+    const { error } = await client.storage
+      .from('tenant-logos')
+      .upload(path, uploadBlob, {
+        contentType,
+        upsert: true,
+      });
+
+    if (error) {
+      console.error('[imageStorage] uploadBranchLogo failed:', error.message);
+      return null;
+    }
+
+    const { data } = client.storage
+      .from('tenant-logos')
+      .getPublicUrl(path);
+
+    return data?.publicUrl || null;
+  } catch (err) {
+    console.error('[imageStorage] uploadBranchLogo exception:', err);
+    return null;
+  }
+}
+
+/**
  * Upload a product image from a base64 data URL (already processed by canvas).
  * Used when the image was processed client-side (background removal, resize etc.)
  * and we have the result as base64, not as a raw File object.

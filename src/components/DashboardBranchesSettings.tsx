@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
   ArrowLeft,
@@ -6,20 +6,27 @@ import {
   Building2,
   Check,
   CheckCircle2,
+  ImagePlus,
   Info,
   LoaderCircle,
   LockKeyhole,
   MapPin,
+  Moon,
   MoreHorizontal,
   Plus,
   RefreshCw,
   Search,
   ShieldCheck,
+  Sun,
+  Trash2,
+  Upload,
   X,
 } from 'lucide-react';
 import type { Tenant } from '../types';
 import { useBranchContext } from '../branches/BranchContext';
 import type { BranchRelationshipType, BranchSummary, CreateBranchInput } from '../branches/branchTypes';
+import { loadBranchContactProfile, updateBranchContactProfile } from '../branches/branchApi';
+import { formatLocalDate } from '../utils/localDate';
 
 interface DashboardBranchesSettingsProps {
   activeTenant: Tenant;
@@ -53,7 +60,7 @@ const createEmptyDraft = (tenant: Tenant): BranchDraft => ({
   country: tenant.country || 'Tanzania',
   phone: '',
   email: '',
-  openingDate: new Date().toISOString().slice(0, 10),
+  openingDate: formatLocalDate(),
 });
 
 const buildBranchCode = (value: string) => value
@@ -331,37 +338,276 @@ function BranchCreationWizard({
   );
 }
 
-function BranchDetailsDialog({ branch, onClose }: { branch: BranchSummary; onClose: () => void }) {
+function BranchLogoUploadCard({
+  activeTenant,
+  branch,
+  variant,
+}: {
+  activeTenant: Tenant;
+  branch: BranchSummary;
+  variant: 'light' | 'dark';
+}) {
+  const { updateLogo } = useBranchContext();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [isDragActive, setIsDragActive] = useState(false);
+  const currentUrl = variant === 'light' ? branch.logoLightUrl : branch.logoDarkUrl;
+  const isLight = variant === 'light';
+
+  const runUpload = async (file?: File) => {
+    if (!file || !branch.id) return;
+    setIsUploading(true);
+    setStatusMessage(null);
+    try {
+      const [{ compressImage }, { uploadBranchLogoAsset }] = await Promise.all([
+        import('../utils/imageStorage'),
+        import('../branches/branchApi'),
+      ]);
+      const compressed = await compressImage(file);
+      const logoBase64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error('The selected image could not be read.'));
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.readAsDataURL(compressed);
+      });
+      const savedBranch = await uploadBranchLogoAsset(branch.id, variant, logoBase64);
+      // Refresh the shared branch directory using the URLs returned by the
+      // authenticated server upload; never send an empty logo payload because
+      // omitted values intentionally mean "remove" in the narrow logo RPC.
+      await updateLogo(branch.id, {
+        logoLightUrl: savedBranch.logoLightUrl,
+        logoDarkUrl: savedBranch.logoDarkUrl,
+      });
+      setStatusMessage({ type: 'success', text: 'Logo saved' });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Upload failed — try again';
+      setStatusMessage({ type: 'error', text: message });
+    } finally {
+      setIsUploading(false);
+      setTimeout(() => setStatusMessage(null), 4000);
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    void runUpload(file);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragActive(false);
+    void runUpload(e.dataTransfer.files?.[0]);
+  };
+
+  const handleRemove = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!branch.id) return;
+    setIsUploading(true);
+    try {
+      await updateLogo(branch.id, variant === 'light'
+        ? { logoLightUrl: null, logoDarkUrl: branch.logoDarkUrl }
+        : { logoLightUrl: branch.logoLightUrl, logoDarkUrl: null });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  return (
+    <div className={`group relative overflow-hidden rounded-2xl border shadow-sm transition-shadow hover:shadow-md ${
+      isLight
+        ? 'border-slate-200 bg-gradient-to-b from-white to-slate-50 dark:border-slate-700 dark:from-slate-900 dark:to-slate-900'
+        : 'border-slate-800 bg-gradient-to-b from-slate-900 to-slate-950'
+    }`}>
+      <input ref={fileInputRef} type="file" accept="image/*" className="hidden" disabled={isUploading} onChange={handleInputChange} />
+
+      <div className={`flex items-center gap-1.5 px-3 pt-3 text-[10px] font-black uppercase tracking-wider ${
+        isLight ? 'text-amber-600 dark:text-amber-400' : 'text-indigo-400'
+      }`}>
+        {isLight ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+        <span>{isLight ? 'Light / Documents' : 'Dark mode'}</span>
+      </div>
+
+      <div
+        role="button"
+        tabIndex={isUploading ? -1 : 0}
+        aria-label={currentUrl ? 'Replace logo' : 'Upload logo'}
+        onClick={() => !isUploading && fileInputRef.current?.click()}
+        onKeyDown={(e) => {
+          if ((e.key === 'Enter' || e.key === ' ') && !isUploading) {
+            e.preventDefault();
+            fileInputRef.current?.click();
+          }
+        }}
+        onDragOver={(e) => { e.preventDefault(); if (!isUploading) setIsDragActive(true); }}
+        onDragLeave={() => setIsDragActive(false)}
+        onDrop={handleDrop}
+        className={`relative mx-3 mt-2 flex h-20 cursor-pointer items-center justify-center overflow-hidden rounded-xl border-2 border-dashed transition-colors ${
+          isDragActive
+            ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-500/10'
+            : isLight
+              ? 'border-slate-200 bg-white hover:border-slate-300 dark:border-slate-700 dark:bg-slate-950'
+              : 'border-slate-700 bg-slate-950 hover:border-slate-600'
+        }`}
+      >
+        {isUploading ? (
+          <LoaderCircle className={`h-5 w-5 animate-spin ${isLight ? 'text-slate-400' : 'text-slate-500'}`} />
+        ) : currentUrl ? (
+          <img src={currentUrl} alt="" className="h-full w-full object-contain p-2" />
+        ) : (
+          <div className={`flex flex-col items-center gap-1 ${isLight ? 'text-slate-400' : 'text-slate-600'}`}>
+            <ImagePlus className="h-4 w-4" />
+            <span className="text-[9px] font-bold uppercase tracking-wide">Drop or tap</span>
+          </div>
+        )}
+        {currentUrl && !isUploading && (
+          <button
+            type="button"
+            onClick={handleRemove}
+            className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-slate-950/70 text-white opacity-0 transition-opacity hover:bg-rose-600 focus-visible:opacity-100 group-hover:opacity-100"
+            aria-label="Remove logo"
+          >
+            <Trash2 className="h-3 w-3" />
+          </button>
+        )}
+      </div>
+
+      <div className="px-3 pb-3 pt-2">
+        <button
+          type="button"
+          disabled={isUploading}
+          onClick={() => fileInputRef.current?.click()}
+          className={`flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-lg border-none py-1.5 text-[10px] font-bold text-white transition-colors ${
+            isUploading ? 'cursor-not-allowed opacity-60' : isLight ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-slate-700 hover:bg-slate-600'
+          }`}
+        >
+          <Upload className="h-3 w-3" />
+          {isUploading ? 'Uploading…' : currentUrl ? 'Replace' : 'Upload'}
+        </button>
+        {statusMessage && (
+          <p className={`mt-1.5 text-center text-[9px] font-bold ${
+            statusMessage.type === 'success' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500'
+          }`}>
+            {statusMessage.text}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function BranchDetailsDialog({ activeTenant, branch, onClose }: { activeTenant: Tenant; branch: BranchSummary; onClose: () => void }) {
+  const [contact, setContact] = useState({ address: '', phone: '', email: '' });
+  const [contactLoading, setContactLoading] = useState(Boolean(branch.id));
+  const [contactSaving, setContactSaving] = useState(false);
+  const [contactStatus, setContactStatus] = useState('');
+
+  useEffect(() => {
+    if (!branch.id) return;
+    let cancelled = false;
+    setContactLoading(true);
+    loadBranchContactProfile(branch.id)
+      .then(profile => {
+        if (!cancelled) setContact({
+          address: profile.address || '',
+          phone: profile.phone || '',
+          email: profile.email || '',
+        });
+      })
+      .catch(() => { if (!cancelled) setContactStatus('Branch contacts could not be loaded.'); })
+      .finally(() => { if (!cancelled) setContactLoading(false); });
+    return () => { cancelled = true; };
+  }, [branch.id]);
+
+  const saveContact = async () => {
+    if (!branch.id) return;
+    setContactSaving(true);
+    setContactStatus('');
+    try {
+      await updateBranchContactProfile(branch.id, contact);
+      setContactStatus('Address and contacts saved.');
+    } catch (error) {
+      setContactStatus(error instanceof Error ? error.message : 'Branch contacts could not be saved.');
+    } finally {
+      setContactSaving(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-[84] flex items-end justify-center bg-slate-950/50 p-0 backdrop-blur-sm md:items-center md:p-5" role="dialog" aria-modal="true" aria-labelledby="branch-details-title">
-      <div className="w-full max-w-lg overflow-hidden rounded-t-[24px] border border-slate-200 bg-white pb-[env(safe-area-inset-bottom)] shadow-2xl dark:border-slate-700 dark:bg-slate-950 md:rounded-[22px] md:pb-0">
-        <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-slate-300 dark:bg-slate-700 md:hidden" />
-        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-800">
+      <div className="flex max-h-[88dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-[24px] border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-950 md:max-h-[85vh] md:rounded-[22px]">
+        <div className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-slate-300 dark:bg-slate-700 md:hidden" />
+        <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-800">
           <div>
             <h3 id="branch-details-title" className="text-lg font-black text-slate-950 dark:text-white">{branch.branchName}</h3>
             <p className="mt-0.5 text-xs font-semibold text-slate-500">{branch.branchCode}</p>
           </div>
           <button type="button" onClick={onClose} className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 text-slate-500 dark:border-slate-700" aria-label="Close branch details"><X className="h-5 w-5" /></button>
         </div>
-        <div className="grid grid-cols-2 gap-px bg-slate-200 dark:bg-slate-700">
-          {[
-            ['Business name', branch.businessName],
-            ['Location', branchLocation(branch)],
-            ['Relationship', relationshipLabel(branch)],
-            ['Status', branch.status],
-            ['Setup', branch.setupStatus || (branch.isPhysical ? 'Not set' : 'Compatibility Primary')],
-            ['Write access', branch.canWrite ? 'Available' : 'Read only'],
-          ].map(([label, value]) => (
-            <div key={label} className="min-h-24 bg-white p-4 dark:bg-slate-950">
-              <span className="block text-[10px] font-black uppercase tracking-widest text-slate-400">{label}</span>
-              <span className="mt-2 block text-sm font-black capitalize text-slate-900 dark:text-white">{value}</span>
+
+        <div className="min-h-0 flex-1 overflow-y-auto pb-[env(safe-area-inset-bottom)]">
+          <div className="grid grid-cols-2 gap-px bg-slate-200 dark:bg-slate-700">
+            {[
+              ['Business name', branch.businessName],
+              ['Location', branchLocation(branch)],
+              ['Relationship', relationshipLabel(branch)],
+              ['Status', branch.status],
+              ['Setup', branch.setupStatus || (branch.isPhysical ? 'Not set' : 'Compatibility Primary')],
+              ['Write access', branch.canWrite ? 'Available' : 'Read only'],
+            ].map(([label, value]) => (
+              <div key={label} className="min-h-24 bg-white p-4 dark:bg-slate-950">
+                <span className="block text-[10px] font-black uppercase tracking-widest text-slate-400">{label}</span>
+                <span className="mt-2 block text-sm font-black capitalize text-slate-900 dark:text-white">{value}</span>
+              </div>
+            ))}
+          </div>
+          {branch.isPhysical && branch.id && (
+            <div className="space-y-3 border-t border-slate-200 px-5 py-5 dark:border-slate-800">
+              <div>
+                <span className="block text-[11px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Address & contacts</span>
+                <p className="mt-1 text-[11px] font-semibold leading-relaxed text-slate-500">Used on this branch&apos;s invoices, receipts and reports.</p>
+              </div>
+              {contactLoading ? (
+                <div className="flex min-h-24 items-center justify-center"><LoaderCircle className="h-5 w-5 animate-spin text-slate-400" /></div>
+              ) : (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <label className="sm:col-span-2"><span className="mb-1.5 block text-[10px] font-black uppercase text-slate-500">Address</span><input value={contact.address} onChange={event => setContact(current => ({ ...current, address: event.target.value }))} disabled={!branch.canWrite} maxLength={500} className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:border-emerald-500 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900" /></label>
+                  <label><span className="mb-1.5 block text-[10px] font-black uppercase text-slate-500">Phone</span><input value={contact.phone} onChange={event => setContact(current => ({ ...current, phone: event.target.value }))} disabled={!branch.canWrite} maxLength={40} inputMode="tel" className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:border-emerald-500 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900" /></label>
+                  <label><span className="mb-1.5 block text-[10px] font-black uppercase text-slate-500">Email</span><input value={contact.email} onChange={event => setContact(current => ({ ...current, email: event.target.value }))} disabled={!branch.canWrite} maxLength={254} type="email" className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none focus:border-emerald-500 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900" /></label>
+                  {branch.canWrite ? <button type="button" onClick={() => void saveContact()} disabled={contactSaving} className="min-h-11 rounded-xl bg-emerald-600 px-4 text-sm font-black text-white disabled:opacity-60 sm:col-span-2">{contactSaving ? 'Saving…' : 'Save branch contacts'}</button> : null}
+                  {contactStatus ? <p className="text-xs font-bold text-slate-500 sm:col-span-2">{contactStatus}</p> : null}
+                </div>
+              )}
+              <div className="border-t border-slate-200 pt-4 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-sm shadow-indigo-500/20">
+                  <ImagePlus className="h-4.5 w-4.5 text-white" />
+                </div>
+                <div>
+                  <span className="block text-[11px] font-black uppercase tracking-widest text-slate-700 dark:text-slate-200">Branch logo</span>
+                  <p className="mt-0.5 text-[11px] font-semibold leading-relaxed text-slate-500">
+                    Shown on this branch&apos;s own invoices, receipts, reports, and delivery notes.
+                  </p>
+                </div>
+              </div>
+              {branch.canWrite ? (
+                <div className="grid grid-cols-2 gap-3">
+                  <BranchLogoUploadCard activeTenant={activeTenant} branch={branch} variant="light" />
+                  <BranchLogoUploadCard activeTenant={activeTenant} branch={branch} variant="dark" />
+                </div>
+              ) : (
+                <p className="rounded-xl bg-slate-50 px-3 py-2.5 text-xs font-semibold text-slate-400 dark:bg-slate-900">Read-only access — branch logo cannot be changed from here.</p>
+              )}
+              </div>
             </div>
-          ))}
-        </div>
-        <div className="border-t border-slate-200 bg-slate-50 px-5 py-4 text-xs font-semibold leading-5 text-slate-500 dark:border-slate-800 dark:bg-slate-900/70 dark:text-slate-400">
-          {branch.includesUnassignedHistoricalRecords
-            ? 'Existing unassigned business records continue to resolve through this Primary Branch. No historical record has been rewritten.'
-            : 'This view shows database-backed branch identity only.'}
+          )}
+          <div className="border-t border-slate-200 bg-slate-50 px-5 py-4 text-xs font-semibold leading-5 text-slate-500 dark:border-slate-800 dark:bg-slate-900/70 dark:text-slate-400">
+            {branch.includesUnassignedHistoricalRecords
+              ? 'Existing unassigned business records continue to resolve through this Primary Branch. No historical record has been rewritten.'
+              : 'This view shows database-backed branch identity only.'}
+          </div>
         </div>
       </div>
     </div>
@@ -763,7 +1009,7 @@ function BranchSettingsContent({ activeTenant, onTriggerUpgrade }: DashboardBran
 
       {showWizard ? <BranchCreationWizard activeTenant={activeTenant} onClose={() => setShowWizard(false)} /> : null}
       {actionSheetBranch ? <BranchActionsSheet branch={actionSheetBranch} onClose={() => setActionSheetBranch(null)} onViewDetails={() => { setSelectedBranch(actionSheetBranch); setActionSheetBranch(null); }} /> : null}
-      {selectedBranch ? <BranchDetailsDialog branch={selectedBranch} onClose={() => setSelectedBranch(null)} /> : null}
+      {selectedBranch ? <BranchDetailsDialog activeTenant={activeTenant} branch={selectedBranch} onClose={() => setSelectedBranch(null)} /> : null}
     </>
   );
 }

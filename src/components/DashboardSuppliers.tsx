@@ -59,7 +59,7 @@ export default function DashboardSuppliers({
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    if (!name || !contactPerson || !phone) return;
+    if (!name) return;
 
     const newSup: Supplier = {
       id: 's-' + Math.random().toString(36).substr(2, 9),
@@ -237,10 +237,9 @@ export default function DashboardSuppliers({
             </div>
 
             <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-505 uppercase block">Primary Contact Representative</label>
-              <input 
-                type="text" 
-                required
+              <label className="text-[10px] font-bold text-slate-505 uppercase block">Primary Contact Representative (Optional)</label>
+              <input
+                type="text"
                 placeholder="Alhaji Ibrahim Danladi"
                 value={contactPerson}
                 onChange={(e) => setContactPerson(e.target.value)}
@@ -249,10 +248,9 @@ export default function DashboardSuppliers({
             </div>
 
             <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-505 uppercase block">Phone Contact</label>
-              <input 
-                type="text" 
-                required
+              <label className="text-[10px] font-bold text-slate-505 uppercase block">Phone Contact (Optional)</label>
+              <input
+                type="text"
                 placeholder="+254 722 ... or +234 803 ..."
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
@@ -272,10 +270,9 @@ export default function DashboardSuppliers({
             </div>
 
             <div className="space-y-1 md:col-span-2">
-              <label className="text-[10px] font-bold text-slate-550 uppercase block">Product Categories Supplied (Comma separated)</label>
-              <input 
-                type="text" 
-                required
+              <label className="text-[10px] font-bold text-slate-550 uppercase block">Product Categories Supplied (Optional, comma separated)</label>
+              <input
+                type="text"
                 placeholder="Sugar, Groceries, Flours, Rice"
                 value={categoryInput}
                 onChange={(e) => setCategoryInput(e.target.value)}

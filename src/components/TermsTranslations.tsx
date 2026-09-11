@@ -262,7 +262,7 @@ function renderPartnerTerms() {
           <li>You understand your tax obligations under Tanzanian law.</li>
         </ul>
         <p className="text-slate-500 text-[10px] mt-2">
-          Orvix · Dar es Salaam, Tanzania · support@jasper.africa
+          Orvix · Dar es Salaam, Tanzania · support@orvix.africa
         </p>
       </div>
     </div>
@@ -311,7 +311,7 @@ export function renderTermsContent(lang: string, portalRole?: string) {
   if (lang === "fr") {
     return (
       <div className="space-y-4">
-        <p className="font-bold text-amber-400 text-sm border-b border-slate-800 pb-2">CONDITIONS GÉNÉRALES DU PROGRAMME D'AFFILIATION JASPER</p>
+        <p className="font-bold text-amber-400 text-sm border-b border-slate-800 pb-2">CONDITIONS GÉNÉRALES DU PROGRAMME D'AFFILIATION ORVIX</p>
         <p className="text-[11px] font-mono text-slate-400 italic mb-4">Date d'effet : 17 Juin 2026</p>
         <p className="font-bold text-slate-100 text-[13px] pt-2">1. ÉLIGIBILITÉ À L'INSCRIPTION</p>
         <p>En vous inscrivant au réseau de partenaires affiliés de Orvix, vous déclarez que vous êtes âgé d'au moins 18 ans et que vous résidez légalement ou possédez une présence financière légale en Tanzanie ou en Afrique de l'Est.</p>

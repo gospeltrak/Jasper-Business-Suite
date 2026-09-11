@@ -6,6 +6,7 @@ import { formatSaleItemQuantity } from '../utils/unitFormatter';
 import { isDemoTenant } from '../utils/tenantIsolation';
 import { safeSetJsonItem } from '../utils/dataSafety';
 import { canWriteBusinessDataOnline } from '../utils/onlineOnly';
+import { formatLocalDate, localDateToIso, timestampToLocalDate } from '../utils/localDate';
 import {
   Search, 
   Calendar, 
@@ -48,18 +49,25 @@ import {
   ChevronLeft,
   Barcode,
   ScanLine,
-  RefreshCw
+  RefreshCw,
+  Minus
 } from 'lucide-react';
 import { downloadPdfFromElement, shareElementPdfToWhatsApp } from '../utils/pdfShare';
 import CachedImage from './CachedImage';
-import { getBusinessDisplayName, getBusinessLogo } from '../utils/businessBranding';
+import { getActiveBranchAddress, getActiveBranchDisplayName, getActiveBranchEmail, getActiveBranchLogo, getActiveBranchPhone } from '../utils/businessBranding';
+import type { BranchSummary } from '../branches/branchTypes';
+import { useOptionalBranchContext } from '../branches/BranchContext';
 import { normalizeSubscriptionPlanId } from '../utils/subscription';
 import { findPaymentChannel, getPaymentModeName } from '../utils/paymentAccounts';
 import { calculateSalesDocumentTotals } from '../utils/salesDocumentTotals';
+import { getSaleItemLineTotal } from '../utils/saleItemTotals';
 import {
+  createStandardCommercialDocument,
   createCrossBranchCommercialDocument,
   convertCrossBranchCommercialDocument,
+  loadCommercialDocuments,
   loadCrossBranchDocumentSources,
+  updateStandardCommercialDocument,
   type CrossBranchDocumentSources,
 } from '../branches/branchApi';
 
@@ -184,6 +192,7 @@ interface DashboardSalesListProps {
   allTenantProducts?: Product[];
   /** The branch the user is currently operating the dashboard from. */
   activeBranchId?: string | null;
+  activeBranch?: BranchSummary | null;
   systemSettings?: SystemSettings;
   onPreloadCartForPOS?: (
     items: SaleItem[],
@@ -201,7 +210,46 @@ interface DashboardSalesListProps {
   onSendToDeliveryNote?: (sale: Sale) => void;
 }
 
-export default function DashboardSalesList({ 
+const documentSyncTime = (doc: SalesDocument): number => {
+  const parse = (value?: string) => {
+    if (!value) return 0;
+    const time = new Date(value).getTime();
+    return Number.isFinite(time) ? time : 0;
+  };
+  const serverUpdatedAt = parse((doc as SalesDocument & { updatedAt?: string }).updatedAt);
+  return Math.max(serverUpdatedAt, parse(doc.deletedAt), parse(doc.convertedAt), parse(doc.timestamp));
+};
+
+// A remote refetch/realtime snapshot must never silently erase a document
+// that was just created locally and hasn't finished syncing yet -- this was
+// the exact cause of invoices/quotations "disappearing after a while": the
+// debounced save to onlineStorage hadn't landed yet, a focus/visibility
+// refresh pulled the still-old server list, and blindly replacing local
+// state with it (then re-saving that shorter list) permanently erased the
+// new document. Merging by id instead means a document that only exists
+// locally is always kept. A delete is recorded as a deletedAt-stamped
+// document rather than a removed array entry, so it can't be resurrected by
+// an older snapshot that predates the deletion.
+const mergeDocumentsForSync = (incoming: SalesDocument[], current: SalesDocument[]): SalesDocument[] => {
+  const chosen = new Map<string, SalesDocument>();
+  for (const doc of [...current, ...incoming]) {
+    if (!doc?.id) continue;
+    const existing = chosen.get(doc.id);
+    if (!existing || documentSyncTime(doc) >= documentSyncTime(existing)) {
+      chosen.set(doc.id, doc);
+    }
+  }
+  const ordered: SalesDocument[] = [];
+  for (const doc of current) {
+    if (doc?.id && chosen.has(doc.id)) { ordered.push(chosen.get(doc.id)!); chosen.delete(doc.id); }
+  }
+  for (const doc of incoming) {
+    if (doc?.id && chosen.has(doc.id)) { ordered.push(chosen.get(doc.id)!); chosen.delete(doc.id); }
+  }
+  return ordered;
+};
+
+export default function DashboardSalesList({
   activeTenant, 
   sales, 
   onUpdateSales, 
@@ -210,6 +258,7 @@ export default function DashboardSalesList({
   products = [],
   allTenantProducts,
   activeBranchId,
+  activeBranch,
   systemSettings,
   onPreloadCartForPOS,
   currentUser,
@@ -274,7 +323,22 @@ export default function DashboardSalesList({
       || activeTenant.selectedPackageId
       || (activeTenant as any).subscriptionPlan
   );
-  const canUseCrossBranchDocuments = activePlanId === 'tanzanite';
+  // The database authorizes consolidated documents only while Tanzanite is
+  // current. Checking the plan name alone routed an expired tenant into the
+  // protected RPC, so both Price Quote and Proforma Invoice creation were
+  // rejected instead of using the standard tenant document store.
+  //
+  // A single-branch Tanzanite tenant was also being routed into this path
+  // even though "cross-branch" sourcing is meaningless with one branch --
+  // its product list comes from a separate server RPC (list_cross_branch_
+  // document_sources) that only reflects products with stock already synced
+  // to the server, so a product just added locally (still mid-sync, or
+  // simply not the exact stock/branch shape that RPC expects) could vanish
+  // from the New Document picker even though it's right there in Products.
+  // Require more than one physical branch before using this path at all.
+  const branchWorkspace = useOptionalBranchContext();
+  const physicalBranchCount = branchWorkspace?.snapshot?.directory?.physicalBranchCount ?? 1;
+  const canUseCrossBranchDocuments = activePlanId === 'tanzanite' && !subscriptionStatus?.isExpired && physicalBranchCount > 1;
   const canUseTillSettlement = activePlanId !== 'ruby';
 
   useEffect(() => {
@@ -371,7 +435,7 @@ export default function DashboardSalesList({
   };
   const getInvoiceFooter = (doc?: SalesDocument) => {
     const snapshot = (doc?.brandingSnapshot || {}) as Record<string, any>;
-    const businessName = snapshot.businessName || snapshot.branchName || getBusinessDisplayName(activeTenant, systemSettings);
+    const businessName = snapshot.businessName || snapshot.branchName || getActiveBranchDisplayName(activeTenant, systemSettings, undefined, activeBranch);
     const mainMessage = doc?.tagline || systemSettings?.invoiceSettings?.footerNote || 'Thank you for shopping with us.';
     // Fixed brand line — a configured business website is a different concept
     // from "Powered by Orvix" attribution and must not replace it here.
@@ -381,12 +445,12 @@ export default function DashboardSalesList({
   const getDocumentBranding = (doc: SalesDocument) => {
     const snapshot = (doc.brandingSnapshot || {}) as Record<string, any>;
     return {
-      name: snapshot.businessName || snapshot.branchName || getBusinessDisplayName(activeTenant, systemSettings),
+      name: snapshot.businessName || snapshot.branchName || getActiveBranchDisplayName(activeTenant, systemSettings, undefined, activeBranch),
       city: snapshot.city || activeTenant.city || '',
-      address: snapshot.address || systemSettings?.business?.businessAddress || '',
-      phone: snapshot.phone || systemSettings?.business?.businessPhone || '',
-      email: snapshot.email || systemSettings?.business?.businessEmail || '',
-      logo: getBusinessLogo(systemSettings) || '',
+      address: snapshot.address || getActiveBranchAddress(systemSettings, activeBranch),
+      phone: snapshot.phone || getActiveBranchPhone(systemSettings, activeBranch),
+      email: snapshot.email || getActiveBranchEmail(systemSettings, activeBranch),
+      logo: snapshot.logo || getActiveBranchLogo(systemSettings, activeBranch) || '',
     };
   };
 
@@ -460,6 +524,57 @@ export default function DashboardSalesList({
     });
   }, [documents, activeTenant.id]);
 
+  // The database is authoritative. onlineStorage above remains only a fast UI
+  // cache for legacy sessions; it must never be the source that decides whether
+  // an invoice survives a reload or appears on another device.
+  useEffect(() => {
+    let disposed = false;
+    const refreshDocuments = async () => {
+      if (!navigator.onLine) return;
+      try {
+        const remoteDocuments = await loadCommercialDocuments();
+        const normalized = remoteDocuments.map((document: SalesDocument) => {
+          const normalizedItems = (document.items || []).map(item => ({
+            ...item,
+            productName: getDocumentItemName(item),
+            unit: getDocumentItemUnit(item),
+            price: toNumber(item.price),
+            qty: toNumber(item.qty),
+            discount: toNumber(item.discount),
+          }));
+          return normalizeDocumentDiscount({
+            ...document,
+            type: normalizeDocType(document.type),
+            items: normalizedItems,
+            total: toNumber(document.total, normalizedItems.reduce((sum, item) => sum + getLegacyLineTotal(item), 0)),
+            tax: toNumber(document.tax),
+          });
+        });
+        if (!disposed) {
+          setDocuments(current => {
+            const merged = mergeDocumentsForSync(normalized, current);
+            return JSON.stringify(current) === JSON.stringify(merged) ? current : merged;
+          });
+        }
+      } catch {
+        // Keep the last valid cached list during a temporary network failure.
+      }
+    };
+
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') void refreshDocuments();
+    };
+    window.addEventListener('focus', refreshDocuments);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+    void refreshDocuments();
+
+    return () => {
+      disposed = true;
+      window.removeEventListener('focus', refreshDocuments);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+    };
+  }, [activeTenant.id]);
+
   // Search state
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('All');
@@ -512,6 +627,7 @@ export default function DashboardSalesList({
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   const [menuPos, setMenuPos] = useState<{top:number;right:number} | null>(null);
   const [mobileActionsSale, setMobileActionsSale] = useState<Sale | null>(null);
+  const [mobileActionsDocument, setMobileActionsDocument] = useState<SalesDocument | null>(null);
 
   // Modal triggers
   const [viewPaymentsOpen, setViewPaymentsOpen] = useState(false);
@@ -561,7 +677,11 @@ export default function DashboardSalesList({
   const [documentSendPhone, setDocumentSendPhone] = useState('');
   const [pdfShareStatus, setPdfShareStatus] = useState<string | null>(null);
   const [selectedDocTypeFilter, setSelectedDocTypeFilter] = useState<'all' | 'price quote' | 'proforma invoice'>('all');
-  
+  const [docToDelete, setDocToDelete] = useState<SalesDocument | null>(null);
+  // Non-null while the wizard below is editing an existing pending document
+  // (opened via openEditDocument) instead of creating a new one.
+  const [editingDocumentId, setEditingDocumentId] = useState<string | null>(null);
+
   // States for wizard: document creator
   const [newDocType, setNewDocType] = useState<'price quote' | 'proforma invoice'>('price quote');
   const [newDocCustomerName, setNewDocCustomerName] = useState('');
@@ -626,17 +746,23 @@ export default function DashboardSalesList({
     const justOpened = showNewDocModal && !prevShowNewDocModal.current;
     prevShowNewDocModal.current = showNewDocModal;
     if (justOpened) {
-      setNewDocHasVat(!!systemSettings?.invoiceSettings?.hasVatByDefault);
-      setNewDocDeliveryCost(0);
-      setNewDocDiscountValue(0);
-      setNewDocDiscountType('percent');
-      setNewDocPaymentMethod(documentPaymentMethods[0]);
-      const paymentAccount = getDocumentPaymentAccount(documentPaymentMethods[0]);
-      setNewDocPaymentAccountNumber(paymentAccount.accountNumber);
-      setNewDocPaymentAccountName(paymentAccount.accountName);
+      // Editing an existing document: openEditDocument already populated
+      // these fields from the saved document -- resetting them to defaults
+      // here would immediately overwrite that pre-filled data.
+      if (!editingDocumentId) {
+        setNewDocHasVat(!!systemSettings?.invoiceSettings?.hasVatByDefault);
+        setNewDocDeliveryCost(0);
+        setNewDocDiscountValue(0);
+        setNewDocDiscountType('percent');
+        setNewDocPaymentMethod(documentPaymentMethods[0]);
+        const paymentAccount = getDocumentPaymentAccount(documentPaymentMethods[0]);
+        setNewDocPaymentAccountNumber(paymentAccount.accountNumber);
+        setNewDocPaymentAccountName(paymentAccount.accountName);
+      }
       if (canUseCrossBranchDocuments) {
         setCrossBranchSourcesLoading(true);
         setCrossBranchSourcesError('');
+        setCrossBranchSources(null);
         void loadCrossBranchDocumentSources()
           .then(sources => {
             setCrossBranchSources(sources);
@@ -647,8 +773,13 @@ export default function DashboardSalesList({
             const preferredBranch = sources.branches.find(branch => branch.id === activeBranchId)
               || sources.branches.find(branch => branch.isDefault)
               || sources.branches[0];
-            setNewDocIssuingBranchId(current => current || preferredBranch?.id || '');
-            setDocWizardSourceBranchId(current => current || preferredBranch?.id || '');
+            // A previous invoice may have been created from another branch.
+            // Always align a newly opened wizard with the dashboard's current
+            // branch instead of retaining that stale branch selection.
+            setNewDocIssuingBranchId(preferredBranch?.id || '');
+            setDocWizardSourceBranchId(preferredBranch?.id || '');
+            setDocWizardSelectedProductId('');
+            setDocWizardProductSearchQuery('');
           })
           .catch(error => {
             setCrossBranchSources(null);
@@ -657,7 +788,7 @@ export default function DashboardSalesList({
           .finally(() => setCrossBranchSourcesLoading(false));
       }
     }
-  }, [showNewDocModal, canUseCrossBranchDocuments, documentPaymentMethods, getDocumentPaymentAccount, activeBranchId]); // reset only when opening
+  }, [showNewDocModal, canUseCrossBranchDocuments, documentPaymentMethods, getDocumentPaymentAccount, activeBranchId, editingDocumentId]); // reset only when opening
 
   useEffect(() => {
     if (!documentPaymentMethods.includes(newDocPaymentMethod)) {
@@ -690,9 +821,16 @@ export default function DashboardSalesList({
       .filter(product => product.branchId === docWizardSourceBranchId && product.quantity > 0)
       .map(product => product.productId)
   ), [crossBranchSources, docWizardSourceBranchId]);
-  const documentPickerProducts = canUseCrossBranchDocuments && crossBranchSources
-    ? (allTenantProducts && allTenantProducts.length ? allTenantProducts : products).filter(product => branchSourceProductIds.has(product.id))
-    : products;
+  const documentPickerProducts = React.useMemo(() => {
+    if (!canUseCrossBranchDocuments || !crossBranchSources) return products;
+    const tenantCatalogue = allTenantProducts && allTenantProducts.length ? allTenantProducts : products;
+    const sourcedProducts = tenantCatalogue.filter(product => branchSourceProductIds.has(product.id));
+    // During legacy branch-stock normalization the server source can briefly
+    // be empty. The already branch-scoped dashboard catalogue is authoritative
+    // for the active branch and prevents its invoice search becoming blank.
+    if (sourcedProducts.length === 0 && docWizardSourceBranchId === activeBranchId) return products;
+    return sourcedProducts;
+  }, [activeBranchId, allTenantProducts, branchSourceProductIds, canUseCrossBranchDocuments, crossBranchSources, docWizardSourceBranchId, products]);
   const newDocSubtotal = React.useMemo(
     () => newDocItems.reduce((sum, item) => sum + (toNumber(item.qty) * toNumber(item.price)), 0),
     [newDocItems]
@@ -769,7 +907,7 @@ export default function DashboardSalesList({
   // -----------------------------------------------------------------
   // Live Cashier Register Math (Daily Expected Collections Today)
   // -----------------------------------------------------------------
-  const todayStr = new Date().toISOString().split('T')[0];
+  const todayStr = formatLocalDate();
   
   // 1. Sum up cash paid from primary sale tickets logged today
   const todayCashSalesVolume = sales
@@ -1007,7 +1145,7 @@ export default function DashboardSalesList({
         elementId: format === 'a4' ? 'sales-invoice-a4-pdf-template' : 'sales-receipt-pdf-template',
         fileName: format === 'a4' ? buildInvoiceFileName(sale) : buildReceiptFileName(sale),
         phone: phone || sale.customerPhone,
-        message: `Hello ${sale.customerName || 'customer'}, please find attached your ${format === 'a4' ? 'sales invoice' : 'POS receipt'} PDF from ${getBusinessDisplayName(activeTenant, systemSettings)}. Thank you.`,
+        message: `Hello ${sale.customerName || 'customer'}, please find attached your ${format === 'a4' ? 'sales invoice' : 'POS receipt'} PDF from ${getActiveBranchDisplayName(activeTenant, systemSettings, undefined, activeBranch)}. Thank you.`,
         format
       });
       setPdfShareStatus('PDF ready for WhatsApp.');
@@ -1052,7 +1190,7 @@ export default function DashboardSalesList({
 
   // Deterministic, recognizable filename using the real business and sale reference.
   const buildInvoiceFileName = (sale: Sale) => {
-    const bizName = getBusinessDisplayName(activeTenant, systemSettings).trim();
+    const bizName = getActiveBranchDisplayName(activeTenant, systemSettings, undefined, activeBranch).trim();
     const safeBusiness = bizName.replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 36) || 'Business';
     const safeReference = String(sale.reference || sale.id || 'sale')
       .replace(/[^a-zA-Z0-9_-]+/g, '-')
@@ -1062,7 +1200,7 @@ export default function DashboardSalesList({
   };
 
   const buildReceiptFileName = (sale: Sale) => {
-    const bizName = getBusinessDisplayName(activeTenant, systemSettings).trim();
+    const bizName = getActiveBranchDisplayName(activeTenant, systemSettings, undefined, activeBranch).trim();
     const safeBusiness = bizName.replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 36) || 'Business';
     const safeReference = String(sale.reference || sale.id || 'receipt')
       .replace(/[^a-zA-Z0-9_-]+/g, '-')
@@ -1140,7 +1278,34 @@ export default function DashboardSalesList({
     setNewDocCustomerPhone('');
     setNewDocCustomerAddress('');
     setNewDocDiscountValue(0);
+    setEditingDocumentId(null);
     setShowNewDocModal(false);
+  };
+
+  // Only pending, single-branch documents are editable -- a converted
+  // document is already tied to a real Sale and deducted stock (changing its
+  // items afterward would desync both), and cross-branch documents don't yet
+  // have an update API to reuse (createCrossBranchCommercialDocument has no
+  // update counterpart, unlike updateStandardCommercialDocument).
+  const isDocumentEditable = (doc: SalesDocument) => doc.status === 'pending' && !doc.issuingBranchId;
+
+  const openEditDocument = (doc: SalesDocument) => {
+    if (!isDocumentEditable(doc)) return;
+    setEditingDocumentId(doc.id);
+    setNewDocType(doc.type === 'proforma invoice' ? 'proforma invoice' : 'price quote');
+    setNewDocCustomerName(doc.customerName || '');
+    setNewDocCustomerPhone(doc.customerPhone || '');
+    setNewDocCustomerAddress(doc.customerAddress || '');
+    setNewDocDate(doc.timestamp ? timestampToLocalDate(doc.timestamp) : formatLocalDate());
+    setNewDocItems(doc.items || []);
+    setNewDocDeliveryCost(doc.deliveryCost || 0);
+    setNewDocDiscountValue(doc.discountValue || 0);
+    setNewDocDiscountType(doc.discountType || 'percent');
+    setNewDocPaymentMethod(doc.paymentMethod || documentPaymentMethods[0]);
+    setNewDocPaymentAccountNumber(doc.paymentAccountNumber || '');
+    setNewDocPaymentAccountName(doc.paymentAccountName || '');
+    setNewDocHasVat(!!doc.hasVat);
+    setShowNewDocModal(true);
   };
 
   const handleCreateCommercialDocument = async () => {
@@ -1154,12 +1319,50 @@ export default function DashboardSalesList({
       alert('You appear to be offline. Reconnect and try again — this document was not saved.');
       return;
     }
+
+    if (editingDocumentId) {
+      const patch: Partial<SalesDocument> = {
+        customerName: newDocCustomerName || 'Customer',
+        customerPhone: newDocCustomerPhone || '',
+        customerAddress: newDocCustomerAddress || '',
+        items: newDocItems.map(item => ({ ...item, discount: 0, discountType: 'percent' as const })),
+        total: newDocGrandTotal,
+        tax: newDocTaxAmount,
+        discountAmount: newDocDiscountAmount,
+        discountValue: cappedDiscountValue,
+        discountType: newDocDiscountType,
+        hasVat: newDocHasVat,
+        taxRate: newDocTaxRate,
+        deliveryCost: Number(newDocDeliveryCost) || 0,
+        paymentMethod: newDocPaymentMethod,
+        paymentAccountNumber: newDocPaymentAccountNumber.trim() || undefined,
+        paymentAccountName: newDocPaymentAccountName.trim() || undefined,
+        paymentAmount: newDocGrandTotal,
+        timestamp: localDateToIso(newDocDate || formatLocalDate(), new Date(), 12),
+      };
+      setDocumentMutationPending(true);
+      try {
+        const editedId = editingDocumentId;
+        const updated = await updateStandardCommercialDocument(editedId, patch);
+        setDocuments(prev => prev.map(d => d.id === editedId ? normalizeDocumentDiscount({ ...d, ...updated }) : d));
+        resetNewDocumentForm();
+      } catch (error) {
+        alert(error instanceof Error ? error.message : 'The document could not be updated.');
+      } finally {
+        setDocumentMutationPending(false);
+      }
+      return;
+    }
+
     const prefixMap = { 'price quote': 'QUO', 'proforma invoice': 'PFI' };
     const prefix = prefixMap[newDocType] || 'DOC';
     const nextNum = `${prefix}-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
     const issuingBranch = crossBranchSources?.branches.find(branch => branch.id === newDocIssuingBranchId);
     const localDocument: SalesDocument = {
-      id: `doc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      // A stable UUID makes the server write idempotent. If Safari loses the
+      // response after the database committed, retrying cannot create a
+      // duplicate quotation/invoice.
+      id: crypto.randomUUID(),
       type: newDocType,
       documentNumber: nextNum,
       customerName: newDocCustomerName || 'Customer',
@@ -1178,7 +1381,7 @@ export default function DashboardSalesList({
       paymentAccountNumber: newDocPaymentAccountNumber.trim() || undefined,
       paymentAccountName: newDocPaymentAccountName.trim() || undefined,
       paymentAmount: newDocGrandTotal,
-      timestamp: new Date(`${newDocDate || new Date().toISOString().split('T')[0]}T12:00:00`).toISOString(),
+      timestamp: localDateToIso(newDocDate || formatLocalDate(), new Date(), 12),
       tenantId: activeTenant.id,
       status: 'pending',
       issuingBranchId: issuingBranch?.id,
@@ -1186,8 +1389,16 @@ export default function DashboardSalesList({
     };
 
     if (!canUseCrossBranchDocuments) {
-      setDocuments(prev => [localDocument, ...prev]);
-      resetNewDocumentForm();
+      setDocumentMutationPending(true);
+      try {
+        const savedDocument = await createStandardCommercialDocument(localDocument);
+        setDocuments(prev => [normalizeDocumentDiscount(savedDocument), ...prev]);
+        resetNewDocumentForm();
+      } catch (error) {
+        alert(error instanceof Error ? error.message : 'The document could not be saved.');
+      } finally {
+        setDocumentMutationPending(false);
+      }
       return;
     }
     if (!issuingBranch || newDocItems.some(item => !item.sourceBranchId)) {
@@ -1302,6 +1513,19 @@ export default function DashboardSalesList({
     }
 
     if (!onPreloadCartForPOS) return;
+    const convertedAt = new Date().toISOString();
+    const convertedPatch: Partial<SalesDocument> = {
+      items: normalizedItems,
+      status: 'converted',
+      convertedSaleId: `pending-pos-${Date.now()}`,
+      convertedAt,
+    };
+    try {
+      await updateStandardCommercialDocument(doc.id, convertedPatch);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'The document could not be updated.');
+      return;
+    }
     onPreloadCartForPOS(normalizedItems, doc.timestamp, {
       deliveryCost: toNumber(doc.deliveryCost),
       paymentMethod: doc.paymentMethod || 'Cash',
@@ -1309,13 +1533,9 @@ export default function DashboardSalesList({
       customerPhone: doc.customerPhone,
       hasVat: !!doc.hasVat
     });
-
     setDocuments(prev => prev.map(d => d.id === doc.id ? {
       ...d,
-      items: normalizedItems,
-      status: 'converted',
-      convertedSaleId: `pending-pos-${Date.now()}`,
-      convertedAt: new Date().toISOString()
+      ...convertedPatch,
     } : d));
     setViewingDocument(null);
   };
@@ -1633,7 +1853,7 @@ export default function DashboardSalesList({
       <div className="bg-transparent md:bg-white dark:md:bg-slate-800/60 md:rounded-2xl md:border md:border-slate-200 dark:md:border-slate-700 shadow-none md:shadow-xs md:overflow-hidden">
         
         {/* Mobile View: Cards */}
-        <div className="xl:hidden flex flex-col space-y-3 pb-[calc(80px+env(safe-area-inset-bottom))]">
+        <div className="sales-cards-tablet-grid xl:hidden flex flex-col space-y-3 pb-[calc(80px+env(safe-area-inset-bottom))]">
           {filteredSales.map((sale) => {
             const totalVal = sale.total;
             const isCredit = sale.paymentMethod === 'Credit';
@@ -1663,9 +1883,16 @@ export default function DashboardSalesList({
                   {/* Row 1: customer + amount + menu */}
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
-                      <p className="font-extrabold text-slate-900 text-[14px] leading-tight truncate">
-                        {sale.customerName || 'Customer'}
-                      </p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="font-extrabold text-slate-900 text-[14px] leading-tight truncate">
+                          {sale.customerName || 'Customer'}
+                        </p>
+                        {sale.items.some(i => i.prescriptionRequired) && (
+                          <span title="Includes a prescription medicine" className="shrink-0 px-1.5 py-0.5 rounded-full text-[8.5px] font-mono font-black uppercase tracking-wider bg-rose-100 text-rose-700 border border-rose-200">
+                            Rx
+                          </span>
+                        )}
+                      </div>
                       <p className="text-[10px] text-slate-400 font-mono mt-0.5">
                         #{sale.reference || sale.id.substring(0,6)} · {sale.items.length} line item{sale.items.length === 1 ? '' : 's'}
                       </p>
@@ -1801,7 +2028,14 @@ export default function DashboardSalesList({
 
                       {/* Items */}
                       <td className="py-3.5 px-4 max-w-[160px]">
-                        <p className="font-bold text-slate-700 text-[12px]">{sale.items.length} line item{sale.items.length === 1 ? '' : 's'}</p>
+                        <div className="flex items-center gap-1.5">
+                          <p className="font-bold text-slate-700 text-[12px]">{sale.items.length} line item{sale.items.length === 1 ? '' : 's'}</p>
+                          {sale.items.some(i => i.prescriptionRequired) && (
+                            <span title="Includes a prescription medicine" className="shrink-0 px-1.5 py-0.5 rounded-full text-[8.5px] font-mono font-black uppercase tracking-wider bg-rose-100 text-rose-700 border border-rose-200">
+                              Rx
+                            </span>
+                          )}
+                        </div>
                         <p className="text-[10px] text-slate-400 truncate">{sale.items.slice(0,2).map(i => i.productName).join(', ')}{sale.items.length > 2 ? ` +${sale.items.length-2}` : ''}</p>
                       </td>
 
@@ -2061,7 +2295,7 @@ export default function DashboardSalesList({
                       const payAmt = parseFloat((form.elements.namedItem('pay-amount') as HTMLInputElement).value);
                       const payMethod = (form.elements.namedItem('pay-method') as HTMLSelectElement).value;
                       const payDateVal = (form.elements.namedItem('pay-date') as HTMLInputElement).value;
-                      const timestamp = payDateVal ? new Date(payDateVal).toISOString() : new Date().toISOString();
+                      const timestamp = payDateVal ? localDateToIso(payDateVal, new Date(), 12) : new Date().toISOString();
                       if (payAmt > 0) {
                         handleAddInstallment(s.id, payAmt, payMethod, timestamp);
                         form.reset();
@@ -2100,7 +2334,7 @@ export default function DashboardSalesList({
                         <input
                           type="date"
                           name="pay-date"
-                          defaultValue={new Date().toISOString().split('T')[0]}
+                          defaultValue={formatLocalDate()}
                           required
                           className={`w-full bg-white border border-slate-200 rounded-lg font-sans outline-none text-slate-800 ${compact ? 'px-3 py-2.5 text-xs min-h-[42px]' : 'px-2 py-1 text-xs'}`}
                         />
@@ -3153,6 +3387,7 @@ export default function DashboardSalesList({
       {/* SECTION D: QUOTATIONS, PROFORMA & INVOICES (STOCK-INDEPENDENT) */}
       {activeSubTab === 'documents' && (() => {
         const filteredDocs = documents.filter(doc => {
+          if (doc.deletedAt) return false;
           const matchType = selectedDocTypeFilter === 'all' || doc.type === selectedDocTypeFilter;
           const matchSearch = doc.customerName.toLowerCase().includes(searchTerm.toLowerCase()) || doc.documentNumber.toLowerCase().includes(searchTerm.toLowerCase());
           return matchType && matchSearch;
@@ -3194,6 +3429,7 @@ export default function DashboardSalesList({
               <button
                 type="button"
                 onClick={() => {
+                  setEditingDocumentId(null);
                   setNewDocItems([]);
                   setNewDocCustomerName('');
                   setNewDocCustomerPhone('');
@@ -3259,40 +3495,14 @@ export default function DashboardSalesList({
                         <p className="font-black text-slate-900 text-[15px] font-mono">
                           {money(totals.total)}
                         </p>
-                        <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
-                          <button
-                            type="button"
-                            onClick={() => { setViewingDocument(doc); setDocZoom(computeInvoiceFitZoom()); }}
-                            className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold flex items-center gap-1 border border-slate-200 bg-slate-50 text-slate-700"
-                          >
-                            <FileText className="w-3 h-3" />
-                            <span>View</span>
-                          </button>
-                          {doc.status === 'pending' ? (
-                            isMixedBranchDocument(doc) ? (
-                              <span
-                                className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-slate-100 text-slate-400 flex items-center gap-1"
-                                title="Mixes products from two branches — cannot be recorded as a sale from here."
-                              >
-                                <span>Multi-branch</span>
-                              </span>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => sendDocumentToSales(doc)}
-                                className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold flex items-center gap-1 bg-emerald-600 text-white border-none"
-                              >
-                                <ArrowRight className="w-3 h-3" />
-                                <span>Record</span>
-                              </button>
-                            )
-                          ) : (
-                            <span className="px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-slate-100 text-slate-400 flex items-center gap-1">
-                              <Check className="w-3 h-3 text-emerald-500" />
-                              <span>Done</span>
-                            </span>
-                          )}
-                        </div>
+                        <button
+                          type="button"
+                          onClick={e => { e.stopPropagation(); setMobileActionsDocument(doc); }}
+                          className="w-8 h-8 flex items-center justify-center rounded-xl active:bg-slate-100"
+                          aria-label="Document actions"
+                        >
+                          <MoreVertical className="w-4 h-4 text-slate-400" />
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -3310,10 +3520,72 @@ export default function DashboardSalesList({
       })()}
 
       {/* ------------------------------------------------------------- */}
+      {/* DIALOG: CONFIRM DELETE DOCUMENT (QUOTE / PROFORMA INVOICE) */}
+      {/* ------------------------------------------------------------- */}
+      {docToDelete && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in text-slate-800">
+          <div className="relative bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col font-sans">
+            <div className="bg-rose-950 text-white px-6 py-4 flex items-center justify-between border-b border-rose-900 shrink-0 select-none">
+              <div className="flex items-center space-x-2">
+                <Trash2 className="w-5 h-5 text-rose-400" />
+                <div>
+                  <h4 className="text-sm font-black tracking-tight">Delete {getDocumentLabel(docToDelete.type)}</h4>
+                  <span className="text-[10px] font-mono text-rose-450 uppercase tracking-widest block font-bold leading-none mt-1">Confirm before continuing</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDocToDelete(null)}
+                className="p-1 text-slate-400 hover:text-white rounded-lg transition-colors cursor-pointer border-none bg-transparent"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4 text-left">
+              <div className="p-4 bg-rose-50/50 border border-rose-100 rounded-2xl flex items-start space-x-3">
+                <span className="text-xl">⚠️</span>
+                <p className="text-xs text-slate-700 font-semibold leading-relaxed">
+                  You are about to delete <strong className="font-bold text-rose-700 font-mono">{docToDelete.documentNumber}</strong> for {docToDelete.customerName || 'Customer'}. This does not affect stock or any recorded sale.
+                </p>
+              </div>
+            </div>
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end items-center gap-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => setDocToDelete(null)}
+                className="px-5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-600 font-bold hover:bg-slate-100 transition-colors cursor-pointer text-xs uppercase select-none"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  const deletedAt = new Date().toISOString();
+                  try {
+                    await updateStandardCommercialDocument(docToDelete.id, { deletedAt });
+                  } catch (error) {
+                    alert(error instanceof Error ? error.message : 'The document could not be deleted.');
+                    return;
+                  }
+                  setDocuments(prev => prev.map(d => d.id === docToDelete.id ? { ...d, deletedAt } : d));
+                  if (viewingDocument?.id === docToDelete.id) setViewingDocument(null);
+                  setDocToDelete(null);
+                }}
+                className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-black rounded-xl border-none transition-all text-xs uppercase flex items-center space-x-1.5 cursor-pointer shadow-md select-none"
+              >
+                <Trash2 className="w-4 h-4 text-white" />
+                <span>Confirm Delete</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------- */}
       {/* DIALOG: VIEW AND PRINT RECEIPT RE-PRINT OVERLAY */}
       {/* ------------------------------------------------------------- */}
       {selectedSale && !viewPaymentsOpen && (
-        <div className={viewA4InvoiceOpen ? "fixed inset-0 z-[200] flex flex-col bg-[#404040] font-sans" : "fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm text-slate-800"}
+        <div className={viewA4InvoiceOpen ? "sales-invoice-a4-overlay fixed inset-0 z-[200] flex flex-col bg-[#404040] font-sans" : "fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-sm text-slate-800"}
           style={viewA4InvoiceOpen ? {paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)'} : {}}>
           
           {/* CONDITION A: A4 CORPORATE INVOICE MODE */}
@@ -3389,37 +3661,37 @@ export default function DashboardSalesList({
                 <div className="p-8 space-y-5">
                   <div className="flex items-start justify-between gap-8">
                     <div className="min-w-0">
-                      {(((() => { const stores = systemSettings?.business?.registeredStores || []; const activeBranch = stores[0]; const bb = activeBranch && systemSettings?.business?.branchBranding?.[activeBranch]; return bb?.businessLogoLight || bb?.businessLogo || null; })()) || getBusinessLogo(systemSettings)) ? (
+                      {getActiveBranchLogo(systemSettings, activeBranch) ? (
                         <img
-                          src={((() => { const stores = systemSettings?.business?.registeredStores || []; const activeBranch = stores[0]; const bb = activeBranch && systemSettings?.business?.branchBranding?.[activeBranch]; return bb?.businessLogoLight || bb?.businessLogo || null; })()) || getBusinessLogo(systemSettings) || undefined}
+                          src={getActiveBranchLogo(systemSettings, activeBranch) || undefined}
                           alt="Logo"
                           referrerPolicy="no-referrer"
                           className="max-h-16 max-w-[200px] object-contain mb-3"
                         />
                       ) : (
                         <div className="w-12 h-12 rounded-2xl text-white flex items-center justify-center text-xl font-black mb-3" style={{ backgroundColor: computedInvoiceColor }}>
-                          {getBusinessDisplayName(activeTenant, systemSettings).charAt(0)}
+                          {getActiveBranchDisplayName(activeTenant, systemSettings, undefined, activeBranch).charAt(0)}
                         </div>
                       )}
-                      <h2 className="text-xl font-black text-slate-900">{getBusinessDisplayName(activeTenant, systemSettings)}</h2>
+                      <h2 className="text-xl font-black text-slate-900">{getActiveBranchDisplayName(activeTenant, systemSettings, undefined, activeBranch)}</h2>
                       {/* Address block stays plain black/gray, never the brand color, so it always
                           reads as the legal business address rather than decorative branding. */}
                       {activeTenant.city && <p className="text-[11px] text-slate-400 uppercase font-bold mt-1">{activeTenant.city}</p>}
-                      {systemSettings?.business?.businessAddress && <p className="text-[11px] text-slate-500 mt-1">{systemSettings.business.businessAddress}</p>}
-                      {systemSettings?.business?.businessPhone && <p className="text-[11px] text-slate-500 font-semibold">Tel: {systemSettings.business.businessPhone}</p>}
-                      {systemSettings?.business?.businessEmail && <p className="text-[11px] text-slate-500">{systemSettings.business.businessEmail}</p>}
+                      {getActiveBranchAddress(systemSettings, activeBranch) && <p className="text-[11px] text-slate-500 mt-1">{getActiveBranchAddress(systemSettings, activeBranch)}</p>}
+                      {getActiveBranchPhone(systemSettings, activeBranch) && <p className="text-[11px] text-slate-500 font-semibold">Tel: {getActiveBranchPhone(systemSettings, activeBranch)}</p>}
+                      {getActiveBranchEmail(systemSettings, activeBranch) && <p className="text-[11px] text-slate-500">{getActiveBranchEmail(systemSettings, activeBranch)}</p>}
                       {/* TIN and VAT — from Invoice Settings, directly below the address */}
                       {systemSettings?.invoiceSettings?.tinNumber && <p className="text-[11px] text-slate-500 font-mono">TIN: {systemSettings.invoiceSettings.tinNumber}</p>}
                       {systemSettings?.invoiceSettings?.vatNumber && <p className="text-[11px] text-slate-500 font-mono">VAT: {systemSettings.invoiceSettings.vatNumber}</p>}
                     </div>
                     <div className="text-right font-mono text-xs space-y-1.5 shrink-0">
-                      <div className="inline-block text-white text-sm font-black uppercase tracking-wider px-6 py-2.5 rounded-full mb-1" style={{ backgroundColor: computedInvoiceColor }}>Mauzo Ankara</div>
-                      <p className="text-slate-400">Hapana: <strong className="text-slate-800">{selectedSale.reference || `INV-${selectedSale.id.toUpperCase().slice(0, 8)}`}</strong></p>
-                      <p className="text-slate-400">Tarehe: <span className="text-slate-700">{new Date(selectedSale.timestamp).toLocaleDateString([], { dateStyle: 'long' })}</span></p>
+                      <div className="inline-block text-white text-sm font-black uppercase tracking-wider px-6 py-2.5 rounded-full mb-1" style={{ backgroundColor: computedInvoiceColor }}>Sales Invoice</div>
+                      <p className="text-slate-400">No: <strong className="text-slate-800">{selectedSale.reference || `INV-${selectedSale.id.toUpperCase().slice(0, 8)}`}</strong></p>
+                      <p className="text-slate-400">Date: <span className="text-slate-700">{new Date(selectedSale.timestamp).toLocaleDateString([], { dateStyle: 'long' })}</span></p>
                       {(() => {
                         const paid = selectedSale.amountPaid !== undefined ? selectedSale.amountPaid : (selectedSale.paymentMethod === 'Credit' ? 0 : selectedSale.total);
                         const isPaid = paid >= selectedSale.total;
-                        return <span className={`inline-flex items-center gap-1 mt-1 px-3 py-1 rounded-full text-[10px] font-black uppercase ${isPaid ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>● {isPaid ? 'Imelipwa' : 'Haijalipwa'}</span>;
+                        return <span className={`inline-flex items-center gap-1 mt-1 px-3 py-1 rounded-full text-[10px] font-black uppercase ${isPaid ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>● {isPaid ? 'Paid' : 'Unpaid'}</span>;
                       })()}
                     </div>
                   </div>
@@ -3434,10 +3706,10 @@ export default function DashboardSalesList({
                     <thead>
                       <tr className="text-white" style={{ backgroundColor: computedInvoiceColor }}>
                         <th className="py-3 px-4 rounded-l-xl w-10">#</th>
-                        <th className="py-3 px-4 uppercase text-[10px]">Maelezo</th>
-                        <th className="py-3 px-4 uppercase text-[10px] text-center">Idadi</th>
-                        <th className="py-3 px-4 uppercase text-[10px] text-right">Kipimo Bei</th>
-                        <th className="py-3 px-4 uppercase text-[10px] text-right rounded-r-xl">Jumla</th>
+                        <th className="py-3 px-4 uppercase text-[10px]">Description</th>
+                        <th className="py-3 px-4 uppercase text-[10px] text-center">Quantity</th>
+                        <th className="py-3 px-4 uppercase text-[10px] text-right">Unit Price</th>
+                        <th className="py-3 px-4 uppercase text-[10px] text-right rounded-r-xl">Total</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -3446,47 +3718,48 @@ export default function DashboardSalesList({
                           <td className="py-3 px-4 text-slate-400 font-mono">{index + 1}</td>
                           <td className="py-3 px-4 font-semibold text-slate-800">{item.productName}</td>
                           <td className="py-3 px-4 text-center text-slate-700">{formatSaleItemQuantity(item, products.find(product => product.id === item.productId))}</td>
-                          <td className="py-3 px-4 text-right font-mono text-slate-600">{currency}{item.price.toLocaleString()}</td>
-                          <td className="py-3 px-4 text-right font-mono font-black text-slate-900">{currency}{Math.round(item.price * item.qty).toLocaleString()}</td>
+                          <td className="py-3 px-4 text-right font-mono text-slate-600">{currency}{(item.selectedUnitPrice ?? item.price).toLocaleString()}</td>
+                          <td className="py-3 px-4 text-right font-mono font-black text-slate-900">{currency}{Math.round(getSaleItemLineTotal(item)).toLocaleString()}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
 
-                  <div className="flex items-start justify-between gap-6">
-                    {(() => {
-                      const channel = findPaymentChannel(systemSettings?.paymentChannels || [], selectedSale.paymentMethod);
-                      const accountNumber = channel?.accountNumber || systemSettings?.invoiceSettings?.accountNumber;
-                      const accountName = systemSettings?.invoiceSettings?.accountName || channel?.name || channel?.provider;
-                      return (
-                        <div className="bg-slate-50 rounded-xl px-4 py-3.5 border border-slate-100 min-w-[200px] text-xs">
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-mono">Payment Details</p>
-                          <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
-                            <span className="text-slate-400">Mode</span><strong className="text-right text-slate-700">{selectedSale.paymentMethod}</strong>
-                            {accountNumber && <><span className="text-slate-400">Account No.</span><strong className="text-right text-slate-700 font-mono">{accountNumber}</strong></>}
-                            {accountName && <><span className="text-slate-400">Account Name</span><strong className="text-right text-slate-700">{accountName}</strong></>}
-                            <span className="text-slate-400">Kiasi</span><strong className="text-right text-slate-900 font-mono">{currency}{Math.round(selectedSale.total).toLocaleString()}</strong>
-                          </div>
-                        </div>
-                      );
-                    })()}
-
+                  <div className="flex justify-end">
                     <div className="w-72 space-y-2 font-mono text-xs shrink-0">
                       {(() => {
-                        const subtotal = selectedSale.items.reduce((sum, item) => sum + item.price * item.qty, 0);
+                        const subtotal = selectedSale.items.reduce((sum, item) => sum + getSaleItemLineTotal(item), 0);
                         const paid = selectedSale.amountPaid !== undefined ? selectedSale.amountPaid : (selectedSale.paymentMethod === 'Credit' ? 0 : selectedSale.total);
                         const balance = Math.max(0, selectedSale.total - paid);
                         return <>
-                          <div className="flex justify-between text-slate-500"><span>Jumla Ndogo</span><strong className="text-slate-800">{currency}{Math.round(subtotal).toLocaleString()}</strong></div>
-                          {(selectedSale.discount || 0) > 0 && <div className="flex justify-between text-orange-600"><span>Punguzo</span><strong>-{currency}{Math.round(selectedSale.discount || 0).toLocaleString()}</strong></div>}
+                          <div className="flex justify-between text-slate-500"><span>Subtotal</span><strong className="text-slate-800">{currency}{Math.round(subtotal).toLocaleString()}</strong></div>
+                          {(selectedSale.discount || 0) > 0 && <div className="flex justify-between text-orange-600"><span>Discount</span><strong>-{currency}{Math.round(selectedSale.discount || 0).toLocaleString()}</strong></div>}
                           {(selectedSale.vatStatus === 'vat' || (!selectedSale.vatStatus && (selectedSale.tax || 0) > 0)) && <div className="flex justify-between text-slate-500"><span>VAT / Tax</span><strong className="text-slate-700">{currency}{Math.round(selectedSale.tax || 0).toLocaleString()}</strong></div>}
                           {(selectedSale.deliveryCost || 0) > 0 && <div className="flex justify-between text-slate-500"><span>Delivery</span><strong className="text-slate-700">{currency}{Math.round(selectedSale.deliveryCost || 0).toLocaleString()}</strong></div>}
-                          <div className="flex justify-between text-white rounded-xl px-4 py-3" style={{ backgroundColor: computedInvoiceColor }}><strong className="uppercase text-sm">Jumla</strong><strong className="text-base">{currency}{Math.round(selectedSale.total).toLocaleString()}</strong></div>
-                          <div className="flex justify-between text-slate-500 px-4"><span>Due</span><strong className="text-slate-800">{currency}{Math.round(balance).toLocaleString()}</strong></div>
+                          <div className="flex justify-between text-white rounded-xl px-4 py-3" style={{ backgroundColor: computedInvoiceColor }}><strong className="uppercase text-sm">Total</strong><strong className="text-base">{currency}{Math.round(selectedSale.total).toLocaleString()}</strong></div>
+                          <div className="flex justify-between text-slate-500 px-4"><span>Amount Due</span><strong className="text-slate-800">{currency}{Math.round(balance).toLocaleString()}</strong></div>
                         </>;
                       })()}
                     </div>
                   </div>
+
+                  {/* Payment Details — below the totals/Amount Due line, its own row, half-width */}
+                  {(() => {
+                    const channel = findPaymentChannel(systemSettings?.paymentChannels || [], selectedSale.paymentMethod);
+                    const accountNumber = channel?.accountNumber || systemSettings?.invoiceSettings?.accountNumber;
+                    const accountName = systemSettings?.invoiceSettings?.accountName || channel?.name || channel?.provider;
+                    return (
+                      <div className="bg-slate-50 rounded-xl px-4 py-3.5 border border-slate-100 min-w-[220px] w-1/2 text-xs">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-mono">Payment Details</p>
+                        <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+                          <span className="text-slate-400">Payment Mode</span><strong className="text-right text-slate-700">{selectedSale.paymentMethod}</strong>
+                          {accountNumber && <><span className="text-slate-400">Account No.</span><strong className="text-right text-slate-700 font-mono">{accountNumber}</strong></>}
+                          {accountName && <><span className="text-slate-400">Account Name</span><strong className="text-right text-slate-700">{accountName}</strong></>}
+                          <span className="text-slate-400">Amount</span><strong className="text-right text-slate-900 font-mono">{currency}{Math.round(selectedSale.total).toLocaleString()}</strong>
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   <div className="border-t border-slate-100 pt-5 flex items-end justify-between gap-6">
                     {(() => {
@@ -3515,7 +3788,7 @@ export default function DashboardSalesList({
                           </div>
                         ) : <div className="h-10 w-48 border-b border-slate-300 mb-1.5" />;
                       })()}
-                      <p className="text-[10px] text-slate-400">Authorized Sahihi</p>
+                      <p className="text-[10px] text-slate-400">Authorized Signature</p>
                     </div>
                   </div>
                   {(() => {
@@ -3556,17 +3829,17 @@ export default function DashboardSalesList({
 
                 {/* Receipt store branding block — plain black ink, matching a real thermal printout */}
                 <div className="text-center space-y-1 flex flex-col items-center">
-                  {(((() => { const stores = systemSettings?.business?.registeredStores || []; const activeBranch = stores[0]; const bb = activeBranch && systemSettings?.business?.branchBranding?.[activeBranch]; return bb?.businessLogoLight || bb?.businessLogo || null; })()) || getBusinessLogo(systemSettings)) && (
+                  {getActiveBranchLogo(systemSettings, activeBranch) && (
                     <img
-                      src={((() => { const stores = systemSettings?.business?.registeredStores || []; const activeBranch = stores[0]; const bb = activeBranch && systemSettings?.business?.branchBranding?.[activeBranch]; return bb?.businessLogoLight || bb?.businessLogo || null; })()) || getBusinessLogo(systemSettings) || undefined}
+                      src={getActiveBranchLogo(systemSettings, activeBranch) || undefined}
                       alt="Receipt Logo"
                       referrerPolicy="no-referrer"
                       className="max-h-12 max-w-[140px] object-contain mb-1 select-none"
                     />
                   )}
-                  <h4 className="text-base font-black tracking-tight text-black">{getBusinessDisplayName(activeTenant, systemSettings)}</h4>
-                  {activeTenant.city && <p className="text-[11px] text-black uppercase font-semibold">{activeTenant.city}</p>}
-                  {systemSettings?.business?.businessPhone && <p className="text-[11px] text-black">Tel:{systemSettings.business.businessPhone}</p>}
+                  <h4 className="text-base font-black tracking-tight text-black">{getActiveBranchDisplayName(activeTenant, systemSettings, undefined, activeBranch)}</h4>
+                  {(getActiveBranchAddress(systemSettings, activeBranch) || activeTenant.city) && <p className="text-[11px] text-black uppercase font-semibold">{getActiveBranchAddress(systemSettings, activeBranch) || activeTenant.city}</p>}
+                  {getActiveBranchPhone(systemSettings, activeBranch) && <p className="text-[11px] text-black">Tel:{getActiveBranchPhone(systemSettings, activeBranch)}</p>}
                 </div>
 
                 <div className="border-t border-dashed border-slate-300" />
@@ -3613,8 +3886,8 @@ export default function DashboardSalesList({
                   {selectedSale.items.map((item, index) => {
                     const isItemCash = item.discountType === 'cash';
                     const priceAfterDiscount = isItemCash
-                      ? Math.max(0, item.price - item.discount)
-                      : item.price * (1 - item.discount / 100);
+                      ? Math.max(0, (item.selectedUnitPrice ?? item.price) - item.discount)
+                      : (item.selectedUnitPrice ?? item.price) * (1 - item.discount / 100);
                     const itemProduct = products.find(product => product.id === item.productId);
                     return (
                       <div key={index}>
@@ -4023,7 +4296,7 @@ export default function DashboardSalesList({
                              const form = e.currentTarget;
                              const channel = (form.elements.namedItem('channel') as HTMLSelectElement).value;
                               const payDateVal = (form.elements.namedItem('paymentDate') as HTMLInputElement)?.value;
-                              const timestamp = payDateVal ? new Date(payDateVal).toISOString() : new Date().toISOString();
+                              const timestamp = payDateVal ? localDateToIso(payDateVal, new Date(), 12) : new Date().toISOString();
                              if (amt > 0) {
                                handleAddInstallment(selectedSale.id, Math.min(amt, dueRemainder), channel, timestamp);
                                setPayInInputVal('');
@@ -4062,7 +4335,7 @@ export default function DashboardSalesList({
                                  <option value="Card">Visa/Card Till</option>
                                  <option value="M-Pesa">M-Pesa Express</option>
                                  <option value="MTN MoMo">MTN MoMo API</option>
-                                 <option value="Paystack">Direct Paystack</option><option value="Airtel Money">Airtel Money</option></select></div><div><label className="block text-[9px] uppercase font-mono text-slate-500 font-bold mb-1">Payment Date</label><input type="date" name="paymentDate" defaultValue={new Date().toISOString().split("T")[0]} required className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-bold font-sans cursor-pointer focus:outline-none text-slate-800" /></div></div><div className="hidden"><div><select>
+                                 <option value="Paystack">Direct Paystack</option><option value="Airtel Money">Airtel Money</option></select></div><div><label className="block text-[9px] uppercase font-mono text-slate-500 font-bold mb-1">Payment Date</label><input type="date" name="paymentDate" defaultValue={formatLocalDate()} required className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-bold font-sans cursor-pointer focus:outline-none text-slate-800" /></div></div><div className="hidden"><div><select>
                                  <option value="Airtel Money">Airtel Money</option>
                                </select>
                              </div>
@@ -4203,13 +4476,13 @@ export default function DashboardSalesList({
                         <div className="flex-1 min-w-0">
                           <p className="font-bold text-slate-800 text-[12px] truncate">{item.productName}</p>
                           <p className="text-[10px] text-slate-400 font-mono mt-0.5">
-                            {formatSaleItemQuantity(item, matchingProduct)} × {currency}{item.price.toLocaleString()}
+                            {formatSaleItemQuantity(item, matchingProduct)} × {currency}{(item.selectedUnitPrice ?? item.price).toLocaleString()}
                           </p>
                         </div>
 
                         <div className="text-right shrink-0">
                           <span className="font-mono font-black text-[12px] text-slate-900">
-                            {currency}{(item.price * item.qty).toLocaleString()}
+                            {currency}{getSaleItemLineTotal(item).toLocaleString()}
                           </span>
                         </div>
                       </div>
@@ -4221,7 +4494,7 @@ export default function DashboardSalesList({
               {/* Balance tally */}
               <div className="border-t border-slate-100 pt-4 space-y-2 text-xs">
                 {(() => {
-                  const itemsSubtotal = viewingSaleDetail.items.reduce((sum, item) => sum + (item.price * item.qty), 0);
+                  const itemsSubtotal = viewingSaleDetail.items.reduce((sum, item) => sum + getSaleItemLineTotal(item), 0);
                   const discountVal = viewingSaleDetail.discount !== undefined ? viewingSaleDetail.discount : 0;
                   const discountType = viewingSaleDetail.discountType || 'percent';
                   const computedDiscountAmount = discountType === 'percent' ? itemsSubtotal * (discountVal / 100) : discountVal;
@@ -4399,8 +4672,8 @@ export default function DashboardSalesList({
                   {editFormFields.items.map((item, index) => {
                     const isItemCash = item.discountType === 'cash';
                     const lineTotal = isItemCash
-                      ? Math.max(0, item.price - item.discount) * item.qty
-                      : item.price * (1 - item.discount / 100) * item.qty;
+                      ? Math.max(0, (item.selectedUnitPrice ?? item.price) - item.discount) * item.qty
+                      : (item.selectedUnitPrice ?? item.price) * (1 - item.discount / 100) * item.qty;
                     return (
                       <div key={index} className="p-3 hover:bg-slate-50/50 transition-colors flex items-center justify-between gap-4 text-xs">
                         <div className="space-y-0.5 max-w-[50%]">
@@ -4491,18 +4764,35 @@ export default function DashboardSalesList({
                 const subAmt = editFormFields.items.reduce((sum, item) => {
                   const isItemCash = item.discountType === 'cash';
                   const priceAfterDiscount = isItemCash
-                    ? Math.max(0, item.price - item.discount)
-                    : item.price * (1 - item.discount / 100);
+                    ? Math.max(0, (item.selectedUnitPrice ?? item.price) - item.discount)
+                    : (item.selectedUnitPrice ?? item.price) * (1 - item.discount / 100);
                   return sum + (priceAfterDiscount * item.qty);
                 }, 0);
+                // The sale's order-level discount (editingSale.discount/discountType,
+                // separate from each item's own discount above) isn't editable in
+                // this dialog, but it's still in effect and must reduce the taxable
+                // amount here -- otherwise this preview (and the save below) silently
+                // drop it, overstating the bill by exactly the discount amount.
+                const orderDiscountVal = editingSale.discount !== undefined ? editingSale.discount : 0;
+                const orderDiscountType = editingSale.discountType || 'percent';
+                const orderDiscountAmt = orderDiscountType === 'percent'
+                  ? subAmt * (orderDiscountVal / 100)
+                  : Math.max(0, Math.min(subAmt, orderDiscountVal));
+                const taxableAmt = Math.max(0, subAmt - orderDiscountAmt);
                 // Strict conditional tax: only recompute/show VAT if this sale was
                 // originally completed WITH tax. Never inject tax into a sale that
                 // was completed tax-free.
                 const originalIsVat = editingSale.vatStatus === 'vat' || (!editingSale.vatStatus && (editingSale.tax || 0) > 0);
-                const taxAmt = originalIsVat ? Math.round(subAmt * activeTenant.taxRate) : 0;
-                const totalAmt = subAmt + taxAmt;
+                const taxAmt = originalIsVat ? Math.round(taxableAmt * activeTenant.taxRate) : 0;
+                const totalAmt = taxableAmt + taxAmt;
                 return (
                   <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-xs font-mono text-slate-600 flex justify-between">
+                    {orderDiscountAmt > 0 && (
+                      <div>
+                        <p className="text-[9px] uppercase font-sans text-slate-405 font-bold mb-0.5">Discount</p>
+                        <p className="font-bold text-rose-600">-{currency}{orderDiscountAmt.toLocaleString()}</p>
+                      </div>
+                    )}
                     {originalIsVat && (
                       <div>
                         <p className="text-[9px] uppercase font-sans text-slate-405 font-bold mb-0.5">VAT TAXES ESTIMATED ({activeTenant.taxRate * 100}%)</p>
@@ -4549,28 +4839,43 @@ export default function DashboardSalesList({
                   const itemSubtotal = editFormFields.items.reduce((sum, item) => {
                     const isItemCash = item.discountType === 'cash';
                     const priceAfterDiscount = isItemCash
-                      ? Math.max(0, item.price - item.discount)
-                      : item.price * (1 - item.discount / 100);
+                      ? Math.max(0, (item.selectedUnitPrice ?? item.price) - item.discount)
+                      : (item.selectedUnitPrice ?? item.price) * (1 - item.discount / 100);
                     return sum + (priceAfterDiscount * item.qty);
                   }, 0);
+                  // The sale's order-level discount isn't editable in this dialog,
+                  // but it's still in effect (preserved unchanged below via
+                  // {...editingSale, ...}) and must reduce the taxable/total amount
+                  // here too -- otherwise a discounted sale loses its discount from
+                  // `total` the moment it's edited, while the receipt view keeps
+                  // showing the discount as if it were still subtracted, leaving a
+                  // false "balance due" equal to the discount amount.
+                  const orderDiscountVal = editingSale.discount !== undefined ? editingSale.discount : 0;
+                  const orderDiscountType = editingSale.discountType || 'percent';
+                  const orderDiscountAmt = orderDiscountType === 'percent'
+                    ? itemSubtotal * (orderDiscountVal / 100)
+                    : Math.max(0, Math.min(itemSubtotal, orderDiscountVal));
+                  const taxableAmt = Math.max(0, itemSubtotal - orderDiscountAmt);
                   // Strict conditional tax: preserve the sale's original vat/non-vat
                   // status. A sale completed without tax must never have tax injected
                   // just because it was edited; a sale completed with tax keeps being
                   // recalculated from its (possibly-edited) items at the tenant rate.
                   const originalIsVat = editingSale.vatStatus === 'vat' || (!editingSale.vatStatus && (editingSale.tax || 0) > 0);
-                  const calculatedTax = originalIsVat ? Math.round(itemSubtotal * activeTenant.taxRate) : 0;
-                  const calculatedTotal = itemSubtotal + calculatedTax;
+                  const calculatedTax = originalIsVat ? Math.round(taxableAmt * activeTenant.taxRate) : 0;
+                  const calculatedTotal = taxableAmt + calculatedTax;
 
                   // Sale Date: combine the (possibly-edited) calendar date with the
                   // sale's original time-of-day so only the date actually changes.
                   const updatedTimestamp = (() => {
                     if (!editFormFields.saleDate) return editingSale.timestamp;
                     const original = editingSale.timestamp ? new Date(editingSale.timestamp) : new Date();
-                    const hh = String(isNaN(original.getTime()) ? 0 : original.getHours()).padStart(2, '0');
-                    const mm = String(isNaN(original.getTime()) ? 0 : original.getMinutes()).padStart(2, '0');
-                    const ss = String(isNaN(original.getTime()) ? 0 : original.getSeconds()).padStart(2, '0');
-                    const target = new Date(`${editFormFields.saleDate}T${hh}:${mm}:${ss}.000Z`);
-                    return isNaN(target.getTime()) ? editingSale.timestamp : target.toISOString();
+                    // Build the target using local-time components throughout (both the
+                    // picked calendar date and the preserved time-of-day), then let
+                    // toISOString() do the local-to-UTC conversion -- mixing a local
+                    // hh:mm:ss with a UTC "Z" literal shifted the saved date by the
+                    // tenant's timezone offset, which could push it back across a day
+                    // boundary and make the edit look like it never took effect.
+                    return localDateToIso(editFormFields.saleDate, original);
                   })();
 
                   const updatedSale: Sale = {
@@ -4736,10 +5041,10 @@ export default function DashboardSalesList({
             {/* ── Header ── */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0">
               <div>
-                <h3 className="text-[15px] font-black text-slate-900 dark:text-white">New Document</h3>
+                <h3 className="text-[15px] font-black text-slate-900 dark:text-white">{editingDocumentId ? 'Edit Document' : 'New Document'}</h3>
                 <p className="text-[10px] text-slate-400 mt-0.5">Quotation or Proforma Invoice</p>
               </div>
-              <button type="button" onClick={() => setShowNewDocModal(false)}
+              <button type="button" onClick={resetNewDocumentForm}
                 className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:text-slate-800 cursor-pointer border-none transition-colors">
                 <X className="w-4 h-4" />
               </button>
@@ -4997,7 +5302,29 @@ export default function DashboardSalesList({
                       <div key={idx} className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2">
                         <div className="flex-1 min-w-0">
                           <p className="text-[13px] font-bold text-slate-800 dark:text-slate-100 truncate">{item.productName}</p>
-                          <p className="text-[10px] text-slate-400 font-mono mt-0.5">{item.qty} × {currency}{item.price}</p>
+                          <div className="flex items-center gap-1.5 mt-1">
+                            <button type="button"
+                              onClick={() => setNewDocItems(prev => prev.map((it, i) => i === idx ? { ...it, qty: Math.max(1, it.qty - 1) } : it))}
+                              className="w-6 h-6 flex items-center justify-center rounded-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-slate-100 cursor-pointer shrink-0">
+                              <Minus className="w-3 h-3" />
+                            </button>
+                            <input
+                              type="number"
+                              min="1"
+                              value={item.qty}
+                              onChange={e => {
+                                const nextQty = Math.max(1, Number(e.target.value) || 1);
+                                setNewDocItems(prev => prev.map((it, i) => i === idx ? { ...it, qty: nextQty } : it));
+                              }}
+                              className="w-12 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-1.5 py-1 text-[11px] font-bold text-slate-800 dark:text-slate-100 font-mono text-center focus:outline-none focus:border-indigo-500"
+                            />
+                            <button type="button"
+                              onClick={() => setNewDocItems(prev => prev.map((it, i) => i === idx ? { ...it, qty: it.qty + 1 } : it))}
+                              className="w-6 h-6 flex items-center justify-center rounded-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-slate-100 cursor-pointer shrink-0">
+                              <Plus className="w-3 h-3" />
+                            </button>
+                            <span className="text-[10px] text-slate-400 font-mono">× {currency}{item.price}</span>
+                          </div>
                           {item.sourceBranchName && (
                             <p className="text-[9px] text-indigo-500 font-semibold mt-0.5">Internal source: {item.sourceBranchName}</p>
                           )}
@@ -5101,15 +5428,15 @@ export default function DashboardSalesList({
 
             {/* ── Footer ── */}
             <div className="shrink-0 px-4 py-3 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex gap-2">
-              <button type="button" onClick={() => setShowNewDocModal(false)}
+              <button type="button" onClick={resetNewDocumentForm}
                 className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 font-bold text-sm cursor-pointer transition-colors hover:bg-slate-50 dark:hover:bg-slate-800">
                 Cancel
               </button>
               <button type="button"
-                disabled={newDocItems.length === 0 || documentMutationPending || (canUseCrossBranchDocuments && (!newDocIssuingBranchId || crossBranchSourcesLoading || !!crossBranchSourcesError))}
+                disabled={newDocItems.length === 0 || documentMutationPending || (!editingDocumentId && canUseCrossBranchDocuments && (!newDocIssuingBranchId || crossBranchSourcesLoading || !!crossBranchSourcesError))}
                 onClick={() => void handleCreateCommercialDocument()}
                 className="flex-[2] py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 disabled:cursor-not-allowed text-white font-black text-sm cursor-pointer transition-colors border-none">
-                {documentMutationPending ? 'Saving…' : `Create ${getDocumentLabel(newDocType)}`}
+                {documentMutationPending ? 'Saving…' : editingDocumentId ? 'Save Changes' : `Create ${getDocumentLabel(newDocType)}`}
               </button>
             </div>
 
@@ -5129,7 +5456,7 @@ export default function DashboardSalesList({
         const docTypeLabel = getDocumentLabel(viewingDocument.type);
 
         return (
-          <div className="fixed inset-0 z-[200] flex flex-col bg-[#404040] font-sans print:bg-white"
+          <div className="sales-invoice-a4-overlay fixed inset-0 z-[200] flex flex-col bg-[#404040] font-sans print:bg-white"
             style={{paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)'}}>
 
             {/* ── WYSIWYG TOOLBAR ── shrink-0 ───────────────────────────────── */}
@@ -5305,8 +5632,8 @@ export default function DashboardSalesList({
                         <div className="inline-block text-white text-sm font-black uppercase px-6 py-2.5 rounded-full mb-1 tracking-wider" style={{ backgroundColor: computedInvoiceColor }}>
                           {docTypeLabel}
                         </div>
-                        <p className="text-slate-400">Hapana: <strong className="text-slate-800">{viewingDocument.documentNumber}</strong></p>
-                        <p className="text-slate-400">Tarehe: <span className="text-slate-700">{new Date(viewingDocument.timestamp).toLocaleDateString([], {dateStyle: 'long'})}</span></p>
+                        <p className="text-slate-400">No: <strong className="text-slate-800">{viewingDocument.documentNumber}</strong></p>
+                        <p className="text-slate-400">Date: <span className="text-slate-700">{new Date(viewingDocument.timestamp).toLocaleDateString([], {dateStyle: 'long'})}</span></p>
                         {viewingDocument.validUntil && <p className="text-slate-400">Valid Until: <span className="text-slate-700">{new Date(viewingDocument.validUntil).toLocaleDateString()}</span></p>}
                         <div className={`inline-flex items-center gap-1.5 text-[10px] font-black uppercase px-2 py-0.5 rounded-lg mt-1 ${
                           viewingDocument.status === 'pending' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
@@ -5332,10 +5659,10 @@ export default function DashboardSalesList({
                         <thead>
                           <tr className="text-white" style={{ backgroundColor: computedInvoiceColor }}>
                             <th className="py-3 px-4 font-black uppercase tracking-wider text-[10px] rounded-l-xl w-8">#</th>
-                            <th className="py-3 px-4 font-black uppercase tracking-wider text-[10px]">Maelezo</th>
-                            <th className="py-3 px-4 font-black uppercase tracking-wider text-[10px] text-center">Idadi</th>
-                            <th className="py-3 px-4 font-black uppercase tracking-wider text-[10px] text-right">Kipimo Bei</th>
-                            <th className="py-3 px-4 font-black uppercase tracking-wider text-[10px] text-right rounded-r-xl">Jumla</th>
+                            <th className="py-3 px-4 font-black uppercase tracking-wider text-[10px]">Description</th>
+                            <th className="py-3 px-4 font-black uppercase tracking-wider text-[10px] text-center">Quantity</th>
+                            <th className="py-3 px-4 font-black uppercase tracking-wider text-[10px] text-right">Unit Price</th>
+                            <th className="py-3 px-4 font-black uppercase tracking-wider text-[10px] text-right rounded-r-xl">Total</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -5363,26 +5690,15 @@ export default function DashboardSalesList({
                     </div>
 
                     {/* Totals */}
-                    <div className="flex items-start justify-between gap-6">
-                      {viewingDocument.paymentMethod && (
-                        <div className="bg-slate-50 rounded-xl px-4 py-3.5 border border-slate-100 min-w-[200px] text-xs">
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-mono">Payment Details</p>
-                          <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
-                            <span className="text-slate-400">Mode</span><strong className="text-right text-slate-700">{viewingDocument.paymentMethod}</strong>
-                            {viewingDocument.paymentAccountNumber && <><span className="text-slate-400">Account No.</span><strong className="text-right text-slate-700 font-mono">{viewingDocument.paymentAccountNumber}</strong></>}
-                            {viewingDocument.paymentAccountName && <><span className="text-slate-400">Account Name</span><strong className="text-right text-slate-700">{viewingDocument.paymentAccountName}</strong></>}
-                            <span className="text-slate-400">Kiasi</span><strong className="text-right text-slate-900 font-mono">{money(viewingDocument.paymentAmount ?? totals.total)}</strong>
-                          </div>
-                        </div>
-                      )}
-                      <div className="w-72 space-y-2 font-mono text-xs shrink-0 ml-auto">
+                    <div className="flex justify-end">
+                      <div className="w-72 space-y-2 font-mono text-xs shrink-0">
                         <div className="flex justify-between text-slate-500 pb-1">
-                          <span>Jumla Ndogo</span>
+                          <span>Subtotal</span>
                           <span className="font-bold text-slate-800">{money(totals.subTotal)}</span>
                         </div>
                         {totals.discount > 0 && (
                           <div className="flex justify-between text-orange-600 pb-1">
-                            <span>Punguzo</span>
+                            <span>Discount</span>
                             <span className="font-bold">-{money(totals.discount)}</span>
                           </div>
                         )}
@@ -5405,17 +5721,30 @@ export default function DashboardSalesList({
                           </div>
                         )}
                         <div className="flex justify-between text-white rounded-xl px-4 py-3" style={{ backgroundColor: computedInvoiceColor }}>
-                          <span className="font-black text-sm uppercase tracking-wide">Jumla</span>
+                          <span className="font-black text-sm uppercase tracking-wide">Total</span>
                           <span className="font-black text-base">{money(totals.total)}</span>
                         </div>
                         <div className="flex justify-between text-slate-500 px-4">
-                          <span>Due</span>
+                          <span>Amount Due</span>
                           <span className="font-bold text-slate-800">{money(totals.balance)}</span>
                         </div>
                       </div>
                     </div>
 
-                    {/* Signature row — Prepared by (left) | Authorized Sahihi (right) */}
+                    {/* Payment Details — below the totals/Due line, its own row, half-width */}
+                    {viewingDocument.paymentMethod && (
+                      <div className="bg-slate-50 rounded-xl px-4 py-3.5 border border-slate-100 min-w-[220px] w-1/2 text-xs">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 font-mono">Payment Details</p>
+                        <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
+                          <span className="text-slate-400">Payment Mode</span><strong className="text-right text-slate-700">{viewingDocument.paymentMethod}</strong>
+                          {viewingDocument.paymentAccountNumber && <><span className="text-slate-400">Account No.</span><strong className="text-right text-slate-700 font-mono">{viewingDocument.paymentAccountNumber}</strong></>}
+                          {viewingDocument.paymentAccountName && <><span className="text-slate-400">Account Name</span><strong className="text-right text-slate-700">{viewingDocument.paymentAccountName}</strong></>}
+                          <span className="text-slate-400">Amount</span><strong className="text-right text-slate-900 font-mono">{money(viewingDocument.paymentAmount ?? totals.total)}</strong>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Signature row — Prepared by (left) | Authorized Signature (right) */}
                     <div className="border-t border-slate-100 pt-5 flex items-end justify-between gap-6">
                         <div className="text-left">
                           <p className="text-[10px] text-slate-400 uppercase tracking-widest font-mono mb-1">Prepared by</p>
@@ -5433,7 +5762,7 @@ export default function DashboardSalesList({
                               <div className="h-10 border-b border-slate-300 mb-1.5" />
                             );
                           })()}
-                          <p className="text-[10px] text-slate-400">Authorized Sahihi</p>
+                          <p className="text-[10px] text-slate-400">Authorized Signature</p>
                         </div>
                     </div>
 
@@ -5705,6 +6034,161 @@ export default function DashboardSalesList({
                     </div>
                   </div>
                   <ChevronRight className="w-4 h-4 text-rose-400 flex items-center justify-center" />
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+
+        {mobileActionsDocument && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setMobileActionsDocument(null)}
+              className="fixed inset-0 z-[110] bg-slate-900/40 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 280 }}
+              className="fixed left-0 right-0 max-w-lg mx-auto bg-white rounded-t-3xl shadow-xl z-[120] overflow-hidden font-sans flex flex-col text-[#0f172a] border border-slate-100" style={{bottom: "calc(var(--dashboard-bottom-nav-height, 56px) + env(safe-area-inset-bottom))", maxHeight: "calc(85vh - var(--dashboard-bottom-nav-height, 56px) - env(safe-area-inset-bottom))"}}
+            >
+              <div className="w-full flex justify-center py-2 shrink-0">
+                <div className="w-12 h-1 bg-slate-250 rounded-full" />
+              </div>
+
+              <div className="px-5 pb-3 pt-1 text-left shrink-0">
+                <h3 className="text-base font-extrabold text-slate-800 leading-tight">
+                  {mobileActionsDocument.customerName || 'Customer'} — <span className="font-mono text-indigo-700">{mobileActionsDocument.documentNumber}</span>
+                </h3>
+                <p className="text-xs text-slate-500 mt-1 flex items-center justify-between">
+                  <span>{getDocumentLabel(mobileActionsDocument.type)}</span>
+                  <span>{money(getDocumentTotals(mobileActionsDocument).total)}</span>
+                </p>
+              </div>
+
+              <div className="bg-slate-100 h-[1px] w-full" />
+
+              <div className="overflow-y-auto divide-y divide-slate-100 p-4 max-h-[calc(70vh-20px)] space-y-2.5">
+
+                {/* 1. View */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setViewingDocument(mobileActionsDocument);
+                    setDocZoom(computeInvoiceFitZoom());
+                    setMobileActionsDocument(null);
+                  }}
+                  className="w-full h-14 min-h-[52px] bg-white hover:bg-slate-50 flex items-center justify-between px-3.5 py-2.5 rounded-2xl border border-slate-100 shadow-3xs cursor-pointer text-left transition-colors font-semibold"
+                >
+                  <div className="flex items-center space-x-3.5">
+                    <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 shrink-0 select-none">
+                      <Eye className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <span className="text-sm font-bold text-slate-800 block">View</span>
+                      <span className="text-[10px] text-slate-400 block mt-0.5">Open the full document preview</span>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-slate-400" />
+                </button>
+
+                {/* 2. Edit */}
+                {isDocumentEditable(mobileActionsDocument) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      openEditDocument(mobileActionsDocument);
+                      setMobileActionsDocument(null);
+                    }}
+                    className="w-full h-14 min-h-[52px] bg-white hover:bg-slate-50 flex items-center justify-between px-3.5 py-2.5 rounded-2xl border border-slate-100 shadow-3xs cursor-pointer text-left transition-colors font-semibold"
+                  >
+                    <div className="flex items-center space-x-3.5">
+                      <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-500 shrink-0 select-none">
+                        <Pencil className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <span className="text-sm font-bold text-slate-800 block">Edit</span>
+                        <span className="text-[10px] text-slate-400 block mt-0.5">Add, remove, or change items and details</span>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-400" />
+                  </button>
+                )}
+
+                {/* 3. Send to Sale */}
+                {mobileActionsDocument.status === 'pending' ? (
+                  isMixedBranchDocument(mobileActionsDocument) ? (
+                    <div className="w-full min-h-[52px] bg-slate-50 flex items-center px-3.5 py-2.5 rounded-2xl border border-slate-100">
+                      <div className="flex items-center space-x-3.5">
+                        <div className="w-10 h-10 rounded-xl bg-slate-200 flex items-center justify-center text-slate-400 shrink-0 select-none">
+                          <ArrowRight className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <span className="text-sm font-bold text-slate-500 block">Send to Sale unavailable</span>
+                          <span className="text-[10px] text-slate-400 block mt-0.5">Mixes products from two branches — cannot be recorded as a sale from here</span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        sendDocumentToSales(mobileActionsDocument);
+                        setMobileActionsDocument(null);
+                      }}
+                      className="w-full h-14 min-h-[52px] bg-white hover:bg-slate-50 flex items-center justify-between px-3.5 py-2.5 rounded-2xl border border-slate-100 shadow-3xs cursor-pointer text-left transition-colors font-semibold"
+                    >
+                      <div className="flex items-center space-x-3.5">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0 select-none">
+                          <ArrowRight className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <span className="text-sm font-bold text-slate-800 block">Send to Sale</span>
+                          <span className="text-[10px] text-slate-400 block mt-0.5">Record this document as a completed sale</span>
+                        </div>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-slate-400" />
+                    </button>
+                  )
+                ) : (
+                  <div className="w-full min-h-[52px] bg-slate-50 flex items-center px-3.5 py-2.5 rounded-2xl border border-slate-100">
+                    <div className="flex items-center space-x-3.5">
+                      <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0 select-none">
+                        <Check className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <span className="text-sm font-bold text-slate-800 block">Already sent to sale</span>
+                        <span className="text-[10px] text-slate-400 block mt-0.5">This document has been recorded</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="my-2 border-t border-slate-100" />
+
+                {/* 4. Delete */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDocToDelete(mobileActionsDocument);
+                    setMobileActionsDocument(null);
+                  }}
+                  className="w-full h-14 min-h-[52px] bg-rose-50/30 hover:bg-rose-50 flex items-center justify-between px-3.5 py-2.5 rounded-2xl border border-rose-100 shadow-3xs cursor-pointer text-left transition-colors font-semibold"
+                >
+                  <div className="flex items-center space-x-3.5">
+                    <div className="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center text-rose-600 shrink-0 select-none">
+                      <Trash2 className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <span className="text-sm font-black text-rose-700 block">Delete</span>
+                      <span className="text-[10px] text-slate-400 block mt-0.5">Remove this document (does not affect stock or sales)</span>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-rose-400" />
                 </button>
               </div>
             </motion.div>

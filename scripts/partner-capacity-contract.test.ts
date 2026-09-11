@@ -4,7 +4,7 @@ import fs from 'node:fs';
 
 const server = fs.readFileSync('server.ts', 'utf8');
 const portal = fs.readFileSync('src/components/AffiliatePortal.tsx', 'utf8');
-const migration = fs.readFileSync('supabase/migrations/20260812000300_limit_affiliate_partners_to_ten.sql', 'utf8');
+const migration = fs.readFileSync('supabase/migrations/20260812000301_limit_affiliate_partners_to_ten.sql', 'utf8');
 
 test('partner registration allows capacity up to ten and rejects the eleventh', () => {
   assert.match(server, /MAX_AFFILIATE_PARTNERS = 10/);

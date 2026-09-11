@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import type { RealtimeChannel } from '@supabase/supabase-js';
+import { getSecureDataBridgeClient } from '../secureDataBridge';
 import { loadPlatformRecord, savePlatformRecord } from './superAdminPlatformRecords';
 
 export interface GlobalAdPlacementSettings {
@@ -94,14 +96,27 @@ export function notifyGlobalAdSettingsChanged() {
 
 // Shared singleton state: every useGlobalAdSettings() consumer used to run its
 // own effect + interval + fetch independently (4 mount sites, each polling on
-// its own timer). That meant up to 4x the requests for the exact same data.
-// This module now fetches once and fans the result out to every subscriber,
-// with the underlying refresh (event listeners + interval) started on the
-// first mounted consumer and stopped once the last one unmounts.
+// its own 5-minute timer, whether ads were on or off). This module now
+// fetches once per session and fans the result out to every subscriber, and
+// live updates come from a single shared Supabase Realtime subscription
+// (postgres_changes on the ad-placement row) instead of polling at all --
+// the database is touched once at mount, plus once whenever an admin
+// actually changes the setting. RLS grants read on just this one record type
+// to authenticated users (it was already public, unauthenticated, via the
+// REST fallback endpoint below).
 let sharedAdSettings: GlobalAdPlacementSettings = { ...DEFAULT_AD_SETTINGS };
 const adSettingsSubscribers = new Set<(settings: GlobalAdPlacementSettings) => void>();
-let adSettingsRefreshHandle: number | null = null;
 let adSettingsInFlight: Promise<void> | null = null;
+let adSettingsListenersActive = false;
+let adSettingsChannel: RealtimeChannel | null = null;
+
+function applyAdSettingsPayload(payload: unknown) {
+  if (!payload || typeof payload !== 'object') return;
+  const next = { ...DEFAULT_AD_SETTINGS, ...(payload as Partial<GlobalAdPlacementSettings>) };
+  sharedAdSettings = next;
+  cacheLegacySettings(next);
+  adSettingsSubscribers.forEach((notify) => notify(next));
+}
 
 function refreshSharedAdSettings() {
   if (adSettingsInFlight) return adSettingsInFlight;
@@ -116,23 +131,51 @@ function refreshSharedAdSettings() {
   return adSettingsInFlight;
 }
 
+async function startAdSettingsRealtimeChannel() {
+  if (adSettingsChannel) return;
+  try {
+    const client: any = await getSecureDataBridgeClient();
+    const url = client?.supabaseUrl || '';
+    if (!url || url.includes('placeholder-url')) return;
+    adSettingsChannel = client
+      .channel('global-ad-placement')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'super_admin_platform_records', filter: 'record_type=eq.global_ad_placement' },
+        (event: any) => applyAdSettingsPayload(event.new?.payload)
+      )
+      .subscribe();
+  } catch {
+    // No realtime this session (offline, placeholder client, etc.) -- the
+    // focus/save triggers below still keep this reasonably fresh.
+  }
+}
+
+function stopAdSettingsRealtimeChannel() {
+  if (!adSettingsChannel) return;
+  const channel = adSettingsChannel;
+  adSettingsChannel = null;
+  void getSecureDataBridgeClient().then((client: any) => client.removeChannel(channel)).catch(() => undefined);
+}
+
 function startSharedAdSettingsRefreshIfNeeded() {
-  if (adSettingsRefreshHandle !== null) return;
+  if (!adSettingsListenersActive) {
+    adSettingsListenersActive = true;
+    window.addEventListener(AD_SETTINGS_EVENT, refreshSharedAdSettings);
+    window.addEventListener('focus', refreshSharedAdSettings);
+    void startAdSettingsRealtimeChannel();
+  }
   void refreshSharedAdSettings();
-  window.addEventListener(AD_SETTINGS_EVENT, refreshSharedAdSettings);
-  window.addEventListener('focus', refreshSharedAdSettings);
-  // Ad settings already refresh instantly on save (AD_SETTINGS_EVENT) and on
-  // window focus. This interval only exists to catch cross-tab/cross-admin
-  // changes without those triggers, so it does not need to run every 2s.
-  adSettingsRefreshHandle = window.setInterval(refreshSharedAdSettings, 60000);
 }
 
 function stopSharedAdSettingsRefreshIfIdle() {
-  if (adSettingsSubscribers.size > 0 || adSettingsRefreshHandle === null) return;
-  window.removeEventListener(AD_SETTINGS_EVENT, refreshSharedAdSettings);
-  window.removeEventListener('focus', refreshSharedAdSettings);
-  window.clearInterval(adSettingsRefreshHandle);
-  adSettingsRefreshHandle = null;
+  if (adSettingsSubscribers.size > 0) return;
+  if (adSettingsListenersActive) {
+    window.removeEventListener(AD_SETTINGS_EVENT, refreshSharedAdSettings);
+    window.removeEventListener('focus', refreshSharedAdSettings);
+    adSettingsListenersActive = false;
+  }
+  stopAdSettingsRealtimeChannel();
 }
 
 export function useGlobalAdSettings() {

@@ -27,6 +27,7 @@ interface NotificationContextProps {
     cashierName: string;
     itemsSummary?: string;
   }) => void;
+  addSubscriptionReminderNotification: (payload: { tenantId: string; title: string; message: string }) => void;
 }
 
 const normalizeModuleName = (moduleName: string) => {
@@ -281,6 +282,29 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     saveNotifications([newNotif, ...notifications]);
   };
 
+  // Phone-only delivery for the subscription-expiry countdown: tablet/desktop
+  // show it as a header badge (Dashboard.tsx), but that header doesn't exist
+  // on phone width, so it goes into the bell/inbox instead. Same
+  // Admin-only/tenant-scoped gating as addSaleNotification, local-state only
+  // (no server round-trip) since this is re-derived from live subscription
+  // state each time, not a persisted record.
+  const addSubscriptionReminderNotification = (payload: { tenantId: string; title: string; message: string }) => {
+    if (!inboxScope || inboxScope.role !== 'Admin' || inboxScope.tenantId !== payload.tenantId) return;
+    const newNotif: JasperNotification = {
+      id: Math.random().toString(36).substr(2, 9),
+      tenantId: payload.tenantId,
+      moduleName: 'subscription',
+      title: payload.title,
+      message: payload.message,
+      notificationType: 'system_alert',
+      deliveryChannel: 'in_app',
+      status: 'sent',
+      isRead: false,
+      createdAt: new Date().toISOString()
+    };
+    saveNotifications([newNotif, ...notifications]);
+  };
+
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
   return (
@@ -298,7 +322,8 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       hydrateTenantModuleSettings,
       markAsRead,
       markAllAsRead,
-      addSaleNotification
+      addSaleNotification,
+      addSubscriptionReminderNotification
     }}>
       {children}
     </NotificationContext.Provider>

@@ -22,6 +22,7 @@ import {
   FileText,
   Printer,
   Download,
+  Send,
   Trash2,
   Edit,
   MoreVertical,
@@ -29,7 +30,8 @@ import {
   Wallet
 } from 'lucide-react';
 import { printPdfFromElement, downloadPdfFromElement, shareElementPdfToWhatsApp } from '../utils/pdfShare';
-import { getBusinessDisplayName, getBusinessLogo } from '../utils/businessBranding';
+import { getActiveBranchAddress, getActiveBranchDisplayName, getActiveBranchEmail, getActiveBranchLogo, getActiveBranchPhone } from '../utils/businessBranding';
+import type { BranchSummary } from '../branches/branchTypes';
 import { formatSaleItemQuantity } from '../utils/unitFormatter';
 import { buildWhatsAppLink } from '../utils/whatsapp';
 
@@ -111,6 +113,7 @@ interface DashboardDeliveriesProps {
   }) => Promise<boolean> | boolean;
   onDeleteDelivery?: (deliveryId: string) => Promise<boolean>;
   activeBranchName?: string;
+  activeBranch?: BranchSummary | null;
 }
 
 export default function DashboardDeliveries({
@@ -132,7 +135,8 @@ export default function DashboardDeliveries({
   onAddExpense,
   onEditDelivery,
   onDeleteDelivery,
-  activeBranchName
+  activeBranchName,
+  activeBranch
 }: DashboardDeliveriesProps) {
   const [activeSubTab, setActiveSubTab] = useState<'queue' | 'riders' | 'notes' | 'accounting'>('queue');
   
@@ -280,12 +284,12 @@ export default function DashboardDeliveries({
   const [externalDriverLicensePlate, setExternalDriverLicensePlate] = useState('');
 
   // Dynamically computed supplier details
-  const computedLogo = ((() => { const stores = systemSettings?.business?.registeredStores || []; const activeBranch = stores[0]; const bb = activeBranch && systemSettings?.business?.branchBranding?.[activeBranch]; return bb?.businessLogoLight || bb?.businessLogo || null; })()) || getBusinessLogo(systemSettings) || '';
-  const computedLogoName = getBusinessDisplayName(activeTenant, systemSettings);
-  const computedCompanyTitle = getBusinessDisplayName(activeTenant, systemSettings);
-  const computedCompanyAddress = systemSettings?.business?.businessAddress || '';
-  const computedCompanyPhone = systemSettings?.business?.businessPhone || '';
-  const computedCompanyEmail = systemSettings?.business?.businessEmail || '';
+  const computedLogo = getActiveBranchLogo(systemSettings, activeBranch) || '';
+  const computedLogoName = getActiveBranchDisplayName(activeTenant, systemSettings, undefined, activeBranch);
+  const computedCompanyTitle = getActiveBranchDisplayName(activeTenant, systemSettings, undefined, activeBranch);
+  const computedCompanyAddress = getActiveBranchAddress(systemSettings, activeBranch);
+  const computedCompanyPhone = getActiveBranchPhone(systemSettings, activeBranch);
+  const computedCompanyEmail = getActiveBranchEmail(systemSettings, activeBranch);
   const computedTIN = systemSettings?.invoiceSettings?.tin || systemSettings?.invoiceSettings?.tinNumber || '';
   const computedInvoiceColor = systemSettings?.invoiceSettings?.invoiceColor || '#102d68';
   const noteDriverOptions: DeliveryRider[] = [
@@ -609,26 +613,27 @@ export default function DashboardDeliveries({
     }
   };
 
-  const handleFinishDeliveryNote = () => {
-    // Validate mandatory fields
+  const validateNoteMandatoryFields = (): boolean => {
     if (!noteDeliveryToAddress.trim() || noteDeliveryToAddress === '123 Main Street, City') {
       alert('⚠️ Mandatory delivery location/address is missing or needs to be customized! Please provide the exact location address.');
-      return;
+      return false;
     }
     if (!noteTransportType.trim()) {
       alert('⚠️ Type of transport is a mandatory field! Please select standard type of transport.');
-      return;
+      return false;
     }
     if (!noteVehiclePlate.trim()) {
       alert('⚠️ Vehicle registration plate is a mandatory field! Please specify.');
-      return;
+      return false;
     }
     if (!noteDeliveredByName.trim()) {
       alert('⚠️ Name of person delivering is a mandatory field! Please fill.');
-      return;
+      return false;
     }
+    return true;
+  };
 
-    // Process completion
+  const markNoteCompleted = () => {
     if (activeEditingPendingNoteId) {
       if (onUpdatePendingNotes) {
         // Remove it from draft as it's completed
@@ -636,11 +641,30 @@ export default function DashboardDeliveries({
       }
       setActiveEditingPendingNoteId(null);
     }
+  };
 
-    alert('🎉 Success! Delivery Note completed successfully. Ready to Print!');
-    
-    // Auto trigger print
-    handlePrintNote();
+  const handleSendNoteWhatsApp = async () => {
+    if (!validateNoteMandatoryFields()) return;
+
+    const phone = window.prompt('Enter the WhatsApp number to send this delivery note to:');
+    if (!phone || !phone.trim()) return;
+
+    try {
+      setDeliveryPdfStatus('Generating delivery note PDF...');
+      await shareElementPdfToWhatsApp({
+        elementId: 'delivery-note-print-area',
+        fileName: `delivery-note-${notePINo || Date.now()}.pdf`,
+        format: 'a4',
+        phone: phone.trim(),
+        message: 'Please find attached your delivery note.',
+      });
+      setDeliveryPdfStatus('✅ Delivery note sent.');
+      markNoteCompleted();
+    } catch (err: any) {
+      setDeliveryPdfStatus('Send failed: ' + (err?.message || 'Please try again.'));
+    } finally {
+      setTimeout(() => setDeliveryPdfStatus(null), 4000);
+    }
   };
 
   const currency = activeTenant.currency;
@@ -826,7 +850,7 @@ Vehicle Plate Number: ${plateNumber}
         elementId: 'delivery-note-print-area',
         fileName: `delivery-note-${dnNo}.pdf`,
         phone: del.customerPhone,
-        message: `Hello ${customerName}, please find attached your delivery note PDF from ${getBusinessDisplayName(activeTenant, systemSettings)}. Thank you.`,
+        message: `Hello ${customerName}, please find attached your delivery note PDF from ${getActiveBranchDisplayName(activeTenant, systemSettings, undefined, activeBranch)}. Thank you.`,
         format: 'a4'
       });
       setDeliveryPdfStatus('PDF ready for WhatsApp.');
@@ -959,11 +983,11 @@ Vehicle Plate Number: ${plateNumber}
                   onClick={() => handleSubTabChange(tab.id)}
                   className={`basis-0 flex-1 min-w-0 min-h-[44px] sm:min-h-[48px] rounded-xl border flex flex-row items-center justify-center gap-1.5 text-[10px] font-black transition-all ${
                     isActive
-                      ? 'bg-gradient-to-br from-emerald-600 to-emerald-800 text-white border-emerald-700 shadow-md'
+                      ? 'bg-emerald-500 text-white border-emerald-500 shadow-md'
                       : 'bg-transparent text-slate-500 border-transparent active:bg-slate-100'
                   }`}
                 >
-                  <Icon className={`w-4 h-4 ${isActive ? 'text-emerald-300' : 'text-slate-400'}`} />
+                  <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
                   <span>{tab.label}</span>
                 </button>
               );
@@ -2001,7 +2025,7 @@ Vehicle Plate Number: ${plateNumber}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
             
             {/* Form Fields Side panel (Left - 5 columns) */}
-            <div className="lg:col-span-12 xl:col-span-5 bg-white border border-slate-200 p-3.5 sm:p-5 rounded-2xl space-y-4 shadow-sm xl:max-h-[85vh] overflow-y-auto scrollbar-thin flex flex-col">
+            <div className="lg:col-span-12 xl:col-span-5 bg-white border border-slate-200 p-3.5 sm:p-5 rounded-2xl space-y-4 shadow-sm xl:max-h-[85vh] xl:overflow-y-auto scrollbar-thin flex flex-col">
               <div className="border-b border-slate-100 pb-3 flex justify-between items-center">
                 <h4 className="font-black text-slate-900 tracking-tight text-sm">Delivery Note Custom Fields</h4>
                 <button 
@@ -2177,9 +2201,6 @@ Vehicle Plate Number: ${plateNumber}
                     <p className="text-[10px] text-slate-400 mt-1.5 ml-1">No matching tenant record was found.</p>
                   )}
                 </div>
-                {!linkedInvoiceRef && !invoiceSearchQuery && (
-                  <p className="text-[10px] text-slate-400">Select a source record to load customer, destination, items and assigned transport.</p>
-                )}
               </div>
 
               {/* Table Note Items Builder */}
@@ -2404,19 +2425,20 @@ Vehicle Plate Number: ${plateNumber}
                   <span className="w-2 h-2 rounded-full bg-emerald-500 mr-2 animate-ping"></span>
                   LIVE A4 DOCUMENT PREVIEW
                 </span>
-                <div className="grid grid-cols-1 sm:flex sm:items-center gap-2">
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={handleFinishDeliveryNote}
-                    className="bg-emerald-600 hover:bg-emerald-550 text-white font-extrabold px-3.5 py-3 sm:py-2 rounded-xl text-xs flex items-center justify-center space-x-1 cursor-pointer shadow-sm transition-all border-none min-h-[46px] sm:min-h-0"
-                    title="Validate and print"
+                    onClick={handleSendNoteWhatsApp}
+                    className="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-550 text-white font-extrabold px-3.5 py-3 sm:py-2 rounded-xl text-xs flex items-center justify-center space-x-1.5 cursor-pointer shadow-sm transition-all border-none min-h-[46px] sm:min-h-0"
+                    title="Validate and send via WhatsApp"
                   >
-                    <span>✅ Complete & Print Note</span>
+                    <Send className="w-4 h-4" />
+                    <span>Send</span>
                   </button>
                   <button
                     type="button"
                     onClick={handleDownloadNote}
-                    className="bg-white/10 hover:bg-white/20 text-white font-extrabold px-3.5 py-3 sm:py-2 rounded-xl text-xs flex items-center justify-center space-x-1.5 cursor-pointer shadow-sm transition-all border-none min-h-[46px] sm:min-h-0"
+                    className="flex-1 sm:flex-none bg-white/10 hover:bg-white/20 text-white font-extrabold px-3.5 py-3 sm:py-2 rounded-xl text-xs flex items-center justify-center space-x-1.5 cursor-pointer shadow-sm transition-all border-none min-h-[46px] sm:min-h-0"
                     title="Download PDF"
                   >
                     <Download className="w-4 h-4" />
@@ -2425,11 +2447,11 @@ Vehicle Plate Number: ${plateNumber}
                   <button
                     type="button"
                     onClick={handlePrintNote}
-                    className="bg-[#102d68] hover:bg-[#1b438c] text-white font-extrabold px-3.5 py-3 sm:py-2 rounded-xl text-xs flex items-center justify-center space-x-1.5 cursor-pointer shadow-sm transition-all border-none min-h-[46px] sm:min-h-0"
+                    className="flex-1 sm:flex-none bg-[#102d68] hover:bg-[#1b438c] text-white font-extrabold px-3.5 py-3 sm:py-2 rounded-xl text-xs flex items-center justify-center space-x-1.5 cursor-pointer shadow-sm transition-all border-none min-h-[46px] sm:min-h-0"
                     title="Print the current document without saving"
                   >
                     <Printer className="w-4 h-4" />
-                    <span>Print Draft</span>
+                    <span>Print</span>
                   </button>
                 </div>
               </div>

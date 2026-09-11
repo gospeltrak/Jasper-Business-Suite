@@ -8,7 +8,8 @@ import {
 } from '../utils/inventoryCosting';
 import { formatProductQuantity, formatSaleItemQuantity } from '../utils/unitFormatter';
 import { getPaymentModeName } from '../utils/paymentAccounts';
-import { getBusinessDisplayName, getBusinessLogo } from '../utils/businessBranding';
+import { getActiveBranchAddress, getActiveBranchDisplayName, getActiveBranchLogo, getActiveBranchPhone } from '../utils/businessBranding';
+import type { BranchSummary } from '../branches/branchTypes';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Plus, 
@@ -25,6 +26,7 @@ import {
   Scan,
   Sparkles,
   Printer,
+  Download,
   MessageSquare,
   Pill,
   Coins,
@@ -36,11 +38,20 @@ import {
   UserCheck,
   Calendar,
   Settings,
-  ChevronDown
+  ChevronDown,
+  Package
 } from 'lucide-react';
 import DashboardBarcodeScanner from './DashboardBarcodeScanner';
 import CachedImage from './CachedImage';
-import { createPosReceiptPdfFromData, printPdfFile, sharePosReceiptPdf, ReceiptData } from '../utils/pdfShare';
+import { downloadPdfFromElement, shareElementPdfToWhatsApp } from '../utils/pdfShare';
+import { localDateToIso, timestampToLocalDate } from '../utils/localDate';
+import { getPharmacyDoseConfig, resolvePharmacyPosLine } from '../utils/pharmacyPosPricing';
+import {
+  calculateFractionSaleLine,
+  isFractionSaleEnabled,
+  resolveFractionSaleConfig,
+  type FractionSaleLevel,
+} from '../utils/fractionSale';
 
 // Web Audio API helper for offline-friendly beep sound
 // Shared AudioContext singleton — created once, reused for all beeps (eliminates init lag)
@@ -138,6 +149,7 @@ interface DashboardPOSProps {
   userName: string;
   isOfflineMode: boolean;
   systemSettings?: SystemSettings;
+  activeBranch?: BranchSummary | null;
   preloadedCart?: {
     items: SaleItem[];
     backdate?: string;
@@ -173,6 +185,7 @@ export default function DashboardPOS({
   userName,
   isOfflineMode,
   systemSettings,
+  activeBranch,
   preloadedCart,
   onClearPreloadedCart
 }: DashboardPOSProps) {
@@ -187,6 +200,7 @@ export default function DashboardPOS({
     dosageType?: 'packet' | 'full' | 'half' | 'tabs' | 'strip' | 'dose' | 'unit';
     tabsSelected?: number;
     bulkSellMode?: 'scale' | 'pcs' | 'standard';
+    fractionSaleLevel?: FractionSaleLevel;
   }>>([]);
   const [deliveryCost, setDeliveryCost] = useState<number>(0);
   const [orderDiscount, setOrderDiscount] = useState<number>(0);
@@ -239,7 +253,7 @@ export default function DashboardPOS({
       setOrderDiscountType('percent');
       
       if (preloadedCart.backdate) {
-        setSaleDate(preloadedCart.backdate.split('T')[0]);
+        setSaleDate(timestampToLocalDate(preloadedCart.backdate));
       }
       
       if (onClearPreloadedCart) {
@@ -317,70 +331,40 @@ export default function DashboardPOS({
     return () => mql.removeEventListener('change', handleChange);
   }, []);
 
-  const buildReceiptPdfData = (): ReceiptData | null => {
-    if (!receiptResult) return null;
-    const stores = systemSettings?.business?.registeredStores || [];
-    const activeBranch = stores[0];
-    const branchBranding = activeBranch ? systemSettings?.business?.branchBranding?.[activeBranch] : undefined;
-    const rawTerms = systemSettings?.invoiceSettings?.termsAndConditions;
-    const terms = Array.isArray(rawTerms) ? rawTerms : rawTerms ? String(rawTerms).split('\n').filter(Boolean) : [];
-    return {
-        businessName: getBusinessDisplayName(activeTenant, systemSettings, userName),
-        businessAddress: systemSettings?.business?.businessAddress || activeTenant.city || undefined,
-        businessPhone: systemSettings?.business?.businessPhone || undefined,
-        businessEmail: systemSettings?.business?.businessEmail || undefined,
-        businessCity: activeTenant.city || undefined,
-        businessLogo: branchBranding?.businessLogoLight || branchBranding?.businessLogo || getBusinessLogo(systemSettings) || undefined,
-        receiptId: receiptResult.reference || receiptResult.id,
-        timestamp: receiptResult.timestamp,
-        cashierName: receiptResult.cashierName || userName || undefined,
-        customerName: receiptResult.customerName || undefined,
-        customerPhone: receiptResult.customerPhone || customerPhone || undefined,
-        paymentMethod: receiptResult.paymentMethod,
-        paymentBreakdown: receiptResult.paymentBreakdown,
-        items: receiptResult.items.map(item => {
-          const prod = products.find(p => p.id === item.productId);
-          return {
-            name: item.productName || prod?.name || 'Item',
-            qty: item.qty,
-            price: item.price,
-            total: item.qty * item.price,
-            unit: prod?.unit || undefined,
-          };
-        }),
-        subtotal: receiptResult.items.reduce((s, i) => s + i.qty * i.price, 0),
-        tax: receiptResult.tax || 0,
-        vatStatus: receiptResult.vatStatus,
-        discount: receiptResult.discount || 0,
-        deliveryCost: receiptResult.deliveryCost || 0,
-        productTotal: receiptResult.productTotal ?? (receiptResult.total - (receiptResult.deliveryCost || 0)),
-        grandTotal: receiptResult.total,
-        currency: activeTenant.currency || 'TZS',
-        amountPaid: receiptResult.amountPaid ?? receiptResult.total,
-        change: receiptResult.change ?? 0,
-        vatNumber: (systemSettings?.business as any)?.vatNumber || undefined,
-        documentTitle: 'A4 Receipt',
-        status: (receiptResult.amountPaid ?? receiptResult.total) >= receiptResult.total ? 'Paid' : 'Pending',
-        preparedByRole: 'Cashier',
-        terms,
-        footer: 'Powered by Orvix',
-      };
+  // Deterministic decorative barcode — same visual-only hashing approach used
+  // by DashboardSalesList's POS Receipt viewer and printed product labels,
+  // not a real scannable symbology.
+  const receiptBarcodeDigits = (code: string) => {
+    const hash = code.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) + 7;
+    return String(hash).padStart(13, '0').slice(-13);
+  };
+  const renderReceiptBarcodeBars = (code: string) => {
+    const hash = code.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) + 7;
+    return Array.from({ length: 46 }, (_, i) => {
+      const isBlack = i % 2 === 0;
+      const isGuard = i < 3 || (i >= 21 && i <= 23) || i > 42;
+      const w = (hash * (i + 17)) % 10;
+      const width = isGuard ? 1.5 : w < 4 ? 1.5 : w < 7 ? 2.5 : w < 9 ? 3.8 : 5;
+      return <div key={i} style={{ height: '32px', flexShrink: 0, background: isBlack ? '#000' : 'transparent', width: `${width}px` }} />;
+    });
   };
 
+  // Screenshot-based PDF/share/print — captures the on-screen
+  // #pos-receipt-pdf-template exactly as shown, the same technique
+  // DashboardSalesList's POS Receipt viewer uses, so what's downloaded,
+  // shared, or printed is guaranteed to match the preview (the old
+  // separate jsPDF text-redraw generator could silently drift from it).
   const sharePosReceiptPdfHandler = async () => {
     if (!receiptResult) return;
     try {
       setReceiptPdfStatus('Preparing receipt PDF...');
-
-      // Build receipt data for real PDF generation (no screenshot)
-      const receiptData = buildReceiptPdfData();
-      if (!receiptData) return;
-
-      const result = await sharePosReceiptPdf(
-        receiptData,
-        recipientWhatsApp,
-        `Hello ${receiptResult.customerName || 'valued customer'}, please find your receipt attached from ${getBusinessDisplayName(activeTenant, systemSettings, userName)}. Thank you for your business!`
-      );
+      const result = await shareElementPdfToWhatsApp({
+        elementId: 'pos-receipt-pdf-template',
+        fileName: `Receipt-${receiptResult.reference || receiptResult.id}.pdf`,
+        phone: recipientWhatsApp || receiptResult.customerPhone || customerPhone,
+        message: `Hello ${receiptResult.customerName || 'valued customer'}, please find your receipt attached from ${getActiveBranchDisplayName(activeTenant, systemSettings, userName, activeBranch)}. Thank you for your business!`,
+        format: 'receipt',
+      });
 
       if (result.method === 'native-share') {
         setReceiptPdfStatus('✅ Receipt shared successfully.');
@@ -398,22 +382,74 @@ export default function DashboardPOS({
     }
   };
 
-  const printPosReceiptPdfHandler = () => {
-    const receiptData = buildReceiptPdfData();
-    if (!receiptData) return;
+  const downloadPosReceiptPdfHandler = async () => {
+    if (!receiptResult) return;
     try {
-      setReceiptPdfStatus('Generating printable receipt PDF...');
-      // Use the same narrow till-receipt generator as WhatsApp share (and
-      // that matches the on-screen Preview) instead of the full-A4 generator
-      // that was here before — Print/Download must match what Preview shows.
-      const pdfFile = createPosReceiptPdfFromData(receiptData);
-      printPdfFile(pdfFile);
-      setReceiptPdfStatus('PDF opened for printing.');
+      setReceiptPdfStatus('Generating receipt PDF...');
+      await downloadPdfFromElement({
+        elementId: 'pos-receipt-pdf-template',
+        fileName: `Receipt-${receiptResult.reference || receiptResult.id}.pdf`,
+        format: 'receipt',
+      });
+      setReceiptPdfStatus('✅ Receipt downloaded.');
     } catch (err: any) {
       setReceiptPdfStatus(err?.message || 'Could not prepare receipt PDF.');
     } finally {
       setTimeout(() => setReceiptPdfStatus(null), 6000);
     }
+  };
+
+  const printPosReceiptPdfHandler = () => {
+    if (!receiptResult) return;
+    const el = document.getElementById('pos-receipt-pdf-template');
+    if (!el) return;
+    const content = el.innerHTML;
+
+    // Real thermal-printer stylesheet — mirrors DashboardSalesList's POS
+    // Receipt print exactly, since it targets the same 80mm till paper.
+    const thermalCSS = `
+      @page { size: 80mm auto; margin: 4mm; }
+      * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      body { width: 72mm; font-family: 'Courier New', Courier, monospace; font-size: 11px; color: #000; background: #fff; margin: 0; padding: 0; }
+      img { max-width: 100%; height: auto; }
+      * { color: #000 !important; background: transparent !important; border-color: #888 !important; box-shadow: none !important; border-radius: 0 !important; }
+      .flex { display: flex; } .justify-between { justify-content: space-between; } .justify-center { justify-content: center; } .items-center { align-items: center; } .items-start { align-items: flex-start; } .flex-col { flex-direction: column; }
+      .text-center { text-align: center; } .text-right { text-align: right; }
+      .font-black, .font-bold, .font-extrabold, .font-semibold { font-weight: bold; }
+      .uppercase { text-transform: uppercase; }
+      .border-b { border-bottom: 1px dashed #666; } .border-t { border-top: 1px dashed #666; } .border-b-2 { border-bottom: 2px solid #000; } .border-t-2 { border-top: 2px solid #000; }
+      .border-dashed { border-style: dashed !important; }
+      .space-y-1 > * + * { margin-top: 2px; } .space-y-1\\.5 > * + * { margin-top: 3px; } .space-y-2 > * + * { margin-top: 4px; } .space-y-4 > * + * { margin-top: 8px; }
+      .py-2 { padding: 4px 0; } .pb-1\\.5 { padding-bottom: 3px; } .pt-1 { padding-top: 2px; } .pt-1\\.5 { padding-top: 3px; } .p-6 { padding: 12px; }
+      .mb-1 { margin-bottom: 2px; }
+      .text-sm { font-size: 12px; } .text-xs { font-size: 11px; }
+      .w-5 { width: 10px; } .w-12 { width: 24px; } .w-16 { width: 32px; }
+      .max-h-12 { max-height: 48px; } .max-w-\\[140px\\] { max-width: 140px; }
+      .object-contain { object-fit: contain; }
+      .text-\\[9px\\] { font-size: 9px; } .text-\\[10px\\] { font-size: 10px; } .text-\\[11px\\] { font-size: 11px; }
+      .tracking-tight { letter-spacing: -0.025em; } .tracking-wide { letter-spacing: 0.025em; } .tracking-\\[0\\.2em\\] { letter-spacing: 0.2em; }
+      .shrink-0 { flex-shrink: 0; } .flex-1 { flex: 1 1 0%; }
+      .gap-1 { gap: 2px; }
+    `;
+
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:80mm;height:0;border:none;';
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!doc) { document.body.removeChild(iframe); return; }
+
+    doc.open();
+    doc.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Receipt ${receiptResult.reference || receiptResult.id}</title><style>${thermalCSS}</style></head><body>${content}</body></html>`);
+    doc.close();
+
+    setTimeout(() => {
+      try {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      } catch {}
+      setTimeout(() => { try { document.body.removeChild(iframe); } catch {} }, 3000);
+    }, 600);
   };
 
   // Dual-channel context (Retail vs. Wholesale)
@@ -461,49 +497,8 @@ export default function DashboardPOS({
   })();
   const categories = ['All', ...configuredCategories];
 
-  const getPharmacyDoseConfig = useCallback((product: Product) => {
-    const hierarchyLevels = product.pharmacyUnitLevels && product.pharmacyUnitLevels.length > 0
-      ? product.pharmacyUnitLevels
-      : null;
-    if (hierarchyLevels) {
-      const topLevel = hierarchyLevels[0];
-      const doseLevel = hierarchyLevels.find(level => level.id === 'dose') || hierarchyLevels[1] || topLevel;
-      const baseLevel = hierarchyLevels[hierarchyLevels.length - 1];
-      const tabsPerPacket = Math.max(1, Number(topLevel.quantityToBaseUnit || product.conversionToBaseUnit || product.tabsPerPack || 1));
-      const tabsPerDose = Math.max(1, Number(doseLevel.quantityToBaseUnit || product.tabsPerDose || 1));
-      const packetPrice = Number(product.packetPrice || product.sellingPrice || 0);
-      const tabPrice = Number(product.tabPrice || product.defaultPricePerBaseUnit || product.inventorySettings?.defaultPricePerBaseUnit || (packetPrice / tabsPerPacket));
-      const fullDosePrice = Number(product.fullDosePrice || (tabPrice * tabsPerDose));
-      const halfDoseTabs = Math.max(1, Math.ceil(tabsPerDose / 2));
-      const halfDosePrice = Number(product.halfDosePrice || (tabPrice * halfDoseTabs));
-      return { dosesPerPacket: tabsPerPacket, tabsPerDose, tabsPerPacket, halfDoseTabs, packetPrice, fullDosePrice, halfDosePrice, tabPrice, hierarchyLevels, baseUnit: product.pharmacyBaseUnit || baseLevel.unit };
-    }
-    const dosesPerPacket = Math.max(1, Number(product.dosesPerPacket || product.pharmacyUnitBreakdown?.stripsPerBox || 1));
-    const tabsPerDose = Math.max(1, Number(product.tabsPerDose || product.pharmacyUnitBreakdown?.tabletsPerStrip || product.tabsPerPack || 1));
-    const tabsPerPacket = Math.max(1, Number(product.tabsPerPack || (dosesPerPacket * tabsPerDose)));
-    const halfDoseTabs = Math.max(1, Math.ceil(tabsPerDose / 2));
-    const packetPrice = Number(product.packetPrice || product.sellingPrice || 0);
-    const fullDosePrice = Number(product.fullDosePrice || (packetPrice / dosesPerPacket));
-    const halfDosePrice = Number(product.halfDosePrice || (fullDosePrice / 2));
-    const tabPrice = Number(product.tabPrice || (packetPrice / tabsPerPacket));
-    return { dosesPerPacket, tabsPerDose, tabsPerPacket, halfDoseTabs, packetPrice, fullDosePrice, halfDosePrice, tabPrice, hierarchyLevels: null, baseUnit: product.pharmacyBaseUnit || product.pharmacyUnitBreakdown?.baseUnit || 'Tab' };
-  }, []); // product fields are stable — no external deps needed
-
   const getPharmacyDoseWeight = (product: Product, dosageType: 'packet' | 'full' | 'half' | 'tabs' | 'strip' | 'dose' | 'unit' = 'packet', tabsSelected?: number) => {
-    const cfg = getPharmacyDoseConfig(product);
-    if (cfg.hierarchyLevels) {
-      if (dosageType === 'tabs' || dosageType === 'unit') return Math.max(1, tabsSelected || 1);
-      const level = cfg.hierarchyLevels.find(item => item.id === dosageType)
-        || (dosageType === 'full' ? cfg.hierarchyLevels.find(item => item.id === 'dose') : undefined)
-        || (dosageType === 'half' ? cfg.hierarchyLevels.find(item => item.id === 'dose') : undefined)
-        || cfg.hierarchyLevels[0];
-      const baseQty = Math.max(1, Number(level.quantityToBaseUnit || 1));
-      return dosageType === 'half' ? Math.max(1, Math.ceil(baseQty / 2)) : baseQty;
-    }
-    if (dosageType === 'packet') return cfg.tabsPerPacket;
-    if (dosageType === 'full' || dosageType === 'dose') return cfg.tabsPerDose;
-    if (dosageType === 'half') return cfg.halfDoseTabs;
-    return Math.max(1, tabsSelected || 1);
+    return resolvePharmacyPosLine({ product, selectedLevel: dosageType, tabsSelected }).unitsPerSelectedLevel;
   };
 
   const formatPharmacyRemaining = (baseQuantity: number, product: Product) => {
@@ -545,6 +540,29 @@ export default function DashboardPOS({
       halfPrice: pricePerBaseUnit * (conversionToBaseUnit / 2),
     };
   }, []); // product fields are stable
+
+  const supportsFractionSale = useCallback((product: Product) =>
+    isFractionSaleEnabled(product, activeTenant.businessType), [activeTenant.businessType]);
+
+  const usesPharmacyHierarchy = useCallback((product: Product) =>
+    activeTenant.businessType === 'pharmacy' && product.productType === 'medicine', [activeTenant.businessType]);
+
+  const getCartStockWeight = useCallback((item: {
+    product: Product;
+    dosageType?: 'packet' | 'full' | 'half' | 'tabs' | 'strip' | 'dose' | 'unit';
+    tabsSelected?: number;
+    fractionSaleLevel?: FractionSaleLevel;
+  }) => {
+    if (usesPharmacyHierarchy(item.product)) {
+      return getPharmacyDoseWeight(item.product, item.dosageType || 'packet', item.tabsSelected);
+    }
+    if (supportsFractionSale(item.product)) {
+      return item.fractionSaleLevel === 'packet'
+        ? resolveFractionSaleConfig(item.product, activeTenant.businessType).unitsPerPacket
+        : 1;
+    }
+    return 1;
+  }, [activeTenant.businessType, supportsFractionSale, usesPharmacyHierarchy]);
 
   const supportsMeasuredRetail = (product: Product) => (
     !!product.isBulkProduct ||
@@ -593,16 +611,23 @@ export default function DashboardPOS({
       return;
     }
 
-    const isPharmacy = activeTenant.businessType === 'pharmacy';
-    const initialDosage = isPharmacy ? 'packet' : undefined;
-    const initialTabs = isPharmacy ? 1 : undefined;
+    const isMedicine = usesPharmacyHierarchy(prod);
+    const isFraction = supportsFractionSale(prod);
+    const initialDosage = isMedicine ? 'packet' : undefined;
+    const initialTabs = isMedicine ? 1 : undefined;
+
+    // Non-blocking reminder only -- the sale proceeds either way, this just
+    // alerts the cashier so they can ask for/verify a prescription.
+    if (prod.prescriptionRequired) {
+      setPosWarning(`Prescription required: "${prod.name}" needs a valid prescription.`);
+    }
 
     setCart(prev => {
       const existing = prev.find(i => i.product.id === prod.id);
       if (existing) {
         // limit by stock with weight checks
         const activeType = existing.dosageType || 'packet';
-        const boxWeight = isPharmacy ? getPharmacyDoseWeight(existing.product, activeType, existing.tabsSelected) : 1;
+        const boxWeight = getCartStockWeight(existing);
         
         const nextQty = existing.qty + 1;
         if (nextQty * boxWeight > shopQty) {
@@ -613,15 +638,16 @@ export default function DashboardPOS({
       }
       return [...prev, { 
         product: prod, 
-        qty: supportsMeasuredRetail(prod) ? (prod.sellUnitQty || 1) : 1,
+        qty: isFraction ? 1 : supportsMeasuredRetail(prod) ? (prod.sellUnitQty || 1) : 1,
         discount: 0, 
         discountType: 'percent',
         dosageType: initialDosage,
         tabsSelected: initialTabs,
-        bulkSellMode: prod.isBulkProduct ? (prod.sellingMode === 'hybrid' ? 'scale' : prod.sellingMode) : undefined
+        bulkSellMode: !isFraction && prod.isBulkProduct ? (prod.sellingMode === 'hybrid' ? 'scale' : prod.sellingMode) : undefined,
+        fractionSaleLevel: isFraction ? 'piece' : undefined,
       }];
     });
-  }, [sellingChannel, activeTenant.businessType]);
+  }, [sellingChannel, supportsFractionSale, usesPharmacyHierarchy, getCartStockWeight]);
 
   const updateCartQty = useCallback((id: string, delta: number) => {
     setCart(prev => {
@@ -631,8 +657,7 @@ export default function DashboardPOS({
           if (nextQty <= 0) return null;
           
           const shopQty = i.product.shopStockQty ?? 0;
-          const activeType = i.dosageType || 'packet';
-          const boxWeight = activeTenant.businessType === 'pharmacy' ? getPharmacyDoseWeight(i.product, activeType, i.tabsSelected) : 1;
+          const boxWeight = getCartStockWeight(i);
 
           if (nextQty * boxWeight > shopQty) {
             setPosWarning(`Stock Limit: Cannot exceed active shop stock of ${formatProductQuantity(shopQty, i.product)} for "${i.product.name}"!`);
@@ -643,7 +668,7 @@ export default function DashboardPOS({
         return i;
       }).filter(Boolean) as any;
     });
-  }, [activeTenant.businessType]);
+  }, [getCartStockWeight]);
 
   const updateCartQtyDirect = (id: string, newQty: number) => {
     if (newQty <= 0) {
@@ -654,13 +679,10 @@ export default function DashboardPOS({
       return prev.map(i => {
         if (i.product.id === id) {
           const shopQty = i.product.shopStockQty ?? 0;
-          const activeType = i.dosageType || 'packet';
-          const boxWeight = activeTenant.businessType === 'pharmacy' ? getPharmacyDoseWeight(i.product, activeType, i.tabsSelected) : 1;
+          const boxWeight = getCartStockWeight(i);
 
           if (newQty * boxWeight > shopQty) {
-            const maxQty = activeTenant.businessType === 'pharmacy'
-              ? Math.max(1, Math.floor(shopQty / boxWeight))
-              : Number(shopQty.toFixed(3));
+            const maxQty = Math.max(1, Math.floor(shopQty / boxWeight));
             setPosWarning(`Stock Limit: Maximum possible quantity for "${i.product.name}" is ${formatProductQuantity(maxQty, i.product)} based on stock!`);
             return { ...i, qty: maxQty };
           }
@@ -669,6 +691,17 @@ export default function DashboardPOS({
         return i;
       });
     });
+  };
+
+  const updateCartFractionLevel = (id: string, level: FractionSaleLevel) => {
+    setCart(prev => prev.map(item => {
+      if (item.product.id !== id) return item;
+      const unitsPerLevel = level === 'packet'
+        ? resolveFractionSaleConfig(item.product, activeTenant.businessType).unitsPerPacket
+        : 1;
+      const maxQty = Math.floor(Number(item.product.shopStockQty || 0) / unitsPerLevel);
+      return { ...item, fractionSaleLevel: level, qty: Math.max(1, Math.min(item.qty, maxQty || 1)) };
+    }));
   };
 
   const updateCartBulkMode = (id: string, mode: 'scale' | 'pcs') => {
@@ -803,41 +836,33 @@ export default function DashboardPOS({
     bulkSellMode?: 'scale' | 'pcs' | 'standard';
     dosageType?: 'packet' | 'full' | 'half' | 'tabs' | 'strip' | 'dose' | 'unit';
     tabsSelected?: number;
+    fractionSaleLevel?: FractionSaleLevel;
   }) => {
-    const isPharmacy = activeTenant.businessType === 'pharmacy';
+    const isMedicine = usesPharmacyHierarchy(item.product);
     const channelBasePrice = getChannelPrice(item.product); // uses batchPriceCache — instant
     let unitPrice = channelBasePrice;
 
-    if (item.product.isBulkProduct) {
+    if (supportsFractionSale(item.product)) {
+      const config = resolveFractionSaleConfig(item.product, activeTenant.businessType);
+      unitPrice = item.fractionSaleLevel === 'packet' ? config.packetPrice : config.piecePrice;
+    } else if (item.product.isBulkProduct) {
       const bMode = item.bulkSellMode || (item.product.sellingMode === 'hybrid' ? 'scale' : item.product.sellingMode);
       if (bMode === 'scale' || bMode === 'pcs') {
         unitPrice = getRetailPackageConfig(item.product).pricePerBaseUnit || channelBasePrice;
       }
     }
 
-    if (isPharmacy) {
+    if (isMedicine) {
       const dType = item.dosageType || 'packet';
-      const doseCfg = getPharmacyDoseConfig(item.product);
-      if (doseCfg.hierarchyLevels) {
-        const selectedLevel = doseCfg.hierarchyLevels.find(level => level.id === dType) || doseCfg.hierarchyLevels[0];
-        const baseUnits = dType === 'tabs' || dType === 'unit'
-          ? Math.max(1, item.tabsSelected || 1)
-          : Math.max(1, Number(selectedLevel.quantityToBaseUnit || 1));
-        unitPrice = doseCfg.tabPrice * baseUnits;
-      } else if (dType === 'packet') {
-        unitPrice = doseCfg.packetPrice || channelBasePrice;
-      } else if (dType === 'full') {
-        unitPrice = doseCfg.fullDosePrice;
-      } else if (dType === 'half') {
-        unitPrice = doseCfg.halfDosePrice;
-      } else if (dType === 'tabs') {
-        const tSelected = item.tabsSelected || 1;
-        unitPrice = doseCfg.tabPrice * tSelected;
-      }
+      unitPrice = resolvePharmacyPosLine({
+        product: item.product,
+        selectedLevel: dType,
+        tabsSelected: item.tabsSelected,
+      }).selectedUnitPrice;
     }
 
     return unitPrice;
-  }, [activeTenant.businessType, getChannelPrice, getPharmacyDoseConfig, getRetailPackageConfig]);
+  }, [activeTenant.businessType, getChannelPrice, getRetailPackageConfig, supportsFractionSale, usesPharmacyHierarchy]);
 
   // Pre-compute prices for ALL filtered products once — not per card per render
   const productPriceMap = useMemo(() => {
@@ -861,7 +886,10 @@ export default function DashboardPOS({
   // Pre-compute ALL cart item display values once — avoids calling getPharmacyDoseConfig etc per render
   const cartDisplayData = useMemo(() => {
     return cart.map(item => {
-      const isPharmacy = activeTenant.businessType === 'pharmacy';
+      const isPharmacy = usesPharmacyHierarchy(item.product);
+      const fractionConfig = supportsFractionSale(item.product)
+        ? resolveFractionSaleConfig(item.product, activeTenant.businessType)
+        : null;
       const dosageType = item.dosageType || 'packet';
       const doseCfg = getPharmacyDoseConfig(item.product);
       const tabsSelected = item.tabsSelected || 1;
@@ -880,29 +908,51 @@ export default function DashboardPOS({
       }
       const projectedRemaining = isPharmacy
         ? formatPharmacyRemaining((item.product.shopStockQty || 0) - (item.qty * getPharmacyDoseWeight(item.product, dosageType, item.tabsSelected)), item.product)
+        : fractionConfig
+          ? formatRetailPackageRemaining((item.product.shopStockQty || 0) - (item.qty * (item.fractionSaleLevel === 'packet' ? fractionConfig.unitsPerPacket : 1)), item.product)
         : supportsMeasuredRetail(item.product)
           ? formatRetailPackageRemaining((item.product.shopStockQty || 0) - item.qty, item.product)
           : '';
       return { item, dosageType, doseCfg, tabsSelected, basePrice, discountPrice, dosageLabel, projectedRemaining, isPharmacy };
     });
-  }, [cart, activeTenant.businessType, getCartUnitPrice]);
+  }, [cart, activeTenant.businessType, getCartUnitPrice, supportsFractionSale, usesPharmacyHierarchy]);
 
-  // Pricing calculations — fully memoized for instant updates
-  // subtotal depends ONLY on cart + sellingChannel — zero external prop dependencies.
-  // cart items carry item.product.sellingPrice already set at add-to-cart time.
-  // This guarantees subtotal updates in the EXACT same render as any cart change.
+  // Pricing calculations — fully memoized for instant updates.
+  // Must use getCartUnitPrice (the same dosage/bulk/channel-aware pricing
+  // already used for each cart line's own displayed total) rather than
+  // reading item.product.sellingPrice directly -- that raw packet/base
+  // price ignores a pharmacy line's selected dosage level (e.g. a "2
+  // tablets" selection priced at the full packet price instead of
+  // tabPrice * tabsSelected), silently overcharging the till total even
+  // though the line itself displayed the correct amount.
   const subtotal = useMemo(() => {
     return cart.reduce((sum, item) => {
-      const basePrice = sellingChannel === 'wholesale'
-        ? (item.product.wholesalePrice ?? item.product.sellingPrice ?? 0)
-        : (item.product.sellingPrice ?? 0);
+      if (usesPharmacyHierarchy(item.product)) {
+        return sum + resolvePharmacyPosLine({
+          product: item.product,
+          selectedLevel: item.dosageType || 'packet',
+          tabsSelected: item.tabsSelected,
+          quantity: item.qty,
+          discount: item.discount,
+          discountType: item.discountType,
+        }).lineTotal;
+      }
+      if (supportsFractionSale(item.product)) {
+        const config = resolveFractionSaleConfig(item.product, activeTenant.businessType);
+        const line = calculateFractionSaleLine(item.fractionSaleLevel || 'piece', item.qty, config);
+        const discountedUnitPrice = item.discountType === 'cash'
+          ? Math.max(0, line.selectedUnitPrice - (item.discount || 0))
+          : line.selectedUnitPrice * (1 - (item.discount || 0) / 100);
+        return sum + (discountedUnitPrice * line.selectedLevelQuantity);
+      }
+      const basePrice = getCartUnitPrice(item);
       const isCash = item.discountType === 'cash';
       const discountPrice = isCash
         ? Math.max(0, basePrice - (item.discount || 0))
         : basePrice * (1 - (item.discount || 0) / 100);
       return sum + (discountPrice * item.qty);
     }, 0);
-  }, [cart, sellingChannel]);
+  }, [cart, getCartUnitPrice, activeTenant.businessType, supportsFractionSale, usesPharmacyHierarchy]);
 
   const orderDiscountAmt = useMemo(() =>
     orderDiscountType === 'cash'
@@ -964,7 +1014,13 @@ export default function DashboardPOS({
 
     // Generate sale item models
     const saleItems: SaleItem[] = cart.map(i => {
-      const isPharmacy = activeTenant.businessType === 'pharmacy';
+      const isPharmacy = usesPharmacyHierarchy(i.product);
+      const fractionConfig = supportsFractionSale(i.product)
+        ? resolveFractionSaleConfig(i.product, activeTenant.businessType)
+        : null;
+      const fractionLine = fractionConfig
+        ? calculateFractionSaleLine(i.fractionSaleLevel || 'piece', i.qty, fractionConfig)
+        : null;
       const dType = i.dosageType || 'packet';
       
       const channelBasePrice = getChannelPrice(i.product); // cached — no repeated batch sort
@@ -975,40 +1031,31 @@ export default function DashboardPOS({
       let unitPrice = channelBasePrice;
       let ratioScaling = 1;
 
-      if (isBulk) {
+      if (fractionLine) {
+        unitPrice = fractionLine.selectedUnitPrice;
+        ratioScaling = fractionLine.unitsPerSelectedLevel;
+      } else if (isBulk) {
         if (bMode === 'scale' || bMode === 'pcs') {
            unitPrice = getRetailPackageConfig(i.product).pricePerBaseUnit || channelBasePrice;
         }
       }
 
       if (isPharmacy) {
-        const doseCfg = getPharmacyDoseConfig(i.product);
-        if (doseCfg.hierarchyLevels) {
-          const selectedLevel = doseCfg.hierarchyLevels.find(level => level.id === dType) || doseCfg.hierarchyLevels[0];
-          const baseUnits = dType === 'tabs' || dType === 'unit'
-            ? Math.max(1, i.tabsSelected || 1)
-            : Math.max(1, Number(selectedLevel.quantityToBaseUnit || 1));
-          unitPrice = doseCfg.tabPrice * baseUnits;
-          ratioScaling = baseUnits;
-        } else if (dType === 'packet') {
-          unitPrice = doseCfg.packetPrice || channelBasePrice;
-          ratioScaling = doseCfg.tabsPerPacket;
-        } else if (dType === 'full') {
-          unitPrice = doseCfg.fullDosePrice;
-          ratioScaling = doseCfg.tabsPerDose;
-        } else if (dType === 'half') {
-          unitPrice = doseCfg.halfDosePrice;
-          ratioScaling = doseCfg.halfDoseTabs;
-        } else if (dType === 'tabs') {
-          const tSelected = i.tabsSelected || 1;
-          unitPrice = doseCfg.tabPrice * tSelected;
-          ratioScaling = tSelected;
-        }
+        const pharmacyLine = resolvePharmacyPosLine({
+          product: i.product,
+          selectedLevel: dType,
+          tabsSelected: i.tabsSelected,
+          quantity: i.qty,
+          discount: i.discount,
+          discountType: i.discountType,
+        });
+        unitPrice = pharmacyLine.selectedUnitPrice;
+        ratioScaling = pharmacyLine.unitsPerSelectedLevel;
       }
 
       // Process Batches deduction!
       let deductQtyReal = i.qty;
-      if (isPharmacy) {
+      if (isPharmacy || fractionLine) {
           deductQtyReal = i.qty * ratioScaling;
       }
       
@@ -1021,22 +1068,40 @@ export default function DashboardPOS({
           batchesUsed.push(...deduction.batchesUsed);
           pendingBatchUpdates[i.product.id] = deduction.updatedBatches;
 
-          if (sellMethod === 'average_price') {
+          if (!isPharmacy && !fractionLine && sellMethod === 'average_price') {
               blendedCost = i.product.averageBuyingCost || calculateWeightedAverageCost(i.product.batches, i.product.costPrice);
               unitPrice = getPosSellingPriceForCostingMethod(i.product, unitPrice, 'average_price');
-          } else if (sellMethod === 'batch_price') {
+          } else if (!isPharmacy && !fractionLine && sellMethod === 'batch_price') {
               blendedCost = deduction.batchesUsed[0]?.buyingPrice || i.product.latestBuyingPrice || i.product.costPrice;
+              unitPrice = deduction.batchesUsed[0]?.sellingPrice || unitPrice;
+          } else if (!isPharmacy && !fractionLine) {
+              blendedCost = deduction.unitCost;
               unitPrice = deduction.batchesUsed[0]?.sellingPrice || unitPrice;
           } else {
               blendedCost = deduction.unitCost;
-              unitPrice = deduction.batchesUsed[0]?.sellingPrice || unitPrice;
           }
       }
       const saleUnitCost = i.qty > 0 ? blendedCost * (deductQtyReal / i.qty) : blendedCost;
 
       const pharmacyCfg = isPharmacy ? getPharmacyDoseConfig(i.product) : null;
+      const pharmacyLine = isPharmacy ? resolvePharmacyPosLine({
+        product: i.product,
+        selectedLevel: dType,
+        tabsSelected: i.tabsSelected,
+        quantity: i.qty,
+        discount: i.discount,
+        discountType: i.discountType,
+      }) : null;
       const pharmacyLevelLabel = pharmacyCfg?.hierarchyLevels?.find(level => level.id === dType)?.unit
         || (dType === 'packet' ? 'Packet' : dType === 'full' ? 'Full Dose' : dType === 'half' ? 'Half Dose' : `${i.tabsSelected || 1} ${pharmacyCfg?.baseUnit || 'Units'}`);
+      const fractionLevelLabel = fractionLine?.selectedLevel === 'packet'
+        ? fractionConfig?.packetUnit
+        : fractionConfig?.pieceUnit;
+      const fractionDiscountedTotal = fractionLine
+        ? (i.discountType === 'cash'
+          ? Math.max(0, fractionLine.selectedUnitPrice - (i.discount || 0))
+          : fractionLine.selectedUnitPrice * (1 - (i.discount || 0) / 100)) * i.qty
+        : undefined;
 
       return {
         productId: i.product.id,
@@ -1050,13 +1115,19 @@ export default function DashboardPOS({
         dosageType: i.dosageType,
         tabsSelected: i.tabsSelected,
         tabsPerPack: i.product.tabsPerPack,
+        selectedLevel: pharmacyLine?.selectedLevel || fractionLine?.selectedLevel,
+        selectedLevelQuantity: pharmacyLine?.selectedLevelQuantity ?? fractionLine?.selectedLevelQuantity,
+        unitsPerSelectedLevel: pharmacyLine?.unitsPerSelectedLevel ?? fractionLine?.unitsPerSelectedLevel,
+        selectedUnitPrice: pharmacyLine?.selectedUnitPrice ?? fractionLine?.selectedUnitPrice,
+        lineTotal: pharmacyLine?.lineTotal ?? fractionDiscountedTotal,
         channel: sellingChannel,
+        prescriptionRequired: i.product.prescriptionRequired || undefined,
         isBulkProduct: isBulk,
-        unit: isPharmacy ? (pharmacyCfg?.baseUnit || i.product.baseUnit || 'Unit') : getRetailPackageConfig(i.product).baseUnit,
-        baseUnit: isPharmacy ? (pharmacyCfg?.baseUnit || i.product.baseUnit || 'Unit') : getRetailPackageConfig(i.product).baseUnit,
-        conversionToBaseUnit: isPharmacy ? ratioScaling : getRetailPackageConfig(i.product).conversionToBaseUnit,
-        sellUnit: isPharmacy ? pharmacyLevelLabel : getRetailPackageConfig(i.product).baseUnit,
-        sellMode: bMode as 'scale' | 'pcs',
+        unit: isPharmacy ? (pharmacyCfg?.baseUnit || i.product.baseUnit || 'Unit') : (fractionConfig?.pieceUnit || getRetailPackageConfig(i.product).baseUnit),
+        baseUnit: isPharmacy ? (pharmacyCfg?.baseUnit || i.product.baseUnit || 'Unit') : (fractionConfig?.pieceUnit || getRetailPackageConfig(i.product).baseUnit),
+        conversionToBaseUnit: isPharmacy || fractionLine ? ratioScaling : getRetailPackageConfig(i.product).conversionToBaseUnit,
+        sellUnit: isPharmacy ? pharmacyLevelLabel : (fractionLevelLabel || getRetailPackageConfig(i.product).baseUnit),
+        sellMode: fractionLine ? 'pcs' : bMode as 'scale' | 'pcs',
         batchesUsed: batchesUsed.length > 0 ? batchesUsed : undefined,
         baseQuantityDeducted: Number(deductQtyReal.toFixed(3)),
         costingMethodUsed: sellMethod,
@@ -1096,8 +1167,7 @@ export default function DashboardPOS({
         if (saleDate) {
           try {
             const now = new Date();
-            const target = new Date(`${saleDate}T${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}.000Z`);
-            return isNaN(target.getTime()) ? new Date().toISOString() : target.toISOString();
+            return localDateToIso(saleDate, now);
           } catch (e) {
             return new Date().toISOString();
           }
@@ -1140,10 +1210,16 @@ export default function DashboardPOS({
       if (soldItem) {
         let deductQty = soldItem.qty;
         
-        if (prod.isBulkProduct) {
+        if (supportsFractionSale(prod)) {
+          deductQty = calculateFractionSaleLine(
+            soldItem.fractionSaleLevel || 'piece',
+            soldItem.qty,
+            resolveFractionSaleConfig(prod, activeTenant.businessType),
+          ).baseQuantityDeducted;
+        } else if (prod.isBulkProduct) {
           const bMode = soldItem.bulkSellMode || (prod.sellingMode === 'hybrid' ? 'scale' : prod.sellingMode);
           deductQty = soldItem.qty;
-        } else if (activeTenant.businessType === 'pharmacy') {
+        } else if (usesPharmacyHierarchy(prod)) {
           const dType = soldItem.dosageType || 'packet';
           deductQty = soldItem.qty * getPharmacyDoseWeight(soldItem.product, dType, soldItem.tabsSelected);
         }
@@ -1222,12 +1298,12 @@ export default function DashboardPOS({
         </AnimatePresence>
       </div>
 
-      <div id="pos-view" className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-8 lg:h-[calc(100dvh-130px)] lg:overflow-hidden">
-        
+      <div id="pos-view" className="pos-tablet-split-grid grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-8 lg:h-[calc(100dvh-130px)] lg:overflow-hidden">
+
         {/* Product selection grid (8/12 scope) */}
-        <div className="lg:col-span-7 xl:col-span-8 min-h-0 flex flex-col space-y-4 md:space-y-6 xl:space-y-3">
+        <div className="pos-tablet-products-col lg:col-span-7 xl:col-span-8 min-h-0 flex flex-col space-y-4 md:space-y-6 xl:space-y-3">
           {/* Search and Categories controls */}
-          <div className="bg-white px-3 py-2.5 md:border border-slate-200 md:p-6 xl:p-3.5 rounded-none md:rounded-3xl space-y-3 lg:space-y-4 xl:space-y-2.5 shadow-none md:shadow-sm">
+          <div className="pos-tablet-search-shell bg-white px-3 py-2.5 md:border border-slate-200 md:p-6 xl:p-3.5 rounded-none md:rounded-3xl space-y-3 lg:space-y-4 xl:space-y-2.5 shadow-none md:shadow-sm">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-100/70 border border-slate-200 rounded-2xl p-1 lg:p-1.5 xl:p-1 relative md:mx-0">
               <div className="relative flex-grow">
                 <input
@@ -1235,7 +1311,7 @@ export default function DashboardPOS({
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Search Code, Barcode or Title..."
-                  className="w-full bg-transparent text-[13px] lg:text-sm xl:text-xs pl-9 lg:pl-10 pr-20 lg:pr-24 py-2 lg:py-2.5 xl:py-1.5 text-slate-800 placeholder-slate-400 font-sans font-medium outline-none border-none focus:ring-0"
+                  className="pos-tablet-search-input w-full bg-transparent text-[13px] lg:text-sm xl:text-xs pl-9 lg:pl-10 pr-20 lg:pr-24 py-2 lg:py-2.5 xl:py-1.5 text-slate-800 placeholder-slate-400 font-sans font-medium outline-none border-none focus:ring-0"
                 />
                 <Search className="absolute left-3 lg:left-3.5 top-1/2 -translate-y-1/2 w-4 lg:w-5 h-4 lg:h-5 text-slate-400 pointer-events-none" />
                 
@@ -1330,15 +1406,15 @@ export default function DashboardPOS({
             </div>
           )}
 
-          {/* Desktop Categories Pill List */}
-          <div className="hidden xl:flex flex-wrap items-center gap-1.5 pt-0">
+          {/* Tablet + Desktop Categories Pill List (text-only buttons, "All" first) */}
+          <div className="pos-category-buttons flex-wrap items-center gap-1.5 pt-0">
             {categories.map(cat => (
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat === 'All' ? null : cat)}
                 className={`px-3 py-1.5 rounded-lg text-[10px] font-semibold transition-all uppercase cursor-pointer ${
                   (cat === 'All' && !selectedCategory) || (selectedCategory === cat)
-                    ? 'bg-emerald-600 text-white font-bold shadow-xs' 
+                    ? 'bg-emerald-600 text-white font-bold shadow-xs'
                     : 'bg-slate-100 border border-slate-200 text-slate-600 hover:text-slate-800 hover:bg-slate-200'
                 }`}
               >
@@ -1347,8 +1423,8 @@ export default function DashboardPOS({
             ))}
           </div>
 
-          {/* Mobile Categories Dropdown */}
-          <div className="xl:hidden px-2 pt-0.5">
+          {/* Phone-only Categories Dropdown */}
+          <div className="pos-category-dropdown px-2 pt-0.5">
             <div className="relative">
               <select
                 value={selectedCategory || 'All'}
@@ -1367,9 +1443,9 @@ export default function DashboardPOS({
         </div>
 
         {/* Product listing grid */}
-        <div id="pos-product-grid" className={`${showProductImages ? 'grid grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4' : 'flex flex-col gap-2'} px-2 md:px-0 min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-2 scrollbar-thin scrollbar-thumb-slate-200`}>
+        <div id="pos-product-grid" className={`grid grid-cols-1 md:grid-cols-2 gap-2 sm:gap-3 lg:gap-4 px-2 md:px-0 min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-2 scrollbar-thin scrollbar-thumb-slate-200 ${showProductImages ? '' : 'pos-product-grid-no-images'}`}>
           {filteredProducts.length === 0 ? (
-            <div className="col-span-3 lg:col-span-4 text-center py-16 text-sm font-mono text-slate-500 bg-white border border-slate-200 rounded-3xl shadow-sm">
+            <div className="col-span-1 md:col-span-2 text-center py-16 text-sm font-mono text-slate-500 bg-white border border-slate-200 rounded-3xl shadow-sm">
               No matching {activeTenant.businessType === 'pharmacy' ? 'pharmaceutical products' : 'retail items'} in stock.
             </div>
           ) : (
@@ -1391,7 +1467,7 @@ export default function DashboardPOS({
                       playOutOfStockBeep();
                     }
                   }}
-                  className={`w-full min-w-0 bg-white border rounded-xl select-none relative shadow-xs active:scale-95 group ${
+                  className={`w-full min-w-0 bg-white border rounded-xl select-none relative shadow-xs active:scale-95 group ${!showProductImages ? 'pos-product-card-no-image' : ''} ${
                     showProductImages
                       ? 'p-0 lg:p-5 xl:p-3 flex flex-col justify-between overflow-hidden lg:overflow-visible lg:rounded-3xl'
                       : 'p-3 md:p-4 flex items-center gap-3 overflow-hidden'
@@ -1401,15 +1477,21 @@ export default function DashboardPOS({
                       : 'border-slate-200 hover:border-slate-350 cursor-pointer'
                   }`}
                 >
-                  {/* Product image — only shown if user uploaded one */}
-                  {showProductImages && getProductImage(prod) !== '' && (
-                    <div className="w-full aspect-square lg:aspect-auto lg:h-36 xl:h-20 bg-slate-50 border-b lg:border border-slate-100 rounded-t-xl lg:rounded-2xl overflow-hidden flex items-center justify-center relative shrink-0">
-                      <CachedImage 
-                        src={getProductImage(prod)} 
-                        alt={prod.name} 
-                        className="w-full h-full lg:group-hover:scale-105 select-none pointer-events-none object-contain p-1.5"
-                        referrerPolicy="no-referrer"
-                      />
+                  {/* Product image — falls back to a plain icon tile when the
+                      product has none, so every card in the row keeps the
+                      same height instead of the image block disappearing */}
+                  {showProductImages && (
+                    <div className="pos-tablet-product-image w-full aspect-square lg:aspect-auto lg:h-36 xl:h-20 bg-slate-50 border-b lg:border border-slate-100 rounded-t-xl lg:rounded-2xl overflow-hidden flex items-center justify-center relative shrink-0">
+                      {getProductImage(prod) !== '' ? (
+                        <CachedImage
+                          src={getProductImage(prod)}
+                          alt={prod.name}
+                          className="w-full h-full lg:group-hover:scale-105 select-none pointer-events-none object-contain p-1.5"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        <Package className="w-7 h-7 lg:w-10 lg:h-10 text-slate-300" strokeWidth={1.5} />
+                      )}
                       {isLow && !isOut && (
                         <span className="absolute top-1.5 left-1.5 md:top-2.5 md:left-2.5 bg-amber-500 text-white px-1.5 md:px-2 py-0.5 rounded-lg text-[8px] md:text-[8px] font-black tracking-wider uppercase font-mono shadow-xs">
                           LOW ({shopQty})
@@ -1455,7 +1537,7 @@ export default function DashboardPOS({
                     </div>
 
                     {/* Pricing and Select CTA trigger */}
-                    <div className={`${showProductImages ? 'flex min-w-0 flex-col gap-1 pt-1.5 border-t border-slate-100 mt-1.5 lg:gap-2 lg:pt-2 lg:mt-2 xl:gap-1 xl:pt-1.5 xl:mt-1.5' : 'contents md:flex md:items-center md:gap-3 md:justify-end'} shrink-0`}>
+                    <div className={`${showProductImages ? 'flex min-w-0 flex-col gap-1 pt-1.5 border-t border-slate-100 mt-1.5 lg:gap-2 lg:pt-2 lg:mt-2 xl:gap-1 xl:pt-1.5 xl:mt-1.5' : 'flex flex-col items-end justify-center gap-1'} shrink-0`}>
                       <div className="space-y-0.5">
                         <p className="hidden xl:block border-none bg-transparent text-[8px] font-bold text-slate-400 uppercase tracking-wider leading-none">Price</p>
                         <span className="block max-w-full truncate text-[10px] sm:text-xs lg:text-[14px] xl:text-xs font-black text-emerald-700 lg:text-slate-900 leading-none" title={`${currency}${Math.round(displayPrice).toLocaleString()}`}>{currency}{Math.round(displayPrice).toLocaleString()}</span>
@@ -1488,7 +1570,7 @@ export default function DashboardPOS({
       </div>
 
       {/* Cart Summary right panel (4/12 scope) */}
-      <div className="lg:col-span-5 xl:col-span-4 bg-white border border-slate-200 rounded-3xl lg:h-full max-h-none lg:sticky lg:top-0 flex flex-col justify-between overflow-hidden shadow-sm">
+      <div className="pos-tablet-cart-col lg:col-span-5 xl:col-span-4 bg-white border border-slate-200 rounded-3xl lg:h-full max-h-none lg:sticky lg:top-0 flex flex-col justify-between overflow-hidden shadow-sm">
         {/* Cart Header */}
         <div className="px-5 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
           <div className="flex items-center space-x-2">
@@ -1567,7 +1649,7 @@ export default function DashboardPOS({
         )}
 
         {/* Cart items list scroll context - dynamically adapts height and scroll posture neatly */}
-        <div className="p-4 overflow-y-auto space-y-2.5 max-h-[272px] scrollbar-thin scrollbar-thumb-slate-200 flex flex-col">
+        <div className="pos-tablet-cart-items p-4 overflow-y-auto space-y-2.5 max-h-[272px] scrollbar-thin scrollbar-thumb-slate-200 flex flex-col">
           {cart.length === 0 ? (
             <div className="flex-grow flex flex-col items-center justify-center text-center space-y-3 text-slate-400 h-full py-12">
               <ShoppingCart className="w-8 h-8 text-slate-300 stroke-[1.25]" />
@@ -1579,7 +1661,21 @@ export default function DashboardPOS({
               return (
                 <div key={item.product.id} className="p-2.5 bg-slate-50 border border-slate-200/60 rounded-xl space-y-1.5 relative group text-left">
                   {/* Main Line: Name + price on Left, Qty Controls + Total Price on Right */}
-                  <div className="flex items-center justify-between gap-2.5">
+                    <div className="flex items-center justify-between gap-2.5">
+                    {showProductImages && (
+                      <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg border border-slate-200 bg-white flex items-center justify-center">
+                        {getProductImage(item.product) ? (
+                          <CachedImage
+                            src={getProductImage(item.product)}
+                            alt={item.product.name}
+                            className="h-full w-full object-contain p-0.5"
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          <Package className="h-5 w-5 text-slate-300" strokeWidth={1.5} />
+                        )}
+                      </div>
+                    )}
                     {/* Left: Name and price directly below it */}
                     <div className="text-left font-sans flex-grow min-w-0">
                       <h6 className="text-[11.5px] font-bold text-slate-800 line-clamp-1 flex items-center gap-1">
@@ -1599,11 +1695,42 @@ export default function DashboardPOS({
                           {dosageLabel}
                         </div>
                       )}
+                      {!isPharmacy && supportsFractionSale(item.product) && (
+                        <div className="text-[10px] text-emerald-750 font-bold bg-emerald-50 py-0.5 px-1.5 mt-0.5 rounded truncate w-max">
+                          {(item.fractionSaleLevel || 'piece') === 'packet'
+                            ? resolveFractionSaleConfig(item.product, activeTenant.businessType).packetUnit
+                            : resolveFractionSaleConfig(item.product, activeTenant.businessType).pieceUnit}
+                        </div>
+                      )}
                     </div>
 
                     {/* Right: Quantity increment/decrement box + delete button */}
                     <div className="flex items-center space-x-2 shrink-0">
-                      {supportsMeasuredRetail(item.product) ? (
+                      {supportsFractionSale(item.product) ? (
+                        <div className="flex flex-col items-end space-y-1">
+                          <div className="flex bg-slate-100 rounded p-0.5 border border-slate-200 text-[9px] font-bold">
+                            {(['piece', 'packet'] as FractionSaleLevel[]).map(level => {
+                              const config = resolveFractionSaleConfig(item.product, activeTenant.businessType);
+                              const active = (item.fractionSaleLevel || 'piece') === level;
+                              return (
+                                <button
+                                  type="button"
+                                  key={level}
+                                  onClick={() => updateCartFractionLevel(item.product.id, level)}
+                                  className={`px-2 py-0.5 rounded ${active ? 'bg-white shadow text-emerald-700' : 'text-slate-500'}`}
+                                >
+                                  {level === 'piece' ? config.pieceUnit : config.packetUnit}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          <div className="flex items-center bg-white border border-slate-200 rounded-lg p-0.5 shadow-xs">
+                            <button type="button" onClick={() => updateCartQty(item.product.id, -1)} className="p-1 hover:bg-slate-100 rounded text-slate-500"><Minus className="w-2.5 h-2.5" /></button>
+                            <input type="number" min="1" value={item.qty} onChange={e => updateCartQtyDirect(item.product.id, parseInt(e.target.value) || 1)} className="w-8 text-center font-black font-mono text-slate-800 bg-transparent py-0 text-[10.5px] focus:outline-none border-none" />
+                            <button type="button" onClick={() => updateCartQty(item.product.id, 1)} className="p-1 hover:bg-slate-100 rounded text-slate-500"><Plus className="w-2.5 h-2.5" /></button>
+                          </div>
+                        </div>
+                      ) : supportsMeasuredRetail(item.product) ? (
                         <div className="flex flex-col items-end space-y-1">
                           {item.product.isBulkProduct && item.product.sellingMode === 'hybrid' && (
                             <div className="flex bg-slate-100 rounded p-0.5 border border-slate-200 text-[9px] font-bold">
@@ -1722,7 +1849,19 @@ export default function DashboardPOS({
                       </div>
                     </div>
                   )}
-                  {!isPharmacy && supportsMeasuredRetail(item.product) && (
+                  {!isPharmacy && supportsFractionSale(item.product) && (
+                    <div className="pt-1.5 border-t border-dashed border-slate-200/50 flex flex-wrap gap-1.5 justify-start items-center text-[9px] font-mono text-slate-400">
+                      {(() => {
+                        const config = resolveFractionSaleConfig(item.product, activeTenant.businessType);
+                        const level = item.fractionSaleLevel || 'piece';
+                        const unit = level === 'packet' ? config.packetUnit : config.pieceUnit;
+                        const price = level === 'packet' ? config.packetPrice : config.piecePrice;
+                        return <span>{item.qty} {unit} × {currency}{Math.round(price).toLocaleString()}</span>;
+                      })()}
+                      <span>Remain: {projectedRemaining}</span>
+                    </div>
+                  )}
+                  {!isPharmacy && !supportsFractionSale(item.product) && supportsMeasuredRetail(item.product) && (
                     <div className="pt-1.5 border-t border-dashed border-slate-200/50 flex flex-wrap gap-1.5 justify-start items-center text-[9px] font-mono text-slate-400">
                       <span>
                         {formatProductQuantity(item.qty, { ...item.product, unit: getRetailPackageConfig(item.product).baseUnit } as Product)} x {currency}{Math.round(getRetailPackageConfig(item.product).pricePerBaseUnit).toLocaleString()}
@@ -1856,7 +1995,7 @@ export default function DashboardPOS({
             id="pos-checkout-btn"
             disabled={cart.length === 0}
             onClick={triggerCheckout}
-            className="hidden xl:flex w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-45 text-white font-bold py-3.5 px-4 rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer items-center justify-center space-x-2 shadow-lg shadow-emerald-500/15 active:scale-98"
+            className="pos-checkout-btn-desktop w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-45 text-white font-bold py-3.5 px-4 rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer items-center justify-center space-x-2 shadow-lg shadow-emerald-500/15 active:scale-98"
           >
             <span>Proceed to Payment</span>
           </button>
@@ -1866,7 +2005,7 @@ export default function DashboardPOS({
       {/* Mobile Sticky Cart Summary */}
       <div
         key={`pos-mobile-total-${cart.length}-${grandTotal}`}
-        className="xl:hidden fixed bottom-[calc(56px+env(safe-area-inset-bottom))] left-0 w-full bg-white border-t border-slate-200 px-4 py-3 z-40 shadow-[0_-4px_10px_-2px_rgba(0,0,0,0.05)]"
+        className="pos-mobile-sticky-cart fixed bottom-[calc(56px+env(safe-area-inset-bottom))] left-0 w-full bg-white border-t border-slate-200 px-4 py-3 z-40 shadow-[0_-4px_10px_-2px_rgba(0,0,0,0.05)]"
       >
         <div className="flex flex-col space-y-2.5">
           <div className="flex items-center justify-between">
@@ -1898,7 +2037,7 @@ export default function DashboardPOS({
       {/* CHECKOUT MODAL SYSTEM */}
       {isCheckoutOpen && (
         <div className="fixed inset-0 z-[110] flex items-end md:items-center justify-center p-0 md:p-4 bg-slate-950/70" style={{paddingBottom: 'calc(var(--dashboard-bottom-nav-height, 0px) + env(safe-area-inset-bottom))'}}>
-          <div className="relative bg-white border border-slate-200 md:rounded-3xl rounded-t-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col" style={{maxHeight: 'calc(100dvh - var(--dashboard-bottom-nav-height, 60px) - env(safe-area-inset-bottom) - env(safe-area-inset-top))' }}>
+          <div className={`pos-tablet-checkout-modal ${paymentStatus === 'completed' ? 'pos-tablet-receipt-modal' : ''} relative bg-white border border-slate-200 md:rounded-3xl rounded-t-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col`} style={{maxHeight: 'calc(100dvh - var(--dashboard-bottom-nav-height, 60px) - env(safe-area-inset-bottom) - env(safe-area-inset-top))' }}>
             {/* Mobile Drag Handle */}
             <div className="w-full flex justify-center pt-3 pb-2 xl:hidden bg-slate-50">
               <div className="w-12 h-1.5 bg-slate-300/50 rounded-full" />
@@ -2225,131 +2364,189 @@ export default function DashboardPOS({
                   </p>
                 </div>
 
-                {/* PHYSICAL RECEIPT GRAPHIC CONTAINER */}
-                <div id="pos-receipt-pdf-template" className="bg-white text-slate-900 p-5 rounded-3xl font-mono text-xs space-y-4 shadow-xl border-dashed border-2 border-slate-250">
-                  <div className="text-center space-y-2 border-b border-dashed border-slate-200 pb-3 flex flex-col items-center">
-                    {(((() => { const stores = systemSettings?.business?.registeredStores || []; const activeBranch = stores[0]; const bb = activeBranch && systemSettings?.business?.branchBranding?.[activeBranch]; return bb?.businessLogoLight || bb?.businessLogo || null; })()) || getBusinessLogo(systemSettings)) && (
-                      <CachedImage 
-                        src={((() => { const stores = systemSettings?.business?.registeredStores || []; const activeBranch = stores[0]; const bb = activeBranch && systemSettings?.business?.branchBranding?.[activeBranch]; return bb?.businessLogoLight || bb?.businessLogo || null; })()) || getBusinessLogo(systemSettings) || undefined} 
-                        alt="Logo" 
-                        className="w-12 h-12 object-contain mb-1 rounded-lg border border-slate-200 p-0.5" 
+                {/* PHYSICAL RECEIPT GRAPHIC CONTAINER — same plain black-ink
+                    thermal layout as DashboardSalesList's POS Receipt viewer,
+                    so both places the receipt appears look identical. */}
+                <div id="pos-receipt-pdf-template" className="bg-white text-black p-6 space-y-4 font-mono text-xs">
+                  <div className="text-center space-y-1 flex flex-col items-center">
+                    {getActiveBranchLogo(systemSettings, activeBranch) && (
+                      <CachedImage
+                        src={getActiveBranchLogo(systemSettings, activeBranch) || undefined}
+                        alt="Receipt Logo"
+                        className="max-h-12 max-w-[140px] object-contain mb-1 select-none"
                         referrerPolicy="no-referrer"
                       />
                     )}
-                    <h5 className="font-bold text-sm uppercase">
-                      {getBusinessDisplayName(activeTenant, systemSettings, userName)}
-                    </h5>
-                    <p className="text-[10.5px] text-slate-500">
-                      {systemSettings?.business?.businessAddress || `${activeTenant.city}, ${activeTenant.country}`}
-                    </p>
-                    <p className="text-[9.5px] text-slate-500">
-                      Tel: {systemSettings?.business?.businessPhone || '+234 (0) 700 9000'}
-                    </p>
+                    <h4 className="text-base font-black tracking-tight text-black">
+                      {getActiveBranchDisplayName(activeTenant, systemSettings, userName, activeBranch)}
+                    </h4>
+                    {(getActiveBranchAddress(systemSettings, activeBranch) || activeTenant.city) && <p className="text-[11px] text-black uppercase font-semibold">{getActiveBranchAddress(systemSettings, activeBranch) || activeTenant.city}</p>}
+                    {getActiveBranchPhone(systemSettings, activeBranch) && <p className="text-[11px] text-black">Tel:{getActiveBranchPhone(systemSettings, activeBranch)}</p>}
                   </div>
 
-                  <div className="space-y-1 text-[10.5px] border-b border-dashed border-slate-200 pb-2">
+                  <div className="border-t border-dashed border-slate-300" />
+
+                  <h3 className="text-center text-sm font-black uppercase tracking-wide text-black">POS Receipt</h3>
+
+                  {/* Core docket information */}
+                  <div className="space-y-1.5 text-[11px] text-black">
                     <div className="flex justify-between">
-                      <span>Receipt Ref:</span>
-                      <span className="font-bold">{receiptResult.id}</span>
+                      <span>Invoice No:</span>
+                      <span className="font-semibold">{receiptResult.reference || `REC-${receiptResult.id.toUpperCase().slice(0, 8)}`}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span>Date:</span>
-                      <span>{new Date(receiptResult.timestamp).toLocaleString()}</span>
+                      <span>Tarehe:</span>
+                      <span className="font-semibold">{new Date(receiptResult.timestamp).toLocaleDateString([], { dateStyle: 'long' })}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Wakati:</span>
+                      <span className="font-semibold">{new Date(receiptResult.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>{activeTenant.businessType === 'pharmacy' ? 'Pharmacist:' : 'Cashier:'}</span>
-                      <span>{receiptResult.cashierName}</span>
+                      <span className="font-semibold">{receiptResult.cashierName}</span>
                     </div>
-                    <div className="flex justify-between">
-                      <span>Payment Mode:</span>
-                      <span className="font-bold uppercase">{receiptResult.paymentMethod}</span>
-                    </div>
-                    {receiptResult.paymentMethod === 'Multi-Channel' && Array.isArray(receiptResult.paymentBreakdown) && receiptResult.paymentBreakdown.length > 0 && (
-                      <div className="pt-1 mt-1 border-t border-dashed border-slate-200 space-y-0.5">
-                        {receiptResult.paymentBreakdown.map((part, i) => (
-                          <div key={i} className="flex justify-between text-slate-500">
-                            <span>{part.method}</span>
-                            <span className="font-mono">{currency}{Math.round(part.amount).toLocaleString()}</span>
-                          </div>
-                        ))}
+                    {receiptResult.customerName && (
+                      <div className="flex justify-between">
+                        <span>Customer:</span>
+                        <span className="font-semibold">{receiptResult.customerName}</span>
                       </div>
                     )}
                   </div>
 
-                  {/* Receipt Items list */}
-                  <div className="space-y-2 border-b border-dashed border-slate-200 pb-3">
-                    <div className="grid grid-cols-12 font-bold text-[10.5px]">
-                      <span className="col-span-6">Item Description</span>
-                      <span className="col-span-2 text-center">Qty</span>
-                      <span className="col-span-4 text-right">Sum</span>
+                  <div className="border-t border-dashed border-slate-300" />
+
+                  {/* Items table */}
+                  <div>
+                    <div className="flex text-[10px] font-black uppercase text-black pb-1.5 border-b-2 border-black">
+                      <span className="w-5 shrink-0">#</span>
+                      <span className="flex-1">Maelezo</span>
+                      <span className="w-12 shrink-0 text-center">Qty</span>
+                      <span className="w-16 shrink-0 text-right">Bei</span>
+                      <span className="w-16 shrink-0 text-right">Jumla</span>
                     </div>
-                    {receiptResult.items.map((item, i) => {
-                      const finalItemPrice = (item.discountType === 'cash' 
-                        ? Math.max(0, item.price - item.discount) 
-                        : item.price * (1 - item.discount / 100)
-                      ) * item.qty;
+                    {receiptResult.items.map((item, index) => {
+                      const finalItemPrice = item.discountType === 'cash'
+                        ? Math.max(0, item.price - item.discount)
+                        : item.price * (1 - item.discount / 100);
                       return (
-                        <div key={i} className="grid grid-cols-12 text-[10.5px] gap-y-0.5">
-                          <span className="col-span-6 line-clamp-1">{item.productName}</span>
-                          <span className="col-span-2 text-center">{formatSaleItemQuantity(item)}</span>
-                          <span className="col-span-4 text-right">
-                            {currency}{Math.round(finalItemPrice).toLocaleString()}
-                          </span>
+                        <div key={index}>
+                          <div className="flex items-start py-2 text-[11px] text-black">
+                            <span className="w-5 shrink-0 text-slate-400">{index + 1}</span>
+                            <span className="flex-1 font-semibold pr-1">{item.productName}</span>
+                            <span className="w-12 shrink-0 text-center">{formatSaleItemQuantity(item)}</span>
+                            <span className="w-16 shrink-0 text-right">{currency}{Math.round(finalItemPrice).toLocaleString()}</span>
+                            <span className="w-16 shrink-0 text-right font-bold">{currency}{Math.round(finalItemPrice * item.qty).toLocaleString()}</span>
+                          </div>
+                          {index < receiptResult.items.length - 1 && <div className="border-t border-dashed border-slate-200" />}
                         </div>
                       );
                     })}
                   </div>
 
-                  {/* Calculations */}
-                  <div className="space-y-1.5 text-right font-bold text-xs">
-                    {(() => {
-                      const itemsSubtotal = receiptResult.items.reduce((sum, item) => {
-                        const itemDiscPrice = item.discountType === 'cash'
-                          ? Math.max(0, item.price - item.discount)
-                          : item.price * (1 - item.discount / 100);
-                        return sum + (itemDiscPrice * item.qty);
-                      }, 0);
+                  <div className="border-t border-dashed border-slate-300" />
 
-                      const orderDiscountAmt = receiptResult.discountType === 'cash'
-                        ? receiptResult.discount
-                        : itemsSubtotal * (receiptResult.discount / 100);
-
-                      return (
-                        <>
-                          <div className="flex justify-between text-slate-600 font-normal">
-                            <span>Subtotal</span>
-                            <span>{currency}{Math.round(itemsSubtotal).toLocaleString()}</span>
+                  {/* Totals — same subtotal/discount math as before, just
+                      restyled to match the plain black-ink layout. */}
+                  {(() => {
+                    const itemsSubtotal = receiptResult.items.reduce((sum, item) => {
+                      const itemDiscPrice = item.discountType === 'cash'
+                        ? Math.max(0, item.price - item.discount)
+                        : item.price * (1 - item.discount / 100);
+                      return sum + (itemDiscPrice * item.qty);
+                    }, 0);
+                    const orderDiscountAmt = receiptResult.discountType === 'cash'
+                      ? (receiptResult.discount || 0)
+                      : itemsSubtotal * ((receiptResult.discount || 0) / 100);
+                    const paidAmount = receiptResult.amountPaid ?? receiptResult.total;
+                    const balanceDue = Math.max(0, receiptResult.total - paidAmount);
+                    const changeDue = Math.max(0, receiptResult.change || 0);
+                    return (
+                      <>
+                        <div className="space-y-1.5 text-[11px] text-black">
+                          <div className="flex justify-between">
+                            <span>Jumla Ndogo</span>
+                            <span className="font-semibold">{currency}{Math.round(itemsSubtotal).toLocaleString()}</span>
                           </div>
                           {orderDiscountAmt > 0 && (
-                            <div className="flex justify-between text-emerald-700 font-mono text-[10px] font-normal">
-                              <span>Order Discount {receiptResult.discountType === 'percent' ? `(${receiptResult.discount}%)` : ''}</span>
-                              <span>-{currency}{Math.round(orderDiscountAmt).toLocaleString()}</span>
+                            <div className="flex justify-between">
+                              <span>Punguzo</span>
+                              <span className="font-semibold">-{currency}{Math.round(orderDiscountAmt).toLocaleString()}</span>
                             </div>
                           )}
                           {receiptResult.vatStatus === 'vat' && (
-                            <div className="flex justify-between text-slate-600 font-normal">
+                            <div className="flex justify-between">
                               <span>VAT ({Math.round(activeTenant.taxRate * 100)}%)</span>
-                              <span>{currency}{Math.round(receiptResult.tax || 0).toLocaleString()}</span>
+                              <span className="font-semibold">{currency}{Math.round(receiptResult.tax || 0).toLocaleString()}</span>
                             </div>
                           )}
                           {receiptResult.deliveryCost ? (
-                            <div className="flex justify-between text-slate-600 font-normal">
-                              <span>Delivery Fee</span>
-                              <span>{currency}{Math.round(receiptResult.deliveryCost).toLocaleString()}</span>
+                            <div className="flex justify-between">
+                              <span>Delivery</span>
+                              <span className="font-semibold">{currency}{Math.round(receiptResult.deliveryCost).toLocaleString()}</span>
                             </div>
                           ) : null}
-                          <div className="flex justify-between text-base border-t border-slate-200 pt-2 text-slate-900 font-black">
-                            <span>PAID TOTAL</span>
-                            <span>{currency}{Math.round(receiptResult.total).toLocaleString()}</span>
+                        </div>
+
+                        <div className="border-t-2 border-black pt-1.5 flex justify-between text-sm font-black text-black">
+                          <span>Jumla</span>
+                          <span>{currency}{Math.round(receiptResult.total).toLocaleString()}</span>
+                        </div>
+                        {balanceDue > 0 && (
+                          <div className="border-t-2 border-black pt-1.5 flex justify-between text-[11px] text-black">
+                            <span>Due</span>
+                            <span className="font-semibold">{currency}{Math.round(balanceDue).toLocaleString()}</span>
                           </div>
-                        </>
-                      );
-                    })()}
+                        )}
+
+                        <div className="border-t border-dashed border-slate-300" />
+
+                        {/* Payment details */}
+                        <div className="space-y-1 text-[11px] text-black">
+                          <p className="font-black uppercase tracking-wide">Payment Details</p>
+                          <div className="flex justify-between">
+                            <span>Mode</span>
+                            <span className="font-semibold">{receiptResult.paymentMethod}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Kiasi</span>
+                            <span className="font-semibold">{currency}{Math.round(paidAmount).toLocaleString()}</span>
+                          </div>
+                          {changeDue > 0 && (
+                            <div className="flex justify-between">
+                              <span>Change</span>
+                              <span className="font-semibold">{currency}{Math.round(changeDue).toLocaleString()}</span>
+                            </div>
+                          )}
+                          {receiptResult.paymentMethod === 'Multi-Channel' && Array.isArray(receiptResult.paymentBreakdown) && receiptResult.paymentBreakdown.length > 0 && (
+                            <div className="pt-1 space-y-0.5">
+                              {receiptResult.paymentBreakdown.map((part, i) => (
+                                <div key={i} className="flex justify-between text-slate-600">
+                                  <span>{part.method}</span>
+                                  <span className="font-mono">{currency}{Math.round(part.amount).toLocaleString()}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    );
+                  })()}
+
+                  <div className="border-t border-dashed border-slate-300" />
+
+                  {/* Barcode */}
+                  <div className="flex flex-col items-center gap-1 pt-1">
+                    <div className="flex items-end">
+                      {renderReceiptBarcodeBars(receiptResult.reference || receiptResult.id)}
+                    </div>
+                    <p className="text-[9px] font-bold tracking-[0.2em] text-black">{receiptBarcodeDigits(receiptResult.reference || receiptResult.id)}</p>
                   </div>
 
-                  <div className="text-center font-normal text-[9.5px] text-slate-500 border-t border-dashed border-slate-200 pt-3 space-y-1">
-                    <p className="font-sans font-medium">Thank you for shopping with us!</p>
-                    <p className="text-[8px] text-slate-400 font-mono">Powered by Orvix</p>
+                  {/* Footer */}
+                  <div className="text-center space-y-1 pt-1">
+                    <p className="text-[10px] font-black text-black">Thank you for shopping with us</p>
+                    <p className="text-[9px] text-slate-400">Powered by Orvix</p>
                   </div>
                 </div>
 
@@ -2388,13 +2585,20 @@ export default function DashboardPOS({
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2.5">
+                  <div className="grid grid-cols-3 gap-2.5">
                     <button
                       onClick={printPosReceiptPdfHandler}
                       className="w-full py-3.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold rounded-xl text-xs uppercase cursor-pointer flex items-center justify-center space-x-1.5 transition-colors"
                     >
                       <Printer className="w-4 h-4 text-slate-550" />
-                      <span>Print Receipt</span>
+                      <span className="hidden sm:inline">Print</span>
+                    </button>
+                    <button
+                      onClick={downloadPosReceiptPdfHandler}
+                      className="w-full py-3.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold rounded-xl text-xs uppercase cursor-pointer flex items-center justify-center space-x-1.5 transition-colors"
+                    >
+                      <Download className="w-4 h-4 text-slate-550" />
+                      <span className="hidden sm:inline">Download</span>
                     </button>
                     <button
                       onClick={() => setIsCheckoutOpen(false)}

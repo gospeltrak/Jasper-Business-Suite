@@ -19,7 +19,8 @@ import {
   MessageCircle,
   RefreshCw,
   Eye,
-  EyeOff
+  EyeOff,
+  Check
 } from 'lucide-react';
 import { DEMO_USERS, DEFAULT_TENANTS } from '../data';
 import { User, Tenant } from '../types';
@@ -27,10 +28,10 @@ import { getSecureDataBridgeClient, isPlaceholderSecureDataBridgeClient } from '
 import { initializeCleanTenantWorkspace } from '../utils/tenantIsolation';
 import { startCloudSession } from '../utils/sessionControl';
 import { toUserFacingError } from '../utils/safeError';
-import { DEFAULT_CUSTOM_ROLES } from '../utils/defaultCustomRoles';
 import PrivacyAndTermsModals from './PrivacyAndTermsModals';
 import TurnstileWidget from './TurnstileWidget';
 import { prepareSuperAdminMfa, verifySuperAdminMfa, type SuperAdminMfaPrompt } from '../utils/superAdminMfa';
+import { resolveProfileRolePermissions } from '../utils/profilePermissions';
 
 const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
   en: {
@@ -223,7 +224,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   // Tenant Workspace Onboarding States
   const [onboardingUser, setOnboardingUser] = useState<User | null>(null);
   const [onboardingBusinessName, setOnboardingBusinessName] = useState('');
-  const [onboardingBusinessType, setOnboardingBusinessType] = useState('Retail');
+  const [onboardingBusinessType, setOnboardingBusinessType] = useState('');
   const [onboardingCity, setOnboardingCity] = useState('Dar es Salaam');
   const [onboardingPhone, setOnboardingPhone] = useState('');
 
@@ -332,7 +333,9 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       return safeUser;
     });
     const resolveStaffPermissions = (settings: any, roleName: string) => {
-      const roles = settings.customRoles?.length ? settings.customRoles : DEFAULT_CUSTOM_ROLES;
+      // No hardcoded preset fallback — an unmatched role resolves to no
+      // permissions rather than silently borrowing a default role's rights.
+      const roles = settings.customRoles || [];
       const normalizedRole = (roleName || '').toLowerCase();
       const roleKey = normalizedRole === 'waiter' ? 'seller' : normalizedRole;
       return roles.find((role: any) => role.name.toLowerCase() === roleKey)?.permissions || {};
@@ -350,7 +353,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                  const staffRole = staff.role || 'Cashier';
                  systemUsers.push({
                    id: staff.id,
-                   email: staff.phone || staff.name.toLowerCase().replace(' ', '') + '@jasper.com',
+                   email: staff.phone || staff.name.toLowerCase().replace(' ', '') + '@orvix.africa',
                    phone: staff.phone || '',
                    name: staff.name,
                    role: staffRole,
@@ -520,6 +523,10 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     if (!onboardingUser) return;
     if (!onboardingBusinessName.trim() || normalizePhoneForWhatsapp(onboardingPhone).length < 10) {
       setError('Please enter your business name and a valid phone number.');
+      return;
+    }
+    if (!onboardingBusinessType) {
+      setError('Please choose your business industry niche/type.');
       return;
     }
     if (!acceptedTenantLegal) {
@@ -975,9 +982,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         // Session tracking — fire and forget, never block login
         startCloudSession(authData.session?.access_token).catch(() => null);
 
-        const profileRolePermissions = userProfile.role_permissions && Object.keys(userProfile.role_permissions).length
-          ? userProfile.role_permissions
-          : undefined;
+        const profileRolePermissions = resolveProfileRolePermissions(userProfile.role_permissions);
         const isBusinessStaff = userProfile.account_type === 'business_staff';
         const staffRoleKey = String(userProfile.role_key || '').trim();
         const effectiveProfileRole = isBusinessStaff && staffRoleKey
@@ -1452,7 +1457,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
             <form className="space-y-5 animate-fade-in" onSubmit={handleOnboardingSubmit}>
               <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-center">
                 <p className="text-xs font-semibold text-amber-800 leading-normal">
-                  Tenant Workspace Configuration: Please set up your business details to launch your isolated dashboard.
+                  Workspace Configuration: Please set up your business details to launch your dashboard.
                 </p>
               </div>
 
@@ -1474,17 +1479,31 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-500 uppercase block tracking-wider font-mono">Business Type</label>
-                <select
-                  value={onboardingBusinessType}
-                  onChange={(e) => setOnboardingBusinessType(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl px-3 py-2.5 text-xs text-slate-800 outline-none cursor-pointer"
-                >
-                  <option value="Retail">Retail</option>
-                  <option value="Wholesale">Wholesale</option>
-                  <option value="Retail & Wholesale">Retail & Wholesale</option>
-                  <option value="Pharmacy">Pharmacy</option>
-                </select>
+                <label className="text-[10px] font-bold text-slate-500 uppercase block tracking-wider font-mono">Business Industry Niche / Type</label>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { value: 'Retail & Wholesale', label: 'Retail & Wholesale', icon: '🛒', desc: 'Shops, supermarkets, distributors' },
+                    { value: 'Pharmacy', label: 'Pharmacy', icon: '💊', desc: 'Clinics, dispensaries, chemists' },
+                  ].map(niche => (
+                    <button
+                      key={niche.value}
+                      type="button"
+                      onClick={() => setOnboardingBusinessType(niche.value)}
+                      className={`p-4 rounded-2xl border-2 text-left transition-all cursor-pointer ${
+                        onboardingBusinessType === niche.value
+                          ? 'border-emerald-500 bg-emerald-50 shadow-sm'
+                          : 'border-slate-200 bg-slate-50 hover:border-slate-300 hover:bg-white'
+                      }`}
+                    >
+                      <span className="text-2xl block mb-1">{niche.icon}</span>
+                      <span className={`block text-xs font-black ${onboardingBusinessType === niche.value ? 'text-emerald-800' : 'text-slate-700'}`}>{niche.label}</span>
+                      <span className="block text-[10px] text-slate-400 font-medium mt-0.5 leading-snug">{niche.desc}</span>
+                      {onboardingBusinessType === niche.value && (
+                        <span className="mt-1.5 inline-block text-[9px] font-black uppercase tracking-wider text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">Selected ✓</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div className="space-y-1.5">
@@ -1499,10 +1518,34 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                 />
               </div>
 
-              <label className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-[11px] leading-relaxed text-slate-600">
-                <input type="checkbox" checked={acceptedTenantLegal} onChange={(e) => setAcceptedTenantLegal(e.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-emerald-600" />
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase block tracking-wider font-mono">Promo Code (Optional)</label>
+                <input
+                  type="text"
+                  value={affiliateCode}
+                  placeholder="Enter PROMO CODE"
+                  onChange={(e) => setAffiliateCode(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 font-bold uppercase tracking-wider outline-none placeholder:font-bold placeholder:uppercase placeholder:text-slate-400"
+                />
+                <p className="text-[9.5px] text-slate-500 leading-normal">
+                  Register with a promo code to get 20 free days instead of 10.
+                </p>
+              </div>
+
+              <div className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-[11px] leading-relaxed text-slate-600">
+                <button
+                  type="button"
+                  onClick={() => setAcceptedTenantLegal(!acceptedTenantLegal)}
+                  aria-pressed={acceptedTenantLegal}
+                  aria-label="I agree to Orvix's Terms and Privacy Policy"
+                  className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors cursor-pointer ${
+                    acceptedTenantLegal ? 'border-emerald-600 bg-emerald-600' : 'border-slate-300 bg-white'
+                  }`}
+                >
+                  {acceptedTenantLegal && <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />}
+                </button>
                 <span>I agree to Orvix's <button type="button" onClick={() => setTenantLegalModalType('terms')} className="font-bold text-emerald-700 underline">Terms</button> and <button type="button" onClick={() => setTenantLegalModalType('privacy')} className="font-bold text-emerald-700 underline">Privacy Policy</button>.</span>
-              </label>
+              </div>
 
               <button
                 type="submit"

@@ -61,7 +61,7 @@ export default function DashboardWhiteLabel({ activeTenant }: DashboardWhiteLabe
   // Generated code string
   const embedCode = `<div class="iframe-container" style="position: relative; width: 100%; height: 750px; overflow: hidden; border-radius: 20px; box-shadow: 0 12px 40px -15px rgba(0,0,0,0.2); border: 1px solid rgba(0,0,0,0.08);">
   <iframe 
-    src="https://jaspersuite.app/embed/${activeTenant.id}?scope=${embedScope}&theme=${themeMode}&primary=${primaryColor.replace('#', '')}&hideHeader=${hideJasperBranding ? 'true' : 'false'}&localdb=${restrictOfflineDb ? 'restricted' : 'active'}" 
+    src="https://orvix.africa/embed/${activeTenant.id}?scope=${embedScope}&theme=${themeMode}&primary=${primaryColor.replace('#', '')}&hideHeader=${hideJasperBranding ? 'true' : 'false'}&localdb=${restrictOfflineDb ? 'restricted' : 'active'}"
     width="100%" 
     height="100%" 
     style="border: none;"
