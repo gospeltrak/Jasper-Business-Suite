@@ -2621,13 +2621,29 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
         return false;
       }
     }
-    setPurchasesMap(prev => {
-      const currentTenantPurchases = prev[activeTenant.id] || [];
-      return {
-        ...prev,
-        [activeTenant.id]: [purchase, ...currentTenantPurchases]
-      };
+    const currentTenantPurchases = purchasesMap[activeTenant.id] || [];
+    const updatedPurchases = [purchase, ...currentTenantPurchases];
+    
+    const saved = await saveTenantWorkspace(activeTenant.id, {
+      branches: branchesMap[activeTenant.id] || [],
+      branchStocks: branchStocksMap[activeTenant.id] || [],
+      branchStaffAssignments: branchStaffAssignmentsMap[activeTenant.id] || [],
+      products: productsMap[activeTenant.id] || [],
+      sales: salesMap[activeTenant.id] || [],
+      expenses: expensesMap[activeTenant.id] || [],
+      settings: systemSettings,
+      deliveries: deliveriesMap[activeTenant.id] || [],
+      pendingDeliveryNotes: pendingDeliveryNotesMap[activeTenant.id] || [],
+      purchases: updatedPurchases,
+      productTombstones: readLocalProductTombstones(activeTenant.id),
+      saleTombstones: readLocalSaleTombstones(activeTenant.id),
     });
+    if (!saved) return false;
+    
+    setPurchasesMap(prev => ({
+      ...prev,
+      [activeTenant.id]: updatedPurchases
+    }));
 
     const newLog: SyncLog = {
       id: 'l-' + Math.random().toString(36).substr(2, 9),
@@ -2686,9 +2702,27 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     }
     localWorkspaceChangedAtRef.current = Date.now();
     cloudWorkspaceLoadedRef.current = true;
+    
+    const nextPurchases = (purchasesMap[activeTenant.id] || []).filter(p => p.id !== purchaseId);
+    const saved = await saveTenantWorkspace(activeTenant.id, {
+      branches: branchesMap[activeTenant.id] || [],
+      branchStocks: branchStocksMap[activeTenant.id] || [],
+      branchStaffAssignments: branchStaffAssignmentsMap[activeTenant.id] || [],
+      products: productsMap[activeTenant.id] || [],
+      sales: salesMap[activeTenant.id] || [],
+      expenses: expensesMap[activeTenant.id] || [],
+      settings: systemSettings,
+      deliveries: deliveriesMap[activeTenant.id] || [],
+      pendingDeliveryNotes: pendingDeliveryNotesMap[activeTenant.id] || [],
+      purchases: nextPurchases,
+      productTombstones: readLocalProductTombstones(activeTenant.id),
+      saleTombstones: readLocalSaleTombstones(activeTenant.id),
+    });
+    if (!saved) return false;
+    
     setPurchasesMap(prev => ({
       ...prev,
-      [activeTenant.id]: (prev[activeTenant.id] || []).filter(purchase => purchase.id !== purchaseId)
+      [activeTenant.id]: nextPurchases
     }));
     setLogs(prev => [{
       id: 'l-' + Math.random().toString(36).substr(2, 9),
