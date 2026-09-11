@@ -2365,7 +2365,7 @@ export default function DashboardProducts({
                 <input value={baseUnit} onChange={e => setBaseUnit(e.target.value)} placeholder="Piece" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
               </div>
               <div className="space-y-1">
-                <label className="text-[9px] font-bold text-slate-500 uppercase">Packet Price</label>
+                <label className="text-[9px] font-bold text-slate-500 uppercase">Package Price</label>
                 <input type="number" min={0} value={fractionPacketPriceOverride} onChange={e => setFractionPacketPriceOverride(e.target.value === '' ? '' : Number(e.target.value))} placeholder={`Auto: ${((Number(conversionToBaseUnit) || 0) * sellingPrice).toLocaleString()}`} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
               </div>
             </div>
@@ -2454,7 +2454,7 @@ export default function DashboardProducts({
           </div>
 
           <div className="space-y-1">
-            <label className="text-[10px] font-bold text-slate-500 uppercase">Packet Price</label>
+            <label className="text-[10px] font-bold text-slate-500 uppercase">Package Price</label>
             <input
               type="number"
               min={0}
@@ -3272,10 +3272,10 @@ export default function DashboardProducts({
                     <p className="text-[9px] text-slate-400 leading-tight">Set low-stock alert.</p>
                     <input 
                       type="number" 
-                      min="1"
+                      min="0"
                       step="1"
                       value={alertQty}
-                      onChange={(e) => setAlertQty(Math.max(0.001, parseFloat(e.target.value) || 0))}
+                      onChange={(e) => setAlertQty(Math.max(0, Math.floor(Number(e.target.value) || 0)))}
                       className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-800 font-mono transition-all outline-none mt-1"
                     />
                   </div>
@@ -4498,8 +4498,14 @@ export default function DashboardProducts({
                       min="1"
                       value={transferQty}
                       onChange={(e) => {
-                        setTransferQty(Math.max(1, parseInt(e.target.value) || 0));
+                        const parsed = e.target.value === '' ? '' : parseInt(e.target.value);
+                        setTransferQty(isNaN(parsed as any) ? '' : parsed);
                         setTransferError(null);
+                      }}
+                      onBlur={(e) => {
+                        if (transferQty === '' || transferQty === 0) {
+                          setTransferQty(1);
+                        }
                       }}
                       className="w-full text-center bg-slate-50 border border-slate-200 focus:border-emerald-500 px-3 py-2.5 rounded-xl font-mono text-lg text-slate-800 font-extrabold"
                     />
@@ -5585,7 +5591,7 @@ export default function DashboardProducts({
                         <input value={editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.unit || 'Piece'} onChange={e => setEditForm(prev => ({ ...prev, baseUnit: e.target.value, unit: e.target.value }))} className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-xl" />
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Packet Price</label>
+                        <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Package Price</label>
                         <input
                           type="number"
                           min={0}
@@ -5805,7 +5811,7 @@ export default function DashboardProducts({
                       </div>
 
                       <div className="space-y-1">
-                        <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Packet Price</label>
+                        <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Package Price</label>
                         <input
                           type="number"
                           min={0}

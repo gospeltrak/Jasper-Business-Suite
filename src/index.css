@@ -146,6 +146,17 @@ body {
   #dashboard-scaffold select {
     font-size: 16px;
   }
+  
+  /* Hide number input spinner arrows for fractional selling and other numeric inputs */
+  #dashboard-scaffold input[type="number"]::-webkit-outer-spin-button,
+  #dashboard-scaffold input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  #dashboard-scaffold input[type="number"] {
+    -moz-appearance: textfield;
+  }
+  
   #dashboard-scaffold .rounded-3xl {
     border-radius: 1.5rem;
   }
