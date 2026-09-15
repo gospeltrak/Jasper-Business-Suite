@@ -1461,9 +1461,16 @@ export default function DashboardExpenses({
                 </button>
                 <button type="button"
                    onClick={async () => {
-                    if (!editForm.description || !editForm.amount || !editForm.paidFromAccountId) return;
+                    setEditExpenseError('');
+                    if (!editForm.description || !editForm.amount) {
+                      setEditExpenseError('Description and amount are required.');
+                      return;
+                    }
                     const account = paymentAccounts.find(candidate => candidate.id === editForm.paidFromAccountId);
-                    if (!account) return;
+                    if (editForm.paidFromAccountId && !account) {
+                      setEditExpenseError('The selected Money & Bank account is no longer active.');
+                      return;
+                    }
                     if (
                       editingExpense.treasuryJournalId
                       && (
@@ -1475,7 +1482,7 @@ export default function DashboardExpenses({
                       return;
                     }
                     const nextTimestamp = editForm.date ? localDateToIso(editForm.date, new Date(editingExpense.timestamp), 12) : editingExpense.timestamp;
-                    const saved = await onUpdateExpense?.({...editingExpense, description: editForm.description, amount: parseFloat(editForm.amount) || 0, category: editForm.category, note: editForm.note, paidFromAccountId: account.id, paymentMethod: account.paymentMethod || account.name, timestamp: nextTimestamp});
+                    const saved = await onUpdateExpense?.({...editingExpense, description: editForm.description, amount: parseFloat(editForm.amount) || 0, category: editForm.category, note: editForm.note, paidFromAccountId: account?.id || editingExpense.paidFromAccountId, paymentMethod: account?.paymentMethod || account?.name || editingExpense.paymentMethod, timestamp: nextTimestamp});
                     if (saved === false) {
                       setEditExpenseError('Expense changes could not be saved. Nothing was changed in the database.');
                       return;

@@ -48,10 +48,11 @@ import DuressDashboard from './DuressDashboard';
 import CachedImage from './CachedImage';
 import { savePendingSaleOffline } from '../utils/offlineDb';
 import { createCleanTenantSettings, isDemoTenant } from '../utils/tenantIsolation';
-import { flushPendingTenantWorkspace, hasPendingTenantWorkspaceSave, loadTenantWorkspace, loadTenantWorkspaceCore, markTenantProductsUpdated, readCachedWorkspace, saveTenantSettings, saveTenantWorkspace, scheduleTenantWorkspaceSave, subscribeToTenantBusinessType, subscribeToTenantWorkspace, TenantWorkspace, waitForTenantWorkspaceLoad, workspaceHasBusinessData } from '../utils/tenantWorkspace';
+import { flushPendingTenantWorkspace, hasPendingTenantWorkspaceSave, loadTenantProductFresh, loadTenantWorkspace, loadTenantWorkspaceCore, markTenantProductsUpdated, readCachedWorkspace, reloadTenantWorkspace, saveTenantSettings, saveTenantWorkspace, scheduleTenantWorkspaceSave, subscribeToTenantBusinessType, subscribeToTenantWorkspace, TenantWorkspace, waitForTenantWorkspaceLoad, workspaceHasBusinessData } from '../utils/tenantWorkspace';
 import { safeSetJsonItem, safeSetTenantMapItem } from '../utils/dataSafety';
 import { findPaymentChannel, getTreasuryPaymentMethods, reconcilePaymentChannels } from '../utils/paymentAccounts';
 import { attachPayloadProductTombstones, markLocalProductTombstones, mergeProductTombstones, mergeProductsForSync, readLocalProductTombstones, stampProductsForSync, writeLocalProductTombstones } from '../utils/productSync';
+import { pharmacyHierarchyMatches } from '../utils/pharmacyHierarchyPersistence';
 import {
   attachPayloadSaleTombstones,
   markLocalSaleTombstone,
@@ -74,6 +75,7 @@ import {
 import { ONLINE_ONLY_WRITE_MESSAGE, canWriteBusinessDataOnline } from '../utils/onlineOnly';
 import { getSecureDataBridgeClient, isPlaceholderSecureDataBridgeClient } from '../secureDataBridge';
 import { postTreasuryEntry, postTreasurySplitIncome, reverseTreasuryEntry } from '../utils/treasuryApi';
+import { reversePurchaseInventory } from '../utils/inventoryCosting';
 import { getSubscriptionReminder, getSubscriptionReminderKey } from '../utils/subscriptionReminder';
 import { compressImageFile } from '../utils/imageCompression';
 import { formatLocalDate } from '../utils/localDate';
@@ -698,6 +700,35 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     );
   }, [activeTenant.id, systemSettings.notificationModuleSettings, hydrateTenantModuleSettings]);
 
+  useEffect(() => {
+    let active = true;
+    setSuppliers([]);
+    void (async () => {
+      try {
+        const client: any = await getSecureDataBridgeClient();
+        const { data, error } = await client
+          .from('suppliers')
+          .select('id, tenant_id, name, contact_person, phone, email, categories')
+          .eq('tenant_id', activeTenant.id)
+          .order('created_at', { ascending: false });
+        if (error) throw error;
+        if (!active || !Array.isArray(data)) return;
+        setSuppliers(data.map((supplier: any): Supplier => ({
+          id: String(supplier.id),
+          tenantId: String(supplier.tenant_id || activeTenant.id),
+          name: String(supplier.name || ''),
+          contactPerson: String(supplier.contact_person || ''),
+          phone: String(supplier.phone || ''),
+          email: String(supplier.email || ''),
+          categories: Array.isArray(supplier.categories) ? supplier.categories.map(String) : [],
+        })));
+      } catch (error: any) {
+        console.warn('[Dashboard] Supplier directory load failed:', error?.message || error);
+      }
+    })();
+    return () => { active = false; };
+  }, [activeTenant.id]);
+
   // Set safe defaults while the selected tenant workspace loads from Supabase.
   useEffect(() => {
     setSystemSettings(normalizeSystemSettings(activeTenant));
@@ -978,7 +1009,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
         setBranchSwitching(false);
       }
       try {
-        const workspace = await loadTenantWorkspace(activeTenant.id);
+        const workspace = await reloadTenantWorkspace(activeTenant.id);
         if (!active) return;
         if (!workspace) {
           addToast('The selected branch workspace could not be loaded. No previous-branch data was shown.', 'error');
@@ -1991,7 +2022,19 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       productTombstones:    readLocalProductTombstones(activeTenant.id),
     };
 
-    const saved = saveTenantWorkspace(activeTenant.id, workspace)
+    const changedMedicine = syncedProducts.find(product => {
+      const previous = previousProducts.find(candidate => candidate.id === product.id);
+      return product.productType === 'medicine' && !pharmacyHierarchyMatches(product, previous);
+    });
+    const saved = flushPendingTenantWorkspace(activeTenant.id)
+      .then(() => saveTenantWorkspace(activeTenant.id, workspace))
+      .then(async (didSave) => {
+        if (!didSave || !changedMedicine) return didSave;
+        const persisted = await loadTenantProductFresh(activeTenant.id, changedMedicine.id);
+        if (pharmacyHierarchyMatches(changedMedicine, persisted)) return true;
+        console.warn('[Dashboard] Pharmacy hierarchy post-save verification failed:', changedMedicine.id);
+        return false;
+      })
       .then((didSave) => {
         if (!didSave) {
           setProductsMap(prev => ({ ...prev, [activeTenant.id]: previousProducts }));
@@ -2858,12 +2901,39 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     setLogs(prev => [newLog, ...prev]);
   };
 
-  const handleCreateSupplier = (newSup: Supplier) => {
-    setSuppliers(prev => [{
-      ...newSup,
-      tenantId: activeTenant.id,
-      branchId: activeBranchSelection.activeBranchId || undefined,
-    }, ...prev]);
+  const handleCreateSupplier = async (newSup: Supplier): Promise<boolean> => {
+    if (blockOfflineBusinessWrite('supplier registration')) return false;
+
+    try {
+      const client: any = await getSecureDataBridgeClient();
+      const { data, error } = await client
+        .from('suppliers')
+        .insert({
+          tenant_id: activeTenant.id,
+          name: newSup.name,
+          contact_person: newSup.contactPerson || null,
+          phone: newSup.phone || null,
+          email: newSup.email || null,
+          categories: newSup.categories || [],
+        })
+        .select('id, tenant_id, name, contact_person, phone, email, categories')
+        .single();
+      if (error || !data) throw error || new Error('Supplier insert returned no row.');
+
+      const persistedSupplier: Supplier = {
+        id: String(data.id),
+        tenantId: String(data.tenant_id || activeTenant.id),
+        name: String(data.name || ''),
+        contactPerson: String(data.contact_person || ''),
+        phone: String(data.phone || ''),
+        email: String(data.email || ''),
+        categories: Array.isArray(data.categories) ? data.categories.map(String) : [],
+      };
+      setSuppliers(prev => [persistedSupplier, ...prev.filter(supplier => supplier.id !== persistedSupplier.id)]);
+    } catch (error: any) {
+      addToast(error?.message || 'Supplier could not be saved.', 'error');
+      return false;
+    }
 
     const newLog: SyncLog = {
       id: 'l-' + Math.random().toString(36).substr(2, 9),
@@ -2873,9 +2943,10 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       timestamp: new Date().toISOString()
     };
     setLogs(prev => [newLog, ...prev]);
+    return true;
   };
 
-  const handleAddPurchase = async (purchase: Purchase) => {
+  const handleAddPurchase = async (purchase: Purchase, updatedProducts?: Product[]) => {
     if (blockOfflineBusinessWrite('purchase entry')) return false;
 
     localWorkspaceChangedAtRef.current = Date.now();
@@ -2913,12 +2984,43 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     }
     const currentTenantPurchases = purchasesMap[activeTenant.id] || [];
     const updatedPurchases = [purchase, ...currentTenantPurchases];
+    const tenantProducts = productsMap[activeTenant.id] || [];
+    const nextProducts = updatedProducts ? mergeScopedProducts(tenantProducts, updatedProducts) : tenantProducts;
+    const nextBranchStocks = activeBranchSelection.activeScope === 'branch' && activeBranchSelection.activeBranchId && updatedProducts
+      ? (() => {
+        const now = new Date().toISOString();
+        const currentStocks = branchStocksMap[activeTenant.id] || [];
+        const updates = new Map(updatedProducts.map(product => [product.id, product]));
+        const retained = currentStocks.filter(stock => (
+          stock.branchId !== activeBranchSelection.activeBranchId || !updates.has(stock.productId)
+        ));
+        return [...retained, ...updatedProducts.map(product => {
+          const existing = currentStocks.find(stock => (
+            stock.branchId === activeBranchSelection.activeBranchId && stock.productId === product.id
+          ));
+          return {
+            id: existing?.id || `branch-stock-${activeBranchSelection.activeBranchId}-${product.id}`,
+            tenantId: activeTenant.id,
+            branchId: activeBranchSelection.activeBranchId!,
+            productId: product.id,
+            quantity: Number(product.stockQty || 0),
+            shopStockQty: Number(product.shopStockQty || 0),
+            storeStockQty: Number(product.storeStockQty || 0),
+            buyingPrice: product.costPrice,
+            sellingPrice: product.sellingPrice,
+            lowStockAlert: product.alertQty,
+            createdAt: existing?.createdAt || now,
+            updatedAt: now,
+          } satisfies BranchStock;
+        })];
+      })()
+      : (branchStocksMap[activeTenant.id] || []);
     
     const saved = await saveTenantWorkspace(activeTenant.id, {
       branches: branchesMap[activeTenant.id] || [],
-      branchStocks: branchStocksMap[activeTenant.id] || [],
+      branchStocks: nextBranchStocks,
       branchStaffAssignments: branchStaffAssignmentsMap[activeTenant.id] || [],
-      products: productsMap[activeTenant.id] || [],
+      products: nextProducts,
       sales: salesMap[activeTenant.id] || [],
       expenses: expensesMap[activeTenant.id] || [],
       settings: systemSettings,
@@ -2934,6 +3036,10 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       ...prev,
       [activeTenant.id]: updatedPurchases
     }));
+    if (updatedProducts) {
+      setProductsMap(prev => ({ ...prev, [activeTenant.id]: nextProducts }));
+      setBranchStocksMap(prev => ({ ...prev, [activeTenant.id]: nextBranchStocks }));
+    }
 
     const newLog: SyncLog = {
       id: 'l-' + Math.random().toString(36).substr(2, 9),
@@ -2994,11 +3100,25 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     cloudWorkspaceLoadedRef.current = true;
     
     const nextPurchases = (purchasesMap[activeTenant.id] || []).filter(p => p.id !== purchaseId);
+    const nextProducts = reversePurchaseInventory(productsMap[activeTenant.id] || [], purchase);
+    const nextBranchStocks = (branchStocksMap[activeTenant.id] || []).map(stock => {
+      const product = nextProducts.find(item => item.id === stock.productId);
+      if (!product || !activeBranchSelection.activeBranchId || stock.branchId !== activeBranchSelection.activeBranchId) return stock;
+      return {
+        ...stock,
+        quantity: Number(product.stockQty || 0),
+        shopStockQty: Number(product.shopStockQty || 0),
+        storeStockQty: Number(product.storeStockQty || 0),
+        buyingPrice: product.costPrice,
+        sellingPrice: product.sellingPrice,
+        updatedAt: new Date().toISOString(),
+      };
+    });
     const saved = await saveTenantWorkspace(activeTenant.id, {
       branches: branchesMap[activeTenant.id] || [],
-      branchStocks: branchStocksMap[activeTenant.id] || [],
+      branchStocks: nextBranchStocks,
       branchStaffAssignments: branchStaffAssignmentsMap[activeTenant.id] || [],
-      products: productsMap[activeTenant.id] || [],
+      products: nextProducts,
       sales: salesMap[activeTenant.id] || [],
       expenses: expensesMap[activeTenant.id] || [],
       settings: systemSettings,
@@ -3014,11 +3134,13 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       ...prev,
       [activeTenant.id]: nextPurchases
     }));
+    setProductsMap(prev => ({ ...prev, [activeTenant.id]: nextProducts }));
+    setBranchStocksMap(prev => ({ ...prev, [activeTenant.id]: nextBranchStocks }));
     setLogs(prev => [{
       id: 'l-' + Math.random().toString(36).substr(2, 9),
       type: 'inventory_audit',
       status: 'success',
-      message: `Removed purchase record ${purchaseId} from ${activeTenant.name}. Product stock was not silently changed.`,
+      message: `Removed purchase record ${purchaseId} from ${activeTenant.name}. Remaining stock from this purchase was reversed.`,
       timestamp: new Date().toISOString()
     }, ...prev]);
     return true;

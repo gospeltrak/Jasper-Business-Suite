@@ -25,7 +25,7 @@ import {
 
 interface DashboardSuppliersProps {
   suppliers: Supplier[];
-  onAddSupplier: (sup: Supplier) => void;
+  onAddSupplier: (sup: Supplier) => void | Promise<boolean>;
   purchases: Purchase[];
   sales: Sale[];
   activeTenant: Tenant;
@@ -48,6 +48,7 @@ export default function DashboardSuppliers({
   const [email, setEmail] = useState('');
   const [categoryInput, setCategoryInput] = useState('');
   const [formSuccess, setFormSuccess] = useState(false);
+  const [formError, setFormError] = useState('');
 
   // Search filter
   const [searchQuery, setSearchQuery] = useState('');
@@ -70,18 +71,24 @@ export default function DashboardSuppliers({
       categories: categoryInput ? categoryInput.split(',').map(s => s.trim()) : ['Groceries'],
     };
 
-    onAddSupplier(newSup);
-    setFormSuccess(true);
-    
-    setTimeout(() => {
-      setName('');
-      setContactPerson('');
-      setPhone('');
-      setEmail('');
-      setCategoryInput('');
-      setIsOpen(false);
-      setFormSuccess(false);
-    }, 1000);
+    setFormError('');
+    void Promise.resolve(onAddSupplier(newSup)).then(saved => {
+      if (saved === false) {
+        setFormError('Supplier could not be saved. Please try again.');
+        return;
+      }
+
+      setFormSuccess(true);
+      setTimeout(() => {
+        setName('');
+        setContactPerson('');
+        setPhone('');
+        setEmail('');
+        setCategoryInput('');
+        setIsOpen(false);
+        setFormSuccess(false);
+      }, 1000);
+    });
   };
 
   // Extract unique customers from Sales Ledger on-the-fly for real-time customer reports!
@@ -295,6 +302,7 @@ export default function DashboardSuppliers({
               <span>Commit Registered B2B Vendor</span>
             )}
           </button>
+          {formError && <p className="text-xs font-bold text-red-600">{formError}</p>}
         </form>
       )}
 

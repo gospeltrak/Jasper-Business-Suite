@@ -617,6 +617,30 @@ export async function loadTenantWorkspace(tenantId: string): Promise<TenantWorks
   return readCachedWorkspace(tenantId) || core;
 }
 
+/** Reloads branch-scoped workspace data after the active branch changes. */
+export async function reloadTenantWorkspace(tenantId: string): Promise<TenantWorkspace | null> {
+  if (!tenantId) return null;
+  inFlightCoreLoads.delete(tenantId);
+  inFlightLedgerLoads.delete(tenantId);
+  const core = await fetchWorkspaceCore(tenantId);
+  if (!core) return null;
+  if (!core.complete) {
+    const ledgers = completeWorkspaceLedgers(tenantId, core).finally(() => {
+      if (inFlightLedgerLoads.get(tenantId) === ledgers) inFlightLedgerLoads.delete(tenantId);
+    });
+    inFlightLedgerLoads.set(tenantId, ledgers);
+  }
+  await waitForTenantWorkspaceLoad(tenantId);
+  return readCachedWorkspace(tenantId) || core.payload;
+}
+
+/** Performs an uncached authoritative core read for post-save verification. */
+export async function loadTenantProductFresh(tenantId: string, productId: string): Promise<Product | null> {
+  if (!tenantId || !productId) return null;
+  const fresh = await fetchWorkspaceCore(tenantId);
+  return fresh?.payload.products?.find(product => product.id === productId) || null;
+}
+
 // ─── Save to DB ────────────────────────────────────────────────────────────
 
 async function saveTenantWorkspaceNow(

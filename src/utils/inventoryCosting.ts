@@ -4,6 +4,7 @@ import {
   PriceChangeInfo,
   Product,
   ProductBatch,
+  Purchase,
   SaleBatchInfo,
 } from '../types';
 
@@ -118,6 +119,8 @@ export const createInventoryBatch = (
   quantityPurchased: number,
   buyingPrice: number,
   options: {
+    purchaseId?: string;
+    destination?: 'shop' | 'store';
     supplierName?: string;
     finalSellingPrice?: number;
     createdBy?: string;
@@ -138,6 +141,8 @@ export const createInventoryBatch = (
   return {
     id: 'b-' + Math.random().toString(36).slice(2, 11),
     productId: product.id,
+    purchaseId: options.purchaseId,
+    destination: options.destination,
     batchNumber: 'B-' + Date.now().toString().slice(-6),
     supplierName: options.supplierName,
     purchaseDate: options.purchaseDate || new Date().toISOString(),
@@ -204,6 +209,40 @@ export const addBatchToProduct = (
     },
   };
 };
+
+export const reversePurchaseInventory = (
+  products: readonly Product[],
+  purchase: Purchase,
+): Product[] => products.map(product => {
+  const purchaseBatches = (product.batches || []).filter(batch => batch.purchaseId === purchase.id);
+  if (purchaseBatches.length === 0) return product;
+
+  let shopStockQty = Number(product.shopStockQty || 0);
+  let storeStockQty = Number(product.storeStockQty || 0);
+  const batches = (product.batches || []).map(batch => {
+    if (batch.purchaseId !== purchase.id) return batch;
+    const remaining = Math.max(0, Number(batch.quantityRemaining || 0));
+    const destination = batch.destination || purchase.destination;
+    if (destination === 'shop') shopStockQty = Math.max(0, shopStockQty - remaining);
+    else storeStockQty = Math.max(0, storeStockQty - remaining);
+    return {
+      ...batch,
+      quantityRemaining: 0,
+      quantityRemainingBase: 0,
+      status: 'finished' as const,
+    };
+  });
+  const averageBuyingCost = calculateWeightedAverageCost(batches, product.costPrice);
+
+  return {
+    ...product,
+    batches,
+    shopStockQty: Number(shopStockQty.toFixed(3)),
+    storeStockQty: Number(storeStockQty.toFixed(3)),
+    stockQty: Number((shopStockQty + storeStockQty).toFixed(3)),
+    averageBuyingCost,
+  };
+});
 
 export const deductBatchesForSale = (
   product: Product,

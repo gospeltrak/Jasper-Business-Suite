@@ -38,7 +38,7 @@ interface DashboardPurchasesProps {
   suppliers: Supplier[];
   onUpdateStocks: (updatedProducts: Product[]) => void;
   purchases: Purchase[];
-  onAddPurchase: (purchase: Purchase) => void | boolean | Promise<void | boolean>;
+  onAddPurchase: (purchase: Purchase, updatedProducts?: Product[]) => void | boolean | Promise<void | boolean>;
   onUpdatePurchases: (purchases: Purchase[]) => Promise<boolean> | boolean;
   onDeletePurchase: (purchaseId: string) => void | boolean | Promise<void | boolean>;
   systemSettings: SystemSettings;
@@ -626,6 +626,8 @@ export default function DashboardPurchases({
           newStoreQty += addedQty;
         }
         const batch = createInventoryBatch(prod, addedQty, baseCostPrice, {
+          purchaseId: newPurchase.id,
+          destination,
           supplierName: supplier.name,
           finalSellingPrice: prod.sellingPrice,
           purchaseDate: newPurchase.timestamp,
@@ -642,13 +644,11 @@ export default function DashboardPurchases({
       return prod;
     });
 
-    const saved = await onAddPurchase(newPurchase);
+    const saved = await onAddPurchase(newPurchase, updatedProductsList);
     if (saved === false) {
       setPurchaseError('Purchase payment was not posted. Stock and purchase records were not changed.');
       return;
     }
-    onUpdateStocks(updatedProductsList);
-
     setPurchaseSuccess(true);
     setTimeout(() => {
       setCart([]);

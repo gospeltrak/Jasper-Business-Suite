@@ -299,6 +299,8 @@ export interface Product {
 export interface ProductBatch {
   id: string;
   productId: string;
+  purchaseId?: string;
+  destination?: 'shop' | 'store';
   batchNumber: string;
   supplierName?: string;
   purchaseDate: string;

@@ -193,6 +193,7 @@ export default function DashboardProducts({
   const [editStockDraft, setEditStockDraft] = useState({ shop: '', store: '', alert: '' });
   const [editImageFile, setEditImageFile] = useState<File | null>(null);
   const [editForm, setEditForm] = useState<Partial<Product>>({});
+  const [editSaveError, setEditSaveError] = useState<string | null>(null);
   const getTotalStockQty = (shopQty: number, storeQty: number) => Number((Number(shopQty || 0) + Number(storeQty || 0)).toFixed(3));
   
   // Smart Batch Pricing & Restock
@@ -348,6 +349,7 @@ export default function DashboardProducts({
       return String(value);
     };
     setEditingProduct(prod);
+    setEditSaveError(null);
     setEditForm({ ...prod });
     setEditStockDraft({
       shop: editDraftNumber(prod.shopStockQty),
@@ -486,8 +488,46 @@ export default function DashboardProducts({
         const editLedgerCostPrice = activeTenant.businessType !== 'pharmacy' && editForm.isBulkProduct
           ? editPackageBuyingCost / editConversionToBase
           : rawCostPrice;
+        const hierarchyPayload: Partial<Product> = editUsesPharmacyHierarchy
+          ? {
+            dosesPerPacket: editDosesPerPacket,
+            tabsPerDose: editTabsPerDose,
+            tabsPerPack: editTabsPerPacket,
+            pharmacyProductType: editPharmacy.productType,
+            pharmacyHierarchyStart: editPharmacy.hierarchyStart,
+            pharmacyBaseUnit: editPharmacy.hierarchy.baseUnit,
+            pharmacyUnitLevels: editPharmacy.hierarchy.levels,
+            allowsDosageDividing: true,
+            packetPrice: editPacketPrice,
+            fullDosePrice: editFullDosePrice,
+            halfDosePrice: editHalfDosePrice,
+            tabPrice: editTabPrice,
+            pharmacyUnitBreakdown: {
+              purchaseUnit: editTopLevel.unit,
+              stripUnit: editDoseLevel.unit,
+              baseUnit: editPharmacy.hierarchy.baseUnit,
+              stripsPerBox: editDosesPerPacket,
+              tabletsPerStrip: editTabsPerDose,
+            },
+          }
+          : {
+            dosesPerPacket: p.dosesPerPacket,
+            tabsPerDose: p.tabsPerDose,
+            tabsPerPack: p.tabsPerPack,
+            pharmacyProductType: p.pharmacyProductType,
+            pharmacyHierarchyStart: p.pharmacyHierarchyStart,
+            pharmacyBaseUnit: p.pharmacyBaseUnit,
+            pharmacyUnitLevels: p.pharmacyUnitLevels,
+            allowsDosageDividing: p.allowsDosageDividing,
+            packetPrice: p.packetPrice,
+            fullDosePrice: p.fullDosePrice,
+            halfDosePrice: p.halfDosePrice,
+            tabPrice: p.tabPrice,
+            pharmacyUnitBreakdown: p.pharmacyUnitBreakdown,
+          };
         return {
           ...p,
+          ...hierarchyPayload,
           name: editForm.name || '',
           brand: editForm.brand ? editForm.brand.trim() : undefined,
           category: editForm.category || '',
@@ -530,27 +570,6 @@ export default function DashboardProducts({
           allowCustomQuantity: editForm.allowCustomQuantity !== false,
           defaultPricePerBaseUnit: editPricePerBase,
           fractionSaleOptions: activeTenant.businessType === 'pharmacy' ? undefined : (editForm.fractionSaleOptions || editForm.inventorySettings?.fractionSaleOptions),
-          dosesPerPacket: activeTenant.businessType === 'pharmacy' ? editDosesPerPacket : editForm.dosesPerPacket,
-          tabsPerDose: activeTenant.businessType === 'pharmacy' ? editTabsPerDose : editForm.tabsPerDose,
-          tabsPerPack: activeTenant.businessType === 'pharmacy' ? editTabsPerPacket : editForm.tabsPerPack,
-          pharmacyProductType: activeTenant.businessType === 'pharmacy' ? editPharmacy.productType : editForm.pharmacyProductType,
-          pharmacyHierarchyStart: activeTenant.businessType === 'pharmacy' ? editPharmacy.hierarchyStart : editForm.pharmacyHierarchyStart,
-          pharmacyBaseUnit: activeTenant.businessType === 'pharmacy' ? editPharmacy.hierarchy.baseUnit : editForm.pharmacyBaseUnit,
-          pharmacyUnitLevels: activeTenant.businessType === 'pharmacy' ? editPharmacy.hierarchy.levels : editForm.pharmacyUnitLevels,
-          allowsDosageDividing: activeTenant.businessType === 'pharmacy' ? true : editForm.allowsDosageDividing,
-          packetPrice: activeTenant.businessType === 'pharmacy' ? editPacketPrice : editForm.packetPrice,
-          fullDosePrice: activeTenant.businessType === 'pharmacy' ? editFullDosePrice : editForm.fullDosePrice,
-          halfDosePrice: activeTenant.businessType === 'pharmacy' ? editHalfDosePrice : editForm.halfDosePrice,
-          tabPrice: activeTenant.businessType === 'pharmacy' ? editTabPrice : editForm.tabPrice,
-          pharmacyUnitBreakdown: activeTenant.businessType === 'pharmacy'
-            ? {
-              purchaseUnit: 'Packet',
-              stripUnit: editDoseLevel.unit,
-              baseUnit: editPharmacy.hierarchy.baseUnit,
-              stripsPerBox: editDosesPerPacket,
-              tabletsPerStrip: editTabsPerDose,
-            }
-            : (editForm.pharmacyUnitBreakdown || editForm.inventorySettings?.pharmacyUnitBreakdown),
           inventorySettings: {
             costingMethod: editForm.costingMethod || editForm.inventorySettings?.costingMethod || 'fifo',
             allowPosMethodOverride: !!editForm.allowPosMethodOverride,
@@ -567,15 +586,8 @@ export default function DashboardProducts({
             allowCustomQuantity: editForm.allowCustomQuantity !== false,
             defaultPricePerBaseUnit: editPricePerBase,
             fractionSaleOptions: activeTenant.businessType === 'pharmacy' ? undefined : (editForm.fractionSaleOptions || editForm.inventorySettings?.fractionSaleOptions),
-            pharmacyUnitBreakdown: activeTenant.businessType === 'pharmacy'
-              ? {
-                purchaseUnit: editTopLevel.unit,
-                stripUnit: editDoseLevel.unit,
-                baseUnit: editPharmacy.hierarchy.baseUnit,
-                stripsPerBox: editDosesPerPacket,
-                tabletsPerStrip: editTabsPerDose,
-              }
-              : (editForm.pharmacyUnitBreakdown || editForm.inventorySettings?.pharmacyUnitBreakdown),
+            pharmacyUnitBreakdown: hierarchyPayload.pharmacyUnitBreakdown
+              || editForm.inventorySettings?.pharmacyUnitBreakdown,
           },
           sku: b
         } as Product;
@@ -584,14 +596,21 @@ export default function DashboardProducts({
     });
 
     setIsSavingProductEdit(true);
+    setEditSaveError(null);
     try {
       const saved = await onUpdateProducts(updated);
       // Keep the tenant's draft and the edit modal open when the durable
       // workspace write fails. Closing optimistically made hierarchy changes
       // appear saved until the next hydration restored the cloud copy.
-      if (!saved) return;
+      if (!saved) {
+        setEditSaveError('Product changes were not saved. Please check your connection and try again.');
+        if (!saved) return;
+      }
       setEditingProduct(null);
       setEditForm({});
+    } catch (error) {
+      console.warn('[DashboardProducts] Product edit save failed:', error);
+      setEditSaveError('Product changes were not saved. Please try again.');
     } finally {
       setIsSavingProductEdit(false);
     }
@@ -954,7 +973,7 @@ export default function DashboardProducts({
 
   // Stock Transfer Modal state
   const [transferProduct, setTransferProduct] = useState<Product | null>(null);
-  const [transferQty, setTransferQty] = useState<number>(1);
+  const [transferQty, setTransferQty] = useState<number | ''>(1);
   const [transferDirection, setTransferDirection] = useState<'store_to_shop' | 'shop_to_store' | 'branch_to_branch'>('store_to_shop');
   const [transferError, setTransferError] = useState<string | null>(null);
   const [transferSuccess, setTransferSuccess] = useState<boolean>(false);
@@ -1499,7 +1518,7 @@ export default function DashboardProducts({
   // Stock Transfer Actions
   const handleExecuteTransfer = async () => {
     if (!transferProduct) return;
-    const qty = transferQty;
+    const qty = Number(transferQty) || 0;
     if (qty <= 0) {
       setTransferError('Please specify a positive unit quantity.');
       return;
@@ -5861,6 +5880,11 @@ export default function DashboardProducts({
             </div>
 
             <div className="tenant-form-footer sticky bottom-0 z-10 bg-slate-50 p-3 sm:p-4 flex gap-2 border-t border-slate-200 shrink-0">
+              {editSaveError && (
+                <p role="alert" className="flex-1 self-center text-[10px] font-bold normal-case text-rose-600">
+                  {editSaveError}
+                </p>
+              )}
               <button 
                 type="button" 
                 disabled={isSavingProductEdit}

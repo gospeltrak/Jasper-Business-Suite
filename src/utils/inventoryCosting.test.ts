@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Product, ProductBatch } from '../types';
+import { Product, ProductBatch, Purchase } from '../types';
 
 describe('pharmacy packet pricing persistence contract', () => {
   it('keeps the packet price distinct from derived dose and tablet prices', () => {
@@ -20,6 +20,7 @@ import {
   createInventoryBatch,
   deductBatchesForSale,
   getActiveBatchesOldestFirst,
+  reversePurchaseInventory,
 } from './inventoryCosting';
 
 const baseProduct = (overrides: Partial<Product> = {}): Product => ({
@@ -52,6 +53,15 @@ const batch = (overrides: Partial<ProductBatch>): ProductBatch => ({
 });
 
 describe('createInventoryBatch', () => {
+  it('links a new batch to its purchase and stock destination', () => {
+    const result = createInventoryBatch(baseProduct(), 10, 200, {
+      purchaseId: 'purchase-1',
+      destination: 'shop',
+    });
+    expect(result.purchaseId).toBe('purchase-1');
+    expect(result.destination).toBe('shop');
+  });
+
   it('stores expiryDate/manufacturingDate when provided', () => {
     const product = baseProduct();
     const result = createInventoryBatch(product, 100, 200, {
@@ -67,6 +77,42 @@ describe('createInventoryBatch', () => {
     const result = createInventoryBatch(product, 100, 200);
     expect(result.expiryDate).toBeUndefined();
     expect(result.manufacturingDate).toBeUndefined();
+  });
+});
+
+describe('reversePurchaseInventory', () => {
+  it('reverses only remaining stock and preserves sold batch history', () => {
+    const purchase = {
+      id: 'purchase-1',
+      supplierId: 'supplier-1',
+      supplierName: 'Vendor',
+      items: [],
+      totalAmount: 20000,
+      amountPaid: 20000,
+      amountDue: 0,
+      destination: 'shop',
+      deliveryStatus: 'Full order delivered',
+      timestamp: '2026-01-01T00:00:00Z',
+      tenantId: 'tenant-1',
+    } as Purchase;
+    const product = baseProduct({
+      shopStockQty: 60,
+      stockQty: 60,
+      batches: [batch({
+        purchaseId: purchase.id,
+        destination: 'shop',
+        quantityPurchased: 100,
+        quantityRemaining: 60,
+        quantityRemainingBase: 60,
+      })],
+    });
+
+    const [reversed] = reversePurchaseInventory([product], purchase);
+    expect(reversed.shopStockQty).toBe(0);
+    expect(reversed.stockQty).toBe(0);
+    expect(reversed.batches?.[0].quantityRemaining).toBe(0);
+    expect(reversed.batches?.[0].status).toBe('finished');
+    expect(reversed.batches?.[0].quantityPurchased).toBe(100);
   });
 });
 
