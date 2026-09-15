@@ -154,20 +154,11 @@ export const mergeProductsForSync = (
 
     if (incomingProduct && currentProduct) {
       if (incomingTime > currentTime) {
-        // Incoming is newer — user's edit wins
         chosen.set(id, incomingProduct);
       } else if (currentTime > incomingTime) {
-        // Cache is newer — only possible if another device saved more recently
-        // BUT: if incoming has explicit user edit markers, it still wins
-        const incomingWasExplicitlyEdited =
-          (incomingProduct as any).syncUpdatedAt || (incomingProduct as any).updatedAt;
-        if (incomingWasExplicitlyEdited) {
-          // User explicitly edited this product in this session — their edit wins
-          // regardless of timestamp comparison (timestamp may be clock skew)
-          chosen.set(id, incomingProduct);
-        } else {
-          chosen.set(id, currentProduct);
-        }
+        // A delayed autosave also carries syncUpdatedAt. Presence of that field
+        // does not make an older snapshot authoritative; latest timestamp wins.
+        chosen.set(id, currentProduct);
       } else {
         // Timestamps equal or both zero — incoming is always the user's
         // current session data and wins. Spread current first so incoming

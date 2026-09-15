@@ -9,3 +9,4 @@ coverage/
 supabase/.temp/
 .vercel
 src/generated/prisma/
+docs-engine/generated/
