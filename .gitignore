@@ -1,11 +1,51 @@
+```
+# Dependencies
 node_modules/
-build/
+.julia/
+.zig-cache/
+
+# Compiled/Build artifacts
 dist/
-coverage/
-.DS_Store
+build/
+target/
+*.pyc
+__pycache__/
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.class
+*.out
+
+# Environment
+.venv/
+venv/
+.env
+.env.local
+.env.*
+
+# Editors/IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*.tmp
+
+# Logs
 *.log
-.env*
-!.env.example
-supabase/.temp/
-.vercel
-src/generated/prisma/
+
+# Coverage
+coverage/
+htmlcov/
+.coverage
+
+# System
+.DS_Store
+Thumbs.db
+
+# Cache
+.mypy_cache/
+.pytest_cache/
+.gradle/
+```
