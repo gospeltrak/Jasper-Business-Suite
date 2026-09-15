@@ -1736,7 +1736,9 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
         : expense
     ));
     localWorkspaceChangedAtRef.current = Date.now();
-    const saved = await saveTenantWorkspace(activeTenant.id, {
+    
+    // Use scheduleTenantWorkspaceSave for batched save instead of direct saveData
+    const workspace: TenantWorkspace = {
       branches: branchesMap[activeTenant.id] || [],
       branchStocks: branchStocksMap[activeTenant.id] || [],
       branchStaffAssignments: branchStaffAssignmentsMap[activeTenant.id] || [],
@@ -1749,8 +1751,9 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       purchases: purchasesMap[activeTenant.id] || [],
       productTombstones: readLocalProductTombstones(activeTenant.id),
       saleTombstones: readLocalSaleTombstones(activeTenant.id),
-    });
-    if (!saved) return false;
+    };
+    void scheduleTenantWorkspaceSave(activeTenant.id, workspace);
+    
     setExpensesMap(prev => ({ ...prev, [activeTenant.id]: nextExpenses }));
     return true;
   };
