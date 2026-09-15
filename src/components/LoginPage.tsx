@@ -43,7 +43,7 @@ const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     connectGoogleFirst: "Connect your Google account first. After Google verifies your identity, you’ll complete your business registration.",
     existingGoogleAccount: "Already registered with this Google account? You will be signed in.",
     backToOrvixHome: "Back to Orvix Home",
-    emailLabel: "Phone Number or Email",
+    emailLabel: "Email",
     passLabel: "Password",
     ownerName: "Your Full Name",
     companyName: "Business Name",
@@ -73,7 +73,7 @@ const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     connectGoogleFirst: "Kwanza unganisha akaunti yako ya Google. Baada ya Google kuthibitisha utambulisho wako, utakamilisha usajili wa biashara yako.",
     existingGoogleAccount: "Tayari umesajiliwa kwa akaunti hii ya Google? Utaingizwa moja kwa moja.",
     backToOrvixHome: "Rudi Nyumbani Orvix",
-    emailLabel: "Namba ya Simu au Barua Pepe",
+    emailLabel: "Barua Pepe",
     passLabel: "Nenosiri",
     ownerName: "Jina Lako Kamili",
     companyName: "Jina la Biashara",
@@ -98,8 +98,8 @@ const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     welcomeSub: "توحيد نقاط البيع، وإدارة الفنادق والقنوات متعددة المستأجرين",
     signinTab: "تسجيل الدخول للحساب",
     registerTab: "تسجيل عمل تجاري جديد",
-    emailLabel: "معرّف الحساب",
-    passLabel: "رمز المرور السري للمالك",
+    emailLabel: "البريد الإلكتروني",
+    passLabel: "كلمة المرور",
     ownerName: "الاسم الكامل للمالك",
     companyName: "اسم الشركة / الفندق",
     region: "منطقة العمليات",
@@ -128,7 +128,7 @@ const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     existingGoogleAccount: "Déjà inscrit avec ce compte Google ? Vous serez connecté automatiquement.",
     backToOrvixHome: "Retour à l’accueil Orvix",
     registerTab: "Créer un Compte",
-    emailLabel: "Téléphone ou E-mail",
+    emailLabel: "E-mail",
     passLabel: "Mot de Passe",
     ownerName: "Votre Nom Complet",
     companyName: "Nom de l'Entreprise",
@@ -1576,7 +1576,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
               <div className="space-y-1.5">
                 <div className="flex justify-between items-center">
                   <label className="text-[10px] font-bold text-slate-500 uppercase block">
-                    {isSaasAdminPortal ? 'SAAS STAFF WHATSAPP NUMBER' : 'WHATSAPP NUMBER'}
+                    {isSaasAdminPortal ? 'SAAS STAFF EMAIL' : 'EMAIL'}
                   </label>
                   {emailChecked && (
                     <button
@@ -1599,13 +1599,13 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                 <div className="relative">
                   <input
                     id="login-email"
-                    type="text"
+                    type="email"
                     required
                     disabled={emailChecked}
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full bg-slate-50 disabled:bg-slate-100 disabled:text-slate-400 border border-slate-200 focus:border-emerald-500 rounded-xl px-4 py-3 pl-11 text-sm text-slate-800 placeholder-slate-400 font-sans transition-all outline-none"
-                    placeholder="WhatsApp number"
+                    placeholder="Email address"
                   />
                   <MessageCircle className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
                 </div>
@@ -1615,7 +1615,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                 <div className="space-y-1.5 animate-fade-in">
                   <div className="flex items-center justify-between">
                     <label className="text-[10px] font-bold text-slate-500 uppercase block">
-                      {loginOtpMode ? 'WHATSAPP OTP' : 'SECURITY PIN PASSWORD'}
+                      {loginOtpMode ? 'EMAIL OTP' : 'PASSWORD'}
                     </label>
                   </div>
                   <div className="relative">
@@ -1627,7 +1627,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                         value={loginOtpInput}
                         onChange={(e) => setLoginOtpInput(e.target.value)}
                         className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl px-4 py-3 pl-11 text-sm text-slate-800 placeholder-slate-400 font-mono tracking-widest transition-all outline-none"
-                        placeholder="Enter WhatsApp OTP"
+                        placeholder="Enter email OTP"
                       />
                     ) : (
                       <input
@@ -1669,7 +1669,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                       }}
                       className="text-[10px] font-black uppercase tracking-wider text-slate-500 hover:text-slate-800"
                     >
-                      Use PIN/password instead
+                      Use email OTP instead
                     </button>
                   )}
                   {!loginOtpMode && (
@@ -1717,7 +1717,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                         Password Recovery
                       </h4>
                       <p className="text-[11px] text-slate-700 mt-1 leading-snug">
-                        Admin recovery verifies your security question first, then sends WhatsApp OTP.
+                        Enter your email address to receive password reset instructions.
                       </p>
                     </div>
                     <button
@@ -1738,10 +1738,10 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                   {recoveryStep === 'identify' ? (
                     <div className="space-y-2">
                       <input
-                        type="tel"
+                        type="email"
                         value={recoveryIdentifier}
-                        onChange={e => { setRecoveryIdentifier(e.target.value); setRecoveryWhatsapp(e.target.value); }}
-                        placeholder="Your WhatsApp / mobile number"
+                        onChange={e => { setRecoveryIdentifier(e.target.value); }}
+                        placeholder="your.email@example.com"
                         className="w-full bg-white border border-emerald-150 rounded-xl px-3 py-2.5 text-xs font-semibold outline-none focus:border-emerald-500"
                       />
                       <button
@@ -1750,7 +1750,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                         className="w-full py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2"
                       >
                         <Shield className="w-4 h-4" />
-                        Continue
+                        Send Reset Instructions
                       </button>
                     </div>
                   ) : recoveryStep === 'security' ? (
@@ -1920,12 +1920,12 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 	                <div className="space-y-1.5">
-	                  <label className="text-[10px] font-bold text-slate-500 uppercase block">Owner WhatsApp Number</label>
+	                  <label className="text-[10px] font-bold text-slate-500 uppercase block">Owner Email</label>
 	                  <input
-	                    type="tel"
+	                    type="email"
 	                    required
 	                    value={regEmail}
-	                    placeholder="e.g. +255 712 345 678"
+	                    placeholder="owner@business.com"
 	                    onChange={(e) => setRegEmail(e.target.value)}
 	                    className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-555 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none font-sans"
 	                  />
