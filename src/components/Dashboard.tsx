@@ -756,7 +756,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       if (document.visibilityState === 'visible') {
         void refreshWorkspaceFromDatabase();
       }
-    }, 90_000);
+    }, 300_000);
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('focus', handleFocus);
@@ -967,7 +967,21 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
             currentMap[tid] = syncedProducts;
             safeSetTenantMapItem('jasper_products_map', 'products_map', currentMap);
           } catch { /* quota */ }
-          saveData(tid, 'products_map', { [tid]: syncedProducts });
+          
+          // Use scheduleTenantWorkspaceSave for batched save instead of direct saveData
+          void scheduleTenantWorkspaceSave(tid, {
+            branches: branchesMap[tid] || [],
+            branchStocks: branchStocksMap[tid] || [],
+            branchStaffAssignments: branchStaffAssignmentsMap[tid] || [],
+            products: syncedProducts,
+            sales: salesMap[tid] || [],
+            expenses: expensesMap[tid] || [],
+            settings: systemSettings,
+            deliveries: deliveriesMap[tid] || [],
+            pendingDeliveryNotes: pendingDeliveryNotesMap[tid] || [],
+            purchases: purchasesMap[tid] || [],
+            productTombstones: readLocalProductTombstones(tid),
+          });
           console.log(`[Orvix] Migrated ${migrated} product images to Storage.`);
         }
       } catch (err) {
@@ -1437,26 +1451,56 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
   const currentStoreCount = systemSettings.business?.registeredStores?.length || 1;
   const currentStaffCount = systemSettings.staffs?.length || 0;
 
+  // Debounced batched save for sales to avoid excessive database calls
   useEffect(() => {
     if (!canWriteBusinessDataOnline()) return;
-    Object.entries(salesMap).forEach(([tid, data]) => {
-      saveData(
-        tid,
-        'sales_map',
-        attachPayloadSaleTombstones(
-          { [tid]: data },
+    const timeoutId = setTimeout(() => {
+      Object.entries(salesMap).forEach(([tid, data]) => {
+        scheduleTenantWorkspaceSave(
           tid,
-          readLocalSaleTombstones(tid),
-        ),
-      );
-    });
+          {
+            branches: branchesMap[tid] || [],
+            branchStocks: branchStocksMap[tid] || [],
+            branchStaffAssignments: branchStaffAssignmentsMap[tid] || [],
+            products: productsMap[tid] || [],
+            sales: data,
+            expenses: expensesMap[tid] || [],
+            settings: systemSettings,
+            deliveries: deliveriesMap[tid] || [],
+            pendingDeliveryNotes: pendingDeliveryNotesMap[tid] || [],
+            purchases: purchasesMap[tid] || [],
+            productTombstones: readLocalProductTombstones(tid),
+          },
+        );
+      });
+    }, 500);
+    return () => clearTimeout(timeoutId);
   }, [salesMap]);
 
+  // Debounced batched save for expenses to avoid excessive database calls
   useEffect(() => {
     if (!canWriteBusinessDataOnline()) return;
-    Object.entries(expensesMap).forEach(([tid, data]) => {
-      saveData(tid, 'expenses_map', { [tid]: data });
-    });
+    const timeoutId = setTimeout(() => {
+      Object.entries(expensesMap).forEach(([tid, data]) => {
+        scheduleTenantWorkspaceSave(
+          tid,
+          {
+            branches: branchesMap[tid] || [],
+            branchStocks: branchStocksMap[tid] || [],
+            branchStaffAssignments: branchStaffAssignmentsMap[tid] || [],
+            products: productsMap[tid] || [],
+            sales: salesMap[tid] || [],
+            expenses: data,
+            settings: systemSettings,
+            deliveries: deliveriesMap[tid] || [],
+            pendingDeliveryNotes: pendingDeliveryNotesMap[tid] || [],
+            purchases: purchasesMap[tid] || [],
+            productTombstones: readLocalProductTombstones(tid),
+          },
+        );
+      });
+    }, 500);
+    return () => clearTimeout(timeoutId);
   }, [expensesMap]);
 
   const subStatus = checkSubscriptionStatus(
@@ -1732,15 +1776,6 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     };
 
     markTenantProductsUpdated(activeTenant.id, syncUpdatedAt);
-    saveData(
-      activeTenant.id,
-      'products_map',
-      attachPayloadProductTombstones(
-        { [activeTenant.id]: syncedProducts },
-        activeTenant.id,
-        readLocalProductTombstones(activeTenant.id),
-      ),
-    );
     localWorkspaceChangedAtRef.current = Date.now();
     cloudWorkspaceLoadedRef.current = true;
 
@@ -1758,9 +1793,8 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       productTombstones:    readLocalProductTombstones(activeTenant.id),
     };
 
-    saveTenantWorkspace(activeTenant.id, workspace).catch((error) => {
-      console.warn('[Dashboard] Unable to immediately sync updated products workspace:', error);
-    });
+    // Use scheduleTenantWorkspaceSave for debounced batched save instead of immediate saveData + saveTenantWorkspace
+    void scheduleTenantWorkspaceSave(activeTenant.id, workspace);
     return syncedProducts;
   };
 
@@ -1990,17 +2024,22 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     setSalesMap(previous => ({ ...previous, [tenantId]: nextSales }));
     setProductsMap(previous => ({ ...previous, [tenantId]: restoredProducts }));
     setDeliveriesMap(previous => ({ ...previous, [tenantId]: nextDeliveries }));
-    saveData(
-      tenantId,
-      'sales_map',
-      attachPayloadSaleTombstones(
-        { [tenantId]: nextSales },
-        tenantId,
-        nextSaleTombstones,
-      ),
-    );
-    saveData(tenantId, 'products_map', { [tenantId]: restoredProducts });
-    saveData(tenantId, 'deliveries_map', { [tenantId]: nextDeliveries });
+    
+    // Use scheduleTenantWorkspaceSave for batched save instead of multiple saveData calls
+    void scheduleTenantWorkspaceSave(tenantId, {
+      branches: branchesMap[tenantId] || [],
+      branchStocks: branchStocksMap[tenantId] || [],
+      branchStaffAssignments: branchStaffAssignmentsMap[tenantId] || [],
+      products: restoredProducts,
+      sales: nextSales,
+      expenses: expensesMap[tenantId] || [],
+      settings: systemSettings,
+      deliveries: nextDeliveries,
+      pendingDeliveryNotes: pendingDeliveryNotesMap[tenantId] || [],
+      purchases: purchasesMap[tenantId] || [],
+      productTombstones: readLocalProductTombstones(tenantId),
+      saleTombstones: nextSaleTombstones,
+    });
 
     setLogs(previous => [{
       id: `sale-delete-${sale.id}-${Date.now()}`,
@@ -2057,7 +2096,21 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     };
     setPendingDeliveryNotesMap(updated);
     safeSetTenantMapItem('jasper_pending_delivery_notes_map', 'pending_delivery_notes_map', updated);
-    saveData(activeTenant.id, 'pending_delivery_notes_map', updated);
+    
+    // Use scheduleTenantWorkspaceSave for batched save instead of direct saveData
+    void scheduleTenantWorkspaceSave(activeTenant.id, {
+      branches: branchesMap[activeTenant.id] || [],
+      branchStocks: branchStocksMap[activeTenant.id] || [],
+      branchStaffAssignments: branchStaffAssignmentsMap[activeTenant.id] || [],
+      products: productsMap[activeTenant.id] || [],
+      sales: salesMap[activeTenant.id] || [],
+      expenses: expensesMap[activeTenant.id] || [],
+      settings: systemSettings,
+      deliveries: deliveriesMap[activeTenant.id] || [],
+      pendingDeliveryNotes: tenantNotes,
+      purchases: purchasesMap[activeTenant.id] || [],
+      productTombstones: readLocalProductTombstones(activeTenant.id),
+    });
   };
 
   const handleAddSale = async (sale: Sale) => {
@@ -2473,7 +2526,21 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     localWorkspaceChangedAtRef.current = Date.now();
     cloudWorkspaceLoadedRef.current = true;
     setDeliveriesMap(previous => ({ ...previous, [tenantId]: nextDeliveries }));
-    saveData(tenantId, 'deliveries_map', { [tenantId]: nextDeliveries });
+    
+    // Use scheduleTenantWorkspaceSave for batched save instead of direct saveData
+    void scheduleTenantWorkspaceSave(tenantId, {
+      branches: branchesMap[tenantId] || [],
+      branchStocks: branchStocksMap[tenantId] || [],
+      branchStaffAssignments: branchStaffAssignmentsMap[tenantId] || [],
+      products: productsMap[tenantId] || [],
+      sales: salesMap[tenantId] || [],
+      expenses: expensesMap[tenantId] || [],
+      settings: systemSettings,
+      deliveries: nextDeliveries,
+      pendingDeliveryNotes: pendingDeliveryNotesMap[tenantId] || [],
+      purchases: purchasesMap[tenantId] || [],
+      productTombstones: readLocalProductTombstones(tenantId),
+    });
 
     setLogs(previous => [{
       id: `delivery-delete-${deliveryId}-${Date.now()}`,
