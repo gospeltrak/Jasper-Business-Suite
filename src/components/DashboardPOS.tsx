@@ -1367,7 +1367,7 @@ export default function DashboardPOS({
         </div>
 
         {/* Product listing grid */}
-        <div id="pos-product-grid" className={`${showProductImages ? 'grid grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4' : 'flex flex-col gap-2'} px-2 md:px-0 min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-2 scrollbar-thin scrollbar-thumb-slate-200`}>
+        <div id="pos-product-grid" className={`${showProductImages ? 'grid grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-3 lg:gap-4' : 'flex flex-col gap-2'} px-2 md:px-0 min-h-0 lg:overflow-y-auto lg:pr-2 scrollbar-thin scrollbar-thumb-slate-200`} style={{ gridAutoRows: 'minmax(0, max-content)' }}>
           {filteredProducts.length === 0 ? (
             <div className="col-span-3 lg:col-span-4 text-center py-16 text-sm font-mono text-slate-500 bg-white border border-slate-200 rounded-3xl shadow-sm">
               No matching {activeTenant.businessType === 'pharmacy' ? 'pharmaceutical products' : 'retail items'} in stock.
@@ -1400,6 +1400,7 @@ export default function DashboardPOS({
                       ? 'border-slate-200 opacity-55 cursor-not-allowed bg-slate-50' 
                       : 'border-slate-200 hover:border-slate-350 cursor-pointer'
                   }`}
+                  style={{ height: 'fit-content', alignSelf: 'start' }}
                 >
                   {/* Product image — only shown if user uploaded one */}
                   {showProductImages && getProductImage(prod) !== '' && (
