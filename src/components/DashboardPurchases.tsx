@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Product, Supplier, Purchase, PurchaseItem, Tenant, SystemSettings, PaymentChannel } from '../types';
 import { getMaskedAccountReference } from '../utils/paymentAccounts';
 import ModernSelect from './ui/ModernSelect';
+import CachedImage from './CachedImage';
 import { addBatchToProduct, createInventoryBatch } from '../utils/inventoryCosting';
 import { formatProductQuantity } from '../utils/unitFormatter';
 import { calculateBaseCost, convertToBaseQuantity, getBaseUnitLabel, resolvePackageLevels } from '../utils/universalUnits';
@@ -1404,6 +1405,13 @@ export default function DashboardPurchases({
                     onClick={() => handleAddToCart(prod)}
                     className="border border-slate-200 hover:border-emerald-400 bg-slate-50/50 hover:bg-emerald-50/20 p-4 rounded-2xl flex flex-col justify-between space-y-3 cursor-pointer transition-all hover:shadow-sm group"
                   >
+                    <div className="h-28 rounded-xl bg-white border border-slate-100 flex items-center justify-center overflow-hidden">
+                      {prod.image ? (
+                        <CachedImage src={prod.image} alt={prod.name} className="h-full w-full object-contain p-2" />
+                      ) : (
+                        <Package className="h-9 w-9 text-slate-200" />
+                      )}
+                    </div>
                     <div className="space-y-1">
                       <div className="flex justify-between items-start gap-2">
                         <span className="inline-block text-[9px] font-mono tracking-wider font-extrabold bg-slate-200/60 px-2 py-0.5 rounded text-slate-500">
@@ -1563,7 +1571,16 @@ export default function DashboardPurchases({
                         onClick={() => { handleAddToCart(prod); setSearchTerm(''); }}
                         className="w-full flex items-center justify-between px-3 py-2 bg-white rounded-lg border border-slate-100 text-left"
                       >
-                        <span className="text-xs font-semibold text-slate-800 truncate">{prod.name}</span>
+                        <span className="flex min-w-0 items-center gap-2">
+                          <span className="h-9 w-9 shrink-0 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center overflow-hidden">
+                            {prod.image ? (
+                              <CachedImage src={prod.image} alt={prod.name} className="h-full w-full object-contain" />
+                            ) : (
+                              <Package className="h-4 w-4 text-slate-300" />
+                            )}
+                          </span>
+                          <span className="text-xs font-semibold text-slate-800 truncate">{prod.name}</span>
+                        </span>
                         <span className="text-[10px] font-bold text-emerald-600 ml-2 shrink-0">+ Add</span>
                       </button>
                     ))}

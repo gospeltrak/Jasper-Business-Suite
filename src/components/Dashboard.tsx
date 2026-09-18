@@ -3142,24 +3142,15 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     if (blockOfflineBusinessWrite('purchase deletion')) return false;
     const purchase = (purchasesMap[activeTenant.id] || []).find(item => item.id === purchaseId);
     if (!purchase || !recordBelongsToActiveBranch(purchase, activeBranchSelection)) return false;
-    if (purchase?.treasuryJournalId) {
-      try {
-        await reverseTreasuryEntry(
-          purchase.treasuryJournalId,
-          purchase.id,
-          `Voided purchase payment: ${purchase.supplierName}`,
-        );
-      } catch (error: any) {
-        addToast(error?.message || 'Money & Bank could not reverse this purchase safely.', 'error');
-        return false;
-      }
-    }
     localWorkspaceChangedAtRef.current = Date.now();
     cloudWorkspaceLoadedRef.current = true;
     
-    const nextPurchases = (purchasesMap[activeTenant.id] || []).filter(p => p.id !== purchaseId);
-    const nextProducts = reversePurchaseInventory(productsMap[activeTenant.id] || [], purchase);
-    const nextBranchStocks = (branchStocksMap[activeTenant.id] || []).map(stock => {
+    const previousPurchases = purchasesMap[activeTenant.id] || [];
+    const previousProducts = productsMap[activeTenant.id] || [];
+    const previousBranchStocks = branchStocksMap[activeTenant.id] || [];
+    const nextPurchases = previousPurchases.filter(p => p.id !== purchaseId);
+    const nextProducts = reversePurchaseInventory(previousProducts, purchase);
+    const nextBranchStocks = previousBranchStocks.map(stock => {
       const product = nextProducts.find(item => item.id === stock.productId);
       if (!product || !activeBranchSelection.activeBranchId || stock.branchId !== activeBranchSelection.activeBranchId) return stock;
       return {
@@ -3187,6 +3178,33 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       saleTombstones: readLocalSaleTombstones(activeTenant.id),
     });
     if (!saved) return false;
+
+    if (purchase.treasuryJournalId) {
+      try {
+        await reverseTreasuryEntry(
+          purchase.treasuryJournalId,
+          purchase.id,
+          `Voided purchase payment: ${purchase.supplierName}`,
+        );
+      } catch (error: any) {
+        await saveTenantWorkspace(activeTenant.id, {
+          branches: branchesMap[activeTenant.id] || [],
+          branchStocks: previousBranchStocks,
+          branchStaffAssignments: branchStaffAssignmentsMap[activeTenant.id] || [],
+          products: previousProducts,
+          sales: salesMap[activeTenant.id] || [],
+          expenses: expensesMap[activeTenant.id] || [],
+          settings: systemSettings,
+          deliveries: deliveriesMap[activeTenant.id] || [],
+          pendingDeliveryNotes: pendingDeliveryNotesMap[activeTenant.id] || [],
+          purchases: previousPurchases,
+          productTombstones: readLocalProductTombstones(activeTenant.id),
+          saleTombstones: readLocalSaleTombstones(activeTenant.id),
+        });
+        addToast(error?.message || 'Money & Bank could not reverse this purchase safely. Nothing was deleted.', 'error');
+        return false;
+      }
+    }
     
     setPurchasesMap(prev => ({
       ...prev,
