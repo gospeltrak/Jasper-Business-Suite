@@ -1377,7 +1377,7 @@ export default function DashboardPurchases({
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start pb-4">
             
             {/* Left panel: Product List — hidden on mobile (use search in cart) */}
-            <div className="hidden sm:block lg:col-span-7 bg-white border border-slate-200 rounded-3xl p-6 space-y-5 shadow-xs">
+            <div className="block lg:col-span-7 bg-white border border-slate-200 rounded-3xl p-4 sm:p-6 space-y-5 shadow-xs">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <h5 className="font-black text-slate-800 text-sm font-sans">Product List</h5>
@@ -1497,53 +1497,6 @@ export default function DashboardPurchases({
                     </div>
                   </div>
 
-                  <div className="space-y-1">
-                    <label className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest block font-mono">Order Delivery State</label>
-                    <select
-                      value={deliveryStatus}
-                      onChange={(e) => setDeliveryStatus(e.target.value as any)}
-                      className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2 rounded-xl text-slate-800 font-bold outline-none cursor-pointer"
-                    >
-                      <option value="Full order delivered">Full Order Delivered</option>
-                      <option value="Partial">Partial Order Delivered</option>
-                      <option value="Pending">Pending / Not Shipped Yet</option>
-                    </select>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3 pt-1">
-                    <div className="space-y-1">
-                      <label className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest block font-mono">Supplier Discount</label>
-                      <div className="flex rounded-xl bg-slate-50 border border-slate-200 overflow-hidden text-xs">
-                        <select
-                          value={purchaseDiscountType}
-                          onChange={(e) => { setPurchaseDiscountType(e.target.value as any); setPurchaseDiscount(0); }}
-                          className="bg-slate-100 border-r border-slate-200 px-1.5 text-[10px] py-1.5 font-bold cursor-pointer focus:outline-none"
-                        >
-                          <option value="percentage">%</option>
-                          <option value="cash">{currency}</option>
-                        </select>
-                        <input
-                          type="number" min="0" value={purchaseDiscount || ''}
-                          onChange={(e) => setPurchaseDiscount(Math.max(0, parseFloat(e.target.value) || 0))}
-                          placeholder="0"
-                          className="w-full bg-transparent px-2 text-xs font-bold font-mono focus:outline-none text-right pr-2 py-1"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest block font-mono">Transport Fee</label>
-                      <div className="flex rounded-xl bg-slate-50 border border-slate-200 overflow-hidden text-xs text-slate-800">
-                        <span className="bg-slate-100 border-r border-slate-200 px-2 py-1.5 text-[10px] font-mono font-bold">{currency}</span>
-                        <input
-                          type="number" min="0" value={deliveryFee || ''}
-                          onChange={(e) => setDeliveryFee(Math.max(0, parseFloat(e.target.value) || 0))}
-                          placeholder="0"
-                          className="w-full bg-transparent px-2 text-xs font-bold font-mono focus:outline-none text-right pr-2 py-1"
-                        />
-                      </div>
-                    </div>
-                  </div>
                 </div>
               </div>
 
@@ -1678,6 +1631,43 @@ export default function DashboardPurchases({
                 )}
               </div>
 
+              {/* Purchase adjustments follow the cart so the form reads in
+                  the same order as the purchase being assembled. */}
+              <div className="grid grid-cols-2 gap-3 border-t border-slate-200 pt-4">
+                <div className="space-y-1">
+                  <label className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest block font-mono">Supplier Discount</label>
+                  <div className="flex rounded-xl bg-slate-50 border border-slate-200 overflow-hidden text-xs">
+                    <select
+                      value={purchaseDiscountType}
+                      onChange={(e) => { setPurchaseDiscountType(e.target.value as any); setPurchaseDiscount(0); }}
+                      className="bg-slate-100 border-r border-slate-200 px-1.5 py-1.5 text-[10px] font-bold cursor-pointer focus:outline-none"
+                    >
+                      <option value="percentage">%</option>
+                      <option value="cash">{currency}</option>
+                    </select>
+                    <input
+                      type="number" min="0" value={purchaseDiscount || ''}
+                      onChange={(e) => setPurchaseDiscount(Math.max(0, parseFloat(e.target.value) || 0))}
+                      placeholder="0"
+                      className="w-full bg-transparent px-2 py-1 text-right text-xs font-bold font-mono focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest block font-mono">Transport Fee</label>
+                  <div className="flex rounded-xl bg-slate-50 border border-slate-200 overflow-hidden text-xs text-slate-800">
+                    <span className="bg-slate-100 border-r border-slate-200 px-2 py-1.5 text-[10px] font-mono font-bold">{currency}</span>
+                    <input
+                      type="number" min="0" value={deliveryFee || ''}
+                      onChange={(e) => setDeliveryFee(Math.max(0, parseFloat(e.target.value) || 0))}
+                      placeholder="0"
+                      className="w-full bg-transparent px-2 py-1 text-right text-xs font-bold font-mono focus:outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
               {/* Payment section */}
               {cart.length > 0 && (
                 <div className="border-t border-slate-200 pt-4 space-y-4 font-sans text-xs">
@@ -1805,6 +1795,19 @@ export default function DashboardPurchases({
 
                 </div>
               )}
+
+              <div className="space-y-1 border-t border-slate-200 pt-4">
+                <label className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest block font-mono">Order Delivery State</label>
+                <select
+                  value={deliveryStatus}
+                  onChange={(e) => setDeliveryStatus(e.target.value as any)}
+                  className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2 rounded-xl text-slate-800 font-bold outline-none cursor-pointer"
+                >
+                  <option value="Full order delivered">Full Order Delivered</option>
+                  <option value="Partial">Partial Order Delivered</option>
+                  <option value="Pending">Pending / Not Shipped Yet</option>
+                </select>
+              </div>
             </div>
           </div>
         )}
