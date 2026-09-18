@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Product, Supplier, Purchase, PurchaseItem, Tenant, SystemSettings, PaymentChannel } from '../types';
 import { getMaskedAccountReference } from '../utils/paymentAccounts';
@@ -31,6 +31,20 @@ import {
   X,
   ChevronDown
 } from 'lucide-react';
+
+type PurchaseFundingRow = {
+  id: string;
+  fundingType: 'registered' | 'external';
+  accountId: string;
+  amount: number;
+};
+
+const createPurchaseFundingRow = (): PurchaseFundingRow => ({
+  id: `purchase-funding-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+  fundingType: 'registered',
+  accountId: '',
+  amount: 0,
+});
 
 interface DashboardPurchasesProps {
   activeTenant: Tenant;
@@ -328,9 +342,8 @@ export default function DashboardPurchases({
   
   const [searchTerm, setSearchTerm] = useState('');
   const [cart, setCart] = useState<Array<{ product: Product; qty: number; costPrice: number; unitLevelId: string; expiryDate?: string }>>([]);
-  const [amountPaid, setAmountPaid] = useState<number>(0);
   const [paymentMethod, setPaymentMethod] = useState<string>('Cash');
-  const [paidFromAccountId, setPaidFromAccountId] = useState<string>('');
+  const [fundingRows, setFundingRows] = useState<PurchaseFundingRow[]>([createPurchaseFundingRow()]);
   const [purchaseSuccess, setPurchaseSuccess] = useState(false);
   const [purchaseError, setPurchaseError] = useState('');
 
@@ -541,9 +554,43 @@ export default function DashboardPurchases({
     ? (subtotal * purchaseDiscount) / 100
     : purchaseDiscount;
   const totalAmount = Math.max(0, subtotal - discountAmount) + deliveryFee;
-  const amountDue = Math.max(0, totalAmount - amountPaid);
+  const allocatedAmount = fundingRows.reduce((sum, row) => sum + Math.max(0, Number(row.amount) || 0), 0);
+  const amountPaid = allocatedAmount;
+  const allocationDifference = totalAmount - allocatedAmount;
+  const amountDue = Math.max(0, allocationDifference);
   const paymentAccounts = (systemSettings.paymentChannels || [])
     .filter(account => account.category !== 'person' && account.status !== 'inactive' && account.status !== 'archived');
+
+  useEffect(() => {
+    setFundingRows(current => {
+      const next = current.map(row => (
+      row.fundingType === 'registered'
+      && row.accountId
+      && !paymentAccounts.some(account => account.id === row.accountId)
+        ? { ...row, accountId: '' }
+        : row
+      ));
+      if (next.every((row, index) => row.accountId === current[index]?.accountId)
+        && next.some(row => row.fundingType === 'registered' && !row.accountId)
+        && paymentAccounts.length > 0) {
+        return next.map(row => row.fundingType === 'registered' && !row.accountId
+          ? { ...row, accountId: paymentAccounts[0].id }
+          : row);
+      }
+      return next.some((row, index) => row.accountId !== current[index]?.accountId) ? next : current;
+    });
+  }, [paymentAccounts]);
+
+  const updateFundingRow = (rowId: string, patch: Partial<PurchaseFundingRow>) => {
+    setFundingRows(current => current.map(row => row.id === rowId ? { ...row, ...patch } : row));
+  };
+
+  const removeFundingRow = (rowId: string) => {
+    setFundingRows(current => {
+      if (current.length <= 1) return current;
+      return current.filter(row => row.id !== rowId);
+    });
+  };
 
   const handleCommitPurchase = async () => {
     setPurchaseError('');
@@ -552,13 +599,14 @@ export default function DashboardPurchases({
       alert("Please select a valid supplier first!");
       return;
     }
-    if (amountPaid > 0 && !paidFromAccountId) {
-      alert('Please select the Money & Bank account used to pay this purchase.');
+    if (Math.abs(allocatedAmount - totalAmount) > 0.01) {
+      setPurchaseError(`Funding must equal the purchase total. Remaining: ${currency}${Math.round(Math.abs(totalAmount - allocatedAmount)).toLocaleString()}`);
       return;
     }
 
     const supplier = availableSuppliers.find(s => s.id === selectedSupplierId) || availableSuppliers[0];
-    const paidFromAccount = paymentAccounts.find(account => account.id === paidFromAccountId);
+    const firstRegisteredFunding = fundingRows.find(row => row.fundingType === 'registered' && row.accountId);
+    const firstRegisteredAccount = paymentAccounts.find(account => account.id === firstRegisteredFunding?.accountId);
 
     const purchaseItems: PurchaseItem[] = cart.map(item => {
       const level = item.unitLevelId !== 'base'
@@ -599,8 +647,23 @@ export default function DashboardPurchases({
       totalAmount,
       amountPaid,
       amountDue,
-      paymentMethod: paidFromAccount?.paymentMethod || paymentMethod,
-      paidFromAccountId: amountPaid > 0 ? paidFromAccountId : undefined,
+      paymentMethod: fundingRows.length > 1 || fundingRows.some(row => row.fundingType === 'external')
+        ? 'Multi-Channel'
+        : firstRegisteredAccount?.paymentMethod || firstRegisteredAccount?.name || paymentMethod,
+      paidFromAccountId: firstRegisteredFunding?.accountId,
+      paymentAllocations: fundingRows
+        .filter(row => row.amount > 0)
+        .map(row => {
+          const account = paymentAccounts.find(candidate => candidate.id === row.accountId);
+          return {
+            fundingType: row.fundingType,
+            accountId: row.fundingType === 'registered' ? row.accountId : undefined,
+            accountName: row.fundingType === 'external' ? 'External Account' : (account?.name || row.accountId),
+            sourceKey: row.fundingType === 'registered' ? row.accountId : undefined,
+            amount: row.amount,
+            currency: activeTenant.currencyCode,
+          };
+        }),
       destination,
       deliveryStatus,
       timestamp: new Date().toISOString(),
@@ -652,8 +715,7 @@ export default function DashboardPurchases({
     setPurchaseSuccess(true);
     setTimeout(() => {
       setCart([]);
-      setAmountPaid(0);
-      setPaidFromAccountId('');
+      setFundingRows([createPurchaseFundingRow()]);
       setPurchaseDiscount(0);
       setPurchaseDiscountType('percentage');
       setDeliveryFee(0);
@@ -1626,73 +1688,79 @@ export default function DashboardPurchases({
                     </div>
                   </div>
 
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between items-center">
-                      <label className="text-[10px] font-black text-slate-505 uppercase tracking-wider block font-mono">Amount Paid Now</label>
-                      <button 
+                  <div className="space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-black text-slate-505 uppercase tracking-wider block font-mono">Paid From</label>
+                      <button
                         type="button"
-                        onClick={() => setAmountPaid(totalAmount)}
-                        className="text-[9.5px] text-emerald-600 bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded font-black font-sans uppercase"
+                        onClick={() => setFundingRows(current => [...current, createPurchaseFundingRow()])}
+                        className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-2.5 py-1 text-[9px] font-black uppercase text-emerald-700 hover:bg-emerald-100"
                       >
-                        Settle Full
+                        <Plus className="h-3 w-3" /> Add Payment Source
                       </button>
                     </div>
-                    <div className="flex items-center bg-slate-50 border border-slate-250 focus-within:border-emerald-500 px-3 py-2.5 rounded-xl transition-all">
-                      <span className="text-slate-500 font-bold font-mono mr-1.5">{currency}</span>
-                      <input 
-                        type="number" min="0"
-                        value={amountPaid || ''}
-                        onChange={(e) => setAmountPaid(Math.min(totalAmount, Math.max(0, parseFloat(e.target.value) || 0)))}
-                        className="bg-transparent w-full text-xs text-slate-800 font-black font-mono focus:outline-none text-right placeholder-slate-400"
-                        placeholder="0 (leave empty if not paid yet)"
-                      />
+                    {fundingRows.map((row, index) => (
+                      <div key={row.id} className="grid grid-cols-[minmax(0,1fr)_7rem_auto] items-center gap-2">
+                        <select
+                          value={row.fundingType === 'external' ? 'external' : row.accountId}
+                          onChange={(event) => {
+                            const value = event.target.value;
+                            if (value === 'external') {
+                              updateFundingRow(row.id, { fundingType: 'external', accountId: '' });
+                              return;
+                            }
+                            const account = paymentAccounts.find(candidate => candidate.id === value);
+                            updateFundingRow(row.id, {
+                              fundingType: 'registered',
+                              accountId: value,
+                            });
+                            if (index === 0 && account) setPaymentMethod(account.paymentMethod || account.name);
+                          }}
+                          className="w-full min-w-0 bg-white border border-slate-250 focus:border-emerald-500 px-2.5 py-2.5 rounded-xl text-xs font-bold font-sans transition-all cursor-pointer outline-none"
+                        >
+                          <option value="">Select account</option>
+                          {paymentAccounts.map(account => (
+                            <option key={account.id} value={account.id}>{account.name}{getMaskedAccountReference(account) ? ` — ${getMaskedAccountReference(account)}` : ''}</option>
+                          ))}
+                          <option value="external">External Account</option>
+                        </select>
+                        <input
+                          type="number"
+                          min="0"
+                          value={row.amount || ''}
+                          onChange={(event) => updateFundingRow(row.id, { amount: Math.max(0, Number(event.target.value) || 0) })}
+                          className="w-full bg-white border border-slate-250 focus:border-emerald-500 px-2 py-2.5 rounded-xl text-xs font-black font-mono text-right outline-none"
+                          placeholder="Amount"
+                        />
+                        <button
+                          type="button"
+                          title="Remove payment source"
+                          aria-label="Remove payment source"
+                          disabled={fundingRows.length <= 1}
+                          onClick={() => removeFundingRow(row.id)}
+                          className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-30"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                    <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 font-mono text-[10px]">
+                      <div className="flex justify-between text-slate-600"><span>ALLOCATED</span><span className="font-black">{currency}{Math.round(allocatedAmount).toLocaleString()}</span></div>
+                      <div className="flex justify-between text-slate-600"><span>{allocationDifference < 0 ? 'OVER ALLOCATED' : 'REMAINING'}</span><span className={`font-black ${allocationDifference === 0 ? 'text-emerald-600' : 'text-amber-600'}`}>{currency}{Math.round(Math.abs(allocationDifference)).toLocaleString()}</span></div>
                     </div>
                   </div>
-
-                  {amountPaid > 0 && (
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black text-slate-505 uppercase tracking-wider block font-mono">Paid From Account</label>
-                      <select
-                        value={paidFromAccountId}
-                        onChange={(e) => {
-                          const accountId = e.target.value;
-                          setPaidFromAccountId(accountId);
-                          const account = paymentAccounts.find(candidate => candidate.id === accountId);
-                          if (account) setPaymentMethod(account.paymentMethod || account.name);
-                        }}
-                        className="w-full bg-white border border-slate-250 focus:border-emerald-500 px-3 py-2.5 rounded-xl text-xs font-bold font-sans transition-all cursor-pointer outline-none"
-                      >
-                        <option value="">Select Money & Bank account</option>
-                        {paymentAccounts.map(account => (
-                          <option key={account.id} value={account.id}>{account.name}{getMaskedAccountReference(account) ? ` — ${getMaskedAccountReference(account)}` : ''}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
                   {purchaseError && (
                     <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700">
                       {purchaseError}
                     </div>
                   )}
 
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-slate-505 uppercase tracking-wider block font-mono">Payment Method</label>
-                    <select
-                      value={paymentMethod}
-                      onChange={(e) => setPaymentMethod(e.target.value)}
-                      className="w-full bg-white border border-slate-250 focus:border-emerald-500 px-3 py-2.5 rounded-xl text-xs font-bold font-sans transition-all cursor-pointer outline-none"
-                    >
-                      <option value="Cash">Cash</option>
-                      <option value="Mobile Money">Mobile Money</option>
-                      <option value="Bank Transfer">Bank Transfer</option>
-                      <option value="Card">Credit/Debit Card</option>
-                    </select>
-                  </div>
-
                   <div className="flex justify-between items-center text-xs font-mono font-bold text-slate-600 border-t border-dashed border-slate-250 pt-2.5">
                     <span>OUTSTANDING BALANCE</span>
-                    {amountDue > 0 ? (
+                    {allocationDifference > 0 ? (
                       <span className="text-amber-600 font-black">{currency}{Math.round(amountDue).toLocaleString()}</span>
+                    ) : allocationDifference < 0 ? (
+                      <span className="text-red-600 font-black">Over {currency}{Math.round(Math.abs(allocationDifference)).toLocaleString()}</span>
                     ) : (
                       <span className="text-emerald-600 font-black">Paid in Full</span>
                     )}
@@ -1701,7 +1769,7 @@ export default function DashboardPurchases({
                   {/* Modern CTA button */}
                   <button
                     type="button"
-                    disabled={purchaseSuccess}
+                    disabled={purchaseSuccess || Math.abs(allocatedAmount - totalAmount) > 0.01 || fundingRows.some(row => row.amount > 0 && row.fundingType === 'registered' && !row.accountId)}
                     onClick={handleCommitPurchase}
                     className="w-full relative overflow-hidden bg-gradient-to-br from-slate-800 to-slate-950 hover:from-slate-700 hover:to-slate-900 disabled:from-slate-200 disabled:to-slate-100 text-white font-black py-4 px-4 rounded-2xl text-xs uppercase tracking-wider cursor-pointer flex items-center justify-center gap-2 transition-all shadow-lg active:scale-[0.98]"
                   >

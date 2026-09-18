@@ -61,6 +61,12 @@ const safeTreasuryError = (error: any) => {
   return new Error('Money & Bank could not post this transaction safely. Nothing was saved.');
 };
 
+const TREASURY_ACCOUNT_CACHE_TTL_MS = 30_000;
+const treasuryAccountSyncCache = new Map<string, {
+  expiresAt: number;
+  accounts: SyncedTreasuryAccount[];
+}>();
+
 export async function postTreasuryEntry(input: TreasuryPostInput): Promise<TreasuryPostResult> {
   const amount = Number(input.amount);
   if (!Number.isFinite(amount) || amount <= 0) {
@@ -114,6 +120,7 @@ async function syncTreasuryAccounts(
   client: any,
   activeChannels: PaymentChannel[],
   openingBalances: Record<string, number> = {},
+  cacheKey = '',
 ): Promise<SyncedTreasuryAccount[]> {
   const accountsPayload = activeChannels.map(channel => ({
     sourceKey: channel.id,
@@ -125,6 +132,15 @@ async function syncTreasuryAccounts(
     isDefault: Boolean(channel.isDefault),
     openingBalance: Math.max(0, Number(openingBalances[channel.id] || 0)),
   }));
+  const accountConfiguration = accountsPayload.map(({ openingBalance, ...account }) => account);
+  const syncCacheKey = cacheKey
+    ? `${cacheKey}:${JSON.stringify(accountConfiguration)}`
+    : '';
+  if (syncCacheKey) {
+    const cached = treasuryAccountSyncCache.get(syncCacheKey);
+    if (cached && cached.expiresAt > Date.now()) return cached.accounts;
+    treasuryAccountSyncCache.delete(syncCacheKey);
+  }
 
   let { data: synced, error: syncError } = await client.rpc(
     'sync_current_tenant_treasury_accounts',
@@ -138,7 +154,14 @@ async function syncTreasuryAccounts(
     }
   }
   if (syncError) throw safeTreasuryError(syncError);
-  return (synced?.accounts || []) as SyncedTreasuryAccount[];
+  const accounts = (synced?.accounts || []) as SyncedTreasuryAccount[];
+  if (syncCacheKey) {
+    treasuryAccountSyncCache.set(syncCacheKey, {
+      expiresAt: Date.now() + TREASURY_ACCOUNT_CACHE_TTL_MS,
+      accounts,
+    });
+  }
+  return accounts;
 }
 
 export async function syncTreasuryPaymentAccounts(
@@ -202,6 +225,7 @@ export async function postTreasurySplitIncome(input: {
   sourceId: string;
   description: string;
   openingBalances?: Record<string, number>;
+  cacheKey?: string;
   metadata?: Record<string, unknown>;
 }): Promise<{ journalId: string; branchId: string }> {
   const activeChannels = input.channels.filter(channel =>
@@ -222,7 +246,12 @@ export async function postTreasurySplitIncome(input: {
   }
 
   const client: any = await getSecureDataBridgeClient();
-  const syncedAccounts = await syncTreasuryAccounts(client, activeChannels, input.openingBalances);
+  const syncedAccounts = await syncTreasuryAccounts(
+    client,
+    activeChannels,
+    input.openingBalances,
+    input.cacheKey,
+  );
   const mapping = new Map(syncedAccounts.map(account => [account.sourceKey, account]));
   const branchIds = new Set([...aggregated.keys()].map(key => mapping.get(key)?.branchId).filter(Boolean));
   if (branchIds.size !== 1) throw new Error('Split payments must belong to one active branch.');
@@ -238,6 +267,67 @@ export async function postTreasurySplitIncome(input: {
   }
 
   const { data, error } = await client.rpc('post_current_tenant_treasury_split_entry', {
+    p_branch_id: branchId,
+    p_lines: lines,
+    p_source_type: input.sourceType,
+    p_source_id: input.sourceId,
+    p_idempotency_key: `${input.sourceType}:${input.sourceId}:v1`,
+    p_description: input.description,
+    p_metadata: input.metadata || {},
+  });
+  if (error) throw safeTreasuryError(error);
+  return { journalId: String(data?.journalId || ''), branchId };
+}
+
+export async function postTreasurySplitOutgoing(input: {
+  channels: PaymentChannel[];
+  lines: Array<{ sourceAccountKey: string; amount: number }>;
+  sourceType: 'purchase' | 'expense' | 'other';
+  sourceId: string;
+  description: string;
+  openingBalances?: Record<string, number>;
+  cacheKey?: string;
+  metadata?: Record<string, unknown>;
+}): Promise<{ journalId: string; branchId: string }> {
+  const activeChannels = input.channels.filter(channel =>
+    channel.category !== 'person'
+    && channel.status !== 'inactive'
+    && channel.status !== 'archived'
+  );
+  const aggregated = new Map<string, number>();
+  input.lines.forEach(line => {
+    const amount = Math.max(0, Number(line.amount || 0));
+    if (amount > 0) {
+      aggregated.set(line.sourceAccountKey, (aggregated.get(line.sourceAccountKey) || 0) + amount);
+    }
+  });
+  if (aggregated.size < 1) throw new Error('At least one registered payment account is required.');
+  if ([...aggregated.keys()].some(key => !activeChannels.some(channel => channel.id === key))) {
+    throw new Error('Every purchase payment must use an active Money & Bank account.');
+  }
+
+  const client: any = await getSecureDataBridgeClient();
+  const syncedAccounts = await syncTreasuryAccounts(
+    client,
+    activeChannels,
+    input.openingBalances,
+    input.cacheKey,
+  );
+  const mapping = new Map(syncedAccounts.map(account => [account.sourceKey, account]));
+  const branchIds = new Set([...aggregated.keys()].map(key => mapping.get(key)?.branchId).filter(Boolean));
+  if (branchIds.size !== 1) throw new Error('Purchase payment accounts must belong to one active branch.');
+  const branchId = String([...branchIds][0] || '');
+  const lines = [...aggregated.entries()]
+    .map(([sourceAccountKey, amount]) => ({
+      accountId: mapping.get(sourceAccountKey)?.accountId,
+      amount,
+    }))
+    .sort((a, b) => String(a.accountId).localeCompare(String(b.accountId)));
+  if (lines.some(line => !line.accountId)) {
+    throw new Error('A purchase payment account could not be synchronized.');
+  }
+
+  const { data, error } = await client.rpc('post_current_tenant_treasury_split_outgoing_entry', {
     p_branch_id: branchId,
     p_lines: lines,
     p_source_type: input.sourceType,

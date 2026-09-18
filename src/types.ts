@@ -501,6 +501,18 @@ export interface PurchaseItem {
   baseUnit?: string;
 }
 
+export interface PurchasePaymentAllocation {
+  id?: string;
+  fundingType: 'registered' | 'external';
+  accountId?: string;
+  accountName: string;
+  sourceKey?: string;
+  amount: number;
+  currency?: string;
+  reference?: string;
+  treasuryJournalId?: string;
+}
+
 export interface Purchase {
   id: string;
   supplierId: string;
@@ -511,6 +523,7 @@ export interface Purchase {
   amountDue: number;
   paymentMethod?: string;
   paidFromAccountId?: string;
+  paymentAllocations?: PurchasePaymentAllocation[];
   destination: 'shop' | 'store';
   deliveryStatus: 'Pending' | 'Partial' | 'Full order delivered';
   timestamp: string; // ISO String

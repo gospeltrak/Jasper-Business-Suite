@@ -4,7 +4,7 @@ import { requestManualInstallPrompt } from '../utils/pwaInstallPrompt';
 import { useTranslation } from '../LanguageContext';
 import { useTenantLogo } from '../TenantLogoContext';
 import { useJasperNotifications } from '../JasperNotificationContext';
-import { Branch, BranchStaffAssignment, BranchStock, User, Tenant, Product, Sale, SyncLog, Supplier, Expense, Purchase, Delivery, DeliveryRider, SystemSettings, CustomRole, SaleItem } from '../types';
+import { Branch, BranchStaffAssignment, BranchStock, User, Tenant, Product, Sale, SyncLog, Supplier, Expense, Purchase, PurchasePaymentAllocation, Delivery, DeliveryRider, SystemSettings, CustomRole, SaleItem } from '../types';
 import { 
   DEFAULT_TENANTS, 
   DEFAULT_PRODUCTS, 
@@ -74,8 +74,9 @@ import {
 } from '../branches/branchScope';
 import { ONLINE_ONLY_WRITE_MESSAGE, canWriteBusinessDataOnline } from '../utils/onlineOnly';
 import { getSecureDataBridgeClient, isPlaceholderSecureDataBridgeClient } from '../secureDataBridge';
-import { postTreasuryEntry, postTreasurySplitIncome, reverseTreasuryEntry } from '../utils/treasuryApi';
+import { postTreasuryEntry, postTreasurySplitIncome, postTreasurySplitOutgoing, reverseTreasuryEntry } from '../utils/treasuryApi';
 import { reversePurchaseInventory } from '../utils/inventoryCosting';
+import { isPurchaseFundingBalanced, registeredPurchaseFunding } from '../utils/purchaseFunding';
 import { getSubscriptionReminder, getSubscriptionReminderKey } from '../utils/subscriptionReminder';
 import { compressImageFile } from '../utils/imageCompression';
 import { formatLocalDate } from '../utils/localDate';
@@ -1839,9 +1840,15 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       }
     });
     activePurchases.forEach(purchase => {
-      if (purchase.paidFromAccountId && balances[purchase.paidFromAccountId] !== undefined) {
-        balances[purchase.paidFromAccountId] -= Math.max(0, Number(purchase.amountPaid || 0));
-      }
+      const allocations = Array.isArray(purchase.paymentAllocations)
+        ? purchase.paymentAllocations.filter(allocation => allocation.fundingType === 'registered')
+        : [];
+      const paymentLines = allocations.length > 0
+        ? allocations.map(allocation => ({ accountId: allocation.accountId || allocation.sourceKey, amount: allocation.amount }))
+        : [{ accountId: purchase.paidFromAccountId, amount: purchase.amountPaid }];
+      paymentLines.forEach(({ accountId, amount }) => {
+        if (accountId && balances[accountId] !== undefined) balances[accountId] -= Math.max(0, Number(amount || 0));
+      });
     });
     return Object.fromEntries(Object.entries(balances).map(([id, balance]) => [id, Math.max(0, balance)]));
   };
@@ -2423,6 +2430,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
           sourceId: sale.id,
           description: `Sale payment ${sale.reference || sale.id}`,
           openingBalances: getTreasuryOpeningBalances(),
+          cacheKey: `${activeBranchSelection.activeScope}:${activeBranchSelection.activeBranchId || 'all'}`,
           metadata: {
             reference: sale.reference,
             cashierName: sale.cashierName,
@@ -2955,32 +2963,68 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       ...purchase,
       branchId: purchase.branchId || activeBranchSelection.activeBranchId || undefined,
     };
-    if (Number(purchase.amountPaid || 0) > 0) {
+    const paymentAllocations: PurchasePaymentAllocation[] = Array.isArray(purchase.paymentAllocations)
+      ? purchase.paymentAllocations
+          .map(allocation => ({
+            ...allocation,
+            amount: Math.max(0, Number(allocation.amount || 0)),
+            currency: allocation.currency || activeTenant.currencyCode,
+          }))
+          .filter(allocation => allocation.amount > 0)
+      : Number(purchase.amountPaid || 0) > 0 && purchase.paidFromAccountId
+        ? [{
+            fundingType: 'registered' as const,
+            accountId: purchase.paidFromAccountId,
+            accountName: purchase.paymentMethod || purchase.paidFromAccountId,
+            sourceKey: purchase.paidFromAccountId,
+            amount: Number(purchase.amountPaid || 0),
+            currency: activeTenant.currencyCode,
+          }]
+        : [];
+    if (paymentAllocations.length > 0 && !isPurchaseFundingBalanced(paymentAllocations, Number(purchase.amountPaid || 0))) {
+      addToast('Purchase funding allocations must equal the amount paid.', 'error');
+      return false;
+    }
+    const registeredAllocations = registeredPurchaseFunding(paymentAllocations);
+    if (registeredAllocations.some(allocation => !allocation.accountId || !allocation.sourceKey)) {
+      addToast('Every registered purchase funding row must use an active Money & Bank account.', 'error');
+      return false;
+    }
+    if (registeredAllocations.length > 0) {
       try {
-        const posted = await postTreasuryEntry({
+        const posted = await postTreasurySplitOutgoing({
           channels: systemSettings.paymentChannels || [],
-          sourceAccountKey: String(purchase.paidFromAccountId || ''),
-          amount: Number(purchase.amountPaid || 0),
-          direction: 'out',
+          lines: registeredAllocations.map(allocation => ({
+            sourceAccountKey: String(allocation.sourceKey),
+            amount: allocation.amount,
+          })),
           sourceType: 'purchase',
           sourceId: purchase.id,
           description: `Purchase payment to ${purchase.supplierName}`,
           openingBalances: getTreasuryOpeningBalances(),
+          cacheKey: `${activeBranchSelection.activeScope}:${activeBranchSelection.activeBranchId || 'all'}`,
           metadata: {
             supplierId: purchase.supplierId,
             supplierName: purchase.supplierName,
             totalAmount: purchase.totalAmount,
+            fundingAllocations: paymentAllocations,
           },
         });
         purchase = {
           ...purchase,
           branchId: posted.branchId,
           treasuryJournalId: posted.journalId,
+          paymentAllocations: paymentAllocations.map(allocation => ({
+            ...allocation,
+            treasuryJournalId: posted.journalId,
+          })),
         };
       } catch (error: any) {
         addToast(error?.message || 'Money & Bank could not post this purchase safely.', 'error');
         return false;
       }
+    } else if (paymentAllocations.length > 0) {
+      purchase = { ...purchase, paymentAllocations };
     }
     const currentTenantPurchases = purchasesMap[activeTenant.id] || [];
     const updatedPurchases = [purchase, ...currentTenantPurchases];
@@ -3030,7 +3074,21 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       productTombstones: readLocalProductTombstones(activeTenant.id),
       saleTombstones: readLocalSaleTombstones(activeTenant.id),
     });
-    if (!saved) return false;
+    if (!saved) {
+      if (purchase.treasuryJournalId) {
+        try {
+          await reverseTreasuryEntry(
+            purchase.treasuryJournalId,
+            purchase.id,
+            'Purchase workspace save failed',
+          );
+        } catch (error) {
+          console.error('Failed to reverse treasury entry after purchase save failure', error);
+        }
+      }
+      addToast('Purchase could not be saved. Any account payment was reversed safely.', 'error');
+      return false;
+    }
     
     setPurchasesMap(prev => ({
       ...prev,

@@ -661,16 +661,10 @@ async function saveTenantWorkspaceNow(
     return false;
   }
 
-  // A workspace whose historical ledgers (sales/expenses/deliveries/
-  // purchases) are still streaming in from loadTenantWorkspaceCore's
-  // background completion has an incomplete local snapshot -- writing it now
-  // would risk shrinking those collections on the server. Wait for that
-  // load to finish (typically well under a second) before writing.
-  await waitForTenantWorkspaceLoad(tenantId);
-
-  try {
-    const currentSafe = readCachedWorkspace(tenantId);
-    let remoteSafe: TenantWorkspace | null = null;
+  // Start the remote guard while the historical ledgers finish loading. The
+  // guard is independent of the local load, so awaiting them sequentially
+  // adds a full network round-trip to every foreground save.
+  const remoteWorkspacePromise = (async (): Promise<TenantWorkspace | null> => {
     try {
       const scopedRemote = typeof client.rpc === 'function'
         ? await client.rpc('get_current_branch_workspace')
@@ -687,12 +681,24 @@ async function saveTenantWorkspaceNow(
           .select('payload, updated_at')
           .eq('tenant_id', tenantId)
           .maybeSingle();
-      if (!remoteError && remoteData?.payload) {
-        remoteSafe = normalizeWorkspace(remoteData.payload as TenantWorkspace);
-      }
+      if (remoteError || !remoteData?.payload) return null;
+      return normalizeWorkspace(remoteData.payload as TenantWorkspace);
     } catch (error: any) {
       console.warn('[workspace] remote guard load exception:', error?.message || error);
+      return null;
     }
+  })();
+
+  // A workspace whose historical ledgers (sales/expenses/deliveries/
+  // purchases) are still streaming in from loadTenantWorkspaceCore's
+  // background completion has an incomplete local snapshot -- writing it now
+  // would risk shrinking those collections on the server. Wait for that
+  // load to finish (typically well under a second) before writing.
+  await waitForTenantWorkspaceLoad(tenantId);
+
+  try {
+    const currentSafe = readCachedWorkspace(tenantId);
+    const remoteSafe = await remoteWorkspacePromise;
 
     const hasSaleDeletionIntent = Object.keys(workspace.saleTombstones || {}).length > 0;
     if (!workspaceHasBusinessData(workspace) && !hasSaleDeletionIntent) {

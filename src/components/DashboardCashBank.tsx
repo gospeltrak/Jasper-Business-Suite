@@ -365,19 +365,31 @@ export default function DashboardCashBank({
     });
 
     purchases.forEach(purchase => {
-      const amount = Math.max(0, Number(purchase.amountPaid || 0));
-      if (amount <= 0 || !purchase.paidFromAccountId) return;
-      if (!channels.some(channel => channel.id === purchase.paidFromAccountId)) return;
-      generated.push({
-        id: `PURCHASE-PAYMENT-${purchase.id}`,
-        tenantId: activeTenant.id,
-        channelId: purchase.paidFromAccountId,
-        amount: -amount,
-        entryType: 'debit',
-        sourceType: 'PURCHASE_PAYMENT',
-        description: `Purchase payment to ${purchase.supplierName}: ${purchase.id}`,
-        timestamp: purchase.timestamp,
-        referenceId: purchase.id,
+      const allocations = Array.isArray(purchase.paymentAllocations)
+        ? purchase.paymentAllocations.filter((allocation: any) => allocation?.fundingType === 'registered')
+        : [];
+      const paymentLines = allocations.length > 0
+        ? allocations.map((allocation: any) => ({
+            accountId: allocation.accountId || allocation.sourceKey,
+            amount: Math.max(0, Number(allocation.amount || 0)),
+          }))
+        : [{
+            accountId: purchase.paidFromAccountId,
+            amount: Math.max(0, Number(purchase.amountPaid || 0)),
+          }];
+      paymentLines.forEach(({ accountId, amount }: { accountId?: string; amount: number }, index: number) => {
+        if (amount <= 0 || !accountId || !channels.some(channel => channel.id === accountId)) return;
+        generated.push({
+          id: `PURCHASE-PAYMENT-${purchase.id}-${index}`,
+          tenantId: activeTenant.id,
+          channelId: accountId,
+          amount: -amount,
+          entryType: 'debit',
+          sourceType: 'PURCHASE_PAYMENT',
+          description: `Purchase payment to ${purchase.supplierName}: ${purchase.id}`,
+          timestamp: purchase.timestamp,
+          referenceId: purchase.id,
+        });
       });
     });
 

@@ -857,6 +857,35 @@ export default function DashboardReports({
     return totals;
   }, [filteredSales, configuredChannels]);
 
+  const purchaseFundingTotals = useMemo(() => {
+    const totals: Record<string, { amount: number; count: number }> = {};
+    const addFunding = (label: string, amount: number) => {
+      if (amount <= 0) return;
+      if (!totals[label]) totals[label] = { amount: 0, count: 0 };
+      totals[label].amount += amount;
+      totals[label].count += 1;
+    };
+    purchases.forEach((purchase: any) => {
+      const allocations = Array.isArray(purchase.paymentAllocations) && purchase.paymentAllocations.length > 0
+        ? purchase.paymentAllocations
+        : purchase.paidFromAccountId
+          ? [{ fundingType: 'registered', accountId: purchase.paidFromAccountId, accountName: purchase.paymentMethod, amount: purchase.amountPaid }]
+          : [];
+      allocations.forEach((allocation: any) => {
+        const account = allocation.fundingType === 'external'
+          ? null
+          : configuredChannels.find((channel: any) => channel.id === allocation.accountId || channel.id === allocation.sourceKey);
+        addFunding(
+          allocation.fundingType === 'external'
+            ? 'External Account'
+            : allocation.accountName || account?.name || allocation.accountId || 'Registered Account',
+          Math.max(0, Number(allocation.amount || 0)),
+        );
+      });
+    });
+    return totals;
+  }, [purchases, configuredChannels]);
+
   // Build dynamic payment breakdown using actual payment method names from sales
   // Groups by exact method name recorded on each sale — respects user-configured methods
   const paymentBreakdownDynamic = useMemo(() => {
@@ -2311,6 +2340,29 @@ export default function DashboardReports({
                 )
               )}
             </div>
+
+            {Object.keys(purchaseFundingTotals).length > 0 && (
+              <div className="rounded-2xl border border-slate-200 overflow-x-auto">
+                <div className="px-4 py-3 border-b border-slate-100 bg-slate-50">
+                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-700">Purchase Funding Breakdown</h4>
+                  <p className="text-[11px] text-slate-500 mt-1">Registered accounts and external funding are shown separately.</p>
+                </div>
+                <table className="w-full text-xs">
+                  <thead className="bg-white text-[10px] uppercase tracking-wider text-slate-500 font-mono">
+                    <tr><th className="p-3 text-left">Paid From</th><th className="p-3 text-right">Amount</th><th className="p-3 text-right">Allocations</th></tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {Object.entries(purchaseFundingTotals).sort((a, b) => b[1].amount - a[1].amount).map(([label, summary]) => (
+                      <tr key={label}>
+                        <td className={`p-3 font-bold ${label === 'External Account' ? 'text-amber-700' : 'text-slate-700'}`}>{label}</td>
+                        <td className="p-3 text-right font-mono font-black">{currency}{Math.round(summary.amount).toLocaleString()}</td>
+                        <td className="p-3 text-right text-slate-500">{summary.count}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
 
             {/* Daily, Monthly, Yearly table views */}
             <div className="space-y-4">
