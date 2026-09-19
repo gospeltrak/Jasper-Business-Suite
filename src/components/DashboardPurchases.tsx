@@ -854,7 +854,7 @@ export default function DashboardPurchases({
             <div key={i} className="bg-white rounded-xl overflow-hidden flex items-stretch"
               style={{border: '1px solid #f1f5f9', boxShadow: '0 1px 6px rgba(0,0,0,0.05)'}}>
               {/* Left accent bar */}
-              <div className="w-1 shrink-0" style={{background: kpi.accent}} />
+              
               {/* Content */}
               <div className="flex items-center gap-3 px-3.5 py-3 flex-1 min-w-0">
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{background: kpi.iconBg, color: kpi.color}}>
