@@ -1001,7 +1001,7 @@ Corporate Performance Rating,${otdRate >= 93 ? 'Five Stars - Elite Category' : o
                   className="bg-white rounded-2xl pl-5 pr-5 py-5 flex flex-col justify-between transition-all duration-300 relative overflow-hidden group"
                   style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}
                 >
-                  <span className="absolute left-0 top-0 bottom-0 w-1" style={{ background: '#6366f1' }} />
+                  
                   <div className="space-y-4.5 z-10 relative">
 
                     {/* Header tags */}
