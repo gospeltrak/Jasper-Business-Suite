@@ -1529,7 +1529,7 @@ export default function DashboardReports({
       {/* ============================================================= */}
       <div className="hidden" id="mobile-metrics-cards-grid-old">
         {/* Total Sales */}
-        <div className="bg-white dark:bg-slate-900 p-3 rounded-xl shadow-xs border border-slate-100 dark:border-slate-800 border-l-4 border-l-emerald-500 flex flex-col justify-between min-h-[92px]">
+        <div className="bg-white dark:bg-slate-900 p-3 rounded-xl shadow-xs border border-slate-100 dark:border-slate-800 border-transparent flex flex-col justify-between min-h-[92px]">
           <div className="flex items-center space-x-2">
             <div className="p-1.5 bg-emerald-50 dark:bg-emerald-950 text-emerald-600 rounded-lg shrink-0">
               <TrendingUp className="w-4 h-4" />
@@ -1545,7 +1545,7 @@ export default function DashboardReports({
         </div>
 
         {/* Revenue */}
-        <div className="bg-white dark:bg-slate-900 p-3 rounded-xl shadow-xs border border-slate-100 dark:border-slate-800 border-l-4 border-l-blue-500 flex flex-col justify-between min-h-[92px]">
+        <div className="bg-white dark:bg-slate-900 p-3 rounded-xl shadow-xs border border-slate-100 dark:border-slate-800 border-transparent flex flex-col justify-between min-h-[92px]">
           <div className="flex items-center space-x-2">
             <div className="p-1.5 bg-blue-50 dark:bg-blue-950 text-blue-600 rounded-lg shrink-0">
               <DollarSign className="w-4 h-4" />
@@ -1561,7 +1561,7 @@ export default function DashboardReports({
         </div>
 
         {/* COGS */}
-        <div className="bg-white dark:bg-slate-900 p-3 rounded-xl shadow-xs border border-slate-100 dark:border-slate-800 border-l-4 border-l-amber-500 flex flex-col justify-between min-h-[92px]">
+        <div className="bg-white dark:bg-slate-900 p-3 rounded-xl shadow-xs border border-slate-100 dark:border-slate-800 border-transparent flex flex-col justify-between min-h-[92px]">
           <div className="flex items-center space-x-2">
             <div className="p-1.5 bg-amber-50 dark:bg-amber-950 text-amber-600 rounded-lg shrink-0">
               <Package className="w-4 h-4" />
@@ -1579,7 +1579,7 @@ export default function DashboardReports({
         </div>
 
         {/* Expenses */}
-        <div className="bg-white dark:bg-slate-900 p-3 rounded-xl shadow-xs border border-slate-100 dark:border-slate-800 border-l-4 border-l-rose-500 flex flex-col justify-between min-h-[92px]">
+        <div className="bg-white dark:bg-slate-900 p-3 rounded-xl shadow-xs border border-slate-100 dark:border-slate-800 border-transparent flex flex-col justify-between min-h-[92px]">
           <div className="flex items-center space-x-2">
             <div className="p-1.5 bg-rose-50 dark:bg-rose-950 text-rose-600 rounded-lg shrink-0">
               <MinusCircle className="w-4 h-4" />
@@ -1601,7 +1601,7 @@ export default function DashboardReports({
         </div>
 
         {/* Net Profit (Centered as 5th item) */}
-        <div className="col-span-2 bg-white dark:bg-slate-900 p-3.5 rounded-xl shadow-xs border border-slate-100 dark:border-slate-800 border-l-4 border-l-purple-500 flex flex-col items-center justify-center text-center space-y-2 min-h-[100px]">
+        <div className="col-span-2 bg-white dark:bg-slate-900 p-3.5 rounded-xl shadow-xs border border-slate-100 dark:border-slate-800 border-transparent flex flex-col items-center justify-center text-center space-y-2 min-h-[100px]">
           <div className="flex items-center space-x-2">
             <div className="p-1.5 bg-purple-50 dark:bg-purple-950 text-purple-600 rounded-lg shrink-0">
               <BarChart3 className="w-4 h-4" />

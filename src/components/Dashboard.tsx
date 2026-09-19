@@ -3552,7 +3552,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       {/* 0. HIGH-FIDELITY FLOATING TOAST STACK (Centered at top on mobile, max 3 stacked) */}
       <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[9999] flex flex-col items-center space-y-2 w-full max-w-sm px-4 pointer-events-none">
         {toasts.map((t) => {
-          let borderTheme = 'border-l-4 border-l-emerald-400';
+          let borderTheme = 'border-transparent';
           let bgTheme = 'bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800';
           let textColor = 'text-slate-800 dark:text-slate-100';
           
@@ -3563,21 +3563,21 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
           );
 
           if (t.type === 'error') {
-            borderTheme = 'border-l-4 border-l-rose-500';
+            borderTheme = 'border-transparent';
             iconSvg = (
               <svg className="w-5 h-5 text-rose-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             );
           } else if (t.type === 'warning') {
-            borderTheme = 'border-l-4 border-l-amber-500';
+            borderTheme = 'border-transparent';
             iconSvg = (
               <svg className="w-5 h-5 text-amber-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
             );
           } else if (t.type === 'info') {
-            borderTheme = 'border-l-4 border-l-blue-500';
+            borderTheme = 'border-transparent';
             iconSvg = (
               <svg className="w-5 h-5 text-blue-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -3688,8 +3688,8 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                     sidebarCollapsed ? 'justify-center' : 'justify-start space-x-3.5'
                   } ${
                     isActive 
-                      ? 'bg-emerald-500/10 border-l-4 border-emerald-400 text-emerald-100 font-semibold' 
-                      : 'bg-transparent border-l-4 border-transparent hover:bg-white/5 text-slate-400 hover:text-white'
+                      ? 'bg-emerald-500/10 text-emerald-100 font-semibold' 
+                      : 'bg-transparent hover:bg-white/5 text-slate-400 hover:text-white'
                   }`}
                 >
                   <IconComponent className={`w-5 h-5 shrink-0 transition-colors ${isActive ? 'text-emerald-400' : 'text-slate-500 group-hover:text-slate-200'}`} />

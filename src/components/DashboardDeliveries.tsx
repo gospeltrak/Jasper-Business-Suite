@@ -3285,7 +3285,7 @@ Vehicle Plate Number: ${plateNumber}
 
             {/* WhatsApp Bubble Preview */}
             <div className="p-6 bg-[#ebe5df] flex-grow select-text" style={{ backgroundImage: 'radial-gradient(#dfdcd6 12%, transparent 0)' }}>
-              <div className="relative max-w-[85%] bg-white rounded-2xl rounded-tl-none p-4.5 text-xs text-slate-800 shadow-md border-l-4 border-emerald-500 font-sans leading-relaxed">
+              <div className="relative max-w-[85%] bg-white rounded-2xl rounded-tl-none p-4.5 text-xs text-slate-800 shadow-md border-transparent font-sans leading-relaxed">
                 {/* Visual whatsapp tail */}
                 <span className="absolute -left-1.5 top-0 w-3 h-3 bg-white transform rotate-45 rounded-sm pointer-events-none"></span>
                 <p className="whitespace-pre-wrap">Delivery note PDF will be prepared from the system template and sent to the customer.</p>
