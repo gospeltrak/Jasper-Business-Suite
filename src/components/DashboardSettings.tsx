@@ -1030,7 +1030,7 @@ export default function DashboardSettings({
                 onClick={() => setActiveSubTab(tab.id)}
                 className={`w-full flex items-center space-x-3 px-3.5 py-3 rounded-xl text-xs font-semibold cursor-pointer transition-all text-left ${
                   isActive
-                    ? 'bg-slate-100 text-slate-900 font-black border-l-2 border-emerald-500'
+                    ? 'bg-slate-100 text-slate-900 font-black border-transparent'
                     : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
                 }`}
               >
@@ -1057,7 +1057,7 @@ export default function DashboardSettings({
               const Icon = tab.icon;
               const isActive = activeSubTab === tab.id;
               return (
-                <button key={tab.id} type="button" onClick={() => setActiveSubTab(tab.id)} className={`flex min-h-[66px] w-full items-center gap-3 border-l-2 px-3 py-2.5 text-left transition ${isActive ? 'border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/20' : 'border-transparent hover:bg-slate-50 dark:hover:bg-slate-900/60'}`}>
+                <button key={tab.id} type="button" onClick={() => setActiveSubTab(tab.id)} className={`flex min-h-[66px] w-full items-center gap-3 px-3 py-2.5 text-left transition ${isActive ? 'border-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/20' : 'border-transparent hover:bg-slate-50 dark:hover:bg-slate-900/60'}`}>
                   <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${isActive ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600 dark:bg-slate-900 dark:text-slate-300'}`}><Icon className="h-[18px] w-[18px]" /></span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[12.5px] font-black text-slate-900 dark:text-white">{tab.label}</span>

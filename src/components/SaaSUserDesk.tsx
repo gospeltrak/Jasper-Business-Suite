@@ -507,7 +507,7 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
                     <div 
                       key={u.id}
                       onClick={() => { void selectUser(u); }}
-                      className={`p-3 transition-colors cursor-pointer hover:bg-slate-900/40 text-slate-300 ${isSelected ? 'bg-emerald-500/10 border-l-2 border-emerald-500 text-white font-bold' : ''}`}
+                      className={`p-3 transition-colors cursor-pointer hover:bg-slate-900/40 text-slate-300 ${isSelected ? 'bg-emerald-500/10 border-transparent text-white font-bold' : ''}`}
                     >
                       <div className="flex justify-between items-start gap-1">
                         <div className="min-w-0">
