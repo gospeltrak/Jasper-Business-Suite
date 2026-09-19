@@ -61,7 +61,6 @@ import type { BranchSummary } from '../branches/branchTypes';
 import { formatLocalDate, parseLocalDate, timestampToLocalDate } from '../utils/localDate';
 import { getSaleItemGrossTotal, getSaleItemLineTotal } from '../utils/saleItemTotals';
 
-// Revenue helper: exclude delivery fees from product revenue calculations
 const saleProductRevenue = (s: any): number =>
   s.productTotal !== undefined ? s.productTotal : (s.total - (s.deliveryCost || 0));
 
@@ -429,7 +428,6 @@ export default function DashboardReports({
     document.body.removeChild(link);
   };
 
-  // Report Data Aggregation
   const filteredSales = useMemo(() => {
     return sales.filter(s => {
       const date = new Date(s.timestamp);
@@ -494,9 +492,6 @@ export default function DashboardReports({
 
   const { totalSalesRevenue, totalCOGS, grossProfit, netProfit } = pnlStats;
 
-  // -------------------------------------------------------------
-  // UI RENDERING
-  // -------------------------------------------------------------
   return (
     <div id="reports-view" className="space-y-6 p-2 md:p-0">
       {/* HEADER & TOOLBAR */}
@@ -512,24 +507,24 @@ export default function DashboardReports({
         </div>
 
         <div className="flex flex-wrap justify-center gap-2">
-          <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200 overflow-x-auto no-scrollbar">
+          <div className="grid grid-cols-2 gap-2 w-full sm:w-auto overflow-hidden">
             {[
               { id: 'p&l', label: 'Profit & Loss', icon: BarChart3 },
               { id: 'sales-report', label: 'Sales', icon: ShoppingBag },
               { id: 'inventory', label: 'Inventory', icon: Package },
               { id: 'expenses', label: 'Expenses', icon: Receipt },
               { id: 'product-monitoring', label: 'Product Audit', icon: Tag },
-            ].map(tab => (
+            ].map((tab, i) => (
               <button
                 key={tab.id}
                 onClick={() => { setReportTab(tab.id as any); setMobileView('report'); }}
-                className={`px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 whitespace-nowrap ${
+                className={`px-3 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap ${
                   reportTab === tab.id
-                    ? 'bg-white text-slate-900 shadow-sm'
-                    : 'text-slate-500 hover:text-slate-800'
+                    ? 'bg-emerald-600 text-white shadow-md'
+                    : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
                 }`}
               >
-                <tab.icon className={`w-3 h-3 ${reportTab === tab.id ? 'text-emerald-600' : 'text-slate-400'}`} />
+                <tab.icon className={`w-3 h-3 ${reportTab === tab.id ? 'text-white' : 'text-slate-400'}`} />
                 <span>{tab.label}</span>
               </button>
             ))}
@@ -585,10 +580,8 @@ export default function DashboardReports({
       <div className="min-h-[400px]">
         {reportTab === 'p&l' && (
           <div className="space-y-6">
-            {/* MOBILE/TABLET P&L MINIMALIST VIEW */}
             <div className="md:hidden space-y-4">
               <div className="grid grid-cols-1 gap-4">
-                {/* Net Profit Card - UNIFIED STYLE */}
                 <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex items-center justify-between hover:bg-white hover:shadow-sm transition-all group cursor-pointer">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-white border border-slate-200 text-emerald-600 flex items-center justify-center font-bold shadow-sm">
@@ -607,7 +600,6 @@ export default function DashboardReports({
                   </div>
                 </div>
 
-                {/* Other P&L Metrics as simple cards */}
                 {[
                   { label: 'Gross Revenue', value: totalSalesRevenue, icon: TrendingUp, color: 'text-slate-900' },
                   { label: 'COGS Cost', value: totalCOGS, icon: Package, color: 'text-amber-600' },
@@ -632,7 +624,6 @@ export default function DashboardReports({
               </div>
             </div>
 
-            {/* DESKTOP P&L VIEW */}
             <div className="hidden md:block bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
                <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                  <div className="lg:col-span-3 space-y-6">
@@ -688,7 +679,7 @@ export default function DashboardReports({
                         <BarChart3 className="w-24 h-24" />
                       </div>
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Profitability Ratio</p>
-                      <h4 className="text-3xl font-black font-mono mb-4">{totalSalesRevenue > 0 ? ((netProfit / totalSalesRevenue * 100).toFixed(1) : '0.0'}%</h4>
+                      <h4 className="text-3xl font-black font-mono mb-4">{totalSalesRevenue > 0 ? ((netProfit / totalSalesRevenue * 100).toFixed(1) : '0.0')}%</h4>
                       <div className="space-y-3">
                         <div className="flex justify-between text-xs">
                           <span className="text-slate-400">Status:</span>
@@ -706,10 +697,8 @@ export default function DashboardReports({
           </div>
         )}
 
-        {/* ... Other report tabs implementation remains as is to avoid breaking functionality ... */}
         {reportTab === 'sales-report' && (
           <div className="space-y-6">
-            {/* Existing Sales Report Implementation */}
             <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="font-black text-slate-800 uppercase tracking-wider">Sales Performance Ledger</h3>
@@ -751,7 +740,6 @@ export default function DashboardReports({
           </div>
         )}
 
-        {/* Other report tabs simplified for brevity in this response, in real implementation they remain as they were */}
         {reportTab !== 'p&l' && reportTab !== 'sales-report' && (
           <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
             <div className="p-6 bg-slate-50 rounded-full text-slate-300">
