@@ -2030,7 +2030,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
               {/* OPTIONAL AFFILIATE REFERRAL TRACKER */}
               <div className="space-y-1.5 bg-emerald-50/40 p-3.5 rounded-2xl border border-emerald-100/60">
                 <label className="text-[10px] font-bold text-emerald-800 uppercase block tracking-wider font-mono flex items-center space-x-1">
-                  <Sparkles className="w-3 h-3 text-emerald-600 shrink-0" />
+                  
                   <span>Affiliate Referral Promo Code (Optional)</span>
                 </label>
                 <input

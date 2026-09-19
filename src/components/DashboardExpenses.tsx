@@ -1175,7 +1175,7 @@ export default function DashboardExpenses({
               type="submit"
               className="w-full py-3 bg-emerald-500 text-slate-950 hover:bg-emerald-600 hover:shadow-lg hover:shadow-emerald-500/10 active:scale-95 text-xs font-black uppercase tracking-widest rounded-2xl transition-all font-mono flex items-center justify-center space-x-2 cursor-pointer"
             >
-              <Sparkles className="w-4 h-4" />
+              
               <span>Add Expense</span>
             </button>
           </form>
