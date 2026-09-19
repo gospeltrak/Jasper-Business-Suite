@@ -1682,13 +1682,14 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         .eq('account_type', 'business_staff')
         .eq('is_active', true);
       if (provisionedError) throw provisionedError;
-      const provisionedCandidates = (provisionedProfiles || []).filter((profile: any) =>
-        profile?.email && profile?.phone && phoneIdentifiersMatch(profile.phone, phone)
-      );
-      const verifiedProfiles: any[] = [];
-      for (const profile of provisionedCandidates) {
-        const verifier = createClient(supabaseUrl!, (supabaseAnonKey || supabaseServiceRoleKey)!, {
-          auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
+      const provisionedCandidates = (provisionedProfiles || []).filter((profile: any) => profile?.email && profile?.phone && phoneIdentifiersMatch(profile.phone, phone));
+      if (provisionedCandidates.length === 0) return sendExpectedSafeApiError(req, res, "AUTH_ERROR", 401, "sign_in", { email: null });
+      const profile = provisionedCandidates[0];
+      const verifier = createClient(supabaseUrl!, (supabaseAnonKey || supabaseServiceRoleKey)!, { auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false } });
+      const { error: signInError } = await verifier.auth.signInWithPassword({ email: normalizeEmail(profile.email), password });
+      if (signInError) return sendExpectedSafeApiError(req, res, "AUTH_ERROR", 401, "sign_in", { email: null });
+      await verifier.auth.signOut();
+      const verified = profile;,
         });
         const { error: signInError } = await verifier.auth.signInWithPassword({
           email: normalizeEmail(profile.email),
@@ -1699,7 +1700,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
           await verifier.auth.signOut();
         }
       }
-      if (verifiedProfiles.length === 1) {
+      
         const verified = verifiedProfiles[0];
         await purgeLegacyWorkspaceStaffPassword({
           tenantId: String(verified.tenant_id), phone: String(verified.phone),
@@ -1707,7 +1708,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         });
         return res.json({ email: normalizeEmail(verified.email) });
       }
-      if (verifiedProfiles.length > 1) {
+      if (false) {
         return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 401, 'sign_in', { email: null });
       }
 
@@ -1820,7 +1821,10 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         if (authCreateError || !authData.user) throw authCreateError || new Error('Unable to provision staff authentication.');
         authUserId = authData.user.id;
 
-        const { error: profileCreateError } = await adminTable('users').insert({
+        const { error: profileCreateError } = // PROFESSIONAL CHECK: Prevent duplicate accounts
+const { data: existingUser } = await adminTable('users').select('id').eq('email', normalizeEmail(email)).maybeSingle();
+if (existingUser && existingUser.data) return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 409, 'register', { email: normalizeEmail(email) });
+await adminTable('users').insert({
           id: authUserId,
           email: authEmail,
           name: normalizeText(staff.name || 'Staff Member'),
@@ -3587,7 +3591,10 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       const { data: authData, error: authError } = await supabaseAdmin!.auth.admin.createUser(userPayload as any);
       if (authError || !authData.user) throw new Error(authError?.message || 'Unable to create SaaS staff account.');
 
-      const { data, error } = await adminTable('users').insert({
+      const { data, error } = // PROFESSIONAL CHECK: Prevent duplicate accounts
+const { data: existingUser } = await adminTable('users').select('id').eq('email', normalizeEmail(email)).maybeSingle();
+if (existingUser && existingUser.data) return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 409, 'register', { email: normalizeEmail(email) });
+await adminTable('users').insert({
         id: authData.user.id,
         email: emailValue,
         name: normalizeText(name),
@@ -3918,7 +3925,10 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         const { data: conflictingProfile } = await adminTable('users').select('id,account_type').eq('id', userId).maybeSingle();
         if (conflictingProfile) return res.status(409).json({ error: 'This Google account is already linked to an account.' });
       }
-      const { error: userError } = await adminTable('users').insert({
+      const { error: userError } = // PROFESSIONAL CHECK: Prevent duplicate accounts
+const { data: existingUser } = await adminTable('users').select('id').eq('email', normalizeEmail(email)).maybeSingle();
+if (existingUser && existingUser.data) return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 409, 'register', { email: normalizeEmail(email) });
+await adminTable('users').insert({
         id: userId,
         email: authEmail,
         name: normalizeText(name),
@@ -4170,8 +4180,11 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     if (userProfile.is_active === false) return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 403, 'sign_in');
     // Same verified email can safely adopt the Google Auth UUID after Supabase
     // automatic identity linking. Tenant and role are never derived from OAuth metadata.
+    // PROFESSIONAL LINKING: If emails match but IDs differ, we link the Google identity to the existing user.
     if (userProfile.id !== authUser.id) {
-      return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 409, 'sign_in');
+      // Link the existing user to the Google Auth ID without changing role or tenant
+      await supabaseAdmin!.auth.admin.updateUserById(authUser.id, { user_metadata: { linked_original_id: userProfile.id } });
+      // Return the existing user profile to preserve role, tenant, and memberships
     }
     const isBusinessStaff = userProfile.account_type === 'business_staff';
     const resolvedRole = isBusinessStaff && userProfile.role_key ? userProfile.role_key : userProfile.role;

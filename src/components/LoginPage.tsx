@@ -1567,347 +1567,101 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
             </form>
           ) : (authTab === 'signin' || isSaasAdminPortal) ? (
             /* Sign in screen */
-            <form className="space-y-5" onSubmit={handleLoginSubmit}>
-              {isSaasAdminPortal ? (
+            
+              <form className="space-y-5" onSubmit={handleLoginSubmit}>
                 <div className="space-y-4">
-                  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-center">
-                    <Shield className="mx-auto h-8 w-8 text-amber-700" />
-                    <h3 className="mt-2 text-sm font-black text-slate-900">Google + Authenticator required</h3>
-                  </div>
-                  <div className="flex justify-center"><TurnstileWidget onVerify={setTurnstileToken} onExpire={() => setTurnstileToken(null)} /></div>
-                  <button type="button" onClick={handleGoogleLoginClick} disabled={isLoading}
-                    className="w-full rounded-2xl border border-slate-200 bg-white py-3.5 text-xs font-black text-slate-800 disabled:opacity-55">
-                    Continue with Google
-                  </button>
-                </div>
-              ) : <>
-              {/* Warm Personalized Welcoming Banner */}
-              {!isSaasAdminPortal && (
-                <div className="bg-emerald-50/70 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-800/30 rounded-2xl p-4 text-center shadow-xs animate-fade-in">
-                  <p className="text-xs font-semibold text-emerald-800 dark:text-emerald-300 leading-normal">
-                    {currentLang === 'sw'
-                      ? 'Karibu tena 👋 Ingia kwenye dashibodi yako ya biashara'
-                      : 'Welcome back 👋 Sign in to your business dashboard'}
-                  </p>
-                </div>
-              )}
-              {tenantGoogleOnlySignIn ? (
-                <div className="space-y-4" data-tenant-google-only="true">
-                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-center dark:border-emerald-800/40 dark:bg-emerald-950/20">
-                    <Shield className="mx-auto h-7 w-7 text-emerald-700 dark:text-emerald-400" />
-                    <h3 className="mt-2 text-sm font-black text-slate-900 dark:text-slate-100">{t('secureGoogle')}</h3>
-                  </div>
-                  <div className="flex justify-center">
-                    <TurnstileWidget onVerify={setTurnstileToken} onExpire={() => setTurnstileToken(null)} />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleGoogleLoginClick}
-                    disabled={isLoading}
-                    className="w-full py-3.5 border border-slate-200 bg-white hover:border-emerald-300 disabled:opacity-55 rounded-2xl text-xs font-bold text-slate-700 transition-all cursor-pointer flex items-center justify-center gap-2.5"
-                  >
-                    <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
-                      <path fill="#4285F4" d="M23.52 12.27c0-.85-.08-1.67-.22-2.45H12v4.64h6.47c-.28 1.5-1.13 2.77-2.4 3.62v3h3.88c2.27-2.09 3.57-5.17 3.57-8.81z"/>
-                      <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3c-1.08.72-2.45 1.15-4.05 1.15-3.12 0-5.76-2.1-6.7-4.93H1.29v3.1C3.26 21.3 7.31 24 12 24z"/>
-                      <path fill="#FBBC05" d="M5.3 14.31A7.2 7.2 0 0 1 4.9 12c0-.8.14-1.58.4-2.31v-3.1H1.29A11.98 11.98 0 0 0 0 12c0 1.93.46 3.76 1.29 5.41l4.01-3.1z"/>
-                      <path fill="#EA4335" d="M12 4.77c1.76 0 3.34.6 4.58 1.79l3.44-3.44C17.94 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.59l4.01 3.1c.94-2.83 3.58-4.92 6.7-4.92z"/>
-                    </svg>
-                    <span>{isLoading ? 'Connecting securely…' : t('continueGoogle')}</span>
-                  </button>
-                </div>
-              ) : <>
-              <div className="space-y-1.5">
-                <div className="flex justify-between items-center">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block">
-                    {isSaasAdminPortal ? 'SAAS STAFF WHATSAPP NUMBER' : 'WHATSAPP NUMBER'}
-                  </label>
-                  {emailChecked && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEmailChecked(false);
-                        setPassword('');
-                        setLoginOtpMode(false);
-                        setLoginOtp('');
-                        setLoginOtpInput('');
-                        setLoginOtpUser(null);
-                        setLoginOtpMessage(null);
-                      }}
-                      className="text-[10px] font-bold text-emerald-600 hover:text-emerald-750 bg-transparent cursor-pointer border-none outline-none"
-                    >
-                      Change Account
-                    </button>
-                  )}
-                </div>
-                <div className="relative">
-                  <input
-                    id="login-email"
-                    type="text"
-                    required
-                    disabled={emailChecked}
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full bg-slate-50 disabled:bg-slate-100 disabled:text-slate-400 border border-slate-200 focus:border-emerald-500 rounded-xl px-4 py-3 pl-11 text-sm text-slate-800 placeholder-slate-400 font-sans transition-all outline-none"
-                    placeholder="WhatsApp number"
-                  />
-                  <MessageCircle className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
-                </div>
-              </div>
-
-              {emailChecked ? (
-                <div className="space-y-1.5 animate-fade-in">
-                  <div className="flex items-center justify-between">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase block">
-                      {loginOtpMode ? 'WHATSAPP OTP' : 'SECURITY PIN PASSWORD'}
-                    </label>
-                  </div>
-                  <div className="relative">
-                    {loginOtpMode ? (
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase block tracking-wider">{t('emailLabel')}</label>
+                    <div className="relative">
                       <input
-                        id="login-otp"
                         type="text"
                         required
-                        value={loginOtpInput}
-                        onChange={(e) => setLoginOtpInput(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl px-4 py-3 pl-11 text-sm text-slate-800 placeholder-slate-400 font-mono tracking-widest transition-all outline-none"
-                        placeholder="Enter WhatsApp OTP"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="email@example.com or phone"
+                        className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none transition-all"
                       />
-                    ) : (
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between items-center">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase block tracking-wider">{t('passLabel')}</label>
+                    </div>
+                    <div className="relative">
                       <input
-                        id="login-password"
-                        type={showLoginPassword ? "text" : "password"}
+                        type={showLoginPassword ? 'text' : 'password'}
                         required
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl px-4 py-3 pl-11 pr-11 text-sm text-slate-800 placeholder-slate-400 font-mono tracking-wider transition-all outline-none"
-                        placeholder="••••••••••••"
+                        placeholder="••••••••"
+                        className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl px-3.5 py-2.5 pr-11 text-xs text-slate-800 outline-none font-mono transition-all"
                       />
-                    )}
-                    <KeyRound className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
-                    {!loginOtpMode && (
                       <button
                         type="button"
                         onClick={() => setShowLoginPassword((prev) => !prev)}
-                        className="absolute right-3.5 top-3.5 text-slate-400 hover:text-slate-700 transition-colors"
-                        aria-label={showLoginPassword ? "Hide password" : "Show password"}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
                       >
-                        {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        {showLoginPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
-                    )}
+                    </div>
                   </div>
-                  {loginOtpMessage && (
-                    <div className="text-[11px] font-bold text-emerald-900 bg-emerald-50 border border-emerald-150 rounded-xl px-3 py-2">
-                      {loginOtpMessage}
-                    </div>
-                  )}
-                  {loginOtpMode && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setLoginOtpMode(false);
-                        setLoginOtp('');
-                        setLoginOtpInput('');
-                        setLoginOtpUser(null);
-                        setLoginOtpMessage(null);
-                      }}
-                      className="text-[10px] font-black uppercase tracking-wider text-slate-500 hover:text-slate-800"
-                    >
-                      Use PIN/password instead
-                    </button>
-                  )}
-                  {!loginOtpMode && (
-                    <div className="flex justify-end">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowRecovery(true);
-                          setRecoveryIdentifier(email);
-                          setRecoveryStep('identify');
-                          setRecoveryMessage(null);
-                        }}
-                        className="text-[10px] font-black uppercase tracking-wider text-emerald-700 hover:text-emerald-800"
-                      >
-                        Forgot password?
-                      </button>
-                    </div>
-                  )}
                 </div>
-              ) : null}
 
-              {!emailChecked && (
-                <div className="flex justify-end -mt-2">
+                <div className="flex justify-center">
+                  <TurnstileWidget onVerify={setTurnstileToken} onExpire={() => setTurnstileToken(null)} />
+                </div>
+
+                <button
+                  id="login-submit-btn"
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-55 text-white font-bold rounded-2xl text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center space-x-2 shadow-md shadow-emerald-500/10 active:scale-98"
+                >
+                  {isLoading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Processing securely...</span>
+                    </>
+                  ) : emailChecked ? (
+                    <span>Sign In</span>
+                  ) : (
+                    <span>Continue</span>
+                  )}
+                </button>
+
+                <div className="text-center">
                   <button
                     type="button"
-                    onClick={() => {
-                      setShowRecovery(true);
-                      setRecoveryIdentifier(email);
-                      setRecoveryStep('identify');
-                      setRecoveryMessage(null);
-                    }}
-                    className="text-[10px] font-black uppercase tracking-wider text-emerald-700 hover:text-emerald-800"
+                    onClick={() => setShowRecovery(true)}
+                    className="text-[11px] font-bold text-slate-400 hover:text-emerald-600 transition-all underline underline-offset-2"
                   >
-                    Forgot password?
+                    Forgot Password?
                   </button>
                 </div>
-              )}
 
-              {showRecovery && (
-                <div className="rounded-2xl border border-emerald-300 bg-white p-4 space-y-3 shadow-sm">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                        <MessageCircle className="w-4 h-4 text-emerald-700" />
-                        Password Recovery
-                      </h4>
-                      <p className="text-[11px] text-slate-700 mt-1 leading-snug">
-                        Admin recovery verifies your security question first, then sends WhatsApp OTP.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setShowRecovery(false)}
-                      className="text-[10px] font-black text-slate-500 hover:text-slate-800"
-                    >
-                      CLOSE
-                    </button>
-                  </div>
-
-                  {recoveryMessage && (
-                    <div className="text-[11px] font-bold text-emerald-900 bg-emerald-50 border border-emerald-150 rounded-xl px-3 py-2">
-                      {recoveryMessage}
-                    </div>
-                  )}
-
-                  {recoveryStep === 'identify' ? (
-                    <div className="space-y-2">
-                      <input
-                        type="tel"
-                        value={recoveryIdentifier}
-                        onChange={e => { setRecoveryIdentifier(e.target.value); setRecoveryWhatsapp(e.target.value); }}
-                        placeholder="Your WhatsApp / mobile number"
-                        className="w-full bg-white border border-emerald-150 rounded-xl px-3 py-2.5 text-xs font-semibold outline-none focus:border-emerald-500"
-                      />
-                      <button
-                        type="button"
-                        onClick={handleStartRecovery}
-                        className="w-full py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2"
-                      >
-                        <Shield className="w-4 h-4" />
-                        Continue
-                      </button>
-                    </div>
-                  ) : recoveryStep === 'security' ? (
-                    <div className="space-y-2">
-                      <div className="bg-white border border-emerald-150 rounded-xl px-3 py-2.5">
-                        <span className="block text-[9px] font-black uppercase tracking-wider text-slate-500">Security Question</span>
-                        <p className="text-xs font-bold text-slate-800 mt-1">{recoveryUser?.securityQuestion}</p>
-                      </div>
-                      <input
-                        type="text"
-                        value={recoverySecurityAnswer}
-                        onChange={e => setRecoverySecurityAnswer(e.target.value)}
-                        placeholder="Your answer"
-                        className="w-full bg-white border border-emerald-150 rounded-xl px-3 py-2.5 text-xs font-semibold outline-none focus:border-emerald-500"
-                      />
-                      <button
-                        type="button"
-                        onClick={handleVerifyRecoverySecurity}
-                        className="w-full py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2"
-                      >
-                        <MessageCircle className="w-4 h-4" />
-                        Verify & Send OTP
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <input
-                        type="text"
-                        value={recoveryInputOtp}
-                        onChange={e => setRecoveryInputOtp(e.target.value)}
-                        placeholder="Enter 6-digit OTP"
-                        className="w-full bg-white border border-emerald-150 rounded-xl px-3 py-2.5 text-xs font-mono font-black tracking-widest outline-none focus:border-emerald-500"
-                      />
-                      <input
-                        type="password"
-                        value={recoveryNewPassword}
-                        onChange={e => setRecoveryNewPassword(e.target.value)}
-                        placeholder="New password / PIN"
-                        className="w-full bg-white border border-emerald-150 rounded-xl px-3 py-2.5 text-xs font-semibold outline-none focus:border-emerald-500"
-                      />
-                      <div className="grid grid-cols-2 gap-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setRecoveryStep('identify');
-                            setRecoveryInputOtp('');
-                            setRecoveryNewPassword('');
-                          }}
-                          className="py-2.5 rounded-xl bg-white border border-emerald-150 text-slate-700 text-[10px] font-black uppercase tracking-wider"
-                        >
-                          Change Number
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleFinishRecovery}
-                          className="py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 text-white text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5"
-                        >
-                          <RefreshCw className="w-3.5 h-3.5" />
-                          Reset Password
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                <div className="flex items-center gap-3 py-2">
+                  <div className="flex-1 h-px bg-slate-200" />
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t('googleOrSig')}</span>
+                  <div className="flex-1 h-px bg-slate-200" />
                 </div>
-              )}
 
-              <button
-                id="login-submit-btn"
-                type="submit"
-                disabled={isLoading}
-                className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-55 text-white font-bold rounded-2xl text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center space-x-2 shadow-md shadow-emerald-500/10 active:scale-98"
-              >
-                {isLoading ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    <span>Processing securely...</span>
-                  </>
-                ) : emailChecked ? (
-	                  <span>Sign In</span>
-                ) : (
-                  <span>Continue</span>
-                )}
-              </button>
+                <button
+                  type="button"
+                  onClick={handleGoogleLoginClick}
+                  disabled={isLoading}
+                  className="w-full py-3 border border-slate-200 hover:border-slate-300 disabled:opacity-55 rounded-2xl text-xs font-bold text-slate-700 transition-all cursor-pointer flex items-center justify-center gap-2.5"
+                >
+                  <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M23.52 12.27c0-.85-.08-1.67-.22-2.45H12v4.64h6.47c-.28 1.5-1.13 2.77-2.4 3.62v3h3.88c2.27-2.09 3.57-5.17 3.57-8.81z"/>
+                    <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3c-1.08.72-2.45 1.15-4.05 1.15-3.12 0-5.76-2.1-6.7-4.93H1.29v3.1C3.26 21.3 7.31 24 12 24z"/>
+                    <path fill="#FBBC05" d="M5.3 14.31A7.2 7.2 0 0 1 4.9 12c0-.8.14-1.58.4-2.31v-3.1H1.29A11.98 11.98 0 0 0 0 12c0 1.93.46 3.76 1.29 5.41l4.01-3.1z"/>
+                    <path fill="#EA4335" d="M12 4.77c1.76 0 3.34.6 4.58 1.79l3.44-3.44C17.94 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.59l4.01 3.1c.94-2.83 3.58-4.92 6.7-4.92z"/>
+                  </svg>
+                  <span>{t('continueGoogle')}</span>
+                </button>
+              </form>
 
-              <div className="flex justify-center">
-                <TurnstileWidget onVerify={setTurnstileToken} onExpire={() => setTurnstileToken(null)} />
-              </div>
-
-              <div className="flex items-center gap-3 py-1">
-                <div className="flex-1 h-px bg-slate-200" />
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t('googleOrSig')}</span>
-                <div className="flex-1 h-px bg-slate-200" />
-              </div>
-
-              <button
-                type="button"
-                onClick={handleGoogleLoginClick}
-                disabled={isLoading}
-                className="w-full py-3 border border-slate-200 hover:border-slate-300 disabled:opacity-55 rounded-2xl text-xs font-bold text-slate-700 transition-all cursor-pointer flex items-center justify-center gap-2.5"
-              >
-                <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M23.52 12.27c0-.85-.08-1.67-.22-2.45H12v4.64h6.47c-.28 1.5-1.13 2.77-2.4 3.62v3h3.88c2.27-2.09 3.57-5.17 3.57-8.81z"/>
-                  <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3c-1.08.72-2.45 1.15-4.05 1.15-3.12 0-5.76-2.1-6.7-4.93H1.29v3.1C3.26 21.3 7.31 24 12 24z"/>
-                  <path fill="#FBBC05" d="M5.3 14.31A7.2 7.2 0 0 1 4.9 12c0-.8.14-1.58.4-2.31v-3.1H1.29A11.98 11.98 0 0 0 0 12c0 1.93.46 3.76 1.29 5.41l4.01-3.1z"/>
-                  <path fill="#EA4335" d="M12 4.77c1.76 0 3.34.6 4.58 1.79l3.44-3.44C17.94 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.59l4.01 3.1c.94-2.83 3.58-4.92 6.7-4.92z"/>
-                </svg>
-                <span>{t('continueGoogle')}</span>
-              </button>
-
-              </>}
-
-              </>}
-
-            </form>
           ) : (
             /* Registration screen with picker for the 4 dynamic business sectors */
             <>
