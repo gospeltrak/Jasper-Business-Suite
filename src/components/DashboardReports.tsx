@@ -515,7 +515,7 @@ export default function DashboardReports({
         </div>
 
         <div className="flex flex-wrap justify-center gap-2">
-          <div className="grid grid-cols-2 gap-2 w-full sm:w-auto overflow-hidden">
+          <div className="grid grid-cols-2 gap-2 w-full overflow-hidden">
             {[
               { id: 'p&l', label: 'Profit & Loss', icon: BarChart3 },
               { id: 'sales-report', label: 'Sales', icon: ShoppingBag },
