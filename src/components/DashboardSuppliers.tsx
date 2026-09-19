@@ -104,38 +104,26 @@ export default function DashboardSuppliers({
 
   return (
     <div id="partners-view" className="space-y-6 p-2 md:p-0">
-      {/* HEADER SECTION - NATIVE FEEL */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white border border-slate-200 p-4 md:p-6 rounded-3xl shadow-sm">
-        <div className="text-center sm:text-left space-y-1">
-          <h4 className="text-xl font-black text-slate-900 flex items-center justify-center sm:justify-start gap-2">
-            <Users className="w-6 h-6 text-emerald-600" />
-            <span className="tracking-tight">Partners Directory</span>
-          </h4>
-          <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">
-            Vendor & Client Management
-          </p>
-        </div>
-
-        <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200 w-full sm:w-auto overflow-x-auto no-scrollbar">
-          {[
-            { id: 'suppliers', label: 'Suppliers', icon: Truck },
-            { id: 'performance', label: 'Performance', icon: Award },
-            { id: 'customers', label: 'Customers', icon: User },
-          ].map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => { setActivePartnerTab(tab.id as any); setSearchQuery(''); }}
-              className={`flex-1 sm:flex-initial px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap ${
-                activePartnerTab === tab.id
-                  ? 'bg-white text-slate-900 shadow-sm'
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              <tab.icon className={`w-3.5 h-3.5 ${activePartnerTab === tab.id ? 'text-emerald-600' : 'text-slate-400'}`} />
-              <span>{tab.label}</span>
-            </button>
-          ))}
-        </div>
+      {/* CLEAN TABS ONLY - NO HEADER CARD */}
+      <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200 w-full max-w-md mx-auto sm:mx-0 overflow-x-auto no-scrollbar">
+        {[
+          { id: 'suppliers', label: 'Suppliers', icon: Truck },
+          { id: 'performance', label: 'Performance', icon: Award },
+          { id: 'customers', label: 'Customers', icon: User },
+        ].map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => { setActivePartnerTab(tab.id as any); setSearchQuery(''); }}
+            className={`flex-1 sm:flex-initial px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap ${
+              activePartnerTab === tab.id
+                ? 'bg-white text-slate-900 shadow-sm'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <tab.icon className={`w-3.5 h-3.5 ${activePartnerTab === tab.id ? 'text-emerald-600' : 'text-slate-400'}`} />
+            <span>{tab.label}</span>
+          </button>
+        ))}
       </div>
 
       {/* TOOLBAR */}
@@ -162,7 +150,7 @@ export default function DashboardSuppliers({
         )}
       </div>
 
-      {/* FORM - MODAL STYLE FOR MOBILE */}
+      {/* FORM - MODAL STYLE */}
       {activePartnerTab === 'suppliers' && isOpen && (
         <div className="animate-in fade-in slide-in-from-top-4 duration-300">
           <form onSubmit={handleSubmit} className="bg-white border border-slate-200 p-6 rounded-3xl space-y-6 shadow-xl">
@@ -208,39 +196,29 @@ export default function DashboardSuppliers({
         </div>
       )}
 
-      {/* CONTENT AREA - RESPONSIVE LAYOUT */}
+      {/* CONTENT AREA */}
       <div className="min-h-[400px]">
         {activePartnerTab === 'suppliers' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {filteredSuppliers.length > 0 ? (
               filteredSuppliers.map(sup => (
-                <div key={sup.id} className="bg-white border border-slate-200 p-5 rounded-3xl shadow-sm hover:shadow-md transition-all group cursor-pointer">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="p-3 bg-slate-50 rounded-2xl text-slate-600 group-hover:bg-emerald-50 group-hover:text-emerald-600 transition-colors">
+                <div key={sup.id} className="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex items-center justify-between hover:bg-white hover:shadow-sm transition-all group cursor-pointer">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-white border border-slate-200 text-emerald-600 flex items-center justify-center font-bold shadow-sm">
                       <Store className="w-5 h-5" />
                     </div>
-                    <div className="flex gap-1">
-                      {sup.categories.slice(0, 2).map((cat, i) => (
-                        <span key={i} className="text-[9px] font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full uppercase tracking-tighter">
+                    <div className="text-left">
+                      <h6 className="text-sm font-bold text-slate-900">{sup.name}</h6>
+                      <p className="text-xs text-slate-500">{sup.contactPerson || 'No contact person'}</p>
+                    </div>
+                  </div>
+                  <div className="text-right hidden sm:block">
+                    <div className="flex gap-1 justify-end">
+                      {sup.categories.slice(0, 1).map((cat, i) => (
+                        <span key={i} className="text-[9px] font-bold bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full uppercase tracking-tighter">
                           {cat}
                         </span>
                       ))}
-                    </div>
-                  </div>
-                  <div className="space-y-3">
-                    <div>
-                      <h6 className="text-sm font-black text-slate-900 truncate">{sup.name}</h6>
-                      <p className="text-xs text-slate-500 truncate">{sup.contactPerson || 'No contact person'}</p>
-                    </div>
-                    <div className="space-y-2 pt-2">
-                      <div className="flex items-center gap-3 text-xs text-slate-600">
-                        <Phone className="w-3.5 h-3.5 text-slate-400" />
-                        <span className="truncate">{sup.phone || 'No phone'}</span>
-                      </div>
-                      <div className="flex items-center gap-3 text-xs text-slate-600">
-                        <Mail className="w-3.5 h-3.5 text-slate-400" />
-                        <span className="truncate">{sup.email}</span>
-                      </div>
                     </div>
                   </div>
                 </div>
@@ -258,11 +236,10 @@ export default function DashboardSuppliers({
 
         {activePartnerTab === 'customers' && (
           <div className="overflow-hidden bg-white border border-slate-200 rounded-3xl shadow-sm">
-            {/* DESKTOP TABLE */}
             <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200">
+                <thead className="bg-slate-50 border-b border-slate-200">
+                  <tr>
                     <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Customer</th>
                     <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest">Phone</th>
                     <th className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Total Spent</th>
@@ -295,7 +272,6 @@ export default function DashboardSuppliers({
               </table>
             </div>
 
-            {/* MOBILE/TABLET CARDS */}
             <div className="md:hidden grid grid-cols-1 gap-4 p-4">
               {customerList.length > 0 ? (
                 customerList.map((cust, i) => (
