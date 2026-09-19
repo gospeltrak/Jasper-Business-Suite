@@ -116,7 +116,7 @@ export default function DashboardReports({
   const printActiveReportPdf = async () => {
     await downloadPdfFromElement({
       elementId: 'reports-a4-pdf-template',
-      fileName: `${(REPORT_DOCUMENT_TITLES[reportTab] || 'Business-Report').replace(/\s+/g, '-')}-${startDateStr}-${endDateStr}.pdf`,
+      fileName: `${(REPORT_DOCUMENT_TITLES[reportTab] || 'Business-Report').replace(/\\s+/g, '-')}-${startDateStr}-${endDateStr}.pdf`,
       format: 'a4',
       includeHidden: true,
       visual: false,
@@ -248,11 +248,11 @@ export default function DashboardReports({
   const [previewReceiptImage, setPreviewReceiptImage] = useState<string | null>(null);
 
   const handleDownloadSalesSpreadsheet = () => {
-    let csv = "A4 Sales Ledger Report\r\n";
-    csv += `Scope Period,${startDateStr} to ${endDateStr}\r\n`;
-    csv += `Generated On,${new Date().toLocaleString()}\r\n`;
-    csv += `Branch,${activeTenant.name} (${activeTenant.city})\r\n\r\n`;
-    csv += "Receipt ID,Customer,Items Count,Voucher Total,VAT/Sales Tax,Discount Amnt,Grand Amount Paid,Remaining Due,Mode,Logged Timestamp\r\n";
+    let csv = "A4 Sales Ledger Report\\r\\n";
+    csv += `Scope Period,${startDateStr} to ${endDateStr}\\r\\n`;
+    csv += `Generated On,${new Date().toLocaleString()}\\r\\n`;
+    csv += `Branch,${activeTenant.name} (${activeTenant.city})\\r\\n\\r\\n`;
+    csv += "Receipt ID,Customer,Items Count,Voucher Total,VAT/Sales Tax,Discount Amnt,Grand Amount Paid,Remaining Due,Mode,Logged Timestamp\\r\\n";
     
     filteredSales.forEach(s => {
       const itemsCount = s.items.length;
@@ -260,7 +260,7 @@ export default function DashboardReports({
       const discountVal = s.discountType === 'percent' ? (originalSub * (s.discount || 0)) / 100 : (s.discount || 0);
       const totalPaid = saleProductRevenue(s);
       const unpaidDue = s.amountDue || 0;
-      csv += `"${s.id}","${s.customerName || 'Walk-in customer'}",${itemsCount},${originalSub.toFixed(2)},${s.tax.toFixed(2)},${discountVal.toFixed(2)},${totalPaid.toFixed(2)},${unpaidDue.toFixed(2)},"${s.paymentMethod}","${new Date(s.timestamp).toLocaleString()}"\r\n`;
+      csv += `"${s.id}","${s.customerName || 'Walk-in customer'}",${itemsCount},${originalSub.toFixed(2)},${s.tax.toFixed(2)},${discountVal.toFixed(2)},${totalPaid.toFixed(2)},${unpaidDue.toFixed(2)},"${s.paymentMethod}","${new Date(s.timestamp).toLocaleString()}"\\r\\n`;
     });
 
     const encodedUri = encodeURI("data:text/csv;charset=utf-8," + csv);
@@ -273,18 +273,18 @@ export default function DashboardReports({
   };
 
   const handleDownloadProductsSpreadsheet = () => {
-    let csv = "A4 Product Catalog Inventory Report\r\n";
-    csv += `Scope Period,${startDateStr} to ${endDateStr}\r\n`;
-    csv += `Generated On,${new Date().toLocaleString()}\r\n`;
-    csv += `Branch,${activeTenant.name} (${activeTenant.city})\r\n\r\n`;
-    csv += "Product Name,Item Code,Barcode,Category,Cost Price,Retail Selling Price,Shop Floor Qty,Backroom Store Qty,Total Quantity On-Hand,Valuation at Cost,Potential Margin Value\r\n";
+    let csv = "A4 Product Catalog Inventory Report\\r\\n";
+    csv += `Scope Period,${startDateStr} to ${endDateStr}\\r\\n`;
+    csv += `Generated On,${new Date().toLocaleString()}\\r\\n`;
+    csv += `Branch,${activeTenant.name} (${activeTenant.city})\\r\\n\\r\\n`;
+    csv += "Product Name,Item Code,Barcode,Category,Cost Price,Retail Selling Price,Shop Floor Qty,Backroom Store Qty,Total Quantity On-Hand,Valuation at Cost,Potential Margin Value\\r\\n";
     
     products.forEach(p => {
       const totalOnHand = p.stockQty || 0;
       const totalCostVal = totalOnHand * (p.costPrice || 0);
       const totalRetailVal = totalOnHand * (p.sellingPrice || 0);
       const potentialMargin = totalRetailVal - totalCostVal;
-      csv += `"${p.name}","${p.sku || ''}","${p.barcode || ''}","${p.category || 'General'}",${p.costPrice.toFixed(2)},${p.sellingPrice.toFixed(2)},${p.shopStockQty || 0},${p.storeStockQty || 0},${totalOnHand},${totalCostVal.toFixed(2)},${potentialMargin.toFixed(2)}\r\n`;
+      csv += `"${p.name}","${p.sku || ''}","${p.barcode || ''}","${p.category || 'General'}",${p.costPrice.toFixed(2)},${p.sellingPrice.toFixed(2)},${p.shopStockQty || 0},${p.storeStockQty || 0},${totalOnHand},${totalCostVal.toFixed(2)},${potentialMargin.toFixed(2)}\\r\\n`;
     });
 
     const encodedUri = encodeURI("data:text/csv;charset=utf-8," + csv);
@@ -297,14 +297,14 @@ export default function DashboardReports({
   };
 
   const handleDownloadExpensesSpreadsheet = () => {
-    let csv = "A4 Operating Expenses Ledger\r\n";
-    csv += `Scope Period,${startDateStr} to ${endDateStr}\r\n`;
-    csv += `Generated On,${new Date().toLocaleString()}\r\n`;
-    csv += `Branch,${activeTenant.name} (${activeTenant.city})\r\n\r\n`;
-    csv += "Expense ID,Category,Description,Amount,Cashier logged,Timestamp\r\n";
+    let csv = "A4 Operating Expenses Ledger\\r\\n";
+    csv += `Scope Period,${startDateStr} to ${endDateStr}\\r\\n`;
+    csv += `Generated On,${new Date().toLocaleString()}\\r\\n`;
+    csv += `Branch,${activeTenant.name} (${activeTenant.city})\\r\\n\\r\\n`;
+    csv += "Expense ID,Category,Description,Amount,Cashier logged,Timestamp\\r\\n";
     
     filteredExpenses.forEach(e => {
-      csv += `"${e.id}","${e.category}","${(e.description || '').replace(/"/g, '""')}",${e.amount.toFixed(2)},"${e.staffName || 'Admin'}","${new Date(e.timestamp).toLocaleString()}"\r\n`;
+      csv += `"${e.id}","${e.category}","${(e.description || '').replace(/\"/g, '\"\"')}",${e.amount.toFixed(2)},"${e.staffName || 'Admin'}","${new Date(e.timestamp).toLocaleString()}"\\r\\n`;
     });
 
     const encodedUri = encodeURI("data:text/csv;charset=utf-8," + csv);
@@ -335,16 +335,16 @@ export default function DashboardReports({
     const grossProfit = totalSalesRev - estimatedCOGS;
     const netProfit = grossProfit - totalExp;
 
-    let csv = "A4 Consolidated Balance Statement of Profit and Loss\r\n";
-    csv += `Scope Period,${startDateStr} to ${endDateStr}\r\n`;
-    csv += `Generated On,${new Date().toLocaleString()}\r\n`;
-    csv += `Branch,${activeTenant.name} (${activeTenant.city})\r\n\r\n`;
-    csv += "Financial Line Item,Statement Value,Proportion Ratio\r\n";
-    csv += `1. Gross Revenue Receipts,${totalSalesRev.toFixed(2)},100%\r\n`;
-    csv += `2. Cost of Goods Sold (COGS),${estimatedCOGS.toFixed(2)},${((estimatedCOGS / Math.max(1, totalSalesRev)) * 100).toFixed(1)}%\r\n`;
-    csv += `3. Gross Profit Margin,${grossProfit.toFixed(2)},${((grossProfit / Math.max(1, totalSalesRev)) * 100).toFixed(1)}%\r\n`;
-    csv += `4. Operating Expenses Charged,${totalExp.toFixed(2)},${((totalExp / Math.max(1, totalSalesRev)) * 100).toFixed(1)}%\r\n`;
-    csv += `5. NET OPERATING PROFIT/LOSS,${netProfit.toFixed(2)},${((netProfit / Math.max(1, totalSalesRev)) * 100).toFixed(1)}%\r\n`;
+    let csv = "A4 Consolidated Balance Statement of Profit and Loss\\r\\n";
+    csv += `Scope Period,${startDateStr} to ${endDateStr}\\r\\n`;
+    csv += `Generated On,${new Date().toLocaleString()}\\r\\n`;
+    csv += `Branch,${activeTenant.name} (${activeTenant.city})\\r\\n\\r\\n`;
+    csv += "Financial Line Item,Statement Value,Proportion Ratio\\r\\n";
+    csv += `1. Gross Revenue Receipts,${totalSalesRev.toFixed(2)},100%\\r\\n`;
+    csv += `2. Cost of Goods Sold (COGS),${estimatedCOGS.toFixed(2)},${((estimatedCOGS / Math.max(1, totalSalesRev)) * 100).toFixed(1)}%\\r\\n`;
+    csv += `3. Gross Profit Margin,${grossProfit.toFixed(2)},${((grossProfit / Math.max(1, totalSalesRev)) * 100).toFixed(1)}%\\r\\n`;
+    csv += `4. Operating Expenses Charged,${totalExp.toFixed(2)},${((totalExp / Math.max(1, totalSalesRev)) * 100).toFixed(1)}%\\r\\n`;
+    csv += `5. NET OPERATING PROFIT/LOSS,${netProfit.toFixed(2)},${((netProfit / Math.max(1, totalSalesRev)) * 100).toFixed(1)}%\\r\\n`;
 
     const encodedUri = encodeURI("data:text/csv;charset=utf-8," + csv);
     const link = document.createElement("a");
@@ -357,10 +357,10 @@ export default function DashboardReports({
 
   const handleDownloadActiveTabCSV = () => {
     let csv = "";
-    const headerPrefix = `A4 ${reportTab.toUpperCase()} LEDGER REPORT\r\n` +
-                         `Scope Period,${startDateStr} to ${endDateStr}\r\n` +
-                         `Generated On,${new Date().toLocaleString()}\r\n` +
-                         `Branch,${activeTenant.name} (${activeTenant.city})\r\n\r\n`;
+    const headerPrefix = `A4 ${reportTab.toUpperCase()} LEDGER REPORT\\r\\n` +
+                         `Scope Period,${startDateStr} to ${endDateStr}\\r\\n` +
+                         `Generated On,${new Date().toLocaleString()}\\r\\n` +
+                         `Branch,${activeTenant.name} (${activeTenant.city})\\r\\n\\r\\n`;
 
     switch (reportTab) {
       case 'p&l': {
@@ -381,18 +381,18 @@ export default function DashboardReports({
       }
       case 'payments': {
         csv = headerPrefix;
-        csv += "Payment Channel,Invoiced Total ($),Approval Count,% Contribution\r\n";
+        csv += "Payment Channel,Invoiced Total ($),Approval Count,% Contribution\\r\\n";
         const sumTotal = Object.values(paymentBreakdown).reduce((a, b) => a + b, 0);
-        csv += `Cash,${paymentBreakdown.Cash.toFixed(2)},${filteredSales.filter(s => classifyPaymentMethod(s.paymentMethod) === 'Cash').length},${sumTotal > 0 ? ((paymentBreakdown.Cash / sumTotal) * 100).toFixed(1) : 0}%\r\n`;
-        csv += `Card/Online,${paymentBreakdown.CardAndOnline.toFixed(2)},${filteredSales.filter(s => classifyPaymentMethod(s.paymentMethod) === 'Card').length},${sumTotal > 0 ? ((paymentBreakdown.CardAndOnline / sumTotal) * 100).toFixed(1) : 0}%\r\n`;
-        csv += `Mobile Money,${paymentBreakdown.MobileMoney.toFixed(2)},${filteredSales.filter(s => classifyPaymentMethod(s.paymentMethod) === 'Mobile Money').length},${sumTotal > 0 ? ((paymentBreakdown.MobileMoney / sumTotal) * 100).toFixed(1) : 0}%\r\n`;
-        csv += `Bank Transfer,${paymentBreakdown.BankTransfer.toFixed(2)},${filteredSales.filter(s => classifyPaymentMethod(s.paymentMethod) === 'Bank').length},${sumTotal > 0 ? ((paymentBreakdown.BankTransfer / sumTotal) * 100).toFixed(1) : 0}%\r\n`;
-        csv += `Deferred Credit,${paymentBreakdown.Credit.toFixed(2)},${filteredSales.filter(s => classifyPaymentMethod(s.paymentMethod) === 'Credit').length},${sumTotal > 0 ? ((paymentBreakdown.Credit / sumTotal) * 100).toFixed(1) : 0}%\r\n`;
+        csv += `Cash,${paymentBreakdown.Cash.toFixed(2)},${filteredSales.filter(s => classifyPaymentMethod(s.paymentMethod) === 'Cash').length},${sumTotal > 0 ? ((paymentBreakdown.Cash / sumTotal) * 100).toFixed(1) : 0}%\\r\\n`;
+        csv += `Card/Online,${paymentBreakdown.CardAndOnline.toFixed(2)},${filteredSales.filter(s => classifyPaymentMethod(s.paymentMethod) === 'Card').length},${sumTotal > 0 ? ((paymentBreakdown.CardAndOnline / sumTotal) * 100).toFixed(1) : 0}%\\r\\n`;
+        csv += `Mobile Money,${paymentBreakdown.MobileMoney.toFixed(2)},${filteredSales.filter(s => classifyPaymentMethod(s.paymentMethod) === 'Mobile Money').length},${sumTotal > 0 ? ((paymentBreakdown.MobileMoney / sumTotal) * 100).toFixed(1) : 0}%\\r\\n`;
+        csv += `Bank Transfer,${paymentBreakdown.BankTransfer.toFixed(2)},${filteredSales.filter(s => classifyPaymentMethod(s.paymentMethod) === 'Bank').length},${sumTotal > 0 ? ((paymentBreakdown.BankTransfer / sumTotal) * 100).toFixed(1) : 0}%\\r\\n`;
+        csv += `Deferred Credit,${paymentBreakdown.Credit.toFixed(2)},${filteredSales.filter(s => classifyPaymentMethod(s.paymentMethod) === 'Credit').length},${sumTotal > 0 ? ((paymentBreakdown.Credit / sumTotal) * 100).toFixed(1) : 0}%\\r\\n`;
         break;
       }
       case 'product-monitoring': {
         csv = headerPrefix;
-        csv += "Rank,Product Name,Item Code,Cost Buy,Retail Pricing,Profit Margin,Units Sold,Gross Revenue,Margin Earned\r\n";
+        csv += "Rank,Product Name,Item Code,Cost Buy,Retail Pricing,Profit Margin,Units Sold,Gross Revenue,Margin Earned\\r\\n";
         const prodPerfMap: Record<string, any> = {};
         products.forEach(p => {
           const s = sales.filter(sl => sl.items.some(item => item.productId === p.id));
@@ -411,7 +411,7 @@ export default function DashboardReports({
         });
         const list = Object.values(prodPerfMap).sort((a, b) => b.profit - a.profit);
         list.forEach((item, idx) => {
-          csv += `"${item.name}","${item.sku}","${item.cost.toFixed(2)}","${item.price.toFixed(2)}","${item.margin.toFixed(1)}%",${item.qty},${item.rev.toFixed(2)},${item.profit.toFixed(2)}\r\n`;
+          csv += `"${item.name}","${item.sku}","${item.cost.toFixed(2)}","${item.price.toFixed(2)}","${item.margin.toFixed(1)}%",${item.qty},${item.rev.toFixed(2)},${item.profit.toFixed(2)}\\r\\n`;
         });
         break;
       }
