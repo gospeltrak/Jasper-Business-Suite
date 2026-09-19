@@ -5193,3 +5193,4 @@ function TenantDashboardGate(props: DashboardProps) {
   }
   return <DashboardContent {...props} />;
 }
+
