@@ -1398,12 +1398,12 @@ export default function DashboardPurchases({
               </div>
 
               {/* Product cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[500px] overflow-y-auto pr-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 max-h-[500px] overflow-y-auto pr-1">
                 {filteredProducts.map(prod => (
                   <div 
                     key={prod.id}
                     onClick={() => handleAddToCart(prod)}
-                    className="border border-slate-200 hover:border-emerald-400 bg-slate-50/50 hover:bg-emerald-50/20 p-4 rounded-2xl flex flex-col justify-between space-y-3 cursor-pointer transition-all hover:shadow-sm group"
+                    className="border border-slate-200 hover:border-emerald-400 bg-slate-50/50 hover:bg-emerald-50/20 p-4 rounded-2xl xl:h-60 flex flex-col justify-between space-y-3 cursor-pointer transition-all hover:shadow-sm group"
                   >
                     <div className="h-28 rounded-xl bg-white border border-slate-100 flex items-center justify-center overflow-hidden">
                       {prod.image ? (

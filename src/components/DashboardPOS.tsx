@@ -1469,7 +1469,7 @@ export default function DashboardPOS({
                   }}
                   className={`w-full min-w-0 bg-white border rounded-xl select-none relative shadow-xs active:scale-95 group ${!showProductImages ? 'pos-product-card-no-image' : ''} ${
                     showProductImages
-                      ? 'p-0 lg:p-5 xl:p-3 flex flex-col justify-between overflow-hidden lg:overflow-visible lg:rounded-3xl'
+                      ? 'p-0 lg:p-5 xl:p-3 lg:h-[19rem] xl:h-[13rem] flex flex-col justify-between overflow-hidden lg:overflow-visible lg:rounded-3xl'
                       : 'p-3 md:p-4 flex items-center gap-3 overflow-hidden'
                   } ${
                     isOut 
