@@ -4,10 +4,10 @@ import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App';
 import './index.css';
-import { ThemeProvider } from './ThemeContext';
-import { LanguageProvider } from './LanguageContext';
-import { TenantLogoProvider } from './TenantLogoContext';
-import { NotificationProvider } from './JasperNotificationContext';
+import { ThemeProvider } from './shared/contexts/ThemeContext';
+import { LanguageProvider } from './shared/contexts/LanguageContext';
+import { TenantLogoProvider } from './shared/contexts/TenantLogoContext';
+import { NotificationProvider } from './shared/contexts/JasperNotificationContext';
 import AppErrorBoundary from './components/AppErrorBoundary';
 
 function syncViewportVars() {

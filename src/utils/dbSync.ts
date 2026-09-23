@@ -9,13 +9,13 @@
  * On conflict:   Supabase wins (server-side timestamp comparison)
  */
 
-import { getSecureDataBridgeClient } from '../secureDataBridge';
+import { getSecureDataBridgeClient } from '../shared/dataBridge/secureDataBridge';
 import {
   getTenantArray,
   isProtectedDataKey,
   payloadHasRecords,
   protectTenantPayload,
-} from './dataSafety';
+} from '../shared/utils/dataSafety';
 import {
   attachPayloadProductTombstones,
   extractPayloadProductTombstones,

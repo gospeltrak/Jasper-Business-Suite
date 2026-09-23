@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import PWAInstallBanner from './PWAInstallBanner';
 import { requestManualInstallPrompt } from '../utils/pwaInstallPrompt';
-import { useTranslation } from '../LanguageContext';
-import { useTenantLogo } from '../TenantLogoContext';
-import { useJasperNotifications } from '../JasperNotificationContext';
+import { useTranslation } from '../shared/contexts/LanguageContext';
+import { useTenantLogo } from '../shared/contexts/TenantLogoContext';
+import { useJasperNotifications } from '../shared/contexts/JasperNotificationContext';
 import { Branch, BranchStaffAssignment, BranchStock, User, Tenant, Product, Sale, SyncLog, Supplier, Expense, Purchase, Delivery, DeliveryRider, SystemSettings, CustomRole, SaleItem } from '../types';
 import { 
   DEFAULT_TENANTS, 
@@ -23,35 +23,35 @@ import { lazyWithReload } from '../utils/lazyWithReload';
 // render, even though a login only ever needs the one tab the user lands on.
 // See STEP1_INSPECTION_REPORT.md / commit history for the original fix and
 // why this must stay lazy-loaded.
-const DashboardOverview = lazyWithReload('DashboardOverview', () => import('./DashboardOverview'));
-const DashboardPOS = lazyWithReload('DashboardPOS', () => import('./DashboardPOS'));
-const DashboardProducts = lazyWithReload('DashboardProducts', () => import('./DashboardProducts'));
-const DashboardSuppliers = lazyWithReload('DashboardSuppliers', () => import('./DashboardSuppliers'));
-const DashboardLogsAndSync = lazyWithReload('DashboardLogsAndSync', () => import('./DashboardLogsAndSync'));
-const DashboardReports = lazyWithReload('DashboardReports', () => import('./DashboardReports'));
-const DashboardExpenses = lazyWithReload('DashboardExpenses', () => import('./DashboardExpenses'));
-const DashboardSalesList = lazyWithReload('DashboardSalesList', () => import('./DashboardSalesList'));
-const DashboardForecasting = lazyWithReload('DashboardForecasting', () => import('./DashboardForecasting'));
-const DashboardCashBank = lazyWithReload('DashboardCashBank', () => import('./DashboardCashBank'));
+const DashboardOverview = lazyWithReload('DashboardOverview', () => import('../modules/overview/DashboardOverview'));
+const DashboardPOS = lazyWithReload('DashboardPOS', () => import('../modules/pos/DashboardPOS'));
+const DashboardProducts = lazyWithReload('DashboardProducts', () => import('../modules/products/DashboardProducts'));
+const DashboardSuppliers = lazyWithReload('DashboardSuppliers', () => import('../modules/suppliers/DashboardSuppliers'));
+const DashboardLogsAndSync = lazyWithReload('DashboardLogsAndSync', () => import('../modules/logs-sync/DashboardLogsAndSync'));
+const DashboardReports = lazyWithReload('DashboardReports', () => import('../modules/reports/DashboardReports'));
+const DashboardExpenses = lazyWithReload('DashboardExpenses', () => import('../modules/expenses/DashboardExpenses'));
+const DashboardSalesList = lazyWithReload('DashboardSalesList', () => import('../modules/sales/DashboardSalesList'));
+const DashboardForecasting = lazyWithReload('DashboardForecasting', () => import('../modules/forecasting/DashboardForecasting'));
+const DashboardCashBank = lazyWithReload('DashboardCashBank', () => import('../modules/cash-bank/DashboardCashBank'));
 import { saveData } from '../utils/dbSync';
-const DashboardPurchases = lazyWithReload('DashboardPurchases', () => import('./DashboardPurchases'));
-const DashboardDeliveries = lazyWithReload('DashboardDeliveries', () => import('./DashboardDeliveries'));
-const DashboardSandboxVerticals = lazyWithReload('DashboardSandboxVerticals', () => import('./DashboardSandboxVerticals'));
-const DashboardWhiteLabel = lazyWithReload('DashboardWhiteLabel', () => import('./DashboardWhiteLabel'));
-const DashboardSettings = lazyWithReload('DashboardSettings', () => import('./DashboardSettings'));
+const DashboardPurchases = lazyWithReload('DashboardPurchases', () => import('../modules/purchases/DashboardPurchases'));
+const DashboardDeliveries = lazyWithReload('DashboardDeliveries', () => import('../modules/deliveries/DashboardDeliveries'));
+const DashboardSandboxVerticals = lazyWithReload('DashboardSandboxVerticals', () => import('../modules/verticals/DashboardSandboxVerticals'));
+const DashboardWhiteLabel = lazyWithReload('DashboardWhiteLabel', () => import('../modules/white-label/DashboardWhiteLabel'));
+const DashboardSettings = lazyWithReload('DashboardSettings', () => import('../modules/settings/DashboardSettings'));
 import { DEFAULT_CUSTOM_ROLES } from '../utils/defaultCustomRoles';
-const DashboardStaff = lazyWithReload('DashboardStaff', () => import('./DashboardStaff'));
+const DashboardStaff = lazyWithReload('DashboardStaff', () => import('../modules/staff/DashboardStaff'));
 import DashboardScreenErrorBoundary from './DashboardScreenErrorBoundary';
 import AIBusinessCopilot from './AIBusinessCopilot';
 import GlobalStickyAd from './GlobalStickyAd';
-const SuperSaaSAdminView = lazyWithReload('SuperSaaSAdminView', () => import('./SuperSaaSAdminView'));
+const SuperSaaSAdminView = lazyWithReload('SuperSaaSAdminView', () => import('../modules/platform-admin/components/SuperSaaSAdminView'));
 import DuressDashboard from './DuressDashboard';
 import CachedImage from './CachedImage';
 import { savePendingSaleOffline } from '../utils/offlineDb';
-import { createCleanTenantSettings, isDemoTenant } from '../utils/tenantIsolation';
+import { createCleanTenantSettings, isDemoTenant } from '../shared/utils/tenantIsolation';
 import { flushPendingTenantWorkspace, loadTenantWorkspace, markTenantProductsUpdated, saveTenantSettings, saveTenantWorkspace, scheduleTenantWorkspaceSave, subscribeToTenantWorkspace, TenantWorkspace, workspaceHasBusinessData } from '../utils/tenantWorkspace';
-import { safeSetJsonItem, safeSetTenantMapItem } from '../utils/dataSafety';
-import { findPaymentChannel, getTreasuryPaymentMethods, reconcilePaymentChannels } from '../utils/paymentAccounts';
+import { safeSetJsonItem, safeSetTenantMapItem } from '../shared/utils/dataSafety';
+import { findPaymentChannel, getTreasuryPaymentMethods, reconcilePaymentChannels } from '../shared/utils/paymentAccounts';
 import { attachPayloadProductTombstones, markLocalProductTombstones, readLocalProductTombstones, stampProductsForSync } from '../utils/productSync';
 import {
   attachPayloadSaleTombstones,
@@ -62,8 +62,8 @@ import {
   writeLocalSaleTombstones,
 } from '../utils/saleSync';
 import { mergeSettingsForSync, stampSettingsForSync } from '../utils/settingsSync';
-import { BranchProvider, useOptionalBranchContext } from '../branches/BranchContext';
-import GlobalBranchSwitcher from './GlobalBranchSwitcher';
+import { BranchProvider, useOptionalBranchContext } from '../modules/branches/BranchContext';
+import GlobalBranchSwitcher from '../modules/branches/components/GlobalBranchSwitcher';
 import {
   mergeScopedProducts,
   recordBelongsToActiveBranch,
@@ -71,9 +71,9 @@ import {
   scopeBranchRecords,
   scopeProductsForBranch,
   type ActiveBranchSelection,
-} from '../branches/branchScope';
+} from '../modules/branches/branchScope';
 import { ONLINE_ONLY_WRITE_MESSAGE, canWriteBusinessDataOnline } from '../utils/onlineOnly';
-import { getSecureDataBridgeClient, isPlaceholderSecureDataBridgeClient } from '../secureDataBridge';
+import { getSecureDataBridgeClient, isPlaceholderSecureDataBridgeClient } from '../shared/dataBridge/secureDataBridge';
 import { postTreasuryEntry, postTreasurySplitIncome, reverseTreasuryEntry } from '../utils/treasuryApi';
 import { getSubscriptionReminder, getSubscriptionReminderKey } from '../utils/subscriptionReminder';
 import { Shield, Sparkles as SparklesIcon, AlertTriangle, CheckCircle, HelpCircle as HelpIcon, Play, RefreshCcw, CreditCard as CardIcon, Bell } from 'lucide-react';
@@ -89,7 +89,7 @@ import {
   SubscriptionState
 } from '../utils/subscription';
 
-const DashboardBranchesSettings = lazyWithReload('DashboardBranchesSettings', () => import('./DashboardBranchesSettings'));
+const DashboardBranchesSettings = lazyWithReload('DashboardBranchesSettings', () => import('../modules/branches/components/DashboardBranchesSettings'));
 
 import { 
   Store, 

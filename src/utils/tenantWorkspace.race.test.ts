@@ -39,7 +39,7 @@ vi.mock('./onlineOnly', () => ({
   warnOfflineWriteBlocked: () => {},
 }));
 
-vi.mock('../secureDataBridge', () => {
+vi.mock('../shared/dataBridge/secureDataBridge', () => {
   return {
     getSecureDataBridgeClient: vi.fn(async () => ({
       supabaseUrl: 'https://fake-project.supabase.co',

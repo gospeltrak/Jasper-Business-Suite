@@ -59,7 +59,7 @@ On its own this legacy write is inert (nothing reads `tenant_data.purchases_map`
 
 ### 4–7, 12, 14. Why Preview/Download/Print/WhatsApp all differ — root cause found
 
-There are **three separate, independently-maintained rendering engines** in `src/utils/pdfShare.ts` (880 lines) and `src/utils/whatsapp.ts` (77 lines), no single source of truth:
+There are **three separate, independently-maintained rendering engines** in `src/shared/utils/pdfShare.ts` (880 lines) and `src/utils/whatsapp.ts` (77 lines), no single source of truth:
 
 **Engine 1 — Hand-coded vector jsPDF** (`createReceiptPdfFromData`, `createPosReceiptPdfFromData`, lines 125–389). Draws the receipt from scratch using jsPDF text/line/rect primitives, built from a `ReceiptData` struct — it never looks at the on-screen Preview DOM at all. Used for POS receipts. This is a **manually maintained duplicate** of whatever the Preview component renders; any visual change to the Preview component does not propagate here. This is the direct cause of Issue 9 ("Preview looks better than Download" for POS receipts).
 
@@ -84,7 +84,7 @@ There are **three separate, independently-maintained rendering engines** in `src
 
 ### 9–11. Business Name source — canonical utility exists but is barely used
 
-`src/utils/businessBranding.ts` exports `getBusinessDisplayName(tenant, settings, userName)` — correctly prioritizes the registered business name and explicitly filters out `company.companyName` and user-derived names, falling back to a generic `'My Business'` string rather than ever substituting tenant name. Comment states: *"intentionally different from tenant.name, companyName and user.name."*
+`src/shared/utils/businessBranding.ts` exports `getBusinessDisplayName(tenant, settings, userName)` — correctly prioritizes the registered business name and explicitly filters out `company.companyName` and user-derived names, falling back to a generic `'My Business'` string rather than ever substituting tenant name. Comment states: *"intentionally different from tenant.name, companyName and user.name."*
 
 **This utility has exactly one caller in the entire codebase** (`DashboardOverview.tsx`). Everywhere else, each component reimplements its own ad-hoc fallback chain, and most of them **do fall back to `activeTenant.name` (tenant name)** — the exact thing the rules say must never happen. Confirmed at minimum in:
 
@@ -124,13 +124,13 @@ This is not a handful of labels; it is a full simulated "fiscal receipt" feature
 ## Affected files (by stage, for your approval)
 
 - **Stage 1 (Purchases):** `src/components/Dashboard.tsx` (remove 3 redundant `saveData` calls). New test file alongside `src/utils/tenantWorkspace.race.test.ts`.
-- **Stage 2 (Unify rendering engine):** `src/utils/pdfShare.ts` (consolidate Engines 1 & 3 into Engine 2's DOM-screenshot approach); call sites in `DashboardPOS.tsx`, `DashboardSalesList.tsx`, `DashboardReports.tsx`, `DashboardDeliveries.tsx`.
-- **Stage 3 (Business Name):** `src/utils/businessBranding.ts` (already correct — reuse everywhere), plus every call site listed above in Part C.
-- **Stage 4 (Logo):** `src/TenantLogoContext.tsx` resolver logic reused/exported for document code; same call sites as Stage 3.
-- **Stage 5 (Delivery Note header):** `src/components/DashboardDeliveries.tsx` (`#delivery-note-print-area` markup).
-- **Stage 6 (WhatsApp PDF):** `src/utils/pdfShare.ts`, `src/components/DashboardDeliveries.tsx`.
-- **Stages 7–10 (POS Receipt, A4 Invoice, Quotations, Receipts):** `src/components/DashboardPOS.tsx`, `src/components/DashboardSalesList.tsx`.
-- **Stage 11 (Report PDFs):** `src/components/DashboardReports.tsx`, `src/utils/pdfShare.ts` (switch reports from `visual:false` Engine 3 to the unified engine).
+- **Stage 2 (Unify rendering engine):** `src/shared/utils/pdfShare.ts` (consolidate Engines 1 & 3 into Engine 2's DOM-screenshot approach); call sites in `DashboardPOS.tsx`, `DashboardSalesList.tsx`, `DashboardReports.tsx`, `DashboardDeliveries.tsx`.
+- **Stage 3 (Business Name):** `src/shared/utils/businessBranding.ts` (already correct — reuse everywhere), plus every call site listed above in Part C.
+- **Stage 4 (Logo):** `src/shared/contexts/TenantLogoContext.tsx` resolver logic reused/exported for document code; same call sites as Stage 3.
+- **Stage 5 (Delivery Note header):** `src/modules/deliveries/DashboardDeliveries.tsx` (`#delivery-note-print-area` markup).
+- **Stage 6 (WhatsApp PDF):** `src/shared/utils/pdfShare.ts`, `src/modules/deliveries/DashboardDeliveries.tsx`.
+- **Stages 7–10 (POS Receipt, A4 Invoice, Quotations, Receipts):** `src/modules/pos/DashboardPOS.tsx`, `src/modules/sales/DashboardSalesList.tsx`.
+- **Stage 11 (Report PDFs):** `src/modules/reports/DashboardReports.tsx`, `src/shared/utils/pdfShare.ts` (switch reports from `visual:false` Engine 3 to the unified engine).
 - **Stage 12 (TRA/VFD/EFD):** `DashboardPOS.tsx`, `DashboardRestaurant.tsx`, `DashboardSandboxVerticals.tsx`, `DashboardReports.tsx`, `DashboardSalesList.tsx`, `DashboardWhiteLabel.tsx`, `SaaSHardwareSales.tsx`, `SaaSHardwarePOS.tsx` — VAT logic preserved, fiscal-badge JSX removed.
 
 ## Risk assessment

@@ -1,5 +1,5 @@
 import fs from 'fs';
-let content = fs.readFileSync('src/components/SuperSaaSAdminView.tsx', 'utf8');
+let content = fs.readFileSync('src/modules/platform-admin/components/SuperSaaSAdminView.tsx', 'utf8');
 
 const startStr = "{/* ======================= TAB 5: AFFILIATE ADS MANAGER ======================= */}";
 const startIdx = content.indexOf(startStr);
@@ -19,7 +19,7 @@ const replacement = `{/* ======================= TAB 5: EXPENSES ===============
 
 if (startIdx !== -1 && endIdx !== -1) {
   const newContent = content.substring(0, startIdx) + replacement + content.substring(endIdx);
-  fs.writeFileSync('src/components/SuperSaaSAdminView.tsx', newContent);
+  fs.writeFileSync('src/modules/platform-admin/components/SuperSaaSAdminView.tsx', newContent);
   console.log("Successfully replaced block.");
 } else {
   console.log("Could not find boundaries.");

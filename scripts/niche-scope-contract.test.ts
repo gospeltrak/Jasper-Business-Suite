@@ -5,7 +5,7 @@ import test from 'node:test';
 const read = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 
 test('registration exposes only retail/wholesale and pharmacy', () => {
-  const login = read('src/components/LoginPage.tsx');
+  const login = read('src/modules/auth/LoginPage.tsx');
   const server = read('server.ts');
 
   assert.match(login, /Retail & Wholesale/);
@@ -20,7 +20,7 @@ test('registration exposes only retail/wholesale and pharmacy', () => {
 test('removed niches have no demo identities or reachable dashboard routes', () => {
   const data = read('src/data.ts');
   const dashboard = read('src/components/Dashboard.tsx');
-  const isolation = read('src/utils/tenantIsolation.ts');
+  const isolation = read('src/shared/utils/tenantIsolation.ts');
 
   for (const removedId of ['t-hotel-01', 't-restaurant-01']) {
     assert.doesNotMatch(data, new RegExp(removedId));

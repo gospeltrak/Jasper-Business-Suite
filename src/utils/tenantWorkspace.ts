@@ -1,7 +1,7 @@
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { Branch, BranchStaffAssignment, BranchStock, Delivery, Expense, Product, Purchase, SystemSettings } from '../types';
-import { getSecureDataBridgeClient } from '../secureDataBridge';
-import { getProductPayloadQualityScore, isProductPayloadDestructiveShrink, isProductPayloadQualityDowngrade } from './dataSafety';
+import { getSecureDataBridgeClient } from '../shared/dataBridge/secureDataBridge';
+import { getProductPayloadQualityScore, isProductPayloadDestructiveShrink, isProductPayloadQualityDowngrade } from '../shared/utils/dataSafety';
 import {
   mergeProductsForSync,
   mergeProductTombstones,
