@@ -404,7 +404,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
     if (!partnerInfo?.id) return;
     const loadNotifications = async () => {
       try {
-        const { getSecureDataBridgeClient } = await import('../../secureDataBridge');
+        const { getSecureDataBridgeClient } = await import('../../../shared/dataBridge/secureDataBridge');
         const client: any = await getSecureDataBridgeClient();
         const { data } = await client
           .from('affiliate_notification_events')

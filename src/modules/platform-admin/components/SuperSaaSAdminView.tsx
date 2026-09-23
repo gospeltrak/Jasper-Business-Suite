@@ -152,7 +152,7 @@ export default function SuperSaaSAdminView({
       setFailedAttempts(nextAttempts);
       setMfaCode('');
       if (nextAttempts >= 3) {
-        const client = await import('../secureDataBridge').then(module => module.getSecureDataBridgeClient());
+        const client = await import('../../../shared/dataBridge/secureDataBridge').then(module => module.getSecureDataBridgeClient());
         await client.auth.signOut({ scope: 'global' }).catch(() => null);
         window.location.assign('/admin');
         return;

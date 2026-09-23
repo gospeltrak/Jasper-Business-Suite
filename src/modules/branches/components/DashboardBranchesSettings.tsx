@@ -361,8 +361,8 @@ function BranchLogoUploadCard({
     setStatusMessage(null);
     try {
       const [{ compressImage }, { uploadBranchLogoAsset }] = await Promise.all([
-        import('../utils/imageStorage'),
-        import('../branches/branchApi'),
+        import('../../../utils/imageStorage'),
+        import('../branchApi'),
       ]);
       const compressed = await compressImage(file);
       const logoBase64 = await new Promise<string>((resolve, reject) => {

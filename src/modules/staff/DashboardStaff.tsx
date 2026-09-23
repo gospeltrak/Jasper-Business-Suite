@@ -36,8 +36,8 @@ import {
 import { compressImageFile } from '../../shared/utils/imageCompression';
 import { getMaskedAccountReference } from '../../shared/utils/paymentAccounts';
 import { loadBranchWorkspace } from '../branches/branchApi';
-import { getSecureDataBridgeClient } from '../secureDataBridge';
-import { formatLocalDate } from '../utils/localDate';
+import { getSecureDataBridgeClient } from '../../shared/dataBridge/secureDataBridge';
+import { formatLocalDate } from '../../utils/localDate';
 
 const currency = 'TSh';
 

@@ -7,7 +7,7 @@ import type {
   CreateBranchInput,
   CreatedBranchResult,
 } from './branchTypes';
-import type { SalesDocument } from '../types';
+import type { SalesDocument } from '../../types';
 
 export class BranchApiError extends Error {
   readonly status: number;

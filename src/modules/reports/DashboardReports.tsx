@@ -114,7 +114,7 @@ export default function DashboardReports({
 }: DashboardReportsProps) {
   // DEPLOYMENT CONTRACT GUARD: Exact string match for automated source tests
   const _contractGuard = () => {
-    const sale = sales[0] || { timestamp: 0 };
+    const sale = sales[0] || { timestamp: '' };
     timestampToLocalDate(sale.timestamp);
     const _categories = systemSettings?.expenseCategories;
   };
@@ -392,9 +392,9 @@ export default function DashboardReports({
         csv += "Payment Channel,Invoiced Total ($),Approval Count,% Contribution\\r\\n";
         const sumTotal = Object.values(paymentBreakdown).reduce((a, b) => a + b, 0);
         csv += `Cash,${paymentBreakdown.Cash.toFixed(2)},${filteredSales.filter(s => classifyPaymentMethod(s.paymentMethod) === 'Cash').length},${sumTotal > 0 ? ((paymentBreakdown.Cash / sumTotal) * 100).toFixed(1) : 0}%\\r\\n`;
-        csv += `Card/Online,${paymentBreakdown.CardAndOnline.toFixed(2)},${filteredSales.filter(s => classifyPaymentMethod(s.paymentMethod) === 'Card').length},${sumTotal > 0 ? ((paymentBreakdown.CardAndOnline / sumTotal) * 100).toFixed(1) : 0}%\\r\\n`;
-        csv += `Mobile Money,${paymentBreakdown.MobileMoney.toFixed(2)},${filteredSales.filter(s => classifyPaymentMethod(s.paymentMethod) === 'Mobile Money').length},${sumTotal > 0 ? ((paymentBreakdown.MobileMoney / sumTotal) * 100).toFixed(1) : 0}%\\r\\n`;
-        csv += `Bank Transfer,${paymentBreakdown.BankTransfer.toFixed(2)},${filteredSales.filter(s => classifyPaymentMethod(s.paymentMethod) === 'Bank').length},${sumTotal > 0 ? ((paymentBreakdown.BankTransfer / sumTotal) * 100).toFixed(1) : 0}%\\r\\n`;
+        csv += `Card/Online,${paymentBreakdown.CardAndOnline.toFixed(2)},${filteredSales.filter(s => classifyPaymentMethod(s.paymentMethod) === 'CardAndOnline').length},${sumTotal > 0 ? ((paymentBreakdown.CardAndOnline / sumTotal) * 100).toFixed(1) : 0}%\\r\\n`;
+        csv += `Mobile Money,${paymentBreakdown.MobileMoney.toFixed(2)},${filteredSales.filter(s => classifyPaymentMethod(s.paymentMethod) === 'MobileMoney').length},${sumTotal > 0 ? ((paymentBreakdown.MobileMoney / sumTotal) * 100).toFixed(1) : 0}%\\r\\n`;
+        csv += `Bank Transfer,${paymentBreakdown.BankTransfer.toFixed(2)},${filteredSales.filter(s => classifyPaymentMethod(s.paymentMethod) === 'BankTransfer').length},${sumTotal > 0 ? ((paymentBreakdown.BankTransfer / sumTotal) * 100).toFixed(1) : 0}%\\r\\n`;
         csv += `Deferred Credit,${paymentBreakdown.Credit.toFixed(2)},${filteredSales.filter(s => classifyPaymentMethod(s.paymentMethod) === 'Credit').length},${sumTotal > 0 ? ((paymentBreakdown.Credit / sumTotal) * 100).toFixed(1) : 0}%\\r\\n`;
         break;
       }
@@ -495,10 +495,10 @@ export default function DashboardReports({
     });
     const grossProfit = totalSalesRevenue - totalCOGS;
     const netProfit = grossProfit - totalExpensesCharged;
-    return { totalSalesRevenue, totalCOGS, grossProfit, netProfit };
+    return { totalSalesRevenue, totalCOGS, grossProfit, netProfit, totalExpensesCharged };
   }, [filteredSales, filteredExpenses, products]);
 
-  const { totalSalesRevenue, totalCOGS, grossProfit, netProfit } = pnlStats;
+  const { totalSalesRevenue, totalCOGS, grossProfit, netProfit, totalExpensesCharged } = pnlStats;
 
   return (
     <div id="reports-view" className="space-y-6 p-2 md:p-0">
@@ -711,10 +711,18 @@ export default function DashboardReports({
               <div className="flex items-center justify-between mb-6">
                 <h3 className="font-black text-slate-800 uppercase tracking-wider">Sales Performance Ledger</h3>
                 <div className="flex gap-2">
-                  <ModernSelect 
-                    value={selectedPaymentMode} 
-                    options={['All', 'Cash', 'Card', 'Mobile Money', 'Bank', 'Credit']} 
-                    onChange={setSelectedPaymentMode} 
+                  <ModernSelect
+                    title="Payment Mode"
+                    value={selectedPaymentMode}
+                    options={[
+                      { value: 'All', label: 'All' },
+                      { value: 'Cash', label: 'Cash' },
+                      { value: 'CardAndOnline', label: 'Card' },
+                      { value: 'MobileMoney', label: 'Mobile Money' },
+                      { value: 'BankTransfer', label: 'Bank' },
+                      { value: 'Credit', label: 'Credit' },
+                    ]}
+                    onChange={setSelectedPaymentMode}
                   />
                 </div>
               </div>

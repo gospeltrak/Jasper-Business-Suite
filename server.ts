@@ -1689,25 +1689,13 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       const { error: signInError } = await verifier.auth.signInWithPassword({ email: normalizeEmail(profile.email), password });
       if (signInError) return sendExpectedSafeApiError(req, res, "AUTH_ERROR", 401, "sign_in", { email: null });
       await verifier.auth.signOut();
-      const verified = profile;,
-        });
-        const { error: signInError } = await verifier.auth.signInWithPassword({
-          email: normalizeEmail(profile.email),
-          password,
-        });
-        if (!signInError) {
-          verifiedProfiles.push(profile);
-          await verifier.auth.signOut();
-        }
-      }
-      
-        const verified = verifiedProfiles[0];
-        await purgeLegacyWorkspaceStaffPassword({
-          tenantId: String(verified.tenant_id), phone: String(verified.phone),
-          authUserId: String(verified.id), authEmail: normalizeEmail(verified.email),
-        });
-        return res.json({ email: normalizeEmail(verified.email) });
-      }
+      const verified = profile;
+      await purgeLegacyWorkspaceStaffPassword({
+        tenantId: String(verified.tenant_id), phone: String(verified.phone),
+        authUserId: String(verified.id), authEmail: normalizeEmail(verified.email),
+      });
+      return res.json({ email: normalizeEmail(verified.email) });
+
       if (false) {
         return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 401, 'sign_in', { email: null });
       }
@@ -1821,10 +1809,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         if (authCreateError || !authData.user) throw authCreateError || new Error('Unable to provision staff authentication.');
         authUserId = authData.user.id;
 
-        const { error: profileCreateError } = // PROFESSIONAL CHECK: Prevent duplicate accounts
-const { data: existingUser } = await adminTable('users').select('id').eq('email', normalizeEmail(email)).maybeSingle();
-if (existingUser && existingUser.data) return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 409, 'register', { email: normalizeEmail(email) });
-await adminTable('users').insert({
+        const { error: profileCreateError } = await adminTable('users').insert({
           id: authUserId,
           email: authEmail,
           name: normalizeText(staff.name || 'Staff Member'),
@@ -3591,10 +3576,7 @@ await adminTable('users').insert({
       const { data: authData, error: authError } = await supabaseAdmin!.auth.admin.createUser(userPayload as any);
       if (authError || !authData.user) throw new Error(authError?.message || 'Unable to create SaaS staff account.');
 
-      const { data, error } = // PROFESSIONAL CHECK: Prevent duplicate accounts
-const { data: existingUser } = await adminTable('users').select('id').eq('email', normalizeEmail(email)).maybeSingle();
-if (existingUser && existingUser.data) return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 409, 'register', { email: normalizeEmail(email) });
-await adminTable('users').insert({
+      const { data, error } = await adminTable('users').insert({
         id: authData.user.id,
         email: emailValue,
         name: normalizeText(name),
@@ -3925,10 +3907,7 @@ await adminTable('users').insert({
         const { data: conflictingProfile } = await adminTable('users').select('id,account_type').eq('id', userId).maybeSingle();
         if (conflictingProfile) return res.status(409).json({ error: 'This Google account is already linked to an account.' });
       }
-      const { error: userError } = // PROFESSIONAL CHECK: Prevent duplicate accounts
-const { data: existingUser } = await adminTable('users').select('id').eq('email', normalizeEmail(email)).maybeSingle();
-if (existingUser && existingUser.data) return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 409, 'register', { email: normalizeEmail(email) });
-await adminTable('users').insert({
+      const { error: userError } = await adminTable('users').insert({
         id: userId,
         email: authEmail,
         name: normalizeText(name),

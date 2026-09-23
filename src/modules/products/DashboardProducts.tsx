@@ -58,7 +58,7 @@ import {
   getProductCatalogueBackupFileName,
   parseProductCatalogueBackup,
   prepareBackedUpProductsForImport,
-} from '../utils/productCatalogueBackup';
+} from '../../utils/productCatalogueBackup';
 
 const getProductImageUploadToken = async (): Promise<string> => {
   const client: any = await getSecureDataBridgeClient();
