@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 const server = fs.readFileSync('server.ts', 'utf8');
-const login = fs.readFileSync('src/components/LoginPage.tsx', 'utf8');
-const staff = fs.readFileSync('src/components/DashboardStaff.tsx', 'utf8');
+const login = fs.readFileSync('src/modules/auth/LoginPage.tsx', 'utf8');
+const staff = fs.readFileSync('src/modules/staff/DashboardStaff.tsx', 'utf8');
 const app = fs.readFileSync('src/App.tsx', 'utf8');
 const dashboard = fs.readFileSync('src/components/Dashboard.tsx', 'utf8');
 const migration = fs.readFileSync('supabase/migrations/20260812000200_staff_google_invitations.sql', 'utf8');

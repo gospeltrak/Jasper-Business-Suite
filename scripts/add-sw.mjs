@@ -2,7 +2,7 @@
  * add-sw.mjs
  * ---------------------------------------------------------------------------
  * Inaongeza tafsiri 31 za Kiswahili zilizokosekana ndani ya
- * src/LanguageContext.tsx, mara baada ya `sw: {`.
+ * src/shared/contexts/LanguageContext.tsx, mara baada ya `sw: {`.
  *
  * Salama:
  *   - Inatengeneza backup kabla ya kubadilisha chochote.
@@ -15,7 +15,7 @@
 
 import { readFileSync, writeFileSync, copyFileSync, existsSync } from 'node:fs';
 
-const FILE = 'src/LanguageContext.tsx';
+const FILE = 'src/shared/contexts/LanguageContext.tsx';
 
 const TRANSLATIONS = {
   'account identifier': 'Namba ya simu au barua pepe',

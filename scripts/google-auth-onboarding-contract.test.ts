@@ -2,10 +2,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-const login = readFileSync(new URL('../src/components/LoginPage.tsx', import.meta.url), 'utf8');
+const login = readFileSync(new URL('../src/modules/auth/LoginPage.tsx', import.meta.url), 'utf8');
 const server = readFileSync(new URL('../server.ts', import.meta.url), 'utf8');
-const affiliateWorkspace = readFileSync(new URL('../src/components/affiliate/AffiliateWorkspace.tsx', import.meta.url), 'utf8');
-const affiliateData = readFileSync(new URL('../src/utils/affiliateWorkspace.ts', import.meta.url), 'utf8');
+const affiliateWorkspace = readFileSync(new URL('../src/modules/affiliate/components/AffiliateWorkspace.tsx', import.meta.url), 'utf8');
+const affiliateData = readFileSync(new URL('../src/modules/affiliate/utils/affiliateWorkspace.ts', import.meta.url), 'utf8');
 
 test('Google OAuth returns to the resolver and new users complete business onboarding', () => {
   assert.match(login, /\/login\?oauth=google/);
@@ -32,7 +32,7 @@ test('server trusts verified Google session but never OAuth role or tenant metad
 });
 
 test('Turnstile protects password and Google login across business and portal accounts', () => {
-  const affiliate = readFileSync(new URL('../src/components/AffiliatePortal.tsx', import.meta.url), 'utf8');
+  const affiliate = readFileSync(new URL('../src/modules/affiliate/components/AffiliatePortal.tsx', import.meta.url), 'utf8');
   assert.match(login, /verifyLoginTurnstile/);
   assert.match(login, /\/api\/auth\/turnstile/);
   assert.match(affiliate, /\/api\/auth\/turnstile/);

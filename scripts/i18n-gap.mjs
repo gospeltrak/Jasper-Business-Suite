@@ -1,7 +1,7 @@
 /**
  * i18n-gap.mjs
  * ---------------------------------------------------------------------------
- * Inasoma src/LanguageContext.tsx, inalinganisha funguo za lugha zote,
+ * Inasoma src/shared/contexts/LanguageContext.tsx, inalinganisha funguo za lugha zote,
  * na kuorodhesha zinazokosekana kwa kila lugha.
  *
  * Matumizi:
@@ -13,7 +13,7 @@
 
 import { readFileSync, existsSync } from 'node:fs';
 
-const SOURCE = 'src/LanguageContext.tsx';
+const SOURCE = 'src/shared/contexts/LanguageContext.tsx';
 const LANGS = ['sw', 'ar', 'fr'];
 
 const args = process.argv.slice(2);

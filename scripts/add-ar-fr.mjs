@@ -2,7 +2,7 @@
  * add-ar-fr.mjs
  * ---------------------------------------------------------------------------
  * Inaongeza tafsiri za Kiarabu (AR) na Kifaransa (FR) zilizokosekana
- * ndani ya src/LanguageContext.tsx.
+ * ndani ya src/shared/contexts/LanguageContext.tsx.
  *
  * Salama:
  *   - Backup inatengenezwa kabla ya kubadilisha chochote.
@@ -15,7 +15,7 @@
 
 import { readFileSync, writeFileSync, copyFileSync, existsSync } from 'node:fs';
 
-const FILE = 'src/LanguageContext.tsx';
+const FILE = 'src/shared/contexts/LanguageContext.tsx';
 
 const AR = {
   "1 package contains": "الحزمة الواحدة تحتوي على",
