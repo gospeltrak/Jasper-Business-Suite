@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Product, Sale, Tenant } from '../../types';
-import { createLucyResponse, getLucyGreeting } from '../../utils/lucyBrain';
+import { createLucyResponse, detectLucyLanguage, getLucyGreeting } from '../../utils/lucyBrain';
 import { getSecureDataBridgeClient } from '../../shared/dataBridge/secureDataBridge';
+import { speakWithGeminiLucy, stopLucySpeech } from '../../utils/lucySpeech';
 import { 
   ResponsiveContainer, 
   LineChart, 
@@ -106,6 +107,7 @@ interface ChatMessage {
   chartData?: { label: string; value: number; extra?: number }[];
   chartType?: 'bar' | 'line' | 'low-stock';
   chartTitle?: string;
+  sources?: Array<{ title: string; url: string }>;
 }
 
 const parseBoldTags = (text: string): React.ReactNode[] => {
@@ -324,17 +326,11 @@ export default function DashboardForecasting({
       .trim();
 
   // ── Detect message language (Swahili or English) ──
-  const detectLang = (text: string): 'sw' | 'en' => {
-    const swWords = ['habari', 'mauzo', 'bidhaa', 'stock', 'faida', 'madeni', 'ripoti', 'biashara', 'leo', 'sawa', 'poa', 'nzuri', 'karibu', 'asante', 'tafadhali', 'nakushukuru', 'ungependa', 'naweza', 'nitakusaidia', 'kuangalia'];
-    const lower = text.toLowerCase();
-    const swCount = swWords.filter(w => lower.includes(w)).length;
-    return swCount >= 2 ? 'sw' : 'en';
-  };
+  const detectLang = (text: string): 'sw' | 'en' => detectLucyLanguage(text);
 
   // ── Lucy speak function ──
-  const lucySpeak = (text: string, msgIdx?: number) => {
-    if (!speechSupported) return;
-    window.speechSynthesis.cancel();
+  const lucySpeak = async (text: string, msgIdx?: number) => {
+    stopLucySpeech();
     setIsSpeaking(false);
     setSpeakingIdx(null);
 
@@ -342,6 +338,17 @@ export default function DashboardForecasting({
     if (!clean) return;
 
     const lang = detectLang(clean);
+    try {
+      await speakWithGeminiLucy(clean, activeTenant.id, lang, {
+        onStart: () => { setIsSpeaking(true); if (msgIdx !== undefined) setSpeakingIdx(msgIdx); },
+        onEnd: () => { setIsSpeaking(false); setSpeakingIdx(null); },
+      });
+      return;
+    } catch {
+      // Fall through to the device voice when Gemini TTS is unavailable.
+    }
+    if (!speechSupported) return;
+    window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(clean);
 
     // Voice settings — youthful, friendly, clear
@@ -372,7 +379,7 @@ export default function DashboardForecasting({
 
   // ── Stop speaking ──
   const stopSpeaking = () => {
-    window.speechSynthesis?.cancel();
+    stopLucySpeech();
     setIsSpeaking(false);
     setSpeakingIdx(null);
   };
@@ -729,7 +736,8 @@ export default function DashboardForecasting({
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           chartData: chartConf?.chartData,
           chartType: chartConf?.chartType,
-          chartTitle: chartConf?.chartTitle
+          chartTitle: chartConf?.chartTitle,
+          sources: Array.isArray(data.sources) ? data.sources : [],
         }
       ]);
 
@@ -758,7 +766,7 @@ export default function DashboardForecasting({
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
         <div className="space-y-1">
           <div className="flex items-center space-x-2">
-            <Sparkles className="w-5 h-5 text-emerald-600 animate-pulse" />
+            
             <span className="bg-emerald-500/10 text-emerald-700 px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase tracking-wider">LUCY FORECASTING INSIGHTS</span>
             <h2 className="text-xl font-bold tracking-tight text-slate-800">Advanced Business Projections & Catalog Trends</h2>
           </div>
@@ -792,7 +800,7 @@ export default function DashboardForecasting({
       {!forecastData && !loading && (
         <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center max-w-xl mx-auto space-y-4">
           <div className="w-16 h-16 bg-slate-50 border border-slate-100 rounded-2xl flex items-center justify-center mx-auto shadow-sm">
-            <Sparkles className="w-8 h-8 text-slate-400 animate-pulse" />
+            
           </div>
           <div className="space-y-1.5">
             <h4 className="text-sm font-bold text-slate-800">Lucy Diagnostics Standby</h4>
@@ -804,7 +812,7 @@ export default function DashboardForecasting({
             onClick={handleGenerateClick}
             className="inline-flex items-center space-x-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-5 py-3 rounded-xl border-none cursor-pointer shadow transition-all active:scale-95"
           >
-            <Sparkles className="w-4 h-4" />
+            
             <span>Generate Projections with Lucy</span>
           </button>
         </div>
@@ -816,7 +824,7 @@ export default function DashboardForecasting({
           <div className="relative w-16 h-16 mx-auto">
             <div className="absolute inset-0 bg-emerald-500/10 rounded-full animate-ping" />
             <div className="relative w-16 h-16 bg-slate-900 rounded-2xl flex items-center justify-center border border-slate-850">
-              <Sparkles className="w-7 h-7 text-emerald-400 animate-pulse" />
+              
             </div>
           </div>
           
@@ -941,7 +949,7 @@ export default function DashboardForecasting({
                         <div className="bg-slate-900 text-white p-4 rounded-2xl relative overflow-hidden shadow-xs">
                           <div className="flex items-center justify-between text-slate-400">
                             <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-emerald-400 font-bold">Net Profit</span>
-                            <Sparkles className="w-4 h-4 text-emerald-400" />
+                            
                           </div>
                           <p className="text-lg font-black text-white mt-2">
                             {currency} {data.profit.toLocaleString()}
@@ -1075,7 +1083,7 @@ export default function DashboardForecasting({
               <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4 shadow-xs">
                 <div className="flex items-center space-x-2">
                   <div className="p-1.5 bg-yellow-50 text-yellow-600 rounded-lg">
-                    <Sparkles className="w-4 h-4" />
+                    
                   </div>
                   <h4 className="text-sm font-bold text-slate-800 uppercase tracking-tight">Best Sell Catalyst (Increase Stock)</h4>
                 </div>
@@ -1314,7 +1322,7 @@ export default function DashboardForecasting({
                 <div className="flex items-center space-x-3 text-left">
                   <div className="relative">
                     <div className="w-10 h-10 bg-white/20 dark:bg-emerald-500/20 text-white rounded-full flex items-center justify-center border border-white/30 dark:border-emerald-500/30 shadow-xs">
-                      <Sparkles className="w-5 h-5 animate-pulse" />
+                      
                     </div>
                     <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-400 border-2 border-emerald-600 dark:border-slate-800 rounded-full animate-pulse" />
                   </div>
@@ -1343,7 +1351,7 @@ export default function DashboardForecasting({
                       {/* Avatar */}
                       {isAi ? (
                         <div className="w-7 h-7 rounded-full bg-emerald-100 dark:bg-emerald-900/50 border border-emerald-200 dark:border-emerald-700 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 shadow-xs select-none mb-0.5">
-                          <Sparkles className="w-3.5 h-3.5" />
+                          
                         </div>
                       ) : (
                         <div className="w-7 h-7 rounded-full bg-indigo-600 border border-indigo-500 text-white flex items-center justify-center shrink-0 shadow-xs select-none text-[10px] font-mono font-extrabold uppercase mb-0.5">
@@ -1361,6 +1369,22 @@ export default function DashboardForecasting({
                         >
                           {isAi ? formatLucyMessage(m.text) : m.text}
                         </div>
+
+                        {isAi && m.sources && m.sources.length > 0 && (
+                          <div className="mt-2 flex max-w-[85%] flex-wrap gap-1.5">
+                            {m.sources.map((source, sourceIndex) => (
+                              <a
+                                key={`${source.url}-${sourceIndex}`}
+                                href={source.url}
+                                target="_blank"
+                                rel="noreferrer noopener"
+                                className="max-w-full truncate rounded-full border border-blue-200 bg-blue-50 px-2 py-1 text-[9px] font-bold text-blue-700"
+                              >
+                                {source.title || `Source ${sourceIndex + 1}`}
+                              </a>
+                            ))}
+                          </div>
+                        )}
 
                         {isAi && m.chartData && m.chartData.length > 0 && (
                           <div className="mt-2 w-64 md:w-80 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-3 rounded-2xl shadow-sm space-y-2 animate-fade-in">
@@ -1407,7 +1431,7 @@ export default function DashboardForecasting({
                           {!isAi && (
                             <span className="text-emerald-500 dark:text-emerald-400 text-[10px] leading-none font-bold" title="Delivered & Read">✓✓</span>
                           )}
-                          {isAi && speechSupported && (
+                          {isAi && (
                             <button
                               type="button"
                               onClick={() => thisBubbleSpeaking ? stopSpeaking() : lucySpeak(m.text, idx)}
@@ -1434,7 +1458,7 @@ export default function DashboardForecasting({
                 {chatLoading && (
                   <div className="flex items-end gap-2 mr-auto max-w-[80%]">
                     <div className="w-7 h-7 rounded-full bg-emerald-100 dark:bg-emerald-900/50 border border-emerald-200 dark:border-emerald-700 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 shadow-xs select-none mb-0.5">
-                      <Sparkles className="w-3.5 h-3.5 animate-spin" />
+                      
                     </div>
                     <div className="flex flex-col">
                       <div className="bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-4 py-2.5 rounded-2xl rounded-bl-sm flex items-center space-x-2 shadow-xs">

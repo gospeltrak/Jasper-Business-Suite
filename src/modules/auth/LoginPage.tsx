@@ -19,7 +19,8 @@ import {
   MessageCircle,
   RefreshCw,
   Eye,
-  EyeOff
+  EyeOff,
+  Check
 } from 'lucide-react';
 import { DEMO_USERS, DEFAULT_TENANTS } from '../../data';
 import { User, Tenant } from '../../types';
@@ -30,6 +31,8 @@ import { toUserFacingError } from '../../shared/utils/safeError';
 import { DEFAULT_CUSTOM_ROLES } from '../../utils/defaultCustomRoles';
 import PrivacyAndTermsModals from '../../components/PrivacyAndTermsModals';
 import TurnstileWidget from '../../components/TurnstileWidget';
+import { prepareSuperAdminMfa, verifySuperAdminMfa, type SuperAdminMfaPrompt } from '../platform-admin/utils/superAdminMfa';
+import { resolveProfileRolePermissions } from '../../utils/profilePermissions';
 
 const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
   en: {
@@ -37,6 +40,11 @@ const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     welcomeSub: "Run sales, stock, money, and your business in one place",
     signinTab: "Sign In",
     registerTab: "Create Account",
+    secureGoogle: "Secure Google sign-in",
+    createBusinessAccount: "Create your business account",
+    connectGoogleFirst: "Connect your Google account first. After Google verifies your identity, you’ll complete your business registration.",
+    existingGoogleAccount: "Already registered with this Google account? You will be signed in.",
+    backToOrvixHome: "Back to Orvix Home",
     emailLabel: "Phone Number or Email",
     passLabel: "Password",
     ownerName: "Your Full Name",
@@ -62,6 +70,11 @@ const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     welcomeSub: "Simamia mauzo, bidhaa, fedha na biashara sehemu moja",
     signinTab: "Ingia",
     registerTab: "Fungua Akaunti",
+    secureGoogle: "Ingia kwa Google kwa Usalama",
+    createBusinessAccount: "Fungua akaunti ya biashara yako",
+    connectGoogleFirst: "Kwanza unganisha akaunti yako ya Google. Baada ya Google kuthibitisha utambulisho wako, utakamilisha usajili wa biashara yako.",
+    existingGoogleAccount: "Tayari umesajiliwa kwa akaunti hii ya Google? Utaingizwa moja kwa moja.",
+    backToOrvixHome: "Rudi Nyumbani Orvix",
     emailLabel: "Namba ya Simu au Barua Pepe",
     passLabel: "Nenosiri",
     ownerName: "Jina Lako Kamili",
@@ -111,6 +124,11 @@ const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     welcome: "Bienvenue sur Orvix",
     welcomeSub: "Gérez les ventes, le stock, l'argent et votre entreprise au même endroit",
     signinTab: "Connexion",
+    secureGoogle: "Connexion Google sécurisée",
+    createBusinessAccount: "Créez votre compte professionnel",
+    connectGoogleFirst: "Connectez d’abord votre compte Google. Après la vérification de votre identité, vous terminerez l’inscription de votre entreprise.",
+    existingGoogleAccount: "Déjà inscrit avec ce compte Google ? Vous serez connecté automatiquement.",
+    backToOrvixHome: "Retour à l’accueil Orvix",
     registerTab: "Créer un Compte",
     emailLabel: "Téléphone ou E-mail",
     passLabel: "Mot de Passe",
@@ -165,6 +183,10 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   const [error, setError] = useState<string | null>(null);
   const [hasActiveLoginAttempt, setHasActiveLoginAttempt] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [pendingAdminUser, setPendingAdminUser] = useState<User | null>(null);
+  const [adminMfaPrompt, setAdminMfaPrompt] = useState<SuperAdminMfaPrompt | null>(null);
+  const [adminMfaCode, setAdminMfaCode] = useState('');
+  const [adminMfaAttempts, setAdminMfaAttempts] = useState(0);
   const [loginOtpMode, setLoginOtpMode] = useState(false);
   const [loginOtp, setLoginOtp] = useState('');
   const [loginOtpInput, setLoginOtpInput] = useState('');
@@ -187,8 +209,6 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   const [regPassword, setRegPassword] = useState('');
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [showRegPassword, setShowRegPassword] = useState(false);
-  const [regSecurityQuestion, setRegSecurityQuestion] = useState('');
-  const [regSecurityAnswer, setRegSecurityAnswer] = useState('');
   const [orgName, setOrgName] = useState('');
   const [businessType, setBusinessType] = useState<string>('Retail');
   const [country, setCountry] = useState<'Nigeria' | 'Kenya' | 'Ghana' | 'South Africa' | 'Tanzania'>('Tanzania');
@@ -205,13 +225,15 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   // Tenant Workspace Onboarding States
   const [onboardingUser, setOnboardingUser] = useState<User | null>(null);
   const [onboardingBusinessName, setOnboardingBusinessName] = useState('');
-  const [onboardingBusinessType, setOnboardingBusinessType] = useState('Retail');
+  const [onboardingBusinessType, setOnboardingBusinessType] = useState('');
   const [onboardingCity, setOnboardingCity] = useState('Dar es Salaam');
+  const [onboardingPhone, setOnboardingPhone] = useState('');
 
   const [loginScreenLogoUrl, setLoginScreenLogoUrl] = useState<string | null>(null);
   const tenantLogoFromContext = (resolvedTenant?.company_settings as any)?.logo_url || (resolvedTenant?.company_settings as any)?.logoUrl || null;
   const tenantLoginTitle = resolvedTenant?.name || (domainMode === 'tenant' ? 'Business Login' : 'Orvix');
   const isTenantDomainLogin = domainMode === 'tenant' && !!resolvedTenant?.id;
+  const tenantGoogleOnlySignIn = !isSaasAdminPortal;
   const handleBackToLandingHub = () => {
     if (landingUrl) {
       const targetUrl = new URL(landingUrl, window.location.origin);
@@ -237,7 +259,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     } else {
       // Fetch tenant logo by domain on load
       const domain = window.location.hostname;
-      fetch(`/api/tenant/logo-by-domain?domain=${encodeURIComponent(domain)}`)
+      fetch(`/api/tenant/logo-by-domain?domain=${encodeURIComponent(domain)}`, { cache: 'default' })
         .then(res => {
           const contentType = res.headers.get('content-type') || '';
           if (!res.ok || !contentType.includes('application/json')) return null;
@@ -307,16 +329,14 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   const getAllSystemUsers = () => {
     const customUsers = JSON.parse(onlineStorage.getItem('jasper_custom_users') || '[]');
     const saasStaffs = JSON.parse(onlineStorage.getItem('jasper_saas_staffs') || '[]');
-    const passwordOverrides = JSON.parse(onlineStorage.getItem('jasper_password_overrides') || '{}');
-    const withPasswordOverride = (user: any) => {
-      const overrideKey = user.email || user.phone || user.id;
-      return overrideKey && passwordOverrides[overrideKey]
-        ? { ...user, password: passwordOverrides[overrideKey] }
-        : user;
-    };
-    const systemUsers = [...DEMO_USERS, ...customUsers, ...saasStaffs].map(withPasswordOverride);
+    const systemUsers = [...DEMO_USERS, ...customUsers, ...saasStaffs].map((user: any) => {
+      const { password: _removedPassword, ...safeUser } = user || {};
+      return safeUser;
+    });
     const resolveStaffPermissions = (settings: any, roleName: string) => {
-      const roles = settings.customRoles?.length ? settings.customRoles : DEFAULT_CUSTOM_ROLES;
+      // No hardcoded preset fallback — an unmatched role resolves to no
+      // permissions rather than silently borrowing a default role's rights.
+      const roles = settings.customRoles || [];
       const normalizedRole = (roleName || '').toLowerCase();
       const roleKey = normalizedRole === 'waiter' ? 'seller' : normalizedRole;
       return roles.find((role: any) => role.name.toLowerCase() === roleKey)?.permissions || {};
@@ -332,11 +352,10 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
             if (settings.staffs && Array.isArray(settings.staffs)) {
               settings.staffs.forEach((staff: any) => {
                  const staffRole = staff.role || 'Cashier';
-                 systemUsers.push(withPasswordOverride({
+                 systemUsers.push({
                    id: staff.id,
-                   email: staff.phone || staff.name.toLowerCase().replace(' ', '') + '@jasper.com',
+                   email: staff.phone || staff.name.toLowerCase().replace(' ', '') + '@orvix.africa',
                    phone: staff.phone || '',
-                   password: staff.password || 'password123',
                    name: staff.name,
                    role: staffRole,
                    tenantId: tenantId,
@@ -344,7 +363,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                    profileImage: staff.profileImage,
                    isSaaSStaff: true,
                    rolePermissions: resolveStaffPermissions(settings, staffRole)
-                 }));
+                 });
               });
             }
           } catch(e) {}
@@ -482,72 +501,9 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
   };
 
-  const persistRecoveredPassword = (user: any, newPassword: string) => {
-    const updateList = (key: string) => {
-      const list = JSON.parse(onlineStorage.getItem(key) || '[]');
-      const updated = list.map((entry: any) => {
-        const sameUser = (entry.email && user.email && entry.email === user.email) || (entry.id && user.id && entry.id === user.id) || (entry.phone && user.phone && entry.phone === user.phone);
-        return sameUser ? { ...entry, password: newPassword } : entry;
-      });
-      onlineStorage.setItem(key, JSON.stringify(updated));
-    };
-
-    updateList('jasper_custom_users');
-    updateList('jasper_saas_staffs');
-
-    if (user.activeTenant || user.tenantId) {
-      const settingsKey = `jasper_settings_${user.activeTenant || user.tenantId}`;
-      const settings = JSON.parse(onlineStorage.getItem(settingsKey) || '{}');
-      if (Array.isArray(settings.staffs)) {
-        settings.staffs = settings.staffs.map((staff: any) => {
-          const sameStaff = (staff.id && user.id && staff.id === user.id) || (staff.phone && user.phone && staff.phone === user.phone);
-          return sameStaff ? { ...staff, password: newPassword } : staff;
-        });
-        onlineStorage.setItem(settingsKey, JSON.stringify(settings));
-      }
-    }
-
-    const overrides = JSON.parse(onlineStorage.getItem('jasper_password_overrides') || '{}');
-    if (user.email) overrides[user.email] = newPassword;
-    if (user.phone) overrides[user.phone] = newPassword;
-    if (user.id) overrides[user.id] = newPassword;
-    onlineStorage.setItem('jasper_password_overrides', JSON.stringify(overrides));
-  };
-
   const handleFinishRecovery = (e: FormEvent) => {
     e.preventDefault();
-    setRecoveryMessage(null);
-
-    if (!recoveryUser || !recoveryOtp) {
-      setRecoveryStep('identify');
-      setRecoveryMessage('Start the reset again.');
-      return;
-    }
-
-    if (recoveryInputOtp.trim() !== recoveryOtp) {
-      setRecoveryMessage('Wrong OTP. Check WhatsApp and try again.');
-      return;
-    }
-
-    if (recoveryNewPassword.trim().length < 4) {
-      setRecoveryMessage('New password must have at least 4 characters.');
-      return;
-    }
-
-    persistRecoveredPassword(recoveryUser, recoveryNewPassword.trim());
-    setEmail(recoveryUser.phone || recoveryUser.email || '');
-    setPassword(recoveryNewPassword.trim());
-    setEmailChecked(true);
-    setShowRecovery(false);
-    setRecoveryStep('identify');
-    setRecoveryIdentifier('');
-    setRecoveryWhatsapp('');
-    setRecoveryOtp('');
-    setRecoveryInputOtp('');
-    setRecoveryNewPassword('');
-    setRecoverySecurityAnswer('');
-    setRecoveryUser(null);
-    setSuccessMessage('Password reset successfully. You can sign in now.');
+    setRecoveryMessage('Password changes are protected by Supabase Auth. Continue with Google or contact your business administrator for a secure invitation.');
   };
 
   const handleCheckEmail = (e: FormEvent) => {
@@ -566,8 +522,16 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   const handleOnboardingSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!onboardingUser) return;
-    if (!onboardingBusinessName.trim()) {
-      setError('Please enter your business name.');
+    if (!onboardingBusinessName.trim() || normalizePhoneForWhatsapp(onboardingPhone).length < 10) {
+      setError('Please enter your business name and a valid phone number.');
+      return;
+    }
+    if (!onboardingBusinessType) {
+      setError('Please choose your business industry niche/type.');
+      return;
+    }
+    if (!acceptedTenantLegal) {
+      setError('Please accept the Terms & Conditions and Privacy Policy before registration.');
       return;
     }
 
@@ -576,58 +540,27 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
 
     try {
       const client: any = await getSecureDataBridgeClient();
-
-      // Create a brand new tenant row in the public table
-      const { data: newTenant, error: tenantError } = await client
-        .from('tenants')
-        .insert({
-          name: onboardingBusinessName,
-          country: country || 'Tanzania',
-          city: onboardingCity || 'Dar es Salaam',
-          currency: 'Tanzanian Shilling',
-          currency_code: 'TZS',
-          tax_rate: 0.18,
-          mobile_money_providers: [],
-          business_type: onboardingBusinessType,
-          company_settings: { logo_url: null, theme: 'default' },
-          business_settings: { allow_negative_stock: false, default_unit: 'pcs' },
-          invoice_settings: { show_tax: true, footer_note: 'Thank you for your business' }
-        })
-        .select()
-        .single();
-
-      if (tenantError) {
-        throw tenantError;
-      }
-
-      if (!newTenant) {
-        throw new Error('Tenant provisioning failed: no database row returned.');
-      }
-
-      // Record profile user row matching this auth id linked to their new tenant
-      const { error: userError } = await client
-        .from('users')
-        .upsert({
-          id: onboardingUser.id,
-          email: onboardingUser.email,
-          name: onboardingUser.name,
-          role: 'Admin',
-          tenant_id: newTenant.id,
-          active_tenant: newTenant.id,
-          phone: onboardingUser.phone || null,
-          is_duress: false,
-          is_saas_staff: false
-        });
-
-      if (userError) {
-        throw userError;
-      }
+      const { data: sessionData } = await client.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      if (!accessToken) throw new Error('Your Google session expired. Please sign in again.');
+      const response = await fetch('/api/auth/google/provision', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({
+          businessName: onboardingBusinessName.trim(), businessType: onboardingBusinessType,
+          phone: normalizePhoneForWhatsapp(onboardingPhone), country: 'Tanzania',
+          city: onboardingCity.trim() || 'Dar es Salaam', referralCode: affiliateCode.trim() || undefined,
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result?.tenant || !result?.user) throw result;
+      const newTenant = result.tenant;
 
       const updatedUser: User = {
-        ...onboardingUser,
+        ...onboardingUser, ...result.user,
         tenantId: newTenant.id,
         activeTenant: newTenant.id,
-        role: 'Admin'
+        role: 'Admin', phone: normalizePhoneForWhatsapp(onboardingPhone)
       };
 
       // Store locally so cached components load instantly
@@ -643,38 +576,91 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       triggerOnLoginWithSplash(updatedUser);
 
     } catch (err: any) {
-      console.error('[Onboarding Flow Error]:', err);
-      // Fallback local onboarding matching live flow
-      const newTenantId = 't-dyn-' + Math.floor(100 + Math.random() * 900);
-      const fallbackTenant: Tenant = {
-        id: newTenantId,
-        name: onboardingBusinessName,
-        country: country || 'Tanzania',
-        city: onboardingCity || 'Dar es Salaam',
-        currency: 'TSh',
-        currencyCode: 'TZS',
-        taxRate: 0.18,
-        mobileMoneyProviders: [],
-        businessType: 'retail'
-      };
-
-      const updatedUser: User = {
-        ...onboardingUser,
-        tenantId: newTenantId,
-        activeTenant: newTenantId,
-        role: 'Admin'
-      };
-
-      const savedCustomTenants = JSON.parse(onlineStorage.getItem('jasper_custom_tenants') || '[]');
-      onlineStorage.setItem('jasper_custom_tenants', JSON.stringify([...savedCustomTenants, fallbackTenant]));
-
-      const savedCustomUsers = JSON.parse(onlineStorage.getItem('jasper_custom_users') || '[]');
-      onlineStorage.setItem('jasper_custom_users', JSON.stringify([...savedCustomUsers, updatedUser]));
-
+      console.warn('[auth] Google onboarding did not complete.');
+      setError(toUserFacingError(err, { language: currentLang, context: 'registration', fallbackCode: 'SAVE_ERROR' }).message);
       setIsLoading(false);
-      setOnboardingUser(null);
-      setSuccessMessage(`Workspace "${onboardingBusinessName}" provisioned successfully. (Offline fallback mode)`);
-      triggerOnLoginWithSplash(updatedUser);
+    }
+  };
+
+  useEffect(() => {
+    if (onboardingUser) return;
+    let cancelled = false;
+    const resolveGoogleSession = async () => {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('oauth') !== 'google') return;
+      setIsLoading(true);
+      try {
+        const client: any = await getSecureDataBridgeClient();
+        const { data } = await client.auth.getSession();
+        const session = data?.session;
+        if (!session?.access_token) {
+          setError('Google sign-in was not completed. Please try again.');
+          setIsLoading(false);
+          return;
+        }
+        const staffInvite = params.get('staffInvite');
+        const response = await fetch(staffInvite ? '/api/auth/google/accept-staff-invitation' : '/api/auth/google/resolve', {
+          method: staffInvite ? 'POST' : 'GET',
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            ...(staffInvite ? { 'Content-Type': 'application/json' } : {}),
+          },
+          ...(staffInvite ? { body: JSON.stringify({ token: staffInvite }) } : {}),
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw result;
+        if (cancelled) return;
+        if (result.status === 'existing' && result.user) {
+          const isPlatformAdmin = result.user.role === 'SuperAdmin';
+          if (isSaasAdminPortal && !isPlatformAdmin) throw new Error('This Google account is not authorized for Super Admin.');
+          if (!isSaasAdminPortal && isPlatformAdmin) throw new Error('Use the dedicated Super Admin login at /admin.');
+          if (isSaasAdminPortal) {
+            void fetch('/api/auth/super-admin-security-event', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` }, body: JSON.stringify({ event: 'google_identity_verified' }) });
+            const prompt = await prepareSuperAdminMfa();
+            if (!prompt) triggerOnLoginWithSplash(result.user);
+            else { setPendingAdminUser(result.user); setAdminMfaPrompt(prompt); setIsLoading(false); }
+          } else triggerOnLoginWithSplash(result.user);
+        }
+        else {
+          const authUser = session.user;
+          setOnboardingUser({ id: authUser.id, email: authUser.email || '', name: authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'Owner', role: 'Admin', tenantId: '', activeTenant: '' } as User);
+          setOwnerName(authUser.user_metadata?.full_name || '');
+          setOnboardingPhone(authUser.user_metadata?.phone || '');
+          setIsLoading(false);
+        }
+      } catch (err: any) {
+        if (!cancelled) { setError(toUserFacingError(err, { language: currentLang, context: 'sign_in', fallbackCode: 'AUTH_ERROR' }).message); setIsLoading(false); }
+      }
+    };
+    resolveGoogleSession();
+    return () => { cancelled = true; };
+  }, [isSaasAdminPortal, onboardingUser]);
+
+  const handleAdminMfaSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!adminMfaPrompt || !pendingAdminUser || !adminMfaCode.trim()) return;
+    setIsLoading(true); setError(null);
+    try {
+      await verifySuperAdminMfa(adminMfaPrompt, adminMfaCode);
+      const client: any = await getSecureDataBridgeClient();
+      const { data } = await client.auth.getSession();
+      void fetch('/api/auth/super-admin-security-event', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data?.session?.access_token || ''}` }, body: JSON.stringify({ event: 'mfa_verified' }) });
+      setAdminMfaAttempts(0);
+      triggerOnLoginWithSplash(pendingAdminUser);
+    } catch {
+      const nextAttempts = adminMfaAttempts + 1;
+      setAdminMfaAttempts(nextAttempts);
+      setAdminMfaCode('');
+      const client: any = await getSecureDataBridgeClient();
+      const { data } = await client.auth.getSession();
+      void fetch('/api/auth/super-admin-security-event', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data?.session?.access_token || ''}` }, body: JSON.stringify({ event: nextAttempts >= 3 ? 'session_revoked_after_three_attempts' : 'mfa_rejected' }) });
+      if (nextAttempts >= 3) {
+        await client.auth.signOut({ scope: 'global' }).catch(() => null);
+        window.location.assign('/admin');
+        return;
+      }
+      setError(`The Authenticator code was not accepted. ${3 - nextAttempts} attempt(s) remaining.`);
+      setIsLoading(false);
     }
   };
 
@@ -706,11 +692,27 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     onLogin(userPayload);
   };
 
-  const handleLoginSubmit = (e: FormEvent) => {
+  const verifyLoginTurnstile = async () => {
+    if ((import.meta as any).env?.VITE_TURNSTILE_SITE_KEY && !turnstileToken) {
+      setError('Please complete the security verification before signing in.');
+      return false;
+    }
+    const response = await fetch('/api/auth/turnstile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ turnstileToken }) });
+    if (!response.ok) { setError('Security verification expired. Please complete it again.'); setTurnstileToken(null); return false; }
+    return true;
+  };
+
+  const handleLoginSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (isSaasAdminPortal) {
+      setError('Super Admin password login is disabled. Continue with Google, then verify Authenticator.');
+      return;
+    }
     setHasActiveLoginAttempt(true);
     if (!emailChecked) {
       handleCheckEmail(e);
+    } else if (!(await verifyLoginTurnstile())) {
+      return;
     } else if (loginOtpMode) {
       triggerOtpLogin();
     } else {
@@ -981,9 +983,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         // Session tracking — fire and forget, never block login
         startCloudSession(authData.session?.access_token).catch(() => null);
 
-        const profileRolePermissions = userProfile.role_permissions && Object.keys(userProfile.role_permissions).length
-          ? userProfile.role_permissions
-          : undefined;
+        const profileRolePermissions = resolveProfileRolePermissions(userProfile.role_permissions);
         const isBusinessStaff = userProfile.account_type === 'business_staff';
         const staffRoleKey = String(userProfile.role_key || '').trim();
         const effectiveProfileRole = isBusinessStaff && staffRoleKey
@@ -1024,24 +1024,21 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       return;
     }
 
-    // Default Fallback
+    // Local demo fallback is never available in production. Production
+    // identities must be verified by Supabase Auth through the flow above.
+    if ((import.meta as any).env?.PROD) {
+      setHasActiveLoginAttempt(true);
+      setError(toUserFacingError(
+        loginFailure || { status: 401 },
+        { language: currentLang, context: 'sign_in', fallbackCode: 'AUTH_ERROR' },
+      ).message);
+      setIsLoading(false);
+      return;
+    }
+
+    // Local development demo fallback
     setTimeout(() => {
-      const combinedUsers = getAllSystemUsers();
-
-      if (sameLoginIdentifier(cleanIdentifier, 'saas.admin@jasper.com') && cleanPassword !== 'password123') {
-        onLogin({
-          id: 'u-saas-duress',
-          email: 'saas.admin@jasper.com',
-          name: 'Jasper Controller',
-          role: 'SuperAdmin',
-          tenantId: 't-lagos-01',
-          activeTenant: 't-lagos-01',
-          isDuress: true
-        });
-        return;
-      }
-
-      const match = combinedUsers.find(
+      const match: any = DEMO_USERS.find(
         (u: any) => (sameLoginIdentifier(u.phone, cleanIdentifier) || sameLoginIdentifier(u.email, cleanIdentifier)) && String(u.password || '').trim() === cleanPassword
       );
 
@@ -1195,7 +1192,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       setError('Please read and accept the Terms & Conditions and Privacy Policy before registration.');
       return;
     }
-    if (!ownerName || !regEmail || !regPassword || !orgName || !regSecurityQuestion || !regSecurityAnswer) {
+    if (!ownerName || !regEmail || !regPassword || !orgName) {
       setError('Please fill in all registration inputs.');
       return;
     }
@@ -1292,8 +1289,6 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         tenantId: newTenant.id,
         activeTenant: newTenant.id,
         phone: cleanOwnerPhone || regEmail.trim(),
-        securityQuestion: regSecurityQuestion.trim(),
-        securityAnswer: normalizeSecurityAnswer(regSecurityAnswer),
         isSaaSStaff: false,
         trial_start_date: trialStartDate.toISOString(),
         trial_end_date: trialEndDate.toISOString(),
@@ -1311,8 +1306,6 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       onlineStorage.setItem('jasper_custom_users', JSON.stringify([...savedCustomUsers, {
         ...registeredUser,
         password: regPassword,
-        securityQuestion: regSecurityQuestion.trim(),
-        securityAnswer: normalizeSecurityAnswer(regSecurityAnswer)
       }]));
 
       onlineStorage.setItem('jasper_subscription_state', JSON.stringify({
@@ -1358,10 +1351,17 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     setSuccessMessage(null);
     setIsLoading(true);
     try {
+      if (!(await verifyLoginTurnstile())) { setIsLoading(false); return; }
       const client: any = await getSecureDataBridgeClient();
+      const staffInvite = new URLSearchParams(window.location.search).get('staffInvite');
+      const callbackUrl = isSaasAdminPortal
+        ? `${window.location.origin}/admin?oauth=google`
+        : `${window.location.origin}/login?oauth=google`;
+      const callback = new URL(callbackUrl);
+      if (staffInvite) callback.searchParams.set('staffInvite', staffInvite);
       const { error: oauthError } = await client.auth.signInWithOAuth({
         provider: 'google',
-        options: { redirectTo: window.location.origin }
+        options: { redirectTo: callback.toString() }
       });
       if (oauthError) throw oauthError;
       // On success the browser navigates away to Google immediately; isLoading is
@@ -1402,15 +1402,13 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
           <h2 className="text-3xl font-black tracking-tight text-slate-900 dark:text-slate-100">
             {isSaasAdminPortal ? 'SaaS Core Authority' : tenantLoginTitle}
           </h2>
-          <p className="text-[11px] text-slate-500 dark:text-slate-400 font-bold tracking-normal leading-relaxed uppercase max-w-sm mx-auto">
-            {isSaasAdminPortal
-              ? 'Central Management Backoffice'
-              : isTenantDomainLogin
-                ? `${resolvedTenant?.primaryDomain || `${resolvedTenant?.subdomainSlug || ''}.orvix.africa`} secure business portal`
-              : currentLang === 'sw'
-                ? 'Mfumo wa Kisasa wa Usimamizi wa Biashara na Mauzo'
-                : 'Next-Generation Unified POS & Enterprise Management Suite'}
-          </p>
+          {!isTenantDomainLogin && (
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 font-bold tracking-normal leading-relaxed uppercase max-w-sm mx-auto">
+              {isSaasAdminPortal
+                ? 'Central Management Backoffice'
+                : 'Smart POS & Business Management'}
+            </p>
+          )}
         </div>
 
         {/* Warning or Success outputs */}
@@ -1447,7 +1445,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
               onClick={() => { setAuthTab('register'); setError(null); }}
               className={`py-3 rounded-xl transition-all cursor-pointer text-center ${authTab === 'register' ? 'bg-white text-slate-900 shadow' : 'text-slate-500 hover:text-slate-700 bg-transparent border-none'}`}
             >
-	            Join Us
+	            {t('registerTab')}
             </button>
           </div>
         )}
@@ -1460,8 +1458,13 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
             <form className="space-y-5 animate-fade-in" onSubmit={handleOnboardingSubmit}>
               <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-center">
                 <p className="text-xs font-semibold text-amber-800 leading-normal">
-                  Tenant Workspace Configuration: Please set up your business details to launch your isolated dashboard.
+                  Workspace Configuration: Please set up your business details to launch your dashboard.
                 </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase block tracking-wider font-mono">Phone Number</label>
+                <input type="tel" required value={onboardingPhone} placeholder="e.g. 0712 345 678" onChange={(e) => setOnboardingPhone(e.target.value)} className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none" />
               </div>
 
               <div className="space-y-1.5">
@@ -1477,17 +1480,31 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-500 uppercase block tracking-wider font-mono">Business Type</label>
-                <select
-                  value={onboardingBusinessType}
-                  onChange={(e) => setOnboardingBusinessType(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl px-3 py-2.5 text-xs text-slate-800 outline-none cursor-pointer"
-                >
-                  <option value="Retail">Retail</option>
-                  <option value="Wholesale">Wholesale</option>
-                  <option value="Retail & Wholesale">Retail & Wholesale</option>
-                  <option value="Pharmacy">Pharmacy</option>
-                </select>
+                <label className="text-[10px] font-bold text-slate-500 uppercase block tracking-wider font-mono">Business Industry Niche / Type</label>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { value: 'Retail & Wholesale', label: 'Retail & Wholesale', icon: '🛒', desc: 'Shops, supermarkets, distributors' },
+                    { value: 'Pharmacy', label: 'Pharmacy', icon: '💊', desc: 'Clinics, dispensaries, chemists' },
+                  ].map(niche => (
+                    <button
+                      key={niche.value}
+                      type="button"
+                      onClick={() => setOnboardingBusinessType(niche.value)}
+                      className={`p-4 rounded-2xl border-2 text-left transition-all cursor-pointer ${
+                        onboardingBusinessType === niche.value
+                          ? 'border-emerald-500 bg-emerald-50 shadow-sm'
+                          : 'border-slate-200 bg-slate-50 hover:border-slate-300 hover:bg-white'
+                      }`}
+                    >
+                      <span className="text-2xl block mb-1">{niche.icon}</span>
+                      <span className={`block text-xs font-black ${onboardingBusinessType === niche.value ? 'text-emerald-800' : 'text-slate-700'}`}>{niche.label}</span>
+                      <span className="block text-[10px] text-slate-400 font-medium mt-0.5 leading-snug">{niche.desc}</span>
+                      {onboardingBusinessType === niche.value && (
+                        <span className="mt-1.5 inline-block text-[9px] font-black uppercase tracking-wider text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">Selected ✓</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div className="space-y-1.5">
@@ -1502,277 +1519,99 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                 />
               </div>
 
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase block tracking-wider font-mono">Promo Code (Optional)</label>
+                <input
+                  type="text"
+                  value={affiliateCode}
+                  placeholder="Enter PROMO CODE"
+                  onChange={(e) => setAffiliateCode(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 font-bold uppercase tracking-wider outline-none placeholder:font-bold placeholder:uppercase placeholder:text-slate-400"
+                />
+                <p className="text-[9.5px] text-slate-500 leading-normal">
+                  Register with a promo code to get 20 free days instead of 10.
+                </p>
+              </div>
+
+              <div className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-[11px] leading-relaxed text-slate-600">
+                <button
+                  type="button"
+                  onClick={() => setAcceptedTenantLegal(!acceptedTenantLegal)}
+                  aria-pressed={acceptedTenantLegal}
+                  aria-label="I agree to Orvix's Terms and Privacy Policy"
+                  className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors cursor-pointer ${
+                    acceptedTenantLegal ? 'border-emerald-600 bg-emerald-600' : 'border-slate-300 bg-white'
+                  }`}
+                >
+                  {acceptedTenantLegal && <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />}
+                </button>
+                <span>I agree to Orvix's <button type="button" onClick={() => setTenantLegalModalType('terms')} className="font-bold text-emerald-700 underline">Terms</button> and <button type="button" onClick={() => setTenantLegalModalType('privacy')} className="font-bold text-emerald-700 underline">Privacy Policy</button>.</span>
+              </div>
+
               <button
                 type="submit"
                 disabled={isLoading}
                 className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-55 text-white font-extrabold text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center space-x-2 rounded-xl"
               >
-                {isLoading ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    <span>Spinning Up Isolated Tenant...</span>
-                  </>
-                ) : (
-                  <span>Launch My Isolated Dashboard</span>
-                )}
+                <span>{t('registerTab')}</span>
               </button>
             </form>
+          ) : adminMfaPrompt && pendingAdminUser ? (
+            <form className="space-y-5" onSubmit={handleAdminMfaSubmit}>
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-center">
+                <Shield className="mx-auto h-8 w-8 text-amber-700" />
+                <h3 className="mt-2 text-sm font-black text-slate-900">Verify Authenticator</h3>
+                <p className="mt-1 text-xs text-slate-600">Google identity verified. Enter the current 6-digit code to open Super Admin.</p>
+              </div>
+              <input autoFocus inputMode="numeric" autoComplete="one-time-code" maxLength={6} required value={adminMfaCode} onChange={event => setAdminMfaCode(event.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="000000" className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-4 text-center font-mono text-2xl font-black tracking-[0.4em] outline-none focus:border-amber-500" />
+              <button type="submit" disabled={isLoading || adminMfaCode.length !== 6} className="w-full rounded-2xl bg-amber-600 py-3.5 text-xs font-black uppercase tracking-wider text-white disabled:opacity-50">{isLoading ? 'Verifying…' : 'Verify & Open Admin'}</button>
+            </form>
           ) : (authTab === 'signin' || isSaasAdminPortal) ? (
+            
             /* Sign in screen */
             <form className="space-y-5" onSubmit={handleLoginSubmit}>
-              {/* Warm Personalized Welcoming Banner */}
-              {!isSaasAdminPortal && (
-                <div className="bg-emerald-50/70 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-800/30 rounded-2xl p-4 text-center shadow-xs animate-fade-in">
-                  <p className="text-xs font-semibold text-emerald-800 dark:text-emerald-300 leading-normal">
-                    {currentLang === 'sw'
-                      ? 'Karibu tena 👋 Ingia kwenye dashibodi yako ya biashara'
-                      : 'Welcome back 👋 Sign in to your business dashboard'}
-                  </p>
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block tracking-wider">{t('emailLabel')}</label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="email@example.com or phone"
+                      className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none transition-all"
+                    />
+                  </div>
                 </div>
-              )}
-              <div className="space-y-1.5">
-                <div className="flex justify-between items-center">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block">
-                    {isSaasAdminPortal ? 'SAAS STAFF WHATSAPP NUMBER' : 'WHATSAPP NUMBER'}
-                  </label>
-                  {emailChecked && (
+
+                <div className="space-y-1.5">
+                  <div className="flex justify-between items-center">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase block tracking-wider">{t('passLabel')}</label>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type={showLoginPassword ? 'text' : 'password'}
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl px-3.5 py-2.5 pr-11 text-xs text-slate-800 outline-none font-mono transition-all"
+                    />
                     <button
                       type="button"
-                      onClick={() => {
-                        setEmailChecked(false);
-                        setPassword('');
-                        setLoginOtpMode(false);
-                        setLoginOtp('');
-                        setLoginOtpInput('');
-                        setLoginOtpUser(null);
-                        setLoginOtpMessage(null);
-                      }}
-                      className="text-[10px] font-bold text-emerald-600 hover:text-emerald-750 bg-transparent cursor-pointer border-none outline-none"
+                      onClick={() => setShowLoginPassword((prev) => !prev)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
                     >
-                      Change Account
+                      {showLoginPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
-                  )}
-                </div>
-                <div className="relative">
-                  <input
-                    id="login-email"
-                    type="text"
-                    required
-                    disabled={emailChecked}
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full bg-slate-50 disabled:bg-slate-100 disabled:text-slate-400 border border-slate-200 focus:border-emerald-500 rounded-xl px-4 py-3 pl-11 text-sm text-slate-800 placeholder-slate-400 font-sans transition-all outline-none"
-                    placeholder="WhatsApp number"
-                  />
-                  <MessageCircle className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
+                  </div>
                 </div>
               </div>
 
-              {emailChecked ? (
-                <div className="space-y-1.5 animate-fade-in">
-                  <div className="flex items-center justify-between">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase block">
-                      {loginOtpMode ? 'WHATSAPP OTP' : 'SECURITY PIN PASSWORD'}
-                    </label>
-                  </div>
-                  <div className="relative">
-                    {loginOtpMode ? (
-                      <input
-                        id="login-otp"
-                        type="text"
-                        required
-                        value={loginOtpInput}
-                        onChange={(e) => setLoginOtpInput(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl px-4 py-3 pl-11 text-sm text-slate-800 placeholder-slate-400 font-mono tracking-widest transition-all outline-none"
-                        placeholder="Enter WhatsApp OTP"
-                      />
-                    ) : (
-                      <input
-                        id="login-password"
-                        type={showLoginPassword ? "text" : "password"}
-                        required
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl px-4 py-3 pl-11 pr-11 text-sm text-slate-800 placeholder-slate-400 font-mono tracking-wider transition-all outline-none"
-                        placeholder="••••••••••••"
-                      />
-                    )}
-                    <KeyRound className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
-                    {!loginOtpMode && (
-                      <button
-                        type="button"
-                        onClick={() => setShowLoginPassword((prev) => !prev)}
-                        className="absolute right-3.5 top-3.5 text-slate-400 hover:text-slate-700 transition-colors"
-                        aria-label={showLoginPassword ? "Hide password" : "Show password"}
-                      >
-                        {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </button>
-                    )}
-                  </div>
-                  {loginOtpMessage && (
-                    <div className="text-[11px] font-bold text-emerald-900 bg-emerald-50 border border-emerald-150 rounded-xl px-3 py-2">
-                      {loginOtpMessage}
-                    </div>
-                  )}
-                  {loginOtpMode && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setLoginOtpMode(false);
-                        setLoginOtp('');
-                        setLoginOtpInput('');
-                        setLoginOtpUser(null);
-                        setLoginOtpMessage(null);
-                      }}
-                      className="text-[10px] font-black uppercase tracking-wider text-slate-500 hover:text-slate-800"
-                    >
-                      Use PIN/password instead
-                    </button>
-                  )}
-                  {!loginOtpMode && (
-                    <div className="flex justify-end">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowRecovery(true);
-                          setRecoveryIdentifier(email);
-                          setRecoveryStep('identify');
-                          setRecoveryMessage(null);
-                        }}
-                        className="text-[10px] font-black uppercase tracking-wider text-emerald-700 hover:text-emerald-800"
-                      >
-                        Forgot password?
-                      </button>
-                    </div>
-                  )}
-                </div>
-              ) : null}
-
-              {!emailChecked && (
-                <div className="flex justify-end -mt-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowRecovery(true);
-                      setRecoveryIdentifier(email);
-                      setRecoveryStep('identify');
-                      setRecoveryMessage(null);
-                    }}
-                    className="text-[10px] font-black uppercase tracking-wider text-emerald-700 hover:text-emerald-800"
-                  >
-                    Forgot password?
-                  </button>
-                </div>
-              )}
-
-              {showRecovery && (
-                <div className="rounded-2xl border border-emerald-300 bg-white p-4 space-y-3 shadow-sm">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                        <MessageCircle className="w-4 h-4 text-emerald-700" />
-                        Password Recovery
-                      </h4>
-                      <p className="text-[11px] text-slate-700 mt-1 leading-snug">
-                        Admin recovery verifies your security question first, then sends WhatsApp OTP.
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setShowRecovery(false)}
-                      className="text-[10px] font-black text-slate-500 hover:text-slate-800"
-                    >
-                      CLOSE
-                    </button>
-                  </div>
-
-                  {recoveryMessage && (
-                    <div className="text-[11px] font-bold text-emerald-900 bg-emerald-50 border border-emerald-150 rounded-xl px-3 py-2">
-                      {recoveryMessage}
-                    </div>
-                  )}
-
-                  {recoveryStep === 'identify' ? (
-                    <div className="space-y-2">
-                      <input
-                        type="tel"
-                        value={recoveryIdentifier}
-                        onChange={e => { setRecoveryIdentifier(e.target.value); setRecoveryWhatsapp(e.target.value); }}
-                        placeholder="Your WhatsApp / mobile number"
-                        className="w-full bg-white border border-emerald-150 rounded-xl px-3 py-2.5 text-xs font-semibold outline-none focus:border-emerald-500"
-                      />
-                      <button
-                        type="button"
-                        onClick={handleStartRecovery}
-                        className="w-full py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2"
-                      >
-                        <Shield className="w-4 h-4" />
-                        Continue
-                      </button>
-                    </div>
-                  ) : recoveryStep === 'security' ? (
-                    <div className="space-y-2">
-                      <div className="bg-white border border-emerald-150 rounded-xl px-3 py-2.5">
-                        <span className="block text-[9px] font-black uppercase tracking-wider text-slate-500">Security Question</span>
-                        <p className="text-xs font-bold text-slate-800 mt-1">{recoveryUser?.securityQuestion}</p>
-                      </div>
-                      <input
-                        type="text"
-                        value={recoverySecurityAnswer}
-                        onChange={e => setRecoverySecurityAnswer(e.target.value)}
-                        placeholder="Your answer"
-                        className="w-full bg-white border border-emerald-150 rounded-xl px-3 py-2.5 text-xs font-semibold outline-none focus:border-emerald-500"
-                      />
-                      <button
-                        type="button"
-                        onClick={handleVerifyRecoverySecurity}
-                        className="w-full py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2"
-                      >
-                        <MessageCircle className="w-4 h-4" />
-                        Verify & Send OTP
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <input
-                        type="text"
-                        value={recoveryInputOtp}
-                        onChange={e => setRecoveryInputOtp(e.target.value)}
-                        placeholder="Enter 6-digit OTP"
-                        className="w-full bg-white border border-emerald-150 rounded-xl px-3 py-2.5 text-xs font-mono font-black tracking-widest outline-none focus:border-emerald-500"
-                      />
-                      <input
-                        type="password"
-                        value={recoveryNewPassword}
-                        onChange={e => setRecoveryNewPassword(e.target.value)}
-                        placeholder="New password / PIN"
-                        className="w-full bg-white border border-emerald-150 rounded-xl px-3 py-2.5 text-xs font-semibold outline-none focus:border-emerald-500"
-                      />
-                      <div className="grid grid-cols-2 gap-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setRecoveryStep('identify');
-                            setRecoveryInputOtp('');
-                            setRecoveryNewPassword('');
-                          }}
-                          className="py-2.5 rounded-xl bg-white border border-emerald-150 text-slate-700 text-[10px] font-black uppercase tracking-wider"
-                        >
-                          Change Number
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleFinishRecovery}
-                          className="py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 text-white text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5"
-                        >
-                          <RefreshCw className="w-3.5 h-3.5" />
-                          Reset Password
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
+              <div className="flex justify-center">
+                <TurnstileWidget onVerify={setTurnstileToken} onExpire={() => setTurnstileToken(null)} />
+              </div>
 
               <button
                 id="login-submit-btn"
@@ -1786,13 +1625,23 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                     <span>Processing securely...</span>
                   </>
                 ) : emailChecked ? (
-	                  <span>Sign In</span>
+                  <span>Sign In</span>
                 ) : (
                   <span>Continue</span>
                 )}
               </button>
 
-              <div className="flex items-center gap-3 py-1">
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={() => setShowRecovery(true)}
+                  className="text-[11px] font-bold text-slate-400 hover:text-emerald-600 transition-all underline underline-offset-2"
+                >
+                  Forgot Password?
+                </button>
+              </div>
+
+              <div className="flex items-center gap-3 py-2">
                 <div className="flex-1 h-px bg-slate-200" />
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t('googleOrSig')}</span>
                 <div className="flex-1 h-px bg-slate-200" />
@@ -1812,11 +1661,72 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                 </svg>
                 <span>{t('continueGoogle')}</span>
               </button>
-
             </form>
+) : (
+                    <span>Continue</span>
+                  )}
+                </button>
+
+                <div className="text-center">
+                  <button
+                    type="button"
+                    onClick={() => setShowRecovery(true)}
+                    className="text-[11px] font-bold text-slate-400 hover:text-emerald-600 transition-all underline underline-offset-2"
+                  >
+                    Forgot Password?
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-3 py-2">
+                  <div className="flex-1 h-px bg-slate-200" />
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{t('googleOrSig')}</span>
+                  <div className="flex-1 h-px bg-slate-200" />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleGoogleLoginClick}
+                  disabled={isLoading}
+                  className="w-full py-3 border border-slate-200 hover:border-slate-300 disabled:opacity-55 rounded-2xl text-xs font-bold text-slate-700 transition-all cursor-pointer flex items-center justify-center gap-2.5"
+                >
+                  <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M23.52 12.27c0-.85-.08-1.67-.22-2.45H12v4.64h6.47c-.28 1.5-1.13 2.77-2.4 3.62v3h3.88c2.27-2.09 3.57-5.17 3.57-8.81z"/>
+                    <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3c-1.08.72-2.45 1.15-4.05 1.15-3.12 0-5.76-2.1-6.7-4.93H1.29v3.1C3.26 21.3 7.31 24 12 24z"/>
+                    <path fill="#FBBC05" d="M5.3 14.31A7.2 7.2 0 0 1 4.9 12c0-.8.14-1.58.4-2.31v-3.1H1.29A11.98 11.98 0 0 0 0 12c0 1.93.46 3.76 1.29 5.41l4.01-3.1z"/>
+                    <path fill="#EA4335" d="M12 4.77c1.76 0 3.34.6 4.58 1.79l3.44-3.44C17.94 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.59l4.01 3.1c.94-2.83 3.58-4.92 6.7-4.92z"/>
+                  </svg>
+                  <span>{t('continueGoogle')}</span>
+                </button>
+              </form>
+
           ) : (
             /* Registration screen with picker for the 4 dynamic business sectors */
-            <form className="space-y-5" onSubmit={handleRegisterSubmit}>
+            <>
+              <div className="space-y-5 animate-fade-in">
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-center">
+                  <h3 className="text-sm font-black text-slate-900">{t('createBusinessAccount')}</h3>
+                  <p className="mt-1 text-xs leading-relaxed text-slate-600">{t('connectGoogleFirst')}</p>
+                </div>
+                <div className="flex justify-center">
+                  <TurnstileWidget onVerify={setTurnstileToken} onExpire={() => setTurnstileToken(null)} />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleGoogleLoginClick}
+                  disabled={isLoading}
+                  className="w-full py-3.5 border border-slate-200 hover:border-emerald-300 disabled:opacity-55 rounded-2xl text-xs font-bold text-slate-700 transition-all cursor-pointer flex items-center justify-center gap-2.5"
+                >
+                  <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
+                    <path fill="#4285F4" d="M23.52 12.27c0-.85-.08-1.67-.22-2.45H12v4.64h6.47c-.28 1.5-1.13 2.77-2.4 3.62v3h3.88c2.27-2.09 3.57-5.17 3.57-8.81z"/>
+                    <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3c-1.08.72-2.45 1.15-4.05 1.15-3.12 0-5.76-2.1-6.7-4.93H1.29v3.1C3.26 21.3 7.31 24 12 24z"/>
+                    <path fill="#FBBC05" d="M5.3 14.31A7.2 7.2 0 0 1 4.9 12c0-.8.14-1.58.4-2.31v-3.1H1.29A11.98 11.98 0 0 0 0 12c0 1.93.46 3.76 1.29 5.41l4.01-3.1z"/>
+                    <path fill="#EA4335" d="M12 4.77c1.76 0 3.34.6 4.58 1.79l3.44-3.44C17.94 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.59l4.01 3.1c.94-2.83 3.58-4.92 6.7-4.92z"/>
+                  </svg>
+                  <span>{t('continueGoogle')}</span>
+                </button>
+                <p className="text-center text-[10px] leading-relaxed text-slate-500">{t('existingGoogleAccount')}</p>
+              </div>
+              {authTab !== 'register' && <form className="space-y-5" onSubmit={handleRegisterSubmit}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-slate-500 uppercase block">Owner Full Name</label>
@@ -1877,31 +1787,6 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block">Security Question</label>
-                  <input
-                    type="text"
-                    required
-                    value={regSecurityQuestion}
-                    placeholder="e.g. What is your first shop name?"
-                    onChange={(e) => setRegSecurityQuestion(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-555 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none font-sans"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block">Security Answer</label>
-                  <input
-                    type="text"
-                    required
-                    value={regSecurityAnswer}
-                    placeholder="Answer you will remember"
-                    onChange={(e) => setRegSecurityAnswer(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-555 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none font-sans"
-                  />
-                </div>
-              </div>
-
 	              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-slate-500 uppercase block">Region of operations</label>
@@ -1936,7 +1821,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
               {/* OPTIONAL AFFILIATE REFERRAL TRACKER */}
               <div className="space-y-1.5 bg-emerald-50/40 p-3.5 rounded-2xl border border-emerald-100/60">
                 <label className="text-[10px] font-bold text-emerald-800 uppercase block tracking-wider font-mono flex items-center space-x-1">
-                  <Sparkles className="w-3 h-3 text-emerald-600 shrink-0" />
+                  
                   <span>Affiliate Referral Promo Code (Optional)</span>
                 </label>
                 <input
@@ -2013,17 +1898,11 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                 disabled={isLoading || !acceptedTenantLegal}
                 className="w-full py-3.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 disabled:opacity-55 disabled:cursor-not-allowed text-white font-bold rounded-2xl text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center space-x-2"
               >
-                {isLoading ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    <span>Allocating Cloud DB Cluster...</span>
-                  </>
-                ) : (
-	                  <span>Join Us</span>
-                )}
+                <span>{t('registerTab')}</span>
               </button>
 
-            </form>
+              </form>}
+            </>
           )}
 
 
@@ -2033,7 +1912,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
             onClick={handleBackToLandingHub}
             className="text-xs text-slate-400 hover:text-emerald-600 font-bold transition-all bg-transparent border-none cursor-pointer"
           >
-            ← Back to Orvix Landing Hub
+            ← {t('backToOrvixHome')}
           </button>
         </div>
       </div>

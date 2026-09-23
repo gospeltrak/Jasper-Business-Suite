@@ -6,13 +6,16 @@ const PLACEHOLDER_DATA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dummy';
 
 // Keep authentication outside onlineStorage. Large tenant workspaces can fill
 // onlineStorage; auth must still be able to save its token and complete login.
+// localStorage (not sessionStorage): the session must survive closing the
+// tab/app/browser and only end on an explicit Logout — sessionStorage was
+// wiping this on every close, forcing a fresh login each time.
 const browserAuthStorage = {
-  getItem: (key: string) => typeof window === 'undefined' ? null : window.sessionStorage.getItem(key),
+  getItem: (key: string) => typeof window === 'undefined' ? null : window.localStorage.getItem(key),
   setItem: (key: string, value: string) => {
-    if (typeof window !== 'undefined') window.sessionStorage.setItem(key, value);
+    if (typeof window !== 'undefined') window.localStorage.setItem(key, value);
   },
   removeItem: (key: string) => {
-    if (typeof window !== 'undefined') window.sessionStorage.removeItem(key);
+    if (typeof window !== 'undefined') window.localStorage.removeItem(key);
   }
 };
 

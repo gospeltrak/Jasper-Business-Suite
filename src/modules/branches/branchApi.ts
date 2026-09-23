@@ -7,6 +7,7 @@ import type {
   CreateBranchInput,
   CreatedBranchResult,
 } from './branchTypes';
+import type { SalesDocument } from '../types';
 
 export class BranchApiError extends Error {
   readonly status: number;
@@ -95,6 +96,63 @@ export const createBranch = async (input: CreateBranchInput) => {
   return response.branch;
 };
 
+export const updateBranchLogo = async (
+  branchId: string,
+  logos: { logoLightUrl?: string | null; logoDarkUrl?: string | null },
+) => {
+  const token = await getAccessToken();
+  const response = await requestBranchApi<{ branch: { id: string; logoLightUrl: string | null; logoDarkUrl: string | null } }>(
+    `/api/branches/${encodeURIComponent(branchId)}/logo`,
+    token,
+    { method: 'POST', body: JSON.stringify(logos) },
+  );
+  return response.branch;
+};
+
+export const uploadBranchLogoAsset = async (
+  branchId: string,
+  variant: 'light' | 'dark',
+  logoBase64: string,
+) => {
+  const token = await getAccessToken();
+  const response = await requestBranchApi<{ branch: { id: string; logoLightUrl: string | null; logoDarkUrl: string | null } }>(
+    `/api/branches/${encodeURIComponent(branchId)}/logo-upload`,
+    token,
+    { method: 'POST', body: JSON.stringify({ variant, logoBase64 }) },
+  );
+  return response.branch;
+};
+
+export interface BranchContactProfile {
+  id: string;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  logoLightUrl?: string | null;
+  logoDarkUrl?: string | null;
+}
+
+export const loadBranchContactProfile = async (branchId: string) => {
+  const token = await getAccessToken();
+  const response = await requestBranchApi<{ branch: BranchContactProfile }>(
+    `/api/branches/${encodeURIComponent(branchId)}/profile`, token,
+  );
+  return response.branch;
+};
+
+export const updateBranchContactProfile = async (
+  branchId: string,
+  profile: Pick<BranchContactProfile, 'address' | 'phone' | 'email'>,
+) => {
+  const token = await getAccessToken();
+  const response = await requestBranchApi<{ branch: BranchContactProfile }>(
+    `/api/branches/${encodeURIComponent(branchId)}/profile`,
+    token,
+    { method: 'PATCH', body: JSON.stringify(profile) },
+  );
+  return response.branch;
+};
+
 export interface CrossBranchDocumentSourceBranch {
   id: string;
   branchName: string;
@@ -153,6 +211,49 @@ export const loadCrossBranchDocumentSources = async (): Promise<CrossBranchDocum
     token,
   );
   return response.sources;
+};
+
+export const loadCommercialDocuments = async (): Promise<SalesDocument[]> => {
+  const token = await getAccessToken();
+  const response = await requestBranchApi<{ documents: SalesDocument[] }>(
+    '/api/sales/documents',
+    token,
+  );
+  return Array.isArray(response.documents) ? response.documents : [];
+};
+
+export const createStandardCommercialDocument = async (document: SalesDocument): Promise<SalesDocument> => {
+  const token = await getAccessToken();
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const response = await requestBranchApi<{ document: SalesDocument }>(
+        '/api/sales/documents',
+        token,
+        { method: 'POST', body: JSON.stringify({ document }) },
+      );
+      return response.document;
+    } catch (error) {
+      lastError = error;
+      const status = error instanceof BranchApiError ? error.status : 0;
+      if (attempt > 0 || (status !== 0 && ![502, 503, 504].includes(status))) throw error;
+      await new Promise(resolve => window.setTimeout(resolve, 350));
+    }
+  }
+  throw lastError;
+};
+
+export const updateStandardCommercialDocument = async (
+  documentId: string,
+  patch: Partial<SalesDocument>,
+): Promise<SalesDocument> => {
+  const token = await getAccessToken();
+  const response = await requestBranchApi<{ document: SalesDocument }>(
+    `/api/sales/documents/${encodeURIComponent(documentId)}`,
+    token,
+    { method: 'PATCH', body: JSON.stringify({ patch }) },
+  );
+  return response.document;
 };
 
 export const createCrossBranchCommercialDocument = async (

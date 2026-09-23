@@ -204,7 +204,7 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                   <p className="text-xs font-light">
                     We may update our privacy policies periodically to adapt to service, security, and legal changes.
                     For privacy inquiries or custom deletion requests, contact our dedicated compliance handler at
-                    <a href="mailto:deployments@jasper.africa" className="text-emerald-500 underline ml-1">deployments@jasper.africa</a>.
+                    <a href="mailto:deployments@orvix.africa" className="text-emerald-500 underline ml-1">deployments@orvix.africa</a>.
                   </p>
                 </div>
 
@@ -340,7 +340,7 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                   <p className="text-xs font-light">
                     Sera hizi zinaweza kuboreshwa mara kwa mara ili kufuata mabadiliko ya kisheria.
                     Kama una swali lolote la kisheria au faragha, wasiliana na timu yetu kupitia barua pepe ya
-                    <a href="mailto:deployments@jasper.africa" className="text-emerald-500 underline ml-1">deployments@jasper.africa</a>.
+                    <a href="mailto:deployments@orvix.africa" className="text-emerald-500 underline ml-1">deployments@orvix.africa</a>.
                   </p>
                 </div>
 

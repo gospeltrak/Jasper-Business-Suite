@@ -75,6 +75,7 @@ vi.mock('../shared/dataBridge/secureDataBridge', () => {
 
 import {
   flushPendingTenantWorkspace,
+  hasPendingTenantWorkspaceSave,
   readCachedWorkspace,
   saveTenantWorkspace,
   scheduleTenantWorkspaceSave,
@@ -197,5 +198,64 @@ describe('saveTenantWorkspace write queue (out-of-order network completion)', ()
     await Promise.all([first, latest, flush]);
     expect(upsertCalls).toHaveLength(1);
     expect(mockDbState?.sales.map((sale: any) => sale.id)).toEqual(['s2']);
+  });
+
+  it('flushes an older debounced autosave before a newer manual save', async () => {
+    const tenantId = 'autosave-before-manual-tenant';
+    const stale = scheduleTenantWorkspaceSave(
+      tenantId,
+      baseWorkspace([]),
+    );
+    const flush = flushPendingTenantWorkspace(tenantId);
+    await vi.waitFor(() => {
+      if (!releaseFirstUpsert) throw new Error('stale autosave was not flushed');
+    });
+    releaseFirstUpsert!();
+    await Promise.all([stale, flush]);
+
+    const latest = baseWorkspace([]);
+    latest.products = [{ id: 'p1', name: 'Product', tabsPerDose: 10 }];
+    await saveTenantWorkspace(tenantId, latest);
+
+    expect(upsertCalls).toHaveLength(2);
+    expect(mockDbState?.products[0].tabsPerDose).toBe(10);
+  });
+
+  // A caller that applies incoming remote data (e.g. a realtime payload)
+  // needs a reliable signal that a local edit is still being written, so it
+  // doesn't overwrite that edit with a remote snapshot taken before the
+  // write landed. hasPendingTenantWorkspaceSave is that signal.
+  it('hasPendingTenantWorkspaceSave reflects an in-flight direct save', async () => {
+    const tenantId = 'race-test-tenant-pending-flag-direct';
+    expect(hasPendingTenantWorkspaceSave(tenantId)).toBe(false);
+
+    const call = saveTenantWorkspace(tenantId, baseWorkspace([{ id: 's1', amount: 100 }]));
+
+    await vi.waitFor(() => {
+      if (!releaseFirstUpsert) throw new Error('upsert not issued yet');
+    });
+    expect(hasPendingTenantWorkspaceSave(tenantId)).toBe(true);
+
+    releaseFirstUpsert!();
+    await call;
+
+    expect(hasPendingTenantWorkspaceSave(tenantId)).toBe(false);
+  });
+
+  it('hasPendingTenantWorkspaceSave is true as soon as an autosave is scheduled, before its debounce timer fires', async () => {
+    const tenantId = 'race-test-tenant-pending-flag-schedule';
+    expect(hasPendingTenantWorkspaceSave(tenantId)).toBe(false);
+
+    const scheduled = scheduleTenantWorkspaceSave(tenantId, baseWorkspace([{ id: 's1', amount: 100 }]));
+    expect(hasPendingTenantWorkspaceSave(tenantId)).toBe(true);
+
+    const flush = flushPendingTenantWorkspace(tenantId);
+    await vi.waitFor(() => {
+      if (!releaseFirstUpsert) throw new Error('upsert not issued yet');
+    });
+    releaseFirstUpsert!();
+    await Promise.all([scheduled, flush]);
+
+    expect(hasPendingTenantWorkspaceSave(tenantId)).toBe(false);
   });
 });

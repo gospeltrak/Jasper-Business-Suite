@@ -1,6 +1,6 @@
 import React, { useState, useRef, useMemo, FormEvent, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Tenant, Product, ProductBatch, SystemSettings } from '../../types';
+import { Tenant, Product, ProductBatch, SystemSettings, DosageForm, ProductType } from '../../types';
 import { isDemoTenant } from '../../shared/utils/tenantIsolation';
 import { getSecureDataBridgeClient } from '../../shared/dataBridge/secureDataBridge';
 import { 
@@ -43,13 +43,22 @@ import {
   mapCostingMethodToLegacy,
 } from '../../utils/inventoryCosting';
 import { formatProductQuantity } from '../../shared/utils/unitFormatter';
+import { formatLocalDate } from '../../utils/localDate';
+import { classifyUniversalImportRows, downloadableUniversalTemplate } from '../../utils/bulkProductImport';
 import { compressImageFile } from '../../shared/utils/imageCompression';
 import { safeSetJsonItem } from '../../shared/utils/dataSafety';
 import { generateUniqueEan13Barcode } from './barcode';
+import { calculateFractionSalePacketPrice } from '../../utils/fractionSale';
 import ModernSelect, { ModernSelectOption } from '../../components/ui/ModernSelect';
 import DashboardBarcodeScanner from '../../components/DashboardBarcodeScanner';
 import { loadBranchWorkspace, transferStockBetweenBranches } from '../branches/branchApi';
 import type { BranchSummary } from '../branches/branchTypes';
+import {
+  createProductCatalogueBackup,
+  getProductCatalogueBackupFileName,
+  parseProductCatalogueBackup,
+  prepareBackedUpProductsForImport,
+} from '../utils/productCatalogueBackup';
 
 const getProductImageUploadToken = async (): Promise<string> => {
   const client: any = await getSecureDataBridgeClient();
@@ -65,8 +74,9 @@ interface DashboardProductsProps {
   systemSettings?: SystemSettings;
   onUpdateSettings: (settings: SystemSettings) => void;
   onAddProduct: (prod: Product) => void;
+  onAddProducts: (products: Product[]) => void;
   onDeleteProduct: (id: string) => void;
-  onUpdateProducts: (updatedProducts: Product[]) => void;
+  onUpdateProducts: (updatedProducts: Product[]) => Promise<boolean>;
   subscriptionStatus?: any;
   onTriggerUpgrade?: (limitType: 'products' | 'stores' | 'staff' | 'expired') => void;
 }
@@ -119,12 +129,47 @@ const PHARMACY_START_OPTIONS = {
   ],
 } satisfies Record<string, ModernSelectOption[]>;
 
+// Universal Inventory Unit & Packaging Engine -- Product Type is separate
+// from Category (e.g. Panadol: Product Type "Medicine", Category "Pain
+// Relief & Fever"), available to every tenant so a Pharmacy can also stock
+// ordinary retail goods and vice versa.
+const PRODUCT_TYPE_OPTIONS: ModernSelectOption[] = [
+  { value: 'general_retail', label: 'General Retail' },
+  { value: 'medicine', label: 'Medicine' },
+  { value: 'medical_supply', label: 'Medical Supply' },
+  { value: 'personal_care', label: 'Personal Care' },
+  { value: 'cosmetics_beauty', label: 'Cosmetics & Beauty' },
+  { value: 'baby_care', label: 'Baby Care' },
+  { value: 'hygiene', label: 'Hygiene' },
+  { value: 'supplements', label: 'Supplements' },
+  { value: 'food_drinks', label: 'Food & Drinks' },
+];
+
+const DOSAGE_FORM_OPTIONS: ModernSelectOption[] = [
+  { value: 'tablet', label: 'Tablet' },
+  { value: 'capsule', label: 'Capsule' },
+  { value: 'syrup', label: 'Syrup' },
+  { value: 'suspension', label: 'Suspension' },
+  { value: 'oral_solution', label: 'Oral Solution' },
+  { value: 'drops', label: 'Drops' },
+  { value: 'cream', label: 'Cream' },
+  { value: 'ointment', label: 'Ointment' },
+  { value: 'gel', label: 'Gel' },
+  { value: 'injection', label: 'Injection' },
+  { value: 'inhaler', label: 'Inhaler' },
+  { value: 'sachet', label: 'Sachet' },
+  { value: 'powder', label: 'Powder' },
+  { value: 'suppository', label: 'Suppository' },
+  { value: 'other', label: 'Other' },
+];
+
 export default function DashboardProducts({ 
   activeTenant, 
   products,
   systemSettings,
   onUpdateSettings,
   onAddProduct,
+  onAddProducts,
   onDeleteProduct,
   onUpdateProducts,
   subscriptionStatus,
@@ -143,10 +188,12 @@ export default function DashboardProducts({
 
   const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [isSavingProductEdit, setIsSavingProductEdit] = useState(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [editStockDraft, setEditStockDraft] = useState({ shop: '', store: '', alert: '' });
   const [editImageFile, setEditImageFile] = useState<File | null>(null);
   const [editForm, setEditForm] = useState<Partial<Product>>({});
+  const [editSaveError, setEditSaveError] = useState<string | null>(null);
   const getTotalStockQty = (shopQty: number, storeQty: number) => Number((Number(shopQty || 0) + Number(storeQty || 0)).toFixed(3));
   
   // Smart Batch Pricing & Restock
@@ -217,7 +264,7 @@ export default function DashboardProducts({
           { name: 'Coca Cola', logo: '' },
           { name: 'Nestle', logo: '' },
           { name: 'Unilever', logo: '' },
-          { name: 'Jasper Foods', logo: '' }
+          { name: 'Orvix Foods', logo: '' }
         ]
       : []
   ));
@@ -302,6 +349,7 @@ export default function DashboardProducts({
       return String(value);
     };
     setEditingProduct(prod);
+    setEditSaveError(null);
     setEditForm({ ...prod });
     setEditStockDraft({
       shop: editDraftNumber(prod.shopStockQty),
@@ -410,9 +458,17 @@ export default function DashboardProducts({
         const editTopLevel = editPharmacy.hierarchy.levels[0];
         const editDoseLevel = editPharmacy.hierarchy.levels.find(level => level.id === 'dose') || editPharmacy.hierarchy.levels[1] || editTopLevel;
         const editTabsPerPacket = Math.max(1, Number(editTopLevel?.quantityToBaseUnit || editDosesPerPacket * editTabsPerDose));
-        const editFullDosePrice = Number(editForm.fullDosePrice || (Number(editDoseLevel?.quantityToBaseUnit || editTabsPerDose) * Number(editForm.tabPrice || (editTabsPerPacket > 0 ? sellPrice / editTabsPerPacket : sellPrice))));
+        // Base unit (e.g. Tablet) price is what the tenant enters as "Retail
+        // Price" -- packet price is derived from it unless explicitly overridden.
+        const editTabPrice = sellPrice;
+        const editPacketPrice = Number(editForm.packetPrice) || (editTabPrice * editTabsPerPacket);
+        const editFullDosePrice = Number(editForm.fullDosePrice || (Number(editDoseLevel?.quantityToBaseUnit || editTabsPerDose) * editTabPrice));
         const editHalfDosePrice = Number(editForm.halfDosePrice || editFullDosePrice / 2);
-        const editTabPrice = Number(editForm.tabPrice || (editTabsPerPacket > 0 ? sellPrice / editTabsPerPacket : sellPrice));
+        const editUsesPharmacyHierarchy = activeTenant.businessType === 'pharmacy' && editForm.productType === 'medicine';
+        const editFractionEligible = editForm.productType !== 'medicine' && (activeTenant.businessType === 'pharmacy' || !!editForm.isBulkProduct);
+        const editFractionEnabled = editFractionEligible && (activeTenant.businessType === 'pharmacy'
+          ? !!(editForm.fractionSaleEnabled ?? editForm.inventorySettings?.fractionSaleEnabled)
+          : !!editForm.isBulkProduct);
         const editUsesMeasuredUnit = !!editForm.isBulkProduct || !!editForm.allowScaleSelling ||
           !!editForm.inventorySettings?.allowScaleSelling || editForm.sellingMode === 'scale' || editForm.sellingMode === 'hybrid';
         const editBaseUnit = editUsesMeasuredUnit
@@ -421,16 +477,61 @@ export default function DashboardProducts({
         const editPurchaseUnit = editForm.purchaseUnit || editForm.inventorySettings?.purchaseUnit || editForm.bulkUnit || 'Package';
         const editConversionToBase = Math.max(0.001, Number(editForm.conversionToBaseUnit || editForm.inventorySettings?.conversionToBaseUnit || editForm.bulkPurchaseQty || 1));
         const editPricePerBase = Number(editForm.defaultPricePerBaseUnit || editForm.inventorySettings?.defaultPricePerBaseUnit || editForm.sellUnitPrice || sellPrice || 0);
+        const editPacketPricing = calculateFractionSalePacketPrice(
+          editPricePerBase,
+          editConversionToBase,
+          (editForm.packetPriceOverridden ?? editForm.inventorySettings?.packetPriceOverridden)
+            ? Number(editForm.wholePackagePrice ?? editForm.inventorySettings?.wholePackagePrice)
+            : undefined,
+        );
         const editPackageBuyingCost = Number(editForm.packageBuyingCost || editForm.inventorySettings?.packageBuyingCost || rawCostPrice || 0);
         const editLedgerCostPrice = activeTenant.businessType !== 'pharmacy' && editForm.isBulkProduct
           ? editPackageBuyingCost / editConversionToBase
           : rawCostPrice;
+        const hierarchyPayload: Partial<Product> = editUsesPharmacyHierarchy
+          ? {
+            dosesPerPacket: editDosesPerPacket,
+            tabsPerDose: editTabsPerDose,
+            tabsPerPack: editTabsPerPacket,
+            pharmacyProductType: editPharmacy.productType,
+            pharmacyHierarchyStart: editPharmacy.hierarchyStart,
+            pharmacyBaseUnit: editPharmacy.hierarchy.baseUnit,
+            pharmacyUnitLevels: editPharmacy.hierarchy.levels,
+            allowsDosageDividing: true,
+            packetPrice: editPacketPrice,
+            fullDosePrice: editFullDosePrice,
+            halfDosePrice: editHalfDosePrice,
+            tabPrice: editTabPrice,
+            pharmacyUnitBreakdown: {
+              purchaseUnit: editTopLevel.unit,
+              stripUnit: editDoseLevel.unit,
+              baseUnit: editPharmacy.hierarchy.baseUnit,
+              stripsPerBox: editDosesPerPacket,
+              tabletsPerStrip: editTabsPerDose,
+            },
+          }
+          : {
+            dosesPerPacket: p.dosesPerPacket,
+            tabsPerDose: p.tabsPerDose,
+            tabsPerPack: p.tabsPerPack,
+            pharmacyProductType: p.pharmacyProductType,
+            pharmacyHierarchyStart: p.pharmacyHierarchyStart,
+            pharmacyBaseUnit: p.pharmacyBaseUnit,
+            pharmacyUnitLevels: p.pharmacyUnitLevels,
+            allowsDosageDividing: p.allowsDosageDividing,
+            packetPrice: p.packetPrice,
+            fullDosePrice: p.fullDosePrice,
+            halfDosePrice: p.halfDosePrice,
+            tabPrice: p.tabPrice,
+            pharmacyUnitBreakdown: p.pharmacyUnitBreakdown,
+          };
         return {
           ...p,
+          ...hierarchyPayload,
           name: editForm.name || '',
           brand: editForm.brand ? editForm.brand.trim() : undefined,
           category: editForm.category || '',
-          unit: activeTenant.businessType === 'pharmacy' ? editPharmacy.hierarchy.baseUnit : (editForm.unit || ''),
+          unit: editUsesPharmacyHierarchy ? editPharmacy.hierarchy.baseUnit : (editForm.unit || editBaseUnit),
           barcode: b,
           costPrice: editLedgerCostPrice,
           sellingPrice: sellPrice,
@@ -451,64 +552,42 @@ export default function DashboardProducts({
           sellUnitPrice: editForm.isBulkProduct ? editPricePerBase : undefined,
           bulkToUnitsRatio: editForm.isBulkProduct ? editConversionToBase : undefined,
           sellingMode: editForm.isBulkProduct ? editForm.sellingMode : undefined,
+          stockTrackingMode: editForm.isBulkProduct ? (editForm.stockTrackingMode || 'quantity') : undefined,
+          markedFinished: editForm.isBulkProduct ? !!editForm.markedFinished : undefined,
           costingMethod: editForm.costingMethod || editForm.inventorySettings?.costingMethod || 'fifo',
           sellingMethod: mapCostingMethodToLegacy(editForm.costingMethod || editForm.inventorySettings?.costingMethod || 'fifo'),
           allowPosMethodOverride: !!editForm.allowPosMethodOverride,
-          allowScaleSelling: activeTenant.businessType === 'pharmacy' ? false : (!!editForm.allowScaleSelling || !!editForm.isBulkProduct),
-          purchaseUnit: activeTenant.businessType === 'pharmacy' ? editTopLevel.unit : editPurchaseUnit,
-          baseUnit: activeTenant.businessType === 'pharmacy' ? editPharmacy.hierarchy.baseUnit : editBaseUnit,
-          conversionToBaseUnit: activeTenant.businessType === 'pharmacy' ? editTabsPerPacket : editConversionToBase,
-          packageUnitPrice: activeTenant.businessType === 'pharmacy' ? undefined : editPricePerBase,
-          wholePackagePrice: activeTenant.businessType === 'pharmacy' ? undefined : editPricePerBase * editConversionToBase,
-          halfPackagePrice: activeTenant.businessType === 'pharmacy' ? undefined : editPricePerBase * (editConversionToBase / 2),
-          packageBuyingCost: activeTenant.businessType === 'pharmacy' ? undefined : editPackageBuyingCost,
+          allowScaleSelling: activeTenant.businessType !== 'pharmacy' && (!!editForm.allowScaleSelling || !!editForm.isBulkProduct),
+          fractionSaleEnabled: editFractionEnabled,
+          packetPriceOverridden: editFractionEnabled ? editPacketPricing.packetPriceOverridden : editForm.packetPriceOverridden,
+          purchaseUnit: editUsesPharmacyHierarchy ? editTopLevel.unit : editPurchaseUnit,
+          baseUnit: editUsesPharmacyHierarchy ? editPharmacy.hierarchy.baseUnit : editBaseUnit,
+          conversionToBaseUnit: editUsesPharmacyHierarchy ? editTabsPerPacket : editConversionToBase,
+          packageUnitPrice: editUsesPharmacyHierarchy ? undefined : editPricePerBase,
+          wholePackagePrice: editFractionEnabled ? editPacketPricing.packetPrice : editForm.wholePackagePrice,
+          halfPackagePrice: editUsesPharmacyHierarchy ? undefined : editPricePerBase * (editConversionToBase / 2),
+          packageBuyingCost: editUsesPharmacyHierarchy ? undefined : editPackageBuyingCost,
           allowCustomQuantity: editForm.allowCustomQuantity !== false,
           defaultPricePerBaseUnit: editPricePerBase,
           fractionSaleOptions: activeTenant.businessType === 'pharmacy' ? undefined : (editForm.fractionSaleOptions || editForm.inventorySettings?.fractionSaleOptions),
-          dosesPerPacket: activeTenant.businessType === 'pharmacy' ? editDosesPerPacket : editForm.dosesPerPacket,
-          tabsPerDose: activeTenant.businessType === 'pharmacy' ? editTabsPerDose : editForm.tabsPerDose,
-          tabsPerPack: activeTenant.businessType === 'pharmacy' ? editTabsPerPacket : editForm.tabsPerPack,
-          pharmacyProductType: activeTenant.businessType === 'pharmacy' ? editPharmacy.productType : editForm.pharmacyProductType,
-          pharmacyHierarchyStart: activeTenant.businessType === 'pharmacy' ? editPharmacy.hierarchyStart : editForm.pharmacyHierarchyStart,
-          pharmacyBaseUnit: activeTenant.businessType === 'pharmacy' ? editPharmacy.hierarchy.baseUnit : editForm.pharmacyBaseUnit,
-          pharmacyUnitLevels: activeTenant.businessType === 'pharmacy' ? editPharmacy.hierarchy.levels : editForm.pharmacyUnitLevels,
-          allowsDosageDividing: activeTenant.businessType === 'pharmacy' ? true : editForm.allowsDosageDividing,
-          packetPrice: activeTenant.businessType === 'pharmacy' ? sellPrice : editForm.packetPrice,
-          fullDosePrice: activeTenant.businessType === 'pharmacy' ? editFullDosePrice : editForm.fullDosePrice,
-          halfDosePrice: activeTenant.businessType === 'pharmacy' ? editHalfDosePrice : editForm.halfDosePrice,
-          tabPrice: activeTenant.businessType === 'pharmacy' ? editTabPrice : editForm.tabPrice,
-          pharmacyUnitBreakdown: activeTenant.businessType === 'pharmacy'
-            ? {
-              purchaseUnit: 'Packet',
-              stripUnit: editDoseLevel.unit,
-              baseUnit: editPharmacy.hierarchy.baseUnit,
-              stripsPerBox: editDosesPerPacket,
-              tabletsPerStrip: editTabsPerDose,
-            }
-            : (editForm.pharmacyUnitBreakdown || editForm.inventorySettings?.pharmacyUnitBreakdown),
           inventorySettings: {
             costingMethod: editForm.costingMethod || editForm.inventorySettings?.costingMethod || 'fifo',
             allowPosMethodOverride: !!editForm.allowPosMethodOverride,
-            allowScaleSelling: activeTenant.businessType === 'pharmacy' ? false : (!!editForm.allowScaleSelling || !!editForm.isBulkProduct),
-            purchaseUnit: activeTenant.businessType === 'pharmacy' ? editTopLevel.unit : editPurchaseUnit,
-            baseUnit: activeTenant.businessType === 'pharmacy' ? editPharmacy.hierarchy.baseUnit : editBaseUnit,
-            conversionToBaseUnit: activeTenant.businessType === 'pharmacy' ? editTabsPerPacket : editConversionToBase,
-            packageUnitPrice: activeTenant.businessType === 'pharmacy' ? undefined : editPricePerBase,
-            wholePackagePrice: activeTenant.businessType === 'pharmacy' ? undefined : editPricePerBase * editConversionToBase,
-            halfPackagePrice: activeTenant.businessType === 'pharmacy' ? undefined : editPricePerBase * (editConversionToBase / 2),
-            packageBuyingCost: activeTenant.businessType === 'pharmacy' ? undefined : editPackageBuyingCost,
+            allowScaleSelling: activeTenant.businessType !== 'pharmacy' && (!!editForm.allowScaleSelling || !!editForm.isBulkProduct),
+            fractionSaleEnabled: editFractionEnabled,
+            packetPriceOverridden: editFractionEnabled ? editPacketPricing.packetPriceOverridden : editForm.inventorySettings?.packetPriceOverridden,
+            purchaseUnit: editUsesPharmacyHierarchy ? editTopLevel.unit : editPurchaseUnit,
+            baseUnit: editUsesPharmacyHierarchy ? editPharmacy.hierarchy.baseUnit : editBaseUnit,
+            conversionToBaseUnit: editUsesPharmacyHierarchy ? editTabsPerPacket : editConversionToBase,
+            packageUnitPrice: editUsesPharmacyHierarchy ? undefined : editPricePerBase,
+            wholePackagePrice: editFractionEnabled ? editPacketPricing.packetPrice : editForm.inventorySettings?.wholePackagePrice,
+            halfPackagePrice: editUsesPharmacyHierarchy ? undefined : editPricePerBase * (editConversionToBase / 2),
+            packageBuyingCost: editUsesPharmacyHierarchy ? undefined : editPackageBuyingCost,
             allowCustomQuantity: editForm.allowCustomQuantity !== false,
             defaultPricePerBaseUnit: editPricePerBase,
             fractionSaleOptions: activeTenant.businessType === 'pharmacy' ? undefined : (editForm.fractionSaleOptions || editForm.inventorySettings?.fractionSaleOptions),
-            pharmacyUnitBreakdown: activeTenant.businessType === 'pharmacy'
-              ? {
-                purchaseUnit: editTopLevel.unit,
-                stripUnit: editDoseLevel.unit,
-                baseUnit: editPharmacy.hierarchy.baseUnit,
-                stripsPerBox: editDosesPerPacket,
-                tabletsPerStrip: editTabsPerDose,
-              }
-              : (editForm.pharmacyUnitBreakdown || editForm.inventorySettings?.pharmacyUnitBreakdown),
+            pharmacyUnitBreakdown: hierarchyPayload.pharmacyUnitBreakdown
+              || editForm.inventorySettings?.pharmacyUnitBreakdown,
           },
           sku: b
         } as Product;
@@ -516,9 +595,25 @@ export default function DashboardProducts({
       return p;
     });
 
-    onUpdateProducts(updated);
-    setEditingProduct(null);
-    setEditForm({});
+    setIsSavingProductEdit(true);
+    setEditSaveError(null);
+    try {
+      const saved = await onUpdateProducts(updated);
+      // Keep the tenant's draft and the edit modal open when the durable
+      // workspace write fails. Closing optimistically made hierarchy changes
+      // appear saved until the next hydration restored the cloud copy.
+      if (!saved) {
+        setEditSaveError('Product changes were not saved. Please check your connection and try again.');
+        if (!saved) return;
+      }
+      setEditingProduct(null);
+      setEditForm({});
+    } catch (error) {
+      console.warn('[DashboardProducts] Product edit save failed:', error);
+      setEditSaveError('Product changes were not saved. Please try again.');
+    } finally {
+      setIsSavingProductEdit(false);
+    }
   };
 
   const handleGenerateEditBarcode = () => {
@@ -720,6 +815,25 @@ export default function DashboardProducts({
   const [barcode, setBarcode] = useState('');
   const [category, setCategory] = useState(categoriesList[0] || '');
   const [unit, setUnit] = useState(unitsList[0] || 'Pcs');
+
+  // Universal Inventory Unit & Packaging Engine -- Product Type is distinct
+  // from Category. Medicine-specific fields only apply when productType is
+  // 'medicine', regardless of the tenant's own business type.
+  const [productType, setProductType] = useState<ProductType>('general_retail');
+  const [genericName, setGenericName] = useState('');
+  const [manufacturer, setManufacturer] = useState('');
+  const [dosageForm, setDosageForm] = useState<DosageForm>('tablet');
+  const [strengthValue, setStrengthValue] = useState<number | ''>('');
+  const [strengthUnit, setStrengthUnit] = useState('mg');
+  const [prescriptionRequired, setPrescriptionRequired] = useState(false);
+  const [trackExpiry, setTrackExpiry] = useState(true);
+  const [initialExpiryDate, setInitialExpiryDate] = useState('');
+
+  // Pharmacy and Retail/Wholesale product fields stay fully separate by
+  // tenant niche -- Pharmacy-only fields (packaging hierarchy, Medicine
+  // Details) never appear for a Retail/Wholesale tenant, and vice versa.
+  const isPharmacyLike = activeTenant.businessType === 'pharmacy';
+
   const [costPrice, setCostPrice] = useState(0);
   const [sellingPrice, setSellingPrice] = useState(0);
   const [shopStockQty, setShopStockQty] = useState(0);
@@ -746,6 +860,9 @@ export default function DashboardProducts({
   // Bulk-To-Unit Selling Form states
   const [isBulkProduct, setIsBulkProduct] = useState(false);
   const [sellingMode, setSellingMode] = useState<'standard' | 'scale' | 'pcs' | 'hybrid'>('scale');
+  // 'open-ended': total quantity isn't known upfront (e.g. a cable roll) — only
+  // a price per unit is set, and stock is depleted manually via "Mark as Finished".
+  const [stockTrackingMode, setStockTrackingMode] = useState<'quantity' | 'open-ended'>('quantity');
   const [bulkUnit, setBulkUnit] = useState('KG');
   const [bulkPurchaseQty, setBulkPurchaseQty] = useState<number | ''>('');
   const [sellUnit, setSellUnit] = useState('kg');
@@ -754,15 +871,21 @@ export default function DashboardProducts({
   const [costingMethod, setCostingMethod] = useState<'fifo' | 'average_price' | 'batch_price'>('fifo');
   const [allowPosMethodOverride, setAllowPosMethodOverride] = useState(false);
   const [allowScaleSelling, setAllowScaleSelling] = useState(false);
+  const [fractionPacketPriceOverride, setFractionPacketPriceOverride] = useState<number | ''>('');
   const [purchaseUnit, setPurchaseUnit] = useState('Sack');
-  const [baseUnit, setBaseUnit] = useState('Kg');
+  // Kept in sync with the tenant's own "Units" selection (unit) rather than a
+  // hardcoded default, so every unit label in the Retail Package / Smart
+  // Batch Costing section (Sell/Count Unit, Portion Qty, Price per unit)
+  // reflects whatever unit the tenant actually registered -- weight, volume,
+  // length, or count -- instead of assuming weight ("Kg").
+  const [baseUnit, setBaseUnit] = useState(unit);
   const [conversionToBaseUnit, setConversionToBaseUnit] = useState<number | ''>('');
   const [allowCustomQuantity, setAllowCustomQuantity] = useState(true);
   const [dosesPerPacket, setDosesPerPacket] = useState<number | ''>('');
   const [tabsPerDose, setTabsPerDose] = useState<number | ''>('');
   const [fullDosePrice, setFullDosePrice] = useState<number | ''>(0);
   const [halfDosePrice, setHalfDosePrice] = useState<number | ''>(0);
-  const [tabPrice, setTabPrice] = useState<number | ''>(0);
+  const [packetPriceOverride, setPacketPriceOverride] = useState<number | ''>('');
   const [pharmacyProductType, setPharmacyProductType] = useState<'pharmaceutical' | 'non_pharmaceutical'>('pharmaceutical');
   const [pharmacyHierarchyStart, setPharmacyHierarchyStart] = useState<'box' | 'packet' | 'master_box' | 'carton'>('packet');
   const [pharmacyBaseUnit, setPharmacyBaseUnit] = useState('Tablet');
@@ -816,7 +939,7 @@ export default function DashboardProducts({
     return {
       baseUnit: resolvedBase,
       levels: [
-        { id: 'packet', label: 'Packet / Strip', unit: 'Strip', quantityToBaseUnit: safeMiddle * safeDose },
+        { id: 'packet', label: 'Packet / Strip', unit: 'Packet', quantityToBaseUnit: safeMiddle * safeDose },
         { id: 'dose', label: 'Dose', unit: 'Dose', quantityToBaseUnit: safeDose },
         { id: 'tabs', label: resolvedBase, unit: resolvedBase, quantityToBaseUnit: 1 },
       ]
@@ -832,6 +955,11 @@ export default function DashboardProducts({
     Number(pharmacyDoseContains || tabsPerDose) || 1
   ), [pharmacyProductType, pharmacyHierarchyStart, pharmacyBaseUnit, pharmacyTopContains, pharmacyMiddleContains, pharmacyDoseContains, dosesPerPacket, tabsPerDose]);
 
+  // Base unit (e.g. Tablet) price is what the tenant enters as "Selling Price" --
+  // packet price is derived from it (tablets per packet x tablet price) unless
+  // the tenant explicitly overrides it for a different packet-level price.
+  const pharmacyAutoPacketPrice = (pharmacyFormHierarchy.levels[0]?.quantityToBaseUnit || 1) * sellingPrice;
+
   // Real camera/USB/manual scanner in the product form.
   const [isFormScannerOpen, setIsFormScannerOpen] = useState(false);
 
@@ -839,10 +967,13 @@ export default function DashboardProducts({
   const [csvUploadError, setCsvUploadError] = useState<string | null>(null);
   const [csvUploadSuccess, setCsvUploadSuccess] = useState<string | null>(null);
   const csvInputRef = useRef<HTMLInputElement>(null);
+  // Universal/Medicine-aware bulk import (Stage 8) -- a second, separate
+  // import path; the Retail template/importer above is untouched.
+  const universalCsvInputRef = useRef<HTMLInputElement>(null);
 
   // Stock Transfer Modal state
   const [transferProduct, setTransferProduct] = useState<Product | null>(null);
-  const [transferQty, setTransferQty] = useState<number>(1);
+  const [transferQty, setTransferQty] = useState<number | ''>(1);
   const [transferDirection, setTransferDirection] = useState<'store_to_shop' | 'shop_to_store' | 'branch_to_branch'>('store_to_shop');
   const [transferError, setTransferError] = useState<string | null>(null);
   const [transferSuccess, setTransferSuccess] = useState<boolean>(false);
@@ -891,10 +1022,10 @@ export default function DashboardProducts({
   const [printJobSuccess, setPrintJobSuccess] = useState(false);
 
   // Profit/Telemetry calculations
-  const effectiveCostPrice = isBulkProduct && activeTenant.businessType !== 'pharmacy'
+  const effectiveCostPrice = isBulkProduct && !isPharmacyLike
     ? costPrice / Math.max(0.001, Number(conversionToBaseUnit) || Number(bulkPurchaseQty) || 1)
     : costPrice;
-  const effectiveSellingPrice = isBulkProduct && activeTenant.businessType !== 'pharmacy'
+  const effectiveSellingPrice = isBulkProduct && !isPharmacyLike
     ? Number(sellUnitPrice) || sellingPrice
     : sellingPrice;
   const profit = effectiveSellingPrice - effectiveCostPrice;
@@ -1080,12 +1211,24 @@ export default function DashboardProducts({
       return;
     }
 
+    const openingStockQuantity = getTotalStockQty(shopStockQty, storeStockQty);
+    if (isPharmacyLike && productType === 'medicine' && trackExpiry && openingStockQuantity > 0 && !initialExpiryDate) {
+      setFormError('Expiry date is required when registering opening stock for a medicine that tracks expiry.');
+      return;
+    }
+
     const finalSellingPrice = sellInRetail ? sellingPrice : 0;
     const finalWholesalePrice = sellInWholesale ? wholesalePrice : 0;
     const finalMinWholesaleQty = sellInWholesale ? minWholesaleQty : 0;
 
     if (sellInRetail && finalSellingPrice <= 0) {
       setFormError('Retail price must be greater than zero when selling in retail.');
+      return;
+    }
+
+    const wantsFractionSale = productType !== 'medicine' && (isPharmacyLike ? allowScaleSelling : isBulkProduct);
+    if (wantsFractionSale && Number(conversionToBaseUnit || bulkPurchaseQty) <= 0) {
+      setFormError('Pieces per packet must be greater than zero for Fraction Sale.');
       return;
     }
 
@@ -1131,20 +1274,48 @@ export default function DashboardProducts({
     const pharmacyDosesPerPacket = Math.max(1, Number(pharmacyMiddleContains || dosesPerPacket) || 1);
     const pharmacyTabsPerDose = Math.max(1, Number(pharmacyDoseContains || tabsPerDose) || 1);
     const pharmacyTabsPerPacket = Math.max(1, pharmacyTopLevel.quantityToBaseUnit);
-    const pharmacyPacketPrice = finalSellingPrice;
-    const pharmacyTabPrice = Number(tabPrice) || (pharmacyPacketPrice / pharmacyTabsPerPacket);
+    const pharmacyTabPrice = finalSellingPrice;
+    const pharmacyPacketPrice = Number(packetPriceOverride) || (pharmacyTabPrice * pharmacyTabsPerPacket);
     const pharmacyFullDosePrice = Number(fullDosePrice) || (pharmacyTabPrice * (hierarchy.levels.find(level => level.id === 'dose')?.quantityToBaseUnit || pharmacyTabsPerDose));
     const pharmacyHalfDosePrice = Number(halfDosePrice) || (pharmacyFullDosePrice / 2);
+    // Cost Buy Price is entered per the top hierarchy unit (e.g. per Box), the
+    // same way Retail Price already is for pharmacyPacketPrice above -- it must
+    // divide down to a per-base-unit cost the same way, or COGS/profit come out
+    // wildly wrong (a Box's cost would be recorded as one Tablet's cost).
+    const pharmacyCostPrice = costPrice / pharmacyTabsPerPacket;
     // A simple product's selected unit is its stock and sales unit. Packaging and
     // scale products may explicitly use a different base unit for conversion.
     const retailBaseUnit = (isBulkProduct || allowScaleSelling) ? (baseUnit || unit || 'Unit') : (unit || 'Unit');
     const retailPurchaseUnit = purchaseUnit || bulkUnit || 'Package';
     const retailConversionToBaseUnit = Math.max(0.001, Number(conversionToBaseUnit) || Number(bulkPurchaseQty) || 1);
+    // "Retail Price" is entered per the whole package (e.g. per Sack) for a
+    // Retail Package product, the same way "Package Buy Cost" already is --
+    // it must divide down to a per-base-unit (Pcs) price the same way, or POS
+    // would sell each Pcs at the full Sack price. The explicit "Price per 1
+    // {unit}" field (Fraction Sale) always wins when the tenant filled it in.
+    const fractionSaleEligible = productType !== 'medicine' && (isPharmacyLike || isBulkProduct);
+    const fractionSaleEnabled = fractionSaleEligible && (isPharmacyLike ? allowScaleSelling : isBulkProduct);
+    // Sale Retail Price is the price of one base unit. Packet price is derived
+    // from it unless the tenant explicitly supplies an override.
     const retailPricePerBaseUnit = Number(sellUnitPrice) || finalSellingPrice;
+    const retailPacketPricing = calculateFractionSalePacketPrice(
+      retailPricePerBaseUnit,
+      retailConversionToBaseUnit,
+      fractionPacketPriceOverride === '' ? undefined : fractionPacketPriceOverride,
+    );
     const retailPackageBuyingCost = costPrice;
-    const ledgerCostPrice = activeTenant.businessType !== 'pharmacy' && isBulkProduct
-      ? retailPackageBuyingCost / retailConversionToBaseUnit
-      : costPrice;
+    const ledgerCostPrice = isPharmacyLike
+      ? pharmacyCostPrice
+      : isBulkProduct
+        ? retailPackageBuyingCost / retailConversionToBaseUnit
+        : costPrice;
+    // sellingPrice must be expressed in the same unit as costPrice/stockQty
+    // (the base unit) for reports/valuations that multiply price by stock
+    // quantity to stay correct -- packetPrice/tabPrice/fullDosePrice below
+    // remain the actual per-dose-level prices POS sells at; this is only the
+    // generic reference price kept consistent with everything else on the
+    // record.
+    const ledgerSellingPrice = isPharmacyLike ? pharmacyTabPrice : retailPricePerBaseUnit;
 
     const newProd: Product = {
       id: 'p-' + Math.random().toString(36).substr(2, 9),
@@ -1152,15 +1323,24 @@ export default function DashboardProducts({
       sku: finalizedBarcode, // sku is populated behind the scenes with barcode to avoid breaking standard VM integrations
       barcode: finalizedBarcode,
       category,
-      unit: activeTenant.businessType === 'pharmacy' ? hierarchy.baseUnit : unit,
+      unit: isPharmacyLike ? hierarchy.baseUnit : unit,
       costPrice: ledgerCostPrice,
-      sellingPrice: finalSellingPrice,
+      sellingPrice: ledgerSellingPrice,
       stockQty: getTotalStockQty(shopStockQty, storeStockQty),
       shopStockQty: shopStockQty,
       storeStockQty: storeStockQty,
       alertQty: alertQty,
       image: productImage || undefined,
       brand: brand.trim() || undefined,
+      productType,
+      genericName: productType === 'medicine' ? (genericName.trim() || undefined) : undefined,
+      manufacturer: productType === 'medicine' ? (manufacturer.trim() || undefined) : undefined,
+      dosageForm: productType === 'medicine' ? dosageForm : undefined,
+      strengthValue: productType === 'medicine' && strengthValue !== '' ? Number(strengthValue) : undefined,
+      strengthUnit: productType === 'medicine' && strengthValue !== '' ? strengthUnit : undefined,
+      prescriptionRequired: productType === 'medicine' ? prescriptionRequired : undefined,
+      trackBatch: productType === 'medicine' ? true : undefined,
+      trackExpiry: productType === 'medicine' ? trackExpiry : undefined,
       sellInRetail,
       sellInWholesale,
       wholesalePrice: sellInWholesale ? finalWholesalePrice : undefined,
@@ -1168,32 +1348,34 @@ export default function DashboardProducts({
       costingMethod,
       sellingMethod: mapCostingMethodToLegacy(costingMethod),
       allowPosMethodOverride,
-      allowScaleSelling: activeTenant.businessType === 'pharmacy' ? false : (allowScaleSelling || isBulkProduct),
-      purchaseUnit: activeTenant.businessType === 'pharmacy' ? pharmacyTopLevel.unit : retailPurchaseUnit,
-      baseUnit: activeTenant.businessType === 'pharmacy' ? hierarchy.baseUnit : retailBaseUnit,
-      conversionToBaseUnit: activeTenant.businessType === 'pharmacy' ? pharmacyTabsPerPacket : retailConversionToBaseUnit,
-      packageUnitPrice: activeTenant.businessType === 'pharmacy' ? undefined : retailPricePerBaseUnit,
-      wholePackagePrice: activeTenant.businessType === 'pharmacy' ? undefined : retailPricePerBaseUnit * retailConversionToBaseUnit,
-      halfPackagePrice: activeTenant.businessType === 'pharmacy' ? undefined : retailPricePerBaseUnit * (retailConversionToBaseUnit / 2),
-      packageBuyingCost: activeTenant.businessType === 'pharmacy' ? undefined : retailPackageBuyingCost,
+      allowScaleSelling: !isPharmacyLike && (allowScaleSelling || isBulkProduct),
+      fractionSaleEnabled,
+      packetPriceOverridden: fractionSaleEnabled ? retailPacketPricing.packetPriceOverridden : undefined,
+      purchaseUnit: productType === 'medicine' && isPharmacyLike ? pharmacyTopLevel.unit : retailPurchaseUnit,
+      baseUnit: productType === 'medicine' && isPharmacyLike ? hierarchy.baseUnit : retailBaseUnit,
+      conversionToBaseUnit: productType === 'medicine' && isPharmacyLike ? pharmacyTabsPerPacket : retailConversionToBaseUnit,
+      packageUnitPrice: productType === 'medicine' && isPharmacyLike ? undefined : retailPricePerBaseUnit,
+      wholePackagePrice: fractionSaleEnabled ? retailPacketPricing.packetPrice : undefined,
+      halfPackagePrice: productType === 'medicine' && isPharmacyLike ? undefined : retailPricePerBaseUnit * (retailConversionToBaseUnit / 2),
+      packageBuyingCost: isPharmacyLike ? undefined : retailPackageBuyingCost,
       allowCustomQuantity,
-      defaultPricePerBaseUnit: activeTenant.businessType === 'pharmacy' ? pharmacyTabPrice : retailPricePerBaseUnit,
-      pharmacyProductType: activeTenant.businessType === 'pharmacy' ? pharmacyProductType : undefined,
-      pharmacyHierarchyStart: activeTenant.businessType === 'pharmacy' ? pharmacyHierarchyStart : undefined,
-      pharmacyBaseUnit: activeTenant.businessType === 'pharmacy' ? hierarchy.baseUnit : undefined,
-      pharmacyUnitLevels: activeTenant.businessType === 'pharmacy' ? hierarchy.levels : undefined,
-      dosesPerPacket: activeTenant.businessType === 'pharmacy' ? pharmacyDosesPerPacket : undefined,
-      tabsPerDose: activeTenant.businessType === 'pharmacy' ? pharmacyTabsPerDose : undefined,
-      tabsPerPack: activeTenant.businessType === 'pharmacy' ? pharmacyTabsPerPacket : undefined,
-      allowsDosageDividing: activeTenant.businessType === 'pharmacy' ? true : undefined,
-      packetPrice: activeTenant.businessType === 'pharmacy' ? pharmacyPacketPrice : undefined,
-      fullDosePrice: activeTenant.businessType === 'pharmacy' ? pharmacyFullDosePrice : undefined,
-      halfDosePrice: activeTenant.businessType === 'pharmacy' ? pharmacyHalfDosePrice : undefined,
-      tabPrice: activeTenant.businessType === 'pharmacy' ? pharmacyTabPrice : undefined,
-      fractionSaleOptions: activeTenant.businessType !== 'pharmacy' && (allowScaleSelling || isBulkProduct)
+      defaultPricePerBaseUnit: isPharmacyLike ? pharmacyTabPrice : retailPricePerBaseUnit,
+      pharmacyProductType: isPharmacyLike ? pharmacyProductType : undefined,
+      pharmacyHierarchyStart: isPharmacyLike ? pharmacyHierarchyStart : undefined,
+      pharmacyBaseUnit: isPharmacyLike ? hierarchy.baseUnit : undefined,
+      pharmacyUnitLevels: isPharmacyLike ? hierarchy.levels : undefined,
+      dosesPerPacket: isPharmacyLike ? pharmacyDosesPerPacket : undefined,
+      tabsPerDose: isPharmacyLike ? pharmacyTabsPerDose : undefined,
+      tabsPerPack: isPharmacyLike ? pharmacyTabsPerPacket : undefined,
+      allowsDosageDividing: isPharmacyLike ? true : undefined,
+      packetPrice: isPharmacyLike ? pharmacyPacketPrice : undefined,
+      fullDosePrice: isPharmacyLike ? pharmacyFullDosePrice : undefined,
+      halfDosePrice: isPharmacyLike ? pharmacyHalfDosePrice : undefined,
+      tabPrice: isPharmacyLike ? pharmacyTabPrice : undefined,
+      fractionSaleOptions: !isPharmacyLike && (allowScaleSelling || isBulkProduct)
         ? getDefaultFractionOptions(retailBaseUnit, retailPricePerBaseUnit)
         : undefined,
-      pharmacyUnitBreakdown: activeTenant.businessType === 'pharmacy'
+      pharmacyUnitBreakdown: isPharmacyLike
         ? {
           purchaseUnit: pharmacyTopLevel.unit,
           stripUnit: hierarchy.levels[1]?.unit || hierarchy.baseUnit,
@@ -1205,20 +1387,22 @@ export default function DashboardProducts({
       inventorySettings: {
         costingMethod,
         allowPosMethodOverride,
-        allowScaleSelling: activeTenant.businessType === 'pharmacy' ? false : (allowScaleSelling || isBulkProduct),
-        purchaseUnit: activeTenant.businessType === 'pharmacy' ? pharmacyTopLevel.unit : retailPurchaseUnit,
-        baseUnit: activeTenant.businessType === 'pharmacy' ? hierarchy.baseUnit : retailBaseUnit,
-        conversionToBaseUnit: activeTenant.businessType === 'pharmacy' ? pharmacyTabsPerPacket : retailConversionToBaseUnit,
-        packageUnitPrice: activeTenant.businessType === 'pharmacy' ? undefined : retailPricePerBaseUnit,
-        wholePackagePrice: activeTenant.businessType === 'pharmacy' ? undefined : retailPricePerBaseUnit * retailConversionToBaseUnit,
-        halfPackagePrice: activeTenant.businessType === 'pharmacy' ? undefined : retailPricePerBaseUnit * (retailConversionToBaseUnit / 2),
-        packageBuyingCost: activeTenant.businessType === 'pharmacy' ? undefined : retailPackageBuyingCost,
+        allowScaleSelling: !isPharmacyLike && (allowScaleSelling || isBulkProduct),
+        fractionSaleEnabled,
+        packetPriceOverridden: fractionSaleEnabled ? retailPacketPricing.packetPriceOverridden : undefined,
+        purchaseUnit: productType === 'medicine' && isPharmacyLike ? pharmacyTopLevel.unit : retailPurchaseUnit,
+        baseUnit: productType === 'medicine' && isPharmacyLike ? hierarchy.baseUnit : retailBaseUnit,
+        conversionToBaseUnit: productType === 'medicine' && isPharmacyLike ? pharmacyTabsPerPacket : retailConversionToBaseUnit,
+        packageUnitPrice: productType === 'medicine' && isPharmacyLike ? undefined : retailPricePerBaseUnit,
+        wholePackagePrice: fractionSaleEnabled ? retailPacketPricing.packetPrice : undefined,
+        halfPackagePrice: isPharmacyLike ? undefined : retailPricePerBaseUnit * (retailConversionToBaseUnit / 2),
+        packageBuyingCost: isPharmacyLike ? undefined : retailPackageBuyingCost,
         allowCustomQuantity,
-        defaultPricePerBaseUnit: activeTenant.businessType === 'pharmacy' ? pharmacyTabPrice : retailPricePerBaseUnit,
-        fractionSaleOptions: activeTenant.businessType !== 'pharmacy' && (allowScaleSelling || isBulkProduct)
+        defaultPricePerBaseUnit: isPharmacyLike ? pharmacyTabPrice : retailPricePerBaseUnit,
+        fractionSaleOptions: !isPharmacyLike && (allowScaleSelling || isBulkProduct)
           ? getDefaultFractionOptions(retailBaseUnit, retailPricePerBaseUnit)
           : undefined,
-        pharmacyUnitBreakdown: activeTenant.businessType === 'pharmacy'
+        pharmacyUnitBreakdown: isPharmacyLike
           ? {
             purchaseUnit: pharmacyTopLevel.unit,
             stripUnit: hierarchy.levels[1]?.unit || hierarchy.baseUnit,
@@ -1238,6 +1422,7 @@ export default function DashboardProducts({
         sellUnitPrice: retailPricePerBaseUnit,
         bulkToUnitsRatio: retailConversionToBaseUnit,
         sellingMode,
+        stockTrackingMode,
       })
     };
 
@@ -1270,7 +1455,17 @@ export default function DashboardProducts({
       setProcessingStatus('');
     }
 
-    const finalProd = { ...newProd, image: finalImageUrl };
+    const openingStockBatch = productType === 'medicine' && trackExpiry && openingStockQuantity > 0
+      ? createInventoryBatch(newProd, openingStockQuantity, ledgerCostPrice, {
+        finalSellingPrice: ledgerSellingPrice,
+        expiryDate: initialExpiryDate,
+      })
+      : null;
+    const finalProd: Product = {
+      ...newProd,
+      image: finalImageUrl,
+      batches: openingStockBatch ? [openingStockBatch] : newProd.batches,
+    };
     onAddProduct(finalProd);
     setFormSuccess(true);
     
@@ -1280,6 +1475,15 @@ export default function DashboardProducts({
       setBrand('');
       setBarcode('');
       setCategory(categoriesList[0] || '');
+      setProductType('general_retail');
+      setGenericName('');
+      setManufacturer('');
+      setDosageForm('tablet');
+      setStrengthValue('');
+      setStrengthUnit('mg');
+      setPrescriptionRequired(false);
+      setTrackExpiry(true);
+      setInitialExpiryDate('');
       setCostPrice(0);
       setSellingPrice(0);
       setShopStockQty(0);
@@ -1296,12 +1500,13 @@ export default function DashboardProducts({
       setTabsPerDose('');
       setFullDosePrice(0);
       setHalfDosePrice(0);
-      setTabPrice(0);
+      setPacketPriceOverride('');
+      setFractionPacketPriceOverride('');
       setCostingMethod('fifo');
       setAllowPosMethodOverride(false);
       setAllowScaleSelling(false);
       setPurchaseUnit('Sack');
-      setBaseUnit('Kg');
+      setBaseUnit(unit);
       setConversionToBaseUnit('');
       setAllowCustomQuantity(true);
       setIsOpen(false);
@@ -1313,7 +1518,7 @@ export default function DashboardProducts({
   // Stock Transfer Actions
   const handleExecuteTransfer = async () => {
     if (!transferProduct) return;
-    const qty = transferQty;
+    const qty = Number(transferQty) || 0;
     if (qty <= 0) {
       setTransferError('Please specify a positive unit quantity.');
       return;
@@ -1398,8 +1603,8 @@ export default function DashboardProducts({
   const downloadCsvTemplate = () => {
     const csvContent = "data:text/csv;charset=utf-8," 
       + "Product Name,Barcode,Category,Brand,Cost Price,Selling Price,Shop Stock,Store Stock,Alert Level,Sell Retail,Sell Wholesale,Wholesale Price,Min Wholesale Qty\r\n"
-      + "Premium Rice (5kg),6153094850239,Groceries,Jasper Foods,4500,5500,20,50,5,Yes,No,0,10\r\n"
-      + "Spaghetti Bolognese,39185012,Groceries,Jasper Foods,800,1200,15,30,8,Yes,Yes,1100,50\r\n"
+      + "Premium Rice (5kg),6153094850239,Groceries,Orvix Foods,4500,5500,20,50,5,Yes,No,0,10\r\n"
+      + "Spaghetti Bolognese,39185012,Groceries,Orvix Foods,800,1200,15,30,8,Yes,Yes,1100,50\r\n"
       + "Organic Coconut Milk,,Beverages,Nestle,1100,1600,10,25,3,Yes,No,0,10\r\n"; // Empty barcode tested inside
       
     const encodedUri = encodeURI(csvContent);
@@ -1409,6 +1614,99 @@ export default function DashboardProducts({
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  const downloadUniversalTemplate = () => {
+    const encodedUri = encodeURI('data:text/csv;charset=utf-8,' + downloadableUniversalTemplate());
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', 'jasper_universal_products_template.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const registerImportedCategories = (importedItems: Product[]) => {
+    const importedCategories = Array.from(
+      new Set(importedItems.map(p => p.category?.trim()).filter(Boolean))
+    ) as string[];
+    if (importedCategories.length === 0) return;
+    const existingCategories: string[] = systemSettings?.productStore?.categories || [];
+    const existingNormalized = existingCategories.map(c => c.trim().toLowerCase());
+    const newCategories = importedCategories.filter(c => !existingNormalized.includes(c.toLowerCase()));
+    if (newCategories.length > 0) {
+      onUpdateSettings({
+        ...systemSettings,
+        productStore: { ...systemSettings.productStore, categories: [...existingCategories, ...newCategories] },
+      } as any);
+    }
+  };
+
+  const handleUniversalCsvImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setCsvUploadError(null);
+    setCsvUploadSuccess(null);
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const text = evt.target?.result as string;
+        const summary = classifyUniversalImportRows(text);
+
+        if (summary.results.length === 0) {
+          setCsvUploadError('The selected spreadsheet is empty or contains only column headers.');
+          return;
+        }
+        if (summary.readyProducts.length === 0) {
+          const firstErrors = summary.results.filter(r => r.status === 'error').slice(0, 3)
+            .map(r => `Row ${r.rowNumber}: ${r.messages.join(' ')}`).join(' ');
+          setCsvUploadError(`No rows could be imported. ${firstErrors}`);
+          return;
+        }
+
+        if (subscriptionStatus) {
+          if (subscriptionStatus.isExpired) { onTriggerUpgrade?.('expired'); return; }
+          if (products.length + summary.readyProducts.length > subscriptionStatus.plan.maxProducts) {
+            onTriggerUpgrade?.('products');
+            return;
+          }
+        }
+
+        onAddProducts(summary.readyProducts);
+        registerImportedCategories(summary.readyProducts);
+
+        const errorNote = summary.error > 0
+          ? ` (${summary.error} row${summary.error === 1 ? '' : 's'} skipped: ${summary.results.filter(r => r.status === 'error').slice(0, 2).map(r => r.messages[0]).join('; ')}${summary.error > 2 ? '…' : ''})`
+          : '';
+        const warningNote = summary.warning > 0 ? ` (${summary.warning} imported with warnings)` : '';
+        setCsvUploadSuccess(`Universal spreadsheet uploaded! Imported ${summary.readyProducts.length} products.${warningNote}${errorNote}`);
+        if (universalCsvInputRef.current) universalCsvInputRef.current.value = '';
+      } catch (error: any) {
+        setCsvUploadError(error?.message || 'Failed to parse the selected spreadsheet.');
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const downloadProductCatalogue = () => {
+    const backup = createProductCatalogueBackup(products, {
+      id: activeTenant.id,
+      name: activeTenant.name,
+      businessType: activeTenant.businessType || 'retail',
+      currency: activeTenant.currency || 'TZS',
+    });
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json;charset=utf-8' });
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = objectUrl;
+    link.download = getProductCatalogueBackupFileName(activeTenant.name, backup.exportedAt);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(objectUrl);
+    setCsvUploadSuccess(`Catalogue backup downloaded successfully (${products.length} products). Keep this file safe for the new account.`);
   };
 
   const handleCsvImport = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1422,6 +1720,24 @@ export default function DashboardProducts({
     reader.onload = (evt) => {
       try {
         const text = evt.target?.result as string;
+        if (file.name.toLowerCase().endsWith('.json')) {
+          const backup = parseProductCatalogueBackup(text);
+          const importedItems = prepareBackedUpProductsForImport(backup, products);
+          if (subscriptionStatus) {
+            if (subscriptionStatus.isExpired) {
+              onTriggerUpgrade?.('expired');
+              return;
+            }
+            if (products.length + importedItems.length > subscriptionStatus.plan.maxProducts) {
+              onTriggerUpgrade?.('products');
+              return;
+            }
+          }
+          onAddProducts(importedItems);
+          setCsvUploadSuccess(`Catalogue restored successfully! Imported ${importedItems.length} products; matching barcodes were safely skipped.`);
+          if (csvInputRef.current) csvInputRef.current.value = '';
+          return;
+        }
         const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
         
         if (lines.length <= 1) {
@@ -1501,7 +1817,7 @@ export default function DashboardProducts({
         }
 
         // Add imports directly to the system
-        importedItems.forEach(item => onAddProduct(item));
+        onAddProducts(importedItems);
 
         // Auto-register any new categories from the spreadsheet into settings
         // so they appear in the POS category filter immediately after import.
@@ -1651,7 +1967,7 @@ export default function DashboardProducts({
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `jasper_thermal_labels_${chosenLabels.length}pcs_${new Date().toISOString().split('T')[0]}.html`;
+    link.download = `jasper_thermal_labels_${chosenLabels.length}pcs_${formatLocalDate()}.html`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -1838,7 +2154,7 @@ export default function DashboardProducts({
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `jasper_a4_stickers_${new Date().toISOString().split('T')[0]}.html`;
+    link.download = `jasper_a4_stickers_${formatLocalDate()}.html`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -1910,16 +2226,472 @@ export default function DashboardProducts({
     );
   };
 
+  // Smart Batch Costing and Pharmacy Unit Hierarchy are rendered as their own
+  // full-width sections rather than nested inside a specific form column, so
+  // the same JSX can be placed at two different points in the tree: their
+  // usual spot after all three columns (tablet/desktop, where those columns
+  // sit side by side and this order doesn't read top-to-bottom anyway), and
+  // earlier -- interleaved between the columns -- on phone width, where the
+  // columns stack and a deliberate top-to-bottom reading order was requested
+  // (Medicine Details -> Pharmacy Unit Hierarchy -> Barcode Controls & Stock
+  // -> Smart Batch Costing -> Channel Rules & Costs -> Add Product).
+  const smartBatchCostingSection = (
+    <div className="space-y-4 pt-2 border-t border-slate-200">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-2">
+          {!isDesktopAddProductLayout && (
+            <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 text-white flex items-center justify-center flex-shrink-0 shadow-sm shadow-violet-500/30">
+              <Sliders className="w-3.5 h-3.5" />
+            </span>
+          )}
+          <div>
+            <h5 className="text-xs font-bold uppercase tracking-wider text-slate-500">Smart Batch Costing</h5>
+            <p className="text-[10px] text-slate-400 mt-0.5">FIFO, average, and batch price control.</p>
+          </div>
+        </div>
+        <label className="flex items-center space-x-2 text-[10px] font-bold text-slate-600 uppercase">
+          <input
+            type="checkbox"
+            checked={allowPosMethodOverride}
+            onChange={(e) => setAllowPosMethodOverride(e.target.checked)}
+            className="accent-emerald-600"
+          />
+          <span>Cashier Override</span>
+        </label>
+      </div>
+      <div className="grid gap-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '0.5rem' }}>
+        {[
+          ['fifo', 'FIFO', 'Oldest batch sells first'],
+          ['average_price', 'Average Price', 'Profit uses weighted cost'],
+          ['batch_price', 'Batch Price', 'Sell using batch price'],
+        ].map(([method, label, helper]) => (
+          <button
+            key={method}
+            type="button"
+            onClick={() => setCostingMethod(method as typeof costingMethod)}
+            className={`p-3 rounded-xl border text-left transition-all ${costingMethod === method ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'}`}
+          >
+            <span className="block text-xs font-black">{label}</span>
+            <span className={`block text-[9px] mt-1 ${costingMethod === method ? 'text-slate-300' : 'text-slate-400'}`}>{helper}</span>
+          </button>
+        ))}
+      </div>
+      {!isPharmacyLike && isBulkProduct && isDesktopAddProductLayout && (
+        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '0.75rem', alignItems: 'end' }}>
+          <div className="space-y-1">
+            <label className="text-[9px] font-bold text-slate-500 uppercase">Package Name</label>
+            <input value={purchaseUnit} onChange={(e) => setPurchaseUnit(e.target.value)} placeholder="e.g. Sack" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+          </div>
+          <div className="space-y-1 min-w-0">
+            <label className="text-[9px] font-bold text-slate-500 uppercase">Contains Quantity</label>
+            <input type="number" step="0.001" value={conversionToBaseUnit} onChange={(e) => setConversionToBaseUnit(e.target.value === '' ? '' : Number(e.target.value))} placeholder="e.g. 24" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+          </div>
+          <div className="space-y-1 min-w-0">
+            <label className="text-[9px] font-bold text-slate-500 uppercase">Sell / Count Unit</label>
+            <div className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl font-bold text-slate-700 truncate">
+              {baseUnit || 'Unit'}
+            </div>
+            <p className="text-[8px] normal-case text-slate-400">Follows the Units field above.</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              const next = !allowScaleSelling;
+              setAllowScaleSelling(next);
+              if (next && !sellingMode) setSellingMode('scale');
+            }}
+            aria-pressed={allowScaleSelling}
+            aria-label="Fraction Sale"
+            className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 uppercase cursor-pointer h-[34px]"
+          >
+            <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors ${
+              allowScaleSelling ? 'border-emerald-600 bg-emerald-600' : 'border-slate-300 bg-white'
+            }`}>
+              {allowScaleSelling && <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />}
+            </span>
+            Fraction Sale
+          </button>
+        </div>
+      )}
+      {!isPharmacyLike && isBulkProduct && !isDesktopAddProductLayout && (
+        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 space-y-3">
+          <div className="space-y-1">
+            <label className="text-[9px] font-bold text-slate-500 uppercase">Package Name</label>
+            <input value={purchaseUnit} onChange={(e) => setPurchaseUnit(e.target.value)} placeholder="e.g. Sack" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.5rem' }}>
+            <div className="space-y-1 min-w-0">
+              <label className="text-[9px] font-bold text-slate-500 uppercase">Contains Quantity</label>
+              <input type="number" step="0.001" value={conversionToBaseUnit} onChange={(e) => setConversionToBaseUnit(e.target.value === '' ? '' : Number(e.target.value))} placeholder="e.g. 24" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+            </div>
+            <div className="space-y-1 min-w-0">
+              <label className="text-[9px] font-bold text-slate-500 uppercase">Sell / Count Unit</label>
+              <div className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl font-bold text-slate-700 truncate">
+                {baseUnit || 'Unit'}
+              </div>
+              <p className="text-[8px] normal-case text-slate-400">Follows the Units field above.</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              const next = !allowScaleSelling;
+              setAllowScaleSelling(next);
+              if (next && !sellingMode) setSellingMode('scale');
+            }}
+            aria-pressed={allowScaleSelling}
+            aria-label="Fraction Sale"
+            className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 uppercase w-fit cursor-pointer"
+          >
+            <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors ${
+              allowScaleSelling ? 'border-emerald-600 bg-emerald-600' : 'border-slate-300 bg-white'
+            }`}>
+              {allowScaleSelling && <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />}
+            </span>
+            Fraction Sale
+          </button>
+        </div>
+      )}
+
+      {isPharmacyLike && productType !== 'medicine' && (
+        <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 space-y-3">
+          <button
+            type="button"
+            onClick={() => setAllowScaleSelling(!allowScaleSelling)}
+            aria-pressed={allowScaleSelling}
+            aria-label="Enable Fraction Sale"
+            className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 uppercase cursor-pointer"
+          >
+            <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors ${
+              allowScaleSelling ? 'border-emerald-600 bg-emerald-600' : 'border-slate-300 bg-white'
+            }`}>
+              {allowScaleSelling && <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />}
+            </span>
+            Enable Fraction Sale
+          </button>
+          {allowScaleSelling && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold text-slate-500 uppercase">Packet Name</label>
+                <input value={purchaseUnit} onChange={e => setPurchaseUnit(e.target.value)} placeholder="Packet" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold text-slate-500 uppercase">Pieces per Packet</label>
+                <input type="number" min={1} value={conversionToBaseUnit} onChange={e => setConversionToBaseUnit(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold text-slate-500 uppercase">Piece Unit</label>
+                <input value={baseUnit} onChange={e => setBaseUnit(e.target.value)} placeholder="Piece" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold text-slate-500 uppercase">Package Price</label>
+                <input type="number" min={0} value={fractionPacketPriceOverride} onChange={e => setFractionPacketPriceOverride(e.target.value === '' ? '' : Number(e.target.value))} placeholder={`Auto: ${((Number(conversionToBaseUnit) || 0) * sellingPrice).toLocaleString()}`} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {allowScaleSelling && !isPharmacyLike && (
+        <div className="p-4 bg-slate-50 border border-emerald-100 rounded-2xl space-y-4">
+          {/* Mode Selector */}
+          <div>
+            <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">Sell Mode</label>
+            <div className="flex bg-white rounded-lg p-1 border border-slate-200">
+              <button
+                type="button"
+                onClick={() => setSellingMode('scale')}
+                className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${sellingMode === 'scale' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-500 hover:bg-slate-50'}`}
+              >
+                {t('scaleMode')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setSellingMode('pcs')}
+                className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${sellingMode === 'pcs' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-500 hover:bg-slate-50'}`}
+              >
+                {t('pcsMode')}
+              </button>
+            </div>
+          </div>
+
+          {/* Open-ended stock — for items like a cable roll where the exact
+              total quantity isn't known upfront, only a price per unit. */}
+          <button
+            type="button"
+            onClick={() => setStockTrackingMode(stockTrackingMode === 'open-ended' ? 'quantity' : 'open-ended')}
+            aria-pressed={stockTrackingMode === 'open-ended'}
+            aria-label="Open-Ended Stock"
+            className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 uppercase w-full cursor-pointer"
+          >
+            <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors ${
+              stockTrackingMode === 'open-ended' ? 'border-emerald-600 bg-emerald-600' : 'border-slate-300 bg-white'
+            }`}>
+              {stockTrackingMode === 'open-ended' && <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />}
+            </span>
+            Open-Ended Stock
+          </button>
+          {stockTrackingMode === 'open-ended' && (
+            <p className="text-[9.5px] normal-case text-slate-400 -mt-2">
+              For products where you don't track an exact stock count — you sell by unit price, and it stays available until you mark it finished.
+            </p>
+          )}
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-500 uppercase">Quick Sale Portions</label>
+              {sellingMode === 'scale' ? (
+                 <div className="flex space-x-1 overflow-x-auto scrollbar-hide flex-wrap gap-y-1">
+                   {[
+                     { label: '1/4', value: 0.25 },
+                     { label: '1/2', value: 0.5 },
+                     { label: '3/4', value: 0.75 },
+                     { label: '1', value: 1 },
+                   ].map(f => (
+                     <button type="button" key={f.label} onClick={() => { setSellUnit(baseUnit); setSellUnitQty(f.value); }} className="px-2 py-1 text-[10px] font-bold bg-white border border-slate-200 rounded">{f.label} {baseUnit}</button>
+                   ))}
+                 </div>
+              ) : (
+                 <input type="text" value={sellUnit} onChange={e => setSellUnit(e.target.value)} placeholder="Per piece" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+              )}
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-500 uppercase">Default Portion Qty</label>
+              {sellingMode === 'scale' ? (
+                <div className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-xl font-bold text-slate-700">
+                  {sellUnitQty === 0.25 ? '1/4' : sellUnitQty === 0.5 ? '1/2' : sellUnitQty === 0.75 ? '3/4' : '1'} {baseUnit}
+                </div>
+              ) : (
+                <input type="number" step="1" value={sellUnitQty} onChange={e => setSellUnitQty(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-slate-500 uppercase">Price per 1 {baseUnit || 'unit'}</label>
+            <input type="number" value={sellUnitPrice} onChange={e => setSellUnitPrice(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl font-bold" />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-slate-500 uppercase">Package Price</label>
+            <input
+              type="number"
+              min={0}
+              value={fractionPacketPriceOverride}
+              onChange={e => setFractionPacketPriceOverride(e.target.value === '' ? '' : Number(e.target.value))}
+              placeholder={`Auto: ${((Number(conversionToBaseUnit) || 0) * (Number(sellUnitPrice) || sellingPrice)).toLocaleString()}`}
+              className="w-full bg-white border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl font-bold"
+            />
+            {fractionPacketPriceOverride !== '' && (
+              <button type="button" onClick={() => setFractionPacketPriceOverride('')} className="text-[9px] font-bold text-emerald-700">
+                Reset to automatic price
+              </button>
+            )}
+          </div>
+
+          {/* Auto-calculation display */}
+          {stockTrackingMode !== 'open-ended' && (
+            <div className="bg-emerald-600 text-white rounded-2xl p-4 space-y-2 text-xs font-mono shadow-md shadow-emerald-600/20">
+              <div className="flex justify-between font-bold">
+                <span>{t('totalUnitsFromPurchase')}</span>
+                <span>1 {purchaseUnit || 'package'} = {formatProductQuantity(Number(conversionToBaseUnit) || 0, { unit: baseUnit } as Product)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Whole package sale value</span>
+                <span>{currency}{((Number(conversionToBaseUnit) || 0) * (Number(sellUnitPrice) || 0)).toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Cost of purchase:</span>
+                <span>{currency}{costPrice.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between font-bold border-t border-emerald-500 pt-2 text-emerald-100">
+                <span>{t('grossProfit')}:</span>
+                <span>{currency}{(((Number(conversionToBaseUnit) || 0) * (Number(sellUnitPrice) || 0)) - costPrice).toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between font-bold text-emerald-100">
+                <span>{t('breakevenUnits')}:</span>
+                <span>{formatProductQuantity(Math.ceil(costPrice / (Number(sellUnitPrice) || 1)), { unit: sellUnit || baseUnit } as Product)}</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+
+  const pharmacyUnitHierarchySection = isPharmacyLike && productType === 'medicine' ? (
+    <div className="space-y-4 pt-2 border-t border-slate-200">
+      <div className="flex items-center space-x-2">
+        {!isDesktopAddProductLayout && (
+          <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center flex-shrink-0 shadow-sm shadow-emerald-500/30">
+            <Layers className="w-3.5 h-3.5" />
+          </span>
+        )}
+        <div>
+          <span className="font-bold text-sm text-slate-800">Pharmacy Unit Hierarchy</span>
+          <p className="text-[10.5px] text-slate-450 mt-0.5">Choose the product type, starting level, and how many units each level contains.</p>
+        </div>
+      </div>
+      <div className="pharmacy-hierarchy-grid grid grid-cols-2 gap-3 bg-emerald-50/40 border border-emerald-100 rounded-2xl p-3">
+        {!isDesktopAddProductLayout ? (
+          <>
+            <div className="space-y-1 min-w-0">
+              <label className="text-[9px] font-bold text-slate-500 uppercase">Product Type</label>
+              <ModernSelect value={pharmacyProductType} options={PHARMACY_PRODUCT_TYPE_OPTIONS} onChange={(nextValue) => {
+                const next = nextValue as 'pharmaceutical' | 'non_pharmaceutical';
+                setPharmacyProductType(next);
+                setPharmacyHierarchyStart(next === 'pharmaceutical' ? 'packet' : 'carton');
+                setPharmacyBaseUnit(next === 'pharmaceutical' ? 'Tablet' : 'Piece');
+              }} title="Choose product type" />
+            </div>
+            <div className="space-y-1 min-w-0">
+              <label className="text-[9px] font-bold text-slate-500 uppercase">Starting Level</label>
+              <ModernSelect
+                value={pharmacyHierarchyStart}
+                options={pharmacyProductType === 'pharmaceutical'
+                  ? PHARMACY_START_OPTIONS.pharmaceutical
+                  : PHARMACY_START_OPTIONS.nonPharmaceutical}
+                onChange={(nextValue) => setPharmacyHierarchyStart(nextValue as any)}
+                title="Choose starting level"
+              />
+            </div>
+            {pharmacyProductType === 'pharmaceutical' && (
+              <div className="space-y-1 min-w-0">
+                <label className="text-[9px] font-bold text-slate-500 uppercase">Lowest Unit</label>
+                <input type="text" value={pharmacyBaseUnit} onChange={e => setPharmacyBaseUnit(e.target.value)} placeholder="e.g. Tablet" className="w-full min-w-0 bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+              </div>
+            )}
+            {pharmacyHierarchyStart === 'box' && (
+              <div className="space-y-1 min-w-0">
+                <label className="text-[9px] font-bold text-slate-500 uppercase">Strips per Box</label>
+                <input type="number" min={1} value={pharmacyTopContains} onChange={e => setPharmacyTopContains(e.target.value === '' ? '' : Number(e.target.value))} className="w-full min-w-0 bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+              </div>
+            )}
+            {pharmacyHierarchyStart === 'master_box' && (
+              <div className="space-y-1 min-w-0">
+                <label className="text-[9px] font-bold text-slate-500 uppercase">Cartons per Master Box</label>
+                <input type="number" min={1} value={pharmacyTopContains} onChange={e => setPharmacyTopContains(e.target.value === '' ? '' : Number(e.target.value))} className="w-full min-w-0 bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+              </div>
+            )}
+            <div className="space-y-1 min-w-0">
+              <label className="text-[9px] font-bold text-slate-500 uppercase">{pharmacyProductType === 'pharmaceutical' ? 'Doses per Packet/Strip' : 'Pieces per Carton'}</label>
+              <input type="number" min={1} value={pharmacyMiddleContains} onChange={e => setPharmacyMiddleContains(e.target.value === '' ? '' : Number(e.target.value))} className="w-full min-w-0 bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+            </div>
+            {pharmacyProductType === 'pharmaceutical' && (
+              <div className="space-y-1 min-w-0">
+                <label className="text-[9px] font-bold text-slate-500 uppercase">{pharmacyBaseUnit || 'Tablet'}s per Dose</label>
+                <input type="number" min={1} value={pharmacyDoseContains} onChange={e => setPharmacyDoseContains(e.target.value === '' ? '' : Number(e.target.value))} className="w-full min-w-0 bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <div className="space-y-1">
+              <label className="text-[9px] font-bold text-slate-500 uppercase">Product Type</label>
+              <ModernSelect value={pharmacyProductType} options={PHARMACY_PRODUCT_TYPE_OPTIONS} onChange={(nextValue) => {
+                const next = nextValue as 'pharmaceutical' | 'non_pharmaceutical';
+                setPharmacyProductType(next);
+                setPharmacyHierarchyStart(next === 'pharmaceutical' ? 'packet' : 'carton');
+                setPharmacyBaseUnit(next === 'pharmaceutical' ? 'Tablet' : 'Piece');
+              }} title="Choose product type" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[9px] font-bold text-slate-500 uppercase">Starting Level</label>
+              <ModernSelect
+                value={pharmacyHierarchyStart}
+                options={pharmacyProductType === 'pharmaceutical'
+                  ? PHARMACY_START_OPTIONS.pharmaceutical
+                  : PHARMACY_START_OPTIONS.nonPharmaceutical}
+                onChange={(nextValue) => setPharmacyHierarchyStart(nextValue as any)}
+                title="Choose starting level"
+              />
+            </div>
+            {pharmacyProductType === 'pharmaceutical' && (
+          <div className="space-y-1">
+            <label className="text-[9px] font-bold text-slate-500 uppercase">Lowest Unit</label>
+            <ModernSelect value={pharmacyBaseUnit} options={PHARMACY_BASE_UNIT_OPTIONS} onChange={setPharmacyBaseUnit} title="Choose lowest unit" />
+          </div>
+        )}
+        {pharmacyHierarchyStart === 'box' && (
+          <div className="space-y-1">
+            <label className="text-[9px] font-bold text-slate-500 uppercase">Strips per Box</label>
+            <input type="number" min={1} value={pharmacyTopContains} onChange={e => setPharmacyTopContains(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+          </div>
+        )}
+        {pharmacyHierarchyStart === 'master_box' && (
+          <div className="space-y-1">
+            <label className="text-[9px] font-bold text-slate-500 uppercase">Cartons per Master Box</label>
+            <input type="number" min={1} value={pharmacyTopContains} onChange={e => setPharmacyTopContains(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+          </div>
+        )}
+        <div className="space-y-1">
+          <label className="text-[9px] font-bold text-slate-500 uppercase">{pharmacyProductType === 'pharmaceutical' ? 'Doses per Packet/Strip' : 'Pieces per Carton'}</label>
+          <input type="number" min={1} value={pharmacyMiddleContains} onChange={e => setPharmacyMiddleContains(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+        </div>
+        {pharmacyProductType === 'pharmaceutical' && (
+          <div className="space-y-1">
+            <label className="text-[9px] font-bold text-slate-500 uppercase">{pharmacyBaseUnit}s per Dose</label>
+            <input type="number" min={1} value={pharmacyDoseContains} onChange={e => setPharmacyDoseContains(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+          </div>
+            )}
+          </>
+        )}
+        <div className="pharmacy-hierarchy-levels-grid col-span-2 grid grid-cols-2 gap-3">
+          {pharmacyFormHierarchy.levels.map(level => (
+            <div key={level.id} className="bg-white/80 border border-emerald-100 rounded-xl px-3 py-2">
+              <span className="block text-[9px] font-bold text-slate-400 uppercase">{level.label}</span>
+              <span className="text-[11px] font-black text-emerald-800">1 {level.unit} = {level.quantityToBaseUnit} {pharmacyFormHierarchy.baseUnit}</span>
+            </div>
+          ))}
+        </div>
+        {!isDesktopAddProductLayout ? (
+          <div className="pharmacy-price-grid col-span-2 grid grid-cols-3 gap-1.5 sm:gap-2">
+            <div className="space-y-1 min-w-0">
+              <label className="block min-h-6 text-[8px] sm:text-[9px] leading-tight font-bold text-slate-500 uppercase">{pharmacyFormHierarchy.levels[0]?.unit || 'Packet'} price</label>
+              <input type="number" value={packetPriceOverride !== '' ? packetPriceOverride : (pharmacyAutoPacketPrice || '')} onChange={e => setPacketPriceOverride(e.target.value === '' ? '' : Number(e.target.value))} placeholder="Auto" className="w-full min-w-0 bg-white border border-slate-200 text-[10px] px-2 py-2 rounded-xl" />
+            </div>
+            <div className="space-y-1 min-w-0">
+              <label className="block min-h-6 text-[8px] sm:text-[9px] leading-tight font-bold text-slate-500 uppercase">Dose / middle price</label>
+              <input type="number" value={fullDosePrice} onChange={e => setFullDosePrice(e.target.value === '' ? '' : Number(e.target.value))} placeholder="Auto" className="w-full min-w-0 bg-white border border-slate-200 text-[10px] px-2 py-2 rounded-xl" />
+            </div>
+            <div className="space-y-1 min-w-0">
+              <label className="block min-h-6 text-[8px] sm:text-[9px] leading-tight font-bold text-slate-500 uppercase">Price per {pharmacyFormHierarchy.baseUnit}</label>
+              <input type="number" readOnly value={sellingPrice || ''} title="Set from Selling Price above" className="w-full min-w-0 bg-slate-100 border border-slate-200 text-[10px] px-2 py-2 rounded-xl text-slate-500 cursor-not-allowed" />
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="space-y-1">
+              <label className="text-[9px] font-bold text-slate-500 uppercase">{pharmacyFormHierarchy.levels[0]?.unit || 'Packet'} price</label>
+              <input type="number" value={packetPriceOverride !== '' ? packetPriceOverride : (pharmacyAutoPacketPrice || '')} onChange={e => setPacketPriceOverride(e.target.value === '' ? '' : Number(e.target.value))} placeholder="Auto" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[9px] font-bold text-slate-500 uppercase">Dose / middle price</label>
+              <input type="number" value={fullDosePrice} onChange={e => setFullDosePrice(e.target.value === '' ? '' : Number(e.target.value))} placeholder="Auto if empty" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[9px] font-bold text-slate-500 uppercase">Price per {pharmacyFormHierarchy.baseUnit}</label>
+              <input type="number" readOnly value={sellingPrice || ''} title="Set from Selling Price above" className="w-full bg-slate-100 border border-slate-200 text-xs px-3 py-2 rounded-xl text-slate-500 cursor-not-allowed" />
+            </div>
+          </>
+        )}
+        <div className="col-span-2 text-[10px] font-mono text-emerald-800 bg-white/70 border border-emerald-100 rounded-xl px-3 py-2">
+          Total shop stock: {shopStockQty} {pharmacyFormHierarchy.baseUnit}. Total store stock: {storeStockQty} {pharmacyFormHierarchy.baseUnit}. POS will sell by {pharmacyFormHierarchy.levels.map(level => level.unit).join(', ')} and deduct from {pharmacyFormHierarchy.baseUnit}.
+        </div>
+      </div>
+    </div>
+  ) : null;
+
   return (
     <div id="products-view" className="space-y-4 md:space-y-6">
       
       {/* ── NATIVE APP TAB NAVIGATION ────────────────────────────────────
-          Mobile: 2×2 icon grid — all 4 visible, no scroll
+          Mobile/tablet: compact 1×4 icon grid — all 4 visible, no scroll
           Desktop: horizontal pill tabs — clean and fast
       ──────────────────────────────────────────────────────────────── */}
 
-      {/* MOBILE/TABLET: 2×2 grid */}
-      <div className="stock-tabs-two-column-grid xl:hidden grid grid-cols-2 auto-rows-fr gap-3 px-0 w-full">
+      {/* MOBILE/TABLET: all four actions in one compact row */}
+      <div className="stock-tabs-two-column-grid xl:hidden grid grid-cols-4 auto-rows-fr gap-1.5 sm:gap-2 px-0 w-full">
         {[
           { id: 'catalog',  icon: '📦', label: 'Product List',     sub: 'View all products' },
           { id: 'category', icon: '📁', label: 'Categories',        sub: 'Browse by type' },
@@ -1931,7 +2703,7 @@ export default function DashboardProducts({
             <button
               key={tab.id}
               onClick={() => handleTabSwitch(tab.id as any)}
-              className="relative flex min-w-0 flex-col items-center justify-center py-4 px-2 sm:px-3 rounded-2xl text-center transition-all active:scale-95"
+              className="relative flex min-w-0 flex-col items-center justify-center py-2.5 px-1 sm:py-3 sm:px-2 rounded-xl sm:rounded-2xl text-center transition-all active:scale-95"
               style={{
                 background: active ? '#059669' : '#ffffff',
                 border: active ? '2px solid #059669' : '2px solid #f1f5f9',
@@ -1939,13 +2711,13 @@ export default function DashboardProducts({
               }}
             >
               {active && (
-                <div className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-emerald-400" />
+                <div className="absolute top-1.5 right-1.5 sm:top-2 sm:right-2 w-1.5 h-1.5 rounded-full bg-emerald-400" />
               )}
-              <span className="text-2xl mb-1.5 leading-none">{tab.icon}</span>
-              <span className="text-[11px] sm:text-[12px] font-extrabold leading-tight break-words" style={{ color: active ? '#ffffff' : '#475569' }}>
+              <span className="stock-tab-icon text-lg sm:text-xl mb-1 leading-none">{tab.icon}</span>
+              <span className="stock-tab-label text-[8.5px] sm:text-[10px] font-extrabold leading-tight break-words" style={{ color: active ? '#ffffff' : '#475569' }}>
                 {tab.label}
               </span>
-              <span className="text-[10px] mt-0.5 font-medium" style={{ color: active ? 'rgba(255,255,255,0.6)' : '#94a3b8' }}>
+              <span className="stock-tab-sub text-[7.5px] sm:text-[8.5px] mt-0.5 font-medium leading-tight" style={{ color: active ? 'rgba(255,255,255,0.6)' : '#94a3b8' }}>
                 {tab.sub}
               </span>
             </button>
@@ -1990,53 +2762,99 @@ export default function DashboardProducts({
             {/* ── MOBILE: stacked native app style ── */}
             <div className="xl:hidden">
               {/* Hero strip */}
-              <div className="px-5 pt-5 pb-4 flex items-center gap-4"
+              <div className="px-5 pt-4 pb-3 flex items-center gap-3"
                 style={{ background: 'linear-gradient(135deg,#059669 0%,#047857 100%)' }}>
-                <div className="w-12 h-12 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center shrink-0">
-                  <span className="text-2xl">📦</span>
+                <div className="w-10 h-10 rounded-2xl bg-white/10 border border-white/20 flex items-center justify-center shrink-0">
+                  <span className="text-xl">📦</span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-white font-extrabold text-[15px] leading-tight">Register New Product</p>
-                  <p className="text-white/50 text-[11px] mt-0.5">{products.length} product{products.length !== 1 ? 's' : ''} in catalogue</p>
+                  <p className="text-white font-extrabold text-[14px] leading-tight">Register New Product</p>
+                  <p className="text-white/50 text-[10px] mt-0.5">{products.length} product{products.length !== 1 ? 's' : ''} in catalogue</p>
                 </div>
                 {/* Add product FAB */}
                 <button
                   onClick={() => setIsOpen(!isOpen)}
-                  className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 active:scale-95"
+                  className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 active:scale-95"
                   style={{ background: isOpen ? '#ef4444' : '#22c55e' }}
                 >
-                  {isOpen ? <X className="w-5 h-5 text-white" /> : <Plus className="w-5 h-5 text-white" />}
+                  {isOpen ? <X className="w-4 h-4 text-white" /> : <Plus className="w-4 h-4 text-white" />}
                 </button>
               </div>
 
               {/* Action tiles */}
-              <div className="product-import-actions-grid grid grid-cols-2 gap-3 p-4">
-                <button
-                  onClick={downloadCsvTemplate}
-                  className="flex items-center gap-3 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 active:bg-slate-100 text-left"
-                >
-                  <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-900/40 flex items-center justify-center shrink-0">
-                    <Download className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                  </div>
-                  <div>
-                    <p className="text-[12px] font-bold text-slate-800 dark:text-white leading-tight">Bulk Upload</p>
-                    <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Download template</p>
-                  </div>
-                </button>
-
-                <div className="relative">
-                  <input type="file" accept=".csv" ref={csvInputRef} onChange={handleCsvImport}
-                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" />
-                  <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-left">
-                    <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-900/40 flex items-center justify-center shrink-0">
-                      <Upload className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+              <div className="product-import-actions-grid grid grid-cols-2 gap-2 p-3">
+                {!isPharmacyLike && (
+                  <button
+                    onClick={downloadCsvTemplate}
+                    className="flex items-center gap-2.5 p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 active:bg-slate-100 text-left"
+                  >
+                    <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-900/40 flex items-center justify-center shrink-0">
+                      <Download className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                     </div>
                     <div>
-                      <p className="text-[12px] font-bold text-slate-800 dark:text-white leading-tight">Import</p>
-                      <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Upload spreadsheet</p>
+                      <p className="text-[12px] font-bold text-slate-800 dark:text-white leading-tight">Template</p>
+                      <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Download CSV</p>
+                    </div>
+                  </button>
+                )}
+
+                {!isPharmacyLike && (
+                  <div className="relative">
+                    <input type="file" accept=".csv,.json,application/json" ref={csvInputRef} onChange={handleCsvImport}
+                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" />
+                    <div className="flex items-center gap-2.5 p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-left">
+                      <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-900/40 flex items-center justify-center shrink-0">
+                        <Upload className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                      </div>
+                      <div>
+                        <p className="text-[12px] font-bold text-slate-800 dark:text-white leading-tight">Import</p>
+                        <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">CSV or backup</p>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
+                {isPharmacyLike && (
+                  <button
+                    onClick={downloadUniversalTemplate}
+                    className="flex items-center gap-2.5 p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 active:bg-slate-100 text-left"
+                  >
+                    <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-900/40 flex items-center justify-center shrink-0">
+                      <Download className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                    </div>
+                    <div>
+                      <p className="text-[12px] font-bold text-slate-800 dark:text-white leading-tight">Medicine Template</p>
+                      <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Type & Packaging</p>
+                    </div>
+                  </button>
+                )}
+
+                {isPharmacyLike && (
+                  <div className="relative">
+                    <input type="file" accept=".csv" ref={universalCsvInputRef} onChange={handleUniversalCsvImport}
+                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" />
+                    <div className="flex items-center gap-2.5 p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-left">
+                      <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-900/40 flex items-center justify-center shrink-0">
+                        <Upload className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                      </div>
+                      <div>
+                        <p className="text-[12px] font-bold text-slate-800 dark:text-white leading-tight">Medicine Import</p>
+                        <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Header-based CSV</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <button
+                  onClick={downloadProductCatalogue}
+                  disabled={products.length === 0}
+                  className="col-span-2 flex items-center justify-center gap-2.5 p-2.5 rounded-2xl bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-100 dark:border-emerald-800 active:bg-emerald-100 text-left disabled:opacity-50"
+                >
+                  <Database className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" />
+                  <div>
+                    <p className="text-[12px] font-bold text-emerald-900 dark:text-emerald-100 leading-tight">Download Product Catalogue</p>
+                    <p className="product-catalogue-subtitle text-[10px] text-emerald-700/70 dark:text-emerald-400 mt-0.5">Full restore backup · {products.length} products</p>
+                  </div>
+                </button>
               </div>
             </div>
 
@@ -2055,26 +2873,55 @@ export default function DashboardProducts({
 
               {/* Right: action buttons */}
               <div className="flex items-center gap-2 shrink-0">
-                <button onClick={downloadCsvTemplate}
-                  className="h-9 px-3.5 flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 transition-colors">
-                  <Download className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Bulk Template</span>
+                {!isPharmacyLike && (
+                  <button onClick={downloadCsvTemplate}
+                    className="h-9 px-3.5 flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 transition-colors">
+                    <Download className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Bulk Template</span>
+                  </button>
+                )}
+
+                <button onClick={downloadProductCatalogue} disabled={products.length === 0}
+                  className="h-9 px-3.5 flex items-center gap-1.5 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/30 hover:bg-emerald-100 text-xs font-bold text-emerald-800 dark:text-emerald-300 transition-colors disabled:opacity-50">
+                  <Database className="w-3.5 h-3.5" />
+                  <span>Download Catalogue</span>
                 </button>
 
-                <div className="relative h-9">
-                  <input type="file" accept=".csv" ref={csvInputRef} onChange={handleCsvImport}
-                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" />
-                  <button className="h-9 px-3.5 flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 transition-colors">
-                    <Upload className="w-3.5 h-3.5 text-blue-600" />
-                    <span>Bulk Upload</span>
+                {!isPharmacyLike && (
+                  <div className="relative h-9">
+                    <input type="file" accept=".csv,.json,application/json" ref={csvInputRef} onChange={handleCsvImport}
+                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" />
+                    <button className="h-9 px-3.5 flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 transition-colors">
+                      <Upload className="w-3.5 h-3.5 text-blue-600" />
+                      <span>Bulk Upload</span>
+                    </button>
+                  </div>
+                )}
+
+                {isPharmacyLike && (
+                  <button onClick={downloadUniversalTemplate}
+                    className="h-9 px-3.5 flex items-center gap-1.5 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-white dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-slate-700 text-xs font-bold text-indigo-700 dark:text-indigo-300 transition-colors">
+                    <Download className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>Medicine Template</span>
                   </button>
-                </div>
+                )}
+
+                {isPharmacyLike && (
+                  <div className="relative h-9">
+                    <input type="file" accept=".csv" ref={universalCsvInputRef} onChange={handleUniversalCsvImport}
+                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" />
+                    <button className="h-9 px-3.5 flex items-center gap-1.5 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-white dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-slate-700 text-xs font-bold text-indigo-700 dark:text-indigo-300 transition-colors">
+                      <Upload className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>Medicine Import</span>
+                    </button>
+                  </div>
+                )}
 
                 <button onClick={() => setIsOpen(!isOpen)}
                   className="h-9 px-4 flex items-center gap-1.5 rounded-xl text-white text-xs font-bold transition-colors shadow-sm"
                   style={{ background: isOpen ? '#ef4444' : '#22c55e' }}>
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>{isOpen ? 'Cancel' : 'Add Product'}</span>
+                  {isOpen ? <X className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+                  <span>{isOpen ? 'Close' : 'Add Product'}</span>
                 </button>
               </div>
             </div>
@@ -2116,7 +2963,7 @@ export default function DashboardProducts({
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 
                 {/* Column 1: Core Title, Category and Daymode Compression Upload */}
-                <div className={isDesktopAddProductLayout ? "space-y-4" : "bg-gradient-to-br from-emerald-50/60 via-white to-white border border-slate-100 rounded-2xl p-4 space-y-4"}>
+                <div className={isDesktopAddProductLayout ? "space-y-4" : "bg-gradient-to-br from-emerald-50/60 via-white to-white dark:from-slate-800 dark:via-slate-800 dark:to-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl p-4 space-y-4"}>
                   {isDesktopAddProductLayout ? (
                     <h5 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-1.5">1. Descriptor & Visual Assets</h5>
                   ) : (
@@ -2140,8 +2987,15 @@ export default function DashboardProducts({
                     />
                   </div>
 
-                  <div className="grid gap-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.75rem' }}>
-                    <div className="space-y-1">
+                  <div
+                    className="grid gap-3"
+                    style={{
+                      gridTemplateColumns: isDesktopAddProductLayout && isPharmacyLike
+                        ? '1fr'
+                        : 'repeat(2, minmax(0, 1fr))',
+                    }}
+                  >
+                    <div className="order-1 space-y-1">
                       <label className="text-[10px] font-bold text-slate-500 uppercase block">Category</label>
                       <ModernSelect
                         value={category}
@@ -2155,22 +3009,129 @@ export default function DashboardProducts({
                       />
                     </div>
 
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase block">Units</label>
+                    <div className={`${isDesktopAddProductLayout && !isPharmacyLike ? 'order-3' : 'order-2'} space-y-1`}>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase block">Product Type</label>
                       <ModernSelect
-                        value={unit}
-                        options={unitSelectOptions}
-                        onChange={(nextUnit) => {
-                          setUnit(nextUnit);
-                          if (!isBulkProduct) setBaseUnit(nextUnit);
+                        value={!isPharmacyLike && isBulkProduct ? 'retail_package' : productType}
+                        options={isPharmacyLike
+                          ? PRODUCT_TYPE_OPTIONS
+                          : [
+                            ...PRODUCT_TYPE_OPTIONS.filter(option => option.value === 'general_retail'),
+                            { value: 'retail_package', label: 'Retail Package' },
+                          ]}
+                        onChange={(next) => {
+                          if (next === 'retail_package') {
+                            setIsBulkProduct(true);
+                          } else {
+                            setIsBulkProduct(false);
+                            setProductType(next as ProductType);
+                          }
                         }}
-                        title="Choose unit"
-                        placeholder="Select unit"
-                        searchPlaceholder="Search units"
-                        searchable={unitSelectOptions.length > 7}
+                        title="Choose product type"
+                        placeholder="Select product type"
                       />
                     </div>
+
+                    {!isPharmacyLike && (
+                      <div className={`${isDesktopAddProductLayout ? 'order-2' : 'order-3 col-span-2'} space-y-1`}>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase block">Units</label>
+                        <ModernSelect
+                          value={unit}
+                          options={unitSelectOptions}
+                          onChange={(nextUnit) => {
+                            setUnit(nextUnit);
+                            setBaseUnit(nextUnit);
+                          }}
+                          title="Choose unit"
+                          placeholder="Select unit"
+                          searchPlaceholder="Search units"
+                          searchable={unitSelectOptions.length > 7}
+                        />
+                      </div>
+                    )}
                   </div>
+
+                  {productType === 'medicine' && isPharmacyLike && (
+                    <div className="space-y-4 pt-2 border-t border-slate-200">
+                      <div className="flex items-center space-x-2">
+                        {!isDesktopAddProductLayout && (
+                          <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center flex-shrink-0 shadow-sm shadow-emerald-500/30">
+                            <Layers className="w-3.5 h-3.5" />
+                          </span>
+                        )}
+                        <div>
+                          <span className="font-bold text-sm text-slate-800">Medicine Details</span>
+                          <p className="text-[10.5px] text-slate-450 mt-0.5">Clinical information shown only for Product Type = Medicine.</p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 bg-emerald-50/40 border border-emerald-100 rounded-2xl p-3">
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold text-slate-500 uppercase">Generic Name</label>
+                          <input type="text" placeholder="e.g. Amoxicillin" value={genericName} onChange={e => setGenericName(e.target.value)} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold text-slate-500 uppercase">Manufacturer</label>
+                          <input type="text" placeholder="Optional" value={manufacturer} onChange={e => setManufacturer(e.target.value)} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold text-slate-500 uppercase">Dosage Form</label>
+                          <ModernSelect value={dosageForm} options={DOSAGE_FORM_OPTIONS} onChange={(next) => setDosageForm(next as DosageForm)} title="Choose dosage form" />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[9px] font-bold text-slate-500 uppercase">Strength</label>
+                          <div className="flex gap-1.5">
+                            <input type="number" min={0} placeholder="500" value={strengthValue} onChange={e => setStrengthValue(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                            <input type="text" placeholder="mg" value={strengthUnit} onChange={e => setStrengthUnit(e.target.value)} className="w-16 bg-white border border-slate-200 text-xs px-2 py-2 rounded-xl" />
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 uppercase">
+                        <button
+                          type="button"
+                          onClick={() => setPrescriptionRequired(prev => !prev)}
+                          aria-pressed={prescriptionRequired}
+                          aria-label="Prescription Required"
+                          className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors cursor-pointer ${
+                            prescriptionRequired ? 'border-emerald-600 bg-emerald-600' : 'border-slate-300 bg-white'
+                          }`}
+                        >
+                          {prescriptionRequired && <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />}
+                        </button>
+                        Prescription Required
+                      </div>
+                      <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 uppercase">
+                        <button
+                          type="button"
+                          onClick={() => setTrackExpiry(prev => !prev)}
+                          aria-pressed={trackExpiry}
+                          aria-label="Track Expiry Dates"
+                          className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors cursor-pointer ${
+                            trackExpiry ? 'border-emerald-600 bg-emerald-600' : 'border-slate-300 bg-white'
+                          }`}
+                        >
+                          {trackExpiry && <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />}
+                        </button>
+                        Track Expiry Dates
+                      </div>
+                      {trackExpiry && (
+                        <div className="space-y-1.5 bg-white border border-emerald-100 rounded-xl px-3 py-2.5">
+                          <label htmlFor="new-medicine-expiry-date" className="text-[9px] font-bold text-slate-500 uppercase block">
+                            Opening Stock Expiry Date <span className="normal-case font-medium text-slate-400">(e.g. 31/12/2026)</span>
+                          </label>
+                          <input
+                            id="new-medicine-expiry-date"
+                            type="date"
+                            value={initialExpiryDate}
+                            onChange={(event) => setInitialExpiryDate(event.target.value)}
+                            className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-xl text-slate-800 outline-none focus:border-emerald-500"
+                          />
+                          <p className="text-[9px] normal-case font-medium text-slate-400">
+                            Required when Shop or Store opening stock is greater than zero. Future purchases keep their own batch expiry dates.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   <div className={isDesktopAddProductLayout ? "space-y-4" : "grid gap-3"} style={isDesktopAddProductLayout ? undefined : { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.75rem' }}>
                   <div className="space-y-1">
@@ -2224,13 +3185,13 @@ export default function DashboardProducts({
                       </div>
                     </div>
                     ) : (
-                    <div className="border border-dashed border-slate-200 rounded-xl p-2.5 bg-gradient-to-br from-slate-50 to-white flex flex-col items-center text-center space-y-1.5">
+                    <div className="border border-dashed border-slate-200 dark:border-slate-700 rounded-xl p-2.5 bg-gradient-to-br from-slate-50 to-white dark:from-slate-800 dark:to-slate-800 flex flex-col items-center text-center space-y-1.5">
                       {productImage ? (
-                        <div className="w-11 h-11 rounded-lg bg-white border border-slate-200 overflow-hidden flex items-center justify-center p-0.5 shadow-xs">
+                        <div className="w-11 h-11 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 overflow-hidden flex items-center justify-center p-0.5 shadow-xs">
                           <img src={productImage} alt="Product Base64 Preview" className="max-w-full max-h-full object-contain" referrerPolicy="no-referrer" />
                         </div>
                       ) : (
-                        <div className="w-11 h-11 rounded-lg bg-gradient-to-br from-slate-100 to-slate-50 border border-slate-200 text-slate-400 flex items-center justify-center flex-shrink-0">
+                        <div className="w-11 h-11 rounded-lg bg-gradient-to-br from-slate-100 to-slate-50 dark:from-slate-900 dark:to-slate-900 border border-slate-200 dark:border-slate-700 text-slate-400 flex items-center justify-center flex-shrink-0">
                           <Upload className="w-4 h-4" />
                         </div>
                       )}
@@ -2261,8 +3222,10 @@ export default function DashboardProducts({
 
                 </div>
 
+                {!isTabletWidthOrWider && pharmacyUnitHierarchySection}
+
                 {/* Column 2: Barcode Actions & Stock level details */}
-                <div className={isDesktopAddProductLayout ? "space-y-4" : "bg-gradient-to-br from-amber-50/60 via-white to-white border border-slate-100 rounded-2xl p-4 space-y-4"}>
+                <div className={isDesktopAddProductLayout ? "space-y-4" : "bg-gradient-to-br from-amber-50/60 via-white to-white dark:from-slate-800 dark:via-slate-800 dark:to-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl p-4 space-y-4"}>
                   {isDesktopAddProductLayout ? (
                     <h5 className="text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-100 pb-1.5">2. Barcode Controls & Stock</h5>
                   ) : (
@@ -2276,15 +3239,14 @@ export default function DashboardProducts({
                   
                   <div className="space-y-1.5">
                     <div className="flex justify-between items-center text-[10px] text-slate-500 uppercase block font-bold">
-                      <label>Retail Scan Barcode (Acts as SKU Item Code)</label>
-                      <div className="flex items-center space-x-2 text-[9px] font-bold text-emerald-600 font-mono normal-case">
-                        <button type="button" onClick={generateManualBarcodeValue} className="hover:underline">
-                          [Generate]
+                      <label>Product Code (Acts as SKU / Item Code)</label>
+                      <div className="flex items-center space-x-1.5 normal-case">
+                        <button type="button" onClick={generateManualBarcodeValue} className="px-2 py-1 rounded-lg border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-[9px] font-bold text-emerald-700 transition-colors">
+                          Generate
                         </button>
-                        <span>|</span>
-                        <button type="button" onClick={() => setIsFormScannerOpen(true)} className="hover:underline flex items-center space-x-0.5">
+                        <button type="button" onClick={() => setIsFormScannerOpen(true)} className="flex items-center space-x-1 px-2 py-1 rounded-lg border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-[9px] font-bold text-emerald-700 transition-colors">
                           <Camera className="w-2.5 h-2.5" />
-                          <span>[Scanner Beam]</span>
+                          <span>Scan</span>
                         </button>
                       </div>
                     </div>
@@ -2301,22 +3263,22 @@ export default function DashboardProducts({
 
                   <div className="grid gap-3.5 border-b border-dashed border-slate-100 pb-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.875rem' }}>
                     <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase block">Shop Stock ({activeTenant.businessType !== 'pharmacy' ? (isBulkProduct || allowScaleSelling ? baseUnit : unit) : pharmacyFormHierarchy.baseUnit})</label>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase block">Shop Stock ({!isPharmacyLike ? (isBulkProduct || allowScaleSelling ? baseUnit : unit) : pharmacyFormHierarchy.baseUnit})</label>
                       <input 
                         type="number" 
                         min="0"
-                        step={isBulkProduct || allowScaleSelling || activeTenant.businessType === 'pharmacy' ? 0.001 : 1}
+                        step={isBulkProduct || allowScaleSelling || isPharmacyLike ? 0.001 : 1}
                         value={shopStockQty}
                         onChange={(e) => setShopStockQty(Math.max(0, parseFloat(e.target.value) || 0))}
                         className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-800 font-mono transition-all outline-none"
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase block">Store Stock ({activeTenant.businessType !== 'pharmacy' ? (isBulkProduct || allowScaleSelling ? baseUnit : unit) : pharmacyFormHierarchy.baseUnit})</label>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase block">Store Stock ({!isPharmacyLike ? (isBulkProduct || allowScaleSelling ? baseUnit : unit) : pharmacyFormHierarchy.baseUnit})</label>
                       <input 
                         type="number" 
                         min="0"
-                        step={isBulkProduct || allowScaleSelling || activeTenant.businessType === 'pharmacy' ? 0.001 : 1}
+                        step={isBulkProduct || allowScaleSelling || isPharmacyLike ? 0.001 : 1}
                         value={storeStockQty}
                         onChange={(e) => setStoreStockQty(Math.max(0, parseFloat(e.target.value) || 0))}
                         className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-800 font-mono transition-all outline-none"
@@ -2329,17 +3291,19 @@ export default function DashboardProducts({
                     <p className="text-[9px] text-slate-400 leading-tight">Set low-stock alert.</p>
                     <input 
                       type="number" 
-                      min="1"
+                      min="0"
                       step="1"
                       value={alertQty}
-                      onChange={(e) => setAlertQty(Math.max(0.001, parseFloat(e.target.value) || 0))}
+                      onChange={(e) => setAlertQty(Math.max(0, Math.floor(Number(e.target.value) || 0)))}
                       className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-800 font-mono transition-all outline-none mt-1"
                     />
                   </div>
                 </div>
 
+                {!isTabletWidthOrWider && smartBatchCostingSection}
+
                 {/* Column 3: Pricing & Margins */}
-                <div className={isDesktopAddProductLayout ? "space-y-4" : "bg-gradient-to-br from-blue-50/60 via-white to-white border border-slate-100 rounded-2xl p-4 space-y-4"}>
+                <div className={isDesktopAddProductLayout ? "space-y-4" : "bg-gradient-to-br from-blue-50/60 via-white to-white dark:from-slate-800 dark:via-slate-800 dark:to-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl p-4 space-y-4"}>
                   {isDesktopAddProductLayout ? (
                     <h5 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-1.5">3. Channel Rules & Costs</h5>
                   ) : (
@@ -2367,7 +3331,7 @@ export default function DashboardProducts({
                               setSellingPrice(0);
                             }
                           }}
-                          className={isDesktopAddProductLayout ? "accent-teal-600 w-3.5 h-3.5" : "sr-only"}
+                          className={isDesktopAddProductLayout ? "accent-teal-600 w-4 h-4 appearance-auto" : "sr-only"}
                         />
                         {!isDesktopAddProductLayout && sellInRetail && <Check className="w-3 h-3 text-white flex-shrink-0" />}
                         <span className={isDesktopAddProductLayout ? "font-semibold text-[11px] text-slate-700" : `font-bold text-[11px] ${sellInRetail ? 'text-white' : 'text-slate-600'}`}>Sell Retail</span>
@@ -2379,7 +3343,7 @@ export default function DashboardProducts({
                           type="checkbox" 
                           checked={sellInWholesale} 
                           onChange={(e) => setSellInWholesale(e.target.checked)}
-                          className={isDesktopAddProductLayout ? "accent-teal-600 w-3.5 h-3.5" : "sr-only"}
+                          className={isDesktopAddProductLayout ? "accent-teal-600 w-4 h-4 appearance-auto" : "sr-only"}
                         />
                         {!isDesktopAddProductLayout && sellInWholesale && <Check className="w-3 h-3 text-white flex-shrink-0" />}
                         <span className={isDesktopAddProductLayout ? "font-semibold text-[11px] text-slate-700" : `font-bold text-[11px] ${sellInWholesale ? 'text-white' : 'text-slate-600'}`}>Sell Wholesale</span>
@@ -2389,9 +3353,15 @@ export default function DashboardProducts({
 
                   <div className="grid gap-3.5" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.875rem' }}>
                     <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase block">{isBulkProduct && activeTenant.businessType !== 'pharmacy' ? `Package Buy Cost (${purchaseUnit || 'Package'})` : 'Cost Buy Price'}</label>
-                      <input 
-                        type="number" 
+                      <label className="text-[10px] font-bold text-slate-500 uppercase block">
+                        {isPharmacyLike
+                          ? `${pharmacyFormHierarchy.levels[0]?.unit || 'Top Unit'} Buy Cost`
+                          : isBulkProduct
+                            ? `Package Buy Cost (${purchaseUnit || 'Package'})`
+                            : `Cost Buy Price (${unit || 'Unit'})`}
+                      </label>
+                      <input
+                        type="number"
                         min="0"
                         value={costPrice || ''}
                         onChange={(e) => setCostPrice(Math.max(0, parseFloat(e.target.value) || 0))}
@@ -2400,10 +3370,14 @@ export default function DashboardProducts({
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-slate-505 uppercase block">
-                        Retail Price {!sellInRetail && <span className="text-red-500 font-mono text-[9px]">(LOCKED)</span>}
+                        {isPharmacyLike
+                          ? `${pharmacyFormHierarchy.baseUnit} Retail Price`
+                          : isBulkProduct
+                            ? `Package Retail Price (${purchaseUnit || 'Package'})`
+                            : `Retail Price (${unit || 'Unit'})`} {!sellInRetail && <span className="text-red-500 font-mono text-[9px]">(LOCKED)</span>}
                       </label>
-                      <input 
-                        type="number" 
+                      <input
+                        type="number"
                         min="1"
                         disabled={!sellInRetail}
                         value={sellInRetail ? (sellingPrice || '') : 0}
@@ -2418,10 +3392,10 @@ export default function DashboardProducts({
                   <div className="grid gap-3.5" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.875rem' }}>
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-slate-500 uppercase block">
-                        Wholesale Price {!sellInWholesale && <span className="text-red-500 font-mono text-[9px]">(LOCKED)</span>}
+                        {isPharmacyLike ? 'Wholesale Price' : `Wholesale Price (${isBulkProduct ? (purchaseUnit || 'Package') : (unit || 'Unit')})`} {!sellInWholesale && <span className="text-red-500 font-mono text-[9px]">(LOCKED)</span>}
                       </label>
-                      <input 
-                        type="number" 
+                      <input
+                        type="number"
                         min="1"
                         disabled={!sellInWholesale}
                         value={sellInWholesale ? (wholesalePrice || '') : 0}
@@ -2432,7 +3406,7 @@ export default function DashboardProducts({
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-slate-505 uppercase block">
-                        Min Wholesale Qty {!sellInWholesale && <span className="text-red-500 font-mono text-[9px]">(LOCKED)</span>}
+                        {isPharmacyLike ? 'Min Wholesale Qty' : `Min Wholesale Qty (${baseUnit || unit || 'Unit'})`} {!sellInWholesale && <span className="text-red-500 font-mono text-[9px]">(LOCKED)</span>}
                       </label>
                       <input 
                         type="number" 
@@ -2468,289 +3442,14 @@ export default function DashboardProducts({
 
               </div>
 
-              <div className="space-y-4 pt-2 border-t border-slate-200">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    {!isDesktopAddProductLayout && (
-                      <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 text-white flex items-center justify-center flex-shrink-0 shadow-sm shadow-violet-500/30">
-                        <Sliders className="w-3.5 h-3.5" />
-                      </span>
-                    )}
-                    <div>
-                      <h5 className="text-xs font-bold uppercase tracking-wider text-slate-500">Smart Batch Costing</h5>
-                      <p className="text-[10px] text-slate-400 mt-0.5">FIFO, average, and batch price control.</p>
-                    </div>
-                  </div>
-                  <label className="flex items-center space-x-2 text-[10px] font-bold text-slate-600 uppercase">
-                    <input
-                      type="checkbox"
-                      checked={allowPosMethodOverride}
-                      onChange={(e) => setAllowPosMethodOverride(e.target.checked)}
-                      className="accent-emerald-600"
-                    />
-                    <span>Cashier Override</span>
-                  </label>
-                </div>
-                <div className="grid gap-2" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '0.5rem' }}>
-                  {[
-                    ['fifo', 'FIFO', 'Oldest batch sells first'],
-                    ['average_price', 'Average Price', 'Profit uses weighted cost'],
-                    ['batch_price', 'Batch Price', 'Sell using batch price'],
-                  ].map(([method, label, helper]) => (
-                    <button
-                      key={method}
-                      type="button"
-                      onClick={() => setCostingMethod(method as typeof costingMethod)}
-                      className={`p-3 rounded-xl border text-left transition-all ${costingMethod === method ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm' : 'bg-white text-slate-600 border-slate-200 hover:border-slate-300'}`}
-                    >
-                      <span className="block text-xs font-black">{label}</span>
-                      <span className={`block text-[9px] mt-1 ${costingMethod === method ? 'text-slate-300' : 'text-slate-400'}`}>{helper}</span>
-                    </button>
-                  ))}
-                </div>
-                {activeTenant.businessType !== 'pharmacy' && (
-                  <div className="grid gap-3 bg-slate-50 border border-slate-200 rounded-2xl p-3" style={{ display: 'grid', gridTemplateColumns: `repeat(${isTabletWidthOrWider ? 4 : 3}, minmax(0, 1fr))`, gap: '0.75rem' }}>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-slate-500 uppercase">Package Name</label>
-                      <input value={purchaseUnit} onChange={(e) => setPurchaseUnit(e.target.value)} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-slate-500 uppercase">Sell / Count Unit</label>
-                      <input value={baseUnit} onChange={(e) => setBaseUnit(e.target.value)} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-slate-500 uppercase">1 Package Contains</label>
-                      <input type="number" step="0.001" value={conversionToBaseUnit} onChange={(e) => setConversionToBaseUnit(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-                    </div>
-                    <label className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 uppercase">
-                      <input type="checkbox" checked={allowScaleSelling} onChange={(e) => setAllowScaleSelling(e.target.checked)} className="accent-emerald-600" />
-                      Fraction Sale
-                    </label>
-                  </div>
-                )}
-              </div>
-
-              {activeTenant.businessType === 'pharmacy' && (
-                <div className="space-y-4 pt-2 border-t border-slate-200">
-                  <div className="flex items-center space-x-2">
-                    {!isDesktopAddProductLayout && (
-                      <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center flex-shrink-0 shadow-sm shadow-emerald-500/30">
-                        <Layers className="w-3.5 h-3.5" />
-                      </span>
-                    )}
-                    <div>
-                      <span className="font-bold text-sm text-slate-800">Pharmacy Unit Hierarchy</span>
-                      <p className="text-[10.5px] text-slate-450 mt-0.5">Choose the product type, starting level, and how many units each level contains.</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3 bg-emerald-50/40 border border-emerald-100 rounded-2xl p-3">
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-slate-500 uppercase">Product Type</label>
-                      <ModernSelect value={pharmacyProductType} options={PHARMACY_PRODUCT_TYPE_OPTIONS} onChange={(nextValue) => {
-                        const next = nextValue as 'pharmaceutical' | 'non_pharmaceutical';
-                        setPharmacyProductType(next);
-                        setPharmacyHierarchyStart(next === 'pharmaceutical' ? 'packet' : 'carton');
-                        setPharmacyBaseUnit(next === 'pharmaceutical' ? 'Tablet' : 'Piece');
-                      }} title="Choose product type" />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-slate-500 uppercase">Starting Level</label>
-                      <ModernSelect
-                        value={pharmacyHierarchyStart}
-                        options={pharmacyProductType === 'pharmaceutical'
-                          ? PHARMACY_START_OPTIONS.pharmaceutical
-                          : PHARMACY_START_OPTIONS.nonPharmaceutical}
-                        onChange={(nextValue) => setPharmacyHierarchyStart(nextValue as any)}
-                        title="Choose starting level"
-                      />
-                    </div>
-                    {pharmacyProductType === 'pharmaceutical' && (
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-bold text-slate-500 uppercase">Lowest Unit</label>
-                        <ModernSelect value={pharmacyBaseUnit} options={PHARMACY_BASE_UNIT_OPTIONS} onChange={setPharmacyBaseUnit} title="Choose lowest unit" />
-                      </div>
-                    )}
-                    {pharmacyHierarchyStart === 'box' && (
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-bold text-slate-500 uppercase">Strips per Box</label>
-                        <input type="number" min={1} value={pharmacyTopContains} onChange={e => setPharmacyTopContains(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-                      </div>
-                    )}
-                    {pharmacyHierarchyStart === 'master_box' && (
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-bold text-slate-500 uppercase">Cartons per Master Box</label>
-                        <input type="number" min={1} value={pharmacyTopContains} onChange={e => setPharmacyTopContains(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-                      </div>
-                    )}
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-slate-500 uppercase">{pharmacyProductType === 'pharmaceutical' ? `${pharmacyBaseUnit}s per Dose/Strip` : 'Pieces per Carton'}</label>
-                      <input type="number" min={1} value={pharmacyMiddleContains} onChange={e => setPharmacyMiddleContains(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-                    </div>
-                    {pharmacyProductType === 'pharmaceutical' && (
-                      <div className="space-y-1">
-                        <label className="text-[9px] font-bold text-slate-500 uppercase">{pharmacyBaseUnit}s per Dose</label>
-                        <input type="number" min={1} value={pharmacyDoseContains} onChange={e => setPharmacyDoseContains(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-                      </div>
-                    )}
-                    <div className="col-span-2 grid grid-cols-2 gap-3">
-                      {pharmacyFormHierarchy.levels.map(level => (
-                        <div key={level.id} className="bg-white/80 border border-emerald-100 rounded-xl px-3 py-2">
-                          <span className="block text-[9px] font-bold text-slate-400 uppercase">{level.label}</span>
-                          <span className="text-[11px] font-black text-emerald-800">1 {level.unit} = {level.quantityToBaseUnit} {pharmacyFormHierarchy.baseUnit}</span>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-slate-500 uppercase">{pharmacyFormHierarchy.levels[0]?.unit || 'Top Unit'} price</label>
-                      <input type="number" value={sellingPrice || ''} onChange={e => setSellingPrice(Number(e.target.value) || 0)} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-slate-500 uppercase">Dose / middle price</label>
-                      <input type="number" value={fullDosePrice} onChange={e => setFullDosePrice(e.target.value === '' ? '' : Number(e.target.value))} placeholder="Auto if empty" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-bold text-slate-500 uppercase">Price per {pharmacyFormHierarchy.baseUnit}</label>
-                      <input type="number" value={tabPrice} onChange={e => setTabPrice(e.target.value === '' ? '' : Number(e.target.value))} placeholder="Auto if empty" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-                    </div>
-                    <div className="col-span-2 text-[10px] font-mono text-emerald-800 bg-white/70 border border-emerald-100 rounded-xl px-3 py-2">
-                      Total shop stock: {shopStockQty} {pharmacyFormHierarchy.baseUnit}. Total store stock: {storeStockQty} {pharmacyFormHierarchy.baseUnit}. POS will sell by {pharmacyFormHierarchy.levels.map(level => level.unit).join(', ')} and deduct from {pharmacyFormHierarchy.baseUnit}.
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Bidhaa ya Jumla / Bulk Product SECTION */}
-              <div className="space-y-4 pt-2 border-t border-slate-200">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    {!isDesktopAddProductLayout && (
-                      <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center flex-shrink-0 shadow-sm shadow-emerald-500/30">
-                        <Scale className="w-3.5 h-3.5" />
-                      </span>
-                    )}
-                    <span className="font-bold text-sm text-slate-800">Retail Package Selling</span>
-                  </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input 
-                      type="checkbox" 
-                      className="sr-only peer" 
-                      checked={isBulkProduct} 
-                      onChange={(e) => setIsBulkProduct(e.target.checked)}
-                    />
-                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
-                  </label>
-                </div>
-                
-                {isBulkProduct && (
-                  <div className="p-4 bg-slate-50 border border-emerald-100 rounded-2xl space-y-4">
-                    {/* Mode Selector */}
-                    <div>
-                      <label className="text-[10px] font-bold text-slate-500 uppercase block mb-2">Sell Mode</label>
-                      <div className="flex bg-white rounded-lg p-1 border border-slate-200">
-                        <button 
-                          type="button"
-                          onClick={() => setSellingMode('scale')}
-                          className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${sellingMode === 'scale' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-500 hover:bg-slate-50'}`}
-                        >
-                          {t('scaleMode')}
-                        </button>
-                        <button 
-                          type="button"
-                          onClick={() => setSellingMode('pcs')}
-                          className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${sellingMode === 'pcs' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-500 hover:bg-slate-50'}`}
-                        >
-                          {t('pcsMode')}
-                        </button>
-                        <button 
-                          type="button"
-                          onClick={() => setSellingMode('hybrid')}
-                          className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${sellingMode === 'hybrid' ? 'bg-emerald-100 text-emerald-700' : 'text-slate-500 hover:bg-slate-50'}`}
-                        >
-                          {t('hybridMode')}
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Inputs */}
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase">1 {purchaseUnit || 'Package'} contains</label>
-                        <input type="number" step="0.001" value={conversionToBaseUnit} onChange={e => {
-                          const value = e.target.value === '' ? '' : Number(e.target.value);
-                          setConversionToBaseUnit(value);
-                          setBulkPurchaseQty(value);
-                        }} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase">Base Unit</label>
-                        <input value={baseUnit} onChange={e => {
-                          setBaseUnit(e.target.value);
-                          setSellUnit(e.target.value);
-                        }} placeholder="kg, litre, pcs" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase">Quick Sale Portions</label>
-                        {sellingMode === 'scale' || sellingMode === 'hybrid' ? (
-                           <div className="flex space-x-1 overflow-x-auto scrollbar-hide flex-wrap gap-y-1">
-                             {[
-                               { label: '1/4', value: 0.25 },
-                               { label: '1/2', value: 0.5 },
-                               { label: '3/4', value: 0.75 },
-                               { label: '1', value: 1 },
-                             ].map(f => (
-                               <button type="button" key={f.label} onClick={() => { setSellUnit(baseUnit); setSellUnitQty(f.value); }} className="px-2 py-1 text-[10px] font-bold bg-white border border-slate-200 rounded">{f.label} {baseUnit}</button>
-                             ))}
-                           </div>
-                        ) : (
-                           <input type="text" value={sellUnit} onChange={e => setSellUnit(e.target.value)} placeholder="Per piece" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-                        )}
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold text-slate-500 uppercase">Default Portion Qty</label>
-                        {sellingMode === 'scale' || sellingMode === 'hybrid' ? (
-                          <div className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-xl font-bold text-slate-700">
-                            {sellUnitQty === 0.25 ? '1/4' : sellUnitQty === 0.5 ? '1/2' : sellUnitQty === 0.75 ? '3/4' : '1'} {baseUnit}
-                          </div>
-                        ) : (
-                          <input type="number" step="1" value={sellUnitQty} onChange={e => setSellUnitQty(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-500 uppercase">Price per 1 {baseUnit || 'unit'}</label>
-                      <input type="number" value={sellUnitPrice} onChange={e => setSellUnitPrice(e.target.value === '' ? '' : Number(e.target.value))} className="w-full bg-white border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl font-bold" />
-                    </div>
-
-                    {/* Auto-calculation display */}
-                    <div className="bg-emerald-600 text-white rounded-2xl p-4 space-y-2 text-xs font-mono shadow-md shadow-emerald-600/20">
-                      <div className="flex justify-between font-bold">
-                        <span>{t('totalUnitsFromPurchase')}</span>
-                        <span>1 {purchaseUnit || 'package'} = {formatProductQuantity(Number(conversionToBaseUnit) || 0, { unit: baseUnit } as Product)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Whole package sale value</span>
-                        <span>{currency}{((Number(conversionToBaseUnit) || 0) * (Number(sellUnitPrice) || 0)).toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Cost of purchase:</span>
-                        <span>{currency}{costPrice.toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between font-bold border-t border-emerald-500 pt-2 text-emerald-100">
-                        <span>{t('grossProfit')}:</span>
-                        <span>{currency}{(((Number(conversionToBaseUnit) || 0) * (Number(sellUnitPrice) || 0)) - costPrice).toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between font-bold text-emerald-100">
-                        <span>{t('breakevenUnits')}:</span>
-                        <span>{formatProductQuantity(Math.ceil(costPrice / (Number(sellUnitPrice) || 1)), { unit: sellUnit || baseUnit } as Product)}</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
+              {/* Smart Batch Costing and Pharmacy Unit Hierarchy render full-width
+                  below the 3-column grid on tablet/desktop instead of being
+                  packed into a single column -- their content (FIFO/Average/
+                  Batch, Package Name, Contains Quantity, hierarchy levels) is
+                  substantial and previously made column 3 much taller than
+                  columns 1 and 2, leaving a large empty gap under them. */}
+              {isTabletWidthOrWider && pharmacyUnitHierarchySection}
+              {isTabletWidthOrWider && smartBatchCostingSection}
 
               {/* Commit Trigger */}
               <button
@@ -2796,7 +3495,7 @@ export default function DashboardProducts({
             <div className="overflow-x-auto bg-white dark:bg-slate-900">
 
             {/* ── MOBILE STOCK CARDS ── */}
-            <div className="xl:hidden bg-slate-50 dark:bg-slate-950 px-3 pt-3 pb-[calc(80px+env(safe-area-inset-bottom))] space-y-3">
+            <div className="stock-cards-tablet-grid xl:hidden bg-slate-50 dark:bg-slate-950 px-3 pt-3 pb-[calc(80px+env(safe-area-inset-bottom))] space-y-3">
               {filteredProducts.map((prod) => {
                   const shopQty = prod.shopStockQty ?? 0;
                   const storeQty = prod.storeStockQty ?? 0;
@@ -3649,7 +4348,7 @@ export default function DashboardProducts({
               <span className="text-[9px] font-black text-slate-400 font-bold block">*** PHYSICAL PRINT FEEDOUT ***</span>
               
               <div className="space-y-1">
-                <p className="font-sans font-black text-xs uppercase text-slate-800">JASPER HARDWARE LABS</p>
+                <p className="font-sans font-black text-xs uppercase text-slate-800">ORVIX HARDWARE LABS</p>
                 <p className="text-[10px] text-slate-500">Port-Link diagnostics output</p>
                 <p className="text-[9px] text-slate-505 font-medium leading-tight">Server-Ingress: Active node</p>
               </div>
@@ -3818,8 +4517,14 @@ export default function DashboardProducts({
                       min="1"
                       value={transferQty}
                       onChange={(e) => {
-                        setTransferQty(Math.max(1, parseInt(e.target.value) || 0));
+                        const parsed = e.target.value === '' ? '' : parseInt(e.target.value);
+                        setTransferQty(isNaN(parsed as any) ? '' : parsed);
                         setTransferError(null);
+                      }}
+                      onBlur={(e) => {
+                        if (transferQty === '' || transferQty === 0) {
+                          setTransferQty(1);
+                        }
                       }}
                       className="w-full text-center bg-slate-50 border border-slate-200 focus:border-emerald-500 px-3 py-2.5 rounded-xl font-mono text-lg text-slate-800 font-extrabold"
                     />
@@ -4494,7 +5199,7 @@ export default function DashboardProducts({
             <div className="tenant-form-body flex-1 min-h-0 overflow-y-auto overflow-x-hidden overscroll-contain p-4 sm:p-6 space-y-6 text-xs text-slate-600">
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Visual Block & Classification summary */}
-                <div className={isDesktopAddProductLayout ? "space-y-4" : "bg-gradient-to-br from-emerald-50/60 via-white to-white border border-slate-100 rounded-2xl p-4 space-y-4"}>
+                <div className={isDesktopAddProductLayout ? "space-y-4" : "bg-gradient-to-br from-emerald-50/60 via-white to-white dark:from-slate-800 dark:via-slate-800 dark:to-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl p-4 space-y-4"}>
                   {isDesktopAddProductLayout ? (
                     <h5 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200 pb-1.5 font-mono">1. Descriptor & Image</h5>
                   ) : (
@@ -4540,7 +5245,7 @@ export default function DashboardProducts({
                         onChange={(nextUnit) => setEditForm(prev => ({
                           ...prev,
                           unit: nextUnit,
-                          ...(prev.isBulkProduct || prev.allowScaleSelling ? {} : { baseUnit: nextUnit }),
+                          baseUnit: nextUnit,
                         }))}
                         title="Choose unit"
                         placeholder="No unit"
@@ -4606,7 +5311,7 @@ export default function DashboardProducts({
                 </div>
 
                 {/* Stock levels block */}
-                <div className={isDesktopAddProductLayout ? "space-y-4" : "bg-gradient-to-br from-amber-50/60 via-white to-white border border-slate-100 rounded-2xl p-4 space-y-4"}>
+                <div className={isDesktopAddProductLayout ? "space-y-4" : "bg-gradient-to-br from-amber-50/60 via-white to-white dark:from-slate-800 dark:via-slate-800 dark:to-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl p-4 space-y-4"}>
                   {isDesktopAddProductLayout ? (
                     <h5 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200 pb-1.5 font-mono">2. Barcode & Stocking</h5>
                   ) : (
@@ -4685,7 +5390,7 @@ export default function DashboardProducts({
                 </div>
 
                 {/* Sells & Margin statistics */}
-                <div className={isDesktopAddProductLayout ? "space-y-4 font-mono" : "bg-gradient-to-br from-blue-50/60 via-white to-white border border-slate-100 rounded-2xl p-4 space-y-4 font-mono"}>
+                <div className={isDesktopAddProductLayout ? "space-y-4 font-mono" : "bg-gradient-to-br from-blue-50/60 via-white to-white dark:from-slate-800 dark:via-slate-800 dark:to-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl p-4 space-y-4 font-mono"}>
                   {isDesktopAddProductLayout ? (
                     <h5 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200 pb-1.5 font-mono">3. Financial Margin metrics</h5>
                   ) : (
@@ -4725,7 +5430,7 @@ export default function DashboardProducts({
 
                   <div className="grid gap-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.75rem' }}>
                     <div className="space-y-1">
-                      <label className="text-[9.5px] font-bold text-slate-500 uppercase block">{editForm.isBulkProduct && activeTenant.businessType !== 'pharmacy' ? `Package Buy Cost (${editForm.purchaseUnit || editForm.inventorySettings?.purchaseUnit || editForm.bulkUnit || 'Package'})` : 'Cost buy Price'}</label>
+                      <label className="text-[9.5px] font-bold text-slate-500 uppercase block">{activeTenant.businessType === 'pharmacy' ? 'Cost buy Price' : editForm.isBulkProduct ? `Package Buy Cost (${editForm.purchaseUnit || editForm.inventorySettings?.purchaseUnit || editForm.bulkUnit || 'Package'})` : `Cost buy Price (${editForm.unit || 'Unit'})`}</label>
                       <input 
                         type="number" 
                         min="0"
@@ -4743,7 +5448,7 @@ export default function DashboardProducts({
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Retail price</label>
+                      <label className="text-[9.5px] font-bold text-slate-500 uppercase block">{activeTenant.businessType === 'pharmacy' ? `${getEditPharmacyStructure(editForm).base} Retail Price` : `Retail price (${editForm.isBulkProduct ? (editForm.purchaseUnit || editForm.inventorySettings?.purchaseUnit || editForm.bulkUnit || 'Package') : (editForm.unit || 'Unit')})`}</label>
                       <input 
                         type="number" 
                         min="1"
@@ -4760,7 +5465,7 @@ export default function DashboardProducts({
 
                   <div className="grid gap-3 border-b border-dashed border-slate-200 pb-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.75rem' }}>
                     <div className="space-y-1">
-                      <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Wholesale price</label>
+                      <label className="text-[9.5px] font-bold text-slate-500 uppercase block">{activeTenant.businessType === 'pharmacy' ? 'Wholesale price' : `Wholesale price (${editForm.isBulkProduct ? (editForm.purchaseUnit || editForm.inventorySettings?.purchaseUnit || editForm.bulkUnit || 'Package') : (editForm.unit || 'Unit')})`}</label>
                       <input 
                         type="number" 
                         min="1"
@@ -4774,7 +5479,7 @@ export default function DashboardProducts({
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Wholesale Min Qty</label>
+                      <label className="text-[9.5px] font-bold text-slate-500 uppercase block">{activeTenant.businessType === 'pharmacy' ? 'Wholesale Min Qty' : `Wholesale Min Qty (${editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.unit || 'Unit'})`}</label>
                       <input 
                         type="number" 
                         min="1"
@@ -4844,15 +5549,28 @@ export default function DashboardProducts({
                       />
                       POS Override
                     </label>
-                    {activeTenant.businessType !== 'pharmacy' && (
+                    {(activeTenant.businessType !== 'pharmacy' || editForm.productType !== 'medicine') && (
                       <label className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 uppercase">
                         <input
                           type="checkbox"
-                          checked={!!(editForm.allowScaleSelling ?? editForm.inventorySettings?.allowScaleSelling)}
-                          onChange={(e) => setEditForm(prev => ({ ...prev, allowScaleSelling: e.target.checked }))}
+                          checked={activeTenant.businessType === 'pharmacy'
+                            ? !!(editForm.fractionSaleEnabled ?? editForm.inventorySettings?.fractionSaleEnabled)
+                            : !!editForm.isBulkProduct}
+                          onChange={(e) => setEditForm(prev => activeTenant.businessType === 'pharmacy'
+                            ? ({ ...prev, fractionSaleEnabled: e.target.checked })
+                            : ({
+                              ...prev,
+                              allowScaleSelling: e.target.checked,
+                              isBulkProduct: e.target.checked,
+                              fractionSaleEnabled: e.target.checked,
+                              sellingMode: prev.sellingMode || 'scale',
+                              bulkPurchaseQty: prev.bulkPurchaseQty || 100,
+                              sellUnitQty: prev.sellUnitQty || 1,
+                              sellUnitPrice: prev.sellUnitPrice || 0,
+                            }))}
                           className="accent-emerald-600"
                         />
-                        Scale Selling
+                        Fraction Sale
                       </label>
                     )}
                   </div>
@@ -4865,7 +5583,9 @@ export default function DashboardProducts({
                       </div>
                       <div className="space-y-1">
                         <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Sell / Count Unit</label>
-                        <input value={editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.sellUnit || ''} onChange={e => setEditForm(prev => ({ ...prev, baseUnit: e.target.value }))} className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                        <div className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-xl font-bold text-slate-700 truncate">
+                          {editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.unit || 'Unit'}
+                        </div>
                       </div>
                       <div className="space-y-1">
                         <label className="text-[9.5px] font-bold text-slate-500 uppercase block">1 Package Contains</label>
@@ -4873,10 +5593,39 @@ export default function DashboardProducts({
                       </div>
                     </div>
                   )}
+
+                  {activeTenant.businessType === 'pharmacy' && editForm.productType !== 'medicine' &&
+                    !!(editForm.fractionSaleEnabled ?? editForm.inventorySettings?.fractionSaleEnabled) && (
+                    <div className="grid gap-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.75rem' }}>
+                      <div className="space-y-1">
+                        <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Packet Name</label>
+                        <input value={editForm.purchaseUnit || editForm.inventorySettings?.purchaseUnit || 'Packet'} onChange={e => setEditForm(prev => ({ ...prev, purchaseUnit: e.target.value }))} className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Pieces per Packet</label>
+                        <input type="number" min={1} value={editNumberValue(editForm.conversionToBaseUnit || editForm.inventorySettings?.conversionToBaseUnit)} onChange={e => setEditForm(prev => ({ ...prev, conversionToBaseUnit: e.target.value === '' ? undefined : Number(e.target.value) }))} className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Piece Unit</label>
+                        <input value={editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.unit || 'Piece'} onChange={e => setEditForm(prev => ({ ...prev, baseUnit: e.target.value, unit: e.target.value }))} className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Package Price</label>
+                        <input
+                          type="number"
+                          min={0}
+                          value={(editForm.packetPriceOverridden ?? editForm.inventorySettings?.packetPriceOverridden) ? editNumberValue(editForm.wholePackagePrice ?? editForm.inventorySettings?.wholePackagePrice) : ''}
+                          onChange={e => setEditForm(prev => ({ ...prev, wholePackagePrice: e.target.value === '' ? undefined : Number(e.target.value), packetPriceOverridden: e.target.value !== '' }))}
+                          placeholder={`Auto: ${(Number(editForm.sellingPrice || 0) * Number(editForm.conversionToBaseUnit || editForm.inventorySettings?.conversionToBaseUnit || 1)).toLocaleString()}`}
+                          className="w-full bg-slate-50 border border-slate-200 text-xs px-3 py-2 rounded-xl"
+                        />
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {activeTenant.businessType === 'pharmacy' && (
+              {activeTenant.businessType === 'pharmacy' && editForm.productType === 'medicine' && (
                 <div className="px-5 pb-5">
                   {(() => {
                     const structure = getEditPharmacyStructure(editForm);
@@ -4885,7 +5634,7 @@ export default function DashboardProducts({
                       : structure.hierarchyStart === 'master_box'
                         ? 'Cartons per Master Box'
                         : '';
-                    const middleLabel = structure.productType === 'non_pharmaceutical' ? 'Pieces per Carton' : `${structure.base}s per Strip`;
+                    const middleLabel = structure.productType === 'non_pharmaceutical' ? 'Pieces per Carton' : 'Doses per Packet/Strip';
                     return (
                       <div className="border border-emerald-100 bg-emerald-50/40 rounded-2xl p-4 space-y-3">
                         <div>
@@ -4937,11 +5686,11 @@ export default function DashboardProducts({
                           )}
                           <div className="space-y-1">
                             <label className="text-[9px] font-bold text-slate-500 uppercase">{structure.hierarchy.levels[0]?.unit || 'Top unit'} price</label>
-                            <input type="number" value={editNumberValue(editForm.sellingPrice)} onChange={e => setEditForm(prev => ({ ...prev, sellingPrice: e.target.value === '' ? undefined : Number(e.target.value) || 0 }))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                            <input type="number" value={editForm.packetPrice ?? ((structure.hierarchy.levels[0]?.quantityToBaseUnit || 1) * (editForm.sellingPrice || 0) || '')} onChange={e => setEditForm(prev => ({ ...prev, packetPrice: e.target.value === '' ? undefined : Number(e.target.value) }))} placeholder="Auto" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
                           </div>
                           <div className="space-y-1">
                             <label className="text-[9px] font-bold text-slate-500 uppercase">Price per {structure.hierarchy.baseUnit}</label>
-                            <input type="number" value={editForm.tabPrice ?? ''} onChange={e => setEditForm(prev => ({ ...prev, tabPrice: e.target.value === '' ? undefined : Number(e.target.value) }))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                            <input type="number" readOnly value={editNumberValue(editForm.sellingPrice)} title="Set from Retail Price above" className="w-full bg-slate-100 border border-slate-200 text-xs px-3 py-2 rounded-xl text-slate-500 cursor-not-allowed" />
                           </div>
                           <div className="col-span-2 text-[10px] font-mono text-emerald-800 bg-white/70 border border-emerald-100 rounded-xl px-3 py-2">
                             POS levels: {structure.hierarchy.levels.map(level => `${level.unit} (${level.quantityToBaseUnit} ${structure.hierarchy.baseUnit})`).join(' -> ')}
@@ -4953,27 +5702,58 @@ export default function DashboardProducts({
                 </div>
               )}
 
-              {/* Edit Bidhaa ya Jumla / Bulk Product SECTION */}
+              {/* Edit Bidhaa ya Jumla / Bulk Product SECTION — driven by the single
+                  "Fraction Sale" toggle above, not a second switch. */}
               <div className="px-5 pb-5">
                 <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
-                  <div className="bg-slate-50 border-b border-slate-200 px-4 py-2.5 flex justify-between items-center">
-                    <div className="flex items-center space-x-2">
-                      <Scale className="w-3.5 h-3.5 text-slate-500" />
-                      <span className="font-bold text-[11px] text-slate-700 uppercase tracking-widest">Retail Package Selling</span>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        checked={!!editForm.isBulkProduct} 
-                        onChange={(e) => setEditForm(prev => ({ ...prev, isBulkProduct: e.target.checked, sellingMode: prev.sellingMode || 'scale', bulkPurchaseQty: prev.bulkPurchaseQty || 100, sellUnitQty: prev.sellUnitQty || 1, sellUnitPrice: prev.sellUnitPrice || 0 }))}
-                        className="sr-only peer" 
-                      />
-                      <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
-                    </label>
+                  <div className="bg-slate-50 border-b border-slate-200 px-4 py-2.5 flex items-center space-x-2">
+                    <Scale className="w-3.5 h-3.5 text-slate-500" />
+                    <span className="font-bold text-[11px] text-slate-700 uppercase tracking-widest">Fraction Sale Settings</span>
                   </div>
-                  
+
                   {editForm.isBulkProduct && (
                     <div className="p-4 bg-white border-t border-slate-200 space-y-4">
+                      {/* Open-ended stock — for items like a cable roll where the exact
+                          total quantity isn't known upfront, only a price per unit. */}
+                      <button
+                        type="button"
+                        onClick={() => setEditForm(prev => ({ ...prev, stockTrackingMode: prev.stockTrackingMode === 'open-ended' ? 'quantity' : 'open-ended' }))}
+                        aria-pressed={editForm.stockTrackingMode === 'open-ended'}
+                        aria-label="Open-Ended Stock"
+                        className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 uppercase w-full cursor-pointer"
+                      >
+                        <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors ${
+                          editForm.stockTrackingMode === 'open-ended' ? 'border-emerald-600 bg-emerald-600' : 'border-slate-300 bg-white'
+                        }`}>
+                          {editForm.stockTrackingMode === 'open-ended' && <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />}
+                        </span>
+                        Open-Ended Stock
+                      </button>
+                      {editForm.stockTrackingMode === 'open-ended' && (
+                        <button
+                          type="button"
+                          onClick={() => setEditForm(prev => {
+                            const nextFinished = !prev.markedFinished;
+                            return {
+                              ...prev,
+                              markedFinished: nextFinished,
+                              shopStockQty: nextFinished ? 0 : prev.shopStockQty,
+                              storeStockQty: nextFinished ? 0 : prev.storeStockQty,
+                            };
+                          })}
+                          aria-pressed={!!editForm.markedFinished}
+                          aria-label="Mark as Finished"
+                          className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 text-[10px] font-bold text-amber-700 uppercase w-full cursor-pointer"
+                        >
+                          <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors ${
+                            editForm.markedFinished ? 'border-amber-600 bg-amber-600' : 'border-amber-300 bg-white'
+                          }`}>
+                            {editForm.markedFinished && <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />}
+                          </span>
+                          Mark as Finished (out of stock)
+                        </button>
+                      )}
+
                       {/* Mode Selector */}
                       <div>
                         <label className="text-[9.5px] font-bold text-slate-500 uppercase block mb-1.5">{t('sellByWeightOrPcs')}</label>
@@ -4985,19 +5765,12 @@ export default function DashboardProducts({
                           >
                             {t('scaleMode')}
                           </button>
-                          <button 
+                          <button
                             type="button"
                             onClick={() => setEditForm(prev => ({ ...prev, sellingMode: 'pcs' }))}
                             className={`flex-1 py-1 text-[10.5px] font-bold rounded transition-all ${editForm.sellingMode === 'pcs' ? 'bg-emerald-100 text-emerald-700 shadow-sm' : 'text-slate-500 hover:bg-white'}`}
                           >
                             {t('pcsMode')}
-                          </button>
-                          <button 
-                            type="button"
-                            onClick={() => setEditForm(prev => ({ ...prev, sellingMode: 'hybrid' }))}
-                            className={`flex-1 py-1 text-[10.5px] font-bold rounded transition-all ${editForm.sellingMode === 'hybrid' ? 'bg-emerald-100 text-emerald-700 shadow-sm' : 'text-slate-500 hover:bg-white'}`}
-                          >
-                            {t('hybridMode')}
                           </button>
                         </div>
                       </div>
@@ -5013,14 +5786,16 @@ export default function DashboardProducts({
                         </div>
                         <div className="space-y-1">
                           <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Base Unit</label>
-                          <input value={editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.sellUnit || ''} onChange={e => setEditForm(prev => ({ ...prev, baseUnit: e.target.value, sellUnit: e.target.value }))} placeholder="kg, litre, pcs" className="w-full bg-slate-50 border border-slate-200 text-[11px] px-2 py-2 rounded-xl" />
+                          <div className="w-full bg-slate-50 border border-slate-200 text-[11px] px-2 py-2 rounded-xl font-bold text-slate-700 truncate">
+                            {editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.unit || 'Unit'}
+                          </div>
                         </div>
                       </div>
 
                       <div className="grid gap-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.75rem' }}>
                         <div className="space-y-1">
                           <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Quick Sale Portions</label>
-                          {editForm.sellingMode === 'scale' || editForm.sellingMode === 'hybrid' ? (
+                          {editForm.sellingMode === 'scale' ? (
                             <div className="flex flex-col space-y-1">
                              <div className="flex space-x-1 overflow-x-auto scrollbar-hide flex-wrap gap-y-1">
                                {[
@@ -5029,7 +5804,7 @@ export default function DashboardProducts({
                                  { label: '3/4', value: 0.75 },
                                  { label: '1', value: 1 },
                                ].map(f => (
-                                 <button type="button" key={f.label} onClick={() => setEditForm(prev => ({ ...prev, sellUnit: prev.baseUnit || prev.inventorySettings?.baseUnit || 'kg', sellUnitQty: f.value }))} className="px-1.5 py-0.5 text-[9px] font-bold bg-slate-50 border border-slate-200 rounded">{f.label} {editForm.baseUnit || editForm.inventorySettings?.baseUnit || 'kg'}</button>
+                                 <button type="button" key={f.label} onClick={() => setEditForm(prev => ({ ...prev, sellUnit: prev.baseUnit || prev.inventorySettings?.baseUnit || prev.unit || 'Unit', sellUnitQty: f.value }))} className="px-1.5 py-0.5 text-[9px] font-bold bg-slate-50 border border-slate-200 rounded">{f.label} {editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.unit || 'Unit'}</button>
                                ))}
                              </div>
                             </div>
@@ -5039,9 +5814,9 @@ export default function DashboardProducts({
                         </div>
                         <div className="space-y-1">
                           <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Default Portion Qty</label>
-                          {editForm.sellingMode === 'scale' || editForm.sellingMode === 'hybrid' ? (
+                          {editForm.sellingMode === 'scale' ? (
                             <div className="w-full bg-slate-50 border border-slate-200 text-[11px] px-3 py-2 rounded-xl font-bold text-slate-700">
-                              {editForm.sellUnitQty === 0.25 ? '1/4' : editForm.sellUnitQty === 0.5 ? '1/2' : editForm.sellUnitQty === 0.75 ? '3/4' : '1'} {editForm.baseUnit || editForm.inventorySettings?.baseUnit || 'kg'}
+                              {editForm.sellUnitQty === 0.25 ? '1/4' : editForm.sellUnitQty === 0.5 ? '1/2' : editForm.sellUnitQty === 0.75 ? '3/4' : '1'} {editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.unit || 'Unit'}
                             </div>
                           ) : (
                             <input type="number" step="1" value={editForm.sellUnitQty ?? ''} onChange={e => setEditForm(prev => ({ ...prev, sellUnitQty: e.target.value === '' ? undefined : Number(e.target.value) }))} className="w-full bg-slate-50 border border-slate-200 text-[11px] px-3 py-2 rounded-xl" />
@@ -5052,6 +5827,27 @@ export default function DashboardProducts({
                       <div className="space-y-1">
                         <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Price per 1 {editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.sellUnit || 'unit'}</label>
                         <input type="number" value={editForm.sellUnitPrice ?? editForm.defaultPricePerBaseUnit ?? editForm.inventorySettings?.defaultPricePerBaseUnit ?? ''} onChange={e => setEditForm(prev => ({ ...prev, sellUnitPrice: e.target.value === '' ? undefined : Number(e.target.value), defaultPricePerBaseUnit: e.target.value === '' ? undefined : Number(e.target.value) }))} className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl font-bold" />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Package Price</label>
+                        <input
+                          type="number"
+                          min={0}
+                          value={(editForm.packetPriceOverridden ?? editForm.inventorySettings?.packetPriceOverridden) ? editNumberValue(editForm.wholePackagePrice ?? editForm.inventorySettings?.wholePackagePrice) : ''}
+                          onChange={e => setEditForm(prev => ({
+                            ...prev,
+                            wholePackagePrice: e.target.value === '' ? undefined : Number(e.target.value),
+                            packetPriceOverridden: e.target.value !== '',
+                          }))}
+                          placeholder={`Auto: ${(Number(editForm.sellUnitPrice || editForm.defaultPricePerBaseUnit || editForm.inventorySettings?.defaultPricePerBaseUnit || editForm.sellingPrice || 0) * Number(editForm.conversionToBaseUnit || editForm.inventorySettings?.conversionToBaseUnit || 1)).toLocaleString()}`}
+                          className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl font-bold"
+                        />
+                        {(editForm.packetPriceOverridden ?? editForm.inventorySettings?.packetPriceOverridden) && (
+                          <button type="button" onClick={() => setEditForm(prev => ({ ...prev, wholePackagePrice: undefined, packetPriceOverridden: false }))} className="text-[9px] font-bold text-emerald-700">
+                            Reset to automatic price
+                          </button>
+                        )}
                       </div>
 
                       {/* Auto-calculation display */}
@@ -5084,18 +5880,25 @@ export default function DashboardProducts({
             </div>
 
             <div className="tenant-form-footer sticky bottom-0 z-10 bg-slate-50 p-3 sm:p-4 flex gap-2 border-t border-slate-200 shrink-0">
+              {editSaveError && (
+                <p role="alert" className="flex-1 self-center text-[10px] font-bold normal-case text-rose-600">
+                  {editSaveError}
+                </p>
+              )}
               <button 
                 type="button" 
+                disabled={isSavingProductEdit}
                 onClick={() => setEditingProduct(null)} 
-                className="flex-1 lg:flex-none px-4 sm:px-5 py-3 sm:py-2.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-xl uppercase tracking-wider text-[10.5px] cursor-pointer"
+                className="flex-1 lg:flex-none px-4 sm:px-5 py-3 sm:py-2.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed font-bold rounded-xl uppercase tracking-wider text-[10.5px] cursor-pointer"
               >
                 Cancel Adjustments
               </button>
               <button 
                 type="submit" 
-                className="flex-1 lg:flex-none px-4 sm:px-5 py-3 sm:py-2.5 bg-emerald-600 hover:bg-emerald-505 text-white font-bold rounded-xl uppercase tracking-wider text-[10.5px] cursor-pointer"
+                disabled={isSavingProductEdit}
+                className="flex-1 lg:flex-none px-4 sm:px-5 py-3 sm:py-2.5 bg-emerald-600 hover:bg-emerald-505 disabled:opacity-60 disabled:cursor-wait text-white font-bold rounded-xl uppercase tracking-wider text-[10.5px] cursor-pointer"
               >
-                Save Changes
+                {isSavingProductEdit ? 'Saving…' : 'Save Changes'}
               </button>
             </div>
           </form>
@@ -5295,6 +6098,7 @@ export default function DashboardProducts({
                       {mobileProductMenu.category && <span className="ml-1 text-slate-300">· {mobileProductMenu.category}</span>}
                     </p>
                   </div>
+
                 </div>
                 <button
                   type="button"

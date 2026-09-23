@@ -53,6 +53,7 @@ import AffiliateAgentDesk from "./AffiliateAgentDesk";
 // AffiliateWorkspace.tsx) load their own workspace data after an explicit
 // login, so this portal-level component never auto-loads a dashboard.
 import { getSecureDataBridgeClient } from "../../../shared/dataBridge/secureDataBridge";
+import { formatLocalDate } from "../../../utils/localDate";
 import {
   requireOnline,
   isOnline,
@@ -134,6 +135,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
   const [firstName, setFirstName] = useState("");
   const [secondName, setSecondName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [googleRegistrationVerified, setGoogleRegistrationVerified] = useState(false);
 
   // Active Logged In Affiliate Info state representation
   const [activeAffiliate, setActiveAffiliate] = useState<Affiliate | null>(
@@ -301,7 +303,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     const newEntry = {
       fullName: waitlistName.trim(),
       phoneNumber: phoneNo,
-      addedAt: new Date().toISOString().split('T')[0]
+      addedAt: formatLocalDate()
     };
     currentWaitlist.push(newEntry);
     onlineStorage.setItem('jasper_partner_waitlist', JSON.stringify(currentWaitlist));
@@ -326,6 +328,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     | "conferencing"
     | "hw-pos"
     | "hw-inventory"
+    | "reconciliation"
   >("overview");
   const [superManageSearch, setSuperManageSearch] = useState("");
 
@@ -406,7 +409,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
   // Video conferencing simulation state representors
   const [isConferenceActive, setIsConferenceActive] = useState(false);
   const [conferenceRoomId, setConferenceRoomId] = useState(
-    "CONF-JASPER-MASTERCLASS",
+    "CONF-ORVIX-MASTERCLASS",
   );
   const [videoHostMutedAll, setVideoHostMutedAll] = useState(false);
   const [conferenceMembers, setConferenceMembers] = useState([
@@ -894,8 +897,12 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
   const handleRegisterAffiliate = async (e: any) => {
     e.preventDefault();
-    if (!firstName || !secondName || !phone || !password) {
-      alert("Please enter first name, second name, phone number, and password.");
+    if (!googleRegistrationVerified) {
+      alert('Please connect your Google account before completing registration.');
+      return;
+    }
+    if (!firstName || !secondName || !phone) {
+      alert("Please enter first name, second name, and phone number.");
       return;
     }
 
@@ -921,8 +928,8 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
         const { count } = await client
           .from('affiliate_partners')
           .select('id', { count: 'exact', head: true });
-        if ((count ?? 0) > 0) {
-          alert('❌ A Partner account already exists. This one-time setup link can only be used once and has now been disabled.');
+        if ((count ?? 0) >= 10) {
+          alert('The maximum of 10 Partner accounts has been reached.');
           setPortalRole('affiliate');
           return;
         }
@@ -946,9 +953,13 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     const registeredName = `${firstName.trim()} ${secondName.trim()}`;
     const generatedReferralCode = `${firstName.substring(0, 5).replace(/[^A-Za-z0-9]/g, "").toUpperCase()}_${secondName.substring(0, 5).replace(/[^A-Za-z0-9]/g, "").toUpperCase()}_JAR_${Math.floor(100 + Math.random() * 900)}`;
     try {
+      const client: any = await getSecureDataBridgeClient();
+      const { data } = await client.auth.getSession();
+      const token = data?.session?.access_token;
+      if (!token) throw new Error('Your Google verification expired. Please connect Google again.');
       const response = await fetch('/api/affiliate/register', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           name: registeredName,
           phone,
@@ -963,6 +974,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
           nidaNumber,
           tinNumber,
           turnstileToken,
+          googleRegistration: true,
         }),
       });
       const result = await response.json().catch(() => ({}));
@@ -970,33 +982,28 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
         throw new Error(result?.error || 'Registration failed before the affiliate profile was connected.');
       }
 
-      const mappedAffiliate: Affiliate = {
-        id: result.affiliate.id,
-        name: registeredName,
-        email: result.authEmail || '',
-        phone,
-        paymentMethod,
-        promoCode: result.affiliate.promo_code || result.affiliate.referral_code || generatedReferralCode,
-        parentSuperId: result.affiliate.parent_super_agent_id,
-        isSuper: portalRole === 'partner',
-        nidaNumber: nidaNumber || '',
-        tinNumber: tinNumber || '',
-        payoutPhone: payoutPhone || phone,
-      };
+      const resolvedResponse = await fetch('/api/auth/google/portal-resolve', { headers: { Authorization: `Bearer ${token}` } });
+      const resolved = await resolvedResponse.json().catch(() => ({}));
+      if (!resolvedResponse.ok || !resolved?.profile) throw new Error(resolved?.error || 'The new profile could not be opened.');
+      const profile = resolved.profile;
+      const mappedAffiliate: Affiliate = { id: profile.id, name: profile.display_name, email: data.session.user.email || '', phone: profile.phone_whatsapp || phone, paymentMethod: profile.payout_method || paymentMethod, promoCode: profile.promo_code || profile.referral_code || generatedReferralCode, parentSuperId: profile.parent_super_agent_id, isSuper: resolved.portalRole === 'partner', nidaNumber: profile.nida_number || '', tinNumber: profile.tin_number || '', payoutPhone: profile.payout_account || payoutPhone || phone };
       const existing = JSON.parse(onlineStorage.getItem("jasper_affiliates") || "[]").filter((item: any) => item.id !== mappedAffiliate.id);
       onlineStorage.setItem("jasper_affiliates", JSON.stringify([mappedAffiliate, ...existing]));
       const immersive = JSON.parse(onlineStorage.getItem("saas_immersive_affiliates") || "[]").filter((item: any) => item.id !== mappedAffiliate.id);
       onlineStorage.setItem("saas_immersive_affiliates", JSON.stringify([{
         ...mappedAffiliate,
         status: 'Active',
-        joinedDate: new Date().toISOString().split('T')[0],
+        joinedDate: formatLocalDate(),
         affiliateLink: `https://dukaplus.co.tz/ref/${mappedAffiliate.promoCode.toLowerCase()}`,
       }, ...immersive]));
 
-      setLoginEmail(phone);
-      setLoginPassword('');
-      setAuthMode('login');
-      alert(`Your ${portalRole === 'partner' ? 'partner' : 'affiliate'} account is ready. Sign in with your phone number and password.`);
+      void startCloudSession(token);
+      onlineStorage.setItem('jasper_logged_affiliate', JSON.stringify(mappedAffiliate));
+      setActiveAffiliate(mappedAffiliate);
+      if (resolved.portalRole === 'partner') setDatabaseAgentWorkspaceEnabled(true); else setDatabaseWorkspaceEnabled(true);
+      setGoogleRegistrationVerified(false);
+      setAuthMode('dashboard');
+      window.history.replaceState({}, document.title, resolved.portalRole === 'partner' ? '/partner' : '/affiliate');
       return;
     } catch (registrationError: any) {
       console.error('[affiliate registration] API registration failed:', registrationError);
@@ -1005,7 +1012,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     }
 
     const name = `${firstName.trim()} ${secondName.trim()}`;
-    const email = `${firstName.toLowerCase().replace(/[^A-Za-z0-9]/g, "")}.${secondName.toLowerCase().replace(/[^A-Za-z0-9]/g, "")}${Math.floor(100 + Math.random() * 900)}@jasper-affiliate.com`;
+    const email = `${firstName.toLowerCase().replace(/[^A-Za-z0-9]/g, "")}.${secondName.toLowerCase().replace(/[^A-Za-z0-9]/g, "")}${Math.floor(100 + Math.random() * 900)}@orvix-affiliate.com`;
     // Generate a short promo code from first name only.
     // If the base code is taken, append 2 digits (e.g. MAGRETH → MAGRETH12).
     const baseName = firstName.replace(/[^A-Za-z0-9]/g, '').toUpperCase().substring(0, 8);
@@ -1106,7 +1113,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       phone,
       payoutPhone: payoutPhone || phone,
       status: "Active",
-      joinedDate: new Date().toISOString().split("T")[0],
+      joinedDate: formatLocalDate(),
       affiliateLink: `https://dukaplus.co.tz/ref/${cleanCode.toLowerCase()}`,
       promoCode: cleanCode,
       conversionsLink: 0,
@@ -1273,6 +1280,12 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       alert("Please enter your email and password");
       return;
     }
+    if ((import.meta as any).env?.VITE_TURNSTILE_SITE_KEY && !turnstileToken) {
+      alert('Please complete the security verification before signing in.');
+      return;
+    }
+    const challenge = await fetch('/api/auth/turnstile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ turnstileToken }) });
+    if (!challenge.ok) { setTurnstileToken(null); alert('Security verification expired. Please complete it again.'); return; }
 
     try {
       const client: any = await getSecureDataBridgeClient();
@@ -1344,7 +1357,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
           const immersive = JSON.parse(onlineStorage.getItem('saas_immersive_affiliates') || '[]');
           const exists = immersive.find((a: any) => a.id === profile.id);
           if (!exists) {
-            immersive.unshift({ ...mappedAff, status: 'Active', joinedDate: new Date().toISOString().split('T')[0] });
+            immersive.unshift({ ...mappedAff, status: 'Active', joinedDate: formatLocalDate() });
             onlineStorage.setItem('saas_immersive_affiliates', JSON.stringify(immersive));
           }
           setActiveAffiliate(mappedAff);
@@ -1376,6 +1389,57 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     // this account.
     alert('❌ Akaunti hii haikupatikana.\n\nThis account could not be found. Please confirm your phone number and password, or register a new affiliate account.');
   };
+
+  const handleGooglePortalLogin = async () => {
+    if ((import.meta as any).env?.VITE_TURNSTILE_SITE_KEY && !turnstileToken) { alert('Please complete the security verification before signing in.'); return; }
+    const challenge = await fetch('/api/auth/turnstile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ turnstileToken }) });
+    if (!challenge.ok) { setTurnstileToken(null); alert('Security verification expired. Please complete it again.'); return; }
+    const isGoogleRegistration = authMode !== 'login' || isPartnerSetupMode;
+    if (isGoogleRegistration) {
+      sessionStorage.setItem('orvix_google_portal_registration_intent', portalRole);
+    }
+    const client: any = await getSecureDataBridgeClient();
+    const { error } = await client.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: `${window.location.origin}/${portalRole}?oauth=google${isGoogleRegistration ? '&register=true' : ''}` } });
+    if (error) alert('Google sign-in could not start. Please try again.');
+  };
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('oauth') !== 'google') return;
+    let cancelled = false;
+    const resolve = async () => {
+      try {
+        const client: any = await getSecureDataBridgeClient();
+        const { data } = await client.auth.getSession();
+        const token = data?.session?.access_token;
+        if (!token) return;
+        const params = new URLSearchParams(window.location.search);
+        const isRegistrationReturn = params.get('register') === 'true';
+        const response = await fetch('/api/auth/google/portal-resolve', { headers: { Authorization: `Bearer ${token}` } });
+        const result = await response.json().catch(() => ({}));
+        if (cancelled) return;
+        if (isRegistrationReturn && !response.ok) {
+          const intendedRole = sessionStorage.getItem('orvix_google_portal_registration_intent');
+          if (intendedRole === 'partner' || intendedRole === 'affiliate') setPortalRole(intendedRole);
+          sessionStorage.removeItem('orvix_google_portal_registration_intent');
+          setGoogleRegistrationVerified(true);
+          setAuthMode('register');
+          window.history.replaceState({}, document.title, intendedRole === 'partner' ? '/partner' : '/affiliate');
+          return;
+        }
+        if (!response.ok) throw result;
+        sessionStorage.removeItem('orvix_google_portal_registration_intent');
+        const resolved = result;
+        if (!resolved?.profile) throw resolved;
+        const profile = resolved.profile;
+        const mappedAff: Affiliate = { id: profile.id, name: profile.display_name, email: data.session.user.email || '', phone: profile.phone_whatsapp || '', paymentMethod: profile.payout_method || 'm-pesa', promoCode: profile.promo_code || profile.referral_code, isSuper: resolved.portalRole === 'partner', nidaNumber: profile.nida_number || '', tinNumber: profile.tin_number || '', payoutPhone: profile.payout_account || '' };
+        void startCloudSession(token); onlineStorage.setItem('jasper_logged_affiliate', JSON.stringify(mappedAff)); setActiveAffiliate(mappedAff);
+        if (resolved.portalRole === 'partner') setDatabaseAgentWorkspaceEnabled(true); else setDatabaseWorkspaceEnabled(true);
+        setAuthMode('dashboard');
+        window.history.replaceState({}, document.title, resolved.portalRole === 'partner' ? '/partner' : '/affiliate');
+      } catch { if (!cancelled) alert('This Google account is not linked to an active Partner or Affiliate account.'); }
+    };
+    resolve(); return () => { cancelled = true; };
+  }, []);
 
   const handleLogoutAffiliate = async () => {
     // Stop presence tracking immediately on logout
@@ -1553,7 +1617,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
       ctx.fillStyle = "#34d399";
       ctx.font = "bold 24px sans-serif";
-      ctx.fillText("JISAJILI KATIKA: https://jasper.africa", 50, 730);
+      ctx.fillText("JISAJILI KATIKA: https://orvix.africa", 50, 730);
     } else if (size === "9:16") {
       ctx.font = "bold 26px sans-serif";
       ctx.fillText("NDIVA SAAS POWERHOUSE", 30, 80);
@@ -1661,6 +1725,13 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     });
   };
 
+  if (authMode === 'dashboard' && databaseAgentWorkspaceEnabled) {
+    return <AffiliateAgentDesk onLogout={handleLogoutAffiliate} />;
+  }
+  if (authMode === 'dashboard' && databaseWorkspaceEnabled) {
+    return <AffiliateWorkspace onLogout={handleLogoutAffiliate} />;
+  }
+
   return (
     <div
       id="affiliate-portal-view"
@@ -1710,11 +1781,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
           </button>
         </header>
 
-        {authMode === "dashboard" && databaseAgentWorkspaceEnabled ? (
-          <AffiliateAgentDesk onLogout={handleLogoutAffiliate} />
-        ) : authMode === "dashboard" && databaseWorkspaceEnabled ? (
-          <AffiliateWorkspace onLogout={handleLogoutAffiliate} />
-        ) : authMode === "dashboard" && activeAffiliate ? (
+        {authMode === "dashboard" && activeAffiliate ? (
           // Fallback — workspace flags not set yet, use forcedRole/isSuper to decide
           (() => {
             if (forcedRole === 'partner' || activeAffiliate.isSuper === true) {
@@ -1805,7 +1872,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                 <div className="text-center space-y-2">
                   {isPartnerSetupMode && (
                     <div className="mb-2 px-3 py-1.5 bg-amber-500/15 border border-amber-500/30 rounded-full text-amber-400 text-[10px] font-black uppercase tracking-wider inline-block">
-                      ⚠️ One-Time Partner Setup Mode
+                      Partner Registration · Maximum 10
                     </div>
                   )}
                   <div className={`inline-flex p-3 rounded-2xl border items-center justify-center mb-1 ${portalRole === 'partner' ? 'bg-amber-500/10 border-amber-500/20' : 'bg-emerald-500/10 border-emerald-500/20'}`}>
@@ -1814,52 +1881,18 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                   <h2 className="text-2xl font-black text-white tracking-tight">
                     {isPartnerSetupMode ? 'Create Partner Account' : (portalRole === 'partner' ? 'Partner Login' : (authMode === 'login' ? 'Affiliate Login' : 'Affiliate Portal'))}
                   </h2>
-                  <p className="text-xs text-slate-400">
-                    {isPartnerSetupMode ? 'This will create the one Super Affiliate Agent account' : (portalRole === 'partner' ? 'Sign in to your Super Affiliate Agent dashboard' : 'Sign in with your phone number and password')}
-                  </p>
+                  {(isPartnerSetupMode || authMode === 'login') && (
+                    <p className="text-xs text-slate-400">
+                      {isPartnerSetupMode ? 'Create a Partner account while capacity is available' : `Sign in to your ${portalRole === 'partner' ? 'Partner' : 'Affiliate'} dashboard`}
+                    </p>
+                  )}
                 </div>
 
                 {/* Login form */}
                 {authMode === 'login' ? (
-                  <form onSubmit={handleLoginAffiliate} className="space-y-4">
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                        Phone Number
-                      </label>
-                      <input
-                        type="tel"
-                        required
-                        placeholder="e.g. +255 712 345 678"
-                        value={loginEmail}
-                        onChange={(e) => setLoginEmail(e.target.value)}
-                        className={`w-full bg-slate-950 border text-white placeholder-slate-600 outline-none rounded-2xl px-4 py-3.5 text-sm font-mono focus:ring-0 border-slate-700 ${portalRole === 'partner' ? 'focus:border-amber-500' : 'focus:border-emerald-500'}`}
-                      />
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                        Password
-                      </label>
-                      <div className="relative">
-                        <input
-                          type={showLoginPassword ? 'text' : 'password'}
-                          required
-                          placeholder="••••••••"
-                          value={loginPassword}
-                          onChange={(e) => setLoginPassword(e.target.value)}
-                          className={`w-full bg-slate-950 border text-white placeholder-slate-600 outline-none rounded-2xl px-4 py-3.5 pr-11 text-sm focus:ring-0 border-slate-700 ${portalRole === 'partner' ? 'focus:border-amber-500' : 'focus:border-emerald-500'}`}
-                        />
-                        <button type="button" onClick={() => setShowLoginPassword(p => !p)}
-                          className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 cursor-pointer">
-                          {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </button>
-                      </div>
-                    </div>
-
-                    <button type="submit"
-                      className={`w-full py-3.5 rounded-2xl font-black text-sm uppercase tracking-wider transition-all cursor-pointer border-none flex items-center justify-center gap-2 text-slate-950 ${portalRole === 'partner' ? 'bg-amber-500 hover:bg-amber-400' : 'bg-emerald-500 hover:bg-emerald-400'}`}>
-                      Sign In <ArrowRight className="w-4 h-4" />
-                    </button>
+                  <div className="space-y-4">
+                    <div className="flex justify-center"><TurnstileWidget onVerify={setTurnstileToken} onExpire={() => setTurnstileToken(null)} /></div>
+                    <button type="button" onClick={handleGooglePortalLogin} className="w-full py-3.5 rounded-2xl border border-slate-700 bg-white text-slate-800 font-black text-sm cursor-pointer">Continue with Google</button>
 
                     {/* Become an affiliate link — hidden on the Partner login, since that
                         portal is for the single Super Affiliate Agent signing in, not
@@ -1875,7 +1908,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                         </button>
                       </div>
                     )}
-                  </form>
+                  </div>
                 ) : portalRole === 'partner' && getPartnersCount() >= getPartnerCapacity() ? (
                   /* PARTNER CAPACITY REACHED */
                   <form onSubmit={handleWaitlistSubmit} className="space-y-5">
@@ -1896,8 +1929,20 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                     </button>
                   </form>
                 ) : (
-                  /* REGISTER FORM */
+                  /* GOOGLE-FIRST REGISTER FLOW */
+                  !googleRegistrationVerified ? (
+                    <div className="space-y-5">
+                      <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-center">
+                        <h3 className="text-sm font-black text-white">Create your {portalRole === 'partner' ? 'Partner' : 'Affiliate'} account</h3>
+                        <p className="mt-1 text-xs leading-relaxed text-slate-400">Connect Google first. Your registration form will open after your identity is confirmed.</p>
+                      </div>
+                      <div className="flex justify-center"><TurnstileWidget onVerify={setTurnstileToken} onExpire={() => setTurnstileToken(null)} /></div>
+                      <button type="button" onClick={handleGooglePortalLogin} className="w-full py-3.5 rounded-2xl border border-slate-700 bg-white text-slate-800 font-black text-sm cursor-pointer">Continue with Google</button>
+                      <button type="button" onClick={() => setAuthMode('login')} className="w-full text-xs text-slate-500 hover:text-slate-300 cursor-pointer bg-transparent border-none">Already have an account? Sign In</button>
+                    </div>
+                  ) : (
                   <form onSubmit={handleRegisterAffiliate} className="space-y-4">
+                    <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-center text-[10px] font-bold text-emerald-300">Google account verified. Complete your details below.</div>
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1.5">
                         <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">First Name</label>
@@ -1911,7 +1956,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                       </div>
                     </div>
 
-                    <div className="space-y-1.5">
+                    <div className="hidden" aria-hidden="true">
                       <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
                         WhatsApp Number <span className="text-[9px] text-slate-500 normal-case font-normal">(used as login)</span>
                       </label>
@@ -1970,10 +2015,10 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                       </div>
                     )}
 
-                    <div className="space-y-1.5">
+                    <div className="hidden space-y-1.5" aria-hidden="true">
                       <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Password</label>
                       <div className="relative">
-                        <input type={showPassword ? 'text' : 'password'} required placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)}
+                        <input type={showPassword ? 'text' : 'password'} tabIndex={-1} placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)}
                           className="w-full bg-slate-950 border border-slate-700 text-white placeholder-slate-600 outline-none rounded-2xl px-4 py-3 pr-10 text-sm focus:border-emerald-500" />
                         <button type="button" onClick={() => setShowPassword(p => !p)}
                           className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 cursor-pointer">
@@ -2004,10 +2049,10 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                     <div className="text-center">
                       <button type="button" onClick={() => setAuthMode('login')}
                         className="text-xs text-slate-500 hover:text-slate-300 cursor-pointer bg-transparent border-none">
-                        ← Already have an account? Sign In
+                        Already have an account? Sign In
                       </button>
                     </div>
-                  </form>
+                  </form>)
                 )}
               </div>
             </div>
@@ -2614,7 +2659,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                             type="button"
                             onClick={() => downloadPdfFromElement({
                               elementId: "affiliate-monthly-payout-pdf-template",
-                              fileName: `affiliate-monthly-payout-summary-${new Date().toISOString().split("T")[0]}.pdf`,
+                              fileName: `affiliate-monthly-payout-summary-${formatLocalDate()}.pdf`,
                               format: "a4"
                             })}
                             className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-xs font-mono font-bold uppercase tracking-wider cursor-pointer inline-flex items-center justify-center gap-2 print:hidden"
@@ -2997,7 +3042,17 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
               // 3. TUTORIAL CLASSROOM SESSIONS (Material learning hub)
               if (superActiveTab === "sessions") {
-                const ALL_SESSIONS_MATERIALS = [
+                type SessionMaterial = {
+                  id: string;
+                  title: string;
+                  desc: string;
+                  category: string;
+                  fileSize: string;
+                  duration: string;
+                  format: string;
+                  sourceTutorial?: any;
+                };
+                const ALL_SESSIONS_MATERIALS: SessionMaterial[] = [
                   {
                     id: "doc-1",
                     title:
@@ -3686,7 +3741,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                           required
                           value={addAffEmail}
                           onChange={(e) => setAddAffEmail(e.target.value)}
-                          placeholder="partner@jasper.com"
+                          placeholder="partner@orvix.africa"
                           className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white outline-none focus:border-teal-500"
                         />
                       </div>
@@ -4270,7 +4325,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                       <button
                         onClick={() =>
                           copyToClipboard(
-                            `https://jasper.africa/?ref=${activeAffiliate?.promoCode}`,
+                            `https://orvix.africa/?ref=${activeAffiliate?.promoCode}`,
                             setCopiedLink,
                           )
                         }
@@ -4285,7 +4340,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                       </button>
                     </div>
                     <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800 text-xs font-mono text-emerald-400 select-all truncate">
-                      https://jasper.africa/?ref={activeAffiliate?.promoCode}
+                      https://orvix.africa/?ref={activeAffiliate?.promoCode}
                     </div>
                   </div>
 
@@ -4370,7 +4425,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                             className="px-2.5 py-1 text-slate-400 bg-slate-900 border border-slate-800 rounded-md hover:text-white">
                             CANCEL
                           </button>
-                          <button type="submit"
+                    <button type="button" hidden aria-hidden="true"
                             className="px-3 py-1 text-slate-950 bg-teal-400 hover:bg-teal-300 rounded-md font-extrabold uppercase transition-colors">
                             SAVE CHANGES
                           </button>
@@ -4541,7 +4596,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                           <div className="w-full max-w-[600px] bg-slate-905 bg-slate-900 border border-emerald-500/30 rounded px-4 py-2 text-left font-sans flex items-center justify-between text-white shrink-0">
                             <div>
                               <h4 className="text-xs font-black text-emerald-400">
-                                JASPER POS — 100% OFFLINE BIASHARA
+                                ORVIX POS — 100% OFFLINE BIASHARA
                               </h4>
                               <p className="text-[9px] text-slate-400">
                                 Kodi ya Promo:{" "}
@@ -4644,7 +4699,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                               </span>
                             </div>
                             <div className="text-[8px] text-slate-500 text-center">
-                              Register in milliseconds at https://jasper.africa
+                              Register in milliseconds at https://orvix.africa
                             </div>
                           </div>
                         )}
@@ -4831,7 +4886,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                                     : "400";
                             const iframeSrc = sspMatch
                               ? `${sspMatch.url}?ref=${activeAffiliate?.promoCode}`
-                              : `https://jasper.africa/embed/ad?size=${activeCreativeTab}&ref=${activeAffiliate?.promoCode}`;
+                              : `https://orvix.africa/embed/ad?size=${activeCreativeTab}&ref=${activeAffiliate?.promoCode}`;
                             const codeStr = `<iframe src="${iframeSrc}" width="${widthObj}" height="${heightObj}" style="border:none;overflow:hidden"></iframe>`;
                             copyToClipboard(codeStr, setCopiedBanner);
                           }}
@@ -4869,7 +4924,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                         unaweza kuona ripoti zote za mauzo moja kwa moja kwenye
                         simu yako! Jisajili sasa upate siku 30 za majaribio ya
                         BURE ukitumia code yangu: {activeAffiliate?.promoCode}{" "}
-                        katika https://jasper.africa/?ref=
+                        katika https://orvix.africa/?ref=
                         {activeAffiliate?.promoCode}"
                       </p>
                     </div>
@@ -4976,7 +5031,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                             "sub-dyn-" +
                             Math.random().toString(36).substr(2, 9),
                           storeName: newName,
-                          registeredAt: new Date().toISOString().split("T")[0],
+                          registeredAt: formatLocalDate(),
                           tier,
                           status: "Paid",
                           charge,
@@ -5507,7 +5562,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
         {/* End with Contact Support footer */}
         <div className="border-t border-slate-900 pt-8 pb-4 flex flex-col sm:flex-row justify-between items-center text-xs text-slate-550 text-slate-500 font-mono gap-4">
           <span>
-            © 2026 Orvix • Verified Affiliate Shared Growth Ledger
+            Verified Affiliate Records
           </span>
           <button
             onClick={() => onNavigate("/")}

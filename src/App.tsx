@@ -1,5 +1,4 @@
 import { Suspense, useState, useEffect, useRef } from 'react';
-import LoginPage from './modules/auth/LoginPage';
 import JasperSplashScreen from './components/JasperSplashScreen';
 import { User, Tenant } from './types';
 import { useTheme } from './shared/contexts/ThemeContext';
@@ -9,10 +8,15 @@ import { endCloudSession, startCloudSession, touchCloudSession } from './shared/
 import { pullFromCloud, pushToCloud } from './utils/dbSync';
 import { configureOnlineStorage, resetOnlineStorage } from './utils/onlineStorage';
 import { lazyWithReload } from './utils/lazyWithReload';
+import SystemErrorPage, { type SystemErrorStatus } from './components/SystemErrorPage';
+import { resolveProfileRolePermissions } from './utils/profilePermissions';
+import { loadTenantWorkspace } from './utils/tenantWorkspace';
+import { preloadBranchWorkspace } from './modules/branches/BranchContext';
 
 // Route-level code splitting keeps the large business workspaces out of the
 // login bundle. No feature is removed; it is downloaded only when opened.
 const LandingPage = lazyWithReload('LandingPage', () => import('./modules/landing/LandingPage'));
+const LoginPage = lazyWithReload('LoginPage', () => import('./modules/auth/LoginPage'));
 const Dashboard = lazyWithReload('Dashboard', () => import('./components/Dashboard'));
 const AffiliatePortal = lazyWithReload('AffiliatePortal', () => import('./modules/affiliate/components/AffiliatePortal'));
 const ToolsHub = lazyWithReload('ToolsHub', () => import('./modules/tools/ToolsHub'));
@@ -79,14 +83,18 @@ export default function App() {
   const [currentPath, setCurrentPath] = useState<string>(() => normalizePath(window.location.pathname || '/'));
   const [user, setUser] = useState<User | null>(() => {
     try {
-      const cached = sessionStorage.getItem('jasper_cashier_user');
+      // localStorage (not sessionStorage): stays signed in across closing the
+      // tab/app/browser, ending only on an explicit Logout.
+      const cached = localStorage.getItem('jasper_cashier_user');
       return cached ? JSON.parse(cached) : null;
     } catch (err) {
       console.error('Failed to load saved user session', err);
-      sessionStorage.removeItem('jasper_cashier_user');
+      localStorage.removeItem('jasper_cashier_user');
       return null;
     }
   });
+  const [workspaceStorageReady, setWorkspaceStorageReady] = useState(() => !user);
+  const [authenticatedSessionReady, setAuthenticatedSessionReady] = useState(() => !user);
   const [redirectMessage, setRedirectMessage] = useState<string>('');
   const [tenantDomainContext, setTenantDomainContext] = useState<TenantDomainContext>({ kind: 'loading' });
   
@@ -107,15 +115,97 @@ export default function App() {
   const persistSignedInUser = (sessionUser: User) => {
     const serialized = JSON.stringify(sessionUser);
     try {
-      sessionStorage.setItem('jasper_cashier_user', serialized);
+      localStorage.setItem('jasper_cashier_user', serialized);
     } catch { /* Supabase auth remains the source of truth */ }
   };
+
+  // localStorage is only a UI cache, never proof of authentication. A cached
+  // profile can outlive its Supabase session; opening the dashboard in that
+  // state makes every protected branch/workspace request fail and looks like
+  // the tenant has lost all menus and data.
+  useEffect(() => {
+    if (!user) {
+      setAuthenticatedSessionReady(true);
+      return;
+    }
+
+    let cancelled = false;
+    setAuthenticatedSessionReady(false);
+
+    const validateCachedSession = async () => {
+      try {
+        const client: any = await getSecureDataBridgeClient();
+        if (isPlaceholderSecureDataBridgeClient(client)) {
+          if (!cancelled) setAuthenticatedSessionReady(true);
+          return;
+        }
+        const { data, error } = await client.auth.getSession();
+        const authUserId = data?.session?.user?.id;
+        if (error || !authUserId || (user.id && authUserId !== user.id)) {
+          if (cancelled) return;
+          resetOnlineStorage();
+          localStorage.removeItem('jasper_cashier_user');
+          setUser(null);
+          setRedirectMessage('Your secure session ended. Please sign in again to restore your business workspace.');
+          window.history.replaceState({}, '', '/login');
+          setCurrentPath('/login');
+          return;
+        }
+        if (!cancelled) setAuthenticatedSessionReady(true);
+      } catch {
+        // A temporary network problem is not proof that the session expired.
+        // Keep the authenticated shell gated while the branch/workspace retry
+        // path reconnects instead of opening an empty tenant.
+        if (!cancelled) setAuthenticatedSessionReady(true);
+      }
+    };
+
+    void validateCachedSession();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   useEffect(() => {
     if (user?.activeTenant) {
       fetchLogoUrl(user.activeTenant);
     }
   }, [user, fetchLogoUrl]);
+
+  // A cached user is available synchronously on reload, while onlineStorage is
+  // in-memory and still empty. Keep the workspace unmounted until that tenant's
+  // data has been restored so dashboard components never read a half-ready store.
+  useEffect(() => {
+    const storageTenantId = user?.activeTenant || user?.tenantId;
+
+    if (!user || !storageTenantId || storageTenantId === 'platform-control') {
+      setWorkspaceStorageReady(true);
+      return;
+    }
+
+    let cancelled = false;
+    setWorkspaceStorageReady(false);
+
+    // These authoritative sources do not depend on legacy application_state.
+    // Start them together so Safari/mobile no longer waits for the optional
+    // onlineStorage hydration before beginning workspace and branch requests.
+    void loadTenantWorkspace(storageTenantId);
+    void preloadBranchWorkspace(storageTenantId).catch(() => undefined);
+
+    configureOnlineStorage(storageTenantId)
+      .catch(error => {
+        // configureOnlineStorage has its own local fallback. This catch keeps a
+        // transient cloud failure from turning a page reload into Error 500.
+        console.warn('Workspace storage hydration fell back to local data', error);
+      })
+      .finally(() => {
+        if (!cancelled) setWorkspaceStorageReady(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, user?.activeTenant, user?.tenantId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -126,17 +216,28 @@ export default function App() {
         // Vercel preview URL, where real wildcard subdomains aren't reachable.
         const portalOverride = new URLSearchParams(window.location.search).get('portal') || '';
         const resolveUrl = `/api/tenant/resolve?host=${encodeURIComponent(window.location.host)}${portalOverride ? `&portal=${encodeURIComponent(portalOverride)}` : ''}`;
-        const response = await fetch(resolveUrl, { cache: 'no-store' });
+        const cacheKey = `orvix_tenant_resolve:${resolveUrl}`;
+        const cached = sessionStorage.getItem(cacheKey);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Date.now() - Number(parsed?.cachedAt || 0) < 60_000) {
+            setTenantDomainContext(parsed.value);
+            return;
+          }
+        }
+        const response = await fetch(resolveUrl, { cache: 'default' });
         const payload = await response.json();
         if (cancelled) return;
-        setTenantDomainContext({
+        const nextContext: TenantDomainContext = {
           kind: payload?.kind || 'app',
           host: payload?.host,
           baseDomain: payload?.baseDomain,
           subdomain: payload?.subdomain,
           tenant: payload?.tenant || null,
           message: payload?.message || payload?.warning || undefined
-        });
+        };
+        sessionStorage.setItem(cacheKey, JSON.stringify({ cachedAt: Date.now(), value: nextContext }));
+        setTenantDomainContext(nextContext);
       } catch (error) {
         if (!cancelled) {
           setTenantDomainContext({ kind: 'app', host: window.location.hostname, message: 'Domain resolver unavailable.' });
@@ -183,6 +284,7 @@ export default function App() {
   const getSessionTenantId = (sessionUser: User) => sessionUser.tenantId || sessionUser.activeTenant || 'default';
 
   const getAuthenticatedRoute = (sessionUser: User) => {
+    if (sessionUser.role === 'SuperAdmin' || sessionUser.isSaaSStaff) return '/dashboard';
     if (sessionUser.role === 'Partner' || sessionUser.portal_role === 'partner') return '/partner';
     if (sessionUser.role === 'Affiliate' || sessionUser.portal_role === 'affiliate') return '/affiliate';
     return '/dashboard';
@@ -293,7 +395,7 @@ export default function App() {
       if (!isPlatformAdmin && userTenantId !== tenantDomainContext.tenant?.id) {
         recordStaffLogout(user);
         setUser(null);
-        sessionStorage.removeItem('jasper_cashier_user');
+        localStorage.removeItem('jasper_cashier_user');
         setRedirectMessage(`Please log in with an account for ${tenantDomainContext.tenant?.name || 'this business'}.`);
         window.history.replaceState({}, '', '/login');
         setCurrentPath('/login');
@@ -305,7 +407,7 @@ export default function App() {
       if (!isPlatformAdmin) {
         recordStaffLogout(user);
         setUser(null);
-        sessionStorage.removeItem('jasper_cashier_user');
+        localStorage.removeItem('jasper_cashier_user');
         setRedirectMessage('This login is for Orvix platform administrators only. Please use your business login instead.');
         window.history.replaceState({}, '', '/login');
         setCurrentPath('/login');
@@ -354,6 +456,12 @@ export default function App() {
 
         const isPlatformAdmin = userProfile?.account_type === 'super_admin' ||
           ['superadmin', 'super_admin'].includes(String(userProfile?.role_key || userProfile?.role || '').toLowerCase());
+        const isBusinessStaff = userProfile?.account_type === 'business_staff';
+        const staffRoleKey = String(userProfile?.role_key || '').trim();
+        const effectiveRole = isBusinessStaff && staffRoleKey
+          ? staffRoleKey.replace(/(^|[\s_-])([a-z])/g, (_match: string, prefix: string, letter: string) => `${prefix}${letter.toUpperCase()}`)
+          : userProfile.role || 'Admin';
+        const profileRolePermissions = resolveProfileRolePermissions(userProfile.role_permissions);
         const profileTenantId = userProfile?.tenant_id || userProfile?.active_tenant;
         if (!profileTenantId && !isPlatformAdmin) return;
 
@@ -361,20 +469,20 @@ export default function App() {
           id: userProfile.id,
           email: userProfile.email || authUser.email || '',
           name: userProfile.name || authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'User',
-          role: isPlatformAdmin ? 'SuperAdmin' : (userProfile.role || 'Admin'),
+          role: (isPlatformAdmin ? 'SuperAdmin' : effectiveRole) as User['role'],
           tenantId: userProfile.tenant_id || 'platform-control',
           activeTenant: userProfile.active_tenant || userProfile.tenant_id || 'platform-control',
           phone: userProfile.phone || authUser.user_metadata?.phone || undefined,
           isSaaSStaff: userProfile.is_saas_staff || false,
           saasPermissions: userProfile.role_permissions || undefined,
+          rolePermissions: profileRolePermissions,
           profileImage: userProfile.profile_image_url || undefined
         };
 
-        await startCloudSession(sessionData.session.access_token);
-        const restoredStorageTenantId = restoredUser.activeTenant || restoredUser.tenantId;
-        if (restoredStorageTenantId && restoredStorageTenantId !== 'platform-control') {
-          await configureOnlineStorage(restoredStorageTenantId);
-        }
+        // Session tracking and workspace hydration are non-blocking concerns.
+        // The workspace effect below owns hydration once the authenticated user
+        // is committed, avoiding a duplicate request waterfall during login.
+        void startCloudSession(sessionData.session.access_token);
         setUser(restoredUser);
         persistSignedInUser(restoredUser);
 
@@ -392,7 +500,23 @@ export default function App() {
     return () => { cancelled = true; };
   }, [currentPath, tenantDomainContext.kind, user]);
 
-  const handleLoginSuccess = async (authenticatedUser: User) => {
+  // Supabase auth already succeeded by the time handleLoginSuccess runs its
+  // portal checks below, so a rejected login (wrong portal for the account
+  // type) must actively close that session -- otherwise the browser is left
+  // signed in at the auth layer even though the app refused to route the
+  // user anywhere.
+  const signOutRejectedLogin = async () => {
+    try {
+      const client: any = await getSecureDataBridgeClient();
+      if (!isPlaceholderSecureDataBridgeClient(client)) {
+        await client.auth.signOut({ scope: 'local' });
+      }
+    } catch (error) {
+      console.warn('Rejected login session could not be closed', error);
+    }
+  };
+
+  const handleLoginSuccess = (authenticatedUser: User) => {
     logoutInProgressRef.current = false;
     const domainTenantId = tenantDomainContext.kind === 'tenant' ? tenantDomainContext.tenant?.id : null;
     const userTenantId = authenticatedUser.tenantId || authenticatedUser.activeTenant;
@@ -403,18 +527,20 @@ export default function App() {
     }
     if (tenantDomainContext.kind === 'admin' && !isPlatformAdmin) {
       setRedirectMessage('This login is for Orvix platform administrators only. Please use your business login instead.');
+      void signOutRejectedLogin();
+      return;
+    }
+    if (isPlatformAdmin && tenantDomainContext.kind !== 'admin' && currentPath !== '/admin') {
+      setRedirectMessage('Super Admin must sign in through the dedicated /admin portal.');
+      void signOutRejectedLogin();
       return;
     }
     const storageTenantId = authenticatedUser.activeTenant || authenticatedUser.tenantId;
-    let resolvedTenantLogo: string | null = null;
+    // Branding is cosmetic. Refresh it in the background while the existing
+    // workspace effect hydrates tenant data; neither request may hold the user
+    // on the login page after authentication has succeeded.
     if (storageTenantId && storageTenantId !== 'platform-control') {
-      await configureOnlineStorage(storageTenantId);
-      // Branding is cosmetic and must never hold an authenticated user on the
-      // login page during a slow database/network incident.
-      resolvedTenantLogo = await Promise.race([
-        fetchLogoUrl(storageTenantId),
-        new Promise<null>(resolve => window.setTimeout(() => resolve(null), 1500)),
-      ]);
+      void fetchLogoUrl(storageTenantId);
     }
     void recordStaffLogin(authenticatedUser);
     setUser(authenticatedUser);
@@ -426,19 +552,25 @@ export default function App() {
       // logo image (same asset used on the login screen) rather than no
       // image at all, so the workspace-entry reveal always shows a real
       // logo — tenant's if present, Orvix's if not.
-      logoSrc: resolvedTenantLogo || '/jb-logo.png',
+      logoSrc: logoUrl || '/jb-logo.png',
       showTagline: false,
     });
-    // Route immediately underneath the four-second tenant-branded reveal.
+    // Route immediately underneath the two-second tenant-branded reveal.
     commitNavigation(getAuthenticatedRoute(authenticatedUser));
   };
 
   useEffect(() => {
     if (!user) return;
+    // Purely a liveness signal for session tracking (staff session lists,
+    // admin "who's online") — nothing reads this to gate access (login is
+    // always allowed, no device limit), so widening the interval and
+    // skipping backgrounded tabs is invisible to the user: no UI depends on
+    // sub-minute freshness here, and a tab that regains focus/visibility
+    // still touches immediately via the listeners below.
     const touch = () => { void touchCloudSession(); };
     const touchWhenVisible = () => { if (document.visibilityState === 'visible') touch(); };
     touch();
-    const heartbeat = window.setInterval(touch, 60 * 1000);
+    const heartbeat = window.setInterval(touchWhenVisible, 3 * 60 * 1000);
     window.addEventListener('focus', touch);
     document.addEventListener('visibilitychange', touchWhenVisible);
     return () => {
@@ -474,7 +606,7 @@ export default function App() {
       console.warn('Browser auth session could not be closed during logout', error);
     } finally {
       setUser(null);
-      sessionStorage.removeItem('jasper_cashier_user');
+      localStorage.removeItem('jasper_cashier_user');
       resetOnlineStorage();
       splashShownRef.current = false;
       navigateTo('/');
@@ -487,20 +619,20 @@ export default function App() {
       return <div className="min-h-[100dvh] bg-white" aria-hidden="true" />;
     }
 
+    const rendersAuthenticatedWorkspace = Boolean(user) && (
+      isDashboardRoute(currentPath) ||
+      (currentPath === '/' && tenantDomainContext.kind === 'tenant')
+    );
+
+    if (rendersAuthenticatedWorkspace && (!authenticatedSessionReady || !workspaceStorageReady)) {
+      return <div className="min-h-[100dvh] bg-white dark:bg-slate-950" aria-hidden="true" />;
+    }
+
     if (tenantDomainContext.kind === 'tenant-not-found' || tenantDomainContext.kind === 'tenant-inactive' || tenantDomainContext.kind === 'error') {
-      return (
-        <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-6">
-          <div className="max-w-md rounded-3xl border border-slate-200 bg-white p-6 text-center shadow-sm dark:bg-slate-900 dark:border-slate-800">
-            <img src="/jb-logo.png" alt="Orvix Logo" className="mx-auto h-14 w-14 object-contain" />
-            <h1 className="mt-4 text-2xl font-black text-slate-900 dark:text-white">
-              {tenantDomainContext.kind === 'tenant-inactive' ? 'Business Domain Inactive' : 'Tenant Not Found'}
-            </h1>
-            <p className="mt-2 text-sm font-medium text-slate-500 dark:text-slate-400">
-              {tenantDomainContext.message || 'We could not find an active business for this domain.'}
-            </p>
-          </div>
-        </div>
-      );
+      const status: SystemErrorStatus = tenantDomainContext.kind === 'tenant-inactive'
+        ? 403
+        : tenantDomainContext.kind === 'error' ? 500 : 404;
+      return <SystemErrorPage status={status} onRetry={() => window.location.reload()} />;
     }
 
     if (currentPath === '/login' || currentPath.startsWith('/login/')) {
@@ -604,7 +736,10 @@ export default function App() {
         if (tenantDomainContext.kind === 'partner') {
           return <AffiliatePortal onNavigate={navigateTo} forcedRole="partner" />;
         }
-        if (tenantDomainContext.kind === 'app' || tenantDomainContext.kind === 'auth') {
+        if (tenantDomainContext.kind === 'app') {
+          return <LandingPage isDark={isDark} onToggleTheme={toggleTheme} onNavigate={navigateTo} />;
+        }
+        if (tenantDomainContext.kind === 'auth') {
           return (
             <LoginPage
               onLogin={handleLoginSuccess}
@@ -633,9 +768,16 @@ export default function App() {
             landingUrl={publicLandingUrl}
           />
         );
+      case '/401':
+        return <SystemErrorPage status={401} onHome={() => navigateTo('/login')} />;
+      case '/403':
+        return <SystemErrorPage status={403} onHome={() => navigateTo('/')} />;
+      case '/404':
+        return <SystemErrorPage status={404} onHome={() => navigateTo('/')} />;
+      case '/500':
+        return <SystemErrorPage status={500} onRetry={() => window.location.reload()} />;
       default:
-        // Default fallback serves our beautiful styled landing page
-        return <LandingPage isDark={isDark} onToggleTheme={toggleTheme} onNavigate={navigateTo} />;
+        return <SystemErrorPage status={404} onHome={() => navigateTo('/')} />;
     }
   };
 
@@ -647,7 +789,9 @@ export default function App() {
     const isScrollablePage = currentPath === '/'
       || currentPath === '/login'
       || currentPath.startsWith('/affiliate')
-      || currentPath.startsWith('/partner');
+      || currentPath.startsWith('/partner')
+      || ['/401', '/403', '/404', '/500'].includes(currentPath)
+      || !isDashboard;
 
     const html = document.documentElement;
     const root = document.getElementById('root');
@@ -700,7 +844,7 @@ export default function App() {
       {splashRequest && (
         <JasperSplashScreen
           logoSrc={splashRequest.mode === 'tenant' ? splashRequest.logoSrc : undefined}
-          duration={1200}
+          duration={splashRequest.mode === 'tenant' ? 2000 : 1200}
           showTagline={splashRequest.showTagline}
           onFinish={() => {
             const pendingPath = splashRequest.pendingPath;

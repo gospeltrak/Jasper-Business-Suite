@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Users, 
   Smartphone, 
@@ -22,8 +22,10 @@ import {
 import {
   deleteSuperAdminUser,
   loadSuperAdminOverview,
+  loadSuperAdminTenantWorkspace,
   mapSuperAdminUsers,
   resetSuperAdminUserPassword,
+  SuperAdminOverview,
   SuperAdminUserRow,
   updateSuperAdminUser,
   verifySuperAdminPassword
@@ -70,7 +72,10 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
   const [categoryFilter, setCategoryFilter] = useState<'all' | 'organic' | 'sub_affiliate'>('all');
   const [loadError, setLoadError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [isTenantDetailLoading, setIsTenantDetailLoading] = useState(false);
   const [hardwarePurchasesBySubscriber, setHardwarePurchasesBySubscriber] = useState<Record<string, any[]>>({});
+  const overviewRef = useRef<SuperAdminOverview | null>(null);
+  const tenantDetailRequestRef = useRef<AbortController | null>(null);
 
   // Mirror view authentication states
   const [showMirrorModal, setShowMirrorModal] = useState(false);
@@ -101,6 +106,10 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
   // Custom password reset state
   const [newPasswordValue, setNewPasswordValue] = useState('');
 
+  // Business type (retail/pharmacy) correction state
+  const [isEditingBusinessType, setIsEditingBusinessType] = useState(false);
+  const [isSavingBusinessType, setIsSavingBusinessType] = useState(false);
+
   // Pager settings for live logs
   useEffect(() => {
     loadUsersData();
@@ -113,6 +122,8 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
       }
     }
   }, []);
+
+  useEffect(() => () => tenantDetailRequestRef.current?.abort(), []);
 
   // Set up secure lock timer ticking
   useEffect(() => {
@@ -141,6 +152,7 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
         loadPlatformRecord<Record<string, any[]>>('hardware_purchases_by_subscriber', 'global', {})
       ]);
       const liveUsers = mapSuperAdminUsers(overview);
+      overviewRef.current = overview;
       setUsers(liveUsers);
       setHardwarePurchasesBySubscriber(purchasesBySubscriber || {});
       setSelectedUser((current) => current ? liveUsers.find((user) => user.id === current.id) || null : null);
@@ -152,6 +164,43 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
       setIsLoading(false);
     }
     return;
+  };
+
+  const selectUser = async (user: UserAccount) => {
+    tenantDetailRequestRef.current?.abort();
+    setSelectedUser(user);
+    setEditName(user.name);
+    setEditUsername(user.username);
+    setEditEmail(user.email);
+    setEditPhone(user.phone);
+    setEditPlan(user.subscriptionPlan);
+    setEditPaymentStatus(user.paymentStatus);
+    setEditStatus(user.status);
+    setBizSubTab('messages');
+    setIsEditingBusinessType(false);
+    if (!user.tenantId || !overviewRef.current) return;
+
+    const controller = new AbortController();
+    tenantDetailRequestRef.current = controller;
+    setIsTenantDetailLoading(true);
+    try {
+      const workspace = await loadSuperAdminTenantWorkspace(user.tenantId, controller.signal);
+      if (controller.signal.aborted) return;
+      const detailedUser = mapSuperAdminUsers({
+        ...overviewRef.current,
+        workspaces: [workspace],
+      }).find((candidate) => candidate.id === user.id);
+      if (detailedUser) {
+        setSelectedUser((current) => current?.id === user.id ? detailedUser : current);
+      }
+    } catch (error: any) {
+      if (error?.name !== 'AbortError') setLoadError(error?.message || 'Unable to load the selected tenant data.');
+    } finally {
+      if (tenantDetailRequestRef.current === controller) {
+        tenantDetailRequestRef.current = null;
+        setIsTenantDetailLoading(false);
+      }
+    }
   };
 
   const handleAuditLog = async (actionTaken: string, targetName: string) => {
@@ -301,6 +350,30 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
     }
   };
 
+  const handleBusinessTypeChange = async (nextType: 'retail' | 'pharmacy') => {
+    if (!selectedUser || selectedUser.businessType === nextType) {
+      setIsEditingBusinessType(false);
+      return;
+    }
+    if (!(await verifySecureKey())) return;
+
+    setIsSavingBusinessType(true);
+    try {
+      await updateSuperAdminUser(selectedUser.id, { businessType: nextType });
+      const updatedUser: UserAccount = { ...selectedUser, businessType: nextType };
+      const updatedUsersList = users.map(u => u.id === selectedUser.id ? updatedUser : u);
+      setUsers(updatedUsersList);
+      setSelectedUser(updatedUser);
+      setIsEditingBusinessType(false);
+      handleAuditLog(`Changed business type to ${nextType}`, selectedUser.name);
+      alert(`Business type updated to ${nextType === 'pharmacy' ? 'Pharmacy' : 'Retail & Wholesale'}. The tenant's active session updates automatically.`);
+    } catch (error: any) {
+      alert(error?.message || 'Unable to update business type.');
+    } finally {
+      setIsSavingBusinessType(false);
+    }
+  };
+
   // Totals calculations
   const totalDirectRevenue = users
     .filter(u => u.referralSource === 'direct')
@@ -433,18 +506,8 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
                   return (
                     <div 
                       key={u.id}
-                      onClick={() => {
-                        setSelectedUser(u);
-                        setEditName(u.name);
-                        setEditUsername(u.username);
-                        setEditEmail(u.email);
-                        setEditPhone(u.phone);
-                        setEditPlan(u.subscriptionPlan);
-                        setEditPaymentStatus(u.paymentStatus);
-                        setEditStatus(u.status);
-                        setBizSubTab('messages');
-                      }}
-                      className={`p-3 transition-colors cursor-pointer hover:bg-slate-900/40 text-slate-300 ${isSelected ? 'bg-emerald-500/10 border-l-2 border-emerald-500 text-white font-bold' : ''}`}
+                      onClick={() => { void selectUser(u); }}
+                      className={`p-3 transition-colors cursor-pointer hover:bg-slate-900/40 text-slate-300 ${isSelected ? 'bg-emerald-500/10 border-transparent text-white font-bold' : ''}`}
                     >
                       <div className="flex justify-between items-start gap-1">
                         <div className="min-w-0">
@@ -500,6 +563,11 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
         <div className="xl:col-span-8">
           {selectedUser ? (
             <div className="bg-slate-950 border border-slate-850 rounded-2xl overflow-hidden shadow-xl">
+              {isTenantDetailLoading && (
+                <div className="border-b border-indigo-500/20 bg-indigo-500/10 px-5 py-2 text-[10px] font-bold uppercase tracking-wider text-indigo-200">
+                  Loading selected tenant data…
+                </div>
+              )}
               
               {/* IMMERSIVE HEADER PANEL (Replicating user workspace feel) */}
               <div className="bg-gradient-to-r from-slate-950 to-slate-900 p-5 border-b border-slate-850 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -510,6 +578,40 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
                   </div>
                   <h3 className="text-lg font-black text-white mt-1 tracking-tight">{selectedUser.tenantName}</h3>
                   <p className="text-xs text-slate-400 mt-0.5">Subscriber: {selectedUser.name}</p>
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className={`px-2 py-0.5 rounded text-[9px] font-mono font-bold uppercase tracking-wider ${selectedUser.businessType === 'pharmacy' ? 'bg-indigo-500/10 text-indigo-300' : 'bg-slate-800 text-slate-300'}`}>
+                      {selectedUser.businessType === 'pharmacy' ? '💊 Pharmacy' : '🛒 Retail & Wholesale'}
+                    </span>
+                    {isUnlocked && !isEditingBusinessType && (
+                      <button
+                        onClick={() => setIsEditingBusinessType(true)}
+                        className="text-[9px] font-mono uppercase tracking-wider text-indigo-400 hover:text-indigo-300 underline"
+                      >
+                        Change
+                      </button>
+                    )}
+                  </div>
+                  {isUnlocked && isEditingBusinessType && (
+                    <div className="flex items-center gap-2 mt-2">
+                      {(['retail', 'pharmacy'] as const).map((type) => (
+                        <button
+                          key={type}
+                          disabled={isSavingBusinessType}
+                          onClick={() => handleBusinessTypeChange(type)}
+                          className={`px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider border transition-colors disabled:opacity-50 ${selectedUser.businessType === type ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300' : 'bg-slate-900 border-slate-800 text-slate-300 hover:border-slate-700'}`}
+                        >
+                          {type === 'pharmacy' ? '💊 Pharmacy' : '🛒 Retail & Wholesale'}
+                        </button>
+                      ))}
+                      <button
+                        onClick={() => setIsEditingBusinessType(false)}
+                        disabled={isSavingBusinessType}
+                        className="text-[9px] font-mono uppercase tracking-wider text-slate-500 hover:text-slate-300"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )}
                   {/* Location + last activity line */}
                   <div className="flex flex-wrap gap-3 mt-1.5 text-[10px] font-mono text-slate-500">
                     {(selectedUser as any).location && (selectedUser as any).location !== 'Location not provided' && (

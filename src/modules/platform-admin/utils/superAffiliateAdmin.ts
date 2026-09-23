@@ -90,19 +90,6 @@ export interface AffiliateMonitoringData {
 }
 
 const numberValue = (value: unknown) => Number(value || 0);
-const dateValue = (value: unknown) => value ? new Date(String(value)).toISOString().slice(0, 10) : '';
-const readSettings = (tenant: any) => {
-  const settings = tenant?.business_settings || tenant?.company_settings || {};
-  if (typeof settings === 'string') {
-    try { return JSON.parse(settings); } catch { return {}; }
-  }
-  return settings || {};
-};
-
-const packageName = (tenant: any) => {
-  const settings = readSettings(tenant);
-  return settings.subscriptionPlan || settings.package || tenant?.subscription_plan || 'Not recorded';
-};
 
 export async function loadAffiliateMonitoringData(): Promise<AffiliateMonitoringData> {
   const client: any = await getSecureDataBridgeClient();
@@ -112,10 +99,9 @@ export async function loadAffiliateMonitoringData(): Promise<AffiliateMonitoring
   // Partners live in their own dedicated table (affiliate_partners).
   // Sub-affiliates live in 'affiliates', always tied to a partner via
   // parent_super_agent_id (enforced by a DB CHECK constraint).
-  const [partnersRes, affiliatesRes, tenantsRes, referredCustomersRes, commissionLedgerRes] = await Promise.all([
+  const [partnersRes, affiliatesRes, referredCustomersRes, commissionLedgerRes] = await Promise.all([
     client.from('affiliate_partners').select('id, user_id, display_name, promo_code, status, phone_whatsapp, nida_number, tin_number, tin_status, payout_method, payout_account, total_revenue, manager_commission, withholding_tax, net_payout, sub_affiliate_count, is_disabled, created_at').order('created_at', { ascending: false }),
-    client.from('affiliates').select('id, user_id, display_name, referral_code, promo_code, status, parent_super_agent_id, phone_whatsapp, nida_number, tin_number, tin_status, payout_method, payout_account, total_revenue, gross_commission, withholding_tax, net_payout, customers_count, is_disabled, created_at').order('created_at', { ascending: false }),
-    client.from('tenants').select('id, name, business_settings, company_settings, subscription_plan, created_at'),
+    client.from('affiliates').select('id, user_id, display_name, referral_code, promo_code, status, parent_super_agent_id, phone_whatsapp, payout_method, payout_account, is_disabled, created_at').order('created_at', { ascending: false }),
     client.from('referred_customers').select('affiliate_id, sub_affiliate_id, parent_super_agent_id, amount_paid, commission_amount, payment_status, created_at'),
     client.from('commission_ledger').select('affiliate_id, sub_affiliate_id, parent_super_agent_id, revenue_amount, manager_commission_5, sub_affiliate_gross_commission_15, withholding_tax_amount, sub_affiliate_net_payout, status'),
   ]);
@@ -123,7 +109,6 @@ export async function loadAffiliateMonitoringData(): Promise<AffiliateMonitoring
   const failed = [
     partnersRes,
     affiliatesRes,
-    tenantsRes,
     referredCustomersRes,
     commissionLedgerRes,
   ].find((result: any) => result.error);
@@ -131,7 +116,6 @@ export async function loadAffiliateMonitoringData(): Promise<AffiliateMonitoring
 
   const allPartners: any[] = partnersRes.data || [];
   const allAffiliates: any[] = affiliatesRes.data || [];
-  const tenantById = new Map((tenantsRes.data || []).map((row: any) => [String(row.id), row]));
   const referredCustomers: any[] = referredCustomersRes.data || [];
   const commissionRows: any[] = commissionLedgerRes.data || [];
 
@@ -275,17 +259,37 @@ export async function loadAffiliateMonitoringData(): Promise<AffiliateMonitoring
   });
 
   // ── Organic subscribers (tenants not tied to any affiliate) ────────────
-  const referredTenantIds = new Set(referredCustomers.map((r: any) => r.tenant_id || r.customer_id).filter(Boolean));
-  const organicSubscribers = (tenantsRes.data || [])
-    .filter((t: any) => !referredTenantIds.has(t.id))
-    .map((t: any) => ({
-      id: t.id,
-      name: t.name,
-      plan: t.subscription_plan || 'trial',
-      createdAt: t.created_at,
-    }));
+  return { affiliates: affiliateRows, organicSubscribers: [], agents, subAffiliates };
+}
 
-  return { affiliates: affiliateRows, organicSubscribers, agents, subAffiliates };
+export async function loadSuperAffiliateDetail(id: string): Promise<SuperAffiliateRow> {
+  const client: any = await getSecureDataBridgeClient();
+  const { data: user } = await client.auth.getUser();
+  if (!user?.user) throw new Error('A Supabase-authenticated Super Admin account is required for affiliate details.');
+  const { data, error } = await client
+    .from('affiliates')
+    .select('id,user_id,display_name,referral_code,promo_code,status,parent_super_agent_id,phone_whatsapp,nida_number,tin_number,payout_method,payout_account,total_revenue,gross_commission,withholding_tax,net_payout,customers_count,is_disabled')
+    .eq('id', id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error('Affiliate account was not found.');
+  const grossRevenue = numberValue(data.total_revenue);
+  const grossCommission = numberValue(data.gross_commission) || grossRevenue * 0.15;
+  return {
+    id: data.id, display_name: data.display_name,
+    referral_code: data.referral_code || data.promo_code || '',
+    status: data.is_disabled ? 'suspended' : (data.status || 'active'),
+    user_id: data.user_id, affiliate_type: 'sub_affiliate',
+    parent_agent_id: data.parent_super_agent_id || null,
+    phone_whatsapp: data.phone_whatsapp || null,
+    nida_number: data.nida_number || null, tin_number: data.tin_number || null,
+    payout_method: data.payout_method || null, payout_account: data.payout_account || null,
+    mobile_money_number: data.payout_account || null, mobile_money_provider: data.payout_method || null,
+    promo_code: data.promo_code || data.referral_code || null, referral_link: null,
+    grossRevenue, grossCommission, withholdingTax: numberValue(data.withholding_tax),
+    netPayout: numberValue(data.net_payout), referrals: numberValue(data.customers_count),
+    payouts: 0, payoutStatus: 'pending',
+  };
 }
 
 export async function loadSuperAffiliateRows(): Promise<SuperAffiliateRow[]> {

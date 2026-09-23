@@ -22,14 +22,18 @@ import {
   FileText,
   Printer,
   Download,
+  Send,
   Trash2,
   Edit,
   MoreVertical,
-  Eye
+  Eye,
+  Wallet
 } from 'lucide-react';
-import { printPdfFromElement, shareElementPdfToWhatsApp } from '../../shared/utils/pdfShare';
-import { getBusinessDisplayName, getBusinessLogo } from '../../shared/utils/businessBranding';
+import { printPdfFromElement, downloadPdfFromElement, shareElementPdfToWhatsApp } from '../../shared/utils/pdfShare';
+import { getActiveBranchAddress, getActiveBranchDisplayName, getActiveBranchEmail, getActiveBranchLogo, getActiveBranchPhone } from '../../shared/utils/businessBranding';
+import type { BranchSummary } from '../branches/branchTypes';
 import { formatSaleItemQuantity } from '../../shared/utils/unitFormatter';
+import { buildWhatsAppLink } from '../../utils/whatsapp';
 
 // A high-fidelity composite component representing a rider on a motorcycle with a delivery basket on their back
 function DeliveryMotorcycleIcon({ className, size = 18 }: { className?: string; size?: number }) {
@@ -109,6 +113,7 @@ interface DashboardDeliveriesProps {
   }) => Promise<boolean> | boolean;
   onDeleteDelivery?: (deliveryId: string) => Promise<boolean>;
   activeBranchName?: string;
+  activeBranch?: BranchSummary | null;
 }
 
 export default function DashboardDeliveries({
@@ -130,7 +135,8 @@ export default function DashboardDeliveries({
   onAddExpense,
   onEditDelivery,
   onDeleteDelivery,
-  activeBranchName
+  activeBranchName,
+  activeBranch
 }: DashboardDeliveriesProps) {
   const [activeSubTab, setActiveSubTab] = useState<'queue' | 'riders' | 'notes' | 'accounting'>('queue');
   
@@ -241,6 +247,12 @@ export default function DashboardDeliveries({
   const [copiedText, setCopiedText] = useState(false);
   const [deliveryPdfStatus, setDeliveryPdfStatus] = useState<string | null>(null);
 
+  // "Send Note" — a plain WhatsApp text message (the dispatch note, not a
+  // PDF), sent to whichever number the user types in, not just whatever
+  // phone happens to be on file for the delivery.
+  const [sendNoteTarget, setSendNoteTarget] = useState<Delivery | null>(null);
+  const [sendNotePhone, setSendNotePhone] = useState('');
+
   // Delivery Note Creator Form States
   const [notePINo, setNotePINo] = useState(() => `PI-${Math.floor(10000 + Math.random() * 90000)}`);
   const [noteLPO, setNoteLPO] = useState(() => `LP-${Math.floor(100 + Math.random() * 900)}`);
@@ -265,19 +277,39 @@ export default function DashboardDeliveries({
   const [selectedRiderForNoteId, setSelectedRiderForNoteId] = useState('');
   const [driverType, setDriverType] = useState<'system' | 'external'>('system');
   const [externalDriverName, setExternalDriverName] = useState('');
-  const [productSearchTerm, setProductSearchTerm] = useState('');
-  const [showSearchResults, setShowSearchResults] = useState(false);
+  const [externalDriverPhone, setExternalDriverPhone] = useState('');
+  const [externalDriverClassification, setExternalDriverClassification] = useState<'rider' | 'driver'>('rider');
+  const [externalDriverVehicleType, setExternalDriverVehicleType] = useState<'motorcycle' | 'tuktuk' | 'car'>('motorcycle');
+  const [externalDriverVehicleColor, setExternalDriverVehicleColor] = useState('');
+  const [externalDriverLicensePlate, setExternalDriverLicensePlate] = useState('');
 
   // Dynamically computed supplier details
-  const computedLogo = ((() => { const stores = systemSettings?.business?.registeredStores || []; const activeBranch = stores[0]; const bb = activeBranch && systemSettings?.business?.branchBranding?.[activeBranch]; return bb?.businessLogoLight || bb?.businessLogo || null; })()) || getBusinessLogo(systemSettings) || '';
-  const computedLogoName = getBusinessDisplayName(activeTenant, systemSettings);
-  const computedCompanyTitle = getBusinessDisplayName(activeTenant, systemSettings);
-  const computedCompanyAddress = systemSettings?.business?.businessAddress || '';
-  const computedCompanyPhone = systemSettings?.business?.businessPhone || '';
-  const computedCompanyEmail = systemSettings?.business?.businessEmail || '';
+  const computedLogo = getActiveBranchLogo(systemSettings, activeBranch) || '';
+  const computedLogoName = getActiveBranchDisplayName(activeTenant, systemSettings, undefined, activeBranch);
+  const computedCompanyTitle = getActiveBranchDisplayName(activeTenant, systemSettings, undefined, activeBranch);
+  const computedCompanyAddress = getActiveBranchAddress(systemSettings, activeBranch);
+  const computedCompanyPhone = getActiveBranchPhone(systemSettings, activeBranch);
+  const computedCompanyEmail = getActiveBranchEmail(systemSettings, activeBranch);
   const computedTIN = systemSettings?.invoiceSettings?.tin || systemSettings?.invoiceSettings?.tinNumber || '';
   const computedInvoiceColor = systemSettings?.invoiceSettings?.invoiceColor || '#102d68';
-  const selectedRiderForNote = riders.find(r => r.id === selectedRiderForNoteId);
+  const noteDriverOptions: DeliveryRider[] = [
+    ...riders.filter(rider => rider.tenantId === activeTenant.id),
+    ...(systemSettings?.staffs || [])
+      .filter(staff => staff.status !== 'inactive' && (staff.staffType === 'driver' || staff.staffType === 'rider'))
+      .map(staff => ({
+        id: staff.id,
+        name: staff.name,
+        phone: staff.phone,
+        vehicleType: staff.vehicleType || 'motorcycle',
+        classification: staff.classification || (staff.staffType === 'driver' ? 'driver' : 'rider'),
+        vehicleColor: staff.vehicleColor || '',
+        licensePlate: staff.licensePlate || '',
+        tenantId: activeTenant.id,
+        branchId: staff.branchId,
+        signatureImage: staff.signatureImage,
+      })),
+  ].filter((driver, index, all) => all.findIndex(candidate => candidate.id === driver.id) === index);
+  const selectedRiderForNote = noteDriverOptions.find(r => r.id === selectedRiderForNoteId);
   
   // Dynamic table items
   const [noteItems, setNoteItems] = useState<Array<{id:string;description:string;unit:string;qty:number}>>([]);
@@ -285,23 +317,32 @@ export default function DashboardDeliveries({
   const [invoiceSearchResults, setInvoiceSearchResults] = useState<any[]>([]);
   const [linkedInvoiceRef, setLinkedInvoiceRef] = useState('');
 
-  // Search sales/invoices by reference number, customer name, or date
+  // Search only the tenant/branch-scoped records supplied by Dashboard.
   const handleInvoiceSearch = (query: string) => {
     setInvoiceSearchQuery(query);
     setLinkedInvoiceRef('');
-    if (!query.trim() || !sales?.length) { setInvoiceSearchResults([]); return; }
+    if (!query.trim()) { setInvoiceSearchResults([]); return; }
     const q = query.toLowerCase().trim();
-    const results = (sales || []).filter(s =>
-      (s.reference && s.reference.toLowerCase().includes(q)) ||
-      (s.id && s.id.toLowerCase().includes(q)) ||
-      (s.customerName && s.customerName.toLowerCase().includes(q)) ||
-      (s.timestamp && s.timestamp.startsWith(q))
-    ).slice(0, 8);
-    setInvoiceSearchResults(results);
+    const saleMatches = (sales || []).filter(s =>
+      [s.reference, s.id, s.customerName].some(value => value?.toLowerCase().includes(q))
+      || s.timestamp?.startsWith(q)
+    ).map(record => ({ kind: 'sale', record, reference: record.reference || record.id }));
+    const deliveryMatches = (deliveries || []).filter(delivery =>
+      [delivery.id, delivery.saleId, delivery.customerName].some(value => value?.toLowerCase().includes(q))
+    ).map(record => ({ kind: record.status === 'Pending Dispatch' ? 'delivery' : 'dispatch', record, reference: record.id }));
+    const pendingMatches = (pendingNotes || []).filter(note =>
+      [note.id, note.saleId, note.reference, note.customerName].some(value => String(value || '').toLowerCase().includes(q))
+    ).map(record => ({ kind: 'delivery', record, reference: record.id || record.saleId || record.reference }));
+
+    const uniqueResults = [...deliveryMatches, ...pendingMatches, ...saleMatches]
+      .filter((result, index, all) => all.findIndex(candidate => `${candidate.kind}:${candidate.reference}` === `${result.kind}:${result.reference}`) === index)
+      .slice(0, 8);
+    setInvoiceSearchResults(uniqueResults);
   };
 
   // Pull products from a selected sale/invoice into the delivery note
   const handleLoadFromSale = (sale: any) => {
+    const linkedDelivery = deliveries.find(delivery => delivery.saleId === sale.id || delivery.saleId === sale.reference);
     const items = (sale.items || []).map((item: any, idx: number) => ({
       id: (idx + 1).toString(),
       description: item.productName || item.name || 'Item',
@@ -314,13 +355,69 @@ export default function DashboardDeliveries({
     setInvoiceSearchResults([]);
     // Auto-fill customer info
     if (sale.customerName) setNoteDeliveryToTitle(sale.customerName);
-    if (sale.customerPhone) setNoteDeliveryToAddress(`Phone: ${sale.customerPhone}`);
+    const destination = sale.customerAddress || sale.deliveryAddress || linkedDelivery?.customerAddress || linkedDelivery?.notes;
+    setNoteDeliveryToAddress([destination, sale.customerPhone ? `Phone: ${sale.customerPhone}` : ''].filter(Boolean).join(' · '));
     if (sale.reference || sale.id) setNotePINo((sale.reference || sale.id).replace(/[^0-9A-Za-z-]/g, '').slice(0, 12));
+    if (linkedDelivery?.riderDetails || linkedDelivery?.riderId) {
+      applyDeliveryDriver(linkedDelivery);
+    } else {
+      setSelectedRiderForNoteId('');
+      setNoteDeliveredByName('');
+      setNoteDeliveredBySignature('');
+      setNoteTransportType('');
+      setNoteVehiclePlate('');
+    }
   };
 
-  const [newItemDesc, setNewItemDesc] = useState('');
-  const [newItemUnit, setNewItemUnit] = useState('PC');
-  const [newItemQty, setNewItemQty] = useState(1);
+  const applyDeliveryDriver = (delivery: Delivery) => {
+    const rider = delivery.riderId ? noteDriverOptions.find(item => item.id === delivery.riderId) : undefined;
+    if (rider) {
+      setDriverType('system');
+      setSelectedRiderForNoteId(rider.id);
+      setNoteDeliveredByName(rider.name);
+      setNoteDeliveredBySignature(rider.name.split(' ').map(word => word[0]).join('').toUpperCase());
+    } else if (delivery.riderDetails) {
+      const details = delivery.riderDetails;
+      setDriverType('external');
+      setSelectedRiderForNoteId('');
+      setExternalDriverName(details.name || '');
+      setExternalDriverPhone(details.phone || '');
+      setExternalDriverClassification(details.classification || 'rider');
+      setExternalDriverVehicleType(details.vehicleType || 'motorcycle');
+      setExternalDriverVehicleColor(details.vehicleColor || '');
+      setExternalDriverLicensePlate(details.licensePlate || '');
+      setNoteDeliveredByName(details.name || '');
+      setNoteDeliveredBySignature((details.name || '').split(' ').filter(Boolean).map(word => word[0]).join('').toUpperCase());
+    }
+    if (delivery.riderDetails) {
+      const details = delivery.riderDetails;
+      setNoteTransportType(`${details.vehicleType.charAt(0).toUpperCase()}${details.vehicleType.slice(1)}`);
+      setNoteVehiclePlate(details.licensePlate || '');
+    }
+  };
+
+  const handleLoadFromDelivery = (delivery: Delivery) => {
+    handleLoadFromOrder(delivery);
+    const reference = delivery.id || delivery.saleId;
+    setLinkedInvoiceRef(reference);
+    setInvoiceSearchQuery(reference);
+    setInvoiceSearchResults([]);
+    setNotePINo(reference.replace(/[^0-9A-Za-z-]/g, '').slice(0, 12));
+    setNoteDeliveryToAddress([
+      delivery.customerAddress || delivery.notes,
+      delivery.customerPhone ? `Phone: ${delivery.customerPhone}` : '',
+    ].filter(Boolean).join(' · '));
+    if (delivery.riderDetails || delivery.riderId) {
+      applyDeliveryDriver(delivery);
+    } else {
+      setSelectedRiderForNoteId('');
+      setNoteDeliveredByName('');
+      setNoteDeliveredBySignature('');
+      setNoteTransportType('');
+      setNoteVehiclePlate('');
+    }
+  };
+
   const [openDropdownRow, setOpenDropdownRow] = useState<string | null>(null);
 
   // Dispatch Jobs (queue) compact list: action menu + View/Edit/Delete modals
@@ -447,32 +544,11 @@ export default function DashboardDeliveries({
     }
   };
 
-  const handleAddNoteItem = () => {
-    if (!newItemDesc.trim()) return;
-    const newId = (noteItems.length > 0 ? (Math.max(...noteItems.map(item => parseInt(item.id) || 0)) + 1).toString() : '1');
-    setNoteItems([
-      ...noteItems,
-      {
-        id: newId,
-        description: newItemDesc.trim(),
-        unit: newItemUnit.trim(),
-        qty: newItemQty
-      }
-    ]);
-    setNewItemDesc('');
-    setNewItemUnit('PC');
-    setNewItemQty(1);
-  };
-
-  const handleDeleteNoteItem = (id: string) => {
-    setNoteItems(noteItems.filter(item => item.id !== id));
-  };
-
   const handleLoadFromOrder = (del: Delivery) => {
     setNoteDeliveryToTitle(del.customerName);
     setNoteDeliveryToAddress(del.customerPhone ? `Phone: ${del.customerPhone}` : 'Custom delivery path');
     setNotePINo(del.id?.replace(/[^0-9]/g, '').slice(0, 6) || Math.floor(Math.random() * 900000 + 100000).toString());
-    const mapped = del.items.map((item, idx) => ({
+    const mapped = (del.items || []).map((item, idx) => ({
       id: (idx + 1).toString(),
       description: item.productName,
       unit: item.unit || item.baseUnit || item.sellUnit || 'PC',
@@ -497,26 +573,67 @@ export default function DashboardDeliveries({
     }
   };
 
-  const handleFinishDeliveryNote = () => {
-    // Validate mandatory fields
+  const handleDownloadNote = async () => {
+    try {
+      setDeliveryPdfStatus('Generating delivery note PDF...');
+      await downloadPdfFromElement({
+        elementId: 'delivery-note-print-area',
+        fileName: `delivery-note-${notePINo || Date.now()}.pdf`,
+        format: 'a4'
+      });
+      setDeliveryPdfStatus('✅ Delivery note downloaded.');
+    } catch (err: any) {
+      setDeliveryPdfStatus('Download failed: ' + (err?.message || 'Please try again.'));
+    } finally {
+      setTimeout(() => setDeliveryPdfStatus(null), 4000);
+    }
+  };
+
+  const handleDownloadNoteForDelivery = async (del: Delivery) => {
+    const dnNo = `DN-${new Date(del.timestamp || Date.now()).getFullYear()}-${del.id.toUpperCase().replace('DLV-', '').replace('DLV_', '').slice(0, 6)}`;
+    try {
+      setDeliveryPdfStatus('Preparing delivery note PDF...');
+      // See openWhatsAppLink above — the printable note only exists in the
+      // DOM while the Notes tab is active, so this must load the delivery
+      // into the composer and switch tabs synchronously before capture.
+      flushSync(() => {
+        handleLoadFromOrder(del);
+        setActiveSubTab('notes');
+      });
+      await downloadPdfFromElement({
+        elementId: 'delivery-note-print-area',
+        fileName: `delivery-note-${dnNo}.pdf`,
+        format: 'a4'
+      });
+      setDeliveryPdfStatus('✅ Delivery note downloaded.');
+    } catch (err: any) {
+      setDeliveryPdfStatus('Download failed: ' + (err?.message || 'Open the delivery note preview first so the PDF can be created.'));
+    } finally {
+      setTimeout(() => setDeliveryPdfStatus(null), 4000);
+    }
+  };
+
+  const validateNoteMandatoryFields = (): boolean => {
     if (!noteDeliveryToAddress.trim() || noteDeliveryToAddress === '123 Main Street, City') {
       alert('⚠️ Mandatory delivery location/address is missing or needs to be customized! Please provide the exact location address.');
-      return;
+      return false;
     }
     if (!noteTransportType.trim()) {
       alert('⚠️ Type of transport is a mandatory field! Please select standard type of transport.');
-      return;
+      return false;
     }
     if (!noteVehiclePlate.trim()) {
       alert('⚠️ Vehicle registration plate is a mandatory field! Please specify.');
-      return;
+      return false;
     }
     if (!noteDeliveredByName.trim()) {
       alert('⚠️ Name of person delivering is a mandatory field! Please fill.');
-      return;
+      return false;
     }
+    return true;
+  };
 
-    // Process completion
+  const markNoteCompleted = () => {
     if (activeEditingPendingNoteId) {
       if (onUpdatePendingNotes) {
         // Remove it from draft as it's completed
@@ -524,11 +641,30 @@ export default function DashboardDeliveries({
       }
       setActiveEditingPendingNoteId(null);
     }
+  };
 
-    alert('🎉 Success! Delivery Note completed successfully. Ready to Print!');
-    
-    // Auto trigger print
-    handlePrintNote();
+  const handleSendNoteWhatsApp = async () => {
+    if (!validateNoteMandatoryFields()) return;
+
+    const phone = window.prompt('Enter the WhatsApp number to send this delivery note to:');
+    if (!phone || !phone.trim()) return;
+
+    try {
+      setDeliveryPdfStatus('Generating delivery note PDF...');
+      await shareElementPdfToWhatsApp({
+        elementId: 'delivery-note-print-area',
+        fileName: `delivery-note-${notePINo || Date.now()}.pdf`,
+        format: 'a4',
+        phone: phone.trim(),
+        message: 'Please find attached your delivery note.',
+      });
+      setDeliveryPdfStatus('✅ Delivery note sent.');
+      markNoteCompleted();
+    } catch (err: any) {
+      setDeliveryPdfStatus('Send failed: ' + (err?.message || 'Please try again.'));
+    } finally {
+      setTimeout(() => setDeliveryPdfStatus(null), 4000);
+    }
   };
 
   const currency = activeTenant.currency;
@@ -537,31 +673,6 @@ export default function DashboardDeliveries({
   const activeStaffDrivers: StaffSettings[] = (systemSettings?.staffs || []).filter(
     s => s.staffType === 'driver' || s.staffType === 'rider'
   );
-
-  const filteredProductsForSelect = products.filter(p => {
-    if (!productSearchTerm.trim()) return false;
-    const term = productSearchTerm.toLowerCase();
-    return (
-      p.name.toLowerCase().includes(term) ||
-      (p.barcode && p.barcode.toLowerCase().includes(term)) ||
-      (p.sku && p.sku.toLowerCase().includes(term))
-    );
-  });
-
-  const handleSelectProductFromSearch = (p: Product) => {
-    const newId = (noteItems.length > 0 ? (Math.max(...noteItems.map(item => parseInt(item.id) || 0)) + 1).toString() : '1');
-    setNoteItems([
-      ...noteItems,
-      {
-        id: newId,
-        description: p.name,
-        unit: 'PC',
-        qty: 1
-      }
-    ]);
-    setProductSearchTerm('');
-    setShowSearchResults(false);
-  };
 
   // Pre-fill fields or trigger dispatch
   const handleOpenDispatch = (del: Delivery) => {
@@ -739,7 +850,7 @@ Vehicle Plate Number: ${plateNumber}
         elementId: 'delivery-note-print-area',
         fileName: `delivery-note-${dnNo}.pdf`,
         phone: del.customerPhone,
-        message: `Hello ${customerName}, please find attached your delivery note PDF from ${getBusinessDisplayName(activeTenant, systemSettings)}. Thank you.`,
+        message: `Hello ${customerName}, please find attached your delivery note PDF from ${getActiveBranchDisplayName(activeTenant, systemSettings, undefined, activeBranch)}. Thank you.`,
         format: 'a4'
       });
       setDeliveryPdfStatus('PDF ready for WhatsApp.');
@@ -763,10 +874,10 @@ Vehicle Plate Number: ${plateNumber}
   const deliveredDeliveries = deliveries.filter(del => del.status === 'Delivered').length;
   const deliveryIncomeTotal = deliveries.reduce((sum, del) => sum + (del.deliveryCost || 0), 0);
   const deliveryStats = [
-    { label: 'Pending', value: pendingDeliveries, icon: Clock, tone: 'text-amber-800 bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200', iconTone: 'bg-amber-100 text-amber-700' },
-    { label: 'On route', value: dispatchedDeliveries, icon: Bike, tone: 'text-sky-800 bg-gradient-to-br from-sky-50 to-indigo-50 border-sky-200', iconTone: 'bg-sky-100 text-sky-700' },
-    { label: 'Delivered', value: deliveredDeliveries, icon: CheckCircle, tone: 'text-emerald-800 bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-200', iconTone: 'bg-emerald-100 text-emerald-700' },
-    { label: 'Revenue', value: `${currency}${Math.round(deliveryIncomeTotal).toLocaleString()}`, icon: Printer, tone: 'text-white bg-gradient-to-br from-emerald-600 to-emerald-800 border-emerald-700', iconTone: 'bg-white/20 text-white' }
+    { label: 'Pending', value: pendingDeliveries, icon: Clock, accent: '#d97706' },
+    { label: 'On Route', value: dispatchedDeliveries, icon: Bike, accent: '#0284c7' },
+    { label: 'Delivered', value: deliveredDeliveries, icon: CheckCircle, accent: '#059669' },
+    { label: 'Revenue', value: `${currency}${Math.round(deliveryIncomeTotal).toLocaleString()}`, icon: Wallet, accent: '#4f46e5' }
   ];
 
   return (
@@ -783,9 +894,6 @@ Vehicle Plate Number: ${plateNumber}
                 <h3 className="text-lg sm:text-xl font-black text-slate-950 tracking-tight font-sans leading-tight">
                   Delivery Operations
                 </h3>
-                <p className="text-[11px] sm:text-sm text-slate-500 font-sans max-w-2xl mt-0.5 sm:mt-1 leading-snug sm:leading-relaxed">
-                  Dispatch orders, manage delivery notes, track riders, and reconcile logistics payments.
-                </p>
               </div>
             </div>
           </div>
@@ -794,17 +902,16 @@ Vehicle Plate Number: ${plateNumber}
             {deliveryStats.map((stat) => {
               const StatIcon = stat.icon;
               return (
-                <div key={stat.label} className={`relative min-w-0 overflow-hidden rounded-2xl border px-3 py-3 shadow-[0_6px_18px_rgba(15,23,42,0.08)] ${stat.tone}`} title={`${stat.label}: ${stat.value}`}>
-                  <div className="relative flex items-center justify-between gap-2">
-                    <div className="min-w-0">
-                      <span className="block truncate text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-current/65 font-mono">{stat.label}</span>
-                      <span className="block mt-1.5 text-base sm:text-lg font-black font-mono tracking-tight leading-none whitespace-nowrap">{stat.value}</span>
-                    </div>
-                    <span className={`h-9 w-9 rounded-xl flex items-center justify-center shrink-0 shadow-sm ${stat.iconTone}`}>
+                <div key={stat.label} className="min-w-0 bg-white border border-slate-200 rounded-2xl px-3.5 py-3 shadow-sm" title={`${stat.label}: ${stat.value}`}>
+                  <div className="flex items-center gap-2.5">
+                    <span className="h-9 w-9 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: `${stat.accent}17`, color: stat.accent }}>
                       <StatIcon className="w-4 h-4" />
                     </span>
+                    <div className="min-w-0">
+                      <span className="block truncate text-[9px] sm:text-[10px] font-bold uppercase tracking-wide text-slate-400">{stat.label}</span>
+                      <span className="block mt-0.5 text-base sm:text-lg font-black text-slate-900 tracking-tight leading-none whitespace-nowrap">{stat.value}</span>
+                    </div>
                   </div>
-                  <span className="absolute -right-5 -bottom-7 h-16 w-16 rounded-full bg-current opacity-[0.035]" aria-hidden="true" />
                 </div>
               );
             })}
@@ -876,11 +983,11 @@ Vehicle Plate Number: ${plateNumber}
                   onClick={() => handleSubTabChange(tab.id)}
                   className={`basis-0 flex-1 min-w-0 min-h-[44px] sm:min-h-[48px] rounded-xl border flex flex-row items-center justify-center gap-1.5 text-[10px] font-black transition-all ${
                     isActive
-                      ? 'bg-gradient-to-br from-emerald-600 to-emerald-800 text-white border-emerald-700 shadow-md'
+                      ? 'bg-emerald-500 text-white border-emerald-500 shadow-md'
                       : 'bg-transparent text-slate-500 border-transparent active:bg-slate-100'
                   }`}
                 >
-                  <Icon className={`w-4 h-4 ${isActive ? 'text-emerald-300' : 'text-slate-400'}`} />
+                  <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
                   <span>{tab.label}</span>
                 </button>
               );
@@ -1024,6 +1131,15 @@ Vehicle Plate Number: ${plateNumber}
                                 <Edit className="w-3.5 h-3.5 text-blue-400" />
                                 Edit Delivery
                               </button>
+                              {del.riderDetails && (
+                                <button
+                                  className="w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center gap-2 cursor-pointer"
+                                  onClick={() => { setOpenQueueActionId(null); setSendNotePhone(del.customerPhone || ''); setSendNoteTarget(del); }}
+                                >
+                                  <MessageSquare className="w-3.5 h-3.5 text-emerald-500" />
+                                  Send Note
+                                </button>
+                              )}
                               <button
                                 className="w-full text-left px-4 py-2.5 hover:bg-red-50 text-red-600 flex items-center gap-2 cursor-pointer"
                                 onClick={() => { setOpenQueueActionId(null); setDeletingDelivery(del); }}
@@ -1906,38 +2022,10 @@ Vehicle Plate Number: ${plateNumber}
             </div>
           )}
 
-          {/* Quick Order Loader bar */}
-          <div className="bg-white border border-slate-200 p-3 sm:p-4 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-sm">
-            <div>
-              <h4 className="font-extrabold text-slate-800 text-sm tracking-tight flex items-center space-x-1.5">
-                <FileText className="w-4 h-4 text-emerald-600" />
-                <span>Load a Recent POS Delivery</span>
-              </h4>
-            </div>
-            <div className="w-full md:w-80 shrink-0">
-              <select
-                onChange={(e) => {
-                  const selectedId = e.target.value;
-                  const found = deliveries.find(d => d.id === selectedId);
-                  if (found) handleLoadFromOrder(found);
-                }}
-                defaultValue=""
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-emerald-500 cursor-pointer"
-              >
-                <option value="" disabled>-- Select Recent POS Delivery --</option>
-                {deliveries.map(del => (
-                  <option key={del.id} value={del.id}>
-                    {del.customerName} - {del.id} ({del.items.length} items)
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
             
             {/* Form Fields Side panel (Left - 5 columns) */}
-            <div className="lg:col-span-12 xl:col-span-5 bg-white border border-slate-200 p-3.5 sm:p-5 rounded-2xl space-y-4 shadow-sm xl:max-h-[85vh] overflow-y-auto scrollbar-thin">
+            <div className="lg:col-span-12 xl:col-span-5 bg-white border border-slate-200 p-3.5 sm:p-5 rounded-2xl space-y-4 shadow-sm xl:max-h-[85vh] xl:overflow-y-auto scrollbar-thin flex flex-col">
               <div className="border-b border-slate-100 pb-3 flex justify-between items-center">
                 <h4 className="font-black text-slate-900 tracking-tight text-sm">Delivery Note Custom Fields</h4>
                 <button 
@@ -2061,8 +2149,8 @@ Vehicle Plate Number: ${plateNumber}
               </div>
 
               {/* 3b. Invoice / Sales Order Lookup */}
-              <div className="space-y-3">
-                <span className="text-[10px] font-black text-slate-400 block tracking-wider uppercase font-mono border-b pb-1">3. Load from Invoice / Sales Order</span>
+              <div className="space-y-3 order-first">
+                <span className="text-[10px] font-black text-slate-400 block tracking-wider uppercase font-mono border-b pb-1">Invoice / Sales / Delivery / Dispatch Number</span>
                 <div className="relative">
                   <div className="flex gap-2 items-center">
                     <div className="relative flex-1">
@@ -2071,7 +2159,7 @@ Vehicle Plate Number: ${plateNumber}
                       </svg>
                       <input
                         type="text"
-                        placeholder="Search by invoice no, order ref, or customer name…"
+                        placeholder="Enter invoice, sale, delivery or dispatch number…"
                         value={invoiceSearchQuery}
                         onChange={(e) => handleInvoiceSearch(e.target.value)}
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-8 py-2 text-xs font-medium text-slate-800 outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/20"
@@ -2091,17 +2179,17 @@ Vehicle Plate Number: ${plateNumber}
                   {/* Search results dropdown */}
                   {invoiceSearchResults.length > 0 && (
                     <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 overflow-hidden max-h-60 overflow-y-auto">
-                      {invoiceSearchResults.map((sale: any) => (
-                        <button key={sale.id} type="button" onClick={() => handleLoadFromSale(sale)}
+                      {invoiceSearchResults.map((result: any) => (
+                        <button key={`${result.kind}-${result.reference}`} type="button" onClick={() => result.kind === 'sale' ? handleLoadFromSale(result.record) : handleLoadFromDelivery(result.record)}
                           className="w-full text-left px-4 py-3 hover:bg-emerald-50 border-b border-slate-50 last:border-0 transition-colors cursor-pointer border-none bg-transparent">
                           <div className="flex items-center justify-between gap-3">
                             <div className="min-w-0">
-                              <p className="text-xs font-black text-slate-900 truncate">{sale.reference || sale.id}</p>
-                              <p className="text-[10px] text-slate-500 truncate">{sale.customerName || 'No customer name'} · {new Date(sale.timestamp).toLocaleDateString()}</p>
+                              <p className="text-xs font-black text-slate-900 truncate">{result.reference}</p>
+                              <p className="text-[10px] text-slate-500 truncate">{result.record.customerName || 'Customer'} · {new Date(result.record.timestamp).toLocaleDateString()}</p>
                             </div>
                             <div className="text-right shrink-0">
-                              <p className="text-[10px] font-bold text-emerald-600">{(sale.items || []).length} items</p>
-                              <p className="text-[9px] text-slate-400 font-mono">{sale.paymentMethod || 'Cash'}</p>
+                              <p className="text-[10px] font-bold text-emerald-600">{(result.record.items || []).length} items</p>
+                              <p className="text-[9px] text-slate-400 font-mono uppercase">{result.kind}</p>
                             </div>
                           </div>
                         </button>
@@ -2110,122 +2198,19 @@ Vehicle Plate Number: ${plateNumber}
                   )}
 
                   {invoiceSearchQuery.trim() && invoiceSearchResults.length === 0 && !linkedInvoiceRef && (
-                    <p className="text-[10px] text-slate-400 mt-1.5 ml-1">No matching invoice/order found — add items manually below.</p>
+                    <p className="text-[10px] text-slate-400 mt-1.5 ml-1">No matching tenant record was found.</p>
                   )}
                 </div>
-                {!linkedInvoiceRef && !invoiceSearchQuery && (
-                  <p className="text-[10px] text-slate-400">Search above to auto-fill items, or skip and add manually.</p>
-                )}
               </div>
 
               {/* Table Note Items Builder */}
               <div className="space-y-3 pb-3">
-                <span className="text-[10px] font-black text-slate-400 block tracking-wider uppercase font-mono border-b pb-1">4. Delivery Items list ({noteItems.length})</span>
+                <span className="text-[10px] font-black text-slate-400 block tracking-wider uppercase font-mono border-b pb-1">Loaded Delivery Items ({noteItems.length})</span>
                 
-                {/* Loader from Products search query box */}
-                {products && products.length > 0 && (
-                  <div className="bg-slate-50 p-2.5 rounded-2xl space-y-1.5 border border-slate-200 relative">
-                    <span className="text-[9px] font-black font-mono text-indigo-650 uppercase tracking-widest block">Search Catalog Product (Name or Barcode)</span>
-                    <div className="relative">
-                      <Search className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
-                      <input 
-                        type="text"
-                        placeholder="Search product name, code or barcode..."
-                        value={productSearchTerm}
-                        onChange={(e) => {
-                          setProductSearchTerm(e.target.value);
-                          setShowSearchResults(true);
-                        }}
-                        onFocus={() => setShowSearchResults(true)}
-                        className="w-full bg-white border border-slate-200 rounded-lg pl-8 pr-7 py-1.5 text-xs font-semibold text-slate-800 outline-none focus:border-indigo-505"
-                      />
-                      {productSearchTerm && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setProductSearchTerm('');
-                            setShowSearchResults(false);
-                          }}
-                          className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 cursor-pointer"
-                        >
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Popover floating search results */}
-                    {showSearchResults && productSearchTerm.trim().length > 0 && (
-                      <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border border-slate-200 shadow-xl rounded-xl max-h-[140px] overflow-y-auto z-40 divide-y divide-slate-100">
-                        {filteredProductsForSelect.length === 0 ? (
-                          <div className="p-2.5 text-center text-slate-400 text-[10px] font-mono">No matching code or name</div>
-                        ) : (
-                          filteredProductsForSelect.map(p => (
-                            <button
-                              key={p.id}
-                              type="button"
-                              onClick={() => handleSelectProductFromSearch(p)}
-                              className="w-full text-left px-3 py-2 hover:bg-indigo-50/50 transition-colors flex items-center justify-between text-[11px] font-medium cursor-pointer"
-                            >
-                              <div className="min-w-0 pr-2 col-span-2">
-                                <p className="font-extrabold text-slate-800 truncate">{p.name}</p>
-                                <p className="text-[9px] text-slate-500 font-mono">Barcode: {p.barcode || 'N/A'}</p>
-                              </div>
-                              <span className="shrink-0 text-[10px] font-black text-indigo-650 bg-indigo-55 px-2 py-0.5 rounded">
-                                {currency}{p.sellingPrice.toLocaleString()}
-                              </span>
-                            </button>
-                          ))
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <div className="bg-slate-50 p-3 rounded-2xl space-y-2 border border-slate-200">
-                  <span className="text-[9.5px] font-black font-mono text-slate-500 uppercase block">Manual Line Addition</span>
-                  <div className="space-y-2">
-                    <input 
-                      type="text"
-                      placeholder="Enter line details (e.g. Toilet Rim Block)"
-                      value={newItemDesc}
-                      onChange={(e) => setNewItemDesc(e.target.value)}
-                      className="w-full bg-white border border-slate-200 rounded px-2.5 py-1.5 outline-none text-xs font-bold text-slate-800 focus:border-emerald-500"
-                    />
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                      <div className="sm:col-span-2">
-                        <input 
-                          type="text"
-                          placeholder="Unit (e.g. PC, Boxes, Set)"
-                          value={newItemUnit}
-                          onChange={(e) => setNewItemUnit(e.target.value)}
-                          className="w-full bg-white border border-slate-200 rounded px-2 py-1.5 outline-none text-xs font-sans text-slate-800"
-                        />
-                      </div>
-                      <div>
-                        <input 
-                          type="number"
-                          placeholder="Qty"
-                          min="1"
-                          value={newItemQty}
-                          onChange={(e) => setNewItemQty(Math.max(1, parseInt(e.target.value) || 0))}
-                          className="w-full bg-white border border-slate-200 rounded px-2 py-1.5 outline-none font-mono text-xs font-bold text-slate-800 text-center"
-                        />
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleAddNoteItem}
-                      className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-1.5 rounded text-xs select-none cursor-pointer transition-all uppercase"
-                    >
-                      + Add Item line
-                    </button>
-                  </div>
-                </div>
-
-                {/* Items preview table list with delete button */}
+                {/* Source-linked items are intentionally read-only. */}
                 <div className="max-h-[220px] overflow-y-auto border border-slate-100 rounded-xl divide-y">
                   {noteItems.length === 0 ? (
-                    <div className="p-4 text-center text-slate-400 text-[10.5px] font-mono">No items. Create one column above.</div>
+                    <div className="p-4 text-center text-slate-400 text-[10.5px] font-mono">Select a source record above to load its items.</div>
                   ) : (
                     noteItems.map((item, index) => (
                       <div key={item.id} className="p-2.5 flex items-center justify-between hover:bg-slate-50 transition-colors text-xs gap-2">
@@ -2233,14 +2218,6 @@ Vehicle Plate Number: ${plateNumber}
                           <p className="font-extrabold text-slate-800 truncate">{index + 1}. {item.description}</p>
                           <p className="text-[10px] text-slate-500">Unit: <span className="font-bold text-slate-700">{item.unit}</span> | Qty: <span className="font-extrabold text-indigo-700 font-mono">{item.qty}</span></p>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteNoteItem(item.id)}
-                          className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 text-xs cursor-pointer select-none"
-                          title="Delete line item"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
                       </div>
                     ))
                   )}
@@ -2261,7 +2238,7 @@ Vehicle Plate Number: ${plateNumber}
                         setDriverType('system');
                         setExternalDriverName('');
                         // Reset to first available rider
-                        const firstRider = activeRiders[0];
+                        const firstRider = noteDriverOptions[0];
                         if (firstRider) {
                           setSelectedRiderForNoteId(firstRider.id);
                           setNoteDeliveredByName(firstRider.name);
@@ -2315,9 +2292,11 @@ Vehicle Plate Number: ${plateNumber}
                       onChange={(e) => {
                         const rId = e.target.value;
                         setSelectedRiderForNoteId(rId);
-                        const matched = riders.find(item => item.id === rId);
+                        const matched = noteDriverOptions.find(item => item.id === rId);
                         if (matched) {
                           setNoteDeliveredByName(matched.name);
+                          setNoteTransportType(`${matched.vehicleType.charAt(0).toUpperCase()}${matched.vehicleType.slice(1)}`);
+                          setNoteVehiclePlate(matched.licensePlate || '');
                           // Initials from system driver name
                           const initials = matched.name.split(' ').map((w: string) => w[0]).join('').toUpperCase();
                           setNoteDeliveredBySignature(initials);
@@ -2329,7 +2308,7 @@ Vehicle Plate Number: ${plateNumber}
                       className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 text-xs font-semibold text-slate-700 py-1.5 outline-none cursor-pointer focus:border-indigo-500"
                     >
                       <option value="">-- Select a rider --</option>
-                      {activeRiders.map(item => (
+                      {noteDriverOptions.map(item => (
                         <option key={item.id} value={item.id}>{item.name} ({item.licensePlate} - {item.classification.toUpperCase()})</option>
                       ))}
                     </select>
@@ -2341,24 +2320,54 @@ Vehicle Plate Number: ${plateNumber}
                   </div>
                 )}
 
-                {/* External Driver — manual name entry */}
+                {/* Temporary driver fields mirror the Dispatch Order structure. */}
                 {driverType === 'external' && (
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-500 font-sans block">External Driver Name</label>
-                    <input
-                      type="text"
-                      placeholder="Enter driver full name…"
-                      value={externalDriverName}
-                      onChange={(e) => {
-                        const name = e.target.value;
-                        setExternalDriverName(name);
-                        setNoteDeliveredByName(name);
-                        // Auto-generate initials as signature
-                        const initials = name.trim().split(/\s+/).filter(Boolean).map(w => w[0].toUpperCase()).join('');
-                        setNoteDeliveredBySignature(initials || '');
-                      }}
-                      className="w-full bg-slate-50 border border-amber-200 rounded-lg px-2.5 py-1.5 outline-none text-xs font-bold text-slate-800 focus:border-amber-400"
-                    />
+                  <div className="space-y-2.5 rounded-xl border border-amber-200 bg-amber-50/40 p-2.5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        placeholder="Temporary driver name"
+                        value={externalDriverName}
+                        onChange={(e) => {
+                          const name = e.target.value;
+                          setExternalDriverName(name);
+                          setNoteDeliveredByName(name);
+                          setNoteDeliveredBySignature(name.trim().split(/\s+/).filter(Boolean).map(w => w[0].toUpperCase()).join(''));
+                        }}
+                        className="w-full bg-white border border-amber-200 rounded-lg px-2.5 py-1.5 outline-none text-xs font-bold text-slate-800 focus:border-amber-400"
+                      />
+                      <input
+                        type="tel"
+                        placeholder="Phone number"
+                        value={externalDriverPhone}
+                        onChange={(e) => setExternalDriverPhone(e.target.value)}
+                        className="w-full bg-white border border-amber-200 rounded-lg px-2.5 py-1.5 outline-none text-xs text-slate-800 focus:border-amber-400"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <select value={externalDriverClassification} onChange={(e) => setExternalDriverClassification(e.target.value as 'rider' | 'driver')}
+                        className="w-full bg-white border border-amber-200 rounded-lg px-2 py-1.5 text-xs font-semibold text-slate-800">
+                        <option value="rider">Rider</option>
+                        <option value="driver">Driver</option>
+                      </select>
+                      <select value={externalDriverVehicleType} onChange={(e) => {
+                        const vehicleType = e.target.value as 'motorcycle' | 'tuktuk' | 'car';
+                        setExternalDriverVehicleType(vehicleType);
+                        setNoteTransportType(`${vehicleType.charAt(0).toUpperCase()}${vehicleType.slice(1)}`);
+                      }} className="w-full bg-white border border-amber-200 rounded-lg px-2 py-1.5 text-xs font-semibold text-slate-800">
+                        <option value="motorcycle">Motorcycle</option>
+                        <option value="tuktuk">Tuktuk</option>
+                        <option value="car">Car / Van</option>
+                      </select>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <input type="text" placeholder="Vehicle colour" value={externalDriverVehicleColor} onChange={(e) => setExternalDriverVehicleColor(e.target.value)}
+                        className="w-full bg-white border border-amber-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-800" />
+                      <input type="text" placeholder="Registration plate" value={externalDriverLicensePlate} onChange={(e) => {
+                        setExternalDriverLicensePlate(e.target.value);
+                        setNoteVehiclePlate(e.target.value);
+                      }} className="w-full bg-white border border-amber-200 rounded-lg px-2.5 py-1.5 text-xs font-mono uppercase text-slate-800" />
+                    </div>
                     {externalDriverName.trim() && (
                       <p className="text-[10px] text-amber-600 font-semibold mt-0.5">
                         ✓ Initials signature: {externalDriverName.trim().split(/\s+/).filter(Boolean).map(w => w[0].toUpperCase()).join('')}
@@ -2416,23 +2425,33 @@ Vehicle Plate Number: ${plateNumber}
                   <span className="w-2 h-2 rounded-full bg-emerald-500 mr-2 animate-ping"></span>
                   LIVE A4 DOCUMENT PREVIEW
                 </span>
-                <div className="grid grid-cols-1 sm:flex sm:items-center gap-2">
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={handleFinishDeliveryNote}
-                    className="bg-emerald-600 hover:bg-emerald-550 text-white font-extrabold px-3.5 py-3 sm:py-2 rounded-xl text-xs flex items-center justify-center space-x-1 cursor-pointer shadow-sm transition-all border-none min-h-[46px] sm:min-h-0"
-                    title="Validate and print"
+                    onClick={handleSendNoteWhatsApp}
+                    className="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-550 text-white font-extrabold px-3.5 py-3 sm:py-2 rounded-xl text-xs flex items-center justify-center space-x-1.5 cursor-pointer shadow-sm transition-all border-none min-h-[46px] sm:min-h-0"
+                    title="Validate and send via WhatsApp"
                   >
-                    <span>✅ Complete & Print Note</span>
+                    <Send className="w-4 h-4" />
+                    <span>Send</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDownloadNote}
+                    className="flex-1 sm:flex-none bg-white/10 hover:bg-white/20 text-white font-extrabold px-3.5 py-3 sm:py-2 rounded-xl text-xs flex items-center justify-center space-x-1.5 cursor-pointer shadow-sm transition-all border-none min-h-[46px] sm:min-h-0"
+                    title="Download PDF"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>Download</span>
                   </button>
                   <button
                     type="button"
                     onClick={handlePrintNote}
-                    className="bg-[#102d68] hover:bg-[#1b438c] text-white font-extrabold px-3.5 py-3 sm:py-2 rounded-xl text-xs flex items-center justify-center space-x-1.5 cursor-pointer shadow-sm transition-all border-none min-h-[46px] sm:min-h-0"
+                    className="flex-1 sm:flex-none bg-[#102d68] hover:bg-[#1b438c] text-white font-extrabold px-3.5 py-3 sm:py-2 rounded-xl text-xs flex items-center justify-center space-x-1.5 cursor-pointer shadow-sm transition-all border-none min-h-[46px] sm:min-h-0"
                     title="Print the current document without saving"
                   >
                     <Printer className="w-4 h-4" />
-                    <span>Print Draft</span>
+                    <span>Print</span>
                   </button>
                 </div>
               </div>
@@ -2500,7 +2519,7 @@ Vehicle Plate Number: ${plateNumber}
                       ) : (
                         <div className="relative w-14 h-14 bg-white border-2 rounded-full flex items-center justify-center p-1.5 shrink-0" style={{ borderColor: computedInvoiceColor }}>
                           {/* Stylized delivery cart logo representing current brand */}
-                          <svg viewBox="0 0 100 100" className="w-full h-full fill-none stroke-current stroke-[6]" style={{ color: computedInvoiceColor }} referrerPolicy="no-referrer">
+                          <svg viewBox="0 0 100 100" className="w-full h-full fill-none stroke-current stroke-[6]" style={{ color: computedInvoiceColor }}>
                             <circle cx="35" cy="85" r="8" className="fill-current text-indigo-400" />
                             <circle cx="75" cy="85" r="8" className="fill-current text-indigo-400" />
                             <path d="M15 15 h15 l15 45 h30 l12 -30 h-62" strokeLinecap="round" strokeLinejoin="round" />
@@ -3266,7 +3285,7 @@ Vehicle Plate Number: ${plateNumber}
 
             {/* WhatsApp Bubble Preview */}
             <div className="p-6 bg-[#ebe5df] flex-grow select-text" style={{ backgroundImage: 'radial-gradient(#dfdcd6 12%, transparent 0)' }}>
-              <div className="relative max-w-[85%] bg-white rounded-2xl rounded-tl-none p-4.5 text-xs text-slate-800 shadow-md border-l-4 border-emerald-500 font-sans leading-relaxed">
+              <div className="relative max-w-[85%] bg-white rounded-2xl rounded-tl-none p-4.5 text-xs text-slate-800 shadow-md border-transparent font-sans leading-relaxed">
                 {/* Visual whatsapp tail */}
                 <span className="absolute -left-1.5 top-0 w-3 h-3 bg-white transform rotate-45 rounded-sm pointer-events-none"></span>
                 <p className="whitespace-pre-wrap">Delivery note PDF will be prepared from the system template and sent to the customer.</p>
@@ -3287,23 +3306,96 @@ Vehicle Plate Number: ${plateNumber}
               <span className="text-[10px] bg-slate-200 text-slate-600 px-2.5 py-1 rounded-lg font-bold font-mono">
                 {whatsAppTarget.customerPhone ? 'Direct WA.me Ready' : 'Incomplete Phone'}
               </span>
-              <div className="grid grid-cols-2 gap-2.5 w-full sm:w-auto">
-                <button
-                  onClick={() => copyToClipboard(generateWhatsAppMessage(whatsAppTarget))}
-                  className="bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold py-2 px-3.5 rounded-xl text-xs transition-all cursor-pointer flex items-center space-x-1"
-                >
-                  <Share2 className="w-3.5 h-3.5" />
-                  <span>{copiedText ? 'Copied!' : 'Copy Text'}</span>
-                </button>
+              <div className="grid grid-cols-3 gap-2 w-full sm:w-auto">
                 <button
                   onClick={() => openWhatsAppLink(whatsAppTarget)}
                   disabled={!whatsAppTarget.customerPhone}
-                  className="bg-[#25D366] hover:bg-[#20ba59] text-white font-extrabold py-2 px-4 rounded-xl text-xs transition-all cursor-pointer disabled:opacity-50 flex items-center space-x-1"
+                  className="bg-[#25D366] hover:bg-[#20ba59] text-white font-extrabold h-9 px-3 rounded-lg text-[11px] transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1"
                 >
                   <MessageSquare className="w-3.5 h-3.5" />
-                  <span>Send PDF</span>
+                  <span>Send</span>
+                </button>
+                <button
+                  onClick={() => handleDownloadNoteForDelivery(whatsAppTarget)}
+                  className="bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 font-bold h-9 px-3 rounded-lg text-[11px] transition-all cursor-pointer flex items-center justify-center gap-1"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Download</span>
+                </button>
+                <button
+                  onClick={() => copyToClipboard(generateWhatsAppMessage(whatsAppTarget))}
+                  className="bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold h-9 px-3 rounded-lg text-[11px] transition-all cursor-pointer flex items-center justify-center gap-1"
+                >
+                  <Share2 className="w-3.5 h-3.5" />
+                  <span>{copiedText ? 'Copied!' : 'Copy'}</span>
                 </button>
               </div>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* SEND NOTE — plain WhatsApp text message (not a PDF), to a number the user types in */}
+      {sendNoteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white border rounded-2xl md:rounded-3xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col relative animate-scale-up max-h-[92vh]">
+
+            <button
+              onClick={() => setSendNoteTarget(null)}
+              className="absolute top-4.5 right-4.5 p-1 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="px-6 py-5 bg-[#075e54] text-white">
+              <div className="flex items-center space-x-2.5">
+                <MessageSquare className="w-5 h-5" />
+                <h4 className="font-black text-sm tracking-wide uppercase">Send Note</h4>
+              </div>
+              <p className="text-[10px] text-emerald-100 font-sans mt-0.5">
+                Sends the dispatch note as a WhatsApp text message — not a PDF.
+              </p>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest font-mono mb-1.5">WhatsApp Phone Number</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-mono text-xs">+</span>
+                  <input
+                    type="text"
+                    placeholder="e.g. 255712345678"
+                    value={sendNotePhone}
+                    onChange={(e) => setSendNotePhone(e.target.value.replace(/[^0-9]/g, ''))}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl text-sm pl-6 pr-3 py-2.5 font-mono text-slate-800 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 text-[11px] text-slate-500 font-sans leading-relaxed max-h-32 overflow-y-auto whitespace-pre-wrap">
+                {generateWhatsAppMessage(sendNoteTarget)}
+              </div>
+            </div>
+
+            <div className="px-6 py-4.5 bg-slate-50 border-t border-slate-200 flex gap-2">
+              <button
+                onClick={() => setSendNoteTarget(null)}
+                className="flex-1 h-10 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 font-bold text-xs transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  window.open(buildWhatsAppLink(generateWhatsAppMessage(sendNoteTarget), sendNotePhone), '_blank');
+                  setSendNoteTarget(null);
+                }}
+                disabled={!sendNotePhone}
+                className="flex-1 h-10 rounded-xl bg-[#25D366] hover:bg-[#20ba59] disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold text-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                <span>Send</span>
+              </button>
             </div>
 
           </div>

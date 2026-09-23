@@ -1,11 +1,13 @@
 import { getSecureDataBridgeClient } from '../../../shared/dataBridge/secureDataBridge';
 import { isEarnedCommissionStatus, isPaidPayoutStatus, isSettledPaymentStatus } from '../../../utils/financialStatus';
+import { formatLocalDate } from '../../../utils/localDate';
 
 export interface SuperAdminOverview {
   tenants: any[];
   users: any[];
   workspaces: any[];
   sessions: any[];
+  onlineSessions: any[];
   affiliates: any[];
   affiliatePartners: any[];    // affiliate_partners table rows
   referrals: any[];
@@ -37,6 +39,7 @@ export interface SuperAdminUserRow {
   paymentMethod: string;
   dateCreated: string;
   status: 'Active' | 'Suspended' | 'Expired';
+  businessType: 'retail' | 'pharmacy';
   // Location — from tenant business setup, GPS, or region fields
   location: string;            // human-readable label shown in table
   locationSource: 'gps' | 'business_setup' | 'manual' | 'none';
@@ -67,6 +70,13 @@ export interface SuperAdminMetrics {
   subscribersCount: number;
   activeTenants: number;
   activeSessions: number;
+  onlineDevices: number;
+  onlineBusinesses: number;
+  onlineTenantAdmins: number;
+  onlineTenantStaff: number;
+  onlineAffiliates: number;
+  onlinePartners: number;
+  onlineDeviceTypes: { Desktop: number; Tablet: number; Phone: number };
   totalIncome: number;
   affiliatePayouts: number;
   expenses: number;
@@ -98,6 +108,7 @@ const EMPTY_SUPER_ADMIN_OVERVIEW: SuperAdminOverview = {
   users: [],
   workspaces: [],
   sessions: [],
+  onlineSessions: [],
   affiliates: [],
   affiliatePartners: [],
   referrals: [],
@@ -113,6 +124,7 @@ const normalizeOverview = (overview?: Partial<SuperAdminOverview> | null): Super
   users: Array.isArray(overview?.users) ? overview.users : [],
   workspaces: Array.isArray(overview?.workspaces) ? overview.workspaces : [],
   sessions: Array.isArray(overview?.sessions) ? overview.sessions : [],
+  onlineSessions: Array.isArray(overview?.onlineSessions) ? overview.onlineSessions : [],
   affiliates: Array.isArray(overview?.affiliates) ? overview.affiliates : [],
   affiliatePartners: Array.isArray(overview?.affiliatePartners) ? overview.affiliatePartners : [],
   referrals: Array.isArray(overview?.referrals) ? overview.referrals : [],
@@ -157,18 +169,13 @@ const apiRequest = async (path: string, init: RequestInit = {}) => {
   return payload;
 };
 
-export async function verifySuperAdminPassword(password: string): Promise<boolean> {
-  if (!password) return false;
-  try {
-    const result = await apiRequest('/api/super-admin/verify-password', {
-      method: 'POST',
-      body: JSON.stringify({ password }),
-    });
-    return result?.verified === true;
-  } catch (error: any) {
-    if ([401, 403].includes(Number(error?.status || 0))) return false;
-    throw error;
-  }
+/** @deprecated Password re-authentication was removed. This compatibility
+ * export now confirms only that the current session already has AAL2. */
+export async function verifySuperAdminPassword(_unused: string): Promise<boolean> {
+  const client = await getSecureDataBridgeClient();
+  const { data, error } = await client.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (error) throw error;
+  return data?.currentLevel === 'aal2';
 }
 
 async function fetchSuperAdminOverview(): Promise<SuperAdminOverview> {
@@ -194,7 +201,6 @@ async function fetchSuperAdminOverview(): Promise<SuperAdminOverview> {
       const [
         tenantsRes,
         usersRes,
-        workspacesRes,
         sessionsRes,
         affiliatesRes,
         affiliatePartnersRes,
@@ -206,8 +212,7 @@ async function fetchSuperAdminOverview(): Promise<SuperAdminOverview> {
       ] = await Promise.all([
         client.from('tenants').select('*').order('name', { ascending: true }),
         client.from('users').select('*').order('name', { ascending: true }),
-        client.from('tenant_workspaces').select('*'),
-        client.from('user_sessions').select('*').order('last_activity_at', { ascending: false }).limit(500),
+        client.from('user_sessions').select('id,user_id,tenant_id,account_type,role_key,is_active,login_at,logout_at,last_activity_at,updated_at,device_id,device_label,ip_hint').order('last_activity_at', { ascending: false }).limit(500),
         client.from('affiliates').select('*').order('created_at', { ascending: false }),
         client.from('affiliate_partners').select('*').order('created_at', { ascending: false }),
         client.from('affiliate_referrals').select('*').order('created_at', { ascending: false }).limit(1000),
@@ -220,8 +225,9 @@ async function fetchSuperAdminOverview(): Promise<SuperAdminOverview> {
         const fallbackOverview = normalizeOverview({
           tenants: tenantsRes.data || [],
           users: usersRes.data || [],
-          workspaces: workspacesRes.error ? [] : workspacesRes.data || [],
+          workspaces: [],
           sessions: sessionsRes.error ? [] : sessionsRes.data || [],
+          onlineSessions: sessionsRes.error ? [] : (sessionsRes.data || []).filter((session: any) => isSessionOnline(session)),
           affiliates: affiliatesRes.error ? [] : affiliatesRes.data || [],
           affiliatePartners: affiliatePartnersRes.error ? [] : affiliatePartnersRes.data || [],
           referrals: referralsRes.error ? [] : referralsRes.data || [],
@@ -262,6 +268,52 @@ export async function loadSuperAdminOverview(): Promise<SuperAdminOverview> {
     });
 
   return overviewRequest;
+}
+
+export interface SecurityThreatEvent {
+  id: string;
+  event_type: string;
+  ip_address: string | null;
+  identifier: string | null;
+  details: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface BlockedIp {
+  ip_address: string;
+  reason: string | null;
+  blocked_by: string | null;
+  blocked_at: string;
+  unblocked_at: string | null;
+}
+
+export async function loadSecurityEvents(): Promise<SecurityThreatEvent[]> {
+  const response = await apiRequest('/api/super-admin/security/events');
+  return Array.isArray(response?.events) ? response.events : [];
+}
+
+export async function loadIpBlocklist(): Promise<BlockedIp[]> {
+  const response = await apiRequest('/api/super-admin/security/blocklist');
+  return Array.isArray(response?.blocked) ? response.blocked : [];
+}
+
+export async function blockIpAddress(ip: string, reason: string) {
+  return apiRequest('/api/super-admin/security/block-ip', {
+    method: 'POST',
+    body: JSON.stringify({ ip, reason }),
+  });
+}
+
+export async function unblockIpAddress(ip: string) {
+  return apiRequest('/api/super-admin/security/unblock-ip', {
+    method: 'POST',
+    body: JSON.stringify({ ip }),
+  });
+}
+
+export async function loadIpGeo(ip: string): Promise<{ city: string | null; region: string | null; country: string | null; isp: string | null } | null> {
+  const response = await apiRequest(`/api/super-admin/security/geo/${encodeURIComponent(ip)}`);
+  return response?.location || null;
 }
 
 export async function updateSuperAdminUser(userId: string, payload: Record<string, unknown>) {
@@ -320,6 +372,11 @@ export async function loadTenantBranchAccess(tenantId: string) {
   }>;
 }
 
+export async function loadSuperAdminTenantWorkspace(tenantId: string, signal?: AbortSignal) {
+  const response = await apiRequest(`/api/super-admin/tenants/${encodeURIComponent(tenantId)}/workspace`, { signal });
+  return response?.workspace || { tenant_id: tenantId, payload: {}, updated_at: null };
+}
+
 export async function activateTenantPackage(
   tenantId: string,
   payload: {
@@ -332,6 +389,31 @@ export async function activateTenantPackage(
   },
 ) {
   return apiRequest(`/api/super-admin/tenants/${encodeURIComponent(tenantId)}/activate-package`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function sendSuperAdminNotification(payload: {
+  tenantIds: string[];
+  title: string;
+  message: string;
+  priority?: 'low' | 'normal' | 'high' | 'critical';
+}) {
+  return apiRequest('/api/super-admin/notifications', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function sendSuperAdminAffiliateNotification(payload: {
+  affiliateIds: string[];
+  partnerIds: string[];
+  title: string;
+  message: string;
+  priority?: 'low' | 'normal' | 'high' | 'critical';
+}) {
+  return apiRequest('/api/super-admin/affiliate-notifications', {
     method: 'POST',
     body: JSON.stringify(payload),
   });
@@ -359,7 +441,7 @@ export async function configureMultiBranchRollout(payload: { enabled: boolean; r
 }
 
 const money = (value: unknown) => Number(value || 0);
-const formatDate = (value: unknown) => value ? new Date(String(value)).toISOString().slice(0, 10) : '';
+const formatDate = (value: unknown) => value ? formatLocalDate(String(value)) : '';
 const formatDateTime = (value: unknown) => value ? new Date(String(value)).toISOString().replace('T', ' ').slice(0, 16) : '';
 const isPlatformUser = (user: any) => {
   const accountType = String(user?.account_type || '').toLowerCase();
@@ -481,7 +563,7 @@ export const buildSuperAdminOnlinePresence = (
   const resolveIdentity = buildSessionIdentityResolver(safeOverview);
   const uniqueAccounts = new Map<string, SuperAdminPresenceEntry>();
 
-  [...safeOverview.sessions]
+  [...(safeOverview.onlineSessions.length ? safeOverview.onlineSessions : safeOverview.sessions)]
     .sort((a, b) => new Date(sessionActivityTimestamp(b)).getTime() - new Date(sessionActivityTimestamp(a)).getTime())
     .forEach((session) => {
       if (!isSessionOnline(session, nowMs)) return;
@@ -494,6 +576,50 @@ export const buildSuperAdminOnlinePresence = (
     });
 
   return Array.from(uniqueAccounts.values());
+};
+
+const onlineSessionDeviceKey = (session: any): string => {
+  const userId = String(session?.user_id || 'unknown-user');
+  const deviceId = String(session?.device_id || session?.id || 'unknown-device');
+  return `${userId}:${deviceId}`;
+};
+
+const onlineSessionDeviceType = (session: any): 'Desktop' | 'Tablet' | 'Phone' => {
+  const label = String(session?.device_label || '').toLowerCase();
+  if (label.includes('mobile') || label.includes('phone')) return 'Phone';
+  if (label.includes('tablet') || label.includes('ipad')) return 'Tablet';
+  return 'Desktop';
+};
+
+const buildOnlineOperationalMetrics = (overview: SuperAdminOverview, nowMs = Date.now()) => {
+  const sessions = (overview.onlineSessions.length ? overview.onlineSessions : overview.sessions)
+    .filter((session) => isSessionOnline(session, nowMs));
+  const resolveIdentity = buildSessionIdentityResolver(overview);
+  const devices = new Map<string, any>();
+  sessions.forEach((session) => devices.set(onlineSessionDeviceKey(session), session));
+
+  const accounts = buildSuperAdminOnlinePresence(overview, nowMs);
+  const onlineTenantAdmins = accounts.filter((entry) => entry.userType === 'tenant' && !entry.accountRole.toLowerCase().startsWith('staff')).length;
+  const onlineTenantStaff = accounts.filter((entry) => entry.userType === 'tenant' && entry.accountRole.toLowerCase().startsWith('staff')).length;
+  const onlineAffiliates = accounts.filter((entry) => entry.userType === 'affiliate').length;
+  const onlinePartners = accounts.filter((entry) => entry.userType === 'partner').length;
+  const onlineBusinesses = new Set(accounts.filter((entry) => entry.userType === 'tenant' && entry.businessName).map((entry) => entry.businessName)).size;
+  const onlineDeviceTypes = { Desktop: 0, Tablet: 0, Phone: 0 };
+  devices.forEach((session) => {
+    if (!resolveIdentity(session)) return;
+    onlineDeviceTypes[onlineSessionDeviceType(session)] += 1;
+  });
+
+  return {
+    onlineAccounts: accounts.length,
+    onlineDevices: Array.from(devices.values()).filter((session) => resolveIdentity(session)).length,
+    onlineBusinesses,
+    onlineTenantAdmins,
+    onlineTenantStaff,
+    onlineAffiliates,
+    onlinePartners,
+    onlineDeviceTypes,
+  };
 };
 
 export const buildSuperAdminVisitHistory = (
@@ -761,6 +887,7 @@ export function mapSuperAdminUsers(overview: SuperAdminOverview): SuperAdminUser
         paymentMethod: readTenantSettings(tenant)?.paymentMethod || 'Not recorded',
         dateCreated: formatDate(user.created_at || tenant?.created_at),
         status: (user.is_active === false ? 'Suspended' : 'Active') as SuperAdminUserRow['status'],
+        businessType: (tenant?.business_type === 'pharmacy' ? 'pharmacy' : 'retail') as SuperAdminUserRow['businessType'],
         ...resolveLocation(tenant, user),
         // Last activity is the latest cloud heartbeat, not tenant metadata or
         // the time at which an old session originally logged in.
@@ -840,6 +967,7 @@ export function mapSuperAdminUsers(overview: SuperAdminOverview): SuperAdminUser
         paymentMethod: readTenantSettings(tenant)?.paymentMethod || 'Not recorded',
         dateCreated: formatDate(tenant.created_at),
         status: (tenant.is_active === false ? 'Suspended' : 'Active') as SuperAdminUserRow['status'],
+        businessType: (tenant?.business_type === 'pharmacy' ? 'pharmacy' : 'retail') as SuperAdminUserRow['businessType'],
         ...resolveLocation(tenant, {}),
         lastActivity,
         lastActivityLabel: activityLabel(lastActivity, tenantIsOnline),
@@ -909,11 +1037,19 @@ export function buildSuperAdminMetrics(overview: SuperAdminOverview): SuperAdmin
   });
 
   const colors = ['#34d399', '#60a5fa', '#f87171', '#f59e0b', '#a78bfa', '#22d3ee'];
+  const online = buildOnlineOperationalMetrics(safeOverview);
 
   return {
     subscribersCount: realTenants.length,
     activeTenants: realTenants.filter((tenant) => tenant.is_active !== false).length,
-    activeSessions: buildSuperAdminOnlinePresence(safeOverview).length,
+    activeSessions: online.onlineAccounts,
+    onlineDevices: online.onlineDevices,
+    onlineBusinesses: online.onlineBusinesses,
+    onlineTenantAdmins: online.onlineTenantAdmins,
+    onlineTenantStaff: online.onlineTenantStaff,
+    onlineAffiliates: online.onlineAffiliates,
+    onlinePartners: online.onlinePartners,
+    onlineDeviceTypes: online.onlineDeviceTypes,
     totalIncome: platformRevenue,
     affiliatePayouts,
     expenses,

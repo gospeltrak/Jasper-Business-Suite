@@ -13,6 +13,10 @@ export interface BranchSummary {
   region?: string | null;
   district?: string | null;
   country?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  logoLightUrl?: string | null;
+  logoDarkUrl?: string | null;
   status: 'active' | 'inactive' | 'suspended' | 'archived' | string;
   isDefault: boolean;
   isLocked: boolean;

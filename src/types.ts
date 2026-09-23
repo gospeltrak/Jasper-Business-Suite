@@ -142,7 +142,54 @@ export interface ProductInventorySettings {
   allowCustomQuantity: boolean;
   defaultPricePerBaseUnit?: number;
   fractionSaleOptions?: FractionSaleOption[];
+  fractionSaleEnabled?: boolean;
+  packetPriceOverridden?: boolean;
   pharmacyUnitBreakdown?: PharmacyUnitBreakdown;
+}
+
+// ─── Universal Inventory Unit & Packaging Engine ────────────────────────────
+// One shared model for Pharmacy dosage packaging (Box -> Blister -> Tablet)
+// and Retail measured/packaged goods (Sack -> Kg, Carton -> Piece). A
+// conversion always belongs to a specific product's packageLevels entry,
+// never to a unit name globally -- two products can both use the label
+// "Sack" with completely different quantityInBaseUnit values.
+export type ProductType =
+  | 'medicine'
+  | 'medical_supply'
+  | 'personal_care'
+  | 'cosmetics_beauty'
+  | 'baby_care'
+  | 'hygiene'
+  | 'supplements'
+  | 'food_drinks'
+  | 'general_retail';
+
+export type DosageForm =
+  | 'tablet' | 'capsule' | 'syrup' | 'suspension' | 'oral_solution' | 'drops'
+  | 'cream' | 'ointment' | 'gel' | 'injection' | 'inhaler' | 'sachet'
+  | 'powder' | 'suppository' | 'other';
+
+export interface UniversalPackageLevel {
+  id: string;
+  label: string; // the tenant's own word for this level, e.g. "Box", "Blister", "Sack"
+  quantityInBaseUnit: number; // product-specific; never shared across products
+  isPurchaseUnit?: boolean; // the level normally used when buying stock
+}
+
+export interface UniversalSellingUnit {
+  id: string;
+  packageLevelId: string; // references a UniversalPackageLevel.id, or 'base' for the base unit itself
+  label: string; // shown in POS, e.g. "Capsule", "Blister", "Kg"
+  price: number; // independent of packageLevel math -- not forced to equal qty * base price
+  isDefault?: boolean;
+}
+
+export interface UniversalPreset {
+  id: string;
+  label: string; // "Full Dose", "Half Dose", "1/4 Kg" -- a POS shortcut, not an inventory unit
+  quantityInBaseUnit: number;
+  price?: number;
+  isDefault?: boolean;
 }
 
 export interface PriceChangeInfo {
@@ -198,7 +245,11 @@ export interface Product {
   sellUnitPrice?: number;
   bulkToUnitsRatio?: number;
   sellingMode?: 'standard' | 'scale' | 'pcs' | 'hybrid';
-  
+  /** 'open-ended': total quantity unknown upfront (e.g. a cable roll) — priced
+   * per unit only, depleted manually via "Mark as Finished" instead of a count. */
+  stockTrackingMode?: 'quantity' | 'open-ended';
+  markedFinished?: boolean;
+
   // Batch feature fields
   sellingMethod?: LegacySellingMethod;
   inventorySettings?: ProductInventorySettings;
@@ -213,6 +264,10 @@ export interface Product {
   halfPackagePrice?: number;
   packageBuyingCost?: number;
   fractionSaleOptions?: FractionSaleOption[];
+  /** Enables Piece/Packet selling. Medicine products always use Pharmacy Unit Hierarchy instead. */
+  fractionSaleEnabled?: boolean;
+  /** Distinguishes a tenant-entered packet price from the calculated piece price × packet quantity. */
+  packetPriceOverridden?: boolean;
   allowCustomQuantity?: boolean;
   defaultPricePerBaseUnit?: number;
   pharmacyUnitBreakdown?: PharmacyUnitBreakdown;
@@ -220,11 +275,32 @@ export interface Product {
   averageBuyingCost?: number;
   batches?: ProductBatch[];
   branchId?: string;
+
+  // Universal Inventory Unit & Packaging Engine (additive; legacy pharmacy
+  // dosage fields and legacy bulk-selling fields above remain untouched and
+  // keep working for products that only have those set).
+  productType?: ProductType;
+  // Medicine-specific -- only meaningful when productType === 'medicine'
+  genericName?: string;
+  manufacturer?: string;
+  dosageForm?: DosageForm;
+  strengthValue?: number;
+  strengthUnit?: string; // e.g. "mg", "ml", "%"
+  strengthDenominator?: string; // e.g. "per tablet", "per 5ml"
+  prescriptionRequired?: boolean;
+  // Shared packaging/selling model (Pharmacy and Retail both use this)
+  packageLevels?: UniversalPackageLevel[];
+  sellingUnits?: UniversalSellingUnit[];
+  dispensingPresets?: UniversalPreset[];
+  trackBatch?: boolean;
+  trackExpiry?: boolean;
 }
 
 export interface ProductBatch {
   id: string;
   productId: string;
+  purchaseId?: string;
+  destination?: 'shop' | 'store';
   batchNumber: string;
   supplierName?: string;
   purchaseDate: string;
@@ -242,6 +318,10 @@ export interface ProductBatch {
   status: 'active' | 'finished';
   createdBy: string;
   createdAt: string;
+  // FEFO support -- optional; a batch with no expiryDate is treated as
+  // never-expiring and falls back to existing oldest-createdAt ordering.
+  expiryDate?: string;
+  manufacturingDate?: string;
 }
 
 export interface SaleBatchInfo {
@@ -270,8 +350,10 @@ export interface SaleItem {
   productId: string;
   productName: string;
   qty: number;
+  quantity?: number;
   price: number;
   discount: number; // percentage
+  subtotal?: number;
   discountType?: 'percent' | 'cash';
   
   batchesUsed?: SaleBatchInfo[]; // Which batches were drawn from for this sale
@@ -294,7 +376,16 @@ export interface SaleItem {
   dosageType?: 'packet' | 'full' | 'half' | 'tabs' | 'strip' | 'dose' | 'unit';
   tabsSelected?: number;
   tabsPerPack?: number;
+  selectedLevel?: 'piece' | 'packet' | 'full' | 'half' | 'tabs' | 'strip' | 'dose' | 'unit';
+  selectedLevelQuantity?: number;
+  unitsPerSelectedLevel?: number;
+  selectedUnitPrice?: number;
+  lineTotal?: number;
   channel?: 'retail' | 'wholesale';
+  // Immutable snapshot of the product's Prescription Required flag at the
+  // moment of sale -- editing the product afterward must not change what a
+  // past sale's report shows.
+  prescriptionRequired?: boolean;
   // Internal Tanzanite document routing. Customer-facing PDFs must never render
   // these source fields.
   sourceBranchId?: string;
@@ -316,13 +407,16 @@ export interface Sale {
   customerPhone?: string; // phone of the client
   staffName?: string; // cashier or recording staff
   reference: string;
+  receiptNo?: string;
   tenantId: string;
   timestamp: string; // ISO String
+  date?: string;
   syncUpdatedAt?: string;
   syncStatus: 'synced' | 'pending';
   cashierName: string;
   amountPaid?: number;
   amountDue?: number;
+  change?: number;
   paymentStatus?: 'paid' | 'partial' | 'unpaid';
   transactionReference?: string;
   paymentNote?: string;
@@ -364,12 +458,13 @@ export interface Expense {
   payrollReference?: string;
   payrollAttachmentName?: string;
   treasuryJournalId?: string;
+  syncUpdatedAt?: string;
 }
 
 export interface SyncLog {
   id: string;
-  type: 'sale' | 'product_update' | 'inventory_audit' | 'auth_sync';
-  status: 'success' | 'warning' | 'pending' | 'failed';
+  type: 'sale' | 'product_update' | 'inventory_audit' | 'auth_sync' | 'system_action';
+  status: 'success' | 'warning' | 'pending' | 'failed' | 'error';
   message: string;
   timestamp: string;
 }
@@ -390,6 +485,32 @@ export interface PurchaseItem {
   productName: string;
   qty: number;
   costPrice: number;
+  // Universal Inventory Unit & Packaging Engine -- which package level was
+  // actually bought (e.g. "Box"), separate from the base-unit stock that
+  // was added. Undefined/omitted means the base unit was bought directly,
+  // exactly as before this was introduced.
+  packageLevelId?: string;
+  packageLevelLabel?: string;
+  baseQty?: number;
+  /** Immutable purchase-unit snapshot used after the product configuration changes. */
+  selectedLevel?: 'piece' | 'packet' | 'package' | 'base';
+  selectedLevelQuantity?: number;
+  unitsPerSelectedLevel?: number;
+  selectedUnitCost?: number;
+  lineTotal?: number;
+  baseUnit?: string;
+}
+
+export interface PurchasePaymentAllocation {
+  id?: string;
+  fundingType: 'registered' | 'external';
+  accountId?: string;
+  accountName: string;
+  sourceKey?: string;
+  amount: number;
+  currency?: string;
+  reference?: string;
+  treasuryJournalId?: string;
 }
 
 export interface Purchase {
@@ -402,6 +523,7 @@ export interface Purchase {
   amountDue: number;
   paymentMethod?: string;
   paidFromAccountId?: string;
+  paymentAllocations?: PurchasePaymentAllocation[];
   destination: 'shop' | 'store';
   deliveryStatus: 'Pending' | 'Partial' | 'Full order delivered';
   timestamp: string; // ISO String
@@ -492,7 +614,7 @@ export interface BusinessSettings {
   businessLogo: string; // base64 or placeholder URL
   businessLogoLight?: string; // Day mode branding logo
   businessLogoDark?: string;  // Dark mode branding logo
-  paymentModes: string[] | PaymentModeConfig[];
+  paymentModes: Array<string | PaymentModeConfig>;
   deliveryPaymentModes?: string[];
   registeredStores: string[];
   tagline?: string;
@@ -515,7 +637,9 @@ export interface StaffSettings {
   id: string;
   branchId?: string;
   name: string;
+  email?: string;
   phone: string;
+  /** @deprecated Legacy migration only. Never persist new plaintext credentials. */
   password?: string;
   role: string;
   salary: number;
@@ -558,6 +682,14 @@ export interface RolePermission {
 export interface CustomRole {
   id: string;
   name: string;
+  /**
+   * Tanzanite (multi-branch) only. Undefined/true means unrestricted — this
+   * preserves current behavior for every existing role. Only an explicit
+   * `false` restricts staff assigned this role; enforcement of that
+   * restriction is not wired up yet, this field only stores the tenant's
+   * intent for a future release to read.
+   */
+  canAccessAllBranches?: boolean;
   permissions: {
     pos: RolePermission;
     products: RolePermission;
@@ -654,14 +786,19 @@ export interface SalesDocument {
   discountType?: 'percent' | 'cash';
   deliveryCost?: number;
   paymentMethod?: string;
+  paymentAccountNumber?: string;
+  paymentAccountName?: string;
+  paymentAmount?: number;
   hasVat?: boolean;
+  taxRate?: number;
   customerName: string;
   customerPhone?: string;
   customerAddress?: string;
   notes?: string;
   timestamp: string; // Issue Date
   tenantId: string;
-  status: 'pending' | 'converted' | 'cancelled';
+  status: 'pending' | 'approved' | 'converted' | 'cancelled';
+  validUntil?: string;
   convertedSaleId?: string;
   convertedBranchSaleIds?: string[];
   convertedAt?: string;
@@ -670,6 +807,7 @@ export interface SalesDocument {
   issuingBranchName?: string;
   serverDocumentId?: string;
   brandingSnapshot?: Record<string, any>;
+  deletedAt?: string;
 }
 
 export interface PaymentChannel {
@@ -750,7 +888,7 @@ export interface JasperNotification {
   moduleName: string;
   title: string;
   message: string;
-  notificationType: 'sale' | 'daily_summary' | 'weekly_summary' | 'monthly_summary' | 'profit_loss_report' | 'expense_report' | 'low_stock' | 'price_alert' | 'cash_alert' | 'stock_alert' | 'system_alert';
+  notificationType: 'sale' | 'report' | 'daily_summary' | 'weekly_summary' | 'monthly_summary' | 'profit_loss_report' | 'expense_report' | 'low_stock' | 'price_alert' | 'cash_alert' | 'stock_alert' | 'system_alert';
   reportPeriodStart?: string;
   reportPeriodEnd?: string;
   deliveryChannel: string;

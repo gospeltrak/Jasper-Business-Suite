@@ -13,6 +13,15 @@
   --modal-footer-height: 76px;
 }
 
+/* Dashboard desktop header sits in a higher stacking context than document
+   previews. Reserve its exact height so the A4 toolbar and action buttons are
+   fully visible instead of being clipped underneath it. */
+@media (min-width: 1280px) {
+  #dashboard-scaffold .sales-invoice-a4-overlay {
+    padding-top: calc(var(--app-header-height) + env(safe-area-inset-top)) !important;
+  }
+}
+
 /* Lock to portrait in PWA / installed mode */
 @media (display-mode: standalone) {
   html {
@@ -54,26 +63,9 @@ html.landing-page #jasper-app-root {
   overflow-x: clip !important;
   display: block !important;
 }
-@media screen and (orientation: landscape) and (max-height: 500px) {
-  /* Phone landscape — show a rotate prompt instead of broken layout */
-  #jasper-app-root > * {
-    display: none !important;
-  }
-  #jasper-app-root::before {
-    content: 'Please rotate your device to portrait mode';
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 100dvh;
-    width: 100%;
-    font-family: system-ui, sans-serif;
-    font-size: 14px;
-    font-weight: 600;
-    color: #64748b;
-    text-align: center;
-    padding: 24px;
-  }
-}
+/* Never hide the authenticated app based on orientation or current viewport
+   width. Safari changes the visual viewport dimensions while its keyboard is
+   opening, and an iPad can temporarily match phone media queries. */
 
 /* ── NATIVE APP STABILITY ──────────────────────────────────────────────────
    Prevents bounce scroll, prevents bottom nav shake, prevents iPhone swipe
@@ -154,6 +146,17 @@ body {
   #dashboard-scaffold select {
     font-size: 16px;
   }
+  
+  /* Hide number input spinner arrows for fractional selling and other numeric inputs */
+  #dashboard-scaffold input[type="number"]::-webkit-outer-spin-button,
+  #dashboard-scaffold input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  #dashboard-scaffold input[type="number"] {
+    -moz-appearance: textfield;
+  }
+  
   #dashboard-scaffold .rounded-3xl {
     border-radius: 1.5rem;
   }
@@ -454,6 +457,52 @@ button, a, [role="button"] {
   color: #f1f5f9 !important;
 }
 
+/* Printable/downloadable business documents (invoices, quotations, receipts,
+   delivery notes, reports) must always render in light mode, even while the
+   tenant's dashboard UI is in dark mode. The hardened dark-mode safety layer
+   above intercepts literal utility classes like .bg-white/.text-slate-900
+   wherever they appear under .dark, which also caught these document
+   templates as a side effect. These rules restore the original light-mode
+   values specifically inside them. */
+.dark :is(#delivery-note-print-area, #pos-receipt-pdf-template, #reports-a4-pdf-template, #sales-document-a4-pdf-template, #sales-invoice-a4-pdf-template, #sales-receipt-pdf-template, #affiliate-monthly-payout-pdf-template, #saas-financial-audit-pdf-template) {
+  color-scheme: light;
+}
+
+.dark :is(#delivery-note-print-area, #pos-receipt-pdf-template, #reports-a4-pdf-template, #sales-document-a4-pdf-template, #sales-invoice-a4-pdf-template, #sales-receipt-pdf-template, #affiliate-monthly-payout-pdf-template, #saas-financial-audit-pdf-template):is(.bg-white, .bg-white\/65, .bg-white\/80, .bg-white\/85, .bg-white\/90),
+.dark :is(#delivery-note-print-area, #pos-receipt-pdf-template, #reports-a4-pdf-template, #sales-document-a4-pdf-template, #sales-invoice-a4-pdf-template, #sales-receipt-pdf-template, #affiliate-monthly-payout-pdf-template, #saas-financial-audit-pdf-template) :is(.bg-white, .bg-white\/65, .bg-white\/80, .bg-white\/85, .bg-white\/90) {
+  background-color: #ffffff !important;
+}
+
+.dark :is(#delivery-note-print-area, #pos-receipt-pdf-template, #reports-a4-pdf-template, #sales-document-a4-pdf-template, #sales-invoice-a4-pdf-template, #sales-receipt-pdf-template, #affiliate-monthly-payout-pdf-template, #saas-financial-audit-pdf-template) :is(.bg-slate-50, .bg-slate-50\/75, .bg-gray-50) {
+  background-color: #f8fafc !important;
+}
+
+.dark :is(#delivery-note-print-area, #pos-receipt-pdf-template, #reports-a4-pdf-template, #sales-document-a4-pdf-template, #sales-invoice-a4-pdf-template, #sales-receipt-pdf-template, #affiliate-monthly-payout-pdf-template, #saas-financial-audit-pdf-template) :is(.bg-slate-100, .bg-slate-100\/50, .bg-gray-100) {
+  background-color: #f1f5f9 !important;
+}
+
+.dark :is(#delivery-note-print-area, #pos-receipt-pdf-template, #reports-a4-pdf-template, #sales-document-a4-pdf-template, #sales-invoice-a4-pdf-template, #sales-receipt-pdf-template, #affiliate-monthly-payout-pdf-template, #saas-financial-audit-pdf-template) :is(.text-slate-900, .text-slate-800, .text-black, .text-gray-900, .text-gray-800) {
+  color: #0f172a !important;
+}
+
+.dark :is(#delivery-note-print-area, #pos-receipt-pdf-template, #reports-a4-pdf-template, #sales-document-a4-pdf-template, #sales-invoice-a4-pdf-template, #sales-receipt-pdf-template, #affiliate-monthly-payout-pdf-template, #saas-financial-audit-pdf-template) :is(.text-slate-700, .text-slate-600, .text-gray-700, .text-gray-600) {
+  color: #334155 !important;
+}
+
+.dark :is(#delivery-note-print-area, #pos-receipt-pdf-template, #reports-a4-pdf-template, #sales-document-a4-pdf-template, #sales-invoice-a4-pdf-template, #sales-receipt-pdf-template, #affiliate-monthly-payout-pdf-template, #saas-financial-audit-pdf-template) :is(.text-slate-500, .text-slate-400, .text-gray-500, .text-gray-400) {
+  color: #64748b !important;
+}
+
+.dark :is(#delivery-note-print-area, #pos-receipt-pdf-template, #reports-a4-pdf-template, #sales-document-a4-pdf-template, #sales-invoice-a4-pdf-template, #sales-receipt-pdf-template, #affiliate-monthly-payout-pdf-template, #saas-financial-audit-pdf-template) :is(.border, .border-t, .border-r, .border-b, .border-l, .border-slate-100, .border-slate-200, .border-slate-300, .border-slate-350, .border-gray-100, .border-gray-200) {
+  border-color: #e2e8f0 !important;
+}
+
+.dark :is(#delivery-note-print-area, #pos-receipt-pdf-template, #reports-a4-pdf-template, #sales-document-a4-pdf-template, #sales-invoice-a4-pdf-template, #sales-receipt-pdf-template, #affiliate-monthly-payout-pdf-template, #saas-financial-audit-pdf-template) :is(input, select, textarea) {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #e2e8f0 !important;
+}
+
 /* RTL Global Rules */
 
 .rtl { direction: rtl; text-align: right; }
@@ -654,14 +703,239 @@ body.rtl { font-family: 'Cairo', "Plus Jakarta Sans", "Inter", system-ui, sans-s
   width: 100%;
 }
 
-/* POS product catalog: 3-up on phone/tablet, 4-up from the desktop boundary. */
+/* POS product catalog: 2-up on phone, 3-up on tablet, and 4-up on desktop. */
 #dashboard-scaffold #pos-product-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 768px) and (max-width: 1279px) {
+  #dashboard-scaffold #pos-product-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (min-width: 1280px) {
   #dashboard-scaffold #pos-product-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+}
+
+/* Image-disabled POS mode keeps the full product details readable: one card
+   per row on phones and two cards per row on tablets and desktop. */
+#dashboard-scaffold #pos-product-grid.pos-product-grid-no-images {
+  grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
+}
+
+#dashboard-scaffold #pos-product-grid.pos-product-grid-no-images .pos-product-card-no-image {
+  min-height: 4.75rem;
+}
+
+@media (min-width: 768px) {
+  #dashboard-scaffold #pos-product-grid.pos-product-grid-no-images {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  #dashboard-scaffold #pos-product-grid.pos-product-grid-no-images .pos-product-card-no-image {
+    min-height: 5.5rem;
+  }
+}
+
+/* POS category selector: text-only buttons ("All" first) on tablet+desktop,
+   the compact dropdown on phone only. Custom classes (not hidden/md:flex)
+   deliberately sidestep the tablet-native-mode display overrides above,
+   which force any literal `.hidden.md\:flex` back to display:none. */
+#dashboard-scaffold .pos-category-buttons {
+  display: none;
+}
+#dashboard-scaffold .pos-category-dropdown {
+  display: block;
+}
+@media (min-width: 768px) {
+  #dashboard-scaffold .pos-category-buttons {
+    display: flex;
+  }
+  #dashboard-scaffold .pos-category-dropdown {
+    display: none;
+  }
+}
+
+/* POS in-cart checkout button: visible once the side cart panel is (tablet
+   768px+, matching .pos-tablet-cart-col); below that the Mobile Sticky Cart
+   bar is the only checkout entry point. */
+#dashboard-scaffold .pos-checkout-btn-desktop {
+  display: none;
+}
+@media (min-width: 768px) {
+  #dashboard-scaffold .pos-checkout-btn-desktop {
+    display: flex;
+  }
+}
+
+/* Phone-only bottom sticky cart bar: hidden from 768px up, where the side
+   cart panel's own "Proceed to Payment" button (.pos-checkout-btn-desktop)
+   takes over. Custom class, not md:hidden — the tablet-native-mode block
+   above forces any literal .md\:hidden back to display:block, which is
+   exactly why this bar kept showing on tablet and covering the cart panel
+   underneath it. */
+#dashboard-scaffold .pos-mobile-sticky-cart {
+  display: block;
+}
+@media (min-width: 768px) {
+  #dashboard-scaffold .pos-mobile-sticky-cart {
+    display: none;
+  }
+}
+
+/* Subscription countdown badge (mobile top bar): tablet only, phone hidden
+   — same custom-class technique, needed for the same reason. */
+#dashboard-scaffold .tablet-subscription-badge {
+  display: none;
+}
+@media (min-width: 768px) {
+  #dashboard-scaffold .tablet-subscription-badge {
+    display: flex;
+  }
+}
+
+/* Full message vs short title inside the badge above (and the existing
+   desktop header, ≥1280px where the tablet-native-mode block below never
+   applies anyway) — custom classes instead of hidden/md:inline + md:hidden,
+   which the same block would otherwise force both visible on tablet at
+   once. */
+#dashboard-scaffold .subscription-reminder-full {
+  display: none;
+}
+#dashboard-scaffold .subscription-reminder-short {
+  display: inline;
+}
+@media (min-width: 768px) {
+  #dashboard-scaffold .subscription-reminder-full {
+    display: inline;
+  }
+  #dashboard-scaffold .subscription-reminder-short {
+    display: none;
+  }
+}
+
+/* POS split layout, tablet only (768-1279px) — now deliberately matching
+   desktop's own mechanism exactly, on request, instead of the page-scroll
+   approach tried previously: #pos-view gets a bounded height and clips
+   overflow, and each side scrolls independently INSIDE that fixed box —
+   the same shape as desktop's lg:h-[calc(100dvh-130px)] lg:overflow-hidden
+   + lg:flex-1 lg:overflow-y-auto (products) + lg:h-full lg:sticky
+   overflow-hidden (cart card) + its own internal item-list scroll box.
+   Known risk, explicitly accepted: this exact calc(100dvh-130px) value is
+   what desktop already uses successfully, but an earlier round found it
+   didn't hold on the specific tablet tested against — the grid overflowed
+   its bound and the PAGE scrolled instead, taking the cart with it and
+   starving products of their own scroll. If that recurs here, the fix is
+   the same page-scroll approach this replaces (products scroll with
+   #workspace-content, cart position:sticky with its own max-height), not
+   a smaller tweak to this number.
+   Also still needed regardless of the above: the products/cart children
+   carry Tailwind's lg:col-span-7/xl:col-span-8 and lg:col-span-5/
+   xl:col-span-4 classes, which assume a 12-column explicit grid. Once lg:
+   activates at 1024px+, those spans no longer fit inside the 2 explicit
+   columns this rule defines, so the grid engine creates extra implicit
+   columns instead of respecting the 2 declared here unless grid-column is
+   forced explicitly below — this was a real, separate bug found earlier
+   and still applies here. */
+@media (min-width: 768px) and (max-width: 1279px) {
+  #dashboard-scaffold #pos-view.pos-tablet-split-grid {
+    grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr) !important;
+    height: calc(100dvh - 130px) !important;
+    overflow: hidden !important;
+  }
+
+  #dashboard-scaffold .pos-tablet-products-col {
+    grid-column: 1 !important;
+    height: 100%;
+    min-height: 0;
+  }
+
+  #dashboard-scaffold #pos-product-grid {
+    flex: 1 1 auto;
+    overflow-y: auto;
+  }
+
+  #dashboard-scaffold .pos-tablet-cart-col {
+    grid-column: 2 !important;
+    height: 100%;
+    max-height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  #dashboard-scaffold .pos-tablet-cart-items {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none !important;
+    overflow-y: auto;
+  }
+}
+
+/* POS Payment Mode / receipt modal, tablet only: the global mobile-modal
+   rule (#dashboard-scaffold [class*="fixed"][class*="inset-0"]
+   [class*="items-center"] > div, further up in this file) forces every
+   modal's direct child box to max-width: min(100%, 100vw - 1rem) — correct
+   for phone, where a near-full-width sheet is the right call, but on a
+   wide tablet landscape that stretches this modal's payment-method grid
+   into huge, sparse cells instead of the compact w-full max-w-lg (32rem)
+   dialog it was actually designed as. Restore that cap, tablet only —
+   phone keeps the existing near-full-width behavior untouched. */
+@media (min-width: 768px) and (max-width: 1279px) {
+  #dashboard-scaffold .pos-tablet-checkout-modal {
+    max-width: 32rem !important;
+  }
+
+  /* The receipt step specifically (paymentStatus === 'completed') reads as
+     an actual receipt only when it's narrow like one — 32rem is fine for
+     the Payment Mode button grid above, but leaves the receipt looking
+     like a wide document instead of matching the same narrow column phone
+     naturally gets from its own narrower viewport. */
+  #dashboard-scaffold .pos-tablet-receipt-modal {
+    max-width: 26rem !important;
+  }
+}
+
+/* Tablet-only compactness pass: search bar, categories, and product cards
+   were all sized for either phone or desktop, never specifically for the
+   768-1279px split-screen layout, so they were taking up more vertical
+   space than the tablet's shorter viewport can spare. Desktop (already
+   confirmed correct) is untouched — capped to the tablet range only. */
+@media (min-width: 768px) and (max-width: 1279px) {
+  #dashboard-scaffold .pos-tablet-search-shell {
+    padding: 0.625rem !important;
+  }
+
+  #dashboard-scaffold .pos-tablet-search-shell > * + * {
+    margin-top: 0.5rem !important;
+  }
+
+  #dashboard-scaffold .pos-tablet-search-input {
+    padding-top: 0.375rem !important;
+    padding-bottom: 0.375rem !important;
+    font-size: 0.75rem !important;
+  }
+
+  /* Categories on one row: shrink the buttons and let the row scroll
+     horizontally instead of wrapping, so it always stays a single line
+     regardless of how many categories a tenant has. */
+  #dashboard-scaffold .pos-category-buttons {
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 0.125rem;
+  }
+  #dashboard-scaffold .pos-category-buttons button {
+    padding: 0.25rem 0.5rem !important;
+    font-size: 9px !important;
+    flex-shrink: 0;
+  }
+
+  #dashboard-scaffold .pos-tablet-product-image {
+    height: 4.5rem !important;
   }
 }
 
@@ -1307,13 +1581,6 @@ button:active:not(:disabled),
   }
 }
 
-#dashboard-scaffold {
-  height: 100vh;
-  height: 100dvh;
-  max-height: 100vh;
-  max-height: 100dvh;
-}
-
 #dashboard-scaffold > *,
 #workspace-content,
 #workspace-content > *,
@@ -1491,11 +1758,133 @@ button:active:not(:disabled),
   }
 
   #dashboard-scaffold .dashboard-kpi-two-column-grid,
-  #dashboard-scaffold .stock-tabs-two-column-grid,
   #dashboard-scaffold .product-import-actions-grid,
   #dashboard-scaffold .mobile-tablet-kpi-grid,
-  #dashboard-scaffold .native-report-kpi-grid {
+  #dashboard-scaffold .native-report-kpi-grid,
+  #dashboard-scaffold .staff-two-column-grid {
     display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  #dashboard-scaffold .staff-three-column-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  /* Product navigation stays in one compact row on both phone and tablet. */
+  #dashboard-scaffold .stock-tabs-two-column-grid {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+
+  /* Pharmacy registration uses the same explicit hierarchy on phone and
+     tablet, independent of the general mobile grid-collapse safety rule. */
+  #dashboard-scaffold .pharmacy-hierarchy-grid,
+  #dashboard-scaffold .pharmacy-hierarchy-levels-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  #dashboard-scaffold .pharmacy-price-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+}
+
+/* Stock product cards, tablet only (768-1279px): two per row since the wider
+   screen has room, same card markup/styling as phone unchanged. Phone keeps
+   its single-column space-y-3 stack. */
+@media (min-width: 768px) and (max-width: 1279px) {
+  #dashboard-scaffold .stock-cards-tablet-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 0.75rem !important;
+  }
+
+  /* Subscription-expired gate: the 3 plan cards sit in one horizontal row
+     from tablet width up, not just desktop -- otherwise the general
+     grid-cols-3 collapse safety rule above forces them to stack. */
+  #dashboard-scaffold .subscription-plan-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  /* Same trap, same fix, for the current-package/status/data-status stat
+     row in the same gate's hero card. */
+  #dashboard-scaffold .subscription-stat-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+  #dashboard-scaffold .stock-cards-tablet-grid > * {
+    margin-top: 0 !important;
+  }
+
+  /* Sales list cards, tablet only (768-1279px): two per row, same card
+     markup as phone unchanged. Phone keeps its single-column stack. */
+  #dashboard-scaffold .sales-cards-tablet-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 0.75rem !important;
+  }
+  #dashboard-scaffold .sales-cards-tablet-grid > * {
+    margin-top: 0 !important;
+  }
+}
+
+/* Stock tab nav sizing for tablet; both phone and tablet already use the
+   four-column row established above. */
+@media (min-width: 768px) and (max-width: 1279px) {
+  #dashboard-scaffold .stock-tabs-two-column-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 0.5rem !important;
+  }
+  #dashboard-scaffold .stock-tabs-two-column-grid button {
+    padding-top: 0.625rem !important;
+    padding-bottom: 0.625rem !important;
+    padding-left: 0.25rem !important;
+    padding-right: 0.25rem !important;
+  }
+  #dashboard-scaffold .stock-tab-icon {
+    font-size: 1.125rem !important;
+    margin-bottom: 0.25rem !important;
+  }
+  #dashboard-scaffold .stock-tab-label {
+    font-size: 9px !important;
+  }
+  #dashboard-scaffold .stock-tab-sub {
+    font-size: 8px !important;
+  }
+}
+
+/* Product Manager/Stock: Template, Import, Download Product Catalogue,
+   tablet only (768-1279px): one row of 3 instead of 2-cols-then-full-width-
+   third. Same buttons/design, just the grid arrangement changes; the third
+   button's col-span-2 (meant for the 2-column phone layout) is neutralized
+   so it takes one column like the other two. */
+@media (min-width: 768px) and (max-width: 1279px) {
+  #dashboard-scaffold .product-import-actions-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+  #dashboard-scaffold .product-import-actions-grid > * {
+    grid-column: auto !important;
+  }
+  /* Drop the "Full restore backup · N products" subtitle on tablet only, to
+     help the button fit comfortably in the one-row-of-3 layout above. Phone
+     keeps it (2-cols-then-full-width layout has room for it). */
+  #dashboard-scaffold .product-catalogue-subtitle {
+    display: none !important;
+  }
+  /* Reports menu (mobile/tablet report-type picker): the literal grid-cols-2
+     class here is force-collapsed to one column below 1280px by the global
+     [class*="grid-cols-2"] safety net earlier in this file -- restore two
+     columns on tablet only. Phone keeps the collapsed single column
+     (unchanged; only tablet was asked to change here). */
+  #dashboard-scaffold .reports-list-tablet-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  /* Same fix for the Quick Overview tiles (Branch Yield / Active Stock)
+     right above the reports list. */
+  #dashboard-scaffold .reports-overview-tablet-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 }
@@ -1741,13 +2130,6 @@ button:active:not(:disabled),
   background: #4b5563;
 }
 
-
-/* POS product grid — 4 columns on desktop */
-@media (min-width: 1024px) {
-  .pos-product-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-  }
-}
 
 /* ── Mobile Settings — Native App Feel ── */
 @media (max-width: 1279px) {

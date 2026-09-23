@@ -7,6 +7,7 @@ import { formatProductQuantity, formatSaleItemQuantity } from '../../shared/util
 import { canShowDashboardAd, useGlobalAdSettings } from '../../utils/adPlacement';
 import { sanitizeTrustedHtml } from '../../shared/utils/safeHtml';
 import { getBusinessDisplayName } from '../../shared/utils/businessBranding';
+import { formatLocalDate, timestampToLocalDate } from '../../utils/localDate';
 import { 
   ResponsiveContainer, 
   ComposedChart, 
@@ -38,7 +39,6 @@ import {
   MoreVertical,
   Printer,
   Share2,
-  XOctagon,
   Receipt
 } from 'lucide-react';
 
@@ -85,10 +85,10 @@ export default function DashboardOverview({
   const businessDisplayName = getBusinessDisplayName(activeTenant, systemSettings, userName);
   
   // Date timeframe filtering state: 'today' | 'week' | 'month' | '3month' | 'year'
-  const [timeframe, setTimeframe] = useState<'today' | 'week' | 'month' | '3month' | 'year'>('month');
+  const [timeframe, setTimeframe] = useState<'today' | 'week' | 'month' | '3month' | 'year'>('today');
 
   // Sales & Purchases status graph timeframe: 'today' | 'week' | 'month' | '3month' | 'year'
-  const [statusTimeframe, setStatusTimeframe] = useState<'today' | 'week' | 'month' | '3month' | 'year'>('month');
+  const [statusTimeframe, setStatusTimeframe] = useState<'today' | 'week' | 'month' | '3month' | 'year'>('today');
 
   const applyStatusTimeframe = (nextTimeframe: typeof statusTimeframe) => {
     setStatusTimeframe(nextTimeframe);
@@ -98,11 +98,11 @@ export default function DashboardOverview({
   // Filter sales based on selected timeframe — exact date boundaries
   const filteredSales = useMemo(() => {
     const now = new Date();
-    const todayStr = now.toISOString().split('T')[0];
+    const todayStr = formatLocalDate(now);
 
     return sales.filter(sale => {
       if (!sale.timestamp) return false;
-      const saleDateStr = new Date(sale.timestamp).toISOString().split('T')[0];
+      const saleDateStr = timestampToLocalDate(sale.timestamp);
 
       if (timeframe === 'today') {
         // Exact today only — same calendar date
@@ -294,7 +294,6 @@ export default function DashboardOverview({
 
   // Recent sales interactive action system
   const [actionMenuId, setActionMenuId] = useState<string | null>(null);
-  const [localCancelledIds, setLocalCancelledIds] = useState<string[]>([]);
   const [posFilterMethod, setPosFilterMethod] = useState<'All' | 'Cash' | 'Card' | 'M-Pesa' | 'Credit'>('All');
   const [methodFilterOpen, setMethodFilterOpen] = useState(false);
   const [feedbackToast, setFeedbackToast] = useState<string | null>(null);
@@ -309,14 +308,14 @@ export default function DashboardOverview({
     }
   }, [feedbackToast]);
 
-  // Mapped invoice states helper for visual diversity
-  const getSalesStatus = (saleId: string) => {
-    if (localCancelledIds.includes(saleId)) return 'Cancelled';
-    const lastChar = saleId.charAt(saleId.length - 1);
-    // Consistent mapping based on ID characters
-    if (['0', '4', '8', 'd', 'p', 'x', 'a', 'm'].includes(lastChar)) return 'In Progress';
-    if (['1', '5', '9', 'e', 'b', 'f', 'o', 'r', 'w', 'y'].includes(lastChar)) return 'Delivered';
-    return 'Cancelled';
+  // Recent Sales is an accounting ledger, so its status must come from the
+  // persisted sale/payment state. Never invent a delivery/cancellation state
+  // from the sale ID: that labeled legitimate sales as cancelled at random.
+  const getSalesStatus = (sale: Sale): 'Completed' | 'Partial' | 'Unpaid' | 'Saving' => {
+    if (sale.syncStatus === 'pending') return 'Saving';
+    if (sale.paymentStatus === 'unpaid') return 'Unpaid';
+    if (sale.paymentStatus === 'partial' || Number(sale.amountDue || 0) > 0) return 'Partial';
+    return 'Completed';
   };
 
   // Helper dataset with dynamic weighting based on selected statusTimeframe parameter
@@ -799,28 +798,28 @@ export default function DashboardOverview({
       </div>
 
       {/* 3. KPI CARDS ROW - desktop only, mobile uses hero above */}
-      <div className="hidden xl:grid grid-cols-2 md:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-6 select-none animate-fade-in">
+      <div className="hidden xl:grid grid-cols-2 md:grid-cols-2 xl:grid-cols-3 gap-2.5 select-none animate-fade-in">
         
         {/* Card 1: Total Orders */}
-        <div className="bg-white dark:bg-slate-900 rounded-[16px] p-5 border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-200">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl p-3.5 border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-200">
           <div className="flex items-center justify-between">
-            <div className="w-10 h-10 bg-gradient-to-tr from-indigo-500 to-violet-500 text-white rounded-xl flex items-center justify-center shadow-md shadow-indigo-100">
-              <ShoppingCart className="w-5 h-5 text-white" />
+            <div className="w-8 h-8 bg-gradient-to-tr from-indigo-500 to-violet-500 text-white rounded-xl flex items-center justify-center shadow-md shadow-indigo-100">
+              <ShoppingCart className="w-4 h-4 text-white" />
             </div>
             <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 px-2 py-0.5 rounded-full border border-indigo-100/40 dark:border-indigo-800/40">
               Active Orders
             </span>
           </div>
-          <div className="mt-4 text-left">
+          <div className="mt-2.5 text-left">
             <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Orders</p>
-            <p className="text-xl font-black text-slate-900 dark:text-white tracking-tight mt-1">
+            <p className="text-base font-black text-slate-900 dark:text-white tracking-tight mt-1">
               {filteredSales.length}
             </p>
             <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1.5 font-mono tracking-wide flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
               {totalQtySold} items sold {timeframeLabel.toLowerCase()}
             </p>
-            <div className="mt-2 flex gap-0.5 items-end h-6">
+            <div className="mt-1.5 flex gap-0.5 items-end h-4">
               {[40,65,45,80,55,90,70].map((h,i) => (
                 <div key={i} className="flex-1 rounded-sm bg-indigo-100 dark:bg-indigo-900/30 relative overflow-hidden">
                   <div className="absolute bottom-0 left-0 right-0 bg-indigo-400 dark:bg-indigo-500 rounded-sm transition-all" style={{height: `${h}%`}} />
@@ -831,25 +830,25 @@ export default function DashboardOverview({
         </div>
 
         {/* Card 3: Total Sales */}
-        <div className="bg-white dark:bg-slate-900 rounded-[16px] p-5 border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-200">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl p-3.5 border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-200">
           <div className="flex items-center justify-between">
-            <div className="w-10 h-10 bg-gradient-to-tr from-purple-500 to-indigo-500 text-white rounded-xl flex items-center justify-center shadow-md shadow-purple-100">
-              <Coins className="w-5 h-5 text-white" />
+            <div className="w-8 h-8 bg-gradient-to-tr from-purple-500 to-indigo-500 text-white rounded-xl flex items-center justify-center shadow-md shadow-purple-100">
+              <Coins className="w-4 h-4 text-white" />
             </div>
             <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full flex items-center gap-0.5 border border-emerald-100/40">
               <ArrowUp className="w-2.5 h-2.5 text-emerald-500" /> {timeframeLabel}
             </span>
           </div>
-          <div className="mt-4 text-left">
+          <div className="mt-2.5 text-left">
             <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Sales</p>
-            <p className="text-xl font-black text-slate-900 dark:text-white tracking-tight mt-1">
+            <p className="text-base font-black text-slate-900 dark:text-white tracking-tight mt-1">
               {currency} {Math.round(totalRevenue).toLocaleString()}
             </p>
             <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1.5 font-mono tracking-wide flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
               Money earned today
             </p>
-            <div className="mt-2 flex gap-0.5 items-end h-6">
+            <div className="mt-1.5 flex gap-0.5 items-end h-4">
               {[30,50,45,70,60,85,75].map((h,i) => (
                 <div key={i} className="flex-1 rounded-sm bg-purple-100 dark:bg-purple-900/30 relative overflow-hidden">
                   <div className="absolute bottom-0 left-0 right-0 bg-purple-400 dark:bg-purple-500 rounded-sm" style={{height: `${h}%`}} />
@@ -860,18 +859,18 @@ export default function DashboardOverview({
         </div>
 
         {/* Card 4: Purchases */}
-        <div className="bg-white dark:bg-slate-900 rounded-[16px] p-5 border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-200">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl p-3.5 border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-200">
           <div className="flex items-center justify-between">
-            <div className="w-10 h-10 bg-gradient-to-tr from-teal-500 to-emerald-400 text-white rounded-xl flex items-center justify-center shadow-md shadow-teal-100">
-              <Layers className="w-5 h-5 text-white" />
+            <div className="w-8 h-8 bg-gradient-to-tr from-teal-500 to-emerald-400 text-white rounded-xl flex items-center justify-center shadow-md shadow-teal-100">
+              <Layers className="w-4 h-4 text-white" />
             </div>
             <span className="text-[10px] font-bold text-teal-600 bg-teal-50 px-2 py-0.5 rounded-full border border-teal-100/40">
               Buying
             </span>
           </div>
-          <div className="mt-4 text-left">
+          <div className="mt-2.5 text-left">
             <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Purchases</p>
-            <p className="text-xl font-black text-slate-900 dark:text-white tracking-tight mt-1">
+            <p className="text-base font-black text-slate-900 dark:text-white tracking-tight mt-1">
               {currency} {Math.round(simulatedPurchases).toLocaleString()}
             </p>
             <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1.5 font-mono tracking-wide flex items-center gap-1">
@@ -882,18 +881,18 @@ export default function DashboardOverview({
         </div>
 
         {/* Card 5: Expenses */}
-        <div className="bg-white dark:bg-slate-900 rounded-[16px] p-5 border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-200">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl p-3.5 border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-200">
           <div className="flex items-center justify-between">
-            <div className="w-10 h-10 bg-gradient-to-tr from-blue-500 to-cyan-500 text-white rounded-xl flex items-center justify-center shadow-md shadow-blue-100">
-              <TrendingDown className="w-5 h-5 text-white" />
+            <div className="w-8 h-8 bg-gradient-to-tr from-blue-500 to-cyan-500 text-white rounded-xl flex items-center justify-center shadow-md shadow-blue-100">
+              <TrendingDown className="w-4 h-4 text-white" />
             </div>
             <span className="text-[10px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-100/40">
               Opex Cash
             </span>
           </div>
-          <div className="mt-4 text-left">
+          <div className="mt-2.5 text-left">
             <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Expenses</p>
-            <p className="text-xl font-black text-slate-900 dark:text-white tracking-tight mt-1">
+            <p className="text-base font-black text-slate-900 dark:text-white tracking-tight mt-1">
               {currency} {Math.round(totalExpensesAmt).toLocaleString()}
             </p>
             <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1.5 font-mono tracking-wide flex items-center gap-1">
@@ -904,18 +903,18 @@ export default function DashboardOverview({
         </div>
 
         {/* Card 2: Cost of Goods */}
-        <div className="bg-white dark:bg-slate-900 rounded-[16px] p-5 border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-200">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl p-3.5 border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-200">
           <div className="flex items-center justify-between">
-            <div className="w-10 h-10 bg-gradient-to-tr from-amber-500 to-orange-500 text-white rounded-xl flex items-center justify-center shadow-md shadow-amber-100">
-              <Receipt className="w-5 h-5 text-white" />
+            <div className="w-8 h-8 bg-gradient-to-tr from-amber-500 to-orange-500 text-white rounded-xl flex items-center justify-center shadow-md shadow-amber-100">
+              <Receipt className="w-4 h-4 text-white" />
             </div>
             <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/50 px-2 py-0.5 rounded-full border border-amber-100/40 dark:border-amber-800/40">
               Credit Dues
             </span>
           </div>
-          <div className="mt-4 text-left">
+          <div className="mt-2.5 text-left">
             <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Dues Owed</p>
-            <p className="text-xl font-black text-slate-900 dark:text-white tracking-tight mt-1">
+            <p className="text-base font-black text-slate-900 dark:text-white tracking-tight mt-1">
               {currency} {Math.round(filteredSales.filter((s:any)=>s.paymentStatus==='unpaid'||s.paymentStatus==='partial').reduce((sum:number,s:any)=>sum+(s.dueAmount||s.amountDue||0),0)).toLocaleString()}
             </p>
             <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1.5 font-mono tracking-wide flex items-center gap-1">
@@ -926,10 +925,10 @@ export default function DashboardOverview({
         </div>
 
         {/* Card 6: Total Profit */}
-        <div className="bg-white dark:bg-slate-900 rounded-[16px] p-5 border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-200">
+        <div className="bg-white dark:bg-slate-900 rounded-2xl p-3.5 border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-md transition-all duration-200">
           <div className="flex items-center justify-between">
-            <div className="w-10 h-10 bg-gradient-to-tr from-emerald-500 to-green-400 text-white rounded-xl flex items-center justify-center shadow-md shadow-emerald-100">
-              <TrendingUp className="w-5 h-5 text-white" />
+            <div className="w-8 h-8 bg-gradient-to-tr from-emerald-500 to-green-400 text-white rounded-xl flex items-center justify-center shadow-md shadow-emerald-100">
+              <TrendingUp className="w-4 h-4 text-white" />
             </div>
             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
               netProfit >= 0 ? 'text-emerald-600 bg-emerald-50 border-emerald-100/40' : 'text-rose-600 bg-rose-50 border-rose-100/40'
@@ -937,9 +936,9 @@ export default function DashboardOverview({
               {netProfit >= 0 ? 'Profit margin' : 'Deficit'}
             </span>
           </div>
-          <div className="mt-4 text-left">
+          <div className="mt-2.5 text-left">
             <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Profit</p>
-            <p className={`text-xl font-black tracking-tight mt-1 ${netProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+            <p className={`text-base font-black tracking-tight mt-1 ${netProfit >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
               {currency} {Math.round(netProfit).toLocaleString()}
             </p>
             <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1.5 font-mono tracking-wide flex items-center gap-1">
@@ -1126,7 +1125,6 @@ export default function DashboardOverview({
                   itemStyle={{ fontSize: '11px', fontWeight: 600, padding: '2px 0' }}
                   labelStyle={{ color: '#64748b', fontWeight: 700, marginBottom: '4px' }}
                 />
-                <Bar dataKey="target" name="Sales Target" fill="#e2e8f0" barSize={barWidth} radius={[3, 3, 0, 0]} />
                 <Bar dataKey="sales" name="Sales" fill="url(#coralRed)" barSize={barWidth} radius={[3, 3, 0, 0]} />
                 <Bar dataKey="purchases" name="Purchases" fill="url(#purpleIndigo)" barSize={barWidth} radius={[3, 3, 0, 0]} />
                 <Line 
@@ -1143,10 +1141,6 @@ export default function DashboardOverview({
           </div>
 
           <div className="flex items-center justify-center space-x-6 shrink-0 mt-3 text-xs font-medium">
-            <div className="flex items-center space-x-2">
-              <span className="w-2.5 h-2.5 rounded bg-slate-300" />
-              <span className="text-slate-550">Sales Target</span>
-            </div>
             <div className="flex items-center space-x-2">
               <span className="w-2.5 h-2.5 rounded bg-orange-500" />
               <span className="text-slate-550">Sales</span>
@@ -1187,8 +1181,9 @@ export default function DashboardOverview({
                     strokeDasharray={`${238.76 * (data.percentage / 100)} 238.76`} 
                     strokeDashoffset={`-${238.76 * (data.offset / 100)}`} 
                     className="transition-all duration-300 hover:stroke-[17px] cursor-pointer"
-                    title={`${data.name}: ${data.percentage}%`}
-                  />
+                  >
+                    <title>{`${data.name}: ${data.percentage}%`}</title>
+                  </circle>
                 ))}
               </svg>
             </div>
@@ -1293,7 +1288,7 @@ export default function DashboardOverview({
                 </thead>
                 <tbody className="divide-y divide-slate-50 font-medium">
                   {posFilteredSalesList.slice(0, 5).map((sale, saleIdx) => {
-                    const status = getSalesStatus(sale.id);
+                    const status = getSalesStatus(sale);
                     const isExpanded = expandedInvoiceId === sale.id;
                     const paymentMethodName = sale.paymentMethod || 'Cash';
 
@@ -1320,21 +1315,15 @@ export default function DashboardOverview({
                             </span>
                           </td>
                           <td className="py-3.5">
-                            {status === 'Delivered' && (
-                              <span className="bg-emerald-500/10 text-emerald-500 text-[10px] leading-none font-extrabold px-2.5 py-1 rounded-full border border-emerald-500/10 uppercase tracking-wider">
-                                Delivered
-                              </span>
-                            )}
-                            {status === 'In Progress' && (
-                              <span className="bg-indigo-500/10 text-indigo-500 text-[10px] leading-none font-extrabold px-2.5 py-1 rounded-full border border-indigo-500/10 uppercase tracking-wider">
-                                In Progress
-                              </span>
-                            )}
-                            {status === 'Cancelled' && (
-                              <span className="bg-rose-500/10 text-rose-500 text-[10px] leading-none font-extrabold px-2.5 py-1 rounded-full border border-rose-500/10 uppercase tracking-wider">
-                                Cancelled
-                              </span>
-                            )}
+                            <span className={`text-[10px] leading-none font-extrabold px-2.5 py-1 rounded-full border uppercase tracking-wider ${
+                              status === 'Completed'
+                                ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/10'
+                                : status === 'Partial'
+                                  ? 'bg-amber-500/10 text-amber-600 border-amber-500/10'
+                                  : status === 'Unpaid'
+                                    ? 'bg-rose-500/10 text-rose-600 border-rose-500/10'
+                                    : 'bg-indigo-500/10 text-indigo-600 border-indigo-500/10'
+                            }`}>{status}</span>
                           </td>
                           
                           {/* Row Actions Menu Column */}
@@ -1399,23 +1388,6 @@ export default function DashboardOverview({
                                     <span>{isExpanded ? 'Hide Details' : 'View Core Ledger'}</span>
                                   </button>
 
-                                  {status !== 'Cancelled' && (
-                                    <>
-                                      <div className="border-t border-slate-50 my-1" />
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setActionMenuId(null);
-                                          setLocalCancelledIds([...localCancelledIds, sale.id]);
-                                          setFeedbackToast(`Sale #${sale.receiptNo || sale.id.substring(0, 5)} has been marked as Refunded / VOID.`);
-                                        }}
-                                        className="w-full text-left px-3 py-2 text-rose-600 hover:bg-rose-50 flex items-center space-x-2 font-semibold"
-                                      >
-                                        <XOctagon className="w-3.5 h-3.5 text-rose-500" />
-                                        <span>Refund / Cancel</span>
-                                      </button>
-                                    </>
-                                  )}
                                 </div>
                               </>
                             )}
@@ -1460,7 +1432,7 @@ export default function DashboardOverview({
               {/* Mobile Cards View */}
               <div className="xl:hidden flex flex-col space-y-3 pb-2 w-full">
                 {posFilteredSalesList.slice(0, 5).map((sale) => {
-                  const status = getSalesStatus(sale.id);
+                  const status = getSalesStatus(sale);
                   const isExpanded = expandedInvoiceId === sale.id;
                   const paymentMethodName = sale.paymentMethod || 'Cash';
                   
@@ -1482,21 +1454,15 @@ export default function DashboardOverview({
                           <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-slate-100/80 text-slate-500">
                             {paymentMethodName}
                           </span>
-                          {status === 'Delivered' && (
-                            <span className="bg-emerald-50 text-emerald-600 text-[10px] font-extrabold px-2.5 py-1 rounded-lg uppercase tracking-wider border border-emerald-100">
-                              Delivered
-                            </span>
-                          )}
-                          {status === 'In Progress' && (
-                            <span className="bg-amber-50 text-amber-600 text-[10px] font-extrabold px-2.5 py-1 rounded-lg uppercase tracking-wider border border-amber-100">
-                              Pending
-                            </span>
-                          )}
-                          {status === 'Cancelled' && (
-                            <span className="bg-rose-50 text-rose-600 text-[10px] font-extrabold px-2.5 py-1 rounded-lg uppercase tracking-wider border border-rose-100">
-                              Cancelled
-                            </span>
-                          )}
+                          <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-lg uppercase tracking-wider border ${
+                            status === 'Completed'
+                              ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                              : status === 'Partial'
+                                ? 'bg-amber-50 text-amber-600 border-amber-100'
+                                : status === 'Unpaid'
+                                  ? 'bg-rose-50 text-rose-600 border-rose-100'
+                                  : 'bg-indigo-50 text-indigo-600 border-indigo-100'
+                          }`}>{status}</span>
                         </div>
                         
                         <div 
@@ -1518,11 +1484,6 @@ export default function DashboardOverview({
                               <button onClick={(e) => { e.stopPropagation(); setActiveRowMenu(null); }} className="w-full text-left px-3 py-2 text-[13px] font-semibold text-slate-600 hover:bg-slate-50 active:bg-slate-100 rounded-lg flex items-center space-x-3 transition-colors">
                                 <Share2 className="w-4 h-4 text-slate-400" />
                                 <span>Share Link</span>
-                              </button>
-                              <div className="h-px bg-slate-100 my-1 w-full" />
-                              <button onClick={(e) => { e.stopPropagation(); setActiveRowMenu(null); }} className="w-full text-left px-3 py-2 text-[13px] font-semibold text-rose-600 active:bg-rose-50 rounded-lg flex items-center space-x-3 mt-1">
-                                <XOctagon className="w-4 h-4 text-rose-400" />
-                                <span>Refund Issue</span>
                               </button>
                             </div>
                           )}

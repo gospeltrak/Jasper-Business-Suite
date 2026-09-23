@@ -11,9 +11,56 @@ import {
 } from '../src/utils/saleSync';
 import { protectTenantPayload } from '../src/shared/utils/dataSafety';
 import type { Product, Sale } from '../src/types';
+import { resolveProfileRolePermissions } from '../src/utils/profilePermissions';
 
 const projectRoot = resolve(import.meta.dirname, '..');
 const read = (path: string) => readFile(join(projectRoot, path), 'utf8');
+
+test('empty or malformed cloud role permissions fall back to the tenant named role after reload', () => {
+  const fullPermissions = {
+    pos: { read: true, write: true, edit: true },
+    products: { read: true, write: true, edit: true },
+    purchases: { read: true, write: true, edit: true },
+    suppliers: { read: true, write: true, edit: true },
+    expenses: { read: true, write: true, edit: true },
+    reportsSalesExpenses: { read: true, write: true, edit: true },
+    reportsProfitCogs: { read: true, write: true, edit: true },
+    sync: { read: true, write: true, edit: true },
+    settings: { read: true, write: true, edit: true },
+  };
+  assert.equal(resolveProfileRolePermissions(null), undefined);
+  assert.equal(resolveProfileRolePermissions({}), undefined);
+  // A partial object (missing module keys, e.g. from historical data
+  // corruption) is functionally indistinguishable from empty -- every
+  // missing module silently denies that module everywhere it's checked.
+  // Falling back to the tenant's named role is safer than trusting it.
+  assert.equal(
+    resolveProfileRolePermissions({ pos: { read: false, write: false, edit: false } }),
+    undefined,
+  );
+  assert.deepEqual(resolveProfileRolePermissions(fullPermissions), fullPermissions);
+});
+
+test('staff and custom roles survive stale realtime payloads and database writes', async () => {
+  const dashboardSource = await read('src/components/Dashboard.tsx');
+  const migrationSource = await read('supabase/migrations/20260822000100_protect_staff_settings_from_stale_writes.sql');
+  assert.match(
+    dashboardSource,
+    /setSystemSettings\(current => normalizeSystemSettings\([\s\S]{0,180}mergeSettingsForSync\(workspace\.settings, current\)/,
+  );
+  assert.match(migrationSource, /for update/);
+  assert.match(migrationSource, /array\['staffs', 'customRoles'\]/);
+  assert.match(migrationSource, /v_incoming_sync <= v_existing_sync/);
+  assert.match(migrationSource, /v_existing_settings -> v_protected_key/);
+});
+
+test('tenant login bootstrap displays only the tenant logo without restoration copy', async () => {
+  const dashboardSource = await read('src/components/Dashboard.tsx');
+  assert.match(dashboardSource, /function WorkspaceBootstrapScreen\(\)[\s\S]{0,260}const \{ logoUrl \} = useTenantLogo\(\)/);
+  assert.match(dashboardSource, /src=\{logoUrl \|\| '\/icon-512\.png'\}/);
+  assert.doesNotMatch(dashboardSource, /Restoring your menus, roles, products and business records/);
+  assert.doesNotMatch(dashboardSource, /Restoring your branch, menus and permissions/);
+});
 
 test('tenant package navigation contract remains centralized and correct', () => {
   assert.equal(isTenantPackageTabAllowed('ruby', 'deliveries'), false);
@@ -32,7 +79,9 @@ test('lazy screens recover safely after a deployment changes chunk filenames', a
 
   assert.match(dashboardSource, /lazyWithReload\('DashboardCashBank'/);
   assert.match(appSource, /lazyWithReload\('Dashboard'/);
-  assert.match(boundarySource, /Reload updated app/);
+  assert.match(boundarySource, /Tunarudisha sehemu yako/);
+  assert.doesNotMatch(boundarySource, /SystemErrorPage status=\{500\}/);
+  assert.match(boundarySource, /window\.location\.reload\(\)/);
   assert.match(lazyLoaderSource, /window\.setTimeout\(\(\) => window\.location\.reload\(\), 0\)/);
   assert.match(lazyLoaderSource, /sessionStorage\.setItem/);
 });
@@ -50,12 +99,18 @@ test('login always returns to the canonical Jasper landing hub', async () => {
   assert.doesNotMatch(appSource, /publicLandingUrl\s*=\s*tenantDomainContext\.baseDomain/);
 });
 
-test('optional tenant branding cannot leave a successful login waiting forever', async () => {
+test('optional tenant branding and workspace hydration never block a successful login', async () => {
   const appSource = await read('src/App.tsx');
-  assert.match(appSource, /resolvedTenantLogo\s*=\s*await Promise\.race\(\[/);
-  assert.match(appSource, /fetchLogoUrl\(storageTenantId\)/);
-  assert.match(appSource, /window\.setTimeout\(\(\) => resolve\(null\), 1500\)/);
-  assert.match(appSource, /setUser\(authenticatedUser\)/);
+  const loginHandler = appSource.slice(
+    appSource.indexOf('const handleLoginSuccess ='),
+    appSource.indexOf('useEffect(() => {', appSource.indexOf('const handleLoginSuccess =')),
+  );
+  assert.match(loginHandler, /void fetchLogoUrl\(storageTenantId\)/);
+  assert.match(loginHandler, /setUser\(authenticatedUser\)/);
+  assert.doesNotMatch(loginHandler, /await configureOnlineStorage/);
+  assert.doesNotMatch(loginHandler, /await fetchLogoUrl/);
+  assert.doesNotMatch(loginHandler, /Promise\.race/);
+  assert.doesNotMatch(appSource, /await configureOnlineStorage\(restoredStorageTenantId\)/);
 });
 
 test('workspace entry and branch switching stay fast and non-blocking', async () => {
@@ -64,7 +119,7 @@ test('workspace entry and branch switching stay fast and non-blocking', async ()
   const branchContextSource = await read('src/modules/branches/BranchContext.tsx');
   const dashboardSource = await read('src/components/Dashboard.tsx');
 
-  assert.match(appSource, /duration=\{1200\}/);
+  assert.match(appSource, /duration=\{splashRequest\.mode === 'tenant' \? 2000 : 1200\}/);
   assert.match(splashSource, /duration = 1200/);
   assert.match(branchContextSource, /branchSnapshotCache/);
   assert.match(branchContextSource, /optimisticSnapshot/);
@@ -72,6 +127,28 @@ test('workspace entry and branch switching stay fast and non-blocking', async ()
   assert.match(dashboardSource, /branchWorkspaceCacheRef/);
   assert.match(dashboardSource, /cachedWorkspace/);
   assert.doesNotMatch(dashboardSource, /Switching branch workspace/);
+});
+
+test('branch contact settings are tenant-scoped and non-destructive', async () => {
+  const serverSource = await read('server.ts');
+  const branchSettingsSource = await read('src/components/DashboardBranchesSettings.tsx');
+  const brandingSource = await read('src/utils/businessBranding.ts');
+  const salesSource = await read('src/components/DashboardSalesList.tsx');
+  const posSource = await read('src/components/DashboardPOS.tsx');
+  const migrationSource = await read('supabase/migrations/20260824170138_branch_contact_settings.sql');
+  assert.match(serverSource, /app\.get\('\/api\/branches\/:branchId\/profile'/);
+  assert.match(serverSource, /app\.patch\('\/api\/branches\/:branchId\/profile'/);
+  assert.match(serverSource, /update_current_tenant_branch_profile/);
+  assert.match(branchSettingsSource, /Address & contacts/);
+  assert.match(branchSettingsSource, /Save branch contacts/);
+  assert.match(serverSource, /enrichBranchContacts/);
+  assert.match(brandingSource, /getActiveBranchAddress/);
+  assert.match(brandingSource, /getActiveBranchPhone/);
+  assert.match(salesSource, /getActiveBranchAddress\(systemSettings, activeBranch\)/);
+  assert.match(posSource, /getActiveBranchPhone\(systemSettings, activeBranch\)/);
+  assert.match(migrationSource, /private\.can_write_branch\(v_tenant_id, p_branch_id, 'branches\.manage'\)/);
+  assert.match(migrationSource, /where branch\.tenant_id = v_tenant_id[\s\S]*branch\.id = p_branch_id/);
+  assert.doesNotMatch(migrationSource, /\b(delete|truncate|drop table)\b/i);
 });
 
 test('subscription checkout uses the native plan summary without inline mobile-money fields', async () => {
@@ -97,9 +174,8 @@ test('critical sale actions remain wired to visible controls', async () => {
     'View Sale',
     'Edit Sale',
     'POS Receipt',
-    'A4 Invoice',
     'Send via WhatsApp',
-    'Delete Sale',
+    'Cancel Receipt',
     'Record as Sale',
   ]) {
     assert.match(salesSource, new RegExp(action), `Missing sale action: ${action}`);
@@ -109,6 +185,28 @@ test('critical sale actions remain wired to visible controls', async () => {
   assert.match(salesSource, /setViewPaymentsOpen\(true\)/);
   assert.doesNotMatch(salesSource, />\s*Thermal Receipt\s*</);
   assert.match(dashboardSource, /saveData\(\s*(?:activeTenant\.id|tid|tenantId),\s*'sales_map'/);
+});
+
+test('expired Tanzanite tenants save quotes through the standard tenant document flow', async () => {
+  const salesSource = await read('src/components/DashboardSalesList.tsx');
+  assert.match(
+    salesSource,
+    /const canUseCrossBranchDocuments = activePlanId === 'tanzanite' && !subscriptionStatus\?\.isExpired/,
+  );
+  assert.match(salesSource, /if \(!canUseCrossBranchDocuments\) \{[\s\S]*setDocuments/);
+});
+
+test('commercial document product search follows the active branch and recognizes location stock', async () => {
+  const salesSource = await read('src/components/DashboardSalesList.tsx');
+  const migrationSource = await read('supabase/migrations/20260824095954_fix_cross_branch_invoice_product_sources.sql');
+
+  assert.match(salesSource, /setNewDocIssuingBranchId\(preferredBranch\?\.id \|\| ''\)/);
+  assert.match(salesSource, /setDocWizardSourceBranchId\(preferredBranch\?\.id \|\| ''\)/);
+  assert.match(salesSource, /docWizardSourceBranchId === activeBranchId\) return products/);
+  assert.match(migrationSource, /create or replace function public\.list_cross_branch_document_sources\(\)/);
+  assert.match(migrationSource, /coalesce\(stock\.shop_stock_qty, 0\) \+ coalesce\(stock\.store_stock_qty, 0\)/);
+  assert.match(migrationSource, /where stock\.tenant_id = v_tenant_id/);
+  assert.match(migrationSource, /grant execute on function public\.list_cross_branch_document_sources\(\) to authenticated/);
 });
 
 test('header uses active business profile and has no decorative workspace search box', async () => {
@@ -312,8 +410,194 @@ test('sale deletion remains tenant-scoped and updates canonical related data', a
   assert.match(dashboardSource, /Sale could not be deleted from the database\. Nothing was removed\./);
   assert.match(salesSource, /await onDeleteSale\(saleToDelete\)/);
   assert.match(salesSource, /setIsDeletingSale\(true\)/);
-  assert.match(salesSource, /Sale could not be deleted safely\. Nothing was removed\./);
-  assert.match(salesSource, /Deleting…/);
+  assert.match(salesSource, /Receipt could not be cancelled safely\. Nothing was changed\./);
+  assert.match(salesSource, /Cancelling…/);
+});
+
+test('delivery notes load tenant-scoped source records without manual item editing', async () => {
+  const dashboardSource = await read('src/components/Dashboard.tsx');
+  const deliverySource = await read('src/components/DashboardDeliveries.tsx');
+  assert.match(dashboardSource, /deliveries=\{activeDeliveries\}/);
+  assert.match(dashboardSource, /sales=\{activeSales\}/);
+  assert.match(dashboardSource, /pendingNotes=\{activePendingDeliveryNotes\}/);
+  assert.match(deliverySource, /Invoice \/ Sales \/ Delivery \/ Dispatch Number/);
+  assert.match(deliverySource, /const handleLoadFromDelivery = \(delivery: Delivery\)/);
+  assert.match(deliverySource, /const applyDeliveryDriver = \(delivery: Delivery\)/);
+  assert.match(deliverySource, /const noteDriverOptions: DeliveryRider\[\]/);
+  assert.match(deliverySource, /Source-linked items are intentionally read-only/);
+  assert.doesNotMatch(deliverySource, /onClick=\{\(\) => handleDeleteNoteItem\(item\.id\)\}/);
+});
+
+test('delivery note WhatsApp sharing mounts the selected note and shares its PDF', async () => {
+  const deliverySource = await read('src/components/DashboardDeliveries.tsx');
+  const pdfSource = await read('src/utils/pdfShare.ts');
+  assert.match(deliverySource, /flushSync\(\(\) => \{\s*handleLoadFromOrder\(del\);\s*setActiveSubTab\('notes'\);\s*\}\)/);
+  assert.match(deliverySource, /shareElementPdfToWhatsApp\(\{\s*elementId: 'delivery-note-print-area'/);
+  assert.match(deliverySource, /fileName: `delivery-note-\$\{dnNo\}\.pdf`/);
+  assert.match(pdfSource, /const pdfFile = await createPdfFromElement\(options\)/);
+  assert.match(pdfSource, /navigator\.share\(\{ files, title: pdfFile\.name, text: message \}\)/);
+  assert.match(pdfSource, /downloadBlob\(pdfFile, pdfFile\.name\)/);
+});
+
+test('POS receipt preview, print, download and WhatsApp all capture the same on-screen template', async () => {
+  // POS receipt moved from a separately-maintained ReceiptData object fed
+  // to a standalone jsPDF text-redraw generator (which could silently drift
+  // from the on-screen preview) to a screenshot-based capture of the actual
+  // #pos-receipt-pdf-template DOM node — the same technique
+  // DashboardSalesList's POS Receipt viewer uses. The guarantee this test
+  // protects is unchanged (preview/download/share/print can never disagree
+  // with each other), just enforced by every path reading the one DOM
+  // element instead of every path reading one shared data object.
+  const posSource = await read('src/components/DashboardPOS.tsx');
+  assert.match(posSource, /id="pos-receipt-pdf-template"/);
+  assert.match(posSource, /shareElementPdfToWhatsApp\(\{\s*elementId: 'pos-receipt-pdf-template'/);
+  assert.match(posSource, /downloadPdfFromElement\(\{\s*elementId: 'pos-receipt-pdf-template'/);
+  assert.match(posSource, /document\.getElementById\('pos-receipt-pdf-template'\)/);
+  assert.match(posSource, /format: 'receipt'/);
+});
+
+test('A4 sales invoice preview, download and WhatsApp use one template', async () => {
+  // Print was replaced by Download on the A4 invoice toolbar (compact
+  // Send/Download/Close action bar) — POS receipt keeps its own Print.
+  const salesSource = await read('src/components/DashboardSalesList.tsx');
+  assert.match(salesSource, /id="sales-invoice-a4-pdf-template"/);
+  assert.match(salesSource, /downloadPdfFromElement\(\{\s*elementId: 'sales-invoice-a4-pdf-template'/);
+  assert.match(salesSource, /elementId: format === 'a4' \? 'sales-invoice-a4-pdf-template' : 'sales-receipt-pdf-template'/);
+  assert.equal(
+    (salesSource.match(/elementId: format === 'a4' \? 'sales-invoice-a4-pdf-template' : 'sales-receipt-pdf-template'/g) || []).length,
+    1,
+  );
+});
+
+test('quotation and proforma preview, download and WhatsApp share one A4 template and footer', async () => {
+  // Print was replaced by Download on the quotation/document viewer toolbar.
+  const salesSource = await read('src/components/DashboardSalesList.tsx');
+  assert.match(salesSource, /id="sales-document-a4-pdf-template"/);
+  assert.match(salesSource, /shareElementPdfToWhatsApp\(\{\s*elementId: 'sales-document-a4-pdf-template'/);
+  assert.match(salesSource, /downloadPdfFromElement\(\{\s*elementId: 'sales-document-a4-pdf-template'/);
+  assert.match(salesSource, /\{invoiceFooter\.mainMessage\}/);
+  assert.match(salesSource, /\{invoiceFooter\.poweredBy\}/);
+});
+
+test('commercial documents persist in authoritative tenant tables and reload across devices', async () => {
+  const salesSource = await read('src/components/DashboardSalesList.tsx');
+  const branchApiSource = await read('src/branches/branchApi.ts');
+  const serverSource = await read('server.ts');
+  const migrationSource = await read('supabase/migrations/20260824103801_persist_and_load_commercial_documents.sql');
+  const updateTimeMigration = await read('supabase/migrations/20260826000100_include_document_update_time.sql');
+
+  assert.match(salesSource, /await createStandardCommercialDocument\(localDocument\)/);
+  assert.match(salesSource, /const remoteDocuments = await loadCommercialDocuments\(\)/);
+  assert.doesNotMatch(salesSource, /\.from\('tenant_data'\)[\s\S]{0,240}application_state/);
+  assert.match(branchApiSource, /export const loadCommercialDocuments/);
+  assert.match(branchApiSource, /export const createStandardCommercialDocument/);
+  assert.match(serverSource, /app\.get\('\/api\/sales\/documents'/);
+  assert.match(serverSource, /app\.post\('\/api\/sales\/documents'/);
+  assert.match(serverSource, /app\.patch\('\/api\/sales\/documents\/:documentId'/);
+  assert.match(migrationSource, /create or replace function public\.save_current_sales_document/);
+  assert.match(migrationSource, /create or replace function public\.list_current_commercial_documents/);
+  assert.match(migrationSource, /where document\.tenant_id = tenant\.id/);
+  assert.match(updateTimeMigration, /'updatedAt', document\.updated_at/);
+  assert.match(salesSource, /serverUpdatedAt = parse\(\(doc as SalesDocument & \{ updatedAt\?: string \}\)\.updatedAt\)/);
+});
+
+test('Safari keyboard layout never hides the app or lifts navigation by keyboard height', async () => {
+  const cssSource = await read('src/index.css');
+  const mainSource = await read('src/main.tsx');
+  const htmlSource = await read('index.html');
+  assert.doesNotMatch(cssSource, /#jasper-app-root > \*\s*\{\s*display:\s*none\s*!important/);
+  assert.match(mainSource, /keyboardActive \? 0 : Math\.min\(obscuredHeight, 80\)/);
+  assert.doesNotMatch(htmlSource, /function setViewportVars\(\)/);
+});
+
+test('navigation tolerates transient permission hydration without ejecting active work', async () => {
+  const dashboardSource = await read('src/components/Dashboard.tsx');
+  assert.match(dashboardSource, /const redirectTimer = window\.setTimeout/);
+  assert.match(dashboardSource, /if \(isTabAllowed\(activeTab\)\) return;[\s\S]{0,260}800/);
+});
+
+test('POS completion waits for a durable sale save and compensates treasury on failure', async () => {
+  const dashboardSource = await read('src/components/Dashboard.tsx');
+  const saleHandler = dashboardSource.slice(
+    dashboardSource.indexOf('const handleAddSale = async'),
+    dashboardSource.indexOf('const handleAddRider =', dashboardSource.indexOf('const handleAddSale = async')),
+  );
+  assert.match(saleHandler, /const saleSaved = await saveTenantWorkspace/);
+  assert.match(saleHandler, /await reverseTreasuryEntry\(postedTreasuryJournalId/);
+  assert.match(saleHandler, /if \(!saleSaved\)[\s\S]{0,700}return false/);
+});
+
+test('standard invoices and quotations retry idempotently with a stable UUID', async () => {
+  const salesSource = await read('src/components/DashboardSalesList.tsx');
+  const branchApiSource = await read('src/branches/branchApi.ts');
+  const migrationSource = await read('supabase/migrations/20260825190000_idempotent_standard_sales_documents.sql');
+  assert.match(salesSource, /id: crypto\.randomUUID\(\)/);
+  assert.match(branchApiSource, /for \(let attempt = 0; attempt < 2/);
+  assert.match(branchApiSource, /\[502, 503, 504\]\.includes\(status\)/);
+  assert.match(migrationSource, /coalesce\(private\.safe_uuid\(p_document ->> 'id'\), gen_random_uuid\(\)\)/);
+  assert.match(migrationSource, /where document\.id = v_id[\s\S]{0,100}document\.tenant_id = v_tenant_id/);
+  assert.doesNotMatch(migrationSource, /\b(delete|truncate|drop table)\b/i);
+});
+
+test('branch logos upload through the authenticated backend instead of browser storage RLS', async () => {
+  const serverSource = await read('server.ts');
+  const branchApiSource = await read('src/branches/branchApi.ts');
+  const settingsSource = await read('src/components/DashboardBranchesSettings.tsx');
+  assert.match(serverSource, /\/api\/branches\/:branchId\/logo-upload/);
+  assert.match(serverSource, /update_current_tenant_branch_logo[\s\S]{0,1600}tenant-logos/);
+  assert.match(branchApiSource, /export const uploadBranchLogoAsset/);
+  assert.match(settingsSource, /uploadBranchLogoAsset\(branch\.id, variant, logoBase64\)/);
+  assert.doesNotMatch(settingsSource, /uploadBranchLogo\(file, activeTenant\.id, branch\.id/);
+});
+
+test('editing a sale persists the chosen local calendar date without UTC day rollback', async () => {
+  const salesSource = await read('src/components/DashboardSalesList.tsx');
+  const dateSource = await read('src/utils/localDate.ts');
+  assert.match(salesSource, /localDateToIso\(editFormFields\.saleDate, original\)/);
+  assert.match(dateSource, /new Date\([\s\S]{0,180}Number\(month\) - 1/);
+  assert.match(salesSource, /timestamp: updatedTimestamp/);
+  assert.doesNotMatch(salesSource, /new Date\(`\$\{editFormFields\.saleDate\}T\$\{hh\}:\$\{mm\}:\$\{ss\}\.000Z`\)/);
+});
+
+test('tenant operational dates use local calendar helpers instead of UTC date slicing', async () => {
+  const sources = await Promise.all([
+    read('src/components/DashboardPOS.tsx'),
+    read('src/components/DashboardExpenses.tsx'),
+    read('src/components/DashboardReports.tsx'),
+    read('src/components/DashboardOverview.tsx'),
+  ]);
+  assert.match(sources[0], /localDateToIso\(saleDate, now\)/);
+  assert.match(sources[1], /localDateToIso\(cleanDate, new Date\(\), 12\)/);
+  assert.match(sources[2], /timestampToLocalDate\(sale\.timestamp\)/);
+  assert.match(sources[3], /timestampToLocalDate\(sale\.timestamp\)/);
+  for (const source of sources) {
+    assert.doesNotMatch(source, /new Date\(\)\.toISOString\(\)\.(?:split\('T'\)\[0\]|slice\(0,\s*10\))/);
+  }
+});
+
+test('authenticated branch reads can execute their tenant-scoped RLS predicate', async () => {
+  const migration = await read('supabase/migrations/20260826083904_grant_authenticated_can_read_branch.sql');
+  assert.match(migration, /grant execute on function private\.can_read_branch\(uuid, uuid\) to authenticated/i);
+  assert.doesNotMatch(migration, /grant .* to anon/i);
+});
+
+test('Recent Sales status is derived from persisted payment state, never random sale IDs', async () => {
+  const overviewSource = await read('src/components/DashboardOverview.tsx');
+  assert.match(overviewSource, /sale\.paymentStatus === 'partial'/);
+  assert.match(overviewSource, /sale\.paymentStatus === 'unpaid'/);
+  assert.match(overviewSource, /return 'Completed'/);
+  assert.doesNotMatch(overviewSource, /const lastChar = saleId/);
+  assert.doesNotMatch(overviewSource, /localCancelledIds|Refund \/ Cancel|Refund Issue/);
+});
+
+test('sales invoice and receipt exports use recognizable document filenames', async () => {
+  const salesSource = await read('src/components/DashboardSalesList.tsx');
+  assert.equal(
+    (salesSource.match(/fileName: format === 'a4' \? buildInvoiceFileName\(sale\) : buildReceiptFileName\(sale\)/g) || []).length,
+    1,
+  );
+  assert.match(salesSource, /return `sales-invoice-\$\{safeBusiness\}-\$\{safeReference\}\.pdf`/);
+  assert.match(salesSource, /return `receipt-\$\{safeBusiness\}-\$\{safeReference\}\.pdf`/);
 });
 
 test('expense deletion requires an inspectable in-app confirmation', async () => {
@@ -334,6 +618,45 @@ test('product action menus cannot delete catalogue records in one click', async 
   assert.match(productSource, /Confirm Delete Product/);
   assert.match(productSource, /Transfer Stock/);
   assert.match(productSource, /aria-label="Transfer stock"/);
+});
+
+test('bulk product imports persist the complete batch in one parent update', async () => {
+  const productSource = await read('src/components/DashboardProducts.tsx');
+  const dashboardSource = await read('src/components/Dashboard.tsx');
+  assert.match(productSource, /onAddProducts\(summary\.readyProducts\)/);
+  assert.match(productSource, /onAddProducts\(importedItems\)/);
+  assert.match(dashboardSource, /const handleCreateProducts = \(newProducts: Product\[\]\)/);
+  assert.match(dashboardSource, /const updatedProducts = \[\.\.\.branchScopedProducts, \.\.\.\(productsMap\[activeTenant\.id\] \|\| \[\]\)\]/);
+  assert.match(dashboardSource, /onAddProducts=\{handleCreateProducts\}/);
+});
+
+test('Add and Edit Product show native selling-channel checkboxes on desktop', async () => {
+  const productSource = await read('src/components/DashboardProducts.tsx');
+  assert.equal((productSource.match(/appearance-auto/g) || []).length, 2);
+  assert.match(productSource, /checked=\{sellInRetail\}/);
+  assert.match(productSource, /checked=\{sellInWholesale\}/);
+  assert.match(productSource, /checked=\{editForm\.sellInRetail !== false\}/);
+  assert.match(productSource, /checked=\{!!editForm\.sellInWholesale\}/);
+});
+
+test('pharmacy hierarchy is medicine-only and product edits wait for durable persistence', async () => {
+  const productSource = await read('src/components/DashboardProducts.tsx');
+  const dashboardSource = await read('src/components/Dashboard.tsx');
+
+  assert.match(productSource, /isPharmacyLike && productType === 'medicine' \? \(/);
+  assert.match(productSource, /activeTenant\.businessType === 'pharmacy' && editForm\.productType === 'medicine'/);
+  assert.match(productSource, /const saved = await onUpdateProducts\(updated\)/);
+  assert.match(productSource, /if \(!saved\) return;/);
+  assert.match(dashboardSource, /const handleUpdateActiveStocks = async \(updatedProducts: Product\[\]\): Promise<boolean>/);
+  assert.match(dashboardSource, /const \{ products: syncedProducts, saved \} = persistTenantProductsNow\(nextTenantProducts\)/);
+  assert.match(dashboardSource, /const didSave = await saved;/);
+});
+
+test('cloud product tombstones survive core and branch workspace hydration', async () => {
+  const dashboardSource = await read('src/components/Dashboard.tsx');
+  assert.match(dashboardSource, /const workspaceProductTombstones = mergeProductTombstones\(/g);
+  assert.equal((dashboardSource.match(/writeLocalProductTombstones\(activeTenant\.id, workspaceProductTombstones\)/g) || []).length, 2);
+  assert.equal((dashboardSource.match(/workspaceProductTombstones,\n\s*\)/g) || []).length, 2);
 });
 
 test('purchase edit and delete actions call tenant-scoped persistence callbacks', async () => {
@@ -523,6 +846,46 @@ test('Lucy text generation uses current stable Gemini models', async () => {
   assert.doesNotMatch(serverSource, /\/api\/health\/gemini[\s\S]{0,1200}(error\?\.message|error\.stack)/);
 });
 
+test('Lucy uses authenticated Gemini Swahili speech and current market grounding', async () => {
+  const serverSource = await read('server.ts');
+  const lucySource = await read('api/lucy.ts');
+  const copilotSource = await read('src/components/AIBusinessCopilot.tsx');
+  const forecastingSource = await read('src/components/DashboardForecasting.tsx');
+  const speechSource = await read('src/utils/lucySpeech.ts');
+
+  assert.match(serverSource, /app\.post\('\/api\/lucy\/speech'/);
+  assert.match(serverSource, /await requireTenantUser\(req, tenantId\)/);
+  assert.match(serverSource, /gemini-3\.1-flash-tts-preview/);
+  assert.match(serverSource, /voice: 'Leda'/);
+  assert.match(serverSource, /young adult Kenyan woman/);
+  assert.match(serverSource, /interaction\.outputs\.find/);
+  assert.match(serverSource, /tools: \[\{ googleSearch: \{\} \}\]/);
+  assert.match(lucySource, /tools: \[\{ googleSearch: \{\} \}\]/);
+  assert.match(lucySource, /groundingMetadata\?\.groundingChunks/);
+  assert.match(speechSource, /Authorization: `Bearer \$\{session\.access_token\}`/);
+  assert.match(speechSource, /unlockLucySpeech/);
+  assert.match(copilotSource, /speakWithGeminiLucy/);
+  assert.match(copilotSource, /lastLucyMessage/);
+  assert.doesNotMatch(copilotSource, /Open POS|Check low stock|Generate today report|Forecast next month/);
+  assert.match(copilotSource, /conversationLanguage/);
+  assert.match(copilotSource, /option\|number\|namba\|chaguo/);
+  assert.match(copilotSource, /messages\.slice\(-8\)/);
+  assert.match(copilotSource, /deviceClass: window\.innerWidth < 768/);
+  assert.match(copilotSource, /Current market sources/);
+  assert.match(forecastingSource, /speakWithGeminiLucy/);
+  assert.match(forecastingSource, /sources: Array\.isArray\(data\.sources\)/);
+  assert.match(serverSource, /buildVerifiedLucySalesWalkthrough/);
+  assert.match(serverSource, /Proceed to Payment/);
+  assert.match(serverSource, /Choose Payment Method/);
+  assert.match(serverSource, /Confirm Payment/);
+  assert.match(serverSource, /GUIDED WALKTHROUGH MODE/);
+  assert.match(serverSource, /CHOICE MODE/);
+  assert.match(serverSource, /resolveLucyConversationChoice/);
+  assert.match(lucySource, /Use choices only when a real decision is required/);
+  assert.match(serverSource, /normalizeLucyResponseText/);
+  assert.match(serverSource, /RECENT CONVERSATION \(OLDEST TO NEWEST/);
+});
+
 test('reports use branded, searchable, multi-page PDF mode', async () => {
   const reportsSource = await read('src/modules/reports/DashboardReports.tsx');
   const pdfSource = await read('src/shared/utils/pdfShare.ts');
@@ -570,6 +933,24 @@ test('tenant settings can only change through the explicit authoritative save pa
     migrationSource,
     /\b(delete\s+from|truncate\s+table|drop\s+table)\s+public\.(tenant_workspaces|tenant_data)\b/i,
   );
+});
+
+test('tenant hydration never opens an empty workspace after a transient load failure', async () => {
+  const appSource = await read('src/App.tsx');
+  const dashboardSource = await read('src/components/Dashboard.tsx');
+  const branchContextSource = await read('src/branches/BranchContext.tsx');
+
+  assert.match(dashboardSource, /if \(workspace\) \{[\s\S]*applyWorkspace\(workspace\);[\s\S]*return;/);
+  assert.match(dashboardSource, /setWorkspaceLoadFailed\(true\)/);
+  assert.match(dashboardSource, /void loadInitialWorkspace\(attempt \+ 1\)/);
+  assert.match(dashboardSource, /user\.role !== 'SuperAdmin' && !workspaceReady/);
+  assert.match(dashboardSource, /if \(!branchContext\.snapshot\)/);
+  assert.match(branchContextSource, /if \(!error \|\| snapshot \|\| isLoading\) return;/);
+  assert.match(branchContextSource, /void refresh\(\)/);
+  assert.match(appSource, /localStorage is only a UI cache, never proof of authentication/);
+  assert.match(appSource, /client\.auth\.getSession\(\)/);
+  assert.match(appSource, /!authenticatedSessionReady \|\| !workspaceStorageReady/);
+  assert.match(appSource, /Your secure session ended/);
 });
 
 test('tenant wildcard domains have an additive immutable database contract', async () => {

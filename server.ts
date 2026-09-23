@@ -3,11 +3,12 @@
 // types when a route imports the shared app.
 import express from 'express';
 import path from 'path';
+import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { GoogleGenAI, Type } from '@google/genai';
 import { createClient } from '@supabase/supabase-js';
-import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import lucyHandler from './api/lucy.js';
 import {
   type SafeErrorCode,
@@ -17,6 +18,9 @@ import {
 } from './shared/safeErrors.js';
 import { createSafeServerError } from './serverSafeErrors.js';
 import { isStrictPlatformAdminProfile } from './shared/platformAdminAuth.js';
+import { getPrismaClient, isPrismaConfigured } from './src/server/prisma.js';
+import { processWorkspaceNormalizationQueue } from './src/server/workspaceNormalizationWorker.js';
+import { sendTelegramAlert } from './src/server/telegramAlerts.js';
 
 dotenv.config();
 
@@ -63,8 +67,57 @@ const PUBLIC_PLATFORM_RECORD_TYPES = new Set([
   'global_ad_placement',
   'promotional_banners',
   'training_tutorials',
-  'web_editor_settings'
+  'public_landing_settings'
 ]);
+
+const PUBLIC_LANDING_TEXT_KEYS = new Set([
+  'coreBadge', 'headlinePre', 'headlinePost', 'tagline', 'aboutTitle', 'aboutDesc',
+  'aboutSupport', 'aboutCurrency', 'aboutEndpoints', 'contactPhone', 'contactPhoneLabel',
+  'contactEmail', 'contactEmailLabel', 'footerCol1Title', 'footerHome', 'footerFaq',
+  'footerPrivacy', 'footerTerms', 'footerContact', 'footerCol2Title', 'footerJoinAffiliate',
+  'footerAffiliateLogin', 'footerCol3Title', 'footerBecomePartner', 'footerPartnerLogin',
+  'footerCol4Title', 'socialYoutube', 'socialInstagram', 'socialTiktok', 'socialFacebook',
+  'footerCopyright'
+]);
+const PUBLIC_LANDING_SECTION_IDS = new Set([
+  'landing-hero', 'checkout', 'marquee-partners', 'business-fit', 'lucy', 'pricing', 'contact',
+  'about', 'testimonials', 'faqs'
+]);
+
+const sanitizePublicLandingSettings = (value: unknown) => {
+  const source = value && typeof value === 'object' ? value as Record<string, any> : {};
+  const customValues = Object.fromEntries(
+    Object.entries(source.customValues || {})
+      .filter(([key, item]) => PUBLIC_LANDING_TEXT_KEYS.has(key) && typeof item === 'string')
+      .map(([key, item]) => [key, normalizeText(item, 500)])
+  );
+  const sectionsOrder = Array.isArray(source.sectionsOrder)
+    ? source.sectionsOrder.filter((id: unknown) => PUBLIC_LANDING_SECTION_IDS.has(String(id))).slice(0, 12)
+    : [];
+  const hiddenSections = Object.fromEntries(
+    Object.entries(source.hiddenSections || {})
+      .filter(([key, item]) => PUBLIC_LANDING_SECTION_IDS.has(key) && typeof item === 'boolean')
+  );
+  const featuredLogos = (Array.isArray(source.featuredLogos) ? source.featuredLogos : [])
+    .slice(0, 20)
+    .map((item: any) => {
+      const logoUrl = normalizeText(item?.logoUrl || item?.logo || item?.src, 2048);
+      let safeLogoUrl = '';
+      try {
+        const parsed = new URL(logoUrl);
+        if (parsed.protocol === 'https:') safeLogoUrl = parsed.toString();
+      } catch { /* invalid or non-HTTPS logo URL */ }
+      return {
+        id: normalizeText(item?.id || item?.tenantId, 80),
+        name: normalizeText(item?.name || item?.label || item?.companyName, 100),
+        logoUrl: safeLogoUrl,
+        initials: normalizeText(item?.initials, 4).toUpperCase(),
+      };
+    })
+    .filter((item: any) => item.id && item.name && item.logoUrl);
+
+  return { sectionsOrder, hiddenSections, customValues, featuredLogos };
+};
 
 const isUuid = (value: unknown) => UUID_RE.test(String(value || ''));
 const isSafeRecordToken = (value: unknown) => SAFE_RECORD_RE.test(String(value || ''));
@@ -73,6 +126,32 @@ const sanitizeRecordType = (value: unknown) => String(value || '').trim();
 const normalizeEmail = (value: unknown) => String(value || '').trim().toLowerCase();
 const normalizeText = (value: unknown, max = 180) => String(value || '').trim().slice(0, max);
 const normalizeHost = (value: unknown) => String(value || '').trim().toLowerCase().replace(/^https?:\/\//, '').split('/')[0].split(':')[0];
+
+// Mirrors src/utils/profilePermissions.ts's resolveProfileRolePermissions.
+// An empty {} in role_permissions/invitation.permissions means no real
+// per-user override was ever resolved (e.g. the role name didn't match any
+// customRole when a staff invitation was created). Passing that empty object
+// through as-is short-circuits the client's getSimulatedPermissions() before
+// it can fall back to looking up the tenant's real named role, silently
+// denying every module on that Google login. A non-empty but incomplete
+// object (missing one of these module keys -- found in production for a
+// tenant's Admin role) is just as unreliable: that module silently denies
+// access everywhere it's checked. Returning undefined for either case lets
+// the client fall back to the tenant's named role lookup correctly.
+const ROLE_PERMISSION_MODULE_KEYS = [
+  'pos', 'products', 'purchases', 'suppliers', 'expenses',
+  'reportsSalesExpenses', 'reportsProfitCogs', 'sync', 'settings',
+];
+const resolveRolePermissionsForResponse = (value: unknown): Record<string, unknown> | undefined => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  const record = value as Record<string, unknown>;
+  if (Object.keys(record).length === 0) return undefined;
+  const wellFormed = ROLE_PERMISSION_MODULE_KEYS.every((key) => {
+    const module = record[key];
+    return Boolean(module) && typeof module === 'object' && !Array.isArray(module) && typeof (module as any).read === 'boolean';
+  });
+  return wellFormed ? record : undefined;
+};
 
 const getRequestSafeErrorLanguage = (req: express.Request) => normalizeSafeErrorLanguage(
   req.headers['x-jasper-language'] || req.headers['accept-language']
@@ -141,13 +220,14 @@ const isStrongPassword = (value: unknown) => {
   const password = String(value || '');
   return password.length >= 10 && /[A-Za-z]/.test(password) && /\d/.test(password);
 };
+const MAX_AFFILIATE_PARTNERS = 10;
 
 const verifyTurnstileToken = async (token: unknown, remoteIp?: string): Promise<boolean> => {
   const secret = process.env.TURNSTILE_SECRET_KEY;
   if (!secret) {
-    // Not configured yet -- fail open rather than lock out registration entirely.
-    console.warn('[Turnstile] TURNSTILE_SECRET_KEY is not set; skipping verification.');
-    return true;
+    const isProduction = process.env.NODE_ENV === 'production' || Boolean(process.env.VERCEL_ENV);
+    console.warn(`[Turnstile] TURNSTILE_SECRET_KEY is not set; verification ${isProduction ? 'denied' : 'skipped in local development'}.`);
+    return !isProduction;
   }
   if (!token || typeof token !== 'string') return false;
   try {
@@ -295,6 +375,43 @@ const classifyLucyIntent = (message: unknown, requestedIntent?: unknown): LucyIn
   return 'chat';
 };
 
+const needsLucyMarketGrounding = (message: unknown, intent: LucyIntent) => {
+  if (intent === 'report' || intent === 'forecast') return true;
+  const lower = String(message || '').toLowerCase();
+  return ['trend', 'trending', 'market', 'amazon', 'ebay', 'alibaba', 'online', 'mtandaoni', 'soko', 'niche', 'local store', 'duka la eneo']
+    .some(keyword => lower.includes(keyword));
+};
+
+const extractLucyGroundingSources = (response: any) => {
+  const chunks = response?.candidates?.[0]?.groundingMetadata?.groundingChunks;
+  if (!Array.isArray(chunks)) return [];
+  const seen = new Set<string>();
+  return chunks.flatMap((chunk: any) => {
+    const url = String(chunk?.web?.uri || '').trim();
+    if (!url.startsWith('https://') || seen.has(url)) return [];
+    seen.add(url);
+    return [{ title: sanitizeLucyText(chunk?.web?.title || 'Market source', 100), url }];
+  }).slice(0, 6);
+};
+
+const pcmToWav = (pcm: Buffer, sampleRate = 24_000) => {
+  const header = Buffer.alloc(44);
+  header.write('RIFF', 0);
+  header.writeUInt32LE(36 + pcm.length, 4);
+  header.write('WAVE', 8);
+  header.write('fmt ', 12);
+  header.writeUInt32LE(16, 16);
+  header.writeUInt16LE(1, 20);
+  header.writeUInt16LE(1, 22);
+  header.writeUInt32LE(sampleRate, 24);
+  header.writeUInt32LE(sampleRate * 2, 28);
+  header.writeUInt16LE(2, 32);
+  header.writeUInt16LE(16, 34);
+  header.write('data', 36);
+  header.writeUInt32LE(pcm.length, 40);
+  return Buffer.concat([header, pcm]);
+};
+
 const getLucyUsage = (tenantId: unknown) => {
   const key = `${sanitizeScopeId(tenantId)}:${getLucyDayKey()}`;
   const existing = lucyUsageBuckets.get(key);
@@ -336,6 +453,70 @@ const isLucySecurityProbe = (message: unknown) => {
 const readClientIp = (req: express.Request) =>
   String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown').split(',')[0].trim();
 
+// Records a row on the Super Admin "Security Activity" screen and, when a
+// message is given, pings the owner's Telegram immediately. Best-effort:
+// never throws, so a logging failure can't break the request that triggered it.
+const logSecurityThreatEvent = async (input: {
+  eventType: string;
+  ipAddress?: string;
+  identifier?: string;
+  details?: Record<string, unknown>;
+  telegramMessage?: string;
+}) => {
+  try {
+    await adminTable('security_threat_events').insert({
+      event_type: input.eventType,
+      ip_address: input.ipAddress || null,
+      identifier: input.identifier || null,
+      details: input.details || {},
+    });
+  } catch (err: any) {
+    console.error('[SecurityThreatEvent] insert failed:', err?.message || err);
+  }
+  if (input.telegramMessage) {
+    void sendTelegramAlert(input.telegramMessage);
+  }
+};
+
+// In-memory cache of blocked IPs so the check on every request is a cheap Set
+// lookup instead of a database round trip. Refreshed periodically and updated
+// immediately whenever the block/unblock endpoints run.
+const blockedIpCache = new Set<string>();
+let blockedIpCacheLoadedAt = 0;
+const BLOCKED_IP_CACHE_TTL_MS = 30_000;
+
+const refreshBlockedIpCache = async () => {
+  try {
+    const { data, error } = await adminTable('ip_blocklist')
+      .select('ip_address')
+      .is('unblocked_at', null);
+    if (error) throw error;
+    blockedIpCache.clear();
+    (data || []).forEach((row: any) => {
+      if (row?.ip_address) blockedIpCache.add(String(row.ip_address));
+    });
+    blockedIpCacheLoadedAt = Date.now();
+  } catch (err: any) {
+    console.error('[IpBlocklist] cache refresh failed:', err?.message || err);
+  }
+};
+
+const blockIpMiddleware = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (Date.now() - blockedIpCacheLoadedAt > BLOCKED_IP_CACHE_TTL_MS) {
+    await refreshBlockedIpCache();
+  }
+  const ip = readClientIp(req);
+  if (ip !== 'unknown' && blockedIpCache.has(ip)) {
+    void logSecurityThreatEvent({
+      eventType: 'blocked_ip_attempt',
+      ipAddress: ip,
+      details: { path: req.path, method: req.method },
+    });
+    return res.status(403).json({ error: 'Access denied.' });
+  }
+  next();
+};
+
 const rateBuckets = new Map<string, { count: number; resetAt: number }>();
 const rateLimit = (options: { windowMs: number; max: number; prefix: string }) =>
   (req: express.Request, res: express.Response, next: express.NextFunction) => {
@@ -356,15 +537,58 @@ const rateLimit = (options: { windowMs: number; max: number; prefix: string }) =
 
 const securityHeaders = (req: express.Request, res: express.Response, next: express.NextFunction) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'DENY');
+  // The public landing page (public/orvix-landing/index.html) is embedded via a
+  // same-origin <iframe> inside LandingPage.tsx. X-Frame-Options: DENY blocks ALL
+  // framing, including same-origin, so it must use SAMEORIGIN here or the iframe
+  // fails to load and the whole "/" route appears broken. Every other route keeps
+  // the stricter DENY to prevent third-party clickjacking.
+  res.setHeader('X-Frame-Options', req.path.startsWith('/orvix-landing/') ? 'SAMEORIGIN' : 'DENY');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
   res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
   res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
+  if (req.path.startsWith('/orvix-landing/')) {
+    res.setHeader('Content-Security-Policy', [
+      "default-src 'self'",
+      "base-uri 'self'",
+      "frame-ancestors 'self'",
+      "form-action 'self'",
+      "object-src 'none'",
+      "script-src 'self' 'sha256-+4ZACLmWNrkCmdB9Fqi4malsKm2fp80y5Pri+gSPmoU='",
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      "font-src 'self' https://fonts.gstatic.com",
+      "img-src 'self' data: https://cdn.simpleicons.org",
+      "connect-src 'self'",
+    ].join('; '));
+  }
   if (req.secure || req.headers['x-forwarded-proto'] === 'https') {
     res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
   }
   next();
+};
+
+const isTrustedBrowserOrigin = (originValue: unknown) => {
+  const origin = String(originValue || '').trim().toLowerCase();
+  if (!origin) return true;
+  try {
+    const url = new URL(origin);
+    const hostname = url.hostname.toLowerCase();
+    if (url.protocol === 'https:' && (hostname === getBaseDomain() || hostname.endsWith(`.${getBaseDomain()}`))) return true;
+    return process.env.NODE_ENV !== 'production' &&
+      (hostname === 'localhost' || hostname === '127.0.0.1') &&
+      (url.protocol === 'http:' || url.protocol === 'https:');
+  } catch {
+    return false;
+  }
+};
+
+const protectBrowserApiMutations = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) return next();
+  const fetchSite = String(req.headers['sec-fetch-site'] || '').toLowerCase();
+  if (fetchSite === 'cross-site' || !isTrustedBrowserOrigin(req.headers.origin)) {
+    return res.status(403).json({ error: 'Cross-site API request denied.' });
+  }
+  return next();
 };
 
 async function requirePlatformAdmin(req: express.Request) {
@@ -454,9 +678,70 @@ async function requireTenantUser(req: express.Request, tenantId: string) {
   return authData.user;
 }
 
+async function requireActiveUser(req: express.Request) {
+  if (!supabaseAdmin) throw new Error('Supabase backend client is not configured');
+  const token = getBearerToken(req);
+  if (!token) {
+    const error: any = new Error('Authentication required');
+    error.status = 401;
+    throw error;
+  }
+  const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
+  if (authError || !authData.user) {
+    const error: any = new Error('Invalid session');
+    error.status = 401;
+    throw error;
+  }
+  const { data: profile, error: profileError } = await supabaseAdmin
+    .from('users')
+    .select('id,is_active')
+    .eq('id', authData.user.id)
+    .maybeSingle();
+  if (profileError || !profile || (profile as any).is_active === false) {
+    const error: any = new Error('Active account required');
+    error.status = 403;
+    throw error;
+  }
+  return authData.user;
+}
+
+async function requireNotificationInboxUser(req: express.Request) {
+  if (!supabaseAdmin) throw new Error('Supabase backend client is not configured');
+  const user = await requireActiveUser(req);
+  const { data: profile, error } = await supabaseAdmin
+    .from('users')
+    .select('id, tenant_id, active_tenant, account_type, role, role_key, is_active')
+    .eq('id', user.id)
+    .maybeSingle();
+  if (error || !profile) {
+    const denied: any = new Error('Notification access denied');
+    denied.status = 403;
+    throw denied;
+  }
+  const isPlatformAdmin = isStrictPlatformAdminProfile(profile);
+  const profileRoles = [(profile as any).role, (profile as any).role_key]
+    .map(value => String(value || '').trim().toLowerCase());
+  const isTenantAdmin = profileRoles.some(role => ['admin', 'owner', 'tenant_admin'].includes(role));
+  if (!isPlatformAdmin && !isTenantAdmin) {
+    const denied: any = new Error('Tenant administrator notification access required');
+    denied.status = 403;
+    throw denied;
+  }
+  return {
+    user,
+    profile,
+    isPlatformAdmin,
+    tenantId: String((profile as any).active_tenant || (profile as any).tenant_id || ''),
+  };
+}
+
 const platformAdminError = (res: express.Response, error: any) => {
   const status = Number(error?.status || 500);
-  return res.status(status).json({ error: error?.message || 'Super Admin request failed' });
+  const code: SafeErrorCode = status === 401
+    ? 'AUTH_ERROR'
+    : status === 403 ? 'PERMISSION_ERROR'
+      : status === 404 ? 'NOT_FOUND' : status < 500 ? 'VALIDATION_ERROR' : 'UNKNOWN_ERROR';
+  return res.status(status).json(makeSafeErrorResponse(code, getRequestSafeErrorLanguage(res.req)));
 };
 
 const adminTable = (tableName: string) => {
@@ -566,6 +851,29 @@ const resolveTenantDomain = async (rawHost: unknown) => {
     return { kind: 'tenant-inactive', host, baseDomain, subdomain, tenant: mappedTenant, message: 'This business domain is not active.' };
   }
   return { kind: 'tenant', host, baseDomain, subdomain, tenant: mappedTenant };
+};
+
+const tenantDomainCache = new Map<string, { expiresAt: number; value: any }>();
+const SUPER_ADMIN_OVERVIEW_CACHE_TTL_MS = 5_000;
+let superAdminOverviewCache: { expiresAt: number; value: Record<string, any[]> } | null = null;
+let superAdminOverviewRequest: Promise<Record<string, any[]>> | null = null;
+
+const invalidateSuperAdminOverviewCache = () => {
+  superAdminOverviewCache = null;
+};
+
+const resolveTenantDomainCached = async (rawHost: unknown) => {
+  const key = normalizeHost(rawHost);
+  const cached = tenantDomainCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
+  const value = await resolveTenantDomain(rawHost);
+  tenantDomainCache.set(key, { expiresAt: Date.now() + 60_000, value });
+  if (tenantDomainCache.size > 500) {
+    for (const [host, entry] of tenantDomainCache) {
+      if (entry.expiresAt <= Date.now()) tenantDomainCache.delete(host);
+    }
+  }
+  return value;
 };
 
 const createInitialTenantSettings = (tenant: any) => ({
@@ -840,7 +1148,7 @@ function generateLocalCopilotResponse(
       : 'Navigating you to stock calculations and prediction workspace.';
   } else {
     if (isSwahili) {
-      responseText = `Habari gani! Mimi ni Lucy wako, msaidizi wa biashara wa Jasper. (Nimeingia kwenye mfumo wa dharura wa ndani kwa sababu mfumo wa mbali wa AI una shughuli nyingi kwa sasa!)
+      responseText = `Habari gani! Mimi ni Lucy wako, msaidizi wa biashara wa Orvix. (Nimeingia kwenye mfumo wa dharura wa ndani kwa sababu mfumo wa mbali wa AI una shughuli nyingi kwa sasa!)
 
 Hapa kuna muhtasari wa biashara yako:
 - **Jumla ya Bidhaa uliyosajili:** ${products.length}
@@ -850,7 +1158,7 @@ Hapa kuna muhtasari wa biashara yako:
 
 Nambie kama unataka nikupeleke ukurasa wowote wa biashara yako leo au kukuhesabia kitu kingine!`;
     } else {
-      responseText = `Hello! I am Lucy, your Jasper Executive Business Assistant. (I am running in local safe-mode layout because our primary remote intelligence service is currently experiencing extremely high traffic).
+      responseText = `Hello! I am Lucy, your Orvix Executive Business Assistant. (I am running in local safe-mode layout because our primary remote intelligence service is currently experiencing extremely high traffic).
 
 Here is a quick summary of your current session:
 - **Total Registered Products:** ${products.length}
@@ -868,6 +1176,87 @@ Let me know how I can guide you today, or tell me where to navigate (e.g., "Go t
     targetTab,
     unsupportedFeature: null
   };
+}
+
+function buildVerifiedLucySalesWalkthrough(
+  message: string,
+  activeTab: string,
+  deviceClass: 'mobile' | 'tablet' | 'desktop',
+  lang: string,
+) {
+  const normalized = message.toLowerCase();
+  const mentionsSelling = /\b(sell|selling|sale|sales|pos|cashier|checkout|uza|kuuza|mauzo|muuz|kasi[ea])\b/i.test(normalized);
+  const requestsGuidance = /\b(how|guide|steps?|teach|help|start|do|use|namna|jinsi|hatua|elekeza|ongoza|fundisha|anzia|nifanye|nitumie|nisaidie)\b/i.test(normalized);
+  if (!mentionsSelling || !requestsGuidance) return null;
+
+  const compactDevice = deviceClass === 'desktop' ? 'desktop' : deviceClass;
+  const checkoutLabel = compactDevice === 'desktop' ? 'Proceed to Payment' : 'Checkout';
+  const alreadyAtPos = activeTab === 'pos';
+  const responseText = lang === 'sw'
+    ? `${alreadyAtPos ? 'Upo tayari kwenye ukurasa wa mauzo.' : `Nitakupeleka kwenye **Sell / Cashier Till (POS)** kutoka sehemu uliyo sasa.`}\n\n` +
+      `1. ${alreadyAtPos ? 'Baki kwenye ukurasa huu' : 'Fungua **Sell**; kwenye simu au tablet ipo kwenye menu ya chini, na kwenye PC ipo sidebar'}.\n` +
+      `2. Kwenye kisanduku cha kutafuta, andika jina au barcode ya bidhaa. Gusa bidhaa ili iingie kwenye kikapu.\n` +
+      `3. Hakikisha bidhaa, idadi na jumla ni sahihi; tumia alama za kuongeza au kupunguza kurekebisha idadi.\n` +
+      `4. Bonyeza **${checkoutLabel}**.\n` +
+      `5. Kwenye **Payment Mode**, bonyeza **Choose Payment Method** na uchague njia ya malipo ya mteja.\n` +
+      `6. Jaza taarifa nyingine zinazoombwa, kisha hakiki kiasi kilicholipwa na baki.\n` +
+      `7. Bonyeza **Confirm Payment** mara moja. Subiri ujumbe wa mafanikio; usifunge ukurasa wakati unasave.\n` +
+      `8. Risiti ikifunguka, tumia **Send**, **Download**, au **Close**. Mauzo yatakuwa yamekamilika.\n\n` +
+      `Ukinambia **“nimefika”**, nitakuongoza hatua inayofuata kwa sentensi fupi.`
+    : `${alreadyAtPos ? 'You are already on the sales screen.' : `I will take you to **Sell / Cashier Till (POS)** from your current screen.`}\n\n` +
+      `1. ${alreadyAtPos ? 'Stay on this screen' : 'Open **Sell** from the bottom menu on mobile/tablet or the sidebar on desktop'}.\n` +
+      `2. Search by product name or barcode, then tap the product to add it to the basket.\n` +
+      `3. Verify the items, quantities, and total; use the quantity controls if needed.\n` +
+      `4. Press **${checkoutLabel}**.\n` +
+      `5. Under **Payment Mode**, press **Choose Payment Method** and select how the customer paid.\n` +
+      `6. Complete any requested details and verify the amount paid and change.\n` +
+      `7. Press **Confirm Payment** once and wait for the success message while the sale is saved.\n` +
+      `8. When the receipt opens, choose **Send**, **Download**, or **Close**. The sale is complete.\n\n` +
+      `Tell me **“I am there”** and I will continue one short step at a time.`;
+
+  return {
+    responseText,
+    action: alreadyAtPos ? 'GUIDE_ONLY' : 'NAVIGATE',
+    targetTab: alreadyAtPos ? null : 'pos',
+    unsupportedFeature: null,
+  };
+}
+
+function normalizeLucyResponseText(value: unknown) {
+  return sanitizeLucyText(value, 8_000)
+    .replace(/\*\*([^*]+)\*\*/g, (match, content, offset, fullText) => {
+      const before = fullText[offset - 1] || '';
+      const after = fullText[offset + match.length] || '';
+      const leadingSpace = before && /[A-Za-zÀ-ž0-9)]/.test(before) ? ' ' : '';
+      const trailingSpace = after && /[A-Za-zÀ-ž0-9(]/.test(after) ? ' ' : '';
+      return `${leadingSpace}**${String(content).trim()}**${trailingSpace}`;
+    })
+    .replace(/([0-9),])(?=[A-Za-zÀ-ž])/g, '$1 ')
+    .replace(/([.!?])(?=[A-Za-zÀ-ž])/g, '$1 ')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/ *\n */g, '\n')
+    .trim();
+}
+
+function resolveLucyConversationChoice(message: string, conversation: Array<{ role: string; content: string }>) {
+  const lastAssistant = [...conversation].reverse().find(entry => entry.role === 'assistant')?.content || '';
+  const choices = [...lastAssistant.matchAll(/^\s*(\d+|[A-E])[.)]\s+(.+)$/gim)]
+    .slice(0, 5)
+    .map(match => ({ key: match[1].toUpperCase(), label: match[2].trim() }));
+  if (choices.length < 2) return { choices: [], selected: null, invalid: false };
+
+  const normalizedReply = message.toLowerCase().trim();
+  const codedReply = normalizedReply.match(/^(?:(?:option|number|namba|chaguo)\s*)?(\d+|[a-e])$/i)?.[1]?.toUpperCase();
+  const byCode = codedReply ? choices.find(choice => choice.key === codedReply) : null;
+  const normalizedWords = normalizedReply.replace(/[^a-z0-9À-ž\s]/g, ' ').replace(/\s+/g, ' ').trim();
+  const byName = normalizedWords.length > 1
+    ? choices.find(choice => {
+        const label = choice.label.toLowerCase().replace(/[^a-z0-9À-ž\s]/g, ' ').replace(/\s+/g, ' ').trim();
+        return label === normalizedWords || label.startsWith(`${normalizedWords} `) || normalizedWords.startsWith(`${label} `);
+      })
+    : null;
+  const selected = byCode || byName || null;
+  return { choices, selected, invalid: Boolean(codedReply && !selected) };
 }
 
 // Resilient GenAI Content generator with retries and lite-model fallbacks
@@ -925,9 +1314,20 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
   app.set('trust proxy', 1);
 
   app.use(securityHeaders);
+  app.use(blockIpMiddleware);
   app.use('/api/auth/register', rateLimit({ prefix: 'tenant-register', windowMs: 15 * 60 * 1000, max: 12 }));
+  app.use('/api/auth/turnstile', rateLimit({ prefix: 'auth-turnstile', windowMs: 15 * 60 * 1000, max: 30 }));
   app.use('/api/auth/staff-login', rateLimit({ prefix: 'staff-login', windowMs: 15 * 60 * 1000, max: 20 }));
-  app.use('/api/super-admin/verify-password', rateLimit({ prefix: 'super-admin-reauth', windowMs: 15 * 60 * 1000, max: 8 }));
+  app.use('/api/auth/lookup-phone', rateLimit({ prefix: 'phone-lookup', windowMs: 15 * 60 * 1000, max: 10 }));
+  app.use('/api/super-admin', rateLimit({ prefix: 'super-admin-api', windowMs: 60 * 1000, max: 90 }));
+  app.use('/api/super-admin', (req, res, next) => {
+    if (req.method !== 'GET') {
+      res.on('finish', () => {
+        if (res.statusCode >= 200 && res.statusCode < 400) invalidateSuperAdminOverviewCache();
+      });
+    }
+    next();
+  });
   app.use('/api/affiliate/register', rateLimit({ prefix: 'affiliate-register', windowMs: 15 * 60 * 1000, max: 12 }));
   app.use('/api/forecast', rateLimit({ prefix: 'forecast', windowMs: 60 * 1000, max: 20 }));
   app.use('/api/lucy', rateLimit({ prefix: 'lucy', windowMs: 60 * 1000, max: 30 }));
@@ -935,14 +1335,156 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
   app.use('/api/tools/remove-bg', rateLimit({ prefix: 'remove-bg', windowMs: 60 * 1000, max: 10 }));
   app.use('/api/branches', rateLimit({ prefix: 'branches', windowMs: 60 * 1000, max: 120 }));
   app.use('/api', rateLimit({ prefix: 'api', windowMs: 60 * 1000, max: 240 }));
+  app.use('/api', protectBrowserApiMutations);
 
   app.use(express.json({ limit: '8mb' }));
 
+  app.get('/api/notifications/inbox', async (req, res) => {
+    try {
+      const access = await requireNotificationInboxUser(req);
+      if (access.isPlatformAdmin) {
+        const [{ data: events, error: eventsError }, { data: reads, error: readsError }] = await Promise.all([
+          supabaseAdmin!.from('platform_notification_events')
+            .select('id, event_type, module_name, title, message, priority, entity_type, entity_id, target_tenant_id, payload, created_at')
+            .order('created_at', { ascending: false })
+            .limit(150),
+          supabaseAdmin!.from('platform_notification_reads')
+            .select('event_id, read_at')
+            .eq('user_id', access.user.id),
+        ]);
+        if (eventsError) throw eventsError;
+        if (readsError) throw readsError;
+        const readIds = new Set((reads || []).map((row: any) => String(row.event_id)));
+        return res.json({
+          scope: 'platform',
+          notifications: (events || []).map((event: any) => ({
+            id: event.id,
+            tenantId: event.target_tenant_id || '',
+            moduleName: event.module_name,
+            title: event.title,
+            message: event.message,
+            notificationType: 'system_alert',
+            deliveryChannel: 'in_app',
+            status: 'sent',
+            isRead: readIds.has(String(event.id)),
+            createdAt: event.created_at,
+          })),
+        });
+      }
+      if (!isUuid(access.tenantId)) return res.status(403).json({ error: 'Active tenant is required.' });
+
+      const { data, error } = await supabaseAdmin!
+        .from('branch_notification_recipients')
+        .select('id, tenant_id, event_id, delivery_status, read_at, created_at, branch_notification_events!inner(id, tenant_id, module_name, event_type, title, message, created_at)')
+        .eq('tenant_id', access.tenantId)
+        .eq('recipient_user_id', access.user.id)
+        .eq('delivery_channel', 'in_app')
+        .order('created_at', { ascending: false })
+        .limit(100);
+      if (error) throw error;
+
+      const notifications = (data || []).map((recipient: any) => {
+        const event = Array.isArray(recipient.branch_notification_events)
+          ? recipient.branch_notification_events[0]
+          : recipient.branch_notification_events;
+        return {
+          id: recipient.id,
+          tenantId: recipient.tenant_id,
+          moduleName: event?.module_name || 'system',
+          title: event?.title || 'System notification',
+          message: event?.message || '',
+          notificationType: event?.event_type || 'system_alert',
+          deliveryChannel: 'in_app',
+          status: recipient.delivery_status === 'delivered' ? 'sent' : 'pending',
+          isRead: Boolean(recipient.read_at),
+          createdAt: event?.created_at || recipient.created_at,
+        };
+      });
+      return res.json({ scope: 'tenant_admin', notifications });
+    } catch (error: any) {
+      const status = Number(error?.status || 500);
+      return res.status(status).json({ error: status < 500 ? error.message : 'Notification inbox is temporarily unavailable.' });
+    }
+  });
+
+  app.patch('/api/notifications/:recipientId/read', async (req, res) => {
+    try {
+      const access = await requireNotificationInboxUser(req);
+      if (!isUuid(req.params.recipientId)) {
+        return res.status(403).json({ error: 'Notification access denied.' });
+      }
+      if (access.isPlatformAdmin) {
+        const { data: event, error: eventError } = await supabaseAdmin!
+          .from('platform_notification_events').select('id').eq('id', req.params.recipientId).maybeSingle();
+        if (eventError) throw eventError;
+        if (!event) return res.status(404).json({ error: 'Notification not found.' });
+        const { error } = await supabaseAdmin!.from('platform_notification_reads').upsert({
+          event_id: event.id,
+          user_id: access.user.id,
+          read_at: new Date().toISOString(),
+        }, { onConflict: 'event_id,user_id' });
+        if (error) throw error;
+        return res.json({ success: true });
+      }
+      if (!isUuid(access.tenantId)) return res.status(403).json({ error: 'Notification access denied.' });
+      const now = new Date().toISOString();
+      const { data, error } = await supabaseAdmin!
+        .from('branch_notification_recipients')
+        .update({ delivery_status: 'delivered', delivered_at: now, read_at: now, updated_at: now })
+        .eq('id', req.params.recipientId)
+        .eq('tenant_id', access.tenantId)
+        .eq('recipient_user_id', access.user.id)
+        .eq('delivery_channel', 'in_app')
+        .select('id')
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) return res.status(404).json({ error: 'Notification not found.' });
+      return res.json({ success: true });
+    } catch (error: any) {
+      const status = Number(error?.status || 500);
+      return res.status(status).json({ error: status < 500 ? error.message : 'Notification could not be updated.' });
+    }
+  });
+
+  app.patch('/api/notifications/read-all', async (req, res) => {
+    try {
+      const access = await requireNotificationInboxUser(req);
+      if (access.isPlatformAdmin) {
+        const { data: events, error: eventsError } = await supabaseAdmin!
+          .from('platform_notification_events').select('id').order('created_at', { ascending: false }).limit(500);
+        if (eventsError) throw eventsError;
+        const readAt = new Date().toISOString();
+        const rows = (events || []).map((event: any) => ({ event_id: event.id, user_id: access.user.id, read_at: readAt }));
+        if (rows.length) {
+          const { error } = await supabaseAdmin!.from('platform_notification_reads').upsert(rows, { onConflict: 'event_id,user_id' });
+          if (error) throw error;
+        }
+        return res.json({ success: true });
+      }
+      if (!isUuid(access.tenantId)) {
+        return res.status(403).json({ error: 'Notification access denied.' });
+      }
+      const now = new Date().toISOString();
+      const { error } = await supabaseAdmin!
+        .from('branch_notification_recipients')
+        .update({ delivery_status: 'delivered', delivered_at: now, read_at: now, updated_at: now })
+        .eq('tenant_id', access.tenantId)
+        .eq('recipient_user_id', access.user.id)
+        .eq('delivery_channel', 'in_app')
+        .is('read_at', null);
+      if (error) throw error;
+      return res.json({ success: true });
+    } catch (error: any) {
+      const status = Number(error?.status || 500);
+      return res.status(status).json({ error: status < 500 ? error.message : 'Notifications could not be updated.' });
+    }
+  });
+
   app.use('/api/super-admin', async (req, res, next) => {
-    if (['GET', 'HEAD', 'OPTIONS'].includes(req.method) || req.path === '/verify-password') return next();
+    if (req.method === 'OPTIONS') return next();
     try {
       await requirePlatformAdmin(req);
-      if (readVerifiedTokenAal(getBearerToken(req)) !== 'aal2') {
+      if (!['GET', 'HEAD'].includes(req.method) && readVerifiedTokenAal(getBearerToken(req)) !== 'aal2') {
         return res.status(403).json({ error: 'Super Admin MFA verification is required.', code: 'MFA_REQUIRED' });
       }
       return next();
@@ -963,6 +1505,60 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         message: status === 500 ? 'Lucy is temporarily unavailable.' : error.message,
         errorCode: status === 401 ? 'AUTH_REQUIRED' : status === 403 ? 'TENANT_ACCESS_DENIED' : 'LUCY_REQUEST_FAILED',
       });
+    }
+  });
+
+  app.post('/api/lucy/speech', async (req, res) => {
+    try {
+      const tenantId = sanitizeScopeId(req.body?.tenantId);
+      if (!isUuid(tenantId)) return res.status(400).json({ error: 'Invalid tenant identifier.' });
+      await requireTenantUser(req, tenantId);
+      const { data: tenantPlan, error: tenantPlanError } = await supabaseAdmin
+        .from('tenants')
+        .select('active_package_id, selected_package_id')
+        .eq('id', tenantId)
+        .maybeSingle();
+      if (tenantPlanError || !tenantPlan) return res.status(403).json({ error: 'Lucy voice access could not be verified.' });
+      if (normalizeLucyPlanId(tenantPlan.active_package_id || tenantPlan.selected_package_id) === 'ruby') {
+        return res.status(403).json({ error: 'Lucy voice is available from Diamond.' });
+      }
+
+      const text = sanitizeLucyText(req.body?.text, 1_800);
+      if (!text) return res.status(400).json({ error: 'Speech text is required.' });
+      const language = String(req.body?.language || '').toLowerCase() === 'sw' ? 'sw' : 'en';
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) return res.status(503).json({ error: 'Lucy voice is temporarily unavailable.' });
+
+      const ai = new GoogleGenAI({ apiKey });
+      const prompt = language === 'sw'
+        ? `# AUDIO PROFILE: Lucy\nVoice: A young adult Kenyan woman.\nAccent: Natural Kenyan East African Swahili; fluent, clear, and locally authentic.\nStyle: Warm, friendly business coach with a gentle vocal smile.\nPace: Medium and conversational, with short pauses between numbered steps.\nPronunciation: Observe correct Swahili word boundaries and punctuation. Do not introduce English words except exact interface labels already present in the transcript.\nRule: Read only the transcript. Do not add, translate, summarize, or explain anything.\n\nTRANSCRIPT:\n${text}`
+        : `# AUDIO PROFILE: Lucy\nVoice: A young adult Kenyan woman.\nAccent: Natural, clear Kenyan English.\nStyle: Warm, friendly business coach with a gentle vocal smile.\nPace: Medium and conversational, with short pauses between numbered steps.\nRule: Read only the transcript. Do not add, translate, summarize, or explain anything.\n\nTRANSCRIPT:\n${text}`;
+      const interaction: any = await Promise.race([
+        ai.interactions.create({
+          model: 'gemini-3.1-flash-tts-preview',
+          input: prompt,
+          response_format: { type: 'audio' },
+          generation_config: { speech_config: [{ voice: 'Leda', language }] },
+        } as any),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Lucy speech timed out.')), 18_000)),
+      ]);
+      const interactionAudio = Array.isArray(interaction?.outputs)
+        ? interaction.outputs.find((output: any) => output?.type === 'audio' && output?.data)
+        : null;
+      const audioData = interactionAudio?.data || interaction?.outputAudio?.data || interaction?.output_audio?.data;
+      if (!audioData) return res.status(502).json({ error: 'Lucy voice could not be generated.' });
+
+      const audioMimeType = String(interactionAudio?.mime_type || '').toLowerCase();
+      const isEncodedAudio = /audio\/(wav|mpeg|mp3|aac|ogg|flac|m4a)/.test(audioMimeType);
+      const wav = isEncodedAudio ? Buffer.from(audioData, 'base64') : pcmToWav(Buffer.from(audioData, 'base64'));
+      res.setHeader('Content-Type', isEncodedAudio ? audioMimeType : 'audio/wav');
+      res.setHeader('Cache-Control', 'private, max-age=300');
+      res.setHeader('Content-Length', String(wav.length));
+      return res.status(200).send(wav);
+    } catch (error: any) {
+      const status = Number(error?.status || 500);
+      console.warn('[Lucy Speech] Request failed.', { status, name: error?.name || 'Error' });
+      return res.status(status < 500 ? status : 503).json({ error: status < 500 ? error.message : 'Lucy voice is temporarily unavailable.' });
     }
   });
 
@@ -1034,6 +1630,38 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
   // first valid login, provision a normal Supabase Auth account and users row
   // so all later requests use the same authenticated, tenant-isolated path as
   // owner accounts. Invalid phone and password attempts share one response.
+  const purgeLegacyWorkspaceStaffPassword = async (options: {
+    tenantId: string; staffId?: string; phone?: string; authUserId: string; authEmail: string;
+  }) => {
+    const { data: workspace, error: workspaceError } = await adminTable('tenant_workspaces')
+      .select('payload').eq('tenant_id', options.tenantId).maybeSingle();
+    if (workspaceError) throw workspaceError;
+    const payload = (workspace as any)?.payload;
+    const settings = payload?.settings;
+    const staffs = Array.isArray(settings?.staffs) ? settings.staffs : [];
+    let changed = false;
+    const safeStaffs = staffs.map((item: any) => {
+      const matchesId = options.staffId && String(item?.id || '') === options.staffId;
+      const matchesPhone = options.phone && phoneIdentifiersMatch(item?.phone, options.phone);
+      if (!matchesId && !matchesPhone) return item;
+      const { password: _removedPassword, ...safeStaff } = item || {};
+      changed = changed || Object.prototype.hasOwnProperty.call(item || {}, 'password')
+        || safeStaff.authUserId !== options.authUserId || safeStaff.authEmail !== options.authEmail;
+      return {
+        ...safeStaff,
+        authUserId: options.authUserId,
+        authEmail: options.authEmail,
+        passwordUpdatedAt: new Date().toISOString(),
+      };
+    });
+    if (!changed) return;
+    const { error: updateError } = await adminTable('tenant_workspaces').update({
+      payload: { ...(payload || {}), settings: { ...(settings || {}), staffs: safeStaffs } },
+      updated_at: new Date().toISOString(),
+    }).eq('tenant_id', options.tenantId);
+    if (updateError) throw updateError;
+  };
+
   const handleStaffLogin = async (req: express.Request, res: express.Response) => {
     res.setHeader('Cache-Control', 'no-store, max-age=0');
     if (!supabaseAdmin) {
@@ -1047,6 +1675,43 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     }
 
     try {
+      // Provisioned staff credentials live only in Supabase Auth. Resolve the
+      // phone to an active staff profile, then let Auth verify the password.
+      const { data: provisionedProfiles, error: provisionedError } = await adminTable('users')
+        .select('id,email,phone,tenant_id,account_type,is_active')
+        .eq('account_type', 'business_staff')
+        .eq('is_active', true);
+      if (provisionedError) throw provisionedError;
+      const provisionedCandidates = (provisionedProfiles || []).filter((profile: any) => profile?.email && profile?.phone && phoneIdentifiersMatch(profile.phone, phone));
+      if (provisionedCandidates.length === 0) return sendExpectedSafeApiError(req, res, "AUTH_ERROR", 401, "sign_in", { email: null });
+      const profile = provisionedCandidates[0];
+      const verifier = createClient(supabaseUrl!, (supabaseAnonKey || supabaseServiceRoleKey)!, { auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false } });
+      const { error: signInError } = await verifier.auth.signInWithPassword({ email: normalizeEmail(profile.email), password });
+      if (signInError) return sendExpectedSafeApiError(req, res, "AUTH_ERROR", 401, "sign_in", { email: null });
+      await verifier.auth.signOut();
+      const verified = profile;,
+        });
+        const { error: signInError } = await verifier.auth.signInWithPassword({
+          email: normalizeEmail(profile.email),
+          password,
+        });
+        if (!signInError) {
+          verifiedProfiles.push(profile);
+          await verifier.auth.signOut();
+        }
+      }
+      
+        const verified = verifiedProfiles[0];
+        await purgeLegacyWorkspaceStaffPassword({
+          tenantId: String(verified.tenant_id), phone: String(verified.phone),
+          authUserId: String(verified.id), authEmail: normalizeEmail(verified.email),
+        });
+        return res.json({ email: normalizeEmail(verified.email) });
+      }
+      if (false) {
+        return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 401, 'sign_in', { email: null });
+      }
+
       const { data: workspaceRows, error: workspaceError } = await adminTable('tenant_workspaces')
         .select('tenant_id, payload');
       if (workspaceError) throw workspaceError;
@@ -1156,7 +1821,10 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         if (authCreateError || !authData.user) throw authCreateError || new Error('Unable to provision staff authentication.');
         authUserId = authData.user.id;
 
-        const { error: profileCreateError } = await adminTable('users').insert({
+        const { error: profileCreateError } = // PROFESSIONAL CHECK: Prevent duplicate accounts
+const { data: existingUser } = await adminTable('users').select('id').eq('email', normalizeEmail(email)).maybeSingle();
+if (existingUser && existingUser.data) return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 409, 'register', { email: normalizeEmail(email) });
+await adminTable('users').insert({
           id: authUserId,
           email: authEmail,
           name: normalizeText(staff.name || 'Staff Member'),
@@ -1178,6 +1846,10 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
           throw profileCreateError;
         }
       }
+
+      // Complete the one-time legacy migration by keeping only non-secret Auth
+      // references in the workspace. The raw password must never be retained.
+      await purgeLegacyWorkspaceStaffPassword({ tenantId, staffId, phone: storedPhone, authUserId, authEmail });
 
       return res.json({ email: authEmail });
     } catch (error: any) {
@@ -1328,6 +2000,32 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     next();
   });
 
+  const enrichBranchContacts = async (branchClient: any, value: any) => {
+    const branches = Array.isArray(value?.branches) ? value.branches : [];
+    const ids = branches.map((branch: any) => branch?.id).filter(isUuid);
+    if (!ids.length) return value;
+    const { data, error } = await branchClient
+      .from('branches')
+      .select('id,address,phone,email')
+      .in('id', ids);
+    if (error || !Array.isArray(data)) return value;
+    const contacts = new Map(data.map((branch: any) => [String(branch.id), branch]));
+    const enrichedBranches = branches.map((branch: any) => ({
+      ...branch,
+      address: contacts.get(String(branch.id))?.address ?? branch.address ?? null,
+      phone: contacts.get(String(branch.id))?.phone ?? branch.phone ?? null,
+      email: contacts.get(String(branch.id))?.email ?? branch.email ?? null,
+    }));
+    const selectedId = value?.selectedBranch?.id;
+    return {
+      ...value,
+      branches: enrichedBranches,
+      selectedBranch: selectedId
+        ? enrichedBranches.find((branch: any) => branch.id === selectedId) || value.selectedBranch
+        : value?.selectedBranch,
+    };
+  };
+
   app.get('/api/branches/bootstrap', async (req, res) => {
     const branchClient = await requireBranchRpcClient(req, res);
     if (!branchClient) return;
@@ -1335,11 +2033,16 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     const bootstrap = await branchClient.rpc('get_current_branch_bootstrap');
     const missingBootstrapRpc = isBranchRpcUnavailable(bootstrap.error);
     if (!bootstrap.error) {
+      const context = await enrichBranchContacts(branchClient, bootstrap.data?.context);
+      const directory = {
+        ...bootstrap.data?.directory,
+        branches: context?.branches || bootstrap.data?.directory?.branches || [],
+      };
       return res.json({
         entitlement: bootstrap.data?.entitlement,
         serverRolloutEnabled: multiBranchFeatureEnabled,
-        directory: bootstrap.data?.directory,
-        context: bootstrap.data?.context,
+        directory,
+        context,
       });
     }
     if (!missingBootstrapRpc) return sendBranchRpcError(res, bootstrap.error);
@@ -1352,11 +2055,12 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     ]);
     if (entitlementResult.error) return sendBranchRpcError(res, entitlementResult.error);
     if (contextResult.error) return sendBranchRpcError(res, contextResult.error);
+    const context = await enrichBranchContacts(branchClient, contextResult.data);
     return res.json({
       entitlement: entitlementResult.data,
       serverRolloutEnabled: multiBranchFeatureEnabled,
-      directory: contextResult.data,
-      context: contextResult.data,
+      directory: context,
+      context,
     });
   });
 
@@ -1396,6 +2100,49 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     const { data, error } = await branchClient.rpc('list_cross_branch_document_sources');
     if (error) return sendBranchRpcError(res, error);
     return res.json({ sources: data });
+  });
+
+  app.get('/api/sales/documents', async (req, res) => {
+    const branchClient = await requireBranchRpcClient(req, res);
+    if (!branchClient) return;
+    const { data, error } = await branchClient.rpc('list_current_commercial_documents');
+    if (error) return sendBranchRpcError(res, error);
+    return res.json({ documents: Array.isArray(data) ? data : [] });
+  });
+
+  app.post('/api/sales/documents', async (req, res) => {
+    const branchClient = await requireBranchRpcClient(req, res);
+    if (!branchClient) return;
+    const documentPayload = req.body?.document;
+    if (!documentPayload || typeof documentPayload !== 'object' || Array.isArray(documentPayload)) {
+      return res.status(400).json({ error: 'A sales document payload is required.' });
+    }
+    if (!Array.isArray(documentPayload.items) || documentPayload.items.length < 1 || documentPayload.items.length > 500) {
+      return res.status(400).json({ error: 'A sales document requires between 1 and 500 items.' });
+    }
+    if (Buffer.byteLength(JSON.stringify(documentPayload), 'utf8') > 512_000) {
+      return res.status(413).json({ error: 'Sales document payload is too large.' });
+    }
+    const { data, error } = await branchClient.rpc('save_current_sales_document', { p_document: documentPayload });
+    if (error) return sendBranchRpcError(res, error);
+    return res.status(201).json({ document: data });
+  });
+
+  app.patch('/api/sales/documents/:documentId', async (req, res) => {
+    const branchClient = await requireBranchRpcClient(req, res);
+    if (!branchClient) return;
+    const documentId = String(req.params.documentId || '');
+    const patch = req.body?.patch;
+    if (!isUuid(documentId)) return res.status(400).json({ error: 'A valid sales document ID is required.' });
+    if (!patch || typeof patch !== 'object' || Array.isArray(patch)) {
+      return res.status(400).json({ error: 'A sales document patch is required.' });
+    }
+    const { data, error } = await branchClient.rpc('update_current_sales_document', {
+      p_document_id: documentId,
+      p_patch: patch,
+    });
+    if (error) return sendBranchRpcError(res, error);
+    return res.json({ document: data });
   });
 
   app.post('/api/branches/commercial-documents', async (req, res) => {
@@ -1573,6 +2320,135 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     });
     if (error) return sendBranchRpcError(res, error);
     return res.status(201).json({ branch: data });
+  });
+
+  app.post('/api/branches/:branchId/logo', async (req, res) => {
+    const branchClient = await requireBranchRpcClient(req, res);
+    if (!branchClient) return;
+    if (!requireMultiBranchFeature(res)) return;
+
+    const branchId = String(req.params.branchId || '');
+    if (!isUuid(branchId)) {
+      return res.status(400).json({ error: 'A valid branch ID is required.' });
+    }
+    if (req.body?.logoLightUrl != null && typeof req.body.logoLightUrl !== 'string') {
+      return res.status(400).json({ error: 'Light logo URL must be text.' });
+    }
+    if (req.body?.logoDarkUrl != null && typeof req.body.logoDarkUrl !== 'string') {
+      return res.status(400).json({ error: 'Dark logo URL must be text.' });
+    }
+
+    const { data, error } = await branchClient.rpc('update_current_tenant_branch_logo', {
+      p_branch_id: branchId,
+      p_logo_light_url: normalizeText(req.body?.logoLightUrl, 2048) || null,
+      p_logo_dark_url: normalizeText(req.body?.logoDarkUrl, 2048) || null,
+    });
+    if (error) return sendBranchRpcError(res, error);
+    return res.json({ branch: data });
+  });
+
+  app.post('/api/branches/:branchId/logo-upload', async (req, res) => {
+    const branchClient = await requireBranchRpcClient(req, res);
+    if (!branchClient) return;
+    if (!requireMultiBranchFeature(res)) return;
+    if (!supabaseAdmin) return res.status(503).json({ error: 'Secure logo storage is unavailable.' });
+
+    const branchId = String(req.params.branchId || '');
+    const variant = String(req.body?.variant || '');
+    const logoBase64 = String(req.body?.logoBase64 || '');
+    if (!isUuid(branchId)) return res.status(400).json({ error: 'A valid branch ID is required.' });
+    if (!['light', 'dark'].includes(variant)) return res.status(400).json({ error: 'A valid logo variant is required.' });
+    const encoded = /^data:image\/jpeg;base64,([A-Za-z0-9+/=]+)$/.exec(logoBase64)?.[1];
+    if (!encoded) return res.status(400).json({ error: 'The branch logo must be a valid image.' });
+    const buffer = Buffer.from(encoded, 'base64');
+    if (!buffer.length || buffer.length > 1_000_000 || buffer[0] !== 0xff || buffer[1] !== 0xd8 || buffer[2] !== 0xff) {
+      return res.status(400).json({ error: 'The optimized branch logo is invalid or too large.' });
+    }
+
+    const current = await branchClient
+      .from('branches')
+      .select('id,tenant_id,logo_light_url,logo_dark_url')
+      .eq('id', branchId)
+      .maybeSingle();
+    if (current.error) return sendBranchRpcError(res, current.error);
+    if (!current.data) return res.status(404).json({ error: 'Branch record was not found.' });
+
+    // Authorize the exact branch-management operation before using the
+    // server-side storage client. Supplying the current values makes this a
+    // no-op permission probe and cannot alter another tenant's branding.
+    const permission = await branchClient.rpc('update_current_tenant_branch_logo', {
+      p_branch_id: branchId,
+      p_logo_light_url: current.data.logo_light_url,
+      p_logo_dark_url: current.data.logo_dark_url,
+    });
+    if (permission.error) return sendBranchRpcError(res, permission.error);
+
+    const objectPath = `${current.data.tenant_id}/branches/${branchId}/logo-${variant}-${Date.now()}.jpg`;
+    const upload = await supabaseAdmin.storage.from('tenant-logos').upload(objectPath, buffer, {
+      contentType: 'image/jpeg',
+      cacheControl: '31536000',
+      upsert: false,
+    });
+    if (upload.error) {
+      console.warn('[Branch API] Logo storage upload failed:', normalizeText(upload.error.message, 180));
+      return res.status(502).json({ error: 'Branch logo could not be uploaded. Please try again.' });
+    }
+    const publicUrl = supabaseAdmin.storage.from('tenant-logos').getPublicUrl(objectPath).data?.publicUrl || '';
+    if (!publicUrl.startsWith('https://')) return res.status(502).json({ error: 'Branch logo URL could not be created.' });
+
+    const saved = await branchClient.rpc('update_current_tenant_branch_logo', {
+      p_branch_id: branchId,
+      p_logo_light_url: variant === 'light' ? publicUrl : current.data.logo_light_url,
+      p_logo_dark_url: variant === 'dark' ? publicUrl : current.data.logo_dark_url,
+    });
+    if (saved.error) return sendBranchRpcError(res, saved.error);
+    return res.json({ branch: saved.data });
+  });
+
+  app.get('/api/branches/:branchId/profile', async (req, res) => {
+    const branchClient = await requireBranchRpcClient(req, res);
+    if (!branchClient) return;
+    const branchId = String(req.params.branchId || '');
+    if (!isUuid(branchId)) return res.status(400).json({ error: 'A valid branch ID is required.' });
+    const { data, error } = await branchClient
+      .from('branches')
+      .select('id,address,phone,email,logo_light_url,logo_dark_url')
+      .eq('id', branchId)
+      .maybeSingle();
+    if (error) return sendBranchRpcError(res, error);
+    if (!data) return res.status(404).json({ error: 'Branch not found.' });
+    return res.json({ branch: {
+      id: data.id,
+      address: data.address,
+      phone: data.phone,
+      email: data.email,
+      logoLightUrl: data.logo_light_url,
+      logoDarkUrl: data.logo_dark_url,
+    } });
+  });
+
+  app.patch('/api/branches/:branchId/profile', async (req, res) => {
+    const branchClient = await requireBranchRpcClient(req, res);
+    if (!branchClient) return;
+    if (!requireMultiBranchFeature(res)) return;
+    const branchId = String(req.params.branchId || '');
+    if (!isUuid(branchId)) return res.status(400).json({ error: 'A valid branch ID is required.' });
+    for (const [label, value, max] of [
+      ['Address', req.body?.address, 500],
+      ['Phone', req.body?.phone, 40],
+      ['Email', req.body?.email, 254],
+    ] as const) {
+      if (value != null && typeof value !== 'string') return res.status(400).json({ error: `${label} must be text.` });
+      if (String(value || '').trim().length > max) return res.status(400).json({ error: `${label} is too long.` });
+    }
+    const { data, error } = await branchClient.rpc('update_current_tenant_branch_profile', {
+      p_branch_id: branchId,
+      p_address: normalizeText(req.body?.address, 500) || null,
+      p_phone: normalizeText(req.body?.phone, 40) || null,
+      p_email: normalizeEmail(req.body?.email) || null,
+    });
+    if (error) return sendBranchRpcError(res, error);
+    return res.json({ branch: data });
   });
 
   // Strict two-device control. A third device is rejected with a clear reason;
@@ -1828,53 +2704,112 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     res.setHeader('Cache-Control', 'no-store, max-age=0');
     try {
       if (!supabaseAdmin) return res.status(503).json({ error: 'Storage service is unavailable.' });
+      if (!req.is('application/json')) return res.status(415).json({ error: 'Content-Type application/json is required.' });
       const tenantId = String(req.body?.tenantId || '');
       const fileName = normalizeText(req.body?.fileName, 160);
       const fileType = String(req.body?.fileType || '').trim().toLowerCase();
       const receiptBase64 = String(req.body?.receiptBase64 || '');
-      const allowedTypes = new Map([
-        ['image/jpeg', 'jpg'],
-        ['image/png', 'png'],
-        ['image/webp', 'webp'],
-        ['application/pdf', 'pdf'],
-      ]);
+      const originalFileSize = Number(req.body?.originalFileSize || 0);
+      const requestedPackageId = String(req.body?.requestedPackageId || '').trim().toLowerCase();
+      const note = normalizeText(req.body?.note, 500);
+      const hasReceipt = receiptBase64.length > 0;
+      const allowedTypes = new Map([['image/webp', 'webp']]);
 
-      await requireTenantUser(req, tenantId);
-      if (!allowedTypes.has(fileType)) {
-        return res.status(400).json({ error: 'Use a JPG, PNG, WebP, or PDF receipt.' });
+      const submittingUser = await requireTenantUser(req, tenantId);
+      if (!SUBSCRIPTION_PACKAGE_IDS.has(requestedPackageId) || !SUBSCRIPTION_PACKAGE_PRICES.has(requestedPackageId)) {
+        return res.status(400).json({ error: 'Choose Ruby, Diamond, or Tanzanite.' });
       }
-      const dataUrlPrefix = `data:${fileType};base64,`;
-      if (!receiptBase64.startsWith(dataUrlPrefix)) {
-        return res.status(400).json({ error: 'Receipt content does not match its file type.' });
-      }
-      const encoded = receiptBase64.slice(dataUrlPrefix.length);
-      const fileBuffer = Buffer.from(encoded, 'base64');
-      if (!fileBuffer.length || fileBuffer.length > 5 * 1024 * 1024) {
-        return res.status(413).json({ error: 'Receipt must be 5 MB or smaller.' });
+      if (!note && !hasReceipt) {
+        return res.status(400).json({ error: 'Attach a receipt image or add the transaction reference/payment details.' });
       }
 
-      const { data: buckets, error: bucketsError } = await supabaseAdmin.storage.listBuckets();
-      if (bucketsError) throw bucketsError;
-      if (!buckets.some((bucket: any) => bucket.name === 'payment-proofs')) {
-        const { error: bucketError } = await supabaseAdmin.storage.createBucket('payment-proofs', {
-          public: false,
-          fileSizeLimit: 5 * 1024 * 1024,
-          allowedMimeTypes: Array.from(allowedTypes.keys()),
-        });
-        if (bucketError) throw bucketError;
+      let receiptPath: string | null = null;
+      let fileBuffer: Buffer | null = null;
+      if (hasReceipt) {
+        if (!Number.isFinite(originalFileSize) || originalFileSize <= 0 || originalFileSize > 2 * 1024 * 1024) {
+          return res.status(413).json({ error: 'Receipt must be 2 MB or smaller.' });
+        }
+        if (!allowedTypes.has(fileType)) {
+          return res.status(400).json({ error: 'Receipt must be converted to WebP before upload.' });
+        }
+        const dataUrlPrefix = `data:${fileType};base64,`;
+        if (!receiptBase64.startsWith(dataUrlPrefix)) {
+          return res.status(400).json({ error: 'Receipt content does not match its file type.' });
+        }
+        const encoded = receiptBase64.slice(dataUrlPrefix.length);
+        fileBuffer = Buffer.from(encoded, 'base64');
+        if (!fileBuffer.length || fileBuffer.length > 2 * 1024 * 1024) {
+          return res.status(413).json({ error: 'Optimized receipt must be 2 MB or smaller.' });
+        }
+        const signatureMatches = fileBuffer.length >= 12
+          && fileBuffer.toString('ascii', 0, 4) === 'RIFF'
+          && fileBuffer.toString('ascii', 8, 12) === 'WEBP';
+        if (!signatureMatches) return res.status(400).json({ error: 'Receipt content does not match its declared file type.' });
+
+        const { data: buckets, error: bucketsError } = await supabaseAdmin.storage.listBuckets();
+        if (bucketsError) throw bucketsError;
+        if (!buckets.some((bucket: any) => bucket.name === 'payment-proofs')) {
+          const { error: bucketError } = await supabaseAdmin.storage.createBucket('payment-proofs', {
+            public: false,
+            fileSizeLimit: 2 * 1024 * 1024,
+            allowedMimeTypes: Array.from(allowedTypes.keys()),
+          });
+          if (bucketError) throw bucketError;
+        }
+
+        const extension = allowedTypes.get(fileType);
+        receiptPath = `${tenantId}/${Date.now()}-${randomUUID()}.${extension}`;
+        const { error: uploadError } = await supabaseAdmin.storage
+          .from('payment-proofs')
+          .upload(receiptPath, fileBuffer, {
+            contentType: fileType,
+            upsert: false,
+          });
+        if (uploadError) throw uploadError;
       }
 
-      const extension = allowedTypes.get(fileType);
-      const receiptPath = `${tenantId}/${Date.now()}-${randomUUID()}.${extension}`;
-      const { error: uploadError } = await supabaseAdmin.storage
-        .from('payment-proofs')
-        .upload(receiptPath, fileBuffer, {
-          contentType: fileType,
-          upsert: false,
-        });
-      if (uploadError) throw uploadError;
+      const { data: tenant, error: tenantError } = await adminTable('tenants')
+        .select('id, name, currency, currency_code')
+        .eq('id', tenantId)
+        .maybeSingle();
+      if (tenantError || !tenant) {
+        if (receiptPath) await supabaseAdmin.storage.from('payment-proofs').remove([receiptPath]);
+        throw tenantError || new Error('Tenant account was not found.');
+      }
+      const submittedAt = new Date().toISOString();
+      const proofRecord = {
+        id: randomUUID(),
+        tenant_id: tenantId,
+        tenant_name: normalizeText(tenant.name, 160),
+        requested_package_id: requestedPackageId,
+        requested_package_name: requestedPackageId.charAt(0).toUpperCase() + requestedPackageId.slice(1),
+        amount: SUBSCRIPTION_PACKAGE_PRICES.get(requestedPackageId),
+        currency: normalizeText(tenant.currency_code || tenant.currency, 10) || 'TZS',
+        status: 'pending',
+        receipt_file_name: hasReceipt ? fileName : null,
+        receipt_file_type: hasReceipt ? fileType : null,
+        receipt_file_size: fileBuffer ? fileBuffer.length : null,
+        receipt_file_url: receiptPath,
+        note: note || null,
+        submitted_by: submittingUser.id,
+        submitted_at: submittedAt,
+        created_at: submittedAt,
+        updated_at: submittedAt,
+      };
+      const { data: proof, error: proofError } = await adminTable('tenant_payment_proofs')
+        .insert(proofRecord)
+        .select('id, status, requested_package_id, submitted_at')
+        .single();
+      if (proofError || !proof) {
+        if (receiptPath) await supabaseAdmin.storage.from('payment-proofs').remove([receiptPath]);
+        throw proofError || new Error('Payment request was not created.');
+      }
 
-      return res.json({ receiptPath, fileName });
+      void sendTelegramAlert(
+        `💰 <b>Payment approval needed</b>\n${normalizeText(tenant.name, 160)} submitted ${hasReceipt ? 'a receipt' : 'payment details'} for the ${proofRecord.requested_package_name} plan.\nAmount: ${proofRecord.currency} ${proofRecord.amount}\nOpen Super Admin → Approvals to review.`
+      );
+
+      return res.status(201).json({ proof, receiptPath, fileName });
     } catch (error: any) {
       return res.status(Number(error?.status || 500)).json({ error: error?.message || 'Receipt upload failed.' });
     }
@@ -1913,14 +2848,43 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     }
   });
 
+  app.post('/api/super-admin/payment-proofs/:proofId/reject', async (req, res) => {
+    try {
+      const adminUser = await requirePlatformAdmin(req);
+      const proofId = String(req.params.proofId || '');
+      const reason = normalizeText(req.body?.reason, 500);
+      if (!isUuid(proofId)) return res.status(400).json({ error: 'Invalid payment proof identifier.' });
+      if (!reason) return res.status(400).json({ error: 'A rejection reason is required.' });
+      const now = new Date().toISOString();
+      const { data: proof, error } = await adminTable('tenant_payment_proofs')
+        .update({
+          status: 'rejected',
+          rejected_reason: reason,
+          reviewed_at: now,
+          reviewed_by: adminUser.id,
+          updated_at: now,
+        })
+        .eq('id', proofId)
+        .eq('status', 'pending')
+        .select('id, tenant_id, tenant_name, status, rejected_reason, reviewed_at')
+        .maybeSingle();
+      if (error) throw error;
+      if (!proof) return res.status(409).json({ error: 'This payment request is no longer pending.' });
+      void sendTelegramAlert(`❌ <b>Payment rejected</b>\n${proof.tenant_name} — ${reason}`);
+      return res.json({ proof });
+    } catch (error: any) {
+      return platformAdminError(res, error);
+    }
+  });
+
   app.get('/api/tenant/resolve', async (req, res) => {
-    res.setHeader('Cache-Control', 'no-store, max-age=0');
+    res.setHeader('Cache-Control', 'private, max-age=60, stale-while-revalidate=300');
     try {
       if (!supabaseAdmin) {
         return res.json({ kind: 'app', host: normalizeHost(req.query.host || req.headers['x-forwarded-host'] || req.headers.host), baseDomain: getBaseDomain() });
       }
       const host = req.query.host || req.headers['x-forwarded-host'] || req.headers.host;
-      return res.json(await resolveTenantDomain(host));
+      return res.json(await resolveTenantDomainCached(host));
     } catch (error: any) {
       console.warn('[Tenant Domain Resolve] Falling back to app mode:', error?.message || error);
       return res.status(200).json({
@@ -1975,6 +2939,27 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     return res.json({ available: !exists, slug, domain: `${slug}.${getBaseDomain()}` });
   });
 
+  // activeTenant on the client bootstraps from a local cache written once at
+  // registration time and otherwise never re-synced -- a Super Admin business
+  // type correction only reaches an already-open tab via Realtime. This gives
+  // every fresh session a one-time, authoritative check against the database
+  // so a closed/reopened tab always ends up correct too.
+  app.get('/api/tenant/business-type', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, max-age=0');
+    try {
+      const tenantId = String(req.query?.tenantId || '');
+      await requireTenantUser(req, tenantId);
+      const { data: tenant, error } = await adminTable('tenants')
+        .select('business_type')
+        .eq('id', tenantId)
+        .maybeSingle();
+      if (error) throw error;
+      return res.json({ businessType: (tenant as any)?.business_type === 'pharmacy' ? 'pharmacy' : 'retail' });
+    } catch (error: any) {
+      return res.status(error?.status || 500).json({ error: error?.message || 'Unable to load business type.' });
+    }
+  });
+
   app.post('/api/tenant/slug', async (req, res) => {
     res.setHeader('Cache-Control', 'no-store, max-age=0');
     try {
@@ -2025,7 +3010,6 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
 
   app.get('/api/platform-records/:type/:scope?', async (req, res) => {
     try {
-      if (!supabaseAdmin) return res.status(503).json({ error: 'Supabase backend client is not configured' });
       const recordType = sanitizeRecordType(req.params.type);
       const scopeId = sanitizeScopeId(req.params.scope);
       if (!isSafeRecordToken(recordType) || !isSafeRecordToken(scopeId)) {
@@ -2034,6 +3018,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       if (!PUBLIC_PLATFORM_RECORD_TYPES.has(recordType)) {
         return res.status(403).json({ error: 'This platform record is not public.' });
       }
+      if (!supabaseAdmin) return res.status(503).json({ error: 'Supabase backend client is not configured' });
 
       const { data: platformRecord, error: platformError } = await adminTable('super_admin_platform_records')
         .select('payload, updated_at')
@@ -2042,8 +3027,15 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         .maybeSingle();
       if (platformError) throw platformError;
       if (platformRecord?.payload !== undefined) {
-        res.setHeader('Cache-Control', 'no-store, max-age=0');
+        res.setHeader('Cache-Control', recordType === 'public_landing_settings'
+          ? 'public, max-age=60, stale-while-revalidate=300'
+          : 'no-store, max-age=0');
         return res.json({ payload: platformRecord.payload, updatedAt: platformRecord.updated_at || null });
+      }
+
+      if (recordType === 'public_landing_settings') {
+        res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
+        return res.json({ payload: null, updatedAt: null });
       }
 
       const { data: legacyRecord, error: legacyError } = await adminTable('tenant_data')
@@ -2068,6 +3060,9 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       res.setHeader('Cache-Control', 'private, no-store, max-age=0, must-revalidate');
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Vary', 'Authorization');
+      if (superAdminOverviewCache && superAdminOverviewCache.expiresAt > Date.now()) {
+        return res.json(superAdminOverviewCache.value);
+      }
       const requiredSelect = async (label: string, query: PromiseLike<any>) => {
         const result = await query;
         if (result?.error) {
@@ -2079,67 +3074,65 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         return result?.data || [];
       };
 
-      const [
-        tenants,
-        users,
-        workspaces,
-        sessions,
-        affiliates,
-        affiliatePartners,
-        referrals,
-        sourceTracking,
-        referredCustomers,
-        commissions,
-        payouts,
-        auditLogs
-      ] = await Promise.all([
-        requiredSelect('tenants', adminTable('tenants').select('*').order('name', { ascending: true })),
-        requiredSelect('users', adminTable('users').select('*').order('name', { ascending: true })),
-        requiredSelect('tenant_workspaces', adminTable('tenant_workspaces').select('*').order('updated_at', { ascending: false })),
-        requiredSelect('user_sessions', adminTable('user_sessions').select('*').order('last_activity_at', { ascending: false }).limit(500)),
-        requiredSelect('affiliates', adminTable('affiliates').select('*').order('created_at', { ascending: false })),
-        requiredSelect('affiliate_partners', adminTable('affiliate_partners').select('*').order('created_at', { ascending: false })),
-        requiredSelect('affiliate_referrals', adminTable('affiliate_referrals').select('*').order('created_at', { ascending: false }).limit(1000)),
-        requiredSelect('subscriber_source_tracking', adminTable('subscriber_source_tracking').select('*').order('created_at', { ascending: false }).limit(2000)),
-        requiredSelect('referred_customers', adminTable('referred_customers').select('id, tenant_id, customer_id, customer_name, phone_number, package_id, package_name, amount_paid, payment_status, subscription_start_date, subscription_end_date, promo_code_used, referral_code_used, affiliate_id, sub_affiliate_id, parent_super_agent_id, commission_amount, commission_status, created_at').order('created_at', { ascending: false }).limit(2000)),
-        requiredSelect('affiliate_commissions', adminTable('affiliate_commissions').select('*').order('created_at', { ascending: false }).limit(1000)),
-        requiredSelect('affiliate_payouts', adminTable('affiliate_payouts').select('*').order('created_at', { ascending: false }).limit(1000)),
-        requiredSelect('super_admin_audit_logs', adminTable('super_admin_audit_logs').select('*').order('created_at', { ascending: false }).limit(250))
-      ]);
+      if (!superAdminOverviewRequest) {
+        superAdminOverviewRequest = (async () => {
+          const [
+            tenants,
+            users,
+            sessions,
+            onlineSessions,
+            affiliates,
+            affiliatePartners,
+            referrals,
+            sourceTracking,
+            referredCustomers,
+            commissions,
+            payouts,
+            auditLogs
+          ] = await Promise.all([
+            requiredSelect('tenants', adminTable('tenants').select('id,name,business_name,created_at,subscription_plan,selected_package_id,active_package_id,subscription_status,subscription_start_date,subscription_end_date,tax_rate,country,city,company_settings,business_settings').order('name', { ascending: true })),
+            requiredSelect('users', adminTable('users').select('id,tenant_id,name,email,phone,username_phone,account_type,role,role_key,role_permissions,is_active,is_saas_staff,created_at,profile_image_url,trial_start_date,trial_end_date').order('name', { ascending: true })),
+            requiredSelect('user_sessions', adminTable('user_sessions').select('id,user_id,tenant_id,account_type,is_active,login_at,logout_at,last_activity_at,updated_at,device_label,ip_hint').order('last_activity_at', { ascending: false }).limit(500)),
+            requiredSelect('online_user_sessions', adminTable('user_sessions').select('id,user_id,tenant_id,account_type,role_key,is_active,login_at,logout_at,last_activity_at,updated_at,device_id,device_label').eq('is_active', true).is('logout_at', null).gte('last_activity_at', new Date(Date.now() - 7 * 60 * 1000).toISOString()).order('last_activity_at', { ascending: false }).limit(2000)),
+            requiredSelect('affiliates', adminTable('affiliates').select('id,user_id,display_name,referral_code,promo_code,status,parent_super_agent_id,parent_agent_id,total_revenue,gross_commission,withholding_tax,net_payout,customers_count,is_disabled,created_at').order('created_at', { ascending: false })),
+            requiredSelect('affiliate_partners', adminTable('affiliate_partners').select('id,user_id,display_name,promo_code,status,total_revenue,manager_commission,withholding_tax,net_payout,sub_affiliate_count,is_disabled,created_at').order('created_at', { ascending: false })),
+            requiredSelect('affiliate_referrals', adminTable('affiliate_referrals').select('id,affiliate_id,registered_user_id,registered_tenant_id,sub_affiliate_id,promo_code_used,referral_code,status,created_at').order('created_at', { ascending: false }).limit(1000)),
+            requiredSelect('subscriber_source_tracking', adminTable('subscriber_source_tracking').select('id,subscriber_user_id,tenant_id,affiliate_id,sub_affiliate_id,parent_super_agent_id:parent_agent_id,source_type,promo_code_used,referral_code_used,revenue_generated,status,created_at').order('created_at', { ascending: false }).limit(2000)),
+            requiredSelect('referred_customers', adminTable('referred_customers').select('id,tenant_id,customer_id,customer_name,phone_number,package_id,package_name,amount_paid,payment_status,subscription_start_date,subscription_end_date,promo_code_used,referral_code_used,affiliate_id,sub_affiliate_id,parent_super_agent_id,commission_amount,commission_status,created_at').order('created_at', { ascending: false }).limit(2000)),
+            requiredSelect('affiliate_commissions', adminTable('affiliate_commissions').select('id,affiliate_id,amount,gross_revenue,gross_commission,withholding_tax,net_payout,payout_status,status,created_at,available_at,paid_at').order('created_at', { ascending: false }).limit(1000)),
+            requiredSelect('affiliate_payouts', adminTable('affiliate_payouts').select('id,affiliate_id,amount,net_payout,currency,payout_method,payout_reference,status,requested_at,processed_at,created_at').order('created_at', { ascending: false }).limit(1000)),
+            requiredSelect('super_admin_audit_logs', adminTable('super_admin_audit_logs').select('id,actor_user_id,target_user_id,target_tenant_id,action,metadata,created_at').order('created_at', { ascending: false }).limit(250))
+          ]);
+          const value = {
+            tenants, users, workspaces: [], sessions, onlineSessions, affiliates, affiliatePartners,
+            referrals, sourceTracking, referredCustomers, commissions, payouts, auditLogs
+          };
+          superAdminOverviewCache = { value, expiresAt: Date.now() + SUPER_ADMIN_OVERVIEW_CACHE_TTL_MS };
+          return value;
+        })().finally(() => {
+          superAdminOverviewRequest = null;
+        });
+      }
 
-      return res.json({
-        tenants,
-        users,
-        workspaces,
-        sessions,
-        affiliates,
-        affiliatePartners,
-        referrals,
-        sourceTracking,
-        referredCustomers,
-        commissions,
-        payouts,
-        auditLogs
-      });
+      return res.json(await superAdminOverviewRequest);
     } catch (error: any) {
       return platformAdminError(res, error);
     }
   });
 
-  app.post('/api/super-admin/verify-password', async (req, res) => {
-    res.setHeader('Cache-Control', 'no-store, max-age=0');
+  app.get('/api/super-admin/tenants/:tenantId/workspace', async (req, res) => {
     try {
-      const adminUser = await requirePlatformAdmin(req);
-      const password = String(req.body?.password || '');
-      if (!password || !supabaseUrl || !supabaseAnonKey || !adminUser.email) {
-        return res.status(401).json({ verified: false });
-      }
-      const verifier = createClient(supabaseUrl, supabaseAnonKey, {
-        auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false },
-      });
-      const { error } = await verifier.auth.signInWithPassword({ email: adminUser.email, password });
-      if (error) return res.status(401).json({ verified: false });
-      return res.json({ verified: true });
+      await requirePlatformAdmin(req);
+      const tenantId = String(req.params.tenantId || '');
+      if (!isUuid(tenantId)) return res.status(400).json({ error: 'Invalid tenant identifier.' });
+      res.setHeader('Cache-Control', 'private, no-store, max-age=0');
+      res.setHeader('Vary', 'Authorization');
+      const { data, error } = await adminTable('tenant_workspaces')
+        .select('tenant_id,payload,updated_at')
+        .eq('tenant_id', tenantId)
+        .maybeSingle();
+      if (error) throw error;
+      return res.json({ workspace: data || { tenant_id: tenantId, payload: {}, updated_at: null } });
     } catch (error: any) {
       return platformAdminError(res, error);
     }
@@ -2226,6 +3219,23 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       if (paymentProofId && !isUuid(paymentProofId)) {
         return res.status(400).json({ error: 'Invalid payment proof identifier.' });
       }
+      let paidAmount: number | null = null;
+      let paidCurrency: string | null = null;
+      if (paymentProofId) {
+        const { data: proof, error: proofError } = await adminTable('tenant_payment_proofs')
+          .select('id, tenant_id, requested_package_id, status, amount, currency')
+          .eq('id', paymentProofId)
+          .maybeSingle();
+        if (proofError) throw proofError;
+        if (!proof || proof.tenant_id !== tenantId || proof.status !== 'pending') {
+          return res.status(400).json({ error: 'The payment proof is not pending for the selected tenant.' });
+        }
+        if (String(proof.requested_package_id || '').toLowerCase() !== packageId) {
+          return res.status(400).json({ error: 'The activated package must match the package on the payment proof.' });
+        }
+        paidAmount = Number.isFinite(Number(proof.amount)) && Number(proof.amount) > 0 ? Number(proof.amount) : null;
+        paidCurrency = proof.currency || null;
+      }
       if (!idempotencyKey) {
         return res.status(400).json({ error: 'An activation idempotency key is required.' });
       }
@@ -2243,6 +3253,122 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         p_enable_branches: enableBranches,
         p_payment_proof_id: paymentProofId,
         p_idempotency_key: idempotencyKey
+      });
+      if (error) throw error;
+      void sendTelegramAlert(`✅ <b>Payment approved</b>\n${packageId.charAt(0).toUpperCase() + packageId.slice(1)} package activated for ${durationDays} days.\nReason: ${reason}`);
+
+      // Real, paid activation: if this tenant was referred by an affiliate
+      // (a pending referred_customers/commission_ledger row from signup-time
+      // attribution), recognize the revenue and commission now. Never runs
+      // for free/emergency admin grants, since those never carry a
+      // paymentProofId. Best-effort — must never fail the activation itself.
+      if (paymentProofId && paidAmount !== null) {
+        try {
+          const { data: referral } = await adminTable('referred_customers')
+            .select('id')
+            .eq('customer_id', tenantId)
+            .eq('payment_status', 'pending')
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (referral?.id) {
+            const subAffiliateGross15 = paidAmount * 0.15;
+            const managerCommission5 = paidAmount * 0.05;
+            const networkPool20 = paidAmount * 0.20;
+            const withholdingTax = subAffiliateGross15 * 0.05;
+            const netPayout = subAffiliateGross15 - withholdingTax;
+            const approvedAt = new Date().toISOString();
+
+            await adminTable('referred_customers')
+              .update({
+                amount_paid: paidAmount,
+                payment_status: 'paid',
+                commission_status: 'approved',
+                commission_amount: subAffiliateGross15,
+                package_name: packageId,
+                package_price: paidAmount,
+              })
+              .eq('id', referral.id);
+
+            await adminTable('commission_ledger')
+              .update({
+                revenue_amount: paidAmount,
+                network_pool_20: networkPool20,
+                manager_commission_5: managerCommission5,
+                sub_affiliate_gross_commission_15: subAffiliateGross15,
+                withholding_tax_amount: withholdingTax,
+                sub_affiliate_net_payout: netPayout,
+                status: 'approved',
+                currency: paidCurrency || 'TZS',
+                approved_at: approvedAt,
+              })
+              .eq('customer_id', tenantId)
+              .eq('status', 'pending');
+          }
+        } catch (commissionError) {
+          console.warn('[activate-package] affiliate commission update failed (non-blocking):', commissionError);
+        }
+      }
+
+      return res.json(data);
+    } catch (error: any) {
+      return platformAdminError(res, error);
+    }
+  });
+
+  app.post('/api/super-admin/notifications', async (req, res) => {
+    try {
+      await requirePlatformAdmin(req);
+      const tenantIdsRaw = Array.isArray(req.body?.tenantIds) ? req.body.tenantIds : [];
+      const tenantIds = tenantIdsRaw.map((id: unknown) => String(id || '')).filter((id: string) => isUuid(id));
+      if (tenantIds.length === 0) {
+        return res.status(400).json({ error: 'At least one valid target tenant is required.' });
+      }
+      const title = normalizeText(req.body?.title, 200);
+      const message = normalizeText(req.body?.message, 2000);
+      const priority = String(req.body?.priority || 'normal').trim().toLowerCase();
+      if (!title) return res.status(400).json({ error: 'A notification title is required.' });
+      if (!message) return res.status(400).json({ error: 'A notification message is required.' });
+
+      const rpcClient = createAuthenticatedSupabaseClient(req);
+      if (!rpcClient) return res.status(503).json({ error: 'Authenticated Supabase client is not configured.' });
+      const { data, error } = await rpcClient.rpc('super_admin_send_notification', {
+        p_tenant_ids: tenantIds,
+        p_title: title,
+        p_message: message,
+        p_priority: priority,
+      });
+      if (error) throw error;
+      return res.json(data);
+    } catch (error: any) {
+      return platformAdminError(res, error);
+    }
+  });
+
+  app.post('/api/super-admin/affiliate-notifications', async (req, res) => {
+    try {
+      await requirePlatformAdmin(req);
+      const affiliateIdsRaw = Array.isArray(req.body?.affiliateIds) ? req.body.affiliateIds : [];
+      const partnerIdsRaw = Array.isArray(req.body?.partnerIds) ? req.body.partnerIds : [];
+      const affiliateIds = affiliateIdsRaw.map((id: unknown) => String(id || '')).filter((id: string) => isUuid(id));
+      const partnerIds = partnerIdsRaw.map((id: unknown) => String(id || '')).filter((id: string) => isUuid(id));
+      if (affiliateIds.length === 0 && partnerIds.length === 0) {
+        return res.status(400).json({ error: 'At least one valid target affiliate or partner is required.' });
+      }
+      const title = normalizeText(req.body?.title, 200);
+      const message = normalizeText(req.body?.message, 2000);
+      const priority = String(req.body?.priority || 'normal').trim().toLowerCase();
+      if (!title) return res.status(400).json({ error: 'A notification title is required.' });
+      if (!message) return res.status(400).json({ error: 'A notification message is required.' });
+
+      const rpcClient = createAuthenticatedSupabaseClient(req);
+      if (!rpcClient) return res.status(503).json({ error: 'Authenticated Supabase client is not configured.' });
+      const { data, error } = await rpcClient.rpc('super_admin_send_affiliate_notification', {
+        p_affiliate_ids: affiliateIds,
+        p_partner_ids: partnerIds,
+        p_title: title,
+        p_message: message,
+        p_priority: priority,
       });
       if (error) throw error;
       return res.json(data);
@@ -2304,7 +3430,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       const adminUser = await requirePlatformAdmin(req);
       const targetUserId = String(req.params.id || '');
       if (!isUuid(targetUserId)) return res.status(400).json({ error: 'Invalid user identifier.' });
-      const { name, email, phone, roleKey, rolePermissions, isActive } = req.body || {};
+      const { name, email, phone, roleKey, rolePermissions, isActive, businessType } = req.body || {};
       const updates: Record<string, any> = {};
       if (typeof name === 'string') updates.name = normalizeText(name);
       if (typeof email === 'string') updates.email = normalizeEmail(email);
@@ -2316,28 +3442,56 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       if (rolePermissions && typeof rolePermissions === 'object') updates.role_permissions = rolePermissions;
       if (typeof isActive === 'boolean') updates.is_active = isActive;
 
-      if (Object.keys(updates).length === 0) return res.status(400).json({ error: 'No user fields supplied.' });
+      const normalizedBusinessType = typeof businessType === 'string' && ['retail', 'pharmacy'].includes(businessType)
+        ? businessType
+        : undefined;
+      if (typeof businessType === 'string' && !normalizedBusinessType) {
+        return res.status(400).json({ error: 'Business type must be "retail" or "pharmacy".' });
+      }
 
-      const { data, error } = await adminTable('users')
-        .update(updates)
-        .eq('id', targetUserId)
-        .select('*')
-        .single();
-      if (error) throw error;
+      if (Object.keys(updates).length === 0 && !normalizedBusinessType) {
+        return res.status(400).json({ error: 'No user fields supplied.' });
+      }
+
+      let data: any = null;
+      if (Object.keys(updates).length > 0) {
+        const { data: updatedUser, error } = await adminTable('users')
+          .update(updates)
+          .eq('id', targetUserId)
+          .select('*')
+          .single();
+        if (error) throw error;
+        data = updatedUser;
+      } else {
+        const { data: existingUser, error } = await adminTable('users')
+          .select('*')
+          .eq('id', targetUserId)
+          .single();
+        if (error) throw error;
+        data = existingUser;
+      }
 
       if (typeof email === 'string' && normalizeEmail(email)) {
         await supabaseAdmin!.auth.admin.updateUserById(targetUserId, { email: normalizeEmail(email), email_confirm: true });
       }
 
+      const targetTenantId = (data as any)?.tenant_id || null;
+      if (normalizedBusinessType && targetTenantId) {
+        const { error: tenantError } = await adminTable('tenants')
+          .update({ business_type: normalizedBusinessType })
+          .eq('id', targetTenantId);
+        if (tenantError) throw tenantError;
+      }
+
       await adminTable('super_admin_audit_logs').insert({
         actor_user_id: adminUser.id,
         target_user_id: targetUserId,
-        target_tenant_id: (data as any)?.tenant_id || null,
+        target_tenant_id: targetTenantId,
         action: 'user_updated',
-        metadata: updates
+        metadata: normalizedBusinessType ? { ...updates, business_type: normalizedBusinessType } : updates
       });
 
-      return res.json({ user: data });
+      return res.json({ user: data, businessType: normalizedBusinessType || undefined });
     } catch (error: any) {
       return platformAdminError(res, error);
     }
@@ -2437,7 +3591,10 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       const { data: authData, error: authError } = await supabaseAdmin!.auth.admin.createUser(userPayload as any);
       if (authError || !authData.user) throw new Error(authError?.message || 'Unable to create SaaS staff account.');
 
-      const { data, error } = await adminTable('users').insert({
+      const { data, error } = // PROFESSIONAL CHECK: Prevent duplicate accounts
+const { data: existingUser } = await adminTable('users').select('id').eq('email', normalizeEmail(email)).maybeSingle();
+if (existingUser && existingUser.data) return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 409, 'register', { email: normalizeEmail(email) });
+await adminTable('users').insert({
         id: authData.user.id,
         email: emailValue,
         name: normalizeText(name),
@@ -2550,9 +3707,73 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     }
   });
 
+  app.post('/api/super-admin/landing-customer-logo', async (req, res) => {
+    try {
+      const adminUser = await requirePlatformAdmin(req);
+      if (!req.is('application/json')) {
+        return res.status(415).json({ error: 'Content-Type application/json is required.' });
+      }
+      if (!supabaseAdmin) return res.status(503).json({ error: 'Secure storage is unavailable.' });
+
+      const customerName = normalizeText(req.body?.customerName, 100);
+      const originalFileSize = Number(req.body?.originalFileSize || 0);
+      const logoWebp = String(req.body?.logoWebp || '');
+      if (!customerName) return res.status(400).json({ error: 'Customer name is required.' });
+      if (!Number.isFinite(originalFileSize) || originalFileSize <= 0 || originalFileSize > 2 * 1024 * 1024) {
+        return res.status(413).json({ error: 'Logo must not exceed 2 MB.' });
+      }
+
+      const encodedLogo = /^data:image\/webp;base64,([A-Za-z0-9+/=]+)$/.exec(logoWebp)?.[1];
+      if (!encodedLogo) return res.status(400).json({ error: 'Logo must be a valid WebP image.' });
+      const buffer = Buffer.from(encodedLogo, 'base64');
+      const isWebp = buffer.length >= 12
+        && buffer.subarray(0, 4).toString('ascii') === 'RIFF'
+        && buffer.subarray(8, 12).toString('ascii') === 'WEBP';
+      if (!buffer.length || buffer.length > 750 * 1024 || !isWebp) {
+        return res.status(400).json({ error: 'Optimized logo content is invalid or too large.' });
+      }
+
+      const bucketName = 'tenant-logos';
+      const { data: buckets, error: bucketListError } = await supabaseAdmin.storage.listBuckets();
+      if (bucketListError) throw bucketListError;
+      if (!(buckets || []).some((bucket: any) => bucket.name === bucketName)) {
+        const { error: createBucketError } = await supabaseAdmin.storage.createBucket(bucketName, {
+          public: true,
+          fileSizeLimit: 2 * 1024 * 1024,
+          allowedMimeTypes: ['image/webp', 'image/png', 'image/jpeg'],
+        });
+        if (createBucketError) throw createBucketError;
+      }
+
+      const logoId = randomUUID();
+      const objectPath = `landing-customers/${logoId}.webp`;
+      const { error: uploadError } = await supabaseAdmin.storage.from(bucketName).upload(objectPath, buffer, {
+        contentType: 'image/webp',
+        cacheControl: '31536000',
+        upsert: false,
+      });
+      if (uploadError) throw uploadError;
+      const { data: publicUrlData } = supabaseAdmin.storage.from(bucketName).getPublicUrl(objectPath);
+      const logoUrl = publicUrlData?.publicUrl || '';
+      if (!logoUrl.startsWith('https://')) throw new Error('Secure logo URL was not created.');
+
+      await adminTable('super_admin_audit_logs').insert({
+        actor_user_id: adminUser.id,
+        action: 'landing_customer_logo_uploaded',
+        metadata: { logo_id: logoId, customer_name: customerName, object_path: objectPath },
+      });
+      return res.status(201).json({ logo: { id: `custom-${logoId}`, name: customerName, logoUrl } });
+    } catch (error: any) {
+      return platformAdminError(res, error);
+    }
+  });
+
   app.put('/api/super-admin/platform-records/:type/:scope', async (req, res) => {
     try {
       const adminUser = await requirePlatformAdmin(req);
+      if (!req.is('application/json')) {
+        return res.status(415).json({ error: 'Content-Type application/json is required.' });
+      }
       const recordType = sanitizeRecordType(req.params.type);
       const scopeId = sanitizeScopeId(req.params.scope);
       if (!isSafeRecordToken(recordType)) return res.status(400).json({ error: 'Invalid record type.' });
@@ -2571,6 +3792,20 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         .select('*')
         .single();
       if (error) throw error;
+
+      if (recordType === 'web_editor_settings') {
+        const publicPayload = sanitizePublicLandingSettings(payload);
+        const { error: publicRecordError } = await adminTable('super_admin_platform_records')
+          .upsert({
+            record_type: 'public_landing_settings',
+            scope_id: scopeId,
+            payload: publicPayload,
+            updated_by: adminUser.id,
+            created_by: adminUser.id,
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'record_type,scope_id' });
+        if (publicRecordError) throw publicRecordError;
+      }
 
       await adminTable('super_admin_audit_logs').insert({
         actor_user_id: adminUser.id,
@@ -2625,8 +3860,9 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       tinNumber,
       payoutPhone,
       turnstileToken,
+      googleRegistration,
     } = req.body || {};
-    const turnstileOk = await verifyTurnstileToken(turnstileToken, req.ip);
+    const turnstileOk = googleRegistration ? true : await verifyTurnstileToken(turnstileToken, req.ip);
     if (!turnstileOk) {
       return res.status(400).json({ error: 'Security verification failed. Please refresh the page and try again.' });
     }
@@ -2635,11 +3871,15 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     if (!name?.trim() || normalizedPhone.length < 8 || !normalizedCode) {
       return res.status(400).json({ error: 'Name, phone, and referral code are required.' });
     }
-    if (!isStrongPassword(password)) {
+    const googleUser = googleRegistration ? await getGoogleRequestUser(req) : null;
+    if (googleRegistration && (!googleUser?.id || !googleUser.email)) {
+      return res.status(401).json({ error: 'Verified Google session is required.' });
+    }
+    if (!googleRegistration && !isStrongPassword(password)) {
       return res.status(400).json({ error: 'Password must be 10+ characters and include letters and numbers.' });
     }
 
-    const authEmail = `affiliate-${normalizedPhone}@jasper.local`;
+    const authEmail = googleUser?.email ? normalizeEmail(googleUser.email) : `affiliate-${normalizedPhone}@jasper.local`;
     try {
       const [{ data: existingAffiliateCode }, { data: existingPartnerCode }] = await Promise.all([
         adminTable('affiliates').select('id').or(`referral_code.eq.${normalizedCode},promo_code.eq.${normalizedCode}`).maybeSingle(),
@@ -2652,7 +3892,9 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         const { count, error: countError } = await adminTable('affiliate_partners')
           .select('id', { count: 'exact', head: true });
         if (countError) throw countError;
-        if ((count || 0) > 0) return res.status(409).json({ error: 'A Partner account already exists.' });
+        if ((count || 0) >= MAX_AFFILIATE_PARTNERS) {
+          return res.status(409).json({ error: `The maximum of ${MAX_AFFILIATE_PARTNERS} Partner accounts has been reached.` });
+        }
       } else {
         const normalizedParentCode = String(parentSuperCode || '').trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '');
         if (!normalizedParentCode) return res.status(400).json({ error: 'Partner code is required for affiliate registration.' });
@@ -2667,16 +3909,26 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         parentPartner = data;
       }
 
-      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-        email: authEmail,
-        password: String(password),
-        email_confirm: true,
-        user_metadata: { full_name: normalizeText(name), phone: normalizedPhone, account_type: isPartner ? 'partner' : 'affiliate' },
-      });
-      if (authError || !authData.user) throw new Error(authError?.message || 'Unable to create affiliate account.');
-
-      const userId = authData.user.id;
-      const { error: userError } = await adminTable('users').insert({
+      let userId = googleUser?.id || '';
+      let createdPasswordUser = false;
+      if (!userId) {
+        const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+          email: authEmail,
+          password: String(password),
+          email_confirm: true,
+          user_metadata: { full_name: normalizeText(name), phone: normalizedPhone, account_type: isPartner ? 'partner' : 'affiliate' },
+        });
+        if (authError || !authData.user) throw new Error(authError?.message || 'Unable to create affiliate account.');
+        userId = authData.user.id;
+        createdPasswordUser = true;
+      } else {
+        const { data: conflictingProfile } = await adminTable('users').select('id,account_type').eq('id', userId).maybeSingle();
+        if (conflictingProfile) return res.status(409).json({ error: 'This Google account is already linked to an account.' });
+      }
+      const { error: userError } = // PROFESSIONAL CHECK: Prevent duplicate accounts
+const { data: existingUser } = await adminTable('users').select('id').eq('email', normalizeEmail(email)).maybeSingle();
+if (existingUser && existingUser.data) return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 409, 'register', { email: normalizeEmail(email) });
+await adminTable('users').insert({
         id: userId,
         email: authEmail,
         name: normalizeText(name),
@@ -2689,7 +3941,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         is_active: true,
       });
       if (userError) {
-        await supabaseAdmin.auth.admin.deleteUser(userId);
+        if (createdPasswordUser) await supabaseAdmin.auth.admin.deleteUser(userId);
         throw userError;
       }
 
@@ -2729,7 +3981,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       const { data: affiliate, error: affiliateError } = await insertQuery;
       if (affiliateError || !affiliate) {
         await adminTable('users').delete().eq('id', userId);
-        await supabaseAdmin.auth.admin.deleteUser(userId);
+        if (createdPasswordUser) await supabaseAdmin.auth.admin.deleteUser(userId);
         throw affiliateError || new Error('Affiliate profile was not created.');
       }
 
@@ -2742,6 +3994,435 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       return res.status(400).json({
         error: isRawDbError ? 'Affiliate registration failed. Please try again.' : (error?.message || 'Affiliate registration failed.')
       });
+    }
+  });
+
+  const getGoogleRequestUser = async (req: any) => {
+    if (!supabaseAdmin) return null;
+    const token = String(req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
+    if (!token) return null;
+    const { data, error } = await supabaseAdmin.auth.getUser(token);
+    const authUser = error ? null : data?.user;
+    return authUser?.app_metadata?.provider === 'google' || authUser?.identities?.some((identity: any) => identity.provider === 'google')
+      ? authUser : null;
+  };
+
+  const getTenantAdminRequestProfile = async (req: any) => {
+    if (!supabaseAdmin) return null;
+    const token = getBearerToken(req);
+    if (!token) return null;
+    const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
+    if (authError || !authData.user?.id) return null;
+    const { data: profile } = await adminTable('users')
+      .select('id,tenant_id,active_tenant,role,role_key,account_type,is_active')
+      .eq('id', authData.user.id).maybeSingle();
+    const role = String(profile?.role_key || profile?.role || '').toLowerCase();
+    const allowed = profile?.is_active !== false && ['admin', 'owner', 'superadmin', 'super_admin'].some(value => role.includes(value));
+    const tenantId = String(profile?.active_tenant || profile?.tenant_id || '');
+    return allowed && isUuid(tenantId) ? { authUser: authData.user, profile, tenantId } : null;
+  };
+
+  // Updates an EXISTING staff member's real permissions directly (their
+  // users.role/role_key/role_permissions row) without requiring a fresh
+  // invitation link. A brand-new hire has no users row yet (they haven't
+  // accepted their first invitation, so no Supabase Auth account exists to
+  // update) -- that case still needs the invitation flow below, which is
+  // the only way to create their account. An already-active staff member
+  // does have a row, and their permissions are resolved fresh from it on
+  // every login (getSimulatedPermissions), so updating it here is enough:
+  // the new role applies from their next sign-in on, and their current,
+  // already-open session is left completely untouched by this write.
+  app.post('/api/staff/update-role', rateLimit({ windowMs: 60_000, max: 20, prefix: 'staff-role-update' }), async (req, res) => {
+    const admin = await getTenantAdminRequestProfile(req);
+    if (!admin) return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 403, 'registration');
+    const email = normalizeEmail(req.body?.email);
+    const role = normalizeText(req.body?.role, 80) || 'Cashier';
+    const permissions = req.body?.permissions && typeof req.body.permissions === 'object' && !Array.isArray(req.body.permissions)
+      ? req.body.permissions : {};
+    if (!email || !email.includes('@')) {
+      return sendExpectedSafeApiError(req, res, 'VALIDATION_ERROR', 400, 'registration');
+    }
+    try {
+      const { data: existing } = await adminTable('users')
+        .select('id,tenant_id,account_type')
+        .eq('email', email).eq('tenant_id', admin.tenantId).maybeSingle();
+      if (!existing) {
+        return res.json({ updated: false, reason: 'no_account_yet' });
+      }
+      const roleLower = role.toLowerCase();
+      const databaseRole = ['admin', 'manager', 'cashier'].includes(roleLower)
+        ? `${roleLower.charAt(0).toUpperCase()}${roleLower.slice(1)}` : 'Cashier';
+      const { error } = await adminTable('users').update({
+        role: databaseRole,
+        role_key: role,
+        role_permissions: resolveRolePermissionsForResponse(permissions) || null,
+      }).eq('id', existing.id).eq('tenant_id', admin.tenantId);
+      if (error) throw error;
+      return res.json({ updated: true });
+    } catch (error) {
+      return sendUnexpectedSafeApiError(req, res, error, { fallbackCode: 'SAVE_ERROR', context: 'registration', operation: 'staff_role_update' });
+    }
+  });
+
+  app.post('/api/staff/google-invitations', rateLimit({ windowMs: 60_000, max: 20, prefix: 'staff-invite' }), async (req, res) => {
+    const admin = await getTenantAdminRequestProfile(req);
+    if (!admin) return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 403, 'registration');
+    const staffId = normalizeText(req.body?.staffId, 180);
+    const name = normalizeText(req.body?.name, 160);
+    const email = normalizeEmail(req.body?.email);
+    const phone = normalizeText(req.body?.phone, 40);
+    const role = normalizeText(req.body?.role, 80) || 'Cashier';
+    const branchId = isUuid(req.body?.branchId) ? String(req.body.branchId) : null;
+    const permissions = req.body?.permissions && typeof req.body.permissions === 'object' && !Array.isArray(req.body.permissions)
+      ? req.body.permissions : {};
+    if (!staffId || !name || !email || !email.includes('@') || !phone) {
+      return sendExpectedSafeApiError(req, res, 'VALIDATION_ERROR', 400, 'registration');
+    }
+    try {
+      if (branchId) {
+        const { data: branch } = await adminTable('branches').select('id').eq('id', branchId).eq('tenant_id', admin.tenantId).maybeSingle();
+        if (!branch) return sendExpectedSafeApiError(req, res, 'VALIDATION_ERROR', 400, 'registration');
+      }
+      await adminTable('staff_google_invitations').update({ status: 'revoked' })
+        .eq('tenant_id', admin.tenantId).eq('staff_workspace_id', staffId).eq('status', 'pending');
+      const rawToken = randomBytes(32).toString('base64url');
+      const tokenHash = createHash('sha256').update(rawToken).digest('hex');
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+      const { error } = await adminTable('staff_google_invitations').insert({
+        token_hash: tokenHash, tenant_id: admin.tenantId, staff_workspace_id: staffId,
+        email, staff_name: name, phone, role_key: role, permissions, branch_id: branchId,
+        created_by: admin.authUser.id, expires_at: expiresAt,
+      });
+      if (error) throw error;
+      const origin = normalizeText(req.headers.origin, 240) || `https://${getBaseDomain()}`;
+      return res.status(201).json({ invitationUrl: `${origin}/login?staffInvite=${encodeURIComponent(rawToken)}`, expiresAt });
+    } catch (error) {
+      return sendUnexpectedSafeApiError(req, res, error, { fallbackCode: 'SAVE_ERROR', context: 'registration', operation: 'staff_google_invitation_create' });
+    }
+  });
+
+  app.get('/api/auth/staff-invitation', rateLimit({ windowMs: 60_000, max: 40, prefix: 'staff-invite-read' }), async (req, res) => {
+    const rawToken = String(req.query?.token || '');
+    if (rawToken.length < 32) return sendExpectedSafeApiError(req, res, 'VALIDATION_ERROR', 400, 'sign_in');
+    const tokenHash = createHash('sha256').update(rawToken).digest('hex');
+    const { data: invitation } = await adminTable('staff_google_invitations')
+      .select('staff_name,email,expires_at,status,tenants(name)').eq('token_hash', tokenHash).maybeSingle();
+    if (!invitation || invitation.status !== 'pending' || new Date(invitation.expires_at).getTime() <= Date.now()) {
+      return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 410, 'sign_in');
+    }
+    return res.json({ staffName: invitation.staff_name, email: invitation.email, businessName: invitation.tenants?.name || 'Business', expiresAt: invitation.expires_at });
+  });
+
+  app.post('/api/auth/google/accept-staff-invitation', rateLimit({ windowMs: 60_000, max: 12, prefix: 'staff-invite-accept' }), async (req, res) => {
+    const authUser = await getGoogleRequestUser(req);
+    const rawToken = String(req.body?.token || '');
+    if (!authUser?.id || !authUser.email || rawToken.length < 32) return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 401, 'sign_in');
+    const tokenHash = createHash('sha256').update(rawToken).digest('hex');
+    try {
+      const { data: invitation } = await adminTable('staff_google_invitations').select('*').eq('token_hash', tokenHash).maybeSingle();
+      if (!invitation || invitation.status !== 'pending' || new Date(invitation.expires_at).getTime() <= Date.now()) {
+        return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 410, 'sign_in');
+      }
+      if (normalizeEmail(authUser.email) !== normalizeEmail(invitation.email)) {
+        return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 403, 'sign_in');
+      }
+      const { data: existing } = await adminTable('users').select('id,tenant_id,account_type').eq('email', invitation.email).maybeSingle();
+      if (existing && String(existing.id) !== authUser.id) return sendExpectedSafeApiError(req, res, 'DUPLICATE_ERROR', 409, 'sign_in');
+      const roleLower = String(invitation.role_key || '').toLowerCase();
+      const databaseRole = ['admin','manager','cashier'].includes(roleLower)
+        ? `${roleLower.charAt(0).toUpperCase()}${roleLower.slice(1)}` : 'Cashier';
+      const profile = {
+        id: authUser.id, email: invitation.email, name: invitation.staff_name, phone: invitation.phone,
+        tenant_id: invitation.tenant_id, active_tenant: invitation.tenant_id, role: databaseRole,
+        account_type: 'business_staff', role_key: invitation.role_key,
+        role_permissions: resolveRolePermissionsForResponse(invitation.permissions) || null,
+        is_active: true, is_saas_staff: false,
+      };
+      const { error: profileError } = await adminTable('users').upsert(profile, { onConflict: 'id' });
+      if (profileError) throw profileError;
+      if (invitation.branch_id) {
+        const { error: assignmentError } = await adminTable('branch_staff_assignments').upsert({
+          tenant_id: invitation.tenant_id, branch_id: invitation.branch_id, staff_id: authUser.id,
+          role: invitation.role_key, permissions: invitation.permissions || {}, status: 'active',
+        }, { onConflict: 'tenant_id,branch_id,staff_id' });
+        if (assignmentError) throw assignmentError;
+      }
+      const { data: consumed, error: consumeError } = await adminTable('staff_google_invitations')
+        .update({ status: 'accepted', accepted_by: authUser.id, accepted_at: new Date().toISOString() })
+        .eq('id', invitation.id).eq('status', 'pending').select('id').maybeSingle();
+      if (consumeError || !consumed) throw consumeError || new Error('Invitation was already used.');
+      await purgeLegacyWorkspaceStaffPassword({
+        tenantId: String(invitation.tenant_id), staffId: String(invitation.staff_workspace_id),
+        phone: String(invitation.phone || ''), authUserId: authUser.id, authEmail: normalizeEmail(invitation.email),
+      });
+      return res.json({ status: 'existing', user: {
+        id: authUser.id, email: invitation.email, name: invitation.staff_name, role: invitation.role_key,
+        tenantId: invitation.tenant_id, activeTenant: invitation.tenant_id, phone: invitation.phone,
+        saasPermissions: invitation.permissions || {}, rolePermissions: resolveRolePermissionsForResponse(invitation.permissions),
+      }});
+    } catch (error) {
+      return sendUnexpectedSafeApiError(req, res, error, { fallbackCode: 'AUTH_ERROR', context: 'sign_in', operation: 'staff_google_invitation_accept' });
+    }
+  });
+
+  app.get('/api/auth/google/resolve', async (req, res) => {
+    const authUser = await getGoogleRequestUser(req);
+    if (!authUser?.id || !authUser.email) return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 401, 'sign_in');
+    const { data: profile, error } = await supabaseAdmin!
+      .from('users')
+      .select('id,email,name,role,role_key,account_type,tenant_id,active_tenant,phone,is_active,is_saas_staff,role_permissions,profile_image_url')
+      .or(`id.eq.${authUser.id},email.eq.${authUser.email.toLowerCase()}`)
+      .limit(2);
+    if (error) return sendUnexpectedSafeApiError(req, res, error, { fallbackCode: 'AUTH_ERROR', context: 'sign_in', operation: 'google_account_resolve' });
+    if ((profile || []).length > 1) return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 409, 'sign_in');
+    const userProfile: any = profile?.[0];
+    if (!userProfile) return res.json({ status: 'onboarding' });
+    if (userProfile.is_active === false) return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 403, 'sign_in');
+    // Same verified email can safely adopt the Google Auth UUID after Supabase
+    // automatic identity linking. Tenant and role are never derived from OAuth metadata.
+    // PROFESSIONAL LINKING: If emails match but IDs differ, we link the Google identity to the existing user.
+    if (userProfile.id !== authUser.id) {
+      // Link the existing user to the Google Auth ID without changing role or tenant
+      await supabaseAdmin!.auth.admin.updateUserById(authUser.id, { user_metadata: { linked_original_id: userProfile.id } });
+      // Return the existing user profile to preserve role, tenant, and memberships
+    }
+    const isBusinessStaff = userProfile.account_type === 'business_staff';
+    const resolvedRole = isBusinessStaff && userProfile.role_key ? userProfile.role_key : userProfile.role;
+    return res.json({ status: 'existing', user: {
+      id: userProfile.id, email: userProfile.email || authUser.email,
+      name: userProfile.name || authUser.user_metadata?.full_name || 'User',
+      role: userProfile.account_type === 'super_admin' ? 'SuperAdmin' : (resolvedRole || 'Admin'),
+      tenantId: userProfile.tenant_id || 'platform-control', activeTenant: userProfile.active_tenant || userProfile.tenant_id || 'platform-control',
+      phone: userProfile.phone || null, isSaaSStaff: userProfile.is_saas_staff || false,
+      saasPermissions: userProfile.role_permissions || undefined,
+      rolePermissions: resolveRolePermissionsForResponse(userProfile.role_permissions),
+      profileImage: userProfile.profile_image_url || undefined,
+    }});
+  });
+
+  app.post('/api/auth/turnstile', async (req, res) => {
+    const verified = await verifyTurnstileToken(req.body?.turnstileToken, req.ip);
+    if (!verified) return sendExpectedSafeApiError(req, res, 'VALIDATION_ERROR', 400, 'sign_in');
+    return res.json({ verified: true });
+  });
+
+  app.post('/api/auth/super-admin-security-event', rateLimit({ windowMs: 15 * 60 * 1000, max: 20, prefix: 'super-admin-security-event' }), async (req, res) => {
+    try {
+      const adminUser = await requirePlatformAdmin(req);
+      const event = normalizeText(req.body?.event, 80);
+      if (!['google_identity_verified', 'mfa_verified', 'mfa_rejected', 'session_revoked_after_three_attempts'].includes(event)) {
+        return sendExpectedSafeApiError(req, res, 'VALIDATION_ERROR', 400, 'sign_in');
+      }
+      const clientIp = readClientIp(req);
+      const userAgent = normalizeText(req.headers['user-agent'], 240);
+      await adminTable('super_admin_audit_logs').insert({
+        actor_user_id: adminUser.id,
+        action: event,
+        metadata: { ip: clientIp, user_agent: userAgent },
+      });
+      if (event === 'mfa_rejected' || event === 'session_revoked_after_three_attempts') {
+        void logSecurityThreatEvent({
+          eventType: `super_admin_${event}`,
+          ipAddress: clientIp,
+          identifier: adminUser.email || adminUser.id,
+          details: { userAgent },
+          telegramMessage: event === 'session_revoked_after_three_attempts'
+            ? `🚨 <b>Super Admin login blocked</b>\nSomeone failed the Super Admin sign-in 3 times and was locked out.\nIP: <code>${clientIp}</code>\nTime: ${new Date().toLocaleString('en-GB', { timeZone: 'Africa/Dar_es_Salaam' })}`
+            : `⚠️ <b>Super Admin MFA rejected</b>\nA wrong verification code was entered for the Super Admin account.\nIP: <code>${clientIp}</code>\nTime: ${new Date().toLocaleString('en-GB', { timeZone: 'Africa/Dar_es_Salaam' })}`,
+        });
+      }
+      return res.json({ recorded: true });
+    } catch (error: any) {
+      return platformAdminError(res, error);
+    }
+  });
+
+  app.get('/api/super-admin/security/events', async (req, res) => {
+    try {
+      await requirePlatformAdmin(req);
+      const { data, error } = await adminTable('security_threat_events')
+        .select('id,event_type,ip_address,identifier,details,created_at')
+        .order('created_at', { ascending: false })
+        .limit(200);
+      if (error) throw error;
+      return res.json({ events: data || [] });
+    } catch (error: any) {
+      return platformAdminError(res, error);
+    }
+  });
+
+  app.get('/api/super-admin/security/blocklist', async (req, res) => {
+    try {
+      await requirePlatformAdmin(req);
+      const { data, error } = await adminTable('ip_blocklist')
+        .select('ip_address,reason,blocked_by,blocked_at,unblocked_at')
+        .is('unblocked_at', null)
+        .order('blocked_at', { ascending: false });
+      if (error) throw error;
+      return res.json({ blocked: data || [] });
+    } catch (error: any) {
+      return platformAdminError(res, error);
+    }
+  });
+
+  app.post('/api/super-admin/security/block-ip', async (req, res) => {
+    try {
+      const adminUser = await requirePlatformAdmin(req);
+      const ip = normalizeText(req.body?.ip, 64);
+      const reason = normalizeText(req.body?.reason, 300) || 'Blocked by Super Admin';
+      if (!ip) return sendExpectedSafeApiError(req, res, 'VALIDATION_ERROR', 400, 'session');
+      const { error } = await adminTable('ip_blocklist').upsert({
+        ip_address: ip,
+        reason,
+        blocked_by: adminUser.id,
+        blocked_at: new Date().toISOString(),
+        unblocked_at: null,
+      }, { onConflict: 'ip_address' });
+      if (error) throw error;
+      blockedIpCache.add(ip);
+      void logSecurityThreatEvent({
+        eventType: 'ip_blocked_by_admin',
+        ipAddress: ip,
+        identifier: adminUser.email || adminUser.id,
+        details: { reason },
+      });
+      return res.json({ blocked: true });
+    } catch (error: any) {
+      return platformAdminError(res, error);
+    }
+  });
+
+  app.post('/api/super-admin/security/unblock-ip', async (req, res) => {
+    try {
+      const adminUser = await requirePlatformAdmin(req);
+      const ip = normalizeText(req.body?.ip, 64);
+      if (!ip) return sendExpectedSafeApiError(req, res, 'VALIDATION_ERROR', 400, 'session');
+      const { error } = await adminTable('ip_blocklist')
+        .update({ unblocked_at: new Date().toISOString() })
+        .eq('ip_address', ip);
+      if (error) throw error;
+      blockedIpCache.delete(ip);
+      void logSecurityThreatEvent({
+        eventType: 'ip_unblocked_by_admin',
+        ipAddress: ip,
+        identifier: adminUser.email || adminUser.id,
+      });
+      return res.json({ unblocked: true });
+    } catch (error: any) {
+      return platformAdminError(res, error);
+    }
+  });
+
+  app.get('/api/super-admin/security/geo/:ip', async (req, res) => {
+    try {
+      await requirePlatformAdmin(req);
+      const ip = normalizeText(req.params.ip, 64);
+      if (!ip || ip === 'unknown') return res.json({ ip, location: null });
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 4000);
+      try {
+        const geoRes = await fetch(`https://ipapi.co/${encodeURIComponent(ip)}/json/`, { signal: controller.signal });
+        const geoData = await geoRes.json().catch(() => ({}));
+        if (geoData?.error) return res.json({ ip, location: null });
+        return res.json({
+          ip,
+          location: {
+            city: geoData.city || null,
+            region: geoData.region || null,
+            country: geoData.country_name || null,
+            isp: geoData.org || null,
+          },
+        });
+      } finally {
+        clearTimeout(timeout);
+      }
+    } catch (error: any) {
+      return platformAdminError(res, error);
+    }
+  });
+
+  app.get('/api/auth/google/portal-resolve', async (req, res) => {
+    const authUser = await getGoogleRequestUser(req);
+    if (!authUser?.id || !authUser.email) return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 401, 'sign_in');
+    const [{ data: partner }, { data: affiliate }] = await Promise.all([
+      adminTable('affiliate_partners').select('id,user_id,display_name,promo_code,phone_whatsapp,payout_account,payout_method,tin_number,nida_number,is_disabled').eq('user_id', authUser.id).maybeSingle(),
+      adminTable('affiliates').select('id,user_id,display_name,referral_code,promo_code,phone_whatsapp,payout_account,payout_method,tin_number,nida_number,is_disabled').eq('user_id', authUser.id).maybeSingle(),
+    ]);
+    const profile: any = partner || affiliate;
+    if (!profile || profile.is_disabled) return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 403, 'sign_in');
+    return res.json({ portalRole: partner ? 'partner' : 'affiliate', profile });
+  });
+
+  app.get('/api/partner/sub-affiliates', async (req, res) => {
+    const token = getBearerToken(req);
+    if (!token || !supabaseAdmin) return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 401, 'session');
+    try {
+      const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
+      if (authError || !authData.user?.id) return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 401, 'session');
+      const { data: partner, error: partnerError } = await adminTable('affiliate_partners')
+        .select('id,user_id,display_name,promo_code,status,is_disabled')
+        .eq('user_id', authData.user.id).maybeSingle();
+      if (partnerError || !partner || partner.is_disabled || String(partner.status || 'active').toLowerCase() !== 'active') {
+        return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 403, 'session');
+      }
+      const { data: affiliates, error } = await adminTable('affiliates')
+        .select('id,user_id,display_name,promo_code,referral_code,phone_whatsapp,payout_account,payout_method,tin_number,tin_status,total_revenue,gross_commission,withholding_tax,net_payout,customers_count,is_disabled,status,created_at,parent_super_agent_id,parent_agent_id')
+        .eq('parent_super_agent_id', String(partner.id))
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return res.json({ partner: { id: partner.id, name: partner.display_name, promoCode: partner.promo_code }, affiliates: affiliates || [] });
+    } catch (error) {
+      return sendUnexpectedSafeApiError(req, res, error, { fallbackCode: 'LOAD_ERROR', context: 'session', operation: 'partner_sub_affiliates_load' });
+    }
+  });
+
+  app.post('/api/auth/google/provision', async (req, res) => {
+    const authUser = await getGoogleRequestUser(req);
+    if (!authUser?.id || !authUser.email) return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 401, 'registration');
+    const businessName = normalizeText(req.body?.businessName, 160);
+    const phone = normalizeText(req.body?.phone, 40);
+    const city = normalizeText(req.body?.city, 80) || 'Dar es Salaam';
+    const requestedType = normalizeText(req.body?.businessType, 60).toLowerCase();
+    const businessType = requestedType === 'pharmacy' ? 'pharmacy' : ['retail','wholesale','retail & wholesale','retail and wholesale'].includes(requestedType) ? 'retail' : null;
+    if (!businessName || !businessType || getPhoneIdentityCandidates(phone).length === 0) return sendExpectedSafeApiError(req, res, 'VALIDATION_ERROR', 400, 'registration');
+    try {
+      const [{ data: existingProfile }, { data: phoneProfiles }] = await Promise.all([
+        supabaseAdmin!.from('users').select('id,tenant_id').or(`id.eq.${authUser.id},email.eq.${authUser.email.toLowerCase()}`).limit(1),
+        supabaseAdmin!.from('users').select('id,phone').in('phone', getPhoneIdentityCandidates(phone)).limit(5),
+      ]);
+      if (existingProfile?.length || (phoneProfiles || []).some((p: any) => phoneIdentifiersMatch(p.phone, phone))) {
+        return sendExpectedSafeApiError(req, res, 'DUPLICATE_ERROR', 409, 'registration');
+      }
+      const now = new Date(); const end = new Date(now); end.setDate(end.getDate() + (String(req.body?.referralCode || '').trim() ? 20 : 10));
+      const slug = await generateUniqueTenantSlug(businessName);
+      const { data: tenant, error: tenantError } = await supabaseAdmin!.from('tenants').insert({
+        name: businessName, business_name: businessName, business_name_slug: slug, subdomain_slug: slug,
+        primary_domain: `${slug}.${getBaseDomain()}`, domain_status: 'active', is_domain_active: true,
+        country: 'Tanzania', city, currency: 'TSh', currency_code: 'TZS', tax_rate: 0.18,
+        business_type: businessType, mobile_money_providers: [], company_settings: {}, business_settings: {}, invoice_settings: {},
+        subscription_status: 'trial', subscription_start_date: now.toISOString(), subscription_end_date: end.toISOString(),
+        package_updated_at: now.toISOString(), package_change_type: 'google_registration', package_change_note: 'Google OAuth tenant registration',
+      } as any).select(tenantDomainSelect).single();
+      if (tenantError || !tenant) throw tenantError || new Error('Tenant creation returned no row.');
+      const { error: profileError } = await supabaseAdmin!.from('users').insert({
+        id: authUser.id, tenant_id: (tenant as any).id, active_tenant: (tenant as any).id,
+        email: authUser.email.toLowerCase(), name: normalizeText(authUser.user_metadata?.full_name, 160) || authUser.email.split('@')[0],
+        phone, role: 'Admin', is_saas_staff: false,
+      } as any);
+      if (profileError) { await supabaseAdmin!.from('tenants').delete().eq('id', (tenant as any).id); throw profileError; }
+      const workspace = createInitialTenantWorkspace(tenant);
+      const { error: workspaceError } = await supabaseAdmin!.from('tenant_workspaces').upsert({ tenant_id: (tenant as any).id, payload: workspace, updated_at: now.toISOString(), updated_by: authUser.id }, { onConflict: 'tenant_id' });
+      if (workspaceError) { await supabaseAdmin!.from('users').delete().eq('id', authUser.id); await supabaseAdmin!.from('tenants').delete().eq('id', (tenant as any).id); throw workspaceError; }
+      const tenantDataRows = [
+        ['products', []], ['sales', []], ['expenses', []], ['deliveries', []],
+        ['pendingDeliveryNotes', []], ['settings', workspace.settings],
+      ].map(([data_key, payload]) => ({ tenant_id: String((tenant as any).id), data_key, payload }));
+      const { error: tenantDataError } = await adminTable('tenant_data').upsert(tenantDataRows, { onConflict: 'tenant_id,data_key' });
+      if (tenantDataError) console.warn('[google registration] legacy tenant_data seed deferred:', tenantDataError.message);
+      try { await supabaseAdmin!.rpc('provision_primary_branch_for_new_tenant', { p_tenant_id: (tenant as any).id, p_actor_user_id: authUser.id }); } catch { /* additive compatibility */ }
+      return res.json({ tenant: { id: (tenant as any).id, name: (tenant as any).name, country: 'Tanzania', city, currency: 'TSh', currencyCode: 'TZS', taxRate: 0.18, mobileMoneyProviders: [], businessType }, user: { id: authUser.id, email: authUser.email, name: normalizeText(authUser.user_metadata?.full_name, 160) || authUser.email.split('@')[0], phone } });
+    } catch (error: any) {
+      return sendUnexpectedSafeApiError(req, res, error, { fallbackCode: 'SAVE_ERROR', context: 'registration', operation: 'google_tenant_provision' });
     }
   });
 
@@ -3035,6 +4716,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
 
   // API Route: Fetch tenant logo by specific tenantId dynamically on app load
   app.get('/api/tenant/logo-by-id', async (req, res) => {
+    res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=300, stale-while-revalidate=3600');
     const tenantId = req.query.tenantId as string;
     try {
       if (!supabaseAdmin || !tenantId || !isUuid(tenantId)) {
@@ -3064,13 +4746,14 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
 
   // API Route: Fetch tenant logo by domain or subdomain dynamically on login screen load
   app.get('/api/tenant/logo-by-domain', async (req, res) => {
+    res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=300, stale-while-revalidate=3600');
     const domain = normalizeHost(req.query.domain);
     try {
       if (!supabaseAdmin) {
         return res.json({ logoUrl: null });
       }
 
-      const resolved = await resolveTenantDomain(domain || req.headers.host);
+      const resolved = await resolveTenantDomainCached(domain || req.headers.host);
       const resolvedTenant = (resolved as any)?.tenant;
       const resolvedCompanySettings = typeof resolvedTenant?.company_settings === 'string'
         ? JSON.parse(resolvedTenant.company_settings)
@@ -3079,41 +4762,8 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         return res.json({ logoUrl: resolvedCompanySettings.logo_url || resolvedCompanySettings.logoUrl, tenantName: resolvedTenant?.name || null });
       }
 
-      const { data: tenants, error } = await supabaseAdmin
-        .from('tenants' as any)
-        .select('id, name, company_settings');
-
-      if (error || !tenants) {
-        return res.json({ logoUrl: null });
-      }
-
-      // Check for matching target domain or tenantId in the list
-      for (const tenant of tenants as any[]) {
-        const companySettings = typeof (tenant as any).company_settings === 'string'
-          ? JSON.parse((tenant as any).company_settings)
-          : (tenant as any).company_settings;
-        
-        if (companySettings && companySettings.logo_url) {
-          if (domain && (
-            (tenant as any).name?.toLowerCase().includes(domain.toLowerCase()) || 
-            (tenant as any).id?.toLowerCase().includes(domain.toLowerCase())
-          )) {
-            return res.json({ logoUrl: companySettings.logo_url, tenantName: (tenant as any).name });
-          }
-        }
-      }
-
-      // If no direct domain match, fallback to the first company settings that has a logo URL
-      for (const tenant of tenants as any[]) {
-        const companySettings = typeof (tenant as any).company_settings === 'string'
-          ? JSON.parse((tenant as any).company_settings)
-          : (tenant as any).company_settings;
-        
-        if (companySettings && companySettings.logo_url) {
-          return res.json({ logoUrl: companySettings.logo_url, tenantName: (tenant as any).name });
-        }
-      }
-
+      // Never scan or fall back to another tenant's branding. The domain
+      // resolver above is the only tenant-scoped source for this public route.
       return res.json({ logoUrl: null });
     } catch (err) {
       console.error('[Logo Fetch] Error fetching logo by domain:', err);
@@ -3122,9 +4772,19 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
   });
 
   // API Route: Upload and persist company logo to Supabase storage + tenants table JSONB field
+  const LOGO_IMAGE_TYPES: Record<string, { ext: string; magic: (buf: Buffer) => boolean }> = {
+    'image/png': { ext: 'png', magic: (b) => b.length >= 8 && b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47 },
+    'image/jpeg': { ext: 'jpg', magic: (b) => b.length >= 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff },
+    'image/webp': { ext: 'webp', magic: (b) => b.length >= 12 && b.toString('ascii', 0, 4) === 'RIFF' && b.toString('ascii', 8, 12) === 'WEBP' },
+    'image/gif': { ext: 'gif', magic: (b) => b.length >= 6 && (b.toString('ascii', 0, 6) === 'GIF87a' || b.toString('ascii', 0, 6) === 'GIF89a') },
+  };
+
   app.post('/api/tenant/logo', async (req, res) => {
     // Ensure response is always JSON — never HTML error pages
     res.setHeader('Content-Type', 'application/json');
+    if (!req.is('application/json')) {
+      return res.status(415).json({ error: 'Content-Type application/json is required.' });
+    }
     const { tenantId, logoBase64 } = req.body;
 
     if (!tenantId || !logoBase64 || !isUuid(tenantId)) {
@@ -3146,7 +4806,6 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       // Parse the base64 string
       let base64Data = logoBase64;
       let mimeType = 'image/png';
-      let extension = 'png';
 
       if (logoBase64.includes(';base64,')) {
         const parts = logoBase64.split(';base64,');
@@ -3154,10 +4813,10 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         base64Data = parts[1];
         if (mimePart.includes(':')) {
           mimeType = mimePart.split(':')[1];
-          extension = mimeType.split('/')[1] || 'png';
         }
       }
-      if (!['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(mimeType)) {
+      const allowedLogo = LOGO_IMAGE_TYPES[mimeType];
+      if (!allowedLogo) {
         return res.status(400).json({ error: 'Unsupported logo image type.' });
       }
       if (!/^[A-Za-z0-9+/=]+$/.test(base64Data)) {
@@ -3169,7 +4828,10 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       if (buffer.length > 3_000_000) {
         return res.status(413).json({ error: 'Logo file is too large. Please upload an image below 3 MB.' });
       }
-      const fileName = `${tenantId}/logo.${extension}`;
+      if (!allowedLogo.magic(buffer)) {
+        return res.status(400).json({ error: 'Logo content does not match the declared image type.' });
+      }
+      const fileName = `${tenantId}/logo.${allowedLogo.ext}`;
 
       // Ensure the "logos" bucket exists
       try {
@@ -3263,6 +4925,9 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
   };
   app.post('/api/images/migrate-product', async (req, res) => {
     res.setHeader('Content-Type', 'application/json');
+    if (!req.is('application/json')) {
+      return res.status(415).json({ error: 'Content-Type application/json is required.' });
+    }
     if (!supabaseAdmin) return res.status(503).json({ error: 'Storage service unavailable.' });
 
     const { tenantId, productId, base64DataUrl } = req.body;
@@ -3318,7 +4983,8 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       return res.json({ success: true, url: urlData.publicUrl });
     } catch (err: any) {
       console.error('[ImageMigration] Exception:', err);
-      return res.status(Number(err?.status || 500)).json({ error: err?.message || 'Migration failed.' });
+      const status = Number(err?.status || 500);
+      return res.status(status).json({ error: status < 500 ? (err?.message || 'Image upload denied.') : 'Image could not be saved securely.' });
     }
   });
 
@@ -3588,10 +5254,22 @@ Your output must be in JSON matching the specified Response Schema exactly. All 
     try {
       message = body.message;
       activeTab = body.activeTab;
+      const requestedDeviceClass = sanitizeLucyText(body.deviceClass, 20);
+      const deviceClass: 'mobile' | 'tablet' | 'desktop' = requestedDeviceClass === 'mobile' || requestedDeviceClass === 'tablet'
+        ? requestedDeviceClass
+        : 'desktop';
       businessType = body.businessType;
       lang = body.lang;
       const planId = normalizeLucyPlanId(body.planId || body.activeTenant?.activePackageId || body.activeTenant?.selectedPackageId);
       const intent = classifyLucyIntent(message, body.intent);
+      const useMarketGrounding = planId === 'tanzanite' && needsLucyMarketGrounding(message, intent);
+      const tenantCity = sanitizeLucyText(body.activeTenant?.city || body.city, 80);
+      const tenantCountry = sanitizeLucyText(body.activeTenant?.country || body.country, 80);
+      const conversation = safeLucyRecords(body.conversation || [], 10, (entry: any) => ({
+        role: entry?.role === 'assistant' ? 'assistant' : 'user',
+        content: sanitizeLucyText(entry?.content, 1_200),
+      })).filter((entry: any) => entry.content);
+      const conversationChoice = resolveLucyConversationChoice(String(message || ''), conversation);
       const limits = LUCY_LIMITS[planId];
       const { usage } = getLucyUsage(tenantId);
       const remaining = Math.max(0, limits[intent] - usage[intent]);
@@ -3623,8 +5301,8 @@ Your output must be in JSON matching the specified Response Schema exactly. All 
       if (isLucySecurityProbe(message)) {
         return res.status(400).json({
           responseText: lang === 'sw'
-            ? 'Samahani, siwezi kusaidia maswali yanayohusu siri za mfumo, API keys, tokens, data za tenant mwingine, au kujaribu kuvunja ulinzi. Ninaweza kukusaidia kutumia Jasper na kusoma taarifa zako za biashara kwa usalama.'
-            : 'Sorry, I cannot help with system secrets, API keys, tokens, other tenants’ data, or attempts to bypass security. I can safely help you use Jasper and understand your own business data.',
+            ? 'Samahani, siwezi kusaidia maswali yanayohusu siri za mfumo, API keys, tokens, data za tenant mwingine, au kujaribu kuvunja ulinzi. Ninaweza kukusaidia kutumia Orvix na kusoma taarifa zako za biashara kwa usalama.'
+            : 'Sorry, I cannot help with system secrets, API keys, tokens, other tenants’ data, or attempts to bypass security. I can safely help you use Orvix and understand your own business data.',
           action: 'GUIDE_ONLY',
           targetTab: null,
           unsupportedFeature: 'Security Boundary',
@@ -3713,6 +5391,24 @@ Your output must be in JSON matching the specified Response Schema exactly. All 
         });
       }
 
+      // The most common novice workflow is deterministic so Lucy answers instantly,
+      // uses the real responsive labels, and remains useful when Gemini is unavailable.
+      const verifiedSalesWalkthrough = buildVerifiedLucySalesWalkthrough(userMessage, activeTab, deviceClass, lang);
+      if (verifiedSalesWalkthrough) {
+        usage[intent] += 1;
+        return res.json({
+          ...verifiedSalesWalkthrough,
+          guided: true,
+          usage: {
+            planId,
+            intent,
+            used: usage[intent],
+            limit: limits[intent],
+            remaining: Math.max(0, limits[intent] - usage[intent]),
+          },
+        });
+      }
+
       // Check standard unsupported feature heuristics
       let unsupportedFeatureHeuristic: string | null = null;
       let heuristicResponse: string | null = null;      if (userMessage.includes('mpesa') || userMessage.includes('tigopesa') || userMessage.includes('airtel money') || userMessage.includes('hallopesa') || userMessage.includes('mobile money')) {
@@ -3723,8 +5419,8 @@ Your output must be in JSON matching the specified Response Schema exactly. All 
       } else if (userMessage.includes('payroll') || userMessage.includes('salary') || userMessage.includes('mshahara') || userMessage.includes('mishahara') || userMessage.includes('payslip') || userMessage.includes('payslips') || userMessage.includes('hr portal')) {
         unsupportedFeatureHeuristic = 'Automated Payroll Salary Ledger';
         heuristicResponse = lang === 'sw'
-          ? 'Samahani sana faraja yetu, kwa sasa mfumo wa Jasper hauna uwezo wa kusimamia mishahara ya wafanyikazi (Payroll) wala kutoa payslips.'
-          : 'Sorry, for now Jasper Suite does not support employee payroll automated calculations or automated payslips dispatching.';
+          ? 'Samahani sana faraja yetu, kwa sasa mfumo wa Orvix hauna uwezo wa kusimamia mishahara ya wafanyikazi (Payroll) wala kutoa payslips.'
+          : 'Sorry, for now Orvix Suite does not support employee payroll automated calculations or automated payslips dispatching.';
       } else if (userMessage.includes('sms blast') || userMessage.includes('newsletter') || userMessage.includes('loyalty points') || userMessage.includes('campaign') || userMessage.includes('pointi za wateja') || userMessage.includes('zawadi')) {
         unsupportedFeatureHeuristic = 'Loyalty Rewards & SMS Broadcast Campaigns';
         heuristicResponse = lang === 'sw'
@@ -3847,10 +5543,23 @@ Your output must be in JSON matching the specified Response Schema exactly. All 
       }      // AI Core analysis
       const ai = new GoogleGenAI({ apiKey });
       const selectedModel = LUCY_MODELS[planId];
+      let marketResearchContext = '';
+      let sources: Array<{ title: string; url: string }> = [];
+      if (useMarketGrounding) {
+        const marketResponse = await generateResilientContent(ai, {
+          model: selectedModel,
+          contents: `Find current, verifiable market signals relevant to a ${businessType} business in ${tenantCity || 'the tenant city'}, ${tenantCountry || 'the tenant country'}. Focus on the user's request: ${sanitizeLucyText(message)}. Check suitable global marketplaces such as Amazon, eBay, and Alibaba, and discoverable local retailers. Be concise and do not infer that online popularity guarantees local demand.`,
+          config: { tools: [{ googleSearch: {} }] },
+        });
+        marketResearchContext = sanitizeLucyText(marketResponse.text, 6_000);
+        sources = extractLucyGroundingSources(marketResponse);
+      }
       const systemPrompt = 
-        `You are Lucy, a premium, modern AI assistant for Jasper Business Suite. Your personality is polite, warm, practical, and highly adaptive. You operate inside a multi-tenant business suite with business type: "${businessType}". ` +
+        `You are Lucy, a premium, modern AI assistant for Orvix Business Suite. Your personality is polite, warm, practical, and highly adaptive. You operate inside a multi-tenant business suite with business type: "${businessType}". ` +
         `The tenant plan is "${planId}" and the requested intent is "${intent}". ` +
+        `The tenant location is "${tenantCity || 'unknown city'}, ${tenantCountry || 'unknown country'}". ` +
         `Currently, the active tab view is: "${activeTab}". ` +
+        `The user is on a "${deviceClass}" layout. ` +
         `` +
         `CRITICAL RULE: STRICT SCOPE, NATURAL GUIDANCE & DIRECT COMPLETION ` +
         `- Answer the exact question first. Then, when helpful, add one useful next step or one gentle follow-up question so the conversation feels alive and supportive. Do not dump long feature lists unless the user asks for them. ` +
@@ -3861,6 +5570,9 @@ Your output must be in JSON matching the specified Response Schema exactly. All 
         `2. Friendly & Natural: Speak in a warm, engaging, sweet, approachable, and supportive tone. Be professional but personable; never sound like a rigid textbook, a stiff corporate machine, or a repeated template. ` +
         `3. Simple Language: Use clear, direct, and straightforward language. Avoid over-complicating answers or using unnecessary jargon. ` +
         `4. Interactive Coach: Vary your wording. If the user seems unsure, ask one focused follow-up question. If they ask how to do something, give numbered steps. If they ask for business meaning, explain it with a simple example. ` +
+        `4a. GUIDED WALKTHROUGH MODE: When the user asks how to use any system function, begin from their current tab and device layout. Give one concrete action per numbered step, use only visible Orvix menu/button labels supported by the supplied context, explain the expected result after important clicks, and finish with a clear completion check. Use very simple language suitable for a first-time user. Offer to continue interactively when they say "nimefika", "endelea", or "I am there". Never invent a button label. ` +
+        `4b. CHOICE MODE: Use choices only when a real user decision is required before you can continue. Never turn a direct data question or a question with one clear answer into a menu. When a decision is required, provide 2 to 5 choices, one per line, preferably numbered: "1. Choice name — one short explanation." End with a short instruction such as "Jibu 1, 2 au 3." Accept the number, letter, "option 2", "namba 2", "chaguo 2", or the option name. After a valid selection, continue immediately without confirmation unless the action is destructive, sensitive, irreversible, or financially significant. If a code is invalid, say it is unavailable and repeat only the valid choices; do not restart the conversation. For complex workflows ask one decision at a time and never ask again for information already supplied. ` +
+        `4c. RESPONSE ORDER: For direct questions, give the main answer first, then only important details, then a next action only if genuinely needed. Business-data answers must state the value, period, and branch when applicable. Use short everyday Swahili, short paragraphs, and no unnecessary repetition. Never invent unavailable business data. ` +
         `5. Clean Output: Use standard Markdown formatting cleanly (like **bold**) to emphasize key points. Never output raw HTML code tags like <b> or </b>. ` +
         `` +
         `Handling Casual vs. Complex Prompts: ` +
@@ -3875,7 +5587,7 @@ Your output must be in JSON matching the specified Response Schema exactly. All 
         `  - Swahili Refusal Example: "Samahani sana, mimi kama Lucy msaidizi wako wa biashara, ninaruhusiwa tu kusaidia masuala ya kiutawala, usimamizi wa stoki, makadirio ya fedha na mauzo ya duka lako. Kwa maswali mengine ya kawaida yaliyo nje ya biashara, nakushauri utumie mtandao wa Google au mifumo mingine ya ujuzi wetu wa kijamii." ` +
         `` +
         `Your goals are: ` +
-        `1. Main mission: teach the user how to use Jasper step-by-step, answer business questions, explain what each module does, and help the user grow their business using safe read-only insights. ` +
+        `1. Main mission: teach the user how to use Orvix step-by-step, answer business questions, explain what each module does, and help the user grow their business using safe read-only insights. ` +
         `2. Help the user interact, find settings, read business data, or navigate. If they want to perform an action that matches any tab, navigate there. ` +
         `Available tabs: 'overview', 'pos', 'sales-list', 'purchases-list', 'deliveries', 'expenses', 'inventory', 'forecasting', 'products', 'suppliers', 'reports', 'sync', 'whitelabel', 'sandbox-pms'. ` +
         `If they request navigation, set action "NAVIGATE" and targetTab with the correct tab ID. ` +
@@ -3890,7 +5602,8 @@ Your output must be in JSON matching the specified Response Schema exactly. All 
         `` +
         `5. Diamond plan may receive chat and limited reports only. If the user asks for forecasting while plan is diamond, explain politely that forecasting is available on Tanzanite and offer a simple non-forecast business summary instead. ` +
         `6. Keep in mind that standard platform features (like Sales records, POS tills, Inventory, Expenses, and Reports) ARE FULLY SUPPORTED in our system. If the database of sales or expenses is currently empty, it means the user simply hasn't added or recorded any transactions yet—not that the feature is missing. Do NOT report standard supported features (like sales or expenses) as unsupported missing features! Only set "unsupportedFeature" to a standardized English category name if they request an entirely new, non-existent platform capability that the system truly does not have (for example: Automated real-time M-Pesa callbacks & APIs, bulk automated WhatsApp marketing campaigns, print sticky barcode price tags, automated bulk payroll bank transfers, active employee clock-in HR portal); otherwise set "unsupportedFeature" to null. ` +
-        `7. Keep your response highly useful, polite, concise, compassionate, and professional. Match the user's language. ` +
+        `7. Keep your response highly useful, polite, concise, compassionate, and professional. The authoritative conversation language is "${lang === 'sw' ? 'Swahili' : 'English'}". If it is Swahili, reply entirely in grammatical, natural Tanzanian Swahili even when spelling is informal, abbreviated, mixed, or the latest reply is only a number. Do not translate literally from English, do not mix English sentences, and do not repeat a greeting mid-conversation. Retain only exact Orvix button/menu names in English and explain each one briefly in Swahili. Put spaces around bold values and after punctuation. ` +
+        `8. When current market research is enabled, compare the tenant's actual internal performance with current public market evidence. Focus on the tenant's niche and location, check relevant global marketplaces such as Amazon, eBay, and Alibaba plus discoverable local retailers, and never present an unverified trend as guaranteed demand. Clearly separate INTERNAL BUSINESS DATA, CURRENT MARKET SIGNALS, RECOMMENDATIONS, and RISKS. ` +
         `Return your final response strictly as a JSON matching the requested structure.`;
 
       // Build rich runtime database summary context for Lucy to read
@@ -3913,7 +5626,22 @@ ${JSON.stringify(sales, null, 2)}
 === ACTIVE EXPENSES HISTORY SUMMARY DETAIL (READ-ONLY, SANITIZED) ===
 ${JSON.stringify(expenses, null, 2)}
 
+=== CURRENT PUBLIC MARKET EVIDENCE (GOOGLE SEARCH GROUNDED) ===
+${marketResearchContext || 'Not requested for this message.'}
+
 USER MESSAGE: "${sanitizeLucyText(message)}"
+
+RECENT CONVERSATION (OLDEST TO NEWEST; USE ONLY FOR CONTINUITY):
+${JSON.stringify(conversation, null, 2)}
+
+CHOICE RESOLUTION:
+${conversationChoice.selected
+  ? `The latest reply validly selects ${conversationChoice.selected.key}: ${conversationChoice.selected.label}. Continue with it immediately.`
+  : conversationChoice.invalid
+    ? `The latest choice code is invalid. Repeat these valid choices only: ${JSON.stringify(conversationChoice.choices)}.`
+    : conversationChoice.choices.length
+      ? `The previous assistant message offered these choices: ${JSON.stringify(conversationChoice.choices)}. Interpret a matching code or option name contextually.`
+      : 'No active choice menu exists.'}
 `;
 
       const geminiResponse = await generateResilientContent(ai, {
@@ -3936,9 +5664,12 @@ USER MESSAGE: "${sanitizeLucyText(message)}"
       });
 
       const parsed = JSON.parse((geminiResponse.text || '{}').trim());
+      parsed.responseText = normalizeLucyResponseText(parsed.responseText);
       usage[intent] += 1;
       return res.json({
         ...parsed,
+        sources,
+        grounded: sources.length > 0,
         usage: {
           planId,
           intent,
@@ -3981,8 +5712,12 @@ USER MESSAGE: "${sanitizeLucyText(message)}"
   app.post('/api/tools/remove-bg', async (req, res) => {
     try {
       const { image, mimeType } = req.body;
-      if (!image) {
+      await requireActiveUser(req);
+      if (!image || typeof image !== 'string' || image.length > 3_000_000) {
         return res.status(400).json({ error: 'Missing image data (base64 string required)' });
+      }
+      if (!['image/png', 'image/jpeg', 'image/webp'].includes(String(mimeType || 'image/png'))) {
+        return res.status(400).json({ error: 'Unsupported image type.' });
       }
 
       // Safe check for the standard environment API key
@@ -4066,6 +5801,38 @@ USER MESSAGE: "${sanitizeLucyText(message)}"
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
   });
 
+  app.get('/api/health/prisma', async (req, res) => {
+    if (!isPrismaConfigured()) {
+      return res.status(503).json({ status: 'unavailable', database: 'postgres', configured: false });
+    }
+    try {
+      await getPrismaClient().$queryRaw`SELECT 1`;
+      return res.json({ status: 'ok', database: 'postgres', configured: true });
+    } catch {
+      return res.status(503).json({ status: 'unavailable', database: 'postgres', configured: true });
+    }
+  });
+
+  app.all('/api/internal/workspace-normalization/process', async (req, res) => {
+    const cronSecret = String(process.env.CRON_SECRET || '');
+    const authorization = String(req.headers.authorization || '');
+    if (cronSecret.length < 32 || !safeSecretEquals(authorization, `Bearer ${cronSecret}`)) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    if (!['GET', 'POST'].includes(req.method)) {
+      return res.status(405).json({ error: 'Method not allowed' });
+    }
+    try {
+      const result = await processWorkspaceNormalizationQueue();
+      return res.json({ ok: result.status !== 'failed', ...result });
+    } catch (error) {
+      return sendUnexpectedSafeApiError(req, res, error, {
+        fallbackCode: 'UNKNOWN_ERROR', context: 'default',
+        operation: 'workspace_normalization_worker', status: 503,
+      });
+    }
+  });
+
   app.get('/api/health/gemini', async (req, res) => {
     const now = Date.now();
     if (geminiHealthCache && now - geminiHealthCache.checkedAt < 5 * 60 * 1000) {
@@ -4109,6 +5876,41 @@ USER MESSAGE: "${sanitizeLucyText(message)}"
     }
   });
 
+  app.get('/sw.js', (_req, res) => {
+    try {
+      const productionBuild = process.env.NODE_ENV === 'production';
+      const appShellPath = path.join(process.cwd(), productionBuild ? 'dist' : '', 'index.html');
+      const workerPath = path.join(process.cwd(), productionBuild ? 'dist' : 'public', 'sw.js');
+      const appShell = readFileSync(appShellPath, 'utf8');
+      const workerSource = readFileSync(workerPath, 'utf8');
+      const deploymentVersion = normalizeText(
+        process.env.VERCEL_GIT_COMMIT_SHA
+          || process.env.VERCEL_DEPLOYMENT_ID
+          || createHash('sha256').update(appShell).digest('hex'),
+        80,
+      );
+      res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+      res.setHeader('Service-Worker-Allowed', '/');
+      return res.send(workerSource.replace('__ORVIX_BUILD_VERSION__', deploymentVersion));
+    } catch {
+      return res.status(503).type('text').send('PWA update service is temporarily unavailable.');
+    }
+  });
+
+  app.use('/api', (req, res) => (
+    sendExpectedSafeApiError(req, res, 'NOT_FOUND', 404, 'default')
+  ));
+
+  app.use((error: unknown, req: express.Request, res: express.Response, _next: express.NextFunction) => (
+    sendUnexpectedSafeApiError(req, res, error, {
+      fallbackCode: 'UNKNOWN_ERROR',
+      context: 'default',
+      operation: 'unhandled_api_request',
+      status: 500,
+    })
+  ));
+
   // Vite Integration & Routing Handler
   if (serveClient && process.env.NODE_ENV !== 'production') {
     const { createServer: createViteServer } = await import('vite');
@@ -4122,10 +5924,17 @@ USER MESSAGE: "${sanitizeLucyText(message)}"
     app.use(vite.middlewares);
   } else if (serveClient) {
     const distPath = path.join(process.cwd(), 'dist');
+    const appShellHtml = readFileSync(path.join(distPath, 'index.html'), 'utf8');
     // Serves compiled production assets from dist
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+      const explicitErrorStatus = new Map<string, number>([
+        ['/401', 401], ['/403', 403], ['/404', 404], ['/500', 500],
+      ]).get(req.path);
+      const knownAppPath = req.path === '/'
+        || ['/login', '/tools', '/admin', '/dashboard', '/sales', '/sales-list', '/reports', '/pos', '/products', '/settings'].includes(req.path)
+        || ['/login/', '/dashboard/', '/affiliate', '/partner'].some(prefix => req.path.startsWith(prefix));
+      res.status(explicitErrorStatus || (knownAppPath ? 200 : 404)).type('html').send(appShellHtml);
     });
   }
 

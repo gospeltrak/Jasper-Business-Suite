@@ -4,6 +4,7 @@ import {
   createBranch,
   loadBranchWorkspace,
   selectBranch,
+  updateBranchLogo,
 } from './branchApi';
 import type {
   BranchWorkspaceSnapshot,
@@ -22,10 +23,20 @@ interface BranchContextValue {
   chooseBranch: (branchId: string | null, scope: SelectableBranchScope) => Promise<void>;
   activatePrimary: () => Promise<void>;
   addBranch: (input: CreateBranchInput) => Promise<CreatedBranchResult>;
+  updateLogo: (
+    branchId: string,
+    logos: { logoLightUrl?: string | null; logoDarkUrl?: string | null },
+  ) => Promise<void>;
 }
 
 const BranchContext = createContext<BranchContextValue | null>(null);
 const branchSnapshotCache = new Map<string, BranchWorkspaceSnapshot>();
+
+export const preloadBranchWorkspace = async (tenantKey: string): Promise<void> => {
+  if (!tenantKey || branchSnapshotCache.has(tenantKey)) return;
+  const snapshot = await loadBranchWorkspace();
+  branchSnapshotCache.set(tenantKey, snapshot);
+};
 
 const publishBranchContext = (snapshot: BranchWorkspaceSnapshot | null) => {
   if (typeof window === 'undefined') return;
@@ -84,12 +95,24 @@ export function BranchProvider({
     const cached = branchSnapshotCache.get(tenantKey) || null;
     setSnapshot(cached);
     if (cached) publishBranchContext(cached);
-    void refresh();
+    else void refresh();
     return () => {
       requestIdRef.current += 1;
       refreshAbortRef.current?.abort();
     };
   }, [tenantKey, refresh]);
+
+  // A short-lived auth/network failure must not leave the tenant permanently
+  // stuck in the implicit `no_branch_access` state. Keep the last valid
+  // snapshot when one exists; otherwise retry until the authoritative branch
+  // context is available.
+  useEffect(() => {
+    if (!error || snapshot || isLoading) return;
+    const retryTimer = window.setTimeout(() => {
+      void refresh();
+    }, 2000);
+    return () => window.clearTimeout(retryTimer);
+  }, [error, snapshot, isLoading, refresh]);
 
   const chooseBranch = useCallback(async (
     branchId: string | null,
@@ -130,7 +153,19 @@ export function BranchProvider({
     }
     try {
       const context = await selectBranch(branchId, scope);
-      const next = previousSnapshot ? { ...previousSnapshot, context, directory: context } : null;
+      const knownBranches = previousSnapshot?.directory.branches || [];
+      const enrichedBranches = context.branches.map(branch => ({
+        ...knownBranches.find(known => known.id === branch.id),
+        ...branch,
+      }));
+      const enrichedContext = {
+        ...context,
+        branches: enrichedBranches,
+        selectedBranch: context.selectedBranch
+          ? enrichedBranches.find(branch => branch.id === context.selectedBranch?.id) || context.selectedBranch
+          : context.selectedBranch,
+      };
+      const next = previousSnapshot ? { ...previousSnapshot, context: enrichedContext, directory: enrichedContext } : null;
       if (next) branchSnapshotCache.set(tenantKey, next);
       setSnapshot(next);
       publishBranchContext(next);
@@ -160,6 +195,14 @@ export function BranchProvider({
     return created;
   }, [refresh]);
 
+  const updateLogo = useCallback(async (
+    branchId: string,
+    logos: { logoLightUrl?: string | null; logoDarkUrl?: string | null },
+  ) => {
+    await updateBranchLogo(branchId, logos);
+    await refresh();
+  }, [refresh]);
+
   const value = useMemo<BranchContextValue>(() => ({
     snapshot,
     isLoading,
@@ -170,7 +213,8 @@ export function BranchProvider({
     chooseBranch,
     activatePrimary,
     addBranch,
-  }), [snapshot, isLoading, switchingBranch, switchingToBranchName, error, refresh, chooseBranch, activatePrimary, addBranch]);
+    updateLogo,
+  }), [snapshot, isLoading, switchingBranch, switchingToBranchName, error, refresh, chooseBranch, activatePrimary, addBranch, updateLogo]);
 
   return <BranchContext.Provider value={value}>{children}</BranchContext.Provider>;
 }

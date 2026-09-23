@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 
 import SaaSUserDesk from './SaaSUserDesk';
+import { formatLocalDate } from '../../../utils/localDate';
 import SuperAffiliateControlCenter from './SuperAffiliateControlCenter';
 import Dashboard from '../../../components/Dashboard';
 import AffiliateWorkspace from '../../affiliate/components/AffiliateWorkspace';
@@ -43,6 +44,7 @@ import SaaSUserActivityView from './SaaSUserActivityView';
 import SaaSDashboardMetrics from './SaaSDashboardMetrics';
 import SaaSExpensesView from './SaaSExpensesView';
 import SaaSInbox from './SaaSInbox';
+import SecurityActivityView from './SecurityActivityView';
 import SaaSHardwarePOS from '../../../shared/components/SaaSHardwarePOS';
 import SaaSHardwareInventory from '../../../shared/components/SaaSHardwareInventory';
 import SaaSHardwareSales from './SaaSHardwareSales';
@@ -55,7 +57,7 @@ import { ONLINE_ONLY_WRITE_MESSAGE, canWriteBusinessDataOnline } from '../../../
 import { verifySuperAdminPassword } from '../utils/superAdminData';
 import { prepareSuperAdminMfa, SuperAdminMfaPrompt, verifySuperAdminMfa } from '../utils/superAdminMfa';
 
-export type SuperAdminWorkspaceTab = 'dashboard' | 'subscribers' | 'hw-pos' | 'hw-inventory' | 'hw-sales' | 'affiliates' | 'affiliate-agents' | 'sub-affiliates' | 'status' | 'reports' | 'user-activity' | 'expenses' | 'chats' | 'inbox' | 'promotions' | 'tutorials' | 'ad-placements' | 'web-editor' | 'settings';
+export type SuperAdminWorkspaceTab = 'dashboard' | 'subscribers' | 'hw-pos' | 'hw-inventory' | 'hw-sales' | 'affiliates' | 'affiliate-agents' | 'sub-affiliates' | 'status' | 'reports' | 'user-activity' | 'expenses' | 'chats' | 'inbox' | 'security' | 'promotions' | 'tutorials' | 'ad-placements' | 'web-editor' | 'settings';
 
 export interface SuperSaaSAdminViewProps {
   activeAdminSubTab?: SuperAdminWorkspaceTab;
@@ -91,10 +93,8 @@ export default function SuperSaaSAdminView({
   // Security Auth controls
   const [isUnlocked, setIsUnlocked] = useState(false);
   const [showPasswordInput, setShowPasswordInput] = useState(false);
-  const [enteredPassword, setEnteredPassword] = useState('');
   const [mfaPrompt, setMfaPrompt] = useState<SuperAdminMfaPrompt | null>(null);
   const [mfaCode, setMfaCode] = useState('');
-  const [mfaConfirmed, setMfaConfirmed] = useState(false);
   const [mfaBusy, setMfaBusy] = useState(false);
   const [mfaError, setMfaError] = useState('');
   const [shieldClickCount, setShieldClickCount] = useState(0);
@@ -123,9 +123,9 @@ export default function SuperSaaSAdminView({
     setMfaBusy(true);
     setMfaError('');
     try {
-      const prompt = await prepareSuperAdminMfa();
+      const prompt = await prepareSuperAdminMfa(true);
       if (!prompt) {
-        setMfaConfirmed(true);
+        setIsUnlocked(true);
         return;
       }
       setMfaPrompt(prompt);
@@ -144,9 +144,20 @@ export default function SuperSaaSAdminView({
       await verifySuperAdminMfa(mfaPrompt, mfaCode);
       setMfaPrompt(null);
       setMfaCode('');
-      setMfaConfirmed(true);
+      setFailedAttempts(0);
+      setIsUnlocked(true);
+      setShowPasswordInput(false);
     } catch (error: any) {
-      setMfaError(error?.message || 'The authenticator code was not accepted.');
+      const nextAttempts = failedAttempts + 1;
+      setFailedAttempts(nextAttempts);
+      setMfaCode('');
+      if (nextAttempts >= 3) {
+        const client = await import('../secureDataBridge').then(module => module.getSecureDataBridgeClient());
+        await client.auth.signOut({ scope: 'global' }).catch(() => null);
+        window.location.assign('/admin');
+        return;
+      }
+      setMfaError(`Authenticator code rejected. ${3 - nextAttempts} attempt(s) remaining.`);
     } finally {
       setMfaBusy(false);
     }
@@ -326,7 +337,7 @@ export default function SuperSaaSAdminView({
     reader.readAsDataURL(newTutorialFile);
   };
 
-  const handleVerifyPassword = async () => {
+  /* Password-based Super Admin write-mode unlock permanently removed.
     if (!mfaConfirmed) {
       setMfaError('Verify MFA before unlocking write mode.');
       return;
@@ -352,9 +363,9 @@ export default function SuperSaaSAdminView({
     }
   };
 
+  */
   const handleSignOutAdminGuard = () => {
     setIsUnlocked(false);
-    setEnteredPassword('');
     alert('🔒 Admin terminal relocked.');
   };
 
@@ -569,7 +580,7 @@ export default function SuperSaaSAdminView({
       email: `${newAffFirstName.toLowerCase()}@dukaplus-marketer.co.tz`,
       phone: '+255 777 000 000',
       status: 'Active',
-      joinedDate: new Date().toISOString().split('T')[0],
+      joinedDate: formatLocalDate(),
       affiliateLink: campaignLink,
       promoCode: uniqueCode,
       conversionsLink: 0,
@@ -705,7 +716,7 @@ export default function SuperSaaSAdminView({
         </div>
         <div className="flex items-center gap-2">
           {isUnlocked ? (
-            <button onClick={() => { setIsUnlocked(false); setShowPasswordInput(false); setEnteredPassword(''); }}
+            <button onClick={() => { setIsUnlocked(false); setShowPasswordInput(false); }}
               className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 rounded-xl text-[10px] font-bold cursor-pointer">
               <Unlock className="w-3 h-3" /> WRITE
             </button>
@@ -721,17 +732,17 @@ export default function SuperSaaSAdminView({
       {/* Mobile password input */}
       {showPasswordInput && !isUnlocked && (
         <div className="md:hidden px-4 py-3 bg-slate-900 border-b border-slate-800 flex items-center gap-2">
-          {!mfaConfirmed ? (
+          {true ? (
             <button onClick={beginMfaVerification} disabled={mfaBusy}
               className="w-full px-4 py-2 bg-emerald-500 text-slate-950 rounded-xl text-xs font-black disabled:opacity-50">
               {mfaBusy ? 'Preparing MFA…' : 'Verify Authenticator'}
             </button>
           ) : (
             <>
-              <input type="password" placeholder="Super Admin password" value={enteredPassword}
-                onChange={e => setEnteredPassword(e.target.value)}
+              <input type="hidden" value=""
+                readOnly
                 className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white font-mono outline-none" />
-              <button onClick={handleVerifyPassword}
+              <button onClick={beginMfaVerification}
                 className="px-4 py-2 bg-emerald-500 text-slate-950 rounded-xl text-xs font-black cursor-pointer border-none">
                 Verify
               </button>
@@ -774,7 +785,7 @@ export default function SuperSaaSAdminView({
                 <span className="text-[10px] uppercase font-mono text-slate-400 block leading-tight">Scope</span>
                 <span className="text-[11px] text-emerald-400 font-bold block">WRITE</span>
               </div>
-              <button onClick={() => { setIsUnlocked(false); setShowPasswordInput(false); setEnteredPassword(''); }}
+              <button onClick={() => { setIsUnlocked(false); setShowPasswordInput(false); }}
                 className="ml-2 px-2.5 py-1 bg-red-500/20 text-red-400 text-[10px] font-mono uppercase tracking-wider rounded-lg cursor-pointer">
                 Return to Read Only
               </button>
@@ -793,17 +804,17 @@ export default function SuperSaaSAdminView({
                     <Shield className="w-4 h-4 text-slate-400" />
                   </button>
                   <div className="flex items-center space-x-1.5 ml-1">
-                    {!mfaConfirmed ? (
+                    {true ? (
                       <button onClick={beginMfaVerification} disabled={mfaBusy}
                         className="bg-emerald-500 text-slate-950 px-3 py-1 text-[10px] rounded font-extrabold uppercase disabled:opacity-50">
                         {mfaBusy ? 'Preparing…' : 'Verify MFA'}
                       </button>
                     ) : (
                       <>
-                        <input type="password" placeholder="Super Admin password" value={enteredPassword}
-                          onChange={e => setEnteredPassword(e.target.value)}
+                        <input type="hidden" value=""
+                          readOnly
                           className="bg-slate-950 border border-slate-800 rounded px-2.5 py-1 text-xs text-white max-w-[135px] font-mono outline-none" />
-                        <button onClick={handleVerifyPassword}
+                        <button onClick={beginMfaVerification}
                           className="bg-emerald-500 text-slate-950 px-2.5 py-1 text-[10px] rounded font-extrabold uppercase cursor-pointer">
                           Verify
                         </button>
@@ -1081,7 +1092,7 @@ export default function SuperSaaSAdminView({
                       <label className="text-[9.5px] font-mono text-slate-500 uppercase">Target user</label>
                       <input 
                         type="text"
-                        placeholder="e.g. @sarah_jasper"
+                        placeholder="e.g. @sarah_orvix"
                         value={dmSearchQuery}
                         onChange={(e) => setDmSearchQuery(e.target.value)}
                         className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white outline-none focus:border-cyan-500"
@@ -1149,6 +1160,11 @@ export default function SuperSaaSAdminView({
         {/* ======================= TAB 4: INBOX ======================= */}
         {activeTab === 'inbox' && (
           <SaaSInbox />
+        )}
+
+        {/* ======================= TAB: SECURITY ACTIVITY ======================= */}
+        {activeTab === 'security' && (
+          <SecurityActivityView />
         )}
 
         {/* ======================= TAB 5: AD EXCHANGE SSP ======================= */}
@@ -1281,7 +1297,7 @@ export default function SuperSaaSAdminView({
                     <label className="text-[9.5px] font-mono text-slate-500 uppercase">Destination URL Override</label>
                     <input 
                       type="text"
-                      placeholder="https://jasper.africa/promo"
+                      placeholder="https://orvix.africa/promo"
                       value={newBannerDestination}
                       onChange={(e) => setNewBannerDestination(e.target.value)}
                       className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white outline-none focus:border-emerald-500"

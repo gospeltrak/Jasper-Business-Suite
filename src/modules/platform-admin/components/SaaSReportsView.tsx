@@ -46,7 +46,9 @@ interface AffiliateAccount {
   name: string;
   revenueDate: number;
   totalEarnings?: number;
+  revenueGenerated?: number;
   isSuper?: boolean;
+  parentSuperId?: string;
 }
 
 const moneyValue = (value: unknown) => Number(value || 0);
@@ -260,7 +262,7 @@ export default function SaaSReportsView() {
           type="button"
           onClick={() => printPdfFromElement({
             elementId: "saas-financial-audit-pdf-template",
-            fileName: `jasper-saas-financial-audit-${timeframeMode}.pdf`,
+            fileName: `orvix-saas-financial-audit-${timeframeMode}.pdf`,
             format: "a4"
           })}
           className="w-full sm:w-auto justify-center px-4 py-2.5 bg-emerald-400 hover:bg-emerald-300 text-slate-950 rounded-2xl font-bold font-mono text-xs uppercase flex items-center gap-1.5 cursor-pointer shadow transition-colors"

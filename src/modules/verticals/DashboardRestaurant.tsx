@@ -69,7 +69,7 @@ interface RestaurantOrder {
   items: OrderItem[];
   extraServiceCharge: number;
   paymentStatus: 'Unpaid' | 'Paid';
-  paymentMethod?: 'Cash' | 'Card' | 'M-Pesa';
+  paymentMethod?: 'Cash' | 'Card' | 'M-Pesa' | 'Mobile Money' | 'Bank';
   mPesaPhone?: string;
   totalBill: number;
   customerId?: string; 

@@ -20,6 +20,7 @@ import {
   Zap
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { speakWithGeminiLucy, stopLucySpeech, unlockLucySpeech } from '../utils/lucySpeech';
 
 interface AIBusinessCopilotProps {
   activeTenant: Tenant;
@@ -37,6 +38,7 @@ interface Message {
   timestamp: string;
   actionTriggered?: string;
   unsupportedFeature?: string | null;
+  sources?: Array<{ title: string; url: string }>;
 }
 
 const inferLucyIntent = (text: string): 'chat' | 'report' | 'forecast' => {
@@ -166,9 +168,19 @@ export default function AIBusinessCopilot({
     return cleaned.trim();
   };
 
-  const speakAIResponse = (text: string) => {
-    if (!isSpokenOutputEnabled || !('speechSynthesis' in window)) return;
+  const speakAIResponse = async (text: string, force = false) => {
+    if (!force && !isSpokenOutputEnabled) return;
+    setSpeechError(null);
+    const language = detectLucyLanguage(text) === 'sw' ? 'sw' : 'en';
     try {
+      await speakWithGeminiLucy(cleanSpokenText(text), activeTenant.id, language);
+      return;
+    } catch {
+      // Gemini TTS is preview and can be temporarily unavailable. Keep the
+      // browser voice as a resilient offline/timeout fallback.
+    }
+    try {
+      if (!('speechSynthesis' in window)) return;
       window.speechSynthesis.cancel();
       const speakText = cleanSpokenText(text);
       if (!speakText) return;
@@ -178,13 +190,17 @@ export default function AIBusinessCopilot({
         utterance.voice = selectedVoice;
         utterance.lang = selectedVoice.lang;
       } else {
-        utterance.lang = detectLucyLanguage(text) === 'sw' ? 'sw-TZ' : 'en-US';
+        utterance.lang = language === 'sw' ? 'sw-TZ' : 'en-US';
       }
       utterance.pitch = 1.08;
       utterance.rate = 0.92;
+      utterance.onerror = () => setSpeechError(language === 'sw'
+        ? 'Sauti imezuiwa na browser. Bonyeza speaker tena kisha ongeza volume ya kifaa.'
+        : 'The browser blocked audio. Tap the speaker again and check the device volume.');
       window.speechSynthesis.speak(utterance);
     } catch (e) {
       console.warn('Speech synthesis fail', e);
+      setSpeechError(language === 'sw' ? 'Sauti haikuweza kuanza. Tafadhali bonyeza speaker tena.' : 'Voice could not start. Please tap the speaker again.');
     }
   };
 
@@ -228,7 +244,7 @@ export default function AIBusinessCopilot({
       };
       recognitionRef.current = rec;
     }
-    return () => { if (window.speechSynthesis) window.speechSynthesis.cancel(); };
+    return () => stopLucySpeech();
   }, []);
 
   const toggleListening = () => {
@@ -260,6 +276,20 @@ export default function AIBusinessCopilot({
     setIsLoading(true);
 
     const intent = inferLucyIntent(textToSend);
+    const latestLanguageBearingUserMessage = [...messages]
+      .reverse()
+      .find(message => message.sender === 'user' && /[a-zA-Z]{2,}/.test(message.text));
+    const isShortChoiceReply = /^\s*(?:(?:option|number|namba|chaguo)\s*)?(?:\d+|[a-e])\s*$/i.test(textToSend);
+    const conversationLanguage = isShortChoiceReply
+      ? detectLucyLanguage(latestLanguageBearingUserMessage?.text || textToSend)
+      : detectLucyLanguage(textToSend);
+    const conversation = [
+      ...messages.slice(-8).map(message => ({
+        role: message.sender === 'ai' ? 'assistant' : 'user',
+        content: message.text,
+      })),
+      { role: 'user', content: textToSend },
+    ];
     const localLucy = createLucyResponse(textToSend, {
       activeTenant,
       activeTab,
@@ -282,8 +312,10 @@ export default function AIBusinessCopilot({
         body: JSON.stringify({
           message: textToSend,
           activeTab,
+          deviceClass: window.innerWidth < 768 ? 'mobile' : window.innerWidth < 1280 ? 'tablet' : 'desktop',
           businessType: activeTenant.businessType || 'retail',
-          lang: detectLucyLanguage(textToSend),
+          lang: conversationLanguage,
+          conversation,
           tenantId: activeTenant.id,
           planId,
           intent,
@@ -292,11 +324,35 @@ export default function AIBusinessCopilot({
             name: activeTenant.name,
             businessType: activeTenant.businessType,
             selectedPackageId: activeTenant.selectedPackageId,
-            activePackageId: activeTenant.activePackageId
+            activePackageId: activeTenant.activePackageId,
+            city: activeTenant.city,
+            country: activeTenant.country,
           },
-          products,
-          sales,
-          expenses
+          products: products.slice(0, 50).map(product => ({
+            name: product.name,
+            category: product.category,
+            stockQty: product.stockQty ?? product.shopStockQty ?? 0,
+            alertQty: product.alertQty,
+            sellingPrice: product.sellingPrice,
+          })),
+          sales: [...sales]
+            .sort((a, b) => String(b.timestamp || '').localeCompare(String(a.timestamp || '')))
+            .slice(0, 80)
+            .map(sale => ({
+              id: sale.id,
+              total: sale.total,
+              productTotal: (sale as any).productTotal,
+              timestamp: sale.timestamp,
+              paymentMethod: sale.paymentMethod,
+            })),
+          expenses: [...expenses]
+            .sort((a, b) => String(b.timestamp || b.date || '').localeCompare(String(a.timestamp || a.date || '')))
+            .slice(0, 50)
+            .map(expense => ({
+              category: expense.category,
+              amount: expense.amount,
+              date: expense.timestamp || expense.date,
+            })),
         })
       });
       const data = await response.json().catch(() => ({}));
@@ -311,13 +367,14 @@ export default function AIBusinessCopilot({
         text: answerText,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         actionTriggered: (data.action === 'NAVIGATE' ? data.targetTab : undefined) || (localLucy.action === 'NAVIGATE' ? localLucy.targetTab : undefined),
-        unsupportedFeature: data.unsupportedFeature || localLucy.safetyTopic
+        unsupportedFeature: data.unsupportedFeature || localLucy.safetyTopic,
+        sources: Array.isArray(data.sources) ? data.sources : [],
       };
 
       setOnlineStatus(onlineText ? 'online' : 'safe-mode');
       setUsage(data.usage || null);
       setMessages(prev => [...prev, aiMsgObj]);
-      speakAIResponse(aiMsgObj.text);
+      void speakAIResponse(aiMsgObj.text);
       setIsLoading(false);
 
       if (data.action === 'NAVIGATE' && data.targetTab) {
@@ -421,7 +478,13 @@ export default function AIBusinessCopilot({
                   onClick={() => {
                     const state = !isSpokenOutputEnabled;
                     setIsSpokenOutputEnabled(state);
-                    if (!state && window.speechSynthesis) window.speechSynthesis.cancel();
+                    if (!state) {
+                      stopLucySpeech();
+                      return;
+                    }
+                    unlockLucySpeech();
+                    const lastLucyMessage = [...messages].reverse().find(message => message.sender === 'ai');
+                    if (lastLucyMessage) void speakAIResponse(lastLucyMessage.text, true);
                   }}
                   className={`p-1.5 rounded-full transition-colors cursor-pointer ${
                     isSpokenOutputEnabled ? 'bg-emerald-400/15 text-emerald-300' : 'text-slate-400 hover:bg-white/10'
@@ -522,6 +585,25 @@ export default function AIBusinessCopilot({
                   >
                     {parseMessageText(m.text, m.sender)}
 
+                    {m.sender === 'ai' && m.sources && m.sources.length > 0 && (
+                      <div className="mt-3 border-t border-slate-200/70 pt-2">
+                        <p className="mb-1 text-[9px] font-black uppercase tracking-wider text-slate-500">Current market sources</p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {m.sources.map((source, sourceIndex) => (
+                            <a
+                              key={`${source.url}-${sourceIndex}`}
+                              href={source.url}
+                              target="_blank"
+                              rel="noreferrer noopener"
+                              className="max-w-full truncate rounded-full border border-slate-200 bg-white px-2 py-1 text-[9px] font-bold text-blue-700 hover:border-blue-300"
+                            >
+                              {source.title || `Source ${sourceIndex + 1}`}
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     {m.actionTriggered && (
                       <div className="mt-2.5 p-2 bg-white/80 border border-slate-200/50 text-emerald-700 font-semibold text-[10px] rounded-xl flex items-center space-x-1.5 backdrop-blur-sm shadow-sm">
                         <CheckCircle className="w-3.5 h-3.5" />
@@ -545,25 +627,6 @@ export default function AIBusinessCopilot({
                 </div>
               )}
               <div ref={chatEndRef} />
-            </div>
-
-            <div className="px-3 py-2 bg-white border-t border-slate-100 flex gap-2 overflow-x-auto scrollbar-hide">
-              {[
-                'Open POS',
-                'Check low stock',
-                'Generate today report',
-                planId === 'tanzanite' ? 'Forecast next month' : 'Nisaidie kwa Kiswahili'
-              ].map((prompt) => (
-                <button
-                  key={prompt}
-                  type="button"
-                  disabled={!isLucyEnabled}
-                  onClick={() => handleSend(prompt)}
-                  className="shrink-0 px-3 py-1.5 rounded-full bg-slate-50 hover:bg-slate-100 disabled:opacity-50 border border-slate-200 text-[11px] font-semibold text-slate-600 transition-colors"
-                >
-                  {prompt}
-                </button>
-              ))}
             </div>
 
             {/* Input Form */}

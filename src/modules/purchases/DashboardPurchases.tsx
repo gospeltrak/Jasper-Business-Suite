@@ -1,10 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Product, Supplier, Purchase, PurchaseItem, Tenant, SystemSettings } from '../../types';
+import { Product, Supplier, Purchase, PurchaseItem, Tenant, SystemSettings, PaymentChannel } from '../../types';
 import { getMaskedAccountReference } from '../../shared/utils/paymentAccounts';
 import ModernSelect from '../../components/ui/ModernSelect';
+import CachedImage from '../../components/CachedImage';
 import { addBatchToProduct, createInventoryBatch } from '../../utils/inventoryCosting';
 import { formatProductQuantity } from '../../shared/utils/unitFormatter';
+import { calculateBaseCost, convertToBaseQuantity, getBaseUnitLabel, resolvePackageLevels } from '../../utils/universalUnits';
+import { calculateFractionPurchaseLine, isFractionSaleEnabled, resolveFractionSaleConfig } from '../../utils/fractionSale';
 import { 
   Truck, 
   Package, 
@@ -30,16 +33,283 @@ import {
   ChevronDown
 } from 'lucide-react';
 
+type PurchaseFundingRow = {
+  id: string;
+  fundingType: 'registered' | 'external';
+  accountId: string;
+  amount: number;
+};
+
+const createPurchaseFundingRow = (): PurchaseFundingRow => ({
+  id: `purchase-funding-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+  fundingType: 'registered',
+  accountId: '',
+  amount: 0,
+});
+
 interface DashboardPurchasesProps {
   activeTenant: Tenant;
   products: Product[];
   suppliers: Supplier[];
   onUpdateStocks: (updatedProducts: Product[]) => void;
   purchases: Purchase[];
-  onAddPurchase: (purchase: Purchase) => void | boolean | Promise<void | boolean>;
+  onAddPurchase: (purchase: Purchase, updatedProducts?: Product[]) => void | boolean | Promise<void | boolean>;
   onUpdatePurchases: (purchases: Purchase[]) => Promise<boolean> | boolean;
   onDeletePurchase: (purchaseId: string) => void | boolean | Promise<void | boolean>;
   systemSettings: SystemSettings;
+}
+
+// Defined at module scope (not inside DashboardPurchases) so their component
+// identity stays stable across re-renders -- when they were declared inline,
+// every keystroke in a form field re-created these as "new" component types,
+// causing React to unmount and remount them (replaying the slide-up entrance
+// animation and dropping focus, which looked like the sheet "closing").
+
+function ViewPurchaseModal({ pc, currency, onClose, onEdit, onDelete }: {
+  pc: Purchase;
+  currency: string;
+  onClose: () => void;
+  onEdit: (pc: Purchase) => void;
+  onDelete: (id: string) => void;
+}) {
+  const diff = pc.totalAmount - pc.amountPaid;
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+      <div
+        className="relative bg-white w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden animate-slide-up"
+        onClick={e => e.stopPropagation()}
+        style={{ animation: 'slideUp 0.28s cubic-bezier(.32,1.2,.6,1) both' }}
+      >
+        {/* Handle bar (mobile) */}
+        <div className="flex justify-center pt-3 pb-1 sm:hidden">
+          <div className="w-10 h-1 bg-slate-200 rounded-full" />
+        </div>
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 pt-4 pb-4 border-b border-slate-100">
+          <div>
+            <h3 className="font-black text-slate-800 text-base">{pc.id}</h3>
+            <p className="text-[11px] text-slate-400 font-mono mt-0.5">{new Date(pc.timestamp).toLocaleString()}</p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 transition-colors">
+            <X className="w-4 h-4 text-slate-600" />
+          </button>
+        </div>
+        {/* Body */}
+        <div className="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-slate-50 rounded-2xl p-3.5">
+              <p className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest font-mono mb-1">Supplier</p>
+              <p className="font-bold text-slate-800 text-sm">{pc.supplierName}</p>
+            </div>
+            <div className="bg-slate-50 rounded-2xl p-3.5">
+              <p className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest font-mono mb-1">Destination</p>
+              <p className="font-bold text-slate-800 text-sm capitalize">{pc.destination === 'shop' ? '🏪 Shop Shelf' : '📦 Store Room'}</p>
+            </div>
+            <div className="bg-slate-50 rounded-2xl p-3.5">
+              <p className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest font-mono mb-1">Payment</p>
+              <p className="font-bold text-slate-800 text-sm">{pc.paymentMethod}</p>
+            </div>
+            <div className="bg-slate-50 rounded-2xl p-3.5">
+              <p className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest font-mono mb-1">Delivery</p>
+              <p className="font-bold text-slate-800 text-sm">{pc.deliveryStatus}</p>
+            </div>
+          </div>
+          {/* Items */}
+          <div>
+            <p className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest font-mono mb-2">Items Purchased</p>
+            <div className="space-y-2">
+              {pc.items.map((it, i) => (
+                <div key={i} className="flex justify-between items-center bg-slate-50 rounded-xl px-3.5 py-2.5 text-xs">
+                  <span className="font-semibold text-slate-700 truncate max-w-[55%]">{it.productName}</span>
+                  <div className="text-right">
+                    <span className="font-black text-slate-800 font-mono">×{it.qty}{it.packageLevelLabel ? ` ${it.packageLevelLabel}` : it.selectedLevel === 'piece' ? ` ${it.baseUnit || 'Piece'}` : ''}</span>
+                    {it.baseQty !== undefined && (
+                      <span className="text-slate-400 ml-1.5 font-mono text-[10px]">({it.baseQty} {it.baseUnit || 'base'})</span>
+                    )}
+                    <span className="text-slate-400 ml-2 font-mono">{currency}{it.costPrice?.toLocaleString()}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          {/* Financial */}
+          <div className="bg-slate-900 rounded-2xl p-4 space-y-2 font-mono text-xs">
+            <div className="flex justify-between text-slate-400">
+              <span>GROSS TOTAL</span>
+              <span className="text-white font-black">{currency}{Math.round(pc.totalAmount).toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between text-slate-400">
+              <span>AMOUNT PAID</span>
+              <span className="text-emerald-400 font-black">{currency}{Math.round(pc.amountPaid).toLocaleString()}</span>
+            </div>
+            {diff > 0 && (
+              <div className="flex justify-between border-t border-slate-700 pt-2">
+                <span className="text-slate-400">BALANCE DUE</span>
+                <span className="text-amber-400 font-black">{currency}{Math.round(diff).toLocaleString()}</span>
+              </div>
+            )}
+            {diff <= 0 && (
+              <div className="flex justify-between border-t border-slate-700 pt-2">
+                <span className="text-slate-400">STATUS</span>
+                <span className="text-emerald-400 font-black">✓ PAID IN FULL</span>
+              </div>
+            )}
+          </div>
+        </div>
+        {/* Footer actions */}
+        <div className="px-6 pb-6 pt-2 flex gap-3">
+          <button
+            onClick={() => { onClose(); onEdit(pc); }}
+            className="flex-1 py-3 bg-slate-900 hover:bg-slate-800 text-white text-xs font-black rounded-2xl flex items-center justify-center gap-2 transition-all"
+          >
+            <Pencil className="w-3.5 h-3.5" /> Edit
+          </button>
+          <button
+            onClick={() => { onClose(); onDelete(pc.id); }}
+            className="flex-1 py-3 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-black rounded-2xl flex items-center justify-center gap-2 transition-all"
+          >
+            <Trash2 className="w-3.5 h-3.5" /> Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DeletePurchaseModal({ id, onClose, onDeletePurchase }: {
+  id: string;
+  onClose: () => void;
+  onDeletePurchase: (id: string) => void | boolean | Promise<void | boolean>;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+      <div
+        className="relative bg-white w-full sm:max-w-sm rounded-t-3xl sm:rounded-3xl shadow-2xl p-6"
+        onClick={e => e.stopPropagation()}
+        style={{ animation: 'slideUp 0.28s cubic-bezier(.32,1.2,.6,1) both' }}
+      >
+        <div className="flex justify-center pt-1 pb-3 sm:hidden">
+          <div className="w-10 h-1 bg-slate-200 rounded-full" />
+        </div>
+        <div className="w-12 h-12 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <Trash2 className="w-6 h-6 text-red-500" />
+        </div>
+        <h3 className="font-black text-slate-800 text-lg text-center mb-1">Delete Purchase?</h3>
+        <p className="text-slate-400 text-sm text-center mb-6 font-sans">This action cannot be undone. The purchase record <span className="font-bold text-slate-600">{id}</span> will be permanently removed.</p>
+        <div className="flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-black rounded-2xl transition-all"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={async () => {
+              const deleted = await onDeletePurchase(id);
+              if (deleted !== false) onClose();
+            }}
+            className="flex-1 py-3 bg-red-600 hover:bg-red-500 text-white text-sm font-black rounded-2xl transition-all"
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EditPurchaseModal({
+  pc, currency, editAmountPaid, setEditAmountPaid, editDeliveryStatus, setEditDeliveryStatus,
+  editPaymentMethod, setEditPaymentMethod, editPaidFromAccountId, setEditPaidFromAccountId,
+  paymentAccounts, editPurchaseError, onClose, onSave,
+}: {
+  pc: Purchase;
+  currency: string;
+  editAmountPaid: number;
+  setEditAmountPaid: (v: number) => void;
+  editDeliveryStatus: Purchase['deliveryStatus'];
+  setEditDeliveryStatus: (v: Purchase['deliveryStatus']) => void;
+  editPaymentMethod: string;
+  setEditPaymentMethod: (v: string) => void;
+  editPaidFromAccountId: string;
+  setEditPaidFromAccountId: (v: string) => void;
+  paymentAccounts: PaymentChannel[];
+  editPurchaseError: string;
+  onClose: () => void;
+  onSave: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+      <div
+        className="relative bg-white w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden"
+        onClick={e => e.stopPropagation()}
+        style={{ animation: 'slideUp 0.28s cubic-bezier(.32,1.2,.6,1) both' }}
+      >
+        <div className="flex justify-center pt-3 pb-1 sm:hidden">
+          <div className="w-10 h-1 bg-slate-200 rounded-full" />
+        </div>
+        <div className="flex items-center justify-between px-6 pt-4 pb-4 border-b border-slate-100">
+          <div>
+            <h3 className="font-black text-slate-800 text-base">Edit Purchase</h3>
+            <p className="text-[11px] text-slate-400 font-mono mt-0.5">{pc.id}</p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 transition-colors">
+            <X className="w-4 h-4 text-slate-600" />
+          </button>
+        </div>
+        <div className="px-6 py-5 space-y-4 max-h-[60vh] overflow-y-auto">
+          <div className="space-y-1">
+            <label className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest font-mono">Amount Paid</label>
+            <div className="flex items-center bg-slate-50 border border-slate-200 focus-within:border-emerald-500 px-3 py-2.5 rounded-xl transition-all">
+              <span className="text-slate-500 font-bold font-mono mr-1.5">{currency}</span>
+              <input type="number" min="0" max={pc.totalAmount} value={editAmountPaid} onChange={(event) => setEditAmountPaid(Number(event.target.value) || 0)} className="bg-transparent w-full text-sm text-slate-800 font-black font-mono focus:outline-none text-right" />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <label className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest font-mono">Delivery Status</label>
+            <select value={editDeliveryStatus} onChange={(event) => setEditDeliveryStatus(event.target.value as Purchase['deliveryStatus'])} className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-sm px-3 py-2.5 rounded-xl text-slate-800 font-bold outline-none cursor-pointer">
+              <option value="Full order delivered">Full Order Delivered</option>
+              <option value="Partial">Partial Delivery</option>
+              <option value="Pending">Pending / Not Shipped</option>
+            </select>
+          </div>
+          <div className="space-y-1">
+            <label className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest font-mono">Payment Method</label>
+            <select value={editPaymentMethod} onChange={(event) => setEditPaymentMethod(event.target.value)} className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-sm px-3 py-2.5 rounded-xl text-slate-800 font-bold outline-none cursor-pointer">
+              <option value="Cash">Cash</option>
+              <option value="Mobile Money">Mobile Money</option>
+              <option value="Bank Transfer">Bank Transfer</option>
+              <option value="Card">Credit/Debit Card</option>
+            </select>
+            {editAmountPaid > 0 && (
+              <select value={editPaidFromAccountId} onChange={(event) => setEditPaidFromAccountId(event.target.value)} className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-sm px-3 py-2.5 rounded-xl text-slate-800 font-bold outline-none cursor-pointer">
+                <option value="">Select paid-from account</option>
+                {paymentAccounts.map(account => (
+                  <option key={account.id} value={account.id}>{account.name}{getMaskedAccountReference(account) ? ` — ${getMaskedAccountReference(account)}` : ''}</option>
+                ))}
+              </select>
+            )}
+          </div>
+        </div>
+        <div className="px-6 pb-6 pt-2">
+          <button
+            onClick={onSave}
+            className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 text-white text-sm font-black rounded-2xl flex items-center justify-center gap-2 transition-all"
+          >
+            <CheckCircle className="w-4 h-4 text-emerald-400" /> Save Changes
+          </button>
+          {editPurchaseError && (
+            <p className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700">
+              {editPurchaseError}
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function DashboardPurchases({
@@ -72,10 +342,9 @@ export default function DashboardPurchases({
   const [deliveryStatus, setDeliveryStatus] = useState<'Pending' | 'Partial' | 'Full order delivered'>('Full order delivered');
   
   const [searchTerm, setSearchTerm] = useState('');
-  const [cart, setCart] = useState<Array<{ product: Product; qty: number; costPrice: number }>>([]);
-  const [amountPaid, setAmountPaid] = useState<number>(0);
+  const [cart, setCart] = useState<Array<{ product: Product; qty: number; costPrice: number; unitLevelId: string; expiryDate?: string }>>([]);
   const [paymentMethod, setPaymentMethod] = useState<string>('Cash');
-  const [paidFromAccountId, setPaidFromAccountId] = useState<string>('');
+  const [fundingRows, setFundingRows] = useState<PurchaseFundingRow[]>([createPurchaseFundingRow()]);
   const [purchaseSuccess, setPurchaseSuccess] = useState(false);
   const [purchaseError, setPurchaseError] = useState('');
 
@@ -216,7 +485,7 @@ export default function DashboardPurchases({
           : item
       ));
     } else {
-      setCart([...cart, { product, qty: 1, costPrice: product.costPrice }]);
+      setCart([...cart, { product, qty: 1, costPrice: product.costPrice, unitLevelId: 'base' }]);
     }
   };
 
@@ -224,15 +493,60 @@ export default function DashboardPurchases({
     if (val <= 0) {
       setCart(cart.filter(item => item.product.id !== productId));
     } else {
-      setCart(cart.map(item => 
+      setCart(cart.map(item =>
         item.product.id === productId ? { ...item, qty: val } : item
       ));
     }
   };
 
   const handleUpdateCostPrice = (productId: string, cost: number) => {
-    setCart(cart.map(item => 
+    setCart(cart.map(item =>
       item.product.id === productId ? { ...item, costPrice: Math.max(0, cost) } : item
+    ));
+  };
+
+  const getPurchaseUnitLevels = (product: Product) => {
+    if (isFractionSaleEnabled(product, activeTenant.businessType)) {
+      const config = resolveFractionSaleConfig(product, activeTenant.businessType);
+      return [{ id: 'fraction-packet', label: config.packetUnit, quantityInBaseUnit: config.unitsPerPacket }];
+    }
+    if (activeTenant.businessType === 'pharmacy' && product.productType === 'medicine') {
+      return resolvePackageLevels(product);
+    }
+    return [];
+  };
+
+  const getPurchaseBaseQuantity = (quantity: number, unitLevelId: string, product: Product) => {
+    if (unitLevelId === 'fraction-packet') {
+      return calculateFractionPurchaseLine('packet', quantity, 0, resolveFractionSaleConfig(product, activeTenant.businessType)).baseQty;
+    }
+    return convertToBaseQuantity(quantity, unitLevelId, product);
+  };
+
+  const getPurchaseBaseCost = (cost: number, unitLevelId: string, product: Product) => {
+    if (unitLevelId === 'fraction-packet') {
+      return calculateFractionPurchaseLine('packet', 1, cost, resolveFractionSaleConfig(product, activeTenant.businessType)).baseUnitCost;
+    }
+    return calculateBaseCost(cost, unitLevelId, product);
+  };
+
+  const handleUpdateUnitLevel = (productId: string, unitLevelId: string) => {
+    setCart(cart.map(item => {
+      if (item.product.id !== productId) return item;
+      // Re-express the cost in the newly selected unit instead of silently
+      // keeping the old unit's number under a different label -- switching
+      // "Buying as" from Kg (e.g. 1,000/Kg) to Sack (50 Kg) should suggest
+      // 50,000/Sack, not leave 1,000 sitting there misread as a Sack price.
+      const costPerBase = getPurchaseBaseCost(item.costPrice, item.unitLevelId, item.product);
+      const newLevelBaseQty = getPurchaseBaseQuantity(1, unitLevelId, item.product);
+      const nextCostPrice = Number((costPerBase * newLevelBaseQty).toFixed(2));
+      return { ...item, unitLevelId, costPrice: nextCostPrice };
+    }));
+  };
+
+  const handleUpdateExpiryDate = (productId: string, expiryDate: string) => {
+    setCart(cart.map(item =>
+      item.product.id === productId ? { ...item, expiryDate: expiryDate || undefined } : item
     ));
   };
 
@@ -241,9 +555,43 @@ export default function DashboardPurchases({
     ? (subtotal * purchaseDiscount) / 100
     : purchaseDiscount;
   const totalAmount = Math.max(0, subtotal - discountAmount) + deliveryFee;
-  const amountDue = Math.max(0, totalAmount - amountPaid);
+  const allocatedAmount = fundingRows.reduce((sum, row) => sum + Math.max(0, Number(row.amount) || 0), 0);
+  const amountPaid = allocatedAmount;
+  const allocationDifference = totalAmount - allocatedAmount;
+  const amountDue = Math.max(0, allocationDifference);
   const paymentAccounts = (systemSettings.paymentChannels || [])
     .filter(account => account.category !== 'person' && account.status !== 'inactive' && account.status !== 'archived');
+
+  useEffect(() => {
+    setFundingRows(current => {
+      const next = current.map(row => (
+      row.fundingType === 'registered'
+      && row.accountId
+      && !paymentAccounts.some(account => account.id === row.accountId)
+        ? { ...row, accountId: '' }
+        : row
+      ));
+      if (next.every((row, index) => row.accountId === current[index]?.accountId)
+        && next.some(row => row.fundingType === 'registered' && !row.accountId)
+        && paymentAccounts.length > 0) {
+        return next.map(row => row.fundingType === 'registered' && !row.accountId
+          ? { ...row, accountId: paymentAccounts[0].id }
+          : row);
+      }
+      return next.some((row, index) => row.accountId !== current[index]?.accountId) ? next : current;
+    });
+  }, [paymentAccounts]);
+
+  const updateFundingRow = (rowId: string, patch: Partial<PurchaseFundingRow>) => {
+    setFundingRows(current => current.map(row => row.id === rowId ? { ...row, ...patch } : row));
+  };
+
+  const removeFundingRow = (rowId: string) => {
+    setFundingRows(current => {
+      if (current.length <= 1) return current;
+      return current.filter(row => row.id !== rowId);
+    });
+  };
 
   const handleCommitPurchase = async () => {
     setPurchaseError('');
@@ -252,20 +600,45 @@ export default function DashboardPurchases({
       alert("Please select a valid supplier first!");
       return;
     }
-    if (amountPaid > 0 && !paidFromAccountId) {
-      alert('Please select the Money & Bank account used to pay this purchase.');
+    if (Math.abs(allocatedAmount - totalAmount) > 0.01) {
+      setPurchaseError(`Funding must equal the purchase total. Remaining: ${currency}${Math.round(Math.abs(totalAmount - allocatedAmount)).toLocaleString()}`);
       return;
     }
 
     const supplier = availableSuppliers.find(s => s.id === selectedSupplierId) || availableSuppliers[0];
-    const paidFromAccount = paymentAccounts.find(account => account.id === paidFromAccountId);
+    const firstRegisteredFunding = fundingRows.find(row => row.fundingType === 'registered' && row.accountId);
+    const firstRegisteredAccount = paymentAccounts.find(account => account.id === firstRegisteredFunding?.accountId);
 
-    const purchaseItems: PurchaseItem[] = cart.map(item => ({
-      productId: item.product.id,
-      productName: item.product.name,
-      qty: item.qty,
-      costPrice: item.costPrice
-    }));
+    const purchaseItems: PurchaseItem[] = cart.map(item => {
+      const level = item.unitLevelId !== 'base'
+        ? getPurchaseUnitLevels(item.product).find(candidate => candidate.id === item.unitLevelId)
+        : undefined;
+      const baseQty = getPurchaseBaseQuantity(item.qty, item.unitLevelId, item.product);
+      const isFractionPacket = item.unitLevelId === 'fraction-packet';
+      const fractionLine = isFractionSaleEnabled(item.product, activeTenant.businessType)
+        ? calculateFractionPurchaseLine(
+          isFractionPacket ? 'packet' : 'piece',
+          item.qty,
+          item.costPrice,
+          resolveFractionSaleConfig(item.product, activeTenant.businessType),
+        )
+        : null;
+      return {
+        productId: item.product.id,
+        productName: item.product.name,
+        qty: item.qty,
+        costPrice: item.costPrice,
+        packageLevelId: level?.id,
+        packageLevelLabel: level?.label,
+        baseQty,
+        selectedLevel: isFractionPacket ? 'packet' : level ? 'package' : (isFractionSaleEnabled(item.product, activeTenant.businessType) ? 'piece' : 'base'),
+        selectedLevelQuantity: fractionLine?.selectedLevelQuantity ?? item.qty,
+        unitsPerSelectedLevel: fractionLine?.unitsPerSelectedLevel ?? level?.quantityInBaseUnit ?? 1,
+        selectedUnitCost: item.costPrice,
+        lineTotal: Number((item.costPrice * item.qty).toFixed(2)),
+        baseUnit: getBaseUnitLabel(item.product),
+      };
+    });
 
     const newPurchase: Purchase = {
       id: 'PC-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
@@ -275,8 +648,23 @@ export default function DashboardPurchases({
       totalAmount,
       amountPaid,
       amountDue,
-      paymentMethod: paidFromAccount?.paymentMethod || paymentMethod,
-      paidFromAccountId: amountPaid > 0 ? paidFromAccountId : undefined,
+      paymentMethod: fundingRows.length > 1 || fundingRows.some(row => row.fundingType === 'external')
+        ? 'Multi-Channel'
+        : firstRegisteredAccount?.paymentMethod || firstRegisteredAccount?.name || paymentMethod,
+      paidFromAccountId: firstRegisteredFunding?.accountId,
+      paymentAllocations: fundingRows
+        .filter(row => row.amount > 0)
+        .map(row => {
+          const account = paymentAccounts.find(candidate => candidate.id === row.accountId);
+          return {
+            fundingType: row.fundingType,
+            accountId: row.fundingType === 'registered' ? row.accountId : undefined,
+            accountName: row.fundingType === 'external' ? 'External Account' : (account?.name || row.accountId),
+            sourceKey: row.fundingType === 'registered' ? row.accountId : undefined,
+            amount: row.amount,
+            currency: activeTenant.currencyCode,
+          };
+        }),
       destination,
       deliveryStatus,
       timestamp: new Date().toISOString(),
@@ -289,7 +677,11 @@ export default function DashboardPurchases({
     const updatedProductsList = products.map(prod => {
       const cartItem = cart.find(item => item.product.id === prod.id);
       if (cartItem) {
-        const addedQty = cartItem.qty;
+        // Purchases can happen in a package unit (e.g. 2 Boxes) -- inventory
+        // and batch costing always operate on base units (e.g. 200 Capsules),
+        // never on the raw quantity the tenant typed.
+        const addedQty = getPurchaseBaseQuantity(cartItem.qty, cartItem.unitLevelId, prod);
+        const baseCostPrice = getPurchaseBaseCost(cartItem.costPrice, cartItem.unitLevelId, prod);
         let newShopQty = prod.shopStockQty;
         let newStoreQty = prod.storeStockQty;
         if (destination === 'shop') {
@@ -297,10 +689,13 @@ export default function DashboardPurchases({
         } else {
           newStoreQty += addedQty;
         }
-        const batch = createInventoryBatch(prod, addedQty, cartItem.costPrice, {
+        const batch = createInventoryBatch(prod, addedQty, baseCostPrice, {
+          purchaseId: newPurchase.id,
+          destination,
           supplierName: supplier.name,
           finalSellingPrice: prod.sellingPrice,
           purchaseDate: newPurchase.timestamp,
+          expiryDate: prod.trackExpiry ? cartItem.expiryDate : undefined,
         });
         const updatedWithBatch = addBatchToProduct(prod, batch, destination);
         return {
@@ -313,18 +708,15 @@ export default function DashboardPurchases({
       return prod;
     });
 
-    const saved = await onAddPurchase(newPurchase);
+    const saved = await onAddPurchase(newPurchase, updatedProductsList);
     if (saved === false) {
       setPurchaseError('Purchase payment was not posted. Stock and purchase records were not changed.');
       return;
     }
-    onUpdateStocks(updatedProductsList);
-
     setPurchaseSuccess(true);
     setTimeout(() => {
       setCart([]);
-      setAmountPaid(0);
-      setPaidFromAccountId('');
+      setFundingRows([createPurchaseFundingRow()]);
       setPurchaseDiscount(0);
       setPurchaseDiscountType('percentage');
       setDeliveryFee(0);
@@ -333,220 +725,6 @@ export default function DashboardPurchases({
       setActiveSubTab('history');
     }, 1500);
   };
-
-  // ── VIEW MODAL ──────────────────────────────────────────────────────────────
-  const ViewModal = ({ pc }: { pc: Purchase }) => {
-    const diff = pc.totalAmount - pc.amountPaid;
-    return (
-      <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={() => setViewPurchase(null)}>
-        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-        <div
-          className="relative bg-white w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden animate-slide-up"
-          onClick={e => e.stopPropagation()}
-          style={{ animation: 'slideUp 0.28s cubic-bezier(.32,1.2,.6,1) both' }}
-        >
-          {/* Handle bar (mobile) */}
-          <div className="flex justify-center pt-3 pb-1 sm:hidden">
-            <div className="w-10 h-1 bg-slate-200 rounded-full" />
-          </div>
-          {/* Header */}
-          <div className="flex items-center justify-between px-6 pt-4 pb-4 border-b border-slate-100">
-            <div>
-              <h3 className="font-black text-slate-800 text-base">{pc.id}</h3>
-              <p className="text-[11px] text-slate-400 font-mono mt-0.5">{new Date(pc.timestamp).toLocaleString()}</p>
-            </div>
-            <button onClick={() => setViewPurchase(null)} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 transition-colors">
-              <X className="w-4 h-4 text-slate-600" />
-            </button>
-          </div>
-          {/* Body */}
-          <div className="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="bg-slate-50 rounded-2xl p-3.5">
-                <p className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest font-mono mb-1">Supplier</p>
-                <p className="font-bold text-slate-800 text-sm">{pc.supplierName}</p>
-              </div>
-              <div className="bg-slate-50 rounded-2xl p-3.5">
-                <p className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest font-mono mb-1">Destination</p>
-                <p className="font-bold text-slate-800 text-sm capitalize">{pc.destination === 'shop' ? '🏪 Shop Shelf' : '📦 Store Room'}</p>
-              </div>
-              <div className="bg-slate-50 rounded-2xl p-3.5">
-                <p className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest font-mono mb-1">Payment</p>
-                <p className="font-bold text-slate-800 text-sm">{pc.paymentMethod}</p>
-              </div>
-              <div className="bg-slate-50 rounded-2xl p-3.5">
-                <p className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest font-mono mb-1">Delivery</p>
-                <p className="font-bold text-slate-800 text-sm">{pc.deliveryStatus}</p>
-              </div>
-            </div>
-            {/* Items */}
-            <div>
-              <p className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest font-mono mb-2">Items Purchased</p>
-              <div className="space-y-2">
-                {pc.items.map((it, i) => (
-                  <div key={i} className="flex justify-between items-center bg-slate-50 rounded-xl px-3.5 py-2.5 text-xs">
-                    <span className="font-semibold text-slate-700 truncate max-w-[55%]">{it.productName}</span>
-                    <div className="text-right">
-                      <span className="font-black text-slate-800 font-mono">×{it.qty}</span>
-                      <span className="text-slate-400 ml-2 font-mono">{currency}{it.costPrice?.toLocaleString()}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            {/* Financial */}
-            <div className="bg-slate-900 rounded-2xl p-4 space-y-2 font-mono text-xs">
-              <div className="flex justify-between text-slate-400">
-                <span>GROSS TOTAL</span>
-                <span className="text-white font-black">{currency}{Math.round(pc.totalAmount).toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between text-slate-400">
-                <span>AMOUNT PAID</span>
-                <span className="text-emerald-400 font-black">{currency}{Math.round(pc.amountPaid).toLocaleString()}</span>
-              </div>
-              {diff > 0 && (
-                <div className="flex justify-between border-t border-slate-700 pt-2">
-                  <span className="text-slate-400">BALANCE DUE</span>
-                  <span className="text-amber-400 font-black">{currency}{Math.round(diff).toLocaleString()}</span>
-                </div>
-              )}
-              {diff <= 0 && (
-                <div className="flex justify-between border-t border-slate-700 pt-2">
-                  <span className="text-slate-400">STATUS</span>
-                  <span className="text-emerald-400 font-black">✓ PAID IN FULL</span>
-                </div>
-              )}
-            </div>
-          </div>
-          {/* Footer actions */}
-          <div className="px-6 pb-6 pt-2 flex gap-3">
-            <button
-              onClick={() => { setViewPurchase(null); openEditPurchase(pc); }}
-              className="flex-1 py-3 bg-slate-900 hover:bg-slate-800 text-white text-xs font-black rounded-2xl flex items-center justify-center gap-2 transition-all"
-            >
-              <Pencil className="w-3.5 h-3.5" /> Edit
-            </button>
-            <button
-              onClick={() => { setViewPurchase(null); setDeletePurchaseId(pc.id); }}
-              className="flex-1 py-3 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-black rounded-2xl flex items-center justify-center gap-2 transition-all"
-            >
-              <Trash2 className="w-3.5 h-3.5" /> Delete
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // ── DELETE CONFIRM MODAL ────────────────────────────────────────────────────
-  const DeleteModal = ({ id }: { id: string }) => (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={() => setDeletePurchaseId(null)}>
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-      <div
-        className="relative bg-white w-full sm:max-w-sm rounded-t-3xl sm:rounded-3xl shadow-2xl p-6"
-        onClick={e => e.stopPropagation()}
-        style={{ animation: 'slideUp 0.28s cubic-bezier(.32,1.2,.6,1) both' }}
-      >
-        <div className="flex justify-center pt-1 pb-3 sm:hidden">
-          <div className="w-10 h-1 bg-slate-200 rounded-full" />
-        </div>
-        <div className="w-12 h-12 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-4">
-          <Trash2 className="w-6 h-6 text-red-500" />
-        </div>
-        <h3 className="font-black text-slate-800 text-lg text-center mb-1">Delete Purchase?</h3>
-        <p className="text-slate-400 text-sm text-center mb-6 font-sans">This action cannot be undone. The purchase record <span className="font-bold text-slate-600">{id}</span> will be permanently removed.</p>
-        <div className="flex gap-3">
-          <button
-            onClick={() => setDeletePurchaseId(null)}
-            className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-black rounded-2xl transition-all"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={async () => {
-              const deleted = await onDeletePurchase(id);
-              if (deleted !== false) setDeletePurchaseId(null);
-            }}
-            className="flex-1 py-3 bg-red-600 hover:bg-red-500 text-white text-sm font-black rounded-2xl transition-all"
-          >
-            Delete
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-
-  // ── EDIT MODAL (simple stub — real edit would use a form like the till) ─────
-  const EditModal = ({ pc }: { pc: Purchase }) => (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={() => setEditPurchase(null)}>
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
-      <div
-        className="relative bg-white w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden"
-        onClick={e => e.stopPropagation()}
-        style={{ animation: 'slideUp 0.28s cubic-bezier(.32,1.2,.6,1) both' }}
-      >
-        <div className="flex justify-center pt-3 pb-1 sm:hidden">
-          <div className="w-10 h-1 bg-slate-200 rounded-full" />
-        </div>
-        <div className="flex items-center justify-between px-6 pt-4 pb-4 border-b border-slate-100">
-          <div>
-            <h3 className="font-black text-slate-800 text-base">Edit Purchase</h3>
-            <p className="text-[11px] text-slate-400 font-mono mt-0.5">{pc.id}</p>
-          </div>
-          <button onClick={() => setEditPurchase(null)} className="w-8 h-8 flex items-center justify-center rounded-full bg-slate-100 hover:bg-slate-200 transition-colors">
-            <X className="w-4 h-4 text-slate-600" />
-          </button>
-        </div>
-        <div className="px-6 py-5 space-y-4 max-h-[60vh] overflow-y-auto">
-          <div className="space-y-1">
-            <label className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest font-mono">Amount Paid</label>
-            <div className="flex items-center bg-slate-50 border border-slate-200 focus-within:border-emerald-500 px-3 py-2.5 rounded-xl transition-all">
-              <span className="text-slate-500 font-bold font-mono mr-1.5">{currency}</span>
-              <input type="number" min="0" max={pc.totalAmount} value={editAmountPaid} onChange={(event) => setEditAmountPaid(Number(event.target.value) || 0)} className="bg-transparent w-full text-sm text-slate-800 font-black font-mono focus:outline-none text-right" />
-            </div>
-          </div>
-          <div className="space-y-1">
-            <label className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest font-mono">Delivery Status</label>
-            <select value={editDeliveryStatus} onChange={(event) => setEditDeliveryStatus(event.target.value as Purchase['deliveryStatus'])} className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-sm px-3 py-2.5 rounded-xl text-slate-800 font-bold outline-none cursor-pointer">
-              <option value="Full order delivered">Full Order Delivered</option>
-              <option value="Partial">Partial Delivery</option>
-              <option value="Pending">Pending / Not Shipped</option>
-            </select>
-          </div>
-          <div className="space-y-1">
-            <label className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest font-mono">Payment Method</label>
-            <select value={editPaymentMethod} onChange={(event) => setEditPaymentMethod(event.target.value)} className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-sm px-3 py-2.5 rounded-xl text-slate-800 font-bold outline-none cursor-pointer">
-              <option value="Cash">Cash</option>
-              <option value="Mobile Money">Mobile Money</option>
-              <option value="Bank Transfer">Bank Transfer</option>
-              <option value="Card">Credit/Debit Card</option>
-            </select>
-            {editAmountPaid > 0 && (
-              <select value={editPaidFromAccountId} onChange={(event) => setEditPaidFromAccountId(event.target.value)} className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-sm px-3 py-2.5 rounded-xl text-slate-800 font-bold outline-none cursor-pointer">
-                <option value="">Select paid-from account</option>
-                {paymentAccounts.map(account => (
-                  <option key={account.id} value={account.id}>{account.name}{getMaskedAccountReference(account) ? ` — ${getMaskedAccountReference(account)}` : ''}</option>
-                ))}
-              </select>
-            )}
-          </div>
-        </div>
-        <div className="px-6 pb-6 pt-2">
-          <button
-            onClick={saveEditedPurchase}
-            className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 text-white text-sm font-black rounded-2xl flex items-center justify-center gap-2 transition-all"
-          >
-            <CheckCircle className="w-4 h-4 text-emerald-400" /> Save Changes
-          </button>
-          {editPurchaseError && (
-            <p className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700">
-              {editPurchaseError}
-            </p>
-          )}
-        </div>
-      </div>
-    </div>
-  );
 
   return (
     <>
@@ -676,7 +854,7 @@ export default function DashboardPurchases({
             <div key={i} className="bg-white rounded-xl overflow-hidden flex items-stretch"
               style={{border: '1px solid #f1f5f9', boxShadow: '0 1px 6px rgba(0,0,0,0.05)'}}>
               {/* Left accent bar */}
-              <div className="w-1 shrink-0" style={{background: kpi.accent}} />
+              
               {/* Content */}
               <div className="flex items-center gap-3 px-3.5 py-3 flex-1 min-w-0">
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{background: kpi.iconBg, color: kpi.color}}>
@@ -1199,7 +1377,7 @@ export default function DashboardPurchases({
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start pb-4">
             
             {/* Left panel: Product List — hidden on mobile (use search in cart) */}
-            <div className="hidden sm:block lg:col-span-7 bg-white border border-slate-200 rounded-3xl p-6 space-y-5 shadow-xs">
+            <div className="block lg:col-span-7 bg-white border border-slate-200 rounded-3xl p-4 sm:p-6 space-y-5 shadow-xs">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <h5 className="font-black text-slate-800 text-sm font-sans">Product List</h5>
@@ -1220,13 +1398,20 @@ export default function DashboardPurchases({
               </div>
 
               {/* Product cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[500px] overflow-y-auto pr-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 max-h-[500px] overflow-y-auto pr-1">
                 {filteredProducts.map(prod => (
                   <div 
                     key={prod.id}
                     onClick={() => handleAddToCart(prod)}
-                    className="border border-slate-200 hover:border-emerald-400 bg-slate-50/50 hover:bg-emerald-50/20 p-4 rounded-2xl flex flex-col justify-between space-y-3 cursor-pointer transition-all hover:shadow-sm group"
+                    className="border border-slate-200 hover:border-emerald-400 bg-slate-50/50 hover:bg-emerald-50/20 p-4 rounded-2xl xl:h-60 flex flex-col justify-between space-y-3 cursor-pointer transition-all hover:shadow-sm group"
                   >
+                    <div className="h-28 rounded-xl bg-white border border-slate-100 flex items-center justify-center overflow-hidden">
+                      {prod.image ? (
+                        <CachedImage src={prod.image} alt={prod.name} className="h-full w-full object-contain p-2" />
+                      ) : (
+                        <Package className="h-9 w-9 text-slate-200" />
+                      )}
+                    </div>
                     <div className="space-y-1">
                       <div className="flex justify-between items-start gap-2">
                         <span className="inline-block text-[9px] font-mono tracking-wider font-extrabold bg-slate-200/60 px-2 py-0.5 rounded text-slate-500">
@@ -1312,53 +1497,6 @@ export default function DashboardPurchases({
                     </div>
                   </div>
 
-                  <div className="space-y-1">
-                    <label className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest block font-mono">Order Delivery State</label>
-                    <select
-                      value={deliveryStatus}
-                      onChange={(e) => setDeliveryStatus(e.target.value as any)}
-                      className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2 rounded-xl text-slate-800 font-bold outline-none cursor-pointer"
-                    >
-                      <option value="Full order delivered">Full Order Delivered</option>
-                      <option value="Partial">Partial Order Delivered</option>
-                      <option value="Pending">Pending / Not Shipped Yet</option>
-                    </select>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3 pt-1">
-                    <div className="space-y-1">
-                      <label className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest block font-mono">Supplier Discount</label>
-                      <div className="flex rounded-xl bg-slate-50 border border-slate-200 overflow-hidden text-xs">
-                        <select
-                          value={purchaseDiscountType}
-                          onChange={(e) => { setPurchaseDiscountType(e.target.value as any); setPurchaseDiscount(0); }}
-                          className="bg-slate-100 border-r border-slate-200 px-1.5 text-[10px] py-1.5 font-bold cursor-pointer focus:outline-none"
-                        >
-                          <option value="percentage">%</option>
-                          <option value="cash">{currency}</option>
-                        </select>
-                        <input
-                          type="number" min="0" value={purchaseDiscount || ''}
-                          onChange={(e) => setPurchaseDiscount(Math.max(0, parseFloat(e.target.value) || 0))}
-                          placeholder="0"
-                          className="w-full bg-transparent px-2 text-xs font-bold font-mono focus:outline-none text-right pr-2 py-1"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest block font-mono">Transport Fee</label>
-                      <div className="flex rounded-xl bg-slate-50 border border-slate-200 overflow-hidden text-xs text-slate-800">
-                        <span className="bg-slate-100 border-r border-slate-200 px-2 py-1.5 text-[10px] font-mono font-bold">{currency}</span>
-                        <input
-                          type="number" min="0" value={deliveryFee || ''}
-                          onChange={(e) => setDeliveryFee(Math.max(0, parseFloat(e.target.value) || 0))}
-                          placeholder="0"
-                          className="w-full bg-transparent px-2 text-xs font-bold font-mono focus:outline-none text-right pr-2 py-1"
-                        />
-                      </div>
-                    </div>
-                  </div>
                 </div>
               </div>
 
@@ -1386,7 +1524,16 @@ export default function DashboardPurchases({
                         onClick={() => { handleAddToCart(prod); setSearchTerm(''); }}
                         className="w-full flex items-center justify-between px-3 py-2 bg-white rounded-lg border border-slate-100 text-left"
                       >
-                        <span className="text-xs font-semibold text-slate-800 truncate">{prod.name}</span>
+                        <span className="flex min-w-0 items-center gap-2">
+                          <span className="h-9 w-9 shrink-0 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center overflow-hidden">
+                            {prod.image ? (
+                              <CachedImage src={prod.image} alt={prod.name} className="h-full w-full object-contain" />
+                            ) : (
+                              <Package className="h-4 w-4 text-slate-300" />
+                            )}
+                          </span>
+                          <span className="text-xs font-semibold text-slate-800 truncate">{prod.name}</span>
+                        </span>
                         <span className="text-[10px] font-bold text-emerald-600 ml-2 shrink-0">+ Add</span>
                       </button>
                     ))}
@@ -1419,9 +1566,41 @@ export default function DashboardPurchases({
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
                         </div>
+                        {(() => {
+                          const levels = getPurchaseUnitLevels(item.product);
+                          if (levels.length === 0) return null;
+                          return (
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-slate-400 text-[10px] font-black font-mono">BUYING AS:</span>
+                              <ModernSelect
+                                title="Buying as"
+                                value={item.unitLevelId}
+                                onChange={(value) => handleUpdateUnitLevel(item.product.id, value)}
+                                options={[
+                                  { value: 'base', label: getBaseUnitLabel(item.product) },
+                                  ...levels.map(level => ({ value: level.id, label: level.label })),
+                                ]}
+                                buttonClassName="!min-h-[28px] !px-2 !text-[10px] !bg-white"
+                              />
+                            </div>
+                          );
+                        })()}
+                        {item.product.trackExpiry && (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-slate-400 text-[10px] font-black font-mono">EXPIRY DATE:</span>
+                            <input
+                              type="date"
+                              value={item.expiryDate || ''}
+                              onChange={(e) => handleUpdateExpiryDate(item.product.id, e.target.value)}
+                              className="bg-white border border-slate-250 rounded-lg px-2 py-0.5 text-[10px] font-mono text-slate-800 focus:outline-none focus:border-emerald-400"
+                            />
+                          </div>
+                        )}
                         <div className="flex items-center justify-between gap-4 pt-1.5 border-t border-slate-200/60 font-mono text-xs">
                           <div className="flex items-center space-x-1">
-                            <span className="text-slate-400 text-[10px] font-black">COST:</span>
+                            <span className="text-slate-400 text-[10px] font-black">
+                              COST/{item.unitLevelId === 'base' ? getBaseUnitLabel(item.product) : (getPurchaseUnitLevels(item.product).find(level => level.id === item.unitLevelId)?.label || getBaseUnitLabel(item.product))}:
+                            </span>
                             <div className="flex items-center bg-white border border-slate-250 rounded-lg px-2 py-0.5">
                               <span className="text-slate-500 font-bold text-[10px]">{currency}</span>
                               <input 
@@ -1452,6 +1631,43 @@ export default function DashboardPurchases({
                 )}
               </div>
 
+              {/* Purchase adjustments follow the cart so the form reads in
+                  the same order as the purchase being assembled. */}
+              <div className="grid grid-cols-2 gap-3 border-t border-slate-200 pt-4">
+                <div className="space-y-1">
+                  <label className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest block font-mono">Supplier Discount</label>
+                  <div className="flex rounded-xl bg-slate-50 border border-slate-200 overflow-hidden text-xs">
+                    <select
+                      value={purchaseDiscountType}
+                      onChange={(e) => { setPurchaseDiscountType(e.target.value as any); setPurchaseDiscount(0); }}
+                      className="bg-slate-100 border-r border-slate-200 px-1.5 py-1.5 text-[10px] font-bold cursor-pointer focus:outline-none"
+                    >
+                      <option value="percentage">%</option>
+                      <option value="cash">{currency}</option>
+                    </select>
+                    <input
+                      type="number" min="0" value={purchaseDiscount || ''}
+                      onChange={(e) => setPurchaseDiscount(Math.max(0, parseFloat(e.target.value) || 0))}
+                      placeholder="0"
+                      className="w-full bg-transparent px-2 py-1 text-right text-xs font-bold font-mono focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest block font-mono">Transport Fee</label>
+                  <div className="flex rounded-xl bg-slate-50 border border-slate-200 overflow-hidden text-xs text-slate-800">
+                    <span className="bg-slate-100 border-r border-slate-200 px-2 py-1.5 text-[10px] font-mono font-bold">{currency}</span>
+                    <input
+                      type="number" min="0" value={deliveryFee || ''}
+                      onChange={(e) => setDeliveryFee(Math.max(0, parseFloat(e.target.value) || 0))}
+                      placeholder="0"
+                      className="w-full bg-transparent px-2 py-1 text-right text-xs font-bold font-mono focus:outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
               {/* Payment section */}
               {cart.length > 0 && (
                 <div className="border-t border-slate-200 pt-4 space-y-4 font-sans text-xs">
@@ -1479,73 +1695,79 @@ export default function DashboardPurchases({
                     </div>
                   </div>
 
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between items-center">
-                      <label className="text-[10px] font-black text-slate-505 uppercase tracking-wider block font-mono">Amount Paid Now</label>
-                      <button 
+                  <div className="space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-black text-slate-505 uppercase tracking-wider block font-mono">Paid From</label>
+                      <button
                         type="button"
-                        onClick={() => setAmountPaid(totalAmount)}
-                        className="text-[9.5px] text-emerald-600 bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded font-black font-sans uppercase"
+                        onClick={() => setFundingRows(current => [...current, createPurchaseFundingRow()])}
+                        className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-2.5 py-1 text-[9px] font-black uppercase text-emerald-700 hover:bg-emerald-100"
                       >
-                        Settle Full
+                        <Plus className="h-3 w-3" /> Add Payment Source
                       </button>
                     </div>
-                    <div className="flex items-center bg-slate-50 border border-slate-250 focus-within:border-emerald-500 px-3 py-2.5 rounded-xl transition-all">
-                      <span className="text-slate-500 font-bold font-mono mr-1.5">{currency}</span>
-                      <input 
-                        type="number" min="0"
-                        value={amountPaid || ''}
-                        onChange={(e) => setAmountPaid(Math.min(totalAmount, Math.max(0, parseFloat(e.target.value) || 0)))}
-                        className="bg-transparent w-full text-xs text-slate-800 font-black font-mono focus:outline-none text-right placeholder-slate-400"
-                        placeholder="0 (leave empty if not paid yet)"
-                      />
+                    {fundingRows.map((row, index) => (
+                      <div key={row.id} className="grid grid-cols-[minmax(0,1fr)_7rem_auto] items-center gap-2">
+                        <select
+                          value={row.fundingType === 'external' ? 'external' : row.accountId}
+                          onChange={(event) => {
+                            const value = event.target.value;
+                            if (value === 'external') {
+                              updateFundingRow(row.id, { fundingType: 'external', accountId: '' });
+                              return;
+                            }
+                            const account = paymentAccounts.find(candidate => candidate.id === value);
+                            updateFundingRow(row.id, {
+                              fundingType: 'registered',
+                              accountId: value,
+                            });
+                            if (index === 0 && account) setPaymentMethod(account.paymentMethod || account.name);
+                          }}
+                          className="w-full min-w-0 bg-white border border-slate-250 focus:border-emerald-500 px-2.5 py-2.5 rounded-xl text-xs font-bold font-sans transition-all cursor-pointer outline-none"
+                        >
+                          <option value="">Select account</option>
+                          {paymentAccounts.map(account => (
+                            <option key={account.id} value={account.id}>{account.name}{getMaskedAccountReference(account) ? ` — ${getMaskedAccountReference(account)}` : ''}</option>
+                          ))}
+                          <option value="external">External Account</option>
+                        </select>
+                        <input
+                          type="number"
+                          min="0"
+                          value={row.amount || ''}
+                          onChange={(event) => updateFundingRow(row.id, { amount: Math.max(0, Number(event.target.value) || 0) })}
+                          className="w-full bg-white border border-slate-250 focus:border-emerald-500 px-2 py-2.5 rounded-xl text-xs font-black font-mono text-right outline-none"
+                          placeholder="Amount"
+                        />
+                        <button
+                          type="button"
+                          title="Remove payment source"
+                          aria-label="Remove payment source"
+                          disabled={fundingRows.length <= 1}
+                          onClick={() => removeFundingRow(row.id)}
+                          className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-30"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                    <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 font-mono text-[10px]">
+                      <div className="flex justify-between text-slate-600"><span>ALLOCATED</span><span className="font-black">{currency}{Math.round(allocatedAmount).toLocaleString()}</span></div>
+                      <div className="flex justify-between text-slate-600"><span>{allocationDifference < 0 ? 'OVER ALLOCATED' : 'REMAINING'}</span><span className={`font-black ${allocationDifference === 0 ? 'text-emerald-600' : 'text-amber-600'}`}>{currency}{Math.round(Math.abs(allocationDifference)).toLocaleString()}</span></div>
                     </div>
                   </div>
-
-                  {amountPaid > 0 && (
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black text-slate-505 uppercase tracking-wider block font-mono">Paid From Account</label>
-                      <select
-                        value={paidFromAccountId}
-                        onChange={(e) => {
-                          const accountId = e.target.value;
-                          setPaidFromAccountId(accountId);
-                          const account = paymentAccounts.find(candidate => candidate.id === accountId);
-                          if (account) setPaymentMethod(account.paymentMethod || account.name);
-                        }}
-                        className="w-full bg-white border border-slate-250 focus:border-emerald-500 px-3 py-2.5 rounded-xl text-xs font-bold font-sans transition-all cursor-pointer outline-none"
-                      >
-                        <option value="">Select Money & Bank account</option>
-                        {paymentAccounts.map(account => (
-                          <option key={account.id} value={account.id}>{account.name}{getMaskedAccountReference(account) ? ` — ${getMaskedAccountReference(account)}` : ''}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
                   {purchaseError && (
                     <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700">
                       {purchaseError}
                     </div>
                   )}
 
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-slate-505 uppercase tracking-wider block font-mono">Payment Method</label>
-                    <select
-                      value={paymentMethod}
-                      onChange={(e) => setPaymentMethod(e.target.value)}
-                      className="w-full bg-white border border-slate-250 focus:border-emerald-500 px-3 py-2.5 rounded-xl text-xs font-bold font-sans transition-all cursor-pointer outline-none"
-                    >
-                      <option value="Cash">Cash</option>
-                      <option value="Mobile Money">Mobile Money</option>
-                      <option value="Bank Transfer">Bank Transfer</option>
-                      <option value="Card">Credit/Debit Card</option>
-                    </select>
-                  </div>
-
                   <div className="flex justify-between items-center text-xs font-mono font-bold text-slate-600 border-t border-dashed border-slate-250 pt-2.5">
                     <span>OUTSTANDING BALANCE</span>
-                    {amountDue > 0 ? (
+                    {allocationDifference > 0 ? (
                       <span className="text-amber-600 font-black">{currency}{Math.round(amountDue).toLocaleString()}</span>
+                    ) : allocationDifference < 0 ? (
+                      <span className="text-red-600 font-black">Over {currency}{Math.round(Math.abs(allocationDifference)).toLocaleString()}</span>
                     ) : (
                       <span className="text-emerald-600 font-black">Paid in Full</span>
                     )}
@@ -1554,7 +1776,7 @@ export default function DashboardPurchases({
                   {/* Modern CTA button */}
                   <button
                     type="button"
-                    disabled={purchaseSuccess}
+                    disabled={purchaseSuccess || Math.abs(allocatedAmount - totalAmount) > 0.01 || fundingRows.some(row => row.amount > 0 && row.fundingType === 'registered' && !row.accountId)}
                     onClick={handleCommitPurchase}
                     className="w-full relative overflow-hidden bg-gradient-to-br from-slate-800 to-slate-950 hover:from-slate-700 hover:to-slate-900 disabled:from-slate-200 disabled:to-slate-100 text-white font-black py-4 px-4 rounded-2xl text-xs uppercase tracking-wider cursor-pointer flex items-center justify-center gap-2 transition-all shadow-lg active:scale-[0.98]"
                   >
@@ -1573,15 +1795,59 @@ export default function DashboardPurchases({
 
                 </div>
               )}
+
+              <div className="space-y-1 border-t border-slate-200 pt-4">
+                <label className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest block font-mono">Order Delivery State</label>
+                <select
+                  value={deliveryStatus}
+                  onChange={(e) => setDeliveryStatus(e.target.value as any)}
+                  className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2 rounded-xl text-slate-800 font-bold outline-none cursor-pointer"
+                >
+                  <option value="Full order delivered">Full Order Delivered</option>
+                  <option value="Partial">Partial Order Delivered</option>
+                  <option value="Pending">Pending / Not Shipped Yet</option>
+                </select>
+              </div>
             </div>
           </div>
         )}
       </div>
 
       {/* ── MODALS ── */}
-      {viewPurchase && <ViewModal pc={viewPurchase} />}
-      {editPurchase && <EditModal pc={editPurchase} />}
-      {deletePurchaseId && <DeleteModal id={deletePurchaseId} />}
+      {viewPurchase && (
+        <ViewPurchaseModal
+          pc={viewPurchase}
+          currency={currency}
+          onClose={() => setViewPurchase(null)}
+          onEdit={openEditPurchase}
+          onDelete={(id) => setDeletePurchaseId(id)}
+        />
+      )}
+      {editPurchase && (
+        <EditPurchaseModal
+          pc={editPurchase}
+          currency={currency}
+          editAmountPaid={editAmountPaid}
+          setEditAmountPaid={setEditAmountPaid}
+          editDeliveryStatus={editDeliveryStatus}
+          setEditDeliveryStatus={setEditDeliveryStatus}
+          editPaymentMethod={editPaymentMethod}
+          setEditPaymentMethod={setEditPaymentMethod}
+          editPaidFromAccountId={editPaidFromAccountId}
+          setEditPaidFromAccountId={setEditPaidFromAccountId}
+          paymentAccounts={paymentAccounts}
+          editPurchaseError={editPurchaseError}
+          onClose={() => setEditPurchase(null)}
+          onSave={saveEditedPurchase}
+        />
+      )}
+      {deletePurchaseId && (
+        <DeletePurchaseModal
+          id={deletePurchaseId}
+          onClose={() => setDeletePurchaseId(null)}
+          onDeletePurchase={onDeletePurchase}
+        />
+      )}
     </>
   );
 }

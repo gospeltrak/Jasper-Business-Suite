@@ -1,5 +1,5 @@
-import React, { type ErrorInfo, type ReactNode } from 'react';
-import { isLazyChunkLoadError } from '../utils/lazyWithReload';
+import React, { type ReactNode } from 'react';
+import { RefreshCw } from 'lucide-react';
 
 type DashboardScreenErrorBoundaryProps = {
   children: ReactNode;
@@ -15,16 +15,17 @@ export default class DashboardScreenErrorBoundary extends React.Component<
   DashboardScreenErrorBoundaryProps,
   DashboardScreenErrorBoundaryState
 > {
-  declare readonly props: DashboardScreenErrorBoundaryProps;
-  declare setState: (state: Partial<DashboardScreenErrorBoundaryState>) => void;
   state: DashboardScreenErrorBoundaryState = { error: null };
 
   static getDerivedStateFromError(error: Error): DashboardScreenErrorBoundaryState {
     return { error };
   }
 
-  componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error('[DashboardScreenErrorBoundary] Screen render failed', error, info.componentStack);
+  componentDidCatch(error: Error) {
+    console.error('[DashboardScreenErrorBoundary] A dashboard screen failed to render.', { name: error.name });
+    // Keep the dashboard shell alive. A transient lazy-screen/render failure
+    // should return to the safe landing tab instead of becoming a full 500 page.
+    window.setTimeout(this.props.onReturnToDashboard, 0);
   }
 
   componentDidUpdate(previousProps: DashboardScreenErrorBoundaryProps) {
@@ -44,38 +45,15 @@ export default class DashboardScreenErrorBoundary extends React.Component<
 
   render() {
     if (!this.state.error) return this.props.children;
-    const developmentError = Boolean((import.meta as any).env?.DEV) ? this.state.error.message : '';
-    const hasStaleChunk = isLazyChunkLoadError(this.state.error);
-
     return (
-      <section className="mx-auto flex min-h-[55vh] w-full max-w-xl items-center justify-center p-4">
-        <div className="w-full rounded-3xl border border-amber-200 bg-white p-7 text-center shadow-sm dark:border-amber-500/20 dark:bg-slate-900">
-          <h2 className="text-xl font-black text-slate-900 dark:text-white">This screen could not open</h2>
-          <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
-            {hasStaleChunk
-              ? 'A newer Orvix version is available. Reload the app to open this screen; your login and business data are safe.'
-              : 'Your login and business data are still safe. Retry the screen or return to the dashboard.'}
-          </p>
-          {developmentError && (
-            <code className="mt-3 block rounded-xl bg-slate-100 px-3 py-2 text-left text-xs text-rose-700 dark:bg-slate-950 dark:text-rose-300">
-              {developmentError}
-            </code>
-          )}
-          <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
-            <button
-              type="button"
-              onClick={this.reloadUpdatedApp}
-              className="rounded-xl bg-emerald-600 px-5 py-3 text-sm font-bold text-white hover:bg-emerald-700"
-            >
-              {hasStaleChunk ? 'Reload updated app' : 'Retry screen'}
-            </button>
-            <button
-              type="button"
-              onClick={this.returnToDashboard}
-              className="rounded-xl border border-slate-200 px-5 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-            >
-              Return to dashboard
-            </button>
+      <section className="flex min-h-[55vh] items-center justify-center px-5 py-10" role="status" aria-live="polite">
+        <div className="w-full max-w-sm rounded-[2rem] border border-slate-200 bg-white p-7 text-center shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <img src="/jb-logo.png" alt="Orvix" className="mx-auto h-14 w-14 object-contain" />
+          <h2 className="mt-4 text-lg font-black text-slate-900 dark:text-white">Tunarudisha sehemu yako</h2>
+          <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Subiri kidogo, tunafungua Dashboard salama bila kupoteza taarifa zako.</p>
+          <div className="mt-5 flex justify-center gap-2">
+            <button type="button" onClick={this.returnToDashboard} className="rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-emerald-700">Dashboard</button>
+            <button type="button" onClick={this.reloadUpdatedApp} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-700 dark:border-slate-700 dark:text-slate-200"><RefreshCw className="h-4 w-4" /> Refresh</button>
           </div>
         </div>
       </section>

@@ -1,5 +1,5 @@
 import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
+import { toCanvas as htmlToCanvas } from 'html-to-image';
 import { buildWhatsAppLink } from '../../utils/whatsapp';
 
 const sanitizeFileName = (name: string) =>
@@ -40,7 +40,20 @@ const placeContainedImage = (
     const drawX = boxX + (boxW - drawW) / 2;
     const drawY = boxY + (boxH - drawH) / 2;
 
-    pdf.addImage(src, src.includes('png') ? 'PNG' : 'JPEG', drawX, drawY, drawW, drawH, undefined, 'FAST');
+    // Format from the actual data URL MIME subtype, not a loose substring
+    // guess — a mismatch (e.g. a transparent PNG embedded as JPEG) is a
+    // known cause of jsPDF rendering the logo as pixelated noise or solid
+    // black. No compression argument (jsPDF's default) for the same
+    // reason: 'FAST' has known issues compositing PNG alpha channels,
+    // which is what produced the black-box artifact instead of the white
+    // backing rect showing through transparent pixels.
+    const mimeSubtype = (src.match(/^data:image\/([a-zA-Z0-9+.-]+);/)?.[1] || '').toLowerCase();
+    const imageFormat = mimeSubtype.includes('png') ? 'PNG'
+      : (mimeSubtype.includes('jpeg') || mimeSubtype.includes('jpg')) ? 'JPEG'
+      : mimeSubtype.includes('webp') ? 'WEBP'
+      : mimeSubtype.includes('gif') ? 'GIF'
+      : 'PNG';
+    pdf.addImage(src, imageFormat, drawX, drawY, drawW, drawH);
     return true;
   } catch {
     return false;
@@ -122,9 +135,74 @@ export interface ReceiptData {
   status?: string;
   preparedByRole?: string;
   terms?: string[];
+  // Defaults to the tenant's current app language (localStorage 'jasper_lang')
+  // when omitted, so callers don't all need to thread it through explicitly.
+  language?: 'en' | 'sw';
+}
+
+// This generator draws text directly via jsPDF (no DOM), so it can't rely on
+// the app-wide LanguageContext DOM translator. A small, self-contained label
+// set covers the fixed strings on the document; free-text fields (item
+// names, customer names, notes) are never translated -- they're the
+// tenant's own data, verbatim.
+type ReceiptLabelKey =
+  | 'a4Receipt' | 'posReceipt' | 'no' | 'date' | 'preparedBy' | 'cashier' | 'customer'
+  | 'paid' | 'pending' | 'billTo' | 'from' | 'walkInCustomer' | 'sales' | 'item'
+  | 'description' | 'qty' | 'unitPrice' | 'total' | 'subtotal' | 'discount' | 'vatTax'
+  | 'delivery' | 'balance' | 'balanceDue' | 'change' | 'authorizedPerson' | 'staff'
+  | 'authorizedSignature' | 'termsConditions' | 'poweredBy' | 'payment' | 'thankYou';
+
+const RECEIPT_LABELS: Record<ReceiptLabelKey, { en: string; sw: string }> = {
+  a4Receipt: { en: 'A4 RECEIPT', sw: 'RISITI A4' },
+  posReceipt: { en: 'POS RECEIPT', sw: 'RISITI YA POS' },
+  no: { en: 'No', sw: 'Na' },
+  date: { en: 'Date', sw: 'Tarehe' },
+  preparedBy: { en: 'Prepared by', sw: 'Imeandaliwa na' },
+  cashier: { en: 'Cashier', sw: 'Mhudumu' },
+  customer: { en: 'Customer', sw: 'Mteja' },
+  paid: { en: 'PAID', sw: 'IMELIPWA' },
+  pending: { en: 'PENDING', sw: 'INASUBIRI' },
+  billTo: { en: 'BILL TO', sw: 'ANKARA KWA' },
+  from: { en: 'FROM', sw: 'KUTOKA' },
+  walkInCustomer: { en: 'Walk-In Customer', sw: 'Mteja wa Papo Hapo' },
+  sales: { en: 'Sales', sw: 'Mauzo' },
+  item: { en: 'ITEM', sw: 'BIDHAA' },
+  description: { en: 'DESCRIPTION', sw: 'MAELEZO' },
+  qty: { en: 'QTY', sw: 'IDADI' },
+  unitPrice: { en: 'UNIT PRICE', sw: 'BEI KWA KIMOJA' },
+  total: { en: 'TOTAL', sw: 'JUMLA' },
+  subtotal: { en: 'Subtotal', sw: 'Jumla Ndogo' },
+  discount: { en: 'Discount', sw: 'Punguzo' },
+  vatTax: { en: 'VAT / Tax', sw: 'VAT / Kodi' },
+  delivery: { en: 'Delivery', sw: 'Delivari' },
+  balance: { en: 'Balance', sw: 'Salio' },
+  balanceDue: { en: 'Balance due', sw: 'Salio Linalodaiwa' },
+  change: { en: 'Change', sw: 'Chenji' },
+  authorizedPerson: { en: 'Authorized Person', sw: 'Mtu Aliyeidhinishwa' },
+  staff: { en: 'Staff', sw: 'Mfanyakazi' },
+  authorizedSignature: { en: 'Authorized Signature', sw: 'Sahihi Iliyoidhinishwa' },
+  termsConditions: { en: 'TERMS & CONDITIONS', sw: 'MASHARTI NA VIGEZO' },
+  poweredBy: { en: 'Powered by Orvix', sw: 'Inaendeshwa na Orvix' },
+  payment: { en: 'Payment', sw: 'Malipo' },
+  thankYou: { en: 'Thank you for shopping with us.', sw: 'Asante kwa kununua nasi.' },
+};
+
+function resolveReceiptLanguage(explicit?: 'en' | 'sw'): 'en' | 'sw' {
+  if (explicit === 'sw' || explicit === 'en') return explicit;
+  try {
+    const stored = window.localStorage?.getItem('jasper_lang');
+    if (stored === 'sw') return 'sw';
+  } catch { /* localStorage unavailable */ }
+  return 'en';
+}
+
+function receiptLabelFor(lang: 'en' | 'sw') {
+  return (key: ReceiptLabelKey) => RECEIPT_LABELS[key][lang];
 }
 
 export function createReceiptPdfFromData(data: ReceiptData): File {
+  const lang = resolveReceiptLanguage(data.language);
+  const L = receiptLabelFor(lang);
   const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
   const W = pdf.internal.pageSize.getWidth();
   const H = pdf.internal.pageSize.getHeight();
@@ -159,36 +237,37 @@ export function createReceiptPdfFromData(data: ReceiptData): File {
     businessY += 12;
   });
 
-  const title = (data.documentTitle || 'A4 RECEIPT').toUpperCase();
+  const title = (data.documentTitle || L('a4Receipt')).toUpperCase();
   const titleWidth = Math.max(112, Math.min(178, title.length * 8 + 28));
   roundedBox(W - margin - titleWidth, 32, titleWidth, 28, 10, indigo);
   text(title, W - margin - titleWidth / 2, 51, { align: 'center', size: 11, bold: true, color: '#ffffff' });
   const metaX = W - margin;
-  text(`No:  ${data.receiptId}`, metaX, 78, { align: 'right', size: 8, bold: true });
-  text(`Date:  ${new Date(data.timestamp).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}`, metaX, 94, { align: 'right', size: 8, color: muted });
-  if (data.cashierName) text(`Prepared by:  ${data.cashierName}`, metaX, 110, { align: 'right', size: 8, color: muted });
-  const status = (data.status || ((data.amountPaid ?? 0) >= data.grandTotal ? 'PAID' : 'PENDING')).toUpperCase();
-  roundedBox(W - margin - 64, 121, 64, 18, 7, status === 'PAID' ? '#ecfdf5' : '#fffbeb', status === 'PAID' ? '#a7f3d0' : '#fde68a');
-  text(`• ${status}`, W - margin - 32, 133.5, { align: 'center', size: 7, bold: true, color: status === 'PAID' ? '#047857' : '#b45309' });
+  text(`${L('no')}:  ${data.receiptId}`, metaX, 78, { align: 'right', size: 8, bold: true });
+  text(`${L('date')}:  ${new Date(data.timestamp).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}`, metaX, 94, { align: 'right', size: 8, color: muted });
+  if (data.cashierName) text(`${L('preparedBy')}:  ${data.cashierName}`, metaX, 110, { align: 'right', size: 8, color: muted });
+  const isPaidStatus = (data.status || '').toUpperCase() === 'PAID' || (!data.status && (data.amountPaid ?? 0) >= data.grandTotal);
+  const status = isPaidStatus ? L('paid') : L('pending');
+  roundedBox(W - margin - 64, 121, 64, 18, 7, isPaidStatus ? '#ecfdf5' : '#fffbeb', isPaidStatus ? '#a7f3d0' : '#fde68a');
+  text(`• ${status}`, W - margin - 32, 133.5, { align: 'center', size: 7, bold: true, color: isPaidStatus ? '#047857' : '#b45309' });
 
   // Bill To / From panel.
   roundedBox(margin, 178, W - margin * 2, 80, 12, pale, '#e2e8f0');
-  text('BILL TO', margin + 16, 202, { size: 7, bold: true, color: '#94a3b8' });
-  text(data.customerName || 'Walk-In Customer', margin + 16, 224, { size: 11, bold: true });
+  text(L('billTo'), margin + 16, 202, { size: 7, bold: true, color: '#94a3b8' });
+  text(data.customerName || L('walkInCustomer'), margin + 16, 224, { size: 11, bold: true });
   if (data.customerPhone) text(data.customerPhone, margin + 16, 239, { size: 8, color: muted });
-  text('FROM', W / 2 + 8, 202, { size: 7, bold: true, color: '#94a3b8' });
+  text(L('from'), W / 2 + 8, 202, { size: 7, bold: true, color: '#94a3b8' });
   text(data.businessName, W / 2 + 8, 224, { size: 11, bold: true });
-  text(data.preparedByRole || data.paymentMethod || 'Sales', W / 2 + 8, 239, { size: 8, color: muted });
+  text(data.preparedByRole || data.paymentMethod || L('sales'), W / 2 + 8, 239, { size: 8, color: muted });
 
   // Items table, with automatic extra A4 pages when an invoice is long.
   let y = 284;
   const drawTableHeader = () => {
     roundedBox(margin, y, W - margin * 2, 30, 9, navy);
     text('#', margin + 14, y + 19, { size: 7, bold: true, color: '#ffffff' });
-    text('DESCRIPTION', margin + 44, y + 19, { size: 7, bold: true, color: '#ffffff' });
-    text('QTY', W - 250, y + 19, { size: 7, bold: true, color: '#ffffff', align: 'center' });
-    text('UNIT PRICE', W - 130, y + 19, { size: 7, bold: true, color: '#ffffff', align: 'right' });
-    text('TOTAL', W - margin - 12, y + 19, { size: 7, bold: true, color: '#ffffff', align: 'right' });
+    text(L('description'), margin + 44, y + 19, { size: 7, bold: true, color: '#ffffff' });
+    text(L('qty'), W - 250, y + 19, { size: 7, bold: true, color: '#ffffff', align: 'center' });
+    text(L('unitPrice'), W - 130, y + 19, { size: 7, bold: true, color: '#ffffff', align: 'right' });
+    text(L('total'), W - margin - 12, y + 19, { size: 7, bold: true, color: '#ffffff', align: 'right' });
     y += 46;
   };
   drawTableHeader();
@@ -216,34 +295,34 @@ export function createReceiptPdfFromData(data: ReceiptData): File {
     y += 22;
   };
   const isVatDoc = data.vatStatus === 'vat' || (!data.vatStatus && (data.tax || 0) > 0);
-  totalRow('Subtotal', fmt(data.subtotal));
-  if ((data.discount || 0) > 0) totalRow('Discount', `-${fmt(data.discount || 0)}`, '#b45309');
-  if (isVatDoc) totalRow('VAT / Tax', fmt(data.tax || 0));
-  if ((data.deliveryCost || 0) > 0) totalRow('Delivery', fmt(data.deliveryCost || 0));
+  totalRow(L('subtotal'), fmt(data.subtotal));
+  if ((data.discount || 0) > 0) totalRow(L('discount'), `-${fmt(data.discount || 0)}`, '#b45309');
+  if (isVatDoc) totalRow(L('vatTax'), fmt(data.tax || 0));
+  if ((data.deliveryCost || 0) > 0) totalRow(L('delivery'), fmt(data.deliveryCost || 0));
   roundedBox(totalsX, y - 7, W - margin - totalsX, 38, 9, navy);
-  text('TOTAL', totalsX + 14, y + 17, { size: 10, bold: true, color: '#ffffff' });
+  text(L('total'), totalsX + 14, y + 17, { size: 10, bold: true, color: '#ffffff' });
   text(fmt(data.grandTotal), W - margin - 14, y + 17, { align: 'right', size: 11, bold: true, color: '#ffffff' });
   y += 52;
   const balance = Math.max(0, data.grandTotal - (data.amountPaid || 0));
-  totalRow('Balance', fmt(balance));
+  totalRow(L('balance'), fmt(balance));
 
   // Signatures, terms and footer.
   const signatureY = Math.max(585, y + 34);
   pdf.setDrawColor('#cbd5e1');
   pdf.line(margin, signatureY, margin + 255, signatureY);
   pdf.line(W - margin - 255, signatureY, W - margin, signatureY);
-  text(data.cashierName || 'Authorized Person', margin, signatureY + 16, { size: 8, bold: true });
-  text(data.preparedByRole || 'Staff', margin, signatureY + 29, { size: 7, color: '#94a3b8' });
-  text('Authorized Signature', W - margin, signatureY + 16, { align: 'right', size: 7, color: '#94a3b8' });
+  text(data.cashierName || L('authorizedPerson'), margin, signatureY + 16, { size: 8, bold: true });
+  text(data.preparedByRole || L('staff'), margin, signatureY + 29, { size: 7, color: '#94a3b8' });
+  text(L('authorizedSignature'), W - margin, signatureY + 16, { align: 'right', size: 7, color: '#94a3b8' });
   const terms = data.terms?.filter(Boolean) || [];
   if (terms.length) {
     const termsY = signatureY + 72;
     pdf.setDrawColor('#f1f5f9'); pdf.line(margin, termsY - 18, W - margin, termsY - 18);
-    text('TERMS & CONDITIONS', margin, termsY, { size: 7, bold: true, color: '#94a3b8' });
+    text(L('termsConditions'), margin, termsY, { size: 7, bold: true, color: '#94a3b8' });
     terms.slice(0, 4).forEach((term, index) => text(`${index + 1}. ${term}`, margin, termsY + 19 + index * 17, { size: 8, color: muted }));
   }
   pdf.setDrawColor('#f1f5f9'); pdf.line(margin, H - 66, W - margin, H - 66);
-  text(data.footer || 'Powered by Orvix', W / 2, H - 48, { align: 'center', size: 6, color: '#cbd5e1' });
+  text(data.footer || L('poweredBy'), W / 2, H - 48, { align: 'center', size: 6, color: '#cbd5e1' });
 
   const cleanName = sanitizeFileName(`a4-receipt-${data.receiptId}.pdf`);
   return new File([pdf.output('blob')], cleanName, { type: 'application/pdf' });
@@ -255,6 +334,8 @@ export function createReceiptPdfFromData(data: ReceiptData): File {
 // A4 page, and with a layout built for that narrow column.
 
 function drawPosReceipt(pdf: jsPDF, data: ReceiptData, width: number): number {
+  const lang = resolveReceiptLanguage(data.language);
+  const L = receiptLabelFor(lang);
   const margin = 10;
   const contentWidth = width - margin * 2;
   const navy = '#0f172a';
@@ -300,24 +381,24 @@ function drawPosReceipt(pdf: jsPDF, data: ReceiptData, width: number): number {
   dashedLine(y);
   y += 12;
 
-  const title = (data.documentTitle || 'POS RECEIPT').toUpperCase();
+  const title = (data.documentTitle || L('posReceipt')).toUpperCase();
   center(title, y, { size: 8.5, bold: true });
   y += 12;
-  left(`No: ${data.receiptId}`, margin, y, { size: 7 });
+  left(`${L('no')}: ${data.receiptId}`, margin, y, { size: 7 });
   left(
     new Date(data.timestamp).toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
     width - margin, y, { size: 7, align: 'right', color: muted }
   );
   y += 11;
-  if (data.cashierName) { left(`Cashier: ${data.cashierName}`, margin, y, { size: 7, color: muted }); y += 11; }
-  if (data.customerName) { left(`Customer: ${data.customerName}`, margin, y, { size: 7, color: muted }); y += 11; }
+  if (data.cashierName) { left(`${L('cashier')}: ${data.cashierName}`, margin, y, { size: 7, color: muted }); y += 11; }
+  if (data.customerName) { left(`${L('customer')}: ${data.customerName}`, margin, y, { size: 7, color: muted }); y += 11; }
   y += 3;
   dashedLine(y);
   y += 12;
 
   pdf.setFont('helvetica', 'bold'); pdf.setFontSize(6.8); pdf.setTextColor(muted);
-  pdf.text('ITEM', margin, y);
-  pdf.text('TOTAL', width - margin, y, { align: 'right' });
+  pdf.text(L('item'), margin, y);
+  pdf.text(L('total'), width - margin, y, { align: 'right' });
   y += 10;
   dashedLine(y);
   y += 10;
@@ -345,20 +426,20 @@ function drawPosReceipt(pdf: jsPDF, data: ReceiptData, width: number): number {
     y += 12;
   };
   const isVatDoc = data.vatStatus === 'vat' || (!data.vatStatus && (data.tax || 0) > 0);
-  totalRow('Subtotal', fmt(data.subtotal));
-  if ((data.discount || 0) > 0) totalRow('Discount', `-${fmt(data.discount || 0)}`);
-  if (isVatDoc) totalRow('VAT / Tax', fmt(data.tax || 0));
-  if ((data.deliveryCost || 0) > 0) totalRow('Delivery', fmt(data.deliveryCost || 0));
+  totalRow(L('subtotal'), fmt(data.subtotal));
+  if ((data.discount || 0) > 0) totalRow(L('discount'), `-${fmt(data.discount || 0)}`);
+  if (isVatDoc) totalRow(L('vatTax'), fmt(data.tax || 0));
+  if ((data.deliveryCost || 0) > 0) totalRow(L('delivery'), fmt(data.deliveryCost || 0));
   y += 2;
   dashedLine(y);
   y += 12;
-  totalRow('TOTAL', fmt(data.grandTotal), { bold: true, size: 9.5 });
+  totalRow(L('total'), fmt(data.grandTotal), { bold: true, size: 9.5 });
   y += 2;
-  if (data.amountPaid !== undefined) totalRow('Paid', fmt(data.amountPaid));
+  if (data.amountPaid !== undefined) totalRow(L('paid'), fmt(data.amountPaid));
   const balance = Math.max(0, data.grandTotal - (data.amountPaid || 0));
-  if (balance > 0) totalRow('Balance due', fmt(balance));
-  else if ((data.change || 0) > 0) totalRow('Change', fmt(data.change || 0));
-  left(`Payment: ${data.paymentMethod}`, margin, y, { size: 7, color: muted });
+  if (balance > 0) totalRow(L('balanceDue'), fmt(balance));
+  else if ((data.change || 0) > 0) totalRow(L('change'), fmt(data.change || 0));
+  left(`${L('payment')}: ${data.paymentMethod}`, margin, y, { size: 7, color: muted });
   y += 11;
   if (data.paymentMethod === 'Multi-Channel' && Array.isArray(data.paymentBreakdown) && data.paymentBreakdown.length > 0) {
     data.paymentBreakdown.forEach(part => {
@@ -371,9 +452,9 @@ function drawPosReceipt(pdf: jsPDF, data: ReceiptData, width: number): number {
 
   dashedLine(y);
   y += 14;
-  center('Thank you for shopping with us.', y, { size: 7, bold: true });
+  center(L('thankYou'), y, { size: 7, bold: true });
   y += 12;
-  center(data.footer || 'Powered by Orvix', y, { size: 6, color: muted });
+  center(data.footer || L('poweredBy'), y, { size: 6, color: muted });
   y += 10;
 
   return y;
@@ -443,7 +524,7 @@ type PdfShareOptions = {
   format?: 'a4' | 'receipt';
   includeHidden?: boolean;
   /**
-   * Visual A4 capture uses html2canvas. Set false for report-style documents
+   * Visual A4 capture uses html-to-image. Set false for report-style documents
    * so modern CSS color functions cannot break export; the fallback produces
    * a searchable, table-aware jsPDF document instead.
    */
@@ -457,6 +538,8 @@ type PdfShareOptions = {
     documentTitle?: string;
     dateRange?: string;
     generatedBy?: string;
+    /** Tenant's chosen brand color (Invoice Settings), hex string. */
+    brandColor?: string;
   };
 };
 
@@ -531,6 +614,21 @@ const drawTable = (
 
   if (!rows.length) return yStart;
 
+  // Mirror each column's real text-right/text-center alignment from the
+  // source header cells, instead of forcing every column to the left —
+  // numeric columns otherwise read as an unaligned wall of digits.
+  const headerRowEl = Array.from(table.querySelectorAll('tr')).find(row => includeHidden || isElementVisible(row));
+  const columnAligns: Array<'left' | 'center' | 'right'> = headerRowEl
+    ? Array.from(headerRowEl.children)
+      .filter(cell => includeHidden || isElementVisible(cell))
+      .map(cell => {
+        const cellClass = cell.className.toString();
+        if (cellClass.includes('text-right')) return 'right';
+        if (cellClass.includes('text-center')) return 'center';
+        return 'left';
+      })
+    : [];
+
   const columnCount = Math.max(...rows.map(row => row.length));
   const colWidth = contentWidth / Math.max(columnCount, 1);
   let y = yStart;
@@ -544,16 +642,22 @@ const drawTable = (
   };
   const renderRow = (row: string[], rowIndex: number, isHeader = false) => {
     const { wrappedCells, rowHeight } = measureRow(row);
-    pdf.setFillColor(isHeader ? '#e2e8f0' : rowIndex % 2 ? '#ffffff' : '#f8fafc');
+    pdf.setFillColor(isHeader ? '#111111' : rowIndex % 2 ? '#ffffff' : '#f3f4f6');
     pdf.rect(horizontalMargin, y - 10, contentWidth, rowHeight, 'F');
-    pdf.setDrawColor('#e2e8f0');
+    pdf.setDrawColor('#d1d5db');
     pdf.line(horizontalMargin, y - 10, horizontalMargin + contentWidth, y - 10);
 
     wrappedCells.forEach((lines, colIndex) => {
       pdf.setFont('helvetica', isHeader ? 'bold' : 'normal');
       pdf.setFontSize(isHeader ? 7.5 : 7);
-      pdf.setTextColor(isHeader ? '#334155' : '#0f172a');
-      pdf.text(lines, horizontalMargin + colIndex * colWidth + 3, y);
+      pdf.setTextColor(isHeader ? '#ffffff' : '#111827');
+      const align = columnAligns[colIndex] || 'left';
+      const cellX = align === 'right'
+        ? horizontalMargin + (colIndex + 1) * colWidth - 4
+        : align === 'center'
+          ? horizontalMargin + colIndex * colWidth + colWidth / 2
+          : horizontalMargin + colIndex * colWidth + 3;
+      pdf.text(lines, cellX, y, { align });
     });
     y += rowHeight;
   };
@@ -604,18 +708,12 @@ const applyBrandedReportChrome = async (
     const left = 38;
     const right = pageWidth - 38;
 
-    let logoRendered = false;
-    if (logoData) {
-      try {
-        const imageType = logoData.includes('image/png') ? 'PNG' : 'JPEG';
-        pdf.addImage(logoData, imageType, left, 24, 52, 34, undefined, 'FAST');
-        logoRendered = true;
-      } catch {
-        // Fall back to the business initial below.
-      }
-    }
+    // White backing behind the logo (same convention as the receipt/A4
+    // generators) keeps a transparent-background logo legible, and the logo
+    // is the one full-color element on an otherwise black-and-grey page.
+    const logoRendered = logoData ? placeContainedImage(pdf, logoData, left, 24, 52, 34) : false;
     if (!logoRendered) {
-      pdf.setFillColor('#4f46e5');
+      pdf.setFillColor('#111111');
       pdf.roundedRect(left, 24, 34, 34, 8, 8, 'F');
       pdf.setFont('helvetica', 'bold');
       pdf.setFontSize(17);
@@ -630,7 +728,7 @@ const applyBrandedReportChrome = async (
     pdf.text(branding.businessName || 'Business', identityX, 34);
     pdf.setFont('helvetica', 'normal');
     pdf.setFontSize(7.5);
-    pdf.setTextColor('#64748b');
+    pdf.setTextColor(branding.brandColor || '#64748b');
     const identity = [branding.address, branding.phone, branding.email].filter(Boolean).join('  •  ');
     if (identity) pdf.text(pdf.splitTextToSize(identity, Math.max(120, pageWidth * 0.43)), identityX, 48);
 
@@ -644,7 +742,7 @@ const applyBrandedReportChrome = async (
     pdf.text(title, right - titleWidth / 2, 41.5, { align: 'center' });
     pdf.setFont('helvetica', 'normal');
     pdf.setFontSize(7.5);
-    pdf.setTextColor('#64748b');
+    pdf.setTextColor(branding.brandColor || '#64748b');
     const meta = branding.dateRange || `Generated ${generatedAt}`;
     pdf.text(meta, right, 64, { align: 'right' });
     if (branding.generatedBy) pdf.text(`Prepared by ${branding.generatedBy}`, right, 76, { align: 'right' });
@@ -658,6 +756,9 @@ const applyBrandedReportChrome = async (
     pdf.setTextColor('#94a3b8');
     pdf.text('CONFIDENTIAL BUSINESS REPORT', left, pageHeight - 25);
     pdf.text(`${branding.businessName}  •  Page ${pageNumber} of ${pageCount}`, right, pageHeight - 25, { align: 'right' });
+    pdf.setFontSize(6);
+    pdf.setTextColor('#cbd5e1');
+    pdf.text('Powered by Orvix', pageWidth / 2, pageHeight - 25, { align: 'center' });
   }
 };
 
@@ -665,7 +766,7 @@ const waitForDocumentAssets = async (root: HTMLElement) => {
   if (document.fonts?.ready) await document.fonts.ready;
   await Promise.all(Array.from(root.querySelectorAll('img')).map(async (image) => {
     if (image.complete) {
-      try { await image.decode(); } catch { /* html2canvas will use the available image */ }
+      try { await image.decode(); } catch { /* the capture will use the available image */ }
       return;
     }
     await new Promise<void>((resolve) => {
@@ -674,6 +775,26 @@ const waitForDocumentAssets = async (root: HTMLElement) => {
       setTimeout(resolve, 3000);
     });
   }));
+};
+
+// Documents (receipts, invoices, delivery notes, reports) must always render
+// light regardless of the tenant's dashboard dark-mode setting. The clone is
+// appended under document.body, which still sits inside <html class="dark">
+// when dark mode is on, so any dark: utility class present -- today or added
+// later -- would otherwise render with dark colors in the captured PDF.
+const stripDarkModeClasses = (root: HTMLElement) => {
+  // getAttribute/setAttribute (not .className) so this also works for SVG
+  // icons, whose className is an SVGAnimatedString rather than a plain string.
+  const strip = (el: Element) => {
+    if (!el.getAttribute('class')?.includes('dark:')) return;
+    const next = (el.getAttribute('class') || '')
+      .split(' ')
+      .filter((cls) => !cls.startsWith('dark:'))
+      .join(' ');
+    el.setAttribute('class', next);
+  };
+  strip(root);
+  root.querySelectorAll('[class*="dark:"]').forEach(strip);
 };
 
 const createVisualA4Pdf = async (source: HTMLElement) => {
@@ -691,6 +812,7 @@ const createVisualA4Pdf = async (source: HTMLElement) => {
 
   const clone = source.cloneNode(true) as HTMLElement;
   clone.removeAttribute('id');
+  stripDarkModeClasses(clone);
   Object.assign(clone.style, {
     display: 'block',
     width: '794px',
@@ -710,19 +832,20 @@ const createVisualA4Pdf = async (source: HTMLElement) => {
 
   try {
     await waitForDocumentAssets(clone);
-    const canvas = await html2canvas(clone, {
-      scale: 2,
-      useCORS: true,
-      allowTaint: false,
+    const captureOptions = {
+      pixelRatio: 2,
       backgroundColor: '#ffffff',
-      logging: false,
       width: 794,
       height: Math.max(1123, clone.scrollHeight),
-      windowWidth: 794,
-      windowHeight: Math.max(1123, clone.scrollHeight),
-      scrollX: 0,
-      scrollY: 0,
-    });
+    };
+    let canvas: HTMLCanvasElement;
+    try {
+      canvas = await htmlToCanvas(clone, captureOptions);
+    } catch {
+      // A blocked/slow Google Fonts fetch must not fail the whole export —
+      // retry rendering with the browser's fallback font instead.
+      canvas = await htmlToCanvas(clone, { ...captureOptions, skipFonts: true });
+    }
     const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
@@ -756,30 +879,78 @@ const createVisualA4Pdf = async (source: HTMLElement) => {
   }
 };
 
-export async function createPdfFromElement({
-  elementId, fileName, format = 'a4', includeHidden = false, visual = true, branding
-}: Omit<PdfShareOptions, 'phone' | 'message'>): Promise<File> {
-  const source = document.getElementById(elementId);
-  if (!source) throw new Error('Document not found. Make sure the preview is open.');
+// A single continuous 57–58mm thermal strip, captured as a screenshot of the
+// exact on-screen receipt markup — the downloaded/shared PDF is guaranteed to
+// look identical to the preview, the same guarantee the A4 templates already
+// have via createVisualA4Pdf, rather than a separately hand-maintained
+// text-redraw that can drift out of sync with the preview's design.
+const RECEIPT_CAPTURE_WIDTH_PX = 384;
 
-  if (format === 'a4' && visual) {
-    const visualPdf = await createVisualA4Pdf(source);
-    const cleanName = sanitizeFileName(fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`);
-    return new File([visualPdf.output('blob')], cleanName, { type: 'application/pdf' });
-  }
-
-  const widestTable = Math.max(
-    0,
-    ...Array.from(source.querySelectorAll('tr')).map(row => row.children.length)
-  );
-  const pdf = new jsPDF({
-    orientation: format === 'a4' && !visual && widestTable > 6 ? 'landscape' : 'portrait',
-    unit: 'pt',
-    format: format === 'receipt' ? [226, 800] : 'a4',
+const createVisualReceiptPdf = async (source: HTMLElement) => {
+  const host = document.createElement('div');
+  host.setAttribute('aria-hidden', 'true');
+  Object.assign(host.style, {
+    position: 'fixed',
+    left: '-10000px',
+    top: '0',
+    width: `${RECEIPT_CAPTURE_WIDTH_PX}px`,
+    background: '#ffffff',
+    zIndex: '-1',
+    pointerEvents: 'none',
   });
-  const margin = format === 'receipt' ? 12 : 38;
-  const pageTop = branding && format === 'a4' ? 108 : margin;
-  const pageBottom = branding && format === 'a4' ? 58 : margin;
+
+  const clone = source.cloneNode(true) as HTMLElement;
+  clone.removeAttribute('id');
+  stripDarkModeClasses(clone);
+  Object.assign(clone.style, {
+    display: 'block',
+    width: `${RECEIPT_CAPTURE_WIDTH_PX}px`,
+    height: 'auto',
+    maxHeight: 'none',
+    margin: '0',
+    transform: 'none',
+    boxShadow: 'none',
+    overflow: 'visible',
+    background: '#ffffff',
+  });
+  clone.querySelectorAll('button,[role="button"],input,textarea,select,.print\\:hidden').forEach(node => node.remove());
+  host.appendChild(clone);
+  document.body.appendChild(host);
+
+  try {
+    await waitForDocumentAssets(clone);
+    const captureOptions = {
+      pixelRatio: 2,
+      backgroundColor: '#ffffff',
+      width: RECEIPT_CAPTURE_WIDTH_PX,
+      height: Math.max(200, clone.scrollHeight),
+    };
+    let canvas: HTMLCanvasElement;
+    try {
+      canvas = await htmlToCanvas(clone, captureOptions);
+    } catch {
+      canvas = await htmlToCanvas(clone, { ...captureOptions, skipFonts: true });
+    }
+    const receiptWidthPt = 58 * (72 / 25.4);
+    const pageHeightPt = receiptWidthPt * (canvas.height / canvas.width);
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'pt', format: [receiptWidthPt, pageHeightPt] });
+    pdf.addImage(canvas.toDataURL('image/jpeg', 0.96), 'JPEG', 0, 0, receiptWidthPt, pageHeightPt, undefined, 'FAST');
+    return pdf;
+  } finally {
+    host.remove();
+  }
+};
+
+// Walks the source DOM once, drawing every node onto `pdf` starting at
+// `pageTop`, and returns the final y position content ended at. Shared by
+// both the receipt two-pass sizing below and the legacy multi-page a4
+// (Reports) path, so a page's real content height is always measured with
+// the exact same layout logic that renders it.
+const renderVectorDocumentBody = (
+  pdf: jsPDF,
+  source: HTMLElement,
+  { format, margin, pageTop, pageBottom, includeHidden }: { format: 'a4' | 'receipt'; margin: number; pageTop: number; pageBottom: number; includeHidden: boolean }
+): number => {
   const pageWidth = pdf.internal.pageSize.getWidth();
   const contentWidth = pageWidth - margin * 2;
   let y = pageTop;
@@ -818,7 +989,12 @@ export async function createPdfFromElement({
       return !!cleanText(collectDirectText(el));
     });
 
-  const seenText = new Set<string>();
+  // Suppresses only an immediately-repeated line (e.g. a heading duplicated
+  // right next to itself in the DOM) — NOT every later recurrence of the
+  // same text. A global "already seen anywhere in the document" Set here
+  // would silently drop legitimate data, such as a "Paid revenue" figure
+  // that happens to numerically match an earlier "Revenue" figure.
+  let lastDrawnKey = '';
 
   nodes.forEach((el) => {
     if (el.tagName === 'TABLE') {
@@ -847,10 +1023,24 @@ export async function createPdfFromElement({
       const children = Array.from(el.children).filter((child) => includeHidden || isElementVisible(child));
       const left = cleanText(children[0]?.textContent || '');
       const right = cleanText(children[children.length - 1]?.textContent || '');
-      if ((left || right) && `${left}|${right}` !== '' && !seenText.has(`row:${left}|${right}`)) {
-        seenText.add(`row:${left}|${right}`);
+      const rowKey = `row:${left}|${right}`;
+      if ((left || right) && `${left}|${right}` !== '' && rowKey !== lastDrawnKey) {
+        lastDrawnKey = rowKey;
         const bold = /total|balance|grand|due|paid/i.test(left);
         const fontSize = format === 'receipt' ? 7.2 : 9.2;
+        // The signature block ("Prepared By" / "Authorized By") is a plain
+        // flex row like any total/balance line, so without this it draws
+        // flush against whatever content happened to end right before it
+        // (e.g. a long sales table) with no visible separation. CSS margin
+        // classes on that DOM block are invisible here — this is a vector
+        // redraw, not a screenshot — so the gap has to be added explicitly.
+        if (left === 'Prepared By') {
+          y = ensurePageSpace(pdf, y, fontSize + 34, pageTop, pageBottom);
+          y += 20;
+          pdf.setDrawColor('#cbd5e1');
+          pdf.line(margin, y, margin + contentWidth, y);
+          y += 14;
+        }
         y = ensurePageSpace(pdf, y, fontSize + 6, pageTop, pageBottom);
         pdf.setFont('helvetica', bold ? 'bold' : 'normal');
         pdf.setFontSize(fontSize);
@@ -863,32 +1053,88 @@ export async function createPdfFromElement({
     }
 
     const textValue = cleanText(collectDirectText(el));
-    if (!textValue || seenText.has(textValue)) return;
-    seenText.add(textValue);
+    if (!textValue || textValue === lastDrawnKey) return;
+    lastDrawnKey = textValue;
 
     const tag = el.tagName.toLowerCase();
+    const classStr = el.className.toString();
     const isHeading = /^h[1-4]$/.test(tag);
-    const isSmall = tag === 'span' || el.className.toString().includes('text-[9');
+    // Section titles (e.g. "Profit & Loss", "Operations Charge Metrics") use
+    // this exact uppercase+bold-weight combination throughout every report
+    // tab. Flagging them lets each section start with real separation
+    // instead of reading as one continuous, undifferentiated block of text.
+    const isSectionTitle = !isHeading && classStr.includes('uppercase') && /font-(black|extrabold|bold)/.test(classStr);
+    const isSmall = tag === 'span' || classStr.includes('text-[9');
     const fontSize = format === 'receipt'
-      ? (isHeading ? 9 : isSmall ? 6.5 : 7.2)
-      : (tag === 'h1' ? 17 : tag === 'h2' ? 14 : isHeading ? 11 : isSmall ? 8 : 9.2);
+      ? (isHeading ? 9 : isSectionTitle ? 8.5 : isSmall ? 6.5 : 7.2)
+      : (tag === 'h1' ? 17 : tag === 'h2' ? 14 : isHeading ? 11 : isSectionTitle ? 10 : isSmall ? 8 : 9.2);
+
+    if (isSectionTitle && y > pageTop + 4) {
+      y = ensurePageSpace(pdf, y, fontSize + 20, pageTop, pageBottom);
+      y += 10;
+      pdf.setDrawColor('#d1d5db');
+      pdf.line(margin, y, margin + contentWidth, y);
+      y += 10;
+    }
+
     const needed = Math.max(16, Math.ceil(textValue.length / 70) * (fontSize + 3));
     y = ensurePageSpace(pdf, y, needed, pageTop, pageBottom);
     y = appendWrappedText(pdf, textValue, margin, y, contentWidth, {
       fontSize,
-      bold: isHeading || /total|balance|invoice|receipt|delivery note|quotation|proforma/i.test(textValue),
-      color: isHeading ? '#0f172a' : '#334155',
+      bold: isHeading || isSectionTitle || /total|balance|invoice|receipt|delivery note|quotation|proforma/i.test(textValue),
+      color: (isHeading || isSectionTitle) ? '#000000' : '#334155',
       lineGap: format === 'receipt' ? 1 : 2,
-    }) + (isHeading ? 5 : 2);
+    }) + (isHeading || isSectionTitle ? 6 : 2);
   });
+
+  return y;
+};
+
+export async function createPdfFromElement({
+  elementId, fileName, format = 'a4', includeHidden = false, visual = true, branding
+}: Omit<PdfShareOptions, 'phone' | 'message'>): Promise<File> {
+  const source = document.getElementById(elementId);
+  if (!source) throw new Error('Document not found. Make sure the preview is open.');
+
+  if (format === 'a4' && visual) {
+    const visualPdf = await createVisualA4Pdf(source);
+    const cleanName = sanitizeFileName(fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`);
+    return new File([visualPdf.output('blob')], cleanName, { type: 'application/pdf' });
+  }
+
+  const cleanName = sanitizeFileName(fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`);
+
+  if (format === 'receipt') {
+    // Screenshot the actual receipt markup at real 57–58mm thermal roll
+    // width — guarantees the downloaded/shared PDF looks identical to the
+    // on-screen preview, the same guarantee createVisualA4Pdf gives the
+    // other document types, with height sized to exactly where the
+    // receipt's content ends (no trailing blank strip).
+    const visualPdf = await createVisualReceiptPdf(source);
+    return new File([visualPdf.output('blob')], cleanName, { type: 'application/pdf' });
+  }
+
+  const widestTable = Math.max(
+    0,
+    ...Array.from(source.querySelectorAll('tr')).map(row => row.children.length)
+  );
+  const pdf = new jsPDF({
+    orientation: format === 'a4' && !visual && widestTable > 6 ? 'landscape' : 'portrait',
+    unit: 'pt',
+    format: 'a4',
+  });
+  const margin = 38;
+  const pageTop = branding ? 108 : margin;
+  const pageBottom = branding ? 58 : margin;
+
+  const y = renderVectorDocumentBody(pdf, source, { format, margin, pageTop, pageBottom, includeHidden });
 
   if (y === pageTop) {
     throw new Error('Document has no printable data.');
   }
 
-  if (branding && format === 'a4') await applyBrandedReportChrome(pdf, branding);
+  if (branding) await applyBrandedReportChrome(pdf, branding);
 
-  const cleanName = sanitizeFileName(fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`);
   return new File([pdf.output('blob')], cleanName, { type: 'application/pdf' });
 }
 

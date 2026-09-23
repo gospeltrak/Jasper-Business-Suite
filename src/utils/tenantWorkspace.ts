@@ -59,12 +59,102 @@ type SaveTenantWorkspaceOptions = {
   allowSettingsWrite?: boolean;
 };
 
+type PaginatedWorkspaceCollection = 'sales' | 'expenses' | 'deliveries' | 'purchases';
+
+type WorkspacePageCursor = {
+  timestamp: string;
+  id: string;
+};
+
+type WorkspacePage = {
+  collection: PaginatedWorkspaceCollection;
+  records: any[];
+  hasMore: boolean;
+  nextCursor: WorkspacePageCursor | null;
+  readSource: 'normalized' | 'legacy_fallback';
+  fallbackRequired: boolean;
+};
+
+const PAGINATED_WORKSPACE_COLLECTIONS: PaginatedWorkspaceCollection[] = [
+  'sales',
+  'expenses',
+  'deliveries',
+  'purchases',
+];
+const WORKSPACE_PAGE_SIZE = 1000;
+
 export const readCachedWorkspace = (tenantId: string): TenantWorkspace | null => {
   return runtimeWorkspaces.get(tenantId) || null;
 };
 
 const cacheWorkspace = (tenantId: string, workspace: TenantWorkspace) => {
   runtimeWorkspaces.set(tenantId, workspace);
+};
+
+const mergePageRecords = (current: any[], incoming: any[]): any[] => {
+  const merged = new Map<string, any>();
+  for (const record of [...current, ...incoming]) {
+    const id = String(record?.id || '').trim();
+    const key = id || `anonymous:${JSON.stringify(record)}`;
+    merged.set(key, record);
+  }
+  return Array.from(merged.values());
+};
+
+const loadNormalizedWorkspaceLedgers = async (client: any): Promise<Partial<TenantWorkspace> | null> => {
+  const records: Record<PaginatedWorkspaceCollection, any[]> = {
+    sales: [],
+    expenses: [],
+    deliveries: [],
+    purchases: [],
+  };
+  const cursors: Partial<Record<PaginatedWorkspaceCollection, WorkspacePageCursor>> = {};
+  let pending = [...PAGINATED_WORKSPACE_COLLECTIONS];
+
+  while (pending.length > 0) {
+    const pages = await Promise.all(pending.map(async (collection): Promise<WorkspacePage | null> => {
+      const cursor = cursors[collection];
+      const { data, error } = await client.rpc('get_current_branch_workspace_page', {
+        p_collection: collection,
+        p_limit: WORKSPACE_PAGE_SIZE,
+        p_cursor_timestamp: cursor?.timestamp || null,
+        p_cursor_id: cursor?.id || null,
+      });
+      if (error) {
+        console.warn(`[workspace] normalized ${collection} page error:`, error.message);
+        return null;
+      }
+      return data as WorkspacePage;
+    }));
+
+    if (pages.some(page => !page || page.fallbackRequired || page.readSource !== 'normalized')) {
+      return null;
+    }
+    if (pages.some((page, index) => page?.collection !== pending[index] || !Array.isArray(page.records))) {
+      return null;
+    }
+
+    const nextPending: PaginatedWorkspaceCollection[] = [];
+    let invalidProgress = false;
+    pages.forEach((page, index) => {
+      const collection = pending[index];
+      if (!page || page.collection !== collection || !Array.isArray(page.records)) return;
+      records[collection] = mergePageRecords(records[collection], page.records);
+      if (page.hasMore && page.nextCursor?.timestamp && page.nextCursor?.id) {
+        const previousCursor = cursors[collection];
+        if (previousCursor?.timestamp === page.nextCursor.timestamp && previousCursor.id === page.nextCursor.id) {
+          invalidProgress = true;
+          return;
+        }
+        cursors[collection] = page.nextCursor;
+        nextPending.push(collection);
+      }
+    });
+    if (invalidProgress) return null;
+    pending = nextPending;
+  }
+
+  return records;
 };
 
 const normalizeWorkspace = (workspace: Partial<TenantWorkspace> | null | undefined): TenantWorkspace | null => {
@@ -150,6 +240,13 @@ const appendMergeWorkspaceKeys: WorkspaceArrayKey[] = [
   'branches',
   'branchStocks',
   'branchStaffAssignments',
+  // NOTE: expenses/deliveries/purchases were deliberately NOT added here.
+  // mergeRecordsById is a union merge with no deletion tracking (no
+  // tombstone set), which is only safe for keys that are effectively
+  // add-only. For record types that get deleted-by-omission (an update
+  // simply no longer includes the removed record), the union merge
+  // resurrects the deleted record from mergeBase — proven by
+  // tenantWorkspace.race.test.ts's purchases out-of-order-write test.
 ];
 
 const countWorkspaceItems = (workspace: Partial<TenantWorkspace> | null | undefined): Record<WorkspaceArrayKey, number> => {
@@ -252,7 +349,7 @@ async function loadLegacyTenantWorkspaceMeta(client: any, tenantId: string): Pro
     expenses: scopedArray(byKey.get('expenses_map'), tenantId).length ? scopedArray(byKey.get('expenses_map'), tenantId) : scopedArray(byKey.get('expenses'), tenantId),
     deliveries: scopedArray(byKey.get('deliveries_map'), tenantId).length ? scopedArray(byKey.get('deliveries_map'), tenantId) : scopedArray(byKey.get('deliveries'), tenantId),
     pendingDeliveryNotes: scopedArray(byKey.get('pendingDeliveryNotes_map'), tenantId).length ? scopedArray(byKey.get('pendingDeliveryNotes_map'), tenantId) : scopedArray(byKey.get('pendingDeliveryNotes'), tenantId),
-    purchases: scopedArray(byKey.get('purchases_map'), tenantId).length ? scopedArray(byKey.get('purchases_map'), tenantId) : scopedArray(byKey.get('purchases'), tenantId),
+    purchases: scopedArray(byKey.get('purchases'), tenantId).length ? scopedArray(byKey.get('purchases'), tenantId) : scopedArray(byKey.get('purchases_map'), tenantId),
     branches: scopedArray(byKey.get('branches_map'), tenantId).length ? scopedArray(byKey.get('branches_map'), tenantId) : scopedArray(byKey.get('branches'), tenantId),
     branchStocks: scopedArray(byKey.get('branchStocks_map'), tenantId).length ? scopedArray(byKey.get('branchStocks_map'), tenantId) : scopedArray(byKey.get('branchStocks'), tenantId),
     branchStaffAssignments: scopedArray(byKey.get('branchStaffAssignments_map'), tenantId).length ? scopedArray(byKey.get('branchStaffAssignments_map'), tenantId) : scopedArray(byKey.get('branchStaffAssignments'), tenantId),
@@ -308,7 +405,32 @@ async function saveRemoteWorkspaceBackup(
 
 // ─── Load from DB ──────────────────────────────────────────────────────────
 
-export async function loadTenantWorkspace(tenantId: string): Promise<TenantWorkspace | null> {
+type WorkspaceCoreResult = {
+  payload: TenantWorkspace;
+  // True once payload already contains complete historical ledgers -- no
+  // separate paginated fetch is needed (the RPC returned a non-paginated
+  // readSource, or we went through the legacy/compatibility path below,
+  // which always resolves a complete payload in one query).
+  complete: boolean;
+};
+
+// Concurrent loads for the same tenant (App.tsx's cache-warming call racing
+// Dashboard.tsx's own initial load, a branch switch overlapping an
+// in-progress load, etc.) share one request instead of hitting the database
+// twice. The same tracking gates writes -- see waitForTenantWorkspaceLoad --
+// so a save can never fire while a workspace is still missing its
+// just-in-progress historical ledgers.
+const inFlightCoreLoads = new Map<string, Promise<WorkspaceCoreResult | null>>();
+const inFlightLedgerLoads = new Map<string, Promise<void>>();
+
+export async function waitForTenantWorkspaceLoad(tenantId: string): Promise<void> {
+  const core = inFlightCoreLoads.get(tenantId);
+  if (core) await core.catch(() => null);
+  const ledgers = inFlightLedgerLoads.get(tenantId);
+  if (ledgers) await ledgers.catch(() => undefined);
+}
+
+async function fetchWorkspaceCore(tenantId: string): Promise<WorkspaceCoreResult | null> {
   if (!tenantId) return null;
   if (!isBrowserOnline()) return null;
 
@@ -317,13 +439,22 @@ export async function loadTenantWorkspace(tenantId: string): Promise<TenantWorks
 
   try {
     if (typeof client.rpc === 'function') {
-      const scopedResult = await client.rpc('get_current_branch_workspace');
+      let scopedResult = await client.rpc('get_current_branch_workspace_bootstrap_v3');
+      const missingV3Rpc = ['PGRST202', '42883'].includes(String(scopedResult.error?.code || ''));
+      if (missingV3Rpc) scopedResult = await client.rpc('get_current_branch_workspace_v2');
+      const missingV2Rpc = ['PGRST202', '42883'].includes(String(scopedResult.error?.code || ''));
+      if (missingV2Rpc) scopedResult = await client.rpc('get_current_branch_workspace');
       if (!scopedResult.error && scopedResult.data?.payload) {
-        const scoped = normalizeWorkspace(scopedResult.data.payload as TenantWorkspace);
-        if (!scoped) return null;
-        writeLocalSaleTombstones(tenantId, scoped.saleTombstones || {});
-        cacheWorkspace(tenantId, scoped);
-        return scoped;
+        const payload = scopedResult.data.payload as TenantWorkspace;
+        const complete = scopedResult.data.readSource !== 'normalized_paginated';
+        if (complete) {
+          const scoped = normalizeWorkspace(payload);
+          if (!scoped) return null;
+          writeLocalSaleTombstones(tenantId, scoped.saleTombstones || {});
+          cacheWorkspace(tenantId, scoped);
+          return { payload: scoped, complete: true };
+        }
+        return { payload, complete: false };
       }
       const missingRpc = ['PGRST202', '42883'].includes(String(scopedResult.error?.code || ''));
       if (scopedResult.error && !missingRpc) {
@@ -334,7 +465,9 @@ export async function loadTenantWorkspace(tenantId: string): Promise<TenantWorks
 
     // Compatibility path for environments where the security migration has
     // not been applied yet. Once deployed, branch users only receive RPC-
-    // filtered payloads and raw table RLS is administrator-only.
+    // filtered payloads and raw table RLS is administrator-only. This path
+    // always resolves a complete payload in one query -- no ledger
+    // pagination applies here.
     const { data, error } = await client
       .from('tenant_workspaces')
       .select('payload, updated_at')
@@ -356,7 +489,7 @@ export async function loadTenantWorkspace(tenantId: string): Promise<TenantWorks
             { onConflict: 'tenant_id' }
           );
         cacheWorkspace(tenantId, legacy);
-        return legacy;
+        return { payload: legacy, complete: true };
       }
       return null;
     }
@@ -376,7 +509,7 @@ export async function loadTenantWorkspace(tenantId: string): Promise<TenantWorks
             { onConflict: 'tenant_id' }
           );
         cacheWorkspace(tenantId, legacy);
-        return legacy;
+        return { payload: legacy, complete: true };
       }
     }
     const legacyMeta = await loadLegacyTenantWorkspaceMeta(client, tenantId);
@@ -402,15 +535,110 @@ export async function loadTenantWorkspace(tenantId: string): Promise<TenantWorks
           );
         cacheWorkspace(tenantId, reconciled);
         writeLocalSaleTombstones(tenantId, reconciled.saleTombstones || {});
-        return reconciled;
+        return { payload: reconciled, complete: true };
       }
     }
     cacheWorkspace(tenantId, safe);
-    return safe;
+    return { payload: safe, complete: true };
   } catch (e) {
     console.warn('[workspace] load exception:', e);
     return null;
   }
+}
+
+async function completeWorkspaceLedgers(tenantId: string, core: WorkspaceCoreResult): Promise<void> {
+  if (core.complete) return;
+  const client = await getConfiguredClient();
+  if (!client) return;
+  try {
+    const ledgers = await loadNormalizedWorkspaceLedgers(client);
+    let payload: TenantWorkspace = core.payload;
+    if (!ledgers) {
+      const fallback = await client.rpc('get_current_branch_workspace_v2');
+      if (fallback.error || !fallback.data?.payload) return;
+      payload = fallback.data.payload as TenantWorkspace;
+    } else {
+      payload = { ...payload, ...ledgers };
+    }
+    const scoped = normalizeWorkspace(payload);
+    if (!scoped) return;
+    writeLocalSaleTombstones(tenantId, scoped.saleTombstones || {});
+    cacheWorkspace(tenantId, scoped);
+  } catch (e) {
+    console.warn('[workspace] ledger load exception:', e);
+  }
+}
+
+/**
+ * Resolves as soon as the fast "core" payload (settings, products, stock,
+ * branches, permissions) is available -- callers that only need to unblock
+ * the UI (Dashboard's initial mount) should use this instead of the full
+ * loadTenantWorkspace(), which additionally waits for the complete paginated
+ * historical ledgers (sales/expenses/deliveries/purchases). Those continue
+ * loading in the background; once they land, the runtime cache
+ * (readCachedWorkspace) is updated in place -- await
+ * waitForTenantWorkspaceLoad(tenantId) and re-read the cache to pick them up.
+ */
+export function loadTenantWorkspaceCore(tenantId: string): Promise<TenantWorkspace | null> {
+  if (!tenantId) return Promise.resolve(null);
+  let core = inFlightCoreLoads.get(tenantId);
+  if (!core) {
+    core = fetchWorkspaceCore(tenantId).finally(() => {
+      if (inFlightCoreLoads.get(tenantId) === core) inFlightCoreLoads.delete(tenantId);
+    });
+    inFlightCoreLoads.set(tenantId, core);
+  }
+  return core.then(result => {
+    if (!result) return null;
+    if (!result.complete) {
+      let ledgers = inFlightLedgerLoads.get(tenantId);
+      if (!ledgers) {
+        ledgers = completeWorkspaceLedgers(tenantId, result).finally(() => {
+          if (inFlightLedgerLoads.get(tenantId) === ledgers) inFlightLedgerLoads.delete(tenantId);
+        });
+        inFlightLedgerLoads.set(tenantId, ledgers);
+      }
+    }
+    return result.payload;
+  });
+}
+
+/**
+ * Full workspace load, including complete historical ledgers. Existing
+ * callers (realtime refresh, branch switching, retries) keep this contract
+ * unchanged; internally it now shares the same in-flight core/ledger
+ * tracking as loadTenantWorkspaceCore, so calling both concurrently for the
+ * same tenant never issues duplicate requests.
+ */
+export async function loadTenantWorkspace(tenantId: string): Promise<TenantWorkspace | null> {
+  const core = await loadTenantWorkspaceCore(tenantId);
+  if (!core) return null;
+  await waitForTenantWorkspaceLoad(tenantId);
+  return readCachedWorkspace(tenantId) || core;
+}
+
+/** Reloads branch-scoped workspace data after the active branch changes. */
+export async function reloadTenantWorkspace(tenantId: string): Promise<TenantWorkspace | null> {
+  if (!tenantId) return null;
+  inFlightCoreLoads.delete(tenantId);
+  inFlightLedgerLoads.delete(tenantId);
+  const core = await fetchWorkspaceCore(tenantId);
+  if (!core) return null;
+  if (!core.complete) {
+    const ledgers = completeWorkspaceLedgers(tenantId, core).finally(() => {
+      if (inFlightLedgerLoads.get(tenantId) === ledgers) inFlightLedgerLoads.delete(tenantId);
+    });
+    inFlightLedgerLoads.set(tenantId, ledgers);
+  }
+  await waitForTenantWorkspaceLoad(tenantId);
+  return readCachedWorkspace(tenantId) || core.payload;
+}
+
+/** Performs an uncached authoritative core read for post-save verification. */
+export async function loadTenantProductFresh(tenantId: string, productId: string): Promise<Product | null> {
+  if (!tenantId || !productId) return null;
+  const fresh = await fetchWorkspaceCore(tenantId);
+  return fresh?.payload.products?.find(product => product.id === productId) || null;
 }
 
 // ─── Save to DB ────────────────────────────────────────────────────────────
@@ -433,9 +661,10 @@ async function saveTenantWorkspaceNow(
     return false;
   }
 
-  try {
-    const currentSafe = readCachedWorkspace(tenantId);
-    let remoteSafe: TenantWorkspace | null = null;
+  // Start the remote guard while the historical ledgers finish loading. The
+  // guard is independent of the local load, so awaiting them sequentially
+  // adds a full network round-trip to every foreground save.
+  const remoteWorkspacePromise = (async (): Promise<TenantWorkspace | null> => {
     try {
       const scopedRemote = typeof client.rpc === 'function'
         ? await client.rpc('get_current_branch_workspace')
@@ -452,12 +681,24 @@ async function saveTenantWorkspaceNow(
           .select('payload, updated_at')
           .eq('tenant_id', tenantId)
           .maybeSingle();
-      if (!remoteError && remoteData?.payload) {
-        remoteSafe = normalizeWorkspace(remoteData.payload as TenantWorkspace);
-      }
+      if (remoteError || !remoteData?.payload) return null;
+      return normalizeWorkspace(remoteData.payload as TenantWorkspace);
     } catch (error: any) {
       console.warn('[workspace] remote guard load exception:', error?.message || error);
+      return null;
     }
+  })();
+
+  // A workspace whose historical ledgers (sales/expenses/deliveries/
+  // purchases) are still streaming in from loadTenantWorkspaceCore's
+  // background completion has an incomplete local snapshot -- writing it now
+  // would risk shrinking those collections on the server. Wait for that
+  // load to finish (typically well under a second) before writing.
+  await waitForTenantWorkspaceLoad(tenantId);
+
+  try {
+    const currentSafe = readCachedWorkspace(tenantId);
+    const remoteSafe = await remoteWorkspacePromise;
 
     const hasSaleDeletionIntent = Object.keys(workspace.saleTombstones || {}).length > 0;
     if (!workspaceHasBusinessData(workspace) && !hasSaleDeletionIntent) {
@@ -728,6 +969,23 @@ export async function flushPendingTenantWorkspace(tenantId: string): Promise<voi
   if (queued) await queued.catch(() => false);
 }
 
+// True while a save for this tenant is still debouncing (pendingWorkspaceAutoSaves),
+// queued/in-flight on the network (workspaceSaveQueue), or a settings save (staff
+// registration, roles, etc. — saveTenantSettings) is in flight on its own separate
+// queue (settingsSaveQueue). Callers that apply incoming remote data (e.g. a
+// realtime payload) should skip while this is true — otherwise a write that is
+// still in flight can complete after the remote read was taken, and the remote
+// payload (missing the not-yet-committed edit) would overwrite the fresher local
+// state. Previously this only checked the workspace queues, not settingsSaveQueue —
+// a staff member registered via Settings/Staff could be silently wiped from the
+// screen once the fixed 10s LOCAL_WORKSPACE_PROTECTION_MS window in Dashboard.tsx
+// expired, if the settings save was still in flight (or its write hadn't yet
+// become visible to a subsequent read) when a realtime/poll refresh landed.
+export function hasPendingTenantWorkspaceSave(tenantId: string): boolean {
+  if (!tenantId) return false;
+  return pendingWorkspaceAutoSaves.has(tenantId) || workspaceSaveQueue.has(tenantId) || settingsSaveQueue.has(tenantId);
+}
+
 // ─── Real-time subscription ─────────────────────────────────────────────────
 
 export async function subscribeToTenantWorkspace(
@@ -768,6 +1026,42 @@ export async function subscribeToTenantWorkspace(
     };
   } catch (e) {
     console.warn('[workspace] subscribe exception:', e);
+    return () => undefined;
+  }
+}
+
+// A tenant's business type (retail vs pharmacy) lives on the `tenants` row,
+// not inside the workspace payload, so it needs its own lightweight
+// subscription -- reuses the same realtime channel/client as the workspace
+// subscription above, no polling added.
+export async function subscribeToTenantBusinessType(
+  tenantId: string,
+  onBusinessType: (businessType: string) => void
+): Promise<() => void> {
+  const client = await getConfiguredClient();
+  if (!client) return () => undefined;
+
+  try {
+    const channelId = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    const channel: RealtimeChannel = client
+      .channel(`tenant-business-type:${tenantId}:${channelId}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'tenants', filter: `id=eq.${tenantId}` },
+        (event: any) => {
+          const businessType = event.new?.business_type;
+          if (typeof businessType === 'string' && businessType) {
+            onBusinessType(businessType);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      try { client.removeChannel(channel); } catch { /* ignore */ }
+    };
+  } catch (e) {
+    console.warn('[workspace] business type subscribe exception:', e);
     return () => undefined;
   }
 }

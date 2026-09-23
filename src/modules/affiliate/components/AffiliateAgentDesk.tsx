@@ -18,13 +18,15 @@ import {
   HardDrive, Info, LoaderCircle, Lock, Menu, MessageSquare, Monitor,
   RefreshCw, Send, Settings, ShieldAlert, ShieldCheck, TrendingUp,
   Users, Video, Wallet, XCircle, Zap, AlertCircle,
-  Download, LogOut, PhoneCall,
+  Download, LogOut, PhoneCall, Bell,
 } from 'lucide-react';
 import {
   AffiliateAgentWorkspace,
+  AffiliateNotification,
   createAffiliateMeeting,
   createAffiliateTask,
   loadAffiliateAgentWorkspace,
+  markAffiliateNotificationRead,
 } from '../utils/affiliateWorkspace';
 import {
   isOnline,
@@ -40,6 +42,7 @@ import { isSettledPaymentStatus } from '../../../utils/financialStatus';
 import GlobalStickyAd from '../../../components/GlobalStickyAd';
 import SaaSHardwarePOS from '../../../shared/components/SaaSHardwarePOS';
 import SaaSHardwareInventory from '../../../shared/components/SaaSHardwareInventory';
+import { formatLocalMonth } from '../../../utils/localDate';
 import {
   SubAffiliateProfile,
   MonthlyReconciliationRow,
@@ -303,7 +306,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
   const [editPayoutMethod, setEditPayoutMethod] = useState('');
 
   // Month filter for reconciliation
-  const [reconMonth, setReconMonth] = useState(() => new Date().toISOString().slice(0, 7));
+  const [reconMonth, setReconMonth] = useState(() => formatLocalMonth());
 
   // Partner identity — useState so it updates immediately after code change
   const [partnerInfo, setPartnerInfo] = useState<any>(() => {
@@ -315,6 +318,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
   });
   const [partnerProfileDraft, setPartnerProfileDraft] = useState({ name: '', phone: '', payoutMethod: '', payoutPhone: '' });
   const [partnerPrefs, setPartnerPrefs] = useState({ emailUpdates: true, compactView: false });
+  const [partnerNotifications, setPartnerNotifications] = useState<AffiliateNotification[]>([]);
 
   useEffect(() => {
     const prefsKey = `jasper_partner_preferences_${partnerInfo?.id || 'local'}`;
@@ -395,6 +399,31 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
 
   const partnerName = partnerInfo?.name || workspace?.agentName || 'Partner';
   const partnerId   = partnerInfo?.id || 'partner-local';
+
+  useEffect(() => {
+    if (!partnerInfo?.id) return;
+    const loadNotifications = async () => {
+      try {
+        const { getSecureDataBridgeClient } = await import('../../secureDataBridge');
+        const client: any = await getSecureDataBridgeClient();
+        const { data } = await client
+          .from('affiliate_notification_events')
+          .select('id, title, message, priority, created_at, read_at')
+          .eq('partner_id', partnerInfo.id)
+          .order('created_at', { ascending: false })
+          .limit(50);
+        if (data) setPartnerNotifications(data);
+      } catch { /* Notifications are non-critical -- fail silently. */ }
+    };
+    loadNotifications();
+  }, [partnerInfo?.id]);
+
+  const handleMarkPartnerNotificationRead = async (notificationId: string) => {
+    setPartnerNotifications(prev => prev.map(n => n.id === notificationId ? { ...n, read_at: new Date().toISOString() } : n));
+    try {
+      await markAffiliateNotificationRead(notificationId);
+    } catch { /* Best-effort. */ }
+  };
 
   // partnerCode: reads from session — NEVER generates random (that caused disappearing)
   const partnerCode = useMemo(() => {
@@ -494,6 +523,14 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
       let dbRows: any[] = [];
       let authUserId = '';
 
+      const { data: sessionData } = await client.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      if (accessToken) {
+        const response = await fetch('/api/partner/sub-affiliates', { headers: { Authorization: `Bearer ${accessToken}` } });
+        const result = await response.json().catch(() => ({}));
+        if (response.ok && Array.isArray(result.affiliates)) dbRows = result.affiliates;
+      }
+
       const { data: authUser } = await client.auth.getUser();
       if (authUser?.user) authUserId = authUser.user.id;
 
@@ -511,7 +548,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
       const dbCandidates = Array.from(new Set([...parentCandidates, resolvedPartnerId, authUserId].filter(Boolean)));
       const dbUuidCandidates = dbCandidates.filter(isUuidLike);
 
-      if (dbUuidCandidates.length) {
+      if (dbRows.length === 0 && dbUuidCandidates.length) {
         const { data } = await client.from('affiliates')
           .select(affiliateColumns)
           .in('parent_super_agent_id', dbUuidCandidates)
@@ -1167,6 +1204,29 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
 
               <WhtNotice />
 
+              {partnerNotifications.length > 0 && (
+                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-1">
+                  <h3 className="text-sm font-black text-white mb-3 flex items-center gap-2">
+                    <Bell className="w-4 h-4 text-amber-400" /> Notifications
+                  </h3>
+                  <div className="divide-y divide-slate-800">
+                    {partnerNotifications.slice(0, 5).map(n => (
+                      <div key={n.id}
+                        className={`py-3 cursor-pointer ${!n.read_at ? 'bg-amber-500/5 -mx-2 px-2 rounded-lg' : ''}`}
+                        onClick={() => !n.read_at && handleMarkPartnerNotificationRead(n.id)}
+                      >
+                        <div className="flex items-center gap-2">
+                          <p className="text-xs font-bold text-white">{n.title}</p>
+                          {!n.read_at && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" />}
+                        </div>
+                        <p className="mt-1 text-xs text-slate-400 leading-5">{n.message}</p>
+                        <p className="mt-1 text-[10px] text-slate-600">{new Date(n.created_at).toLocaleString()}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* 8 KPI cards */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {[
@@ -1222,15 +1282,15 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
           {/* ══ RECONCILIATION ══ */}
           {activeTab === 'reconciliation' && (
             <div className="space-y-6">
-              <div className="flex items-start justify-between gap-4">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <h2 className="text-lg font-black text-white">Monthly Reconciliation</h2>
                   <p className="text-xs text-slate-400 mt-0.5">20% split: 5% manager + 15% sub-affiliate gross · WHT shown for all affiliates</p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <input type="month" value={reconMonth} onChange={e => setReconMonth(e.target.value)}
                     className="bg-slate-800 border border-slate-700 text-white rounded-xl px-3 py-2 text-xs outline-none focus:border-amber-500" />
-                  <button className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold cursor-pointer border-none">
+                  <button className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold cursor-pointer border-none shrink-0">
                     <Download className="w-3.5 h-3.5" /> Export
                   </button>
                 </div>
@@ -1370,6 +1430,9 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
                               <p className="text-[10px] text-slate-500 mt-0.5">{aff.phone}</p>
                               <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                                 <span className="text-[9px] font-black text-amber-400 font-mono bg-amber-500/10 px-2 py-0.5 rounded">{aff.promoCode}</span>
+                                <span className="text-[9px] font-bold text-emerald-300 bg-emerald-500/10 px-2 py-0.5 rounded">
+                                  Parent code: {partnerCode}
+                                </span>
                                 <TinBadge status={aff.tinStatus} />
                               </div>
                             </div>

@@ -1,0 +1,190 @@
+// Orvix Docs — isolated Prisma schema for the `orvix-docs` Supabase project.
+//
+// This is intentionally a SEPARATE schema.prisma from ../../prisma/schema.prisma
+// (the main ERP's control-plane schema). Separate datasource, separate
+// generated client output, separate migration history. See
+// docs/orvix-docs-architecture.md for the full design and rationale.
+//
+// Generate:  npm run docs:prisma:generate
+// Migrate:   npm run docs:prisma:migrate   (local/dev only, needs DATABASE_URL_DOCS + DIRECT_URL_DOCS)
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/docs-client"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL_DOCS")
+  directUrl = env("DIRECT_URL_DOCS")
+}
+
+// One row per Orvix Docs account. Self-registration is the primary path —
+// erpTenantId is nullable and only set if the person chooses to link an
+// existing Orvix POS/ERP business. Deliberately no FK into the main app's
+// tenants table — there is no DB link between the two Supabase projects,
+// just a UUID copied at link time, resolved again via
+// GET /api/docs-bridge/tenants/:id when needed.
+model DocsTenant {
+  id          String   @id @default(uuid())
+  erpTenantId String?  @unique @map("erp_tenant_id") // nullable: only set for linked ERP accounts
+  slug        String   @unique // {slug}.docs.orvix.africa
+  displayName String   @map("display_name")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  users        DocsUser[]
+  subscription Subscription?
+  settings     DocsSettings?
+  documents    Document[]
+
+  @@map("docs_tenants")
+}
+
+// A person who signed in — via the same Google OAuth Orvix POS uses, or via
+// email/password on this project's own Supabase Auth. This is Orvix Docs'
+// own identity, not a copy of an ERP user row: a walk-in signup has no ERP
+// account to copy from at all.
+model DocsUser {
+  id           String     @id // == auth.users.id in the orvix-docs Supabase project
+  tenantId     String     @map("tenant_id")
+  tenant       DocsTenant @relation(fields: [tenantId], references: [id])
+  email        String     @unique
+  name         String?
+  authProvider AuthProvider @map("auth_provider")
+  role         DocsRole   @default(OWNER) // OWNER for now; STAFF reserved if team seats are added later
+  createdAt    DateTime   @default(now()) @map("created_at")
+  lastSignInAt DateTime?  @map("last_sign_in_at")
+
+  @@index([tenantId])
+  @@map("docs_users")
+}
+
+enum AuthProvider {
+  GOOGLE
+  PASSWORD
+}
+
+enum DocsRole {
+  OWNER
+  STAFF
+}
+
+model Subscription {
+  id            String     @id @default(uuid())
+  tenantId      String     @unique @map("tenant_id")
+  tenant        DocsTenant @relation(fields: [tenantId], references: [id])
+  tier          Tier       @default(FREE)
+  activatedAt   DateTime?  @map("activated_at")
+  activatedBy   String?    @map("activated_by") // admin user id who approved it
+  proofFileUrl  String?    @map("proof_file_url") // WhatsApp/receipt screenshot, manual approval flow
+  amountPaidTzs Int?       @map("amount_paid_tzs")
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
+
+  @@map("subscriptions")
+}
+
+enum Tier {
+  FREE
+  PREMIUM
+}
+
+// Branding is available to BOTH tiers — Free users can upload a logo too;
+// the tier only controls the watermark/ad and the invoice-tracking dashboard,
+// never how "yours" a document looks.
+model DocsSettings {
+  id           String     @id @default(uuid())
+  tenantId     String     @unique @map("tenant_id")
+  tenant       DocsTenant @relation(fields: [tenantId], references: [id])
+  logoUrl      String?    @map("logo_url")
+  primaryColor String?    @map("primary_color")
+  footerNote   String?    @map("footer_note")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  @@map("docs_settings")
+}
+
+// PREMIUM ONLY. This table is never written to for a FREE-tier generation —
+// see docs/orvix-docs-architecture.md section 10. There is deliberately no
+// Product/Item catalog model anywhere in this schema: a user types their
+// items into the document form fresh every time (name, qty, price — free
+// text, not a saved, reusable catalog row). What persists, for Premium, is
+// the resulting document with that item data snapshotted inside it — never
+// a separate reusable product list.
+model Document {
+  id            String         @id @default(uuid())
+  tenantId      String         @map("tenant_id")
+  tenant        DocsTenant     @relation(fields: [tenantId], references: [id])
+  type          DocumentType
+  documentNo    String         @map("document_no") // e.g. QUO-0001, PI-0001, INV-0001
+  status        DocumentStatus @default(DRAFT)
+  paymentStatus PaymentStatus? @map("payment_status") // null for quotations/receipts
+
+  // Snapshot of the customer/item data as typed into the form at generation
+  // time. Not a foreign key to anything — there is nothing to reference.
+  customerSnapshot Json @map("customer_snapshot")
+  itemsSnapshot    Json @map("items_snapshot")
+  totals           Json // subtotal, tax, discount, grand total
+
+  pdfUrl    String @map("pdf_url") // Supabase Storage object, always set (row only exists for Premium)
+  createdBy String @map("created_by") // DocsUser.id
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  payments DocumentPayment[]
+
+  @@index([tenantId, type])
+  @@index([tenantId, status])
+  @@map("documents")
+}
+
+enum DocumentType {
+  QUOTATION
+  PROFORMA_INVOICE
+  SALES_INVOICE
+  POS_RECEIPT
+  DELIVERY_NOTE
+}
+
+enum DocumentStatus {
+  DRAFT
+  ISSUED
+  VOID
+}
+
+enum PaymentStatus {
+  UNPAID
+  PARTIALLY_PAID
+  FULLY_PAID
+}
+
+// Premium-only: tracking partial payments against an invoice over time.
+model DocumentPayment {
+  id         String   @id @default(uuid())
+  documentId String   @map("document_id")
+  document   Document @relation(fields: [documentId], references: [id])
+  amountTzs  Int      @map("amount_tzs")
+  paidAt     DateTime @map("paid_at")
+  note       String?
+  recordedBy String   @map("recorded_by")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([documentId])
+  @@map("document_payments")
+}
+
+// Abuse-control counter only — no document content, no customer/item data.
+// One row per DocsUser per UTC day, incremented on every FREE-tier
+// /api/docs/generate call, reset by simply aging out (no cron needed: a
+// day's row is only ever read/written on that same day).
+model FreeGenerationCounter {
+  id        String   @id @default(uuid())
+  userId    String   @map("user_id") // DocsUser.id
+  day       DateTime @db.Date
+  count     Int      @default(0)
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([userId, day])
+  @@map("free_generation_counters")
+}

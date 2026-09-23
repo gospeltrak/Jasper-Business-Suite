@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import jsPDF from 'jspdf';
 import { StaffSettings, StaffAllowance, SystemSettings, Sale, Expense, Delivery, Tenant } from '../../types';
 import {
@@ -26,12 +27,17 @@ import {
   Wallet,
   Briefcase,
   ClipboardList,
-  Lock
+  Lock,
+  FileText,
+  ChevronLeft,
+  ChevronRight,
+  MoreVertical
 } from 'lucide-react';
-import { DEFAULT_CUSTOM_ROLES } from '../../utils/defaultCustomRoles';
 import { compressImageFile } from '../../shared/utils/imageCompression';
 import { getMaskedAccountReference } from '../../shared/utils/paymentAccounts';
 import { loadBranchWorkspace } from '../branches/branchApi';
+import { getSecureDataBridgeClient } from '../secureDataBridge';
+import { formatLocalDate } from '../utils/localDate';
 
 const currency = 'TSh';
 
@@ -71,13 +77,13 @@ const defaultAllowanceCategories = [
   'Other allowance'
 ];
 
-const todayIsoDate = () => new Date().toISOString().slice(0, 10);
+const todayIsoDate = () => formatLocalDate();
 
 const toDateOnly = (value?: string) => {
   if (!value) return '';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value.slice(0, 10);
-  return date.toISOString().slice(0, 10);
+  return formatLocalDate(date);
 };
 
 const getPeriodFromPreset = (preset: PayrollPeriodPreset, current?: PayrollPeriod): PayrollPeriod => {
@@ -236,16 +242,18 @@ export default function DashboardStaff({
   sales,
   expenses,
   activeTenant,
+  activeBranchId,
   deliveries,
   onPayStaff,
   payrollEnabled,
   canPayPayroll,
 }: {
   systemSettings: SystemSettings;
-  onUpdateSettings: (s: SystemSettings) => void;
+  onUpdateSettings: (s: SystemSettings) => Promise<boolean> | void;
   sales: Sale[];
   expenses: Expense[];
   activeTenant: Tenant;
+  activeBranchId?: string | null;
   deliveries: Delivery[];
   onPayStaff: (expense: Expense) => void | boolean | Promise<void | boolean>;
   payrollEnabled: boolean;
@@ -256,16 +264,18 @@ export default function DashboardStaff({
   const [staffStatuses, setStaffStatuses] = useState<Record<string, boolean>>({});
   const [sessionLogs, setSessionLogs] = useState<StaffSessionRecord[]>([]);
   const [sessionNow, setSessionNow] = useState(Date.now());
-  const customRoles = systemSettings.customRoles || DEFAULT_CUSTOM_ROLES;
+  // A brand-new tenant has no roles until the admin creates one in
+  // Settings → Roles & Permissions — no hardcoded fallback list here.
+  const customRoles = systemSettings.customRoles || [];
   const paymentAccounts = (systemSettings.paymentChannels || [])
     .filter(account => account.category !== 'person' && account.status !== 'inactive' && account.status !== 'archived');
 
   const [roleType, setRoleType] = useState<'standard' | 'delivery'>('standard');
   const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  const [password, setPassword] = useState('');
   const [profilePic, setProfilePic] = useState('');
-  const [selectedRole, setSelectedRole] = useState(customRoles[0]?.name || 'Seller');
+  const [selectedRole, setSelectedRole] = useState(customRoles[0]?.name || '');
   const [classification, setClassification] = useState<'rider' | 'driver'>('rider');
   const [vehicleType, setVehicleType] = useState<'motorcycle' | 'tuktuk' | 'car'>('motorcycle');
   const [vehicleColor, setVehicleColor] = useState('');
@@ -278,9 +288,9 @@ export default function DashboardStaff({
   const [salaryType, setSalaryType] = useState<NonNullable<StaffSettings['salaryType']>>('monthly');
   const [salaryStartDate, setSalaryStartDate] = useState(todayIsoDate());
   const [salaryNotes, setSalaryNotes] = useState('');
-  const [credentialStaffId, setCredentialStaffId] = useState('');
   const [credentialPhone, setCredentialPhone] = useState('');
-  const [credentialPassword, setCredentialPassword] = useState('');
+  const [credentialRole, setCredentialRole] = useState('');
+  const [credentialStaffId, setCredentialStaffId] = useState('');
   const [selectedStaff, setSelectedStaff] = useState<StaffSettings | null>(null);
   const [staffToRemove, setStaffToRemove] = useState<StaffSettings | null>(null);
   const [staffToPay, setStaffToPay] = useState<StaffSettings | null>(null);
@@ -292,7 +302,6 @@ export default function DashboardStaff({
   const [salaryPaymentNotes, setSalaryPaymentNotes] = useState('');
   const [salaryPaymentAttachment, setSalaryPaymentAttachment] = useState<{ name: string; data: string } | null>(null);
   const [activeBranchContext, setActiveBranchContext] = useState<{ id: string; name: string } | null>(null);
-  const [temporaryPassword, setTemporaryPassword] = useState('');
   const [allowanceForm, setAllowanceForm] = useState({
     name: 'Food allowance',
     customName: '',
@@ -304,10 +313,26 @@ export default function DashboardStaff({
   });
   const [payrollPeriod, setPayrollPeriod] = useState<PayrollPeriod>(() => getPeriodFromPreset('month'));
   const [successMessage, setSuccessMessage] = useState('');
+  const [invitationLink, setInvitationLink] = useState('');
+  const [isRegisteringStaff, setIsRegisteringStaff] = useState(false);
+  const [viewingStaffReport, setViewingStaffReport] = useState<StaffSettings | null>(null);
+  const [openStaffActionId, setOpenStaffActionId] = useState<string | null>(null);
+  const [desktopActionMenuPos, setDesktopActionMenuPos] = useState<{ top: number; right: number } | null>(null);
+  const [mobileActionsStaff, setMobileActionsStaff] = useState<StaffSettings | null>(null);
 
   useEffect(() => {
     setStaffList(systemSettings.staffs || []);
   }, [systemSettings.staffs]);
+
+  // Keep the role picker valid as roles get created/renamed/deleted in
+  // Settings while this form is open — it's no longer allowed to silently
+  // fall back to a hardcoded role name that may not exist.
+  useEffect(() => {
+    if (!customRoles.some(role => role.name === selectedRole)) {
+      setSelectedRole(customRoles[0]?.name || '');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customRoles]);
 
   useEffect(() => {
     let mounted = true;
@@ -399,7 +424,9 @@ export default function DashboardStaff({
       expensesLogged,
       profitGenerated,
       sessionCount: sessions.length,
-      device: activeSession?.device || lastSession?.device || 'Unknown'
+      device: activeSession?.device || lastSession?.device || 'Unknown',
+      deliveriesCount: staffDeliveries.length,
+      deliveryRevenue
     };
   }
 
@@ -420,20 +447,80 @@ export default function DashboardStaff({
     setter(compressed);
   };
 
-  const persistStaffList = (updatedStaffs: StaffSettings[]) => {
+  // Awaits the actual database write before the caller treats a change as
+  // final (e.g. closing the registration form) — the write to the backing
+  // store was previously fire-and-forget, so navigating away or refreshing
+  // right after registering a staff member could lose them if the request
+  // hadn't landed yet.
+  const persistStaffList = async (updatedStaffs: StaffSettings[]): Promise<boolean> => {
     setStaffList(updatedStaffs);
-    onUpdateSettings({ ...systemSettings, staffs: updatedStaffs });
+    const result = onUpdateSettings({ ...systemSettings, staffs: updatedStaffs });
+    if (result && typeof (result as Promise<boolean>).then === 'function') {
+      return await (result as Promise<boolean>);
+    }
+    return true;
   };
 
-  const handleRegisterStaff = (e: React.FormEvent) => {
+  // Updates an already-active staff member's real permissions directly,
+  // without a new invitation link. Returns true if their account existed
+  // and was updated (the new role now applies from their next sign-in --
+  // their current, already-open session is untouched), or false if they
+  // have no account yet (haven't accepted their first invitation), which
+  // still needs the invitation flow below since there's no account to update.
+  const updateStaffRoleDirectly = async (staff: StaffSettings): Promise<boolean> => {
+    if (!staff.email) return false;
+    const client: any = await getSecureDataBridgeClient();
+    const { data } = await client.auth.getSession();
+    const accessToken = data?.session?.access_token;
+    if (!accessToken) return false;
+    const response = await fetch('/api/staff/update-role', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({
+        email: staff.email, role: staff.role,
+        permissions: customRoles.find(item => item.name.toLowerCase() === staff.role.toLowerCase())?.permissions || {},
+      }),
+    });
+    const result = await response.json().catch(() => ({}));
+    return Boolean(response.ok && result.updated);
+  };
+
+  const createGoogleInvitation = async (staff: StaffSettings) => {
+    if (!staff.email) throw new Error('Add the staff Gmail first.');
+    const client: any = await getSecureDataBridgeClient();
+    const { data } = await client.auth.getSession();
+    const accessToken = data?.session?.access_token;
+    if (!accessToken) throw new Error('Admin session is required.');
+    const response = await fetch('/api/staff/google-invitations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({
+        staffId: staff.id, name: staff.name, email: staff.email, phone: staff.phone,
+        role: staff.role, branchId: staff.branchId || activeBranchId || activeBranchContext?.id,
+        permissions: customRoles.find(item => item.name.toLowerCase() === staff.role.toLowerCase())?.permissions || {},
+      }),
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || !result.invitationUrl) throw new Error(result.error || 'Invitation link could not be created.');
+    setInvitationLink(result.invitationUrl);
+    return result.invitationUrl as string;
+  };
+
+  const handleRegisterStaff = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fullName || !phone || !password) return;
+    if (!fullName || !phone || !email) return;
+    if (roleType === 'standard' && !selectedRole) {
+      setSuccessMessage('Create a role in Settings → Roles & Permissions before registering staff.');
+      setTimeout(() => setSuccessMessage(''), 6000);
+      return;
+    }
 
     const newStaff: StaffSettings = {
       id: `staff-${Date.now()}`,
       name: fullName.trim(),
+      email: email.trim().toLowerCase(),
       phone: phone.trim(),
-      password: password.trim(),
+      branchId: activeBranchId || activeBranchContext?.id,
       role: roleType === 'delivery' ? classification : selectedRole,
       salary: Number(salaryAmount) || 0,
       salaryType,
@@ -443,8 +530,6 @@ export default function DashboardStaff({
       department: department.trim(),
       status: 'active',
       dateJoined,
-      passwordUpdatedAt: new Date().toISOString(),
-      temporaryPasswordIssuedAt: new Date().toISOString(),
       allowances: [],
       profileImage: profilePic,
       ...(roleType === 'delivery'
@@ -458,11 +543,27 @@ export default function DashboardStaff({
         : {})
     };
 
-    persistStaffList([...staffList, newStaff]);
-    setSuccessMessage(`Staff member "${fullName}" registered successfully.`);
+    setIsRegisteringStaff(true);
+    const saved = await persistStaffList([...staffList, newStaff]);
+    setIsRegisteringStaff(false);
+    if (!saved) {
+      // The write to the database did not land — keep the form filled in
+      // so the staff member isn't silently lost and the admin can retry,
+      // instead of clearing the form as if registration had succeeded.
+      setSuccessMessage(`Could not save "${fullName}" — check your connection and try again.`);
+      setTimeout(() => setSuccessMessage(''), 6000);
+      return;
+    }
+
+    try {
+      await createGoogleInvitation(newStaff);
+      setSuccessMessage(`Staff member "${fullName}" saved. Share the secure Google invitation link below.`);
+    } catch {
+      setSuccessMessage(`Staff member "${fullName}" saved, but the Google invitation was not created. Open the staff profile and try again.`);
+    }
     setFullName('');
+    setEmail('');
     setPhone('');
-    setPassword('');
     setProfilePic('');
     setVehicleColor('');
     setLicensePlate('');
@@ -476,8 +577,7 @@ export default function DashboardStaff({
 
     setTimeout(() => {
       setSuccessMessage('');
-      setActiveTab('list');
-    }, 1800);
+    }, 5000);
   };
 
   const handleDeleteStaff = (staffId: string) => {
@@ -566,43 +666,8 @@ export default function DashboardStaff({
     setStaffToPay(null);
   };
 
-  const openCredentialEditor = (staff: StaffSettings) => {
-    const isOpen = credentialStaffId === staff.id;
-    setCredentialStaffId(isOpen ? '' : staff.id);
-    setCredentialPhone(isOpen ? '' : staff.phone);
-    setCredentialPassword('');
-  };
-
-  const handleSaveStaffCredentials = (staffId: string) => {
-    if (!credentialPhone.trim() || !credentialPassword.trim()) {
-      setSuccessMessage('Enter both staff phone/login ID and password.');
-      return;
-    }
-
-    const updatedStaffs = staffList.map(staff =>
-      staff.id === staffId
-        ? {
-            ...staff,
-            phone: credentialPhone.trim(),
-            password: credentialPassword.trim(),
-            passwordUpdatedAt: new Date().toISOString(),
-            temporaryPasswordIssuedAt: new Date().toISOString()
-          }
-        : staff
-    );
-
-    persistStaffList(updatedStaffs);
-    setCredentialStaffId('');
-    setCredentialPhone('');
-    setCredentialPassword('');
-    setTemporaryPassword(credentialPassword.trim());
-    setSuccessMessage('New temporary staff password generated. Copy it now; it will not be shown again after you close this message.');
-    setTimeout(() => setSuccessMessage(''), 2500);
-  };
-
   const openStaffProfile = (staff: StaffSettings) => {
     setSelectedStaff(staff);
-    setTemporaryPassword('');
     setAllowanceForm({
       name: 'Food allowance',
       customName: '',
@@ -614,6 +679,58 @@ export default function DashboardStaff({
     });
   };
 
+  const openCredentialEditor = (staff: StaffSettings) => {
+    const isOpen = credentialStaffId === staff.id;
+    setCredentialStaffId(isOpen ? '' : staff.id);
+    setCredentialPhone(isOpen ? '' : staff.phone);
+    setCredentialRole(isOpen ? '' : staff.role);
+  };
+
+  const closeCredentialEditor = () => {
+    setCredentialStaffId('');
+    setCredentialPhone('');
+    setCredentialRole('');
+  };
+
+  const handleSaveStaffCredentials = (staffId: string) => {
+    const staff = staffList.find(item => item.id === staffId);
+    if (!staff || !credentialPhone.trim()) {
+      setSuccessMessage('Enter the staff phone/login ID.');
+      return;
+    }
+    const nextRole = credentialRole.trim() || staff.role;
+    const roleChanged = nextRole !== staff.role;
+    // Only the HR record (systemSettings.staffs, this tenant's own bookkeeping)
+    // is updated by persistStaffList below -- it never touches the staff's
+    // real auth profile (users.role_key/role_permissions), which is what
+    // actually governs their permissions at login.
+    const updatedStaff = { ...staff, phone: credentialPhone.trim(), role: nextRole };
+    persistStaffList(staffList.map(item => item.id === staffId ? updatedStaff : item));
+    closeCredentialEditor();
+
+    if (roleChanged) {
+      // Try updating their real permissions directly first -- if they
+      // already have an account, this applies from their next sign-in with
+      // no new invitation link needed, and never touches their current,
+      // already-open session. Only falls back to the invitation flow below
+      // when they have no account yet (nothing to update directly).
+      void updateStaffRoleDirectly(updatedStaff).then(applied => {
+        if (applied) {
+          setSuccessMessage('Login and role saved. The new role takes effect next time they sign in -- no new invitation link needed.');
+          return;
+        }
+        void createGoogleInvitation(updatedStaff)
+          .then(() => setSuccessMessage('Login and role saved. Share the invitation link so they can sign in for the first time.'))
+          .catch(error => setSuccessMessage(error instanceof Error ? error.message : 'Changes saved, but the invitation could not be created.'));
+      });
+      return;
+    }
+
+    void createGoogleInvitation(updatedStaff)
+      .then(() => setSuccessMessage('Login ID saved and a secure Google invitation was created.'))
+      .catch(error => setSuccessMessage(error instanceof Error ? error.message : 'Changes saved, but the invitation could not be created.'));
+  };
+
   const updateStaff = (staffId: string, updater: (staff: StaffSettings) => StaffSettings) => {
     const updatedStaffs = staffList.map(staff => staff.id === staffId ? updater(staff) : staff);
     persistStaffList(updatedStaffs);
@@ -623,24 +740,6 @@ export default function DashboardStaff({
 
   const handleProfileFieldChange = (staffId: string, patch: Partial<StaffSettings>) => {
     updateStaff(staffId, staff => ({ ...staff, ...patch }));
-  };
-
-  const generateTemporaryPassword = (staff: StaffSettings) => {
-    // Simple, memorable: FirstName + 4-digit number
-    // e.g. "John" → "John1847", "Mary Wanjiku" → "Mary4293"
-    const firstName = (staff.name || 'Staff').split(' ')[0];
-    const clean = firstName.charAt(0).toUpperCase() + firstName.slice(1, 8).toLowerCase();
-    const num = String(Math.floor(1000 + Math.random() * 9000)); // 4-digit: 1000–9999
-    const generated = `${clean}${num}`;
-
-    updateStaff(staff.id, current => ({
-      ...current,
-      password: generated,
-      passwordUpdatedAt: new Date().toISOString(),
-      temporaryPasswordIssuedAt: new Date().toISOString()
-    }));
-    setTemporaryPassword(generated);
-    setSuccessMessage('Temporary password generated. Copy it now; it will not be shown again after closing the profile.');
   };
 
   const handleAddAllowance = (staff: StaffSettings) => {
@@ -795,7 +894,7 @@ export default function DashboardStaff({
       `Department: ${staff.department || 'Not recorded'}`,
       `Status: ${staff.status || 'active'}`,
       `Date joined: ${staff.dateJoined || 'Not recorded'}`,
-      `Password status: ${staff.password ? 'Password set' : 'No password set'}`,
+      'Authentication: Supabase Auth protected; no workspace password stored',
       `Salary/wage amount: ${formatMoney(Number(staff.salary) || 0)}`,
       `Salary/wage frequency: ${staff.salaryType || 'monthly'}`,
       `Salary total for period: ${formatMoney(payroll.salaryTotal)}`,
@@ -826,15 +925,6 @@ export default function DashboardStaff({
     </div>
   );
 
-  const renderStatus = (isOnline: boolean) => (
-    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-black ${
-      isOnline ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-600 border border-slate-200'
-    }`}>
-      <span className={`h-2 w-2 rounded-full ${isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
-      {isOnline ? 'Online' : 'Offline'}
-    </span>
-  );
-
   const renderCredentialEditor = (staff: StaffSettings, compact = false) => (
     credentialStaffId === staff.id ? (
       <div className={`rounded-2xl border border-indigo-100 bg-indigo-50/70 p-3 ${compact ? 'mt-3' : 'mt-2'}`}>
@@ -846,18 +936,30 @@ export default function DashboardStaff({
             placeholder="Phone / Login ID"
             className="min-h-[44px] rounded-xl border border-white bg-white px-3 text-sm font-semibold outline-none focus:border-indigo-400"
           />
-          <input
-            type="text"
-            value={credentialPassword}
-            onChange={e => setCredentialPassword(e.target.value)}
-            placeholder="New password / PIN"
-            className="min-h-[44px] rounded-xl border border-white bg-white px-3 text-sm font-semibold outline-none focus:border-indigo-400"
-          />
+          {customRoles.length > 0 ? (
+            <select
+              value={credentialRole}
+              onChange={e => setCredentialRole(e.target.value)}
+              className="min-h-[44px] rounded-xl border border-white bg-white px-3 text-sm font-black outline-none focus:border-indigo-400"
+            >
+              {credentialRole && !customRoles.some(r => r.name === credentialRole) && (
+                <option value={credentialRole}>{credentialRole} (current)</option>
+              )}
+              {customRoles.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
+            </select>
+          ) : (
+            <div className="min-h-[44px] rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800 flex items-center">
+              No roles created yet — role stays "{staff.role}".
+            </div>
+          )}
+        </div>
+        <div className="mt-2 min-h-[44px] rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800 flex items-center">
+          Authentication is protected by Supabase Auth. Passwords are never saved in workspace data.
         </div>
         <div className="mt-3 flex gap-2 justify-end">
           <button
             type="button"
-            onClick={() => setCredentialStaffId('')}
+            onClick={closeCredentialEditor}
             className="min-h-[40px] rounded-xl border border-slate-200 bg-white px-4 text-xs font-black text-slate-600"
           >
             Cancel
@@ -868,7 +970,7 @@ export default function DashboardStaff({
             className="min-h-[40px] rounded-xl bg-slate-950 px-4 text-xs font-black text-white inline-flex items-center gap-2"
           >
             <Save className="w-3.5 h-3.5" />
-            Save Login
+            Save Changes
           </button>
         </div>
       </div>
@@ -887,9 +989,6 @@ export default function DashboardStaff({
               <span className="text-[11px] font-black uppercase tracking-[0.18em]">Staff control center</span>
             </div>
             <h2 className="mt-2 text-2xl md:text-3xl font-black tracking-tight text-slate-950">Staff & HR</h2>
-            <p className="mt-2 max-w-3xl text-sm text-slate-500">
-              Manage staff accounts, delivery workers, login resets, live sessions, and profit generated by each team member.
-            </p>
           </div>
           <button
             type="button"
@@ -901,19 +1000,17 @@ export default function DashboardStaff({
           </button>
         </div>
 
-        <div className="mt-5 grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="staff-two-column-grid mt-5 grid grid-cols-2 gap-3 md:max-w-md">
           {[
             { label: 'Total staff', value: totals.totalStaff.toLocaleString(), icon: Users, color: 'text-slate-900' },
-            { label: 'Online now', value: totals.onlineStaff.toLocaleString(), icon: Activity, color: 'text-emerald-700' },
-            { label: 'Profit generated', value: `${currency}${Math.round(totals.totalProfit).toLocaleString()}`, icon: DollarSign, color: 'text-indigo-700' },
-            { label: 'Time in system', value: formatDuration(totals.totalHours), icon: Clock, color: 'text-amber-700' }
+            { label: 'Profit generated', value: `${currency}${Math.round(totals.totalProfit).toLocaleString()}`, icon: DollarSign, color: 'text-indigo-700' }
           ].map(item => (
-            <div key={item.label} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div key={item.label} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">{item.label}</span>
                 <item.icon className={`w-4 h-4 ${item.color}`} />
               </div>
-              <div className={`mt-2 text-xl font-black tracking-tight ${item.color}`}>{item.value}</div>
+              <div className={`mt-2 text-lg font-black tracking-tight ${item.color}`}>{item.value}</div>
             </div>
           ))}
         </div>
@@ -945,11 +1042,6 @@ export default function DashboardStaff({
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800 flex items-center gap-2">
           <CheckCircle2 className="w-5 h-5" />
           <span className="min-w-0 flex-1">{successMessage}</span>
-          {temporaryPassword && (
-            <code className="rounded-xl bg-white px-3 py-1.5 text-xs font-black text-slate-950 border border-emerald-200">
-              {temporaryPassword}
-            </code>
-          )}
         </div>
       )}
 
@@ -958,7 +1050,6 @@ export default function DashboardStaff({
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
             <div>
               <h3 className="text-base font-black text-slate-950">Registered Staff</h3>
-              <p className="text-xs text-slate-500 mt-1">Admin can reset a staff login ID and password from this directory.</p>
             </div>
             <div className="text-[11px] font-black uppercase tracking-wider text-slate-400">{staffList.length} accounts</div>
           </div>
@@ -969,7 +1060,6 @@ export default function DashboardStaff({
                 <tr>
                   <th className="p-4">Staff member</th>
                   <th className="p-4">Role</th>
-                  <th className="p-4">Status</th>
                   <th className="p-4">Last login</th>
                   <th className="p-4 text-right">Actions</th>
                 </tr>
@@ -977,7 +1067,7 @@ export default function DashboardStaff({
               <tbody className="divide-y divide-slate-100">
                 {staffList.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="p-8 text-center text-sm font-semibold text-slate-400">No staff registered.</td>
+                    <td colSpan={4} className="p-8 text-center text-sm font-semibold text-slate-400">No staff registered.</td>
                   </tr>
                 ) : (
                   staffList.map(staff => {
@@ -1002,53 +1092,62 @@ export default function DashboardStaff({
                             {staff.role}
                           </span>
                         </td>
-                        <td className="p-4">{renderStatus(summary.isOnline)}</td>
                         <td className="p-4">
                           <div className="text-xs font-bold text-slate-700">{formatDateTime(summary.lastLogin)}</div>
                           <div className="text-[11px] text-slate-400 mt-1">{summary.device}</div>
                         </td>
                         <td className="p-4 text-right">
-                          <div className="flex justify-end gap-2">
-                            {payrollEnabled && canPayPayroll && (
-                              <button
-                                type="button"
-                                onClick={() => openSalaryPayment(staff)}
-                                className="min-h-[38px] rounded-xl bg-emerald-50 px-3 text-xs font-black text-emerald-700 hover:bg-emerald-100 inline-flex items-center gap-1.5"
-                              >
-                                <Wallet className="w-3.5 h-3.5" />
-                                Pay Staff
-                              </button>
+                          <div className="relative inline-block text-left">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                if (openStaffActionId === staff.id) {
+                                  setOpenStaffActionId(null);
+                                  setDesktopActionMenuPos(null);
+                                  return;
+                                }
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                setDesktopActionMenuPos({ top: rect.bottom + 6, right: window.innerWidth - rect.right });
+                                setOpenStaffActionId(staff.id);
+                              }}
+                              className="h-9 w-9 rounded-xl bg-white border border-slate-200 text-slate-500 hover:text-slate-800 hover:bg-slate-50 inline-flex items-center justify-center"
+                            >
+                              <MoreVertical className="w-4 h-4" />
+                            </button>
+                            {openStaffActionId === staff.id && desktopActionMenuPos && (
+                              <>
+                                <div className="fixed inset-0 z-40" onClick={() => { setOpenStaffActionId(null); setDesktopActionMenuPos(null); }} />
+                                <div
+                                  className="fixed w-44 bg-white shadow-xl rounded-2xl border border-slate-200 py-1.5 z-50 animate-fade-in origin-top-right text-left text-xs font-bold text-slate-700 flex flex-col"
+                                  style={{ top: desktopActionMenuPos.top, right: desktopActionMenuPos.right }}
+                                >
+                                  <button type="button" onClick={() => { setOpenStaffActionId(null); openStaffProfile(staff); }} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center gap-2 cursor-pointer">
+                                    <Eye className="w-3.5 h-3.5 text-slate-400" />
+                                    View Staff
+                                  </button>
+                                  {payrollEnabled && canPayPayroll && (
+                                    <button type="button" onClick={() => { setOpenStaffActionId(null); openSalaryPayment(staff); }} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center gap-2 cursor-pointer">
+                                      <Wallet className="w-3.5 h-3.5 text-emerald-500" />
+                                      Pay Staff
+                                    </button>
+                                  )}
+                                  <button type="button" onClick={() => { setOpenStaffActionId(null); openCredentialEditor(staff); }} className="w-full text-left px-4 py-2.5 hover:bg-slate-50 flex items-center gap-2 cursor-pointer">
+                                    <KeyRound className="w-3.5 h-3.5 text-indigo-400" />
+                                    Edit Staff
+                                  </button>
+                                  {!staff.isOwner ? (
+                                    <button type="button" onClick={() => { setOpenStaffActionId(null); handleDeleteStaff(staff.id); }} className="w-full text-left px-4 py-2.5 hover:bg-rose-50 text-rose-600 flex items-center gap-2 cursor-pointer">
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                      Delete Staff
+                                    </button>
+                                  ) : (
+                                    <span className="w-full text-left px-4 py-2.5 text-amber-700 flex items-center gap-2">
+                                      👑 Owner
+                                    </span>
+                                  )}
+                                </div>
+                              </>
                             )}
-                            <button
-                              type="button"
-                              onClick={() => openStaffProfile(staff)}
-                              className="min-h-[38px] rounded-xl bg-white border border-slate-200 px-3 text-xs font-black text-slate-700 hover:bg-slate-50 inline-flex items-center gap-1.5"
-                            >
-                              <Eye className="w-3.5 h-3.5" />
-                              View
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => openCredentialEditor(staff)}
-                              className="min-h-[38px] rounded-xl bg-indigo-50 px-3 text-xs font-black text-indigo-700 hover:bg-indigo-100 inline-flex items-center gap-1.5"
-                            >
-                              <KeyRound className="w-3.5 h-3.5" />
-                              Edit Login
-                            </button>
-                            {!staff.isOwner ? (
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteStaff(staff.id)}
-                              className="min-h-[38px] rounded-xl bg-rose-50 px-3 text-xs font-black text-rose-700 hover:bg-rose-100 inline-flex items-center gap-1.5"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                              Remove
-                            </button>
-                          ) : (
-                            <span className="min-h-[38px] rounded-xl bg-amber-50 px-3 text-xs font-black text-amber-700 inline-flex items-center gap-1.5 border border-amber-200">
-                              👑 Owner
-                            </span>
-                          )}
                           </div>
                           {renderCredentialEditor(staff)}
                         </td>
@@ -1065,58 +1164,30 @@ export default function DashboardStaff({
               <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm font-semibold text-slate-400">No staff registered.</div>
             ) : (
               staffList.map(staff => {
-                const summary = staffSummaries.get(staff.id) || buildStaffSummary(staff);
                 return (
-                  <article key={staff.id} className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
-                    <div className="flex items-start gap-3">
-                      {renderAvatar(staff, 'w-14 h-14')}
+                  <article
+                    key={staff.id}
+                    className="rounded-2xl bg-white p-3.5 relative overflow-hidden"
+                    style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}
+                  >
+                    <div className="flex items-center gap-3">
+                      {renderAvatar(staff, 'w-11 h-11')}
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <h4 className="font-black text-slate-950 truncate">{staff.name}</h4>
-                            <p className="mt-0.5 text-xs font-semibold text-slate-500">{staff.phone}</p>
-                          </div>
-                          {renderStatus(summary.isOnline)}
-                        </div>
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          <span className="rounded-full bg-white border border-slate-200 px-2.5 py-1 text-[10px] font-black uppercase text-slate-700">{staff.role}</span>
-                          <span className="rounded-full bg-white border border-slate-200 px-2.5 py-1 text-[10px] font-black text-slate-500">{formatDateTime(summary.lastLogin)}</span>
-                        </div>
+                        <h4 className="font-black text-slate-950 text-sm truncate">{staff.name}</h4>
+                        <span className="text-[10px] font-black uppercase text-indigo-600 truncate">{staff.role}</span>
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => setMobileActionsStaff(staff)}
+                        className="h-9 w-9 rounded-xl bg-slate-50 border border-slate-200 text-slate-500 flex items-center justify-center shrink-0"
+                        aria-label="Staff actions"
+                      >
+                        <MoreVertical className="w-4 h-4" />
+                      </button>
                     </div>
-                    <div className="mt-4 grid grid-cols-3 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => openStaffProfile(staff)}
-                        className="min-h-[46px] rounded-2xl bg-white border border-slate-200 text-slate-700 text-xs font-black inline-flex items-center justify-center gap-2"
-                      >
-                        <Eye className="w-4 h-4" />
-                        View
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => openCredentialEditor(staff)}
-                        className="min-h-[46px] rounded-2xl bg-indigo-600 text-white text-xs font-black inline-flex items-center justify-center gap-2"
-                      >
-                        <KeyRound className="w-4 h-4" />
-                        Edit Login
-                      </button>
-                      {!staff.isOwner ? (
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteStaff(staff.id)}
-                        className="min-h-[46px] rounded-2xl bg-white border border-rose-200 text-rose-700 text-xs font-black inline-flex items-center justify-center gap-2"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        Remove
-                      </button>
-                      ) : (
-                      <span className="min-h-[46px] rounded-2xl bg-amber-50 border border-amber-200 text-amber-700 text-xs font-black inline-flex items-center justify-center gap-1">
-                        👑 Owner
-                      </span>
-                      )}
+                    <div>
+                      {renderCredentialEditor(staff, true)}
                     </div>
-                    {renderCredentialEditor(staff, true)}
                   </article>
                 );
               })
@@ -1132,7 +1203,7 @@ export default function DashboardStaff({
             <p className="mt-1 text-xs text-slate-500">Create a staff login, assign a role, and add delivery details when needed.</p>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1 mb-5">
+          <div className="staff-two-column-grid grid grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-1 mb-5">
             <button
               type="button"
               onClick={() => setRoleType('standard')}
@@ -1159,13 +1230,16 @@ export default function DashboardStaff({
                     <input type="text" required value={fullName} onChange={e => setFullName(e.target.value)} placeholder="e.g. Omary Juma" className="w-full min-h-[48px] rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-indigo-500" />
                   </label>
                   <label className="space-y-1.5">
-                    <span className="text-xs font-black text-slate-700">Phone Number (Login ID)</span>
+                    <span className="text-xs font-black text-slate-700">Phone Number</span>
                     <input type="tel" required value={phone} onChange={e => setPhone(e.target.value)} placeholder="e.g. 0712345678" className="w-full min-h-[48px] rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-indigo-500" />
                   </label>
                   <label className="space-y-1.5 md:col-span-2">
-                    <span className="text-xs font-black text-slate-700">Password / PIN</span>
-                    <input type="text" required value={password} onChange={e => setPassword(e.target.value)} placeholder="Set staff password" className="w-full min-h-[48px] rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-indigo-500" />
+                    <span className="text-xs font-black text-slate-700">Gmail for Google invitation</span>
+                    <input type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="staff@gmail.com" className="w-full min-h-[48px] rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-indigo-500" />
                   </label>
+                  <div className="md:col-span-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-bold text-emerald-800">
+                    Login credentials are created through the secure Google invitation and are never stored in workspace data.
+                  </div>
                   <label className="space-y-1.5">
                     <span className="text-xs font-black text-slate-700">Staff Type</span>
                     <select value={staffType} onChange={e => setStaffType(e.target.value as NonNullable<StaffSettings['staffType']>)} className="w-full min-h-[48px] rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black outline-none focus:border-indigo-500">
@@ -1179,10 +1253,6 @@ export default function DashboardStaff({
                     </select>
                   </label>
                   <label className="space-y-1.5">
-                    <span className="text-xs font-black text-slate-700">Department / Category</span>
-                    <input type="text" value={department} onChange={e => setDepartment(e.target.value)} placeholder="e.g. Sales, Delivery" className="w-full min-h-[48px] rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-indigo-500" />
-                  </label>
-                  <label className="space-y-1.5">
                     <span className="text-xs font-black text-slate-700">Date Joined</span>
                     <input type="date" value={dateJoined} onChange={e => setDateJoined(e.target.value)} className="w-full min-h-[48px] rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-indigo-500" />
                   </label>
@@ -1192,12 +1262,18 @@ export default function DashboardStaff({
               <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4 md:p-5 space-y-4">
                 <h4 className="text-xs font-black uppercase tracking-wider text-slate-500">Role and media</h4>
                 {roleType === 'standard' ? (
-                  <label className="space-y-1.5 block">
-                    <span className="text-xs font-black text-slate-700">Assign Role</span>
-                    <select value={selectedRole} onChange={e => setSelectedRole(e.target.value)} className="w-full min-h-[48px] rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black outline-none focus:border-indigo-500">
-                      {customRoles.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
-                    </select>
-                  </label>
+                  customRoles.length === 0 ? (
+                    <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-bold text-amber-800">
+                      No roles created yet. Go to Settings → Roles & Permissions to create a role before registering staff.
+                    </div>
+                  ) : (
+                    <label className="space-y-1.5 block">
+                      <span className="text-xs font-black text-slate-700">Assign Role</span>
+                      <select value={selectedRole} onChange={e => setSelectedRole(e.target.value)} className="w-full min-h-[48px] rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black outline-none focus:border-indigo-500">
+                        {customRoles.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
+                      </select>
+                    </label>
+                  )
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <label className="space-y-1.5">
@@ -1257,15 +1333,15 @@ export default function DashboardStaff({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <label className="min-h-[110px] rounded-2xl border-2 border-dashed border-slate-300 bg-white p-3 flex flex-col items-center justify-center text-center cursor-pointer">
-                    {profilePic ? <img src={profilePic} alt="Profile" className="h-16 w-16 rounded-2xl object-cover" /> : <Camera className="w-7 h-7 text-slate-400" />}
-                    <span className="mt-2 text-xs font-black text-slate-600">Profile Photo</span>
+                <div className="staff-two-column-grid grid grid-cols-2 gap-2.5">
+                  <label className="min-h-[84px] rounded-xl border-2 border-dashed border-slate-300 bg-white p-2 flex flex-col items-center justify-center text-center cursor-pointer">
+                    {profilePic ? <img src={profilePic} alt="Profile" className="h-10 w-10 rounded-xl object-cover" /> : <Camera className="w-5 h-5 text-slate-400" />}
+                    <span className="mt-1.5 text-[11px] font-black text-slate-600">Profile Photo</span>
                     <input type="file" accept="image/*" className="hidden" onChange={e => handleImageUpload(e, setProfilePic)} />
                   </label>
-                  <label className="min-h-[110px] rounded-2xl border-2 border-dashed border-slate-300 bg-white p-3 flex flex-col items-center justify-center text-center cursor-pointer">
-                    {signatureImage ? <img src={signatureImage} alt="Signature" className="h-14 w-full object-contain" /> : <Upload className="w-7 h-7 text-slate-400" />}
-                    <span className="mt-2 text-xs font-black text-slate-600">Signature</span>
+                  <label className="min-h-[84px] rounded-xl border-2 border-dashed border-slate-300 bg-white p-2 flex flex-col items-center justify-center text-center cursor-pointer">
+                    {signatureImage ? <img src={signatureImage} alt="Signature" className="h-8 w-full object-contain" /> : <Upload className="w-5 h-5 text-slate-400" />}
+                    <span className="mt-1.5 text-[11px] font-black text-slate-600">Signature</span>
                     <input type="file" accept="image/*" className="hidden" onChange={e => handleImageUpload(e, setSignatureImage)} />
                   </label>
                 </div>
@@ -1273,12 +1349,21 @@ export default function DashboardStaff({
             </div>
 
             <div className="flex justify-end">
-              <button type="submit" className="w-full md:w-auto min-h-[52px] rounded-2xl bg-indigo-600 px-8 text-sm font-black text-white hover:bg-indigo-700 active:scale-[0.99] inline-flex items-center justify-center gap-2">
+              <button type="submit" disabled={isRegisteringStaff} className="w-full md:w-auto min-h-[52px] rounded-2xl bg-indigo-600 px-8 text-sm font-black text-white hover:bg-indigo-700 active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2">
                 <UserPlus className="w-4 h-4" />
-                Save Registration
+                {isRegisteringStaff ? 'Saving…' : 'Save Registration'}
               </button>
             </div>
           </form>
+          {invitationLink && (
+            <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
+              <p className="text-xs font-black text-emerald-900">Google staff invitation (expires in 24 hours)</p>
+              <div className="mt-2 flex flex-col sm:flex-row gap-2">
+                <input readOnly value={invitationLink} className="min-h-[44px] flex-1 rounded-xl border border-emerald-200 bg-white px-3 text-xs font-semibold" />
+                <button type="button" onClick={() => void navigator.clipboard.writeText(invitationLink)} className="min-h-[44px] rounded-xl bg-emerald-700 px-4 text-xs font-black text-white">Copy link</button>
+              </div>
+            </div>
+          )}
         </section>
       )}
 
@@ -1288,7 +1373,6 @@ export default function DashboardStaff({
             <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
               <div>
                 <h3 className="text-base font-black text-slate-950">Staff Payroll, Sessions and Performance</h3>
-                <p className="mt-1 text-xs text-slate-500">Shows payroll cost, allowances/posho, login/logout time, orders handled, and profit generated through each staff account.</p>
               </div>
               <button
                 type="button"
@@ -1303,24 +1387,23 @@ export default function DashboardStaff({
 
           <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4 md:p-5 mb-5">
             <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-4">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+              <div className="staff-three-column-grid grid grid-cols-3 gap-1.5 sm:gap-2">
                 {[
                   { id: 'today', label: 'Today' },
                   { id: 'week', label: 'This week' },
-                  { id: 'month', label: 'This month' },
-                  { id: 'custom', label: 'Custom' }
+                  { id: 'month', label: 'This month' }
                 ].map(period => (
                   <button
                     key={period.id}
                     type="button"
                     onClick={() => setPayrollPeriod(prev => getPeriodFromPreset(period.id as PayrollPeriodPreset, prev))}
-                    className={`min-h-[42px] rounded-xl text-xs font-black ${payrollPeriod.preset === period.id ? 'bg-indigo-600 text-white' : 'bg-white border border-slate-200 text-slate-700'}`}
+                    className={`min-h-[42px] px-1.5 rounded-xl text-[11px] sm:text-xs font-black whitespace-nowrap ${payrollPeriod.preset === period.id ? 'bg-indigo-600 text-white' : 'bg-white border border-slate-200 text-slate-700'}`}
                   >
                     {period.label}
                   </button>
                 ))}
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="staff-two-column-grid grid grid-cols-2 gap-2">
                 <label className="space-y-1">
                   <span className="text-[10px] font-black uppercase text-slate-400">Start</span>
                   <input type="date" value={payrollPeriod.start} onChange={e => setPayrollPeriod(prev => ({ ...prev, preset: 'custom', start: e.target.value }))} className="w-full min-h-[42px] rounded-xl bg-white border border-slate-200 px-3 text-xs font-bold outline-none" />
@@ -1332,12 +1415,10 @@ export default function DashboardStaff({
               </div>
             </div>
 
-            <div className="mt-4 grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="staff-two-column-grid mt-4 grid grid-cols-2 gap-3">
               {[
-                { label: 'Basic salaries', value: payrollSummary.basicSalaries, icon: Wallet },
-                { label: 'Daily allowances', value: payrollSummary.dailyAllowances, icon: CalendarDays },
-                { label: 'Total allowances', value: payrollSummary.totalAllowances, icon: Plus },
-                { label: 'Payroll cost', value: payrollSummary.totalPayroll, icon: DollarSign }
+                { label: 'Basic Salary', value: payrollSummary.basicSalaries, icon: Wallet },
+                { label: 'Allowances', value: payrollSummary.totalAllowances, icon: Plus }
               ].map(item => (
                 <div key={item.label} className="rounded-2xl bg-white border border-slate-200 p-3">
                   <div className="flex items-center justify-between gap-2">
@@ -1348,21 +1429,6 @@ export default function DashboardStaff({
                 </div>
               ))}
             </div>
-
-            <div className="mt-3 grid grid-cols-1 lg:grid-cols-3 gap-3">
-              <div className="rounded-2xl bg-white border border-slate-200 p-3">
-                <span className="text-[10px] font-black uppercase text-slate-400">Weekly allowances</span>
-                <strong className="mt-1 block text-sm font-black text-slate-800">{formatMoney(payrollSummary.weeklyAllowances)}</strong>
-              </div>
-              <div className="rounded-2xl bg-white border border-slate-200 p-3">
-                <span className="text-[10px] font-black uppercase text-slate-400">Monthly allowances</span>
-                <strong className="mt-1 block text-sm font-black text-slate-800">{formatMoney(payrollSummary.monthlyAllowances)}</strong>
-              </div>
-              <div className="rounded-2xl bg-white border border-slate-200 p-3">
-                <span className="text-[10px] font-black uppercase text-slate-400">One-time allowances</span>
-                <strong className="mt-1 block text-sm font-black text-slate-800">{formatMoney(payrollSummary.oneTimeAllowances)}</strong>
-              </div>
-            </div>
           </div>
 
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
@@ -1372,104 +1438,23 @@ export default function DashboardStaff({
               </div>
             ) : (
               staffList.map(staff => {
-                const summary = staffSummaries.get(staff.id) || buildStaffSummary(staff);
-                const payroll = calculateStaffPayroll(staff, payrollPeriod);
                 return (
-                  <article key={staff.id} className="rounded-3xl border border-slate-200 bg-slate-50 p-4 md:p-5">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-center gap-3 min-w-0">
-                        {renderAvatar(staff, 'w-14 h-14')}
-                        <div className="min-w-0">
-                          <h4 className="font-black text-slate-950 truncate">{staff.name}</h4>
-                          <p className="mt-1 text-[11px] font-black uppercase tracking-wider text-indigo-600">{staff.role}</p>
-                        </div>
-                      </div>
-                      <div className="flex flex-col items-end gap-2">
-                        {renderStatus(summary.isOnline)}
-                        <button
-                          type="button"
-                          onClick={() => exportIndividualStaffPdf(staff)}
-                          className="rounded-xl bg-white border border-slate-200 px-3 py-1.5 text-[10px] font-black text-slate-700 inline-flex items-center gap-1"
-                        >
-                          <FileDown className="w-3 h-3" />
-                          PDF
-                        </button>
-                        {payrollEnabled && canPayPayroll && (
-                          <button
-                            type="button"
-                            onClick={() => openSalaryPayment(staff)}
-                            className="rounded-xl bg-emerald-600 px-3 py-1.5 text-[10px] font-black text-white inline-flex items-center gap-1"
-                          >
-                            <Wallet className="w-3 h-3" />
-                            Pay Staff
-                          </button>
-                        )}
+                  <article key={staff.id} className="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      {renderAvatar(staff, 'w-11 h-11')}
+                      <div className="min-w-0">
+                        <h4 className="font-black text-slate-900 text-sm truncate">{staff.name}</h4>
+                        <span className="text-[10px] font-bold uppercase tracking-wide text-indigo-600 truncate">{staff.role}</span>
                       </div>
                     </div>
-
-                    <div className="mt-5 grid grid-cols-2 md:grid-cols-4 gap-3">
-                      <div className="rounded-2xl bg-white border border-slate-200 p-3">
-                        <Clock className="w-4 h-4 text-indigo-600 mb-2" />
-                        <span className="block text-[10px] font-black uppercase text-slate-400">Login</span>
-                        <strong className="mt-1 block text-xs text-slate-800">{formatDateTime(summary.lastLogin)}</strong>
-                      </div>
-                      <div className="rounded-2xl bg-white border border-slate-200 p-3">
-                        <TimerReset className="w-4 h-4 text-slate-600 mb-2" />
-                        <span className="block text-[10px] font-black uppercase text-slate-400">Logout</span>
-                        <strong className="mt-1 block text-xs text-slate-800">{summary.isOnline ? 'Still online' : formatDateTime(summary.lastLogout)}</strong>
-                      </div>
-                      <div className="rounded-2xl bg-white border border-slate-200 p-3">
-                        <Smartphone className="w-4 h-4 text-amber-600 mb-2" />
-                        <span className="block text-[10px] font-black uppercase text-slate-400">Time spent</span>
-                        <strong className="mt-1 block text-xs text-slate-800">{formatDuration(summary.totalDuration)}</strong>
-                      </div>
-                      <div className="rounded-2xl bg-white border border-slate-200 p-3">
-                        <Activity className="w-4 h-4 text-emerald-600 mb-2" />
-                        <span className="block text-[10px] font-black uppercase text-slate-400">Sessions</span>
-                        <strong className="mt-1 block text-xs text-slate-800">{summary.sessionCount}</strong>
-                      </div>
-                    </div>
-
-                    <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3">
-                      <div className="rounded-2xl bg-white border border-slate-200 p-3">
-                        <span className="block text-[10px] font-black uppercase text-slate-400">Orders / Tx</span>
-                        <strong className="mt-1 block text-lg font-black text-slate-900">{summary.orders}</strong>
-                      </div>
-                      <div className="rounded-2xl bg-white border border-slate-200 p-3">
-                        <span className="block text-[10px] font-black uppercase text-slate-400">Handled</span>
-                        <strong className="mt-1 block text-sm font-black text-emerald-700">{currency}{Math.round(summary.totalHandled).toLocaleString()}</strong>
-                      </div>
-                      <div className="rounded-2xl bg-white border border-slate-200 p-3">
-                        <span className="block text-[10px] font-black uppercase text-slate-400">Profit</span>
-                        <strong className={`mt-1 block text-sm font-black ${summary.profitGenerated >= 0 ? 'text-indigo-700' : 'text-rose-700'}`}>{currency}{Math.round(summary.profitGenerated).toLocaleString()}</strong>
-                      </div>
-                      <div className="rounded-2xl bg-white border border-slate-200 p-3">
-                        <span className="block text-[10px] font-black uppercase text-slate-400">Expenses</span>
-                        <strong className="mt-1 block text-sm font-black text-rose-700">{currency}{Math.round(summary.expensesLogged).toLocaleString()}</strong>
-                      </div>
-                    </div>
-
-                    <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3">
-                      <div className="rounded-2xl bg-white border border-slate-200 p-3">
-                        <span className="block text-[10px] font-black uppercase text-slate-400">Salary owed</span>
-                        <strong className="mt-1 block text-sm font-black text-slate-900">{formatMoney(payroll.salaryTotal)}</strong>
-                      </div>
-                      <div className="rounded-2xl bg-white border border-slate-200 p-3">
-                        <span className="block text-[10px] font-black uppercase text-slate-400">Allowances</span>
-                        <strong className="mt-1 block text-sm font-black text-amber-700">{formatMoney(payroll.allowancesTotal)}</strong>
-                      </div>
-                      <div className="rounded-2xl bg-white border border-slate-200 p-3 md:col-span-2">
-                        <span className="block text-[10px] font-black uppercase text-slate-400">Total staff cost</span>
-                        <strong className="mt-1 block text-lg font-black text-indigo-700">{formatMoney(payroll.totalCost)}</strong>
-                      </div>
-                    </div>
-
-                    {(staff.classification || staff.vehicleType || staff.licensePlate) && (
-                      <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs font-bold text-amber-900 flex items-center gap-2">
-                        <Truck className="w-4 h-4" />
-                        <span>{staff.classification || staff.role} - {staff.vehicleType || 'vehicle'} {staff.licensePlate ? `(${staff.licensePlate})` : ''}</span>
-                      </div>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => setViewingStaffReport(staff)}
+                      className="shrink-0 h-9 px-3 rounded-xl bg-slate-900 text-white text-[11px] font-black inline-flex items-center gap-1.5"
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">View Report</span>
+                    </button>
                   </article>
                 );
               })
@@ -1478,9 +1463,75 @@ export default function DashboardStaff({
         </section>
       )}
 
+      {/* PER-STAFF REPORT DRILL-DOWN */}
+      {viewingStaffReport && (() => {
+        const staff = viewingStaffReport;
+        const summary = staffSummaries.get(staff.id) || buildStaffSummary(staff);
+        const payroll = calculateStaffPayroll(staff, payrollPeriod);
+        return (
+          <div className="fixed inset-0 z-[96] bg-slate-950/70 backdrop-blur-sm flex items-end md:items-center justify-center p-0 md:p-4">
+            <div className="w-full md:max-w-2xl max-h-[92dvh] overflow-y-auto rounded-t-[2rem] md:rounded-[2rem] bg-white shadow-2xl">
+              <div className="sticky top-0 bg-white z-10 flex items-center gap-3 px-5 py-4 border-b border-slate-100">
+                <button type="button" onClick={() => setViewingStaffReport(null)} className="h-9 w-9 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center shrink-0">
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <div className="min-w-0 flex items-center gap-3 flex-1">
+                  {renderAvatar(staff, 'w-10 h-10')}
+                  <div className="min-w-0">
+                    <h3 className="font-black text-slate-950 text-sm truncate">{staff.name}</h3>
+                    <p className="text-[11px] text-slate-500 font-semibold">{payrollPeriod.start} to {payrollPeriod.end}</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => exportIndividualStaffPdf(staff)}
+                  className="shrink-0 rounded-xl bg-slate-100 px-3 h-9 text-[11px] font-black text-slate-700 inline-flex items-center gap-1.5"
+                >
+                  <FileDown className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">PDF</span>
+                </button>
+              </div>
+
+              <div className="p-5 space-y-4">
+                <div className="rounded-2xl border border-slate-200 overflow-hidden">
+                  {[
+                    { label: 'Sales Recorded', value: `${currency}${Math.round(summary.totalHandled).toLocaleString()}`, sub: `${summary.orders} orders` },
+                    { label: 'Profit Generated', value: `${currency}${Math.round(summary.profitGenerated).toLocaleString()}`, tone: summary.profitGenerated >= 0 ? 'text-indigo-700' : 'text-rose-700' },
+                    { label: 'Expenses Recorded', value: `${currency}${Math.round(summary.expensesLogged).toLocaleString()}`, tone: 'text-rose-700' },
+                    { label: 'Deliveries Recorded', value: `${summary.deliveriesCount} · ${currency}${Math.round(summary.deliveryRevenue).toLocaleString()}` },
+                    { label: 'Allowance', value: formatMoney(payroll.allowancesTotal), tone: 'text-amber-700' },
+                    { label: 'Salary', value: formatMoney(payroll.salaryTotal) },
+                  ].map((row, i) => (
+                    <div key={row.label} className={`flex items-center justify-between px-4 py-3 ${i > 0 ? 'border-t border-slate-100' : ''}`}>
+                      <div className="min-w-0">
+                        <span className="text-xs font-bold text-slate-500">{row.label}</span>
+                        {row.sub && <span className="block text-[10px] text-slate-400">{row.sub}</span>}
+                      </div>
+                      <strong className={`font-mono font-black text-sm shrink-0 ${row.tone || 'text-slate-900'}`}>{row.value}</strong>
+                    </div>
+                  ))}
+                  <div className="flex items-center justify-between px-4 py-3.5 border-t border-slate-200 bg-slate-900">
+                    <span className="text-xs font-black uppercase text-white/70">Total Staff Cost</span>
+                    <strong className="font-mono font-black text-base text-white">{formatMoney(payroll.totalCost)}</strong>
+                  </div>
+                </div>
+
+                {(staff.classification || staff.vehicleType || staff.licensePlate) && (
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs font-bold text-amber-900 flex items-center gap-2">
+                    <Truck className="w-4 h-4 shrink-0" />
+                    <span>{staff.classification || staff.role} - {staff.vehicleType || 'vehicle'} {staff.licensePlate ? `(${staff.licensePlate})` : ''}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {staffToPay && (
         <div role="dialog" aria-modal="true" aria-labelledby="pay-staff-title" className="fixed inset-0 z-[95] bg-slate-950/70 backdrop-blur-sm flex items-end md:items-center justify-center p-0 md:p-4">
-          <div className="w-full md:max-w-2xl max-h-[92dvh] overflow-y-auto rounded-t-[2rem] md:rounded-[2rem] bg-white p-5 md:p-6 shadow-2xl">
+          <div className="w-full md:max-w-2xl max-h-[92dvh] rounded-t-[2rem] md:rounded-[2rem] bg-white shadow-2xl flex flex-col overflow-hidden">
+          <div className="overflow-y-auto flex-1 p-5 md:p-6">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h3 id="pay-staff-title" className="text-xl font-black text-slate-950">Pay Staff</h3>
@@ -1543,11 +1594,21 @@ export default function DashboardStaff({
                 )}
               </div>
             </div>
-            <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-900">This payment will be recorded as <strong>Money Out</strong>, category <strong>Wages & Salary</strong>, and will appear automatically in Money & Bank, Expenses, Profit & Loss and downloaded reports.</div>
-            <div className="mt-6 grid grid-cols-2 gap-3">
-              <button type="button" onClick={() => setStaffToPay(null)} className="min-h-[50px] rounded-2xl border border-slate-200 bg-white text-sm font-black text-slate-700">Cancel</button>
-              <button type="button" onClick={confirmSalaryPayment} className="min-h-[50px] rounded-2xl bg-emerald-600 text-sm font-black text-white">Pay Staff</button>
+            <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-900">
+              This payment will be recorded as <strong>Money Out</strong>, category{' '}
+              <strong>
+                {salaryPaymentType === 'allowance' ? 'Staff Allowance'
+                  : salaryPaymentType === 'bonus' ? 'Staff Bonus'
+                  : salaryPaymentType === 'overtime' ? 'Staff Overtime'
+                  : salaryPaymentType === 'advance_recovery' ? 'Staff Advance Recovery'
+                  : 'Wages & Salary'}
+              </strong>, deducted from the selected Money & Bank account, and will appear automatically in Expenses, Profit & Loss and downloaded reports.
             </div>
+          </div>
+          <div className="staff-two-column-grid shrink-0 border-t border-slate-100 p-4 md:p-5 grid grid-cols-2 gap-3 bg-white">
+            <button type="button" onClick={() => setStaffToPay(null)} className="min-h-[50px] rounded-2xl border border-slate-200 bg-white text-sm font-black text-slate-700">Cancel</button>
+            <button type="button" onClick={confirmSalaryPayment} className="min-h-[50px] rounded-2xl bg-emerald-600 text-sm font-black text-white">Pay Staff</button>
+          </div>
           </div>
         </div>
       )}
@@ -1565,7 +1626,7 @@ export default function DashboardStaff({
               This will remove <strong className="text-slate-900">{staffToRemove.name}</strong> from this business.
               Review the selected account before confirming.
             </p>
-            <div className="mt-6 grid grid-cols-2 gap-3">
+            <div className="staff-two-column-grid mt-6 grid grid-cols-2 gap-3">
               <button
                 type="button"
                 onClick={() => setStaffToRemove(null)}
@@ -1610,7 +1671,6 @@ export default function DashboardStaff({
                   aria-label="Close staff profile"
                   onClick={() => {
                     setSelectedStaff(null);
-                    setTemporaryPassword('');
                   }}
                   className="h-10 w-10 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center"
                 >
@@ -1622,12 +1682,9 @@ export default function DashboardStaff({
             <div className="p-4 md:p-6 space-y-5 pb-[calc(2rem+env(safe-area-inset-bottom))]">
               <div className="grid grid-cols-1 lg:grid-cols-[1fr_0.95fr] gap-5">
                 <section className="rounded-3xl border border-slate-200 bg-slate-50 p-4 md:p-5">
-                  <div className="flex items-center justify-between gap-3 mb-4">
-                    <div>
-                      <h4 className="font-black text-slate-950">Profile Details</h4>
-                      <p className="text-xs text-slate-500 mt-1">Phone number is the staff username/login identifier.</p>
-                    </div>
-                    {renderStatus((staffSummaries.get(selectedStaff.id) || buildStaffSummary(selectedStaff)).isOnline)}
+                  <div className="mb-4">
+                    <h4 className="font-black text-slate-950">Profile Details</h4>
+                    <p className="text-xs text-slate-500 mt-1">Phone number is the staff username/login identifier.</p>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1638,6 +1695,10 @@ export default function DashboardStaff({
                     <label className="space-y-1.5">
                       <span className="text-xs font-black text-slate-700">Phone / Username</span>
                       <input value={selectedStaff.phone} onChange={e => handleProfileFieldChange(selectedStaff.id, { phone: e.target.value })} className="w-full min-h-[46px] rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none" />
+                    </label>
+                    <label className="space-y-1.5 md:col-span-2">
+                      <span className="text-xs font-black text-slate-700">Gmail for Google login</span>
+                      <input type="email" value={selectedStaff.email || ''} onChange={e => handleProfileFieldChange(selectedStaff.id, { email: e.target.value.toLowerCase() })} placeholder="staff@gmail.com" className="w-full min-h-[46px] rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none" />
                     </label>
                     <label className="space-y-1.5">
                       <span className="text-xs font-black text-slate-700">Role / Position</span>
@@ -1679,31 +1740,34 @@ export default function DashboardStaff({
 
                 <section className="rounded-3xl border border-slate-200 bg-slate-50 p-4 md:p-5">
                   <h4 className="font-black text-slate-950">Login & Access</h4>
-                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="staff-two-column-grid mt-4 grid grid-cols-2 gap-3">
                     <div className="rounded-2xl bg-white border border-slate-200 p-3">
                       <Lock className="w-4 h-4 text-indigo-600 mb-2" />
-                      <span className="block text-[10px] font-black uppercase text-slate-400">Password status</span>
-                      <strong className="mt-1 block text-sm text-slate-900">{selectedStaff.password ? 'Password set' : 'No password set'}</strong>
-                      <p className="mt-1 text-[11px] text-slate-500">Raw passwords are not shown here.</p>
+                      <span className="block text-[10px] font-black uppercase text-slate-400">Authentication</span>
+                      <strong className="mt-1 block text-sm text-slate-900">Supabase Auth protected</strong>
+                      <p className="mt-1 text-[11px] text-slate-500">No password is stored in workspace data.</p>
                     </div>
                     <div className="rounded-2xl bg-white border border-slate-200 p-3">
                       <Clock className="w-4 h-4 text-amber-600 mb-2" />
-                      <span className="block text-[10px] font-black uppercase text-slate-400">Last reset</span>
-                      <strong className="mt-1 block text-sm text-slate-900">{formatDateTime(selectedStaff.passwordUpdatedAt || selectedStaff.temporaryPasswordIssuedAt)}</strong>
+                      <span className="block text-[10px] font-black uppercase text-slate-400">Invitation status</span>
+                      <strong className="mt-1 block text-sm text-slate-900">{selectedStaff.email ? 'Ready for secure invitation' : 'Gmail required'}</strong>
                     </div>
                   </div>
                   <button
                     type="button"
-                    onClick={() => generateTemporaryPassword(selectedStaff)}
-                    className="mt-4 w-full min-h-[46px] rounded-2xl bg-indigo-600 text-white text-xs font-black inline-flex items-center justify-center gap-2"
+                    disabled={!selectedStaff.email}
+                    onClick={() => void createGoogleInvitation(selectedStaff)
+                      .then(() => setSuccessMessage('New Google invitation created. Copy and share the link below.'))
+                      .catch(error => setSuccessMessage(error instanceof Error ? error.message : 'Invitation could not be created.'))}
+                    className="mt-4 w-full min-h-[46px] rounded-2xl bg-emerald-700 disabled:bg-slate-300 text-white text-xs font-black inline-flex items-center justify-center gap-2"
                   >
-                    <KeyRound className="w-4 h-4" />
-                    Generate New Temporary Password
+                    <Shield className="w-4 h-4" />
+                    Create / Replace Google Invitation
                   </button>
-                  {temporaryPassword && (
+                  {invitationLink && (
                     <div className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-3">
-                      <span className="block text-[10px] font-black uppercase text-emerald-700">Copy now</span>
-                      <code className="mt-1 block text-lg font-black text-slate-950">{temporaryPassword}</code>
+                      <span className="block text-[10px] font-black uppercase text-emerald-700">Secure invitation link</span>
+                      <button type="button" onClick={() => void navigator.clipboard.writeText(invitationLink)} className="mt-2 min-h-[40px] w-full rounded-xl bg-emerald-700 px-3 text-xs font-black text-white">Copy link</button>
                     </div>
                   )}
                 </section>
@@ -1792,7 +1856,7 @@ export default function DashboardStaff({
                 return (
                   <section className="rounded-3xl border border-slate-200 bg-slate-50 p-4 md:p-5">
                     <h4 className="font-black text-slate-950">Payroll & Performance Summary</h4>
-                    <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="staff-two-column-grid mt-4 grid grid-cols-2 gap-3">
                       {[
                         { label: 'Salary owed', value: formatMoney(profilePayroll.salaryTotal), icon: Wallet },
                         { label: 'Allowances', value: formatMoney(profilePayroll.allowancesTotal), icon: Plus },
@@ -1818,6 +1882,125 @@ export default function DashboardStaff({
           </div>
         </div>
       )}
+
+      {/* Bottom Sheet Action Menu for Mobile/Tablet — same pattern as Sales */}
+      <AnimatePresence>
+        {mobileActionsStaff && (() => {
+          const staff = mobileActionsStaff;
+          const showPayStaff = payrollEnabled && canPayPayroll;
+          return (
+            <>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setMobileActionsStaff(null)}
+                className="fixed inset-0 z-[110] bg-slate-900/40 backdrop-blur-sm"
+              />
+              <motion.div
+                initial={{ y: '100%' }}
+                animate={{ y: 0 }}
+                exit={{ y: '100%' }}
+                transition={{ type: 'spring', damping: 25, stiffness: 280 }}
+                className="fixed left-0 right-0 max-w-lg mx-auto bg-white rounded-t-3xl shadow-xl z-[120] overflow-hidden font-sans flex flex-col text-[#0f172a] border border-slate-100"
+                style={{ bottom: 'calc(var(--dashboard-bottom-nav-height, 56px) + env(safe-area-inset-bottom))', maxHeight: 'calc(85vh - var(--dashboard-bottom-nav-height, 56px) - env(safe-area-inset-bottom))' }}
+              >
+                <div className="w-full flex justify-center py-2 shrink-0">
+                  <div className="w-12 h-1 bg-slate-250 rounded-full" />
+                </div>
+
+                <div className="px-5 pb-3 pt-1 text-left shrink-0 flex items-center gap-3">
+                  {renderAvatar(staff, 'w-10 h-10')}
+                  <div className="min-w-0">
+                    <h3 className="text-base font-extrabold text-slate-800 leading-tight truncate">{staff.name}</h3>
+                    <p className="text-xs text-slate-500 mt-0.5 font-bold uppercase tracking-wide truncate">{staff.role}</p>
+                  </div>
+                </div>
+
+                <div className="bg-slate-100 h-[1px] w-full" />
+
+                <div className="overflow-y-auto divide-y divide-slate-100 p-4 max-h-[calc(70vh-20px)] space-y-2.5">
+                  <button
+                    type="button"
+                    onClick={() => { openStaffProfile(staff); setMobileActionsStaff(null); }}
+                    className="w-full h-14 min-h-[52px] bg-white hover:bg-slate-50 flex items-center justify-between px-3.5 py-2.5 rounded-2xl border border-slate-100 shadow-3xs cursor-pointer text-left transition-colors font-semibold"
+                  >
+                    <div className="flex items-center space-x-3.5">
+                      <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 shrink-0 select-none">
+                        <Eye className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <span className="text-sm font-bold text-slate-800 block">View Staff</span>
+                        <span className="text-[10px] text-slate-400 block mt-0.5">Profile, sessions and performance</span>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-400" />
+                  </button>
+
+                  {showPayStaff && (
+                    <button
+                      type="button"
+                      onClick={() => { openSalaryPayment(staff); setMobileActionsStaff(null); }}
+                      className="w-full h-14 min-h-[52px] bg-white hover:bg-slate-50 flex items-center justify-between px-3.5 py-2.5 rounded-2xl border border-slate-100 shadow-3xs cursor-pointer text-left transition-colors font-semibold"
+                    >
+                      <div className="flex items-center space-x-3.5">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 shrink-0 select-none">
+                          <Wallet className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <span className="text-sm font-bold text-slate-800 block">Pay Staff</span>
+                          <span className="text-[10px] text-slate-400 block mt-0.5">Record a salary payment</span>
+                        </div>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-slate-400" />
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => { openCredentialEditor(staff); setMobileActionsStaff(null); }}
+                    className="w-full h-14 min-h-[52px] bg-white hover:bg-slate-50 flex items-center justify-between px-3.5 py-2.5 rounded-2xl border border-slate-100 shadow-3xs cursor-pointer text-left transition-colors font-semibold"
+                  >
+                    <div className="flex items-center space-x-3.5">
+                      <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-500 shrink-0 select-none">
+                        <KeyRound className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <span className="text-sm font-bold text-slate-800 block">Edit Staff</span>
+                        <span className="text-[10px] text-slate-400 block mt-0.5">Update login and role details</span>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-400" />
+                  </button>
+
+                  {!staff.isOwner ? (
+                    <button
+                      type="button"
+                      onClick={() => { handleDeleteStaff(staff.id); setMobileActionsStaff(null); }}
+                      className="w-full h-14 min-h-[52px] bg-rose-50/30 hover:bg-rose-50 flex items-center justify-between px-3.5 py-2.5 rounded-2xl border border-rose-100 shadow-3xs cursor-pointer text-left transition-colors font-semibold text-rose-600"
+                    >
+                      <div className="flex items-center space-x-3.5">
+                        <div className="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center text-rose-600 shrink-0 select-none">
+                          <Trash2 className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <span className="text-sm font-black block text-rose-700">Delete Staff</span>
+                          <span className="text-[10px] text-slate-400 block mt-0.5">Remove this account permanently</span>
+                        </div>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-rose-400" />
+                    </button>
+                  ) : (
+                    <div className="w-full px-3.5 py-3 rounded-2xl bg-amber-50 border border-amber-100 text-amber-700 font-black text-sm flex items-center gap-2">
+                      👑 Account Owner
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            </>
+          );
+        })()}
+      </AnimatePresence>
     </div>
   );
 }

@@ -83,30 +83,6 @@
          branding instead. -->
     <link rel="manifest" href="/manifest.json" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <script>
-      (function() {
-        function setViewportVars() {
-          var vv = window.visualViewport;
-          var height = vv ? vv.height : window.innerHeight;
-          var width = vv ? vv.width : window.innerWidth;
-          var bottomInset = vv ? Math.max(0, window.innerHeight - vv.height - vv.offsetTop) : 0;
-          document.documentElement.style.setProperty('--app-height', height + 'px');
-          document.documentElement.style.setProperty('--app-width', width + 'px');
-          document.documentElement.style.setProperty('--browser-bottom-inset', bottomInset + 'px');
-        }
-
-        setViewportVars();
-        window.addEventListener('resize', setViewportVars, { passive: true });
-        window.addEventListener('orientationchange', function() {
-          window.setTimeout(setViewportVars, 250);
-        }, { passive: true });
-        if (window.visualViewport) {
-          window.visualViewport.addEventListener('resize', setViewportVars, { passive: true });
-          window.visualViewport.addEventListener('scroll', setViewportVars, { passive: true });
-        }
-      })();
-    </script>
-    
     <!-- Google Identity Services client for real Google login -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     
@@ -340,18 +316,29 @@
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' })
             .then((registration) => {
-              console.log('Orvix PWA Service Worker registered securely with scope:', registration.scope);
-              registration.update().catch((error) => {
-                console.warn('Service Worker update check failed:', error);
-              });
-              window.setInterval(() => {
-                registration.update().catch((error) => {
-                  console.warn('Service Worker periodic update check failed:', error);
+              console.log('Orvix PWA update service is ready.');
+              var checkForUpdate = function() {
+                registration.update().catch(() => {
+                  console.warn('PWA update check is temporarily unavailable.');
                 });
-              }, 60000);
+              };
+              checkForUpdate();
+              window.setInterval(checkForUpdate, 60000);
+              // An installed PWA is usually launched from a device home
+              // screen icon into an already-registered service worker, not
+              // a fresh page load — the load-time check above only runs
+              // once per open. Re-checking whenever the app regains focus
+              // or comes back from the background is what actually catches
+              // an update on a device that was closed/backgrounded when a
+              // new version was deployed.
+              document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible') checkForUpdate();
+              });
+              window.addEventListener('focus', checkForUpdate);
+              window.addEventListener('pageshow', checkForUpdate);
             })
-            .catch((error) => {
-              console.error('Service Worker registration failed:', error);
+            .catch(() => {
+              console.error('PWA update service could not start.');
             });
         });
       }

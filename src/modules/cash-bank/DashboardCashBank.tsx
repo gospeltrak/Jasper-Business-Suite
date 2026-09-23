@@ -4,6 +4,7 @@ import { isDemoTenant } from '../../shared/utils/tenantIsolation';
 import { safeSetJsonItem } from '../../shared/utils/dataSafety';
 import { findPaymentChannel, getMaskedAccountReference, getTreasuryPaymentMethods, reconcilePaymentChannels } from '../../shared/utils/paymentAccounts';
 import { postTreasuryEntry, syncTreasuryPaymentAccounts, transferTreasuryFunds } from '../../utils/treasuryApi';
+import { formatLocalDate } from '../../utils/localDate';
 import { 
   Landmark, 
   Wallet, 
@@ -112,7 +113,7 @@ export default function DashboardCashBank({
     return getRelativeRange(29).start.slice(0, 10);
   });
   const [endDateStr, setEndDateStr] = useState<string>(() => {
-    return new Date().toISOString().slice(0, 10);
+    return formatLocalDate();
   });
 
   // Calculate dates based on option selected
@@ -364,19 +365,31 @@ export default function DashboardCashBank({
     });
 
     purchases.forEach(purchase => {
-      const amount = Math.max(0, Number(purchase.amountPaid || 0));
-      if (amount <= 0 || !purchase.paidFromAccountId) return;
-      if (!channels.some(channel => channel.id === purchase.paidFromAccountId)) return;
-      generated.push({
-        id: `PURCHASE-PAYMENT-${purchase.id}`,
-        tenantId: activeTenant.id,
-        channelId: purchase.paidFromAccountId,
-        amount: -amount,
-        entryType: 'debit',
-        sourceType: 'PURCHASE_PAYMENT',
-        description: `Purchase payment to ${purchase.supplierName}: ${purchase.id}`,
-        timestamp: purchase.timestamp,
-        referenceId: purchase.id,
+      const allocations = Array.isArray(purchase.paymentAllocations)
+        ? purchase.paymentAllocations.filter((allocation: any) => allocation?.fundingType === 'registered')
+        : [];
+      const paymentLines = allocations.length > 0
+        ? allocations.map((allocation: any) => ({
+            accountId: allocation.accountId || allocation.sourceKey,
+            amount: Math.max(0, Number(allocation.amount || 0)),
+          }))
+        : [{
+            accountId: purchase.paidFromAccountId,
+            amount: Math.max(0, Number(purchase.amountPaid || 0)),
+          }];
+      paymentLines.forEach(({ accountId, amount }: { accountId?: string; amount: number }, index: number) => {
+        if (amount <= 0 || !accountId || !channels.some(channel => channel.id === accountId)) return;
+        generated.push({
+          id: `PURCHASE-PAYMENT-${purchase.id}-${index}`,
+          tenantId: activeTenant.id,
+          channelId: accountId,
+          amount: -amount,
+          entryType: 'debit',
+          sourceType: 'PURCHASE_PAYMENT',
+          description: `Purchase payment to ${purchase.supplierName}: ${purchase.id}`,
+          timestamp: purchase.timestamp,
+          referenceId: purchase.id,
+        });
       });
     });
 
@@ -1988,7 +2001,7 @@ export default function DashboardCashBank({
                       {datePreset === 'today' ? 'Today Only' : 
                        datePreset === '1week' ? 'Past 7 Days' : 
                        datePreset === '1month' ? 'Past 30 Days' : 
-                       datePreset === '3months' ? 'Past 3 Months' : 'Custom Interval'}
+                       'Custom Interval'}
                     </span>
                     <span className="text-[10px] font-mono text-slate-400 block mt-0.5">{startDateStr} to {endDateStr}</span>
                   </div>

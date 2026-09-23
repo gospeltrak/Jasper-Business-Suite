@@ -3,7 +3,7 @@ import { Tenant, Product, SyncLog, Supplier, Sale } from './types';
 export const DEFAULT_TENANTS: Tenant[] = [
   {
     id: 't-lagos-01',
-    name: 'Jasper Wholesale Dar es Salaam',
+    name: 'Orvix Wholesale Dar es Salaam',
     country: 'Tanzania',
     city: 'Dar es Salaam',
     currency: 'TSh',
@@ -14,7 +14,7 @@ export const DEFAULT_TENANTS: Tenant[] = [
   },
   {
     id: 't-nairobi-02',
-    name: 'Jasper General Store Nairobi',
+    name: 'Orvix General Store Nairobi',
     country: 'Kenya',
     city: 'Nairobi',
     currency: 'KSh',
@@ -25,7 +25,7 @@ export const DEFAULT_TENANTS: Tenant[] = [
   },
   {
     id: 't-accra-03',
-    name: 'Jasper Tech Mall Accra',
+    name: 'Orvix Tech Mall Accra',
     country: 'Ghana',
     city: 'Accra',
     currency: 'GH₵',
@@ -36,7 +36,7 @@ export const DEFAULT_TENANTS: Tenant[] = [
   },
   {
     id: 't-pharma-01',
-    name: 'Jasper National Pharmacy',
+    name: 'Orvix National Pharmacy',
     country: 'Tanzania',
     city: 'Dar es Salaam',
     currency: 'TSh',
@@ -49,16 +49,16 @@ export const DEFAULT_TENANTS: Tenant[] = [
 
 export const DEMO_USERS = [
   {
-    email: 'saas.admin@jasper.com',
+    email: 'saas.admin@orvix.africa',
     password: 'password123',
-    name: 'Jasper SaaS Controller',
+    name: 'Orvix SaaS Controller',
     role: 'SuperAdmin' as const,
     tenantId: 't-lagos-01',
     activeTenant: 't-lagos-01',
     phone: '+255 700 000 001',
   },
   {
-    email: 'admin@jasper.com',
+    email: 'admin@orvix.africa',
     password: 'password123',
     name: 'Jane Doe',
     role: 'Admin' as const,
@@ -67,7 +67,7 @@ export const DEMO_USERS = [
     phone: '+255 700 000 002',
   },
   {
-    email: 'nairobi_cashier@jasper.com',
+    email: 'nairobi_cashier@orvix.africa',
     password: 'password123',
     name: 'John Doe',
     role: 'Cashier' as const,
@@ -76,7 +76,7 @@ export const DEMO_USERS = [
     phone: '+254 711 222 333',
   },
   {
-    email: 'accra_mgr@jasper.com',
+    email: 'accra_mgr@orvix.africa',
     password: 'password123',
     name: 'John Doe',
     role: 'Manager' as const,
@@ -85,7 +85,7 @@ export const DEMO_USERS = [
     phone: '+233 244 111 222',
   },
   {
-    email: 'pharmacy_mgr@jasper.com',
+    email: 'pharmacy_mgr@orvix.africa',
     password: 'password123',
     name: 'Dr. Amina Bello (RPh)',
     role: 'Manager' as const,
