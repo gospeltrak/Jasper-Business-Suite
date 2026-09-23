@@ -11,7 +11,7 @@ import {
   classifyServerError,
   createSafeServerError,
 } from '../serverSafeErrors';
-import { toUserFacingError } from '../src/utils/safeError';
+import { toUserFacingError } from '../src/shared/utils/safeError';
 
 const FORBIDDEN_USER_TEXT = /\b(?:supabase|postgres(?:ql)?|sql|rls|jwt|stack|schema|constraint|service[_ -]?role|api[_ -]?key|environment variable|tenant[_ -]?id)\b/i;
 

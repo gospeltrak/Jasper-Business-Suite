@@ -1,6 +1,6 @@
 # Jasper UI English to Swahili Glossary
 
-Generated from `src/LanguageContext.tsx`.
+Generated from `src/shared/contexts/LanguageContext.tsx`.
 
 | English UI word/phrase | Swahili translation |
 |---|---|

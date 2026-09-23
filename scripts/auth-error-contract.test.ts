@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { getSafeErrorMessage } from '../shared/safeErrors';
 import { createSafeServerError } from '../serverSafeErrors';
-import { toUserFacingError } from '../src/utils/safeError';
+import { toUserFacingError } from '../src/shared/utils/safeError';
 
 const readProjectFile = (path: string) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
 
@@ -94,7 +94,7 @@ test('authentication API routes do not return raw exception messages', () => {
 });
 
 test('LoginPage no longer displays auth infrastructure details or raw catch messages', () => {
-  const source = readProjectFile('src/components/LoginPage.tsx');
+  const source = readProjectFile('src/modules/auth/LoginPage.tsx');
   assert.doesNotMatch(source, /setError\(\s*(?:err|error)\??\.message/);
   assert.doesNotMatch(source, /profile JWT/);
   assert.doesNotMatch(source, /protected database environment keys/);

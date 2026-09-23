@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 const server = fs.readFileSync('server.ts', 'utf8');
-const portal = fs.readFileSync('src/components/AffiliatePortal.tsx', 'utf8');
-const desk = fs.readFileSync('src/components/affiliate/AffiliateAgentDesk.tsx', 'utf8');
+const portal = fs.readFileSync('src/modules/affiliate/components/AffiliatePortal.tsx', 'utf8');
+const desk = fs.readFileSync('src/modules/affiliate/components/AffiliateAgentDesk.tsx', 'utf8');
 
 test('partner dashboard renders outside the login shell to fit desktop viewport', () => {
   assert.match(portal, /if \(authMode === 'dashboard' && databaseAgentWorkspaceEnabled\)[\s\S]*return <AffiliateAgentDesk/);

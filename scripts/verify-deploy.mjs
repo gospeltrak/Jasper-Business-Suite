@@ -42,8 +42,8 @@ if (artifactMode) {
     'src/main.tsx',
     'src/App.tsx',
     'src/components/Dashboard.tsx',
-    'src/components/DashboardSalesList.tsx',
-    'src/utils/pdfShare.ts',
+    'src/modules/sales/DashboardSalesList.tsx',
+    'src/shared/utils/pdfShare.ts',
     'server.ts',
     'vercel.json',
   ]) {

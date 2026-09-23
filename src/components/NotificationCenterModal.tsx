@@ -1,5 +1,5 @@
 import React from 'react';
-import { useJasperNotifications } from '../JasperNotificationContext';
+import { useJasperNotifications } from '../shared/contexts/JasperNotificationContext';
 import { Bell, Check, X, Clock, FileText, ShoppingCart, AlertTriangle, AlertCircle } from 'lucide-react';
 
 interface Props {

@@ -32,7 +32,7 @@ const emptyLedgerPage = (collection: string) => ({
   error: null,
 });
 
-vi.mock('../secureDataBridge', () => ({
+vi.mock('../shared/dataBridge/secureDataBridge', () => ({
   getSecureDataBridgeClient: vi.fn(async () => ({
     supabaseUrl: 'https://fake-project.supabase.co',
     rpc: async (fn: string, args?: any) => {

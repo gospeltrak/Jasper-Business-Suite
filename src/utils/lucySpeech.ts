@@ -1,4 +1,4 @@
-import { getSecureDataBridgeClient, isPlaceholderSecureDataBridgeClient } from '../secureDataBridge';
+import { getSecureDataBridgeClient, isPlaceholderSecureDataBridgeClient } from '../shared/dataBridge/secureDataBridge';
 
 let activeLucyAudio: HTMLAudioElement | null = null;
 let activeLucyAudioUrl: string | null = null;

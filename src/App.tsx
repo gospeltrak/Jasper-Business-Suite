@@ -1,25 +1,25 @@
 import { Suspense, useState, useEffect, useRef } from 'react';
 import JasperSplashScreen from './components/JasperSplashScreen';
 import { User, Tenant } from './types';
-import { useTheme } from './ThemeContext';
-import { useTenantLogo } from './TenantLogoContext';
-import { getSecureDataBridgeClient, isPlaceholderSecureDataBridgeClient } from './secureDataBridge';
-import { endCloudSession, startCloudSession, touchCloudSession } from './utils/sessionControl';
+import { useTheme } from './shared/contexts/ThemeContext';
+import { useTenantLogo } from './shared/contexts/TenantLogoContext';
+import { getSecureDataBridgeClient, isPlaceholderSecureDataBridgeClient } from './shared/dataBridge/secureDataBridge';
+import { endCloudSession, startCloudSession, touchCloudSession } from './shared/utils/sessionControl';
 import { pullFromCloud, pushToCloud } from './utils/dbSync';
 import { configureOnlineStorage, resetOnlineStorage } from './utils/onlineStorage';
 import { lazyWithReload } from './utils/lazyWithReload';
 import SystemErrorPage, { type SystemErrorStatus } from './components/SystemErrorPage';
 import { resolveProfileRolePermissions } from './utils/profilePermissions';
 import { loadTenantWorkspace } from './utils/tenantWorkspace';
-import { preloadBranchWorkspace } from './branches/BranchContext';
+import { preloadBranchWorkspace } from './modules/branches/BranchContext';
 
 // Route-level code splitting keeps the large business workspaces out of the
 // login bundle. No feature is removed; it is downloaded only when opened.
-const LandingPage = lazyWithReload('LandingPage', () => import('./components/LandingPage'));
-const LoginPage = lazyWithReload('LoginPage', () => import('./components/LoginPage'));
+const LandingPage = lazyWithReload('LandingPage', () => import('./modules/landing/LandingPage'));
+const LoginPage = lazyWithReload('LoginPage', () => import('./modules/auth/LoginPage'));
 const Dashboard = lazyWithReload('Dashboard', () => import('./components/Dashboard'));
-const AffiliatePortal = lazyWithReload('AffiliatePortal', () => import('./components/AffiliatePortal'));
-const ToolsHub = lazyWithReload('ToolsHub', () => import('./components/ToolsHub'));
+const AffiliatePortal = lazyWithReload('AffiliatePortal', () => import('./modules/affiliate/components/AffiliatePortal'));
+const ToolsHub = lazyWithReload('ToolsHub', () => import('./modules/tools/ToolsHub'));
 const JASPER_PUBLIC_LANDING_URL = 'https://jasper-business-suite.vercel.app/';
 const JASPER_PUBLIC_LANDING_HOST = new URL(JASPER_PUBLIC_LANDING_URL).hostname;
 

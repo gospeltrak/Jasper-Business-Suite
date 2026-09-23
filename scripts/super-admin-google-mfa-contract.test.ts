@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-const login = fs.readFileSync('src/components/LoginPage.tsx', 'utf8');
+const login = fs.readFileSync('src/modules/auth/LoginPage.tsx', 'utf8');
 const app = fs.readFileSync('src/App.tsx', 'utf8');
 const server = fs.readFileSync('server.ts', 'utf8');
 

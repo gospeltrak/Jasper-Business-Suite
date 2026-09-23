@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { findPaymentChannel, getMaskedAccountReference, getTreasuryPaymentMethods, reconcilePaymentChannels } from '../src/utils/paymentAccounts';
+import { findPaymentChannel, getMaskedAccountReference, getTreasuryPaymentMethods, reconcilePaymentChannels } from '../src/shared/utils/paymentAccounts';
 
 test('payment methods create stable active accounts without duplicates', () => {
   const first = reconcilePaymentChannels(['Cash', 'M-Pesa'], [], { currency: 'TZS' });
@@ -91,8 +91,8 @@ test('payment-account synchronization is non-destructive, masked, and opening-ba
 
 test('sales, delivery, purchases, expenses, and payroll use canonical treasury posting', () => {
   const dashboard = readFileSync(new URL('../src/components/Dashboard.tsx', import.meta.url), 'utf8');
-  const staff = readFileSync(new URL('../src/components/DashboardStaff.tsx', import.meta.url), 'utf8');
-  const cashBank = readFileSync(new URL('../src/components/DashboardCashBank.tsx', import.meta.url), 'utf8');
+  const staff = readFileSync(new URL('../src/modules/staff/DashboardStaff.tsx', import.meta.url), 'utf8');
+  const cashBank = readFileSync(new URL('../src/modules/cash-bank/DashboardCashBank.tsx', import.meta.url), 'utf8');
   assert.match(dashboard, /postTreasurySplitIncome\(\{/);
   assert.match(dashboard, /sourceType:\s*'purchase'/);
   assert.match(dashboard, /expense\.payrollPaymentType \? 'payroll' : 'expense'/);
@@ -106,7 +106,7 @@ test('sales, delivery, purchases, expenses, and payroll use canonical treasury p
 
 test('Money & Bank avoids duplicate account sync and excludes internal transfers from combined income', () => {
   const dashboard = readFileSync(new URL('../src/components/Dashboard.tsx', import.meta.url), 'utf8');
-  const cashBank = readFileSync(new URL('../src/components/DashboardCashBank.tsx', import.meta.url), 'utf8');
+  const cashBank = readFileSync(new URL('../src/modules/cash-bank/DashboardCashBank.tsx', import.meta.url), 'utf8');
   assert.match(cashBank, /lastAccountSyncSignatureRef/);
   assert.match(cashBank, /if \(lastAccountSyncSignatureRef\.current === syncSignature\) return/);
   assert.match(cashBank, /isInternalTransfer[\s\S]+if \(isInternalTransfer\) return/);

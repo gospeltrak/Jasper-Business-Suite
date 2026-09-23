@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 const server = fs.readFileSync('server.ts', 'utf8');
-const portal = fs.readFileSync('src/components/AffiliatePortal.tsx', 'utf8');
+const portal = fs.readFileSync('src/modules/affiliate/components/AffiliatePortal.tsx', 'utf8');
 
 test('affiliate and partner Google registration uses the verified Google identity', () => {
   assert.match(server, /googleRegistration \? await getGoogleRequestUser\(req\)/);

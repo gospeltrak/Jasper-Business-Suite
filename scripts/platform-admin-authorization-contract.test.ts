@@ -50,12 +50,12 @@ test('rejects inactive or tenant-bound super-admin profiles', () => {
 test('admin write-mode uses fresh MFA and ships no password override or shared secret', () => {
   const files = [
     'server.ts',
-    'src/utils/superAdminData.ts',
-    'src/utils/superAffiliateAdmin.ts',
-    'src/components/SuperSaaSAdminView.tsx',
-    'src/components/SuperAffiliateControlCenter.tsx',
-    'src/components/SaaSUserDesk.tsx',
-    'src/utils/superAdminMfa.ts',
+    'src/modules/platform-admin/utils/superAdminData.ts',
+    'src/modules/platform-admin/utils/superAffiliateAdmin.ts',
+    'src/modules/platform-admin/components/SuperSaaSAdminView.tsx',
+    'src/modules/platform-admin/components/SuperAffiliateControlCenter.tsx',
+    'src/modules/platform-admin/components/SaaSUserDesk.tsx',
+    'src/modules/platform-admin/utils/superAdminMfa.ts',
   ].map((file) => fs.readFileSync(path.join(root, file), 'utf8')).join('\n');
 
   assert.doesNotMatch(files, /saas-secure-2026|saas_encrypted_master_key|['"]3698['"]/);

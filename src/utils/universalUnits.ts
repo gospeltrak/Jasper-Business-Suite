@@ -1,5 +1,5 @@
 import { Product, UniversalPackageLevel, UniversalPreset, UniversalSellingUnit } from '../types';
-import { formatQuantity } from './unitFormatter';
+import { formatQuantity } from '../shared/utils/unitFormatter';
 
 // ─── Universal Inventory Unit & Packaging Engine — Stage 2 ─────────────────
 // Package/Selling Unit <-> Base Unit conversion. A quantityInBaseUnit always

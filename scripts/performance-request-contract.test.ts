@@ -5,9 +5,9 @@ import test from 'node:test';
 const app = fs.readFileSync('src/App.tsx', 'utf8');
 const server = fs.readFileSync('server.ts', 'utf8');
 const platformRecords = fs.readFileSync('src/utils/superAdminPlatformRecords.ts', 'utf8');
-const logoContext = fs.readFileSync('src/TenantLogoContext.tsx', 'utf8');
-const affiliateAdmin = fs.readFileSync('src/utils/superAffiliateAdmin.ts', 'utf8');
-const superAdminData = fs.readFileSync('src/utils/superAdminData.ts', 'utf8');
+const logoContext = fs.readFileSync('src/shared/contexts/TenantLogoContext.tsx', 'utf8');
+const affiliateAdmin = fs.readFileSync('src/modules/platform-admin/utils/superAffiliateAdmin.ts', 'utf8');
+const superAdminData = fs.readFileSync('src/modules/platform-admin/utils/superAdminData.ts', 'utf8');
 const runtimeIndexes = fs.readFileSync('supabase/migrations/20260814120002_super_admin_runtime_indexes.sql', 'utf8');
 
 test('tenant resolution is deduplicated and cached per exact host request', () => {
