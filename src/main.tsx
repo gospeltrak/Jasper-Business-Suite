@@ -8,7 +8,7 @@ import { ThemeProvider } from './shared/contexts/ThemeContext';
 import { LanguageProvider } from './shared/contexts/LanguageContext';
 import { TenantLogoProvider } from './shared/contexts/TenantLogoContext';
 import { NotificationProvider } from './shared/contexts/JasperNotificationContext';
-import AppErrorBoundary from './components/AppErrorBoundary';
+import AppErrorBoundary from './shared/components/AppErrorBoundary';
 
 function syncViewportVars() {
   const viewport = window.visualViewport;

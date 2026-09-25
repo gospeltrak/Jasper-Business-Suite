@@ -8,7 +8,7 @@ import { endCloudSession, startCloudSession, touchCloudSession } from './shared/
 import { pullFromCloud, pushToCloud } from './utils/dbSync';
 import { configureOnlineStorage, resetOnlineStorage } from './utils/onlineStorage';
 import { lazyWithReload } from './utils/lazyWithReload';
-import SystemErrorPage, { type SystemErrorStatus } from './components/SystemErrorPage';
+import SystemErrorPage, { type SystemErrorStatus } from './shared/components/SystemErrorPage';
 import { resolveProfileRolePermissions } from './utils/profilePermissions';
 import { loadTenantWorkspace } from './utils/tenantWorkspace';
 import { preloadBranchWorkspace } from './modules/branches/BranchContext';

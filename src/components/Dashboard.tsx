@@ -40,7 +40,7 @@ const DashboardSandboxVerticals = lazyWithReload('DashboardSandboxVerticals', ()
 const DashboardWhiteLabel = lazyWithReload('DashboardWhiteLabel', () => import('../modules/white-label/DashboardWhiteLabel'));
 const DashboardSettings = lazyWithReload('DashboardSettings', () => import('../modules/settings/DashboardSettings'));
 const DashboardStaff = lazyWithReload('DashboardStaff', () => import('../modules/staff/DashboardStaff'));
-import DashboardScreenErrorBoundary from './DashboardScreenErrorBoundary';
+import DashboardScreenErrorBoundary from '../shared/components/DashboardScreenErrorBoundary';
 import AIBusinessCopilot from './AIBusinessCopilot';
 import GlobalStickyAd from './GlobalStickyAd';
 const SuperSaaSAdminView = lazyWithReload('SuperSaaSAdminView', () => import('../modules/platform-admin/components/SuperSaaSAdminView'));

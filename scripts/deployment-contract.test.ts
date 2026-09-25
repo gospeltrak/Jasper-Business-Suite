@@ -74,7 +74,7 @@ test('tenant package navigation contract remains centralized and correct', () =>
 test('lazy screens recover safely after a deployment changes chunk filenames', async () => {
   const dashboardSource = await read('src/components/Dashboard.tsx');
   const appSource = await read('src/App.tsx');
-  const boundarySource = await read('src/components/DashboardScreenErrorBoundary.tsx');
+  const boundarySource = await read('src/shared/components/DashboardScreenErrorBoundary.tsx');
   const lazyLoaderSource = await read('src/utils/lazyWithReload.ts');
 
   assert.match(dashboardSource, /lazyWithReload\('DashboardCashBank'/);

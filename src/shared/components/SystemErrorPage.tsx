@@ -1,5 +1,5 @@
 import { AlertTriangle, ArrowLeft, Home, LockKeyhole, RefreshCw, SearchX, ShieldX } from 'lucide-react';
-import { useTranslation, type LanguageType } from '../shared/contexts/LanguageContext';
+import { useTranslation, type LanguageType } from '../contexts/LanguageContext';
 
 export type SystemErrorStatus = 401 | 403 | 404 | 500;
 
