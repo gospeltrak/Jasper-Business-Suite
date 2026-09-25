@@ -28,7 +28,7 @@ import { getSecureDataBridgeClient, isPlaceholderSecureDataBridgeClient } from '
 import { initializeCleanTenantWorkspace } from '../../shared/utils/tenantIsolation';
 import { startCloudSession } from '../../shared/utils/sessionControl';
 import { toUserFacingError } from '../../shared/utils/safeError';
-import PrivacyAndTermsModals from '../../components/PrivacyAndTermsModals';
+import PrivacyAndTermsModals from './PrivacyAndTermsModals';
 import TurnstileWidget from '../../shared/components/TurnstileWidget';
 import { prepareSuperAdminMfa, verifySuperAdminMfa, type SuperAdminMfaPrompt } from '../platform-admin/utils/superAdminMfa';
 import { resolveProfileRolePermissions } from '../../utils/profilePermissions';

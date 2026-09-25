@@ -50,7 +50,7 @@ import { safeSetJsonItem } from '../../shared/utils/dataSafety';
 import { generateUniqueEan13Barcode } from './barcode';
 import { calculateFractionSalePacketPrice } from '../../utils/fractionSale';
 import ModernSelect, { ModernSelectOption } from '../../components/ui/ModernSelect';
-import DashboardBarcodeScanner from '../../components/DashboardBarcodeScanner';
+import DashboardBarcodeScanner from '../../shared/components/DashboardBarcodeScanner';
 import { loadBranchWorkspace, transferStockBetweenBranches } from '../branches/branchApi';
 import type { BranchSummary } from '../branches/branchTypes';
 import {

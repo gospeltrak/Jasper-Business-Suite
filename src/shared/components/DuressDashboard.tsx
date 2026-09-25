@@ -17,7 +17,7 @@ import {
   CheckCircle,
   AlertCircle
 } from 'lucide-react';
-import duressData from '../../data/duress-fake-data.json';
+import duressData from '../../../data/duress-fake-data.json';
 
 interface DuressDashboardProps {
   onLogout: () => void;

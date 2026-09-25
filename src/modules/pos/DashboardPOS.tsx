@@ -41,7 +41,7 @@ import {
   ChevronDown,
   Package
 } from 'lucide-react';
-import DashboardBarcodeScanner from '../../components/DashboardBarcodeScanner';
+import DashboardBarcodeScanner from '../../shared/components/DashboardBarcodeScanner';
 import CachedImage from '../../shared/components/CachedImage';
 import { downloadPdfFromElement, shareElementPdfToWhatsApp } from '../../shared/utils/pdfShare';
 import { localDateToIso, timestampToLocalDate } from '../../utils/localDate';

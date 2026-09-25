@@ -1,6 +1,6 @@
 import { X, Globe, Shield, Scale, FileText } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { useTranslation } from '../shared/contexts/LanguageContext';
+import { useTranslation } from '../../shared/contexts/LanguageContext';
 
 interface PrivacyAndTermsModalsProps {
   isOpen: boolean;

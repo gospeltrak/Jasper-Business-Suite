@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef, ReactNode } from 'react';
-import { Tenant } from '../types';
-import { createLucyResponse, detectLucyLanguage, getLucyGreeting } from '../utils/lucyBrain';
-import { normalizeSubscriptionPlanId } from '../utils/subscription';
-import { getSecureDataBridgeClient, isPlaceholderSecureDataBridgeClient } from '../shared/dataBridge/secureDataBridge';
+import { Tenant } from '../../types';
+import { createLucyResponse, detectLucyLanguage, getLucyGreeting } from '../../utils/lucyBrain';
+import { normalizeSubscriptionPlanId } from '../../utils/subscription';
+import { getSecureDataBridgeClient, isPlaceholderSecureDataBridgeClient } from '../../shared/dataBridge/secureDataBridge';
 import { 
   Sparkles, 
   Send, 
@@ -20,7 +20,7 @@ import {
   Zap
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { speakWithGeminiLucy, stopLucySpeech, unlockLucySpeech } from '../utils/lucySpeech';
+import { speakWithGeminiLucy, stopLucySpeech, unlockLucySpeech } from '../../utils/lucySpeech';
 
 interface AIBusinessCopilotProps {
   activeTenant: Tenant;

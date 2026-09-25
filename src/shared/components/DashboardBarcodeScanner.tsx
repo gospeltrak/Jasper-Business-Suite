@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Product } from '../types';
+import { Product } from '../../types';
 import { 
   X, 
   Camera, 

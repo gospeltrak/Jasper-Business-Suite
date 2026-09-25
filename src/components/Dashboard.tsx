@@ -41,10 +41,10 @@ const DashboardWhiteLabel = lazyWithReload('DashboardWhiteLabel', () => import('
 const DashboardSettings = lazyWithReload('DashboardSettings', () => import('../modules/settings/DashboardSettings'));
 const DashboardStaff = lazyWithReload('DashboardStaff', () => import('../modules/staff/DashboardStaff'));
 import DashboardScreenErrorBoundary from '../shared/components/DashboardScreenErrorBoundary';
-import AIBusinessCopilot from './AIBusinessCopilot';
+import AIBusinessCopilot from '../modules/ai-copilot/AIBusinessCopilot';
 import GlobalStickyAd from '../shared/components/GlobalStickyAd';
 const SuperSaaSAdminView = lazyWithReload('SuperSaaSAdminView', () => import('../modules/platform-admin/components/SuperSaaSAdminView'));
-import DuressDashboard from './DuressDashboard';
+import DuressDashboard from '../shared/components/DuressDashboard';
 import CachedImage from '../shared/components/CachedImage';
 import { savePendingSaleOffline } from '../utils/offlineDb';
 import { createCleanTenantSettings, isDemoTenant } from '../shared/utils/tenantIsolation';
@@ -214,7 +214,7 @@ interface DashboardProps {
   initialTab?: string;
 }
 
-import { NotificationCenterModal } from './NotificationCenterModal';
+import { NotificationCenterModal } from '../shared/components/NotificationCenterModal';
 
 const getInitialSystemSettings = (tenant: Tenant): SystemSettings => {
   if (!isDemoTenant(tenant.id)) return createCleanTenantSettings(tenant);

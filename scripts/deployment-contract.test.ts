@@ -849,7 +849,7 @@ test('Lucy text generation uses current stable Gemini models', async () => {
 test('Lucy uses authenticated Gemini Swahili speech and current market grounding', async () => {
   const serverSource = await read('server.ts');
   const lucySource = await read('api/lucy.ts');
-  const copilotSource = await read('src/components/AIBusinessCopilot.tsx');
+  const copilotSource = await read('src/modules/ai-copilot/AIBusinessCopilot.tsx');
   const forecastingSource = await read('src/modules/forecasting/DashboardForecasting.tsx');
   const speechSource = await read('src/utils/lucySpeech.ts');
 
