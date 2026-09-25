@@ -1,4 +1,4 @@
-import type { CustomRole } from '../types';
+import type { CustomRole } from '../../types';
 
 type RolePermissions = CustomRole['permissions'];
 

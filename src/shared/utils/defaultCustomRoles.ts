@@ -1,4 +1,4 @@
-import { CustomRole } from '../types';
+import { CustomRole } from '../../types';
 
 // Extracted out of DashboardSettings.tsx into its own tiny module.
 // Dashboard.tsx needs this constant unconditionally (role/permission

@@ -9,7 +9,7 @@ import { pullFromCloud, pushToCloud } from './shared/utils/dbSync';
 import { configureOnlineStorage, resetOnlineStorage } from './utils/onlineStorage';
 import { lazyWithReload } from './shared/utils/lazyWithReload';
 import SystemErrorPage, { type SystemErrorStatus } from './shared/components/SystemErrorPage';
-import { resolveProfileRolePermissions } from './utils/profilePermissions';
+import { resolveProfileRolePermissions } from './shared/utils/profilePermissions';
 import { loadTenantWorkspace } from './utils/tenantWorkspace';
 import { preloadBranchWorkspace } from './modules/branches/BranchContext';
 

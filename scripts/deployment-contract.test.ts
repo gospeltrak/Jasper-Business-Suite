@@ -11,7 +11,7 @@ import {
 } from '../src/modules/sales/utils/saleSync';
 import { protectTenantPayload } from '../src/shared/utils/dataSafety';
 import type { Product, Sale } from '../src/types';
-import { resolveProfileRolePermissions } from '../src/utils/profilePermissions';
+import { resolveProfileRolePermissions } from '../src/shared/utils/profilePermissions';
 
 const projectRoot = resolve(import.meta.dirname, '..');
 const read = (path: string) => readFile(join(projectRoot, path), 'utf8');

@@ -50,7 +50,7 @@ import { lazyWithReload } from '../../shared/utils/lazyWithReload';
 
 const DashboardBranchesSettings = lazyWithReload('SettingsDashboardBranches', () => import('../branches/components/DashboardBranchesSettings'));
 
-import { DEFAULT_CUSTOM_ROLES } from '../../utils/defaultCustomRoles';
+import { DEFAULT_CUSTOM_ROLES } from '../../shared/utils/defaultCustomRoles';
 export { DEFAULT_CUSTOM_ROLES };
 
 interface DashboardSettingsProps {

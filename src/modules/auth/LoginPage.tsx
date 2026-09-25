@@ -31,7 +31,7 @@ import { toUserFacingError } from '../../shared/utils/safeError';
 import PrivacyAndTermsModals from './PrivacyAndTermsModals';
 import TurnstileWidget from '../../shared/components/TurnstileWidget';
 import { prepareSuperAdminMfa, verifySuperAdminMfa, type SuperAdminMfaPrompt } from '../platform-admin/utils/superAdminMfa';
-import { resolveProfileRolePermissions } from '../../utils/profilePermissions';
+import { resolveProfileRolePermissions } from '../../shared/utils/profilePermissions';
 
 const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
   en: {
