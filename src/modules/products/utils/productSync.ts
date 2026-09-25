@@ -1,4 +1,4 @@
-import { Product } from '../types';
+import { Product } from '../../../types';
 
 export const PRODUCT_TOMBSTONES_FIELD = '__productTombstones';
 

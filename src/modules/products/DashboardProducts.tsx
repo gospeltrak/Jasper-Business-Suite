@@ -44,7 +44,7 @@ import {
 } from '../../utils/inventoryCosting';
 import { formatProductQuantity } from '../../shared/utils/unitFormatter';
 import { formatLocalDate } from '../../utils/localDate';
-import { classifyUniversalImportRows, downloadableUniversalTemplate } from '../../utils/bulkProductImport';
+import { classifyUniversalImportRows, downloadableUniversalTemplate } from './utils/bulkProductImport';
 import { compressImageFile } from '../../shared/utils/imageCompression';
 import { safeSetJsonItem } from '../../shared/utils/dataSafety';
 import { generateUniqueEan13Barcode } from './barcode';
@@ -58,7 +58,7 @@ import {
   getProductCatalogueBackupFileName,
   parseProductCatalogueBackup,
   prepareBackedUpProductsForImport,
-} from '../../utils/productCatalogueBackup';
+} from './utils/productCatalogueBackup';
 
 const getProductImageUploadToken = async (): Promise<string> => {
   const client: any = await getSecureDataBridgeClient();

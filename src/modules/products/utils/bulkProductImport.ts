@@ -1,5 +1,5 @@
-import { DosageForm, Product, ProductType, UniversalPackageLevel, UniversalSellingUnit } from '../types';
-import { validateSellingUnits, validateUnitHierarchy } from './universalUnits';
+import { DosageForm, Product, ProductType, UniversalPackageLevel, UniversalSellingUnit } from '../../../types';
+import { validateSellingUnits, validateUnitHierarchy } from '../../../utils/universalUnits';
 
 // ─── Universal Bulk Import (Stage 8) ────────────────────────────────────────
 // A second, header-based import path that sits ALONGSIDE the original

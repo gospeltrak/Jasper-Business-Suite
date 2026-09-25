@@ -5,7 +5,7 @@ import {
   getProductCatalogueBackupFileName,
   parseProductCatalogueBackup,
   prepareBackedUpProductsForImport,
-} from '../src/utils/productCatalogueBackup';
+} from '../src/modules/products/utils/productCatalogueBackup';
 import type { Product } from '../src/types';
 
 const product: Product = {

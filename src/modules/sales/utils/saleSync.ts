@@ -1,5 +1,5 @@
 import { Product, Sale } from '../../../types';
-import { stampProductsForSync } from '../../../utils/productSync';
+import { stampProductsForSync } from '../../products/utils/productSync';
 
 export const SALE_TOMBSTONES_FIELD = '__saleTombstones';
 

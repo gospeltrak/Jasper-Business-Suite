@@ -1,4 +1,4 @@
-import type { Product } from '../types';
+import type { Product } from '../../../types';
 
 export const PRODUCT_CATALOGUE_BACKUP_VERSION = 1;
 

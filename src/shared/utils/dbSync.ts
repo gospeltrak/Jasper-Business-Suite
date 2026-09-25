@@ -23,7 +23,7 @@ import {
   mergeProductTombstones,
   readLocalProductTombstones,
   writeLocalProductTombstones,
-} from '../../utils/productSync';
+} from '../../modules/products/utils/productSync';
 import { APPEND_MERGE_DATA_KEYS, mergeRecordsById } from './recordSync';
 import { mergeSettingsForSync } from './settingsSync';
 import { ONLINE_ONLY_WRITE_MESSAGE, canWriteBusinessDataOnline, warnOfflineWriteBlocked } from './onlineOnly';

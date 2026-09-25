@@ -7,7 +7,7 @@ import {
   mergeProductTombstones,
   readLocalProductTombstones,
   writeLocalProductTombstones,
-} from './productSync';
+} from '../modules/products/utils/productSync';
 import { mergeRecordsById } from '../shared/utils/recordSync';
 import { mergeSettingsForSync } from '../shared/utils/settingsSync';
 import {
