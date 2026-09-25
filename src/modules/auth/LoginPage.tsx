@@ -202,6 +202,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   // Registration Form States
   const [ownerName, setOwnerName] = useState('');
   const [regEmail, setRegEmail] = useState('');
+  const [regPhone, setRegPhone] = useState('');
   const [regPassword, setRegPassword] = useState('');
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [showRegPassword, setShowRegPassword] = useState(false);
@@ -430,15 +431,6 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
 
   const makeInternalEmailFromPhone = (phone: string) => {
     return makeInternalEmailCandidatesFromPhone(phone)[0] || '';
-  };
-
-  const makeInternalEmailFromBusiness = (businessName: string, owner: string) => {
-    const base = `${businessName || owner || 'owner'}-${Date.now()}`
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .slice(0, 48) || 'owner';
-    return `${base}@signup.jasper.local`;
   };
 
   const handleRequestPasswordReset = async (e: FormEvent) => {
@@ -1190,8 +1182,12 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       setError('Please read and accept the Terms & Conditions and Privacy Policy before registration.');
       return;
     }
-    if (!ownerName || !regEmail || !regPassword || !orgName) {
+    if (!ownerName || !regEmail || !regPhone || !regPassword || !orgName) {
       setError('Please fill in all registration inputs.');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(regEmail.trim())) {
+      setError('Please enter a valid email address.');
       return;
     }
     if (!businessType) {
@@ -1214,10 +1210,8 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
 
     setIsLoading(true);
     setError(null);
-    const cleanOwnerPhone = normalizePhoneForWhatsapp(regEmail);
-    const ownerAuthEmail = regEmail.includes('@')
-      ? regEmail.trim()
-      : makeInternalEmailFromPhone(regEmail) || makeInternalEmailFromBusiness(orgName, ownerName);
+    const cleanOwnerPhone = normalizePhoneForWhatsapp(regPhone);
+    const ownerAuthEmail = regEmail.trim();
     const currencyMapping = {
       'Nigeria': { symbol: '₦', code: 'NGN', tax: 0.075 },
       'Kenya': { symbol: 'KSh', code: 'KES', tax: 0.16 },
@@ -1239,7 +1233,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
           password: regPassword,
           name: ownerName,
           businessName: orgName,
-          phone: cleanOwnerPhone || regEmail.trim(),
+          phone: cleanOwnerPhone || regPhone.trim(),
           country,
           city,
           currency: mappedCurrency.symbol,
@@ -1286,7 +1280,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         role: 'Admin',
         tenantId: newTenant.id,
         activeTenant: newTenant.id,
-        phone: cleanOwnerPhone || regEmail.trim(),
+        phone: cleanOwnerPhone || regPhone.trim(),
         isSaaSStaff: false,
         trial_start_date: trialStartDate.toISOString(),
         trial_end_date: trialEndDate.toISOString(),
@@ -1799,7 +1793,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                 </button>
                 <p className="text-center text-[10px] leading-relaxed text-slate-500">{t('existingGoogleAccount')}</p>
               </div>
-              {authTab !== 'register' && <form className="space-y-5" onSubmit={handleRegisterSubmit}>
+              <form className="space-y-5" onSubmit={handleRegisterSubmit}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-slate-500 uppercase block">Owner Full Name</label>
@@ -1826,37 +1820,49 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block">Email</label>
+                  <input
+                    type="email"
+                    required
+                    value={regEmail}
+                    placeholder="email@example.com"
+                    onChange={(e) => setRegEmail(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-555 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none font-sans"
+                  />
+                </div>
 	                <div className="space-y-1.5">
 	                  <label className="text-[10px] font-bold text-slate-500 uppercase block">Owner WhatsApp Number</label>
 	                  <input
 	                    type="tel"
 	                    required
-	                    value={regEmail}
+	                    value={regPhone}
 	                    placeholder="e.g. +255 712 345 678"
-	                    onChange={(e) => setRegEmail(e.target.value)}
+	                    onChange={(e) => setRegPhone(e.target.value)}
 	                    className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-555 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none font-sans"
 	                  />
                 </div>
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block">Owner Pin Password</label>
-                  <div className="relative">
-                    <input
-                      type={showRegPassword ? 'text' : 'password'}
-                      required
-                      value={regPassword}
-                      placeholder="••••••••"
-                      onChange={(e) => setRegPassword(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-555 rounded-xl px-3.5 py-2.5 pr-11 text-xs text-slate-800 outline-none font-mono"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowRegPassword((prev) => !prev)}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
-                      aria-label={showRegPassword ? 'Hide password' : 'Show password'}
-                    >
-                      {showRegPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-500 uppercase block">Owner Pin Password</label>
+                <div className="relative">
+                  <input
+                    type={showRegPassword ? 'text' : 'password'}
+                    required
+                    value={regPassword}
+                    placeholder="••••••••"
+                    onChange={(e) => setRegPassword(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-555 rounded-xl px-3.5 py-2.5 pr-11 text-xs text-slate-800 outline-none font-mono"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowRegPassword((prev) => !prev)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                    aria-label={showRegPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showRegPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
                 </div>
               </div>
 
@@ -1974,7 +1980,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                 <span>{t('registerTab')}</span>
               </button>
 
-              </form>}
+              </form>
             </>
           )}
 
