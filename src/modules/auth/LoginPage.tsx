@@ -44,7 +44,7 @@ const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     connectGoogleFirst: "Connect your Google account first. After Google verifies your identity, you’ll complete your business registration.",
     existingGoogleAccount: "Already registered with this Google account? You will be signed in.",
     backToOrvixHome: "Back to Orvix Home",
-    emailLabel: "Phone Number or Email",
+    emailLabel: "Email",
     passLabel: "Password",
     ownerName: "Your Full Name",
     companyName: "Business Name",
@@ -57,7 +57,7 @@ const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     compileBtn: "Create Account",
     continueGoogle: "Continue with Google",
     googleOr: "OR CREATE AN ACCOUNT WITH GOOGLE",
-    googleOrSig: "OR SIGN IN WITH GOOGLE",
+    googleOrSig: "OR",
     demoProfiles: "TEST ACCOUNTS",
     adminPortal: "System Admin",
     backHome: "Back to Orvix Home",
@@ -74,7 +74,7 @@ const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     connectGoogleFirst: "Kwanza unganisha akaunti yako ya Google. Baada ya Google kuthibitisha utambulisho wako, utakamilisha usajili wa biashara yako.",
     existingGoogleAccount: "Tayari umesajiliwa kwa akaunti hii ya Google? Utaingizwa moja kwa moja.",
     backToOrvixHome: "Rudi Nyumbani Orvix",
-    emailLabel: "Namba ya Simu au Barua Pepe",
+    emailLabel: "Barua Pepe",
     passLabel: "Nenosiri",
     ownerName: "Jina Lako Kamili",
     companyName: "Jina la Biashara",
@@ -87,7 +87,7 @@ const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     compileBtn: "Fungua Akaunti",
     continueGoogle: "Endelea na Google",
     googleOr: "AU SAJILI KWA BOFYA MOJA YA GOOGLE",
-    googleOrSig: "AU INGIA KWA BONGO MOJA YA GOOGLE",
+    googleOrSig: "AU",
     demoProfiles: "AKAUNTI ZA MAJARIBIO",
     adminPortal: "Msimamizi wa Mfumo",
     backHome: "Rudi Mwanzo",
@@ -99,7 +99,7 @@ const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     welcomeSub: "توحيد نقاط البيع، وإدارة الفنادق والقنوات متعددة المستأجرين",
     signinTab: "تسجيل الدخول للحساب",
     registerTab: "تسجيل عمل تجاري جديد",
-    emailLabel: "معرّف الحساب",
+    emailLabel: "البريد الإلكتروني",
     passLabel: "رمز المرور السري للمالك",
     ownerName: "الاسم الكامل للمالك",
     companyName: "اسم الشركة / الفندق",
@@ -112,7 +112,7 @@ const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     compileBtn: "تأكيد وتسجيل الحساب",
     continueGoogle: "المتابعة باستخدام Google",
     googleOr: "أو التسجيل السريع ببنقرة واحدة عبر Google",
-    googleOrSig: "أو تسجيل الدخول السريع عبر Google",
+    googleOrSig: "أو",
     demoProfiles: "حسابات تجريبية سريعة جاهزة",
     adminPortal: "هيئة الرقابة المركزية لـ لساس",
     backHome: "العودة إلى الصفحة الرئيسية لجاسبر",
@@ -129,7 +129,7 @@ const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     existingGoogleAccount: "Déjà inscrit avec ce compte Google ? Vous serez connecté automatiquement.",
     backToOrvixHome: "Retour à l’accueil Orvix",
     registerTab: "Créer un Compte",
-    emailLabel: "Téléphone ou E-mail",
+    emailLabel: "E-mail",
     passLabel: "Mot de Passe",
     ownerName: "Votre Nom Complet",
     companyName: "Nom de l'Entreprise",
@@ -142,7 +142,7 @@ const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     compileBtn: "Créer le Compte",
     continueGoogle: "Continuer avec Google",
     googleOr: "OU S'INSCRIRE EN UN CLIC AVEC GOOGLE",
-    googleOrSig: "OU SE CONNECTER EN UN CLIC AVEC GOOGLE",
+    googleOrSig: "OU",
     demoProfiles: "COMPTES DE TEST",
     adminPortal: "Administrateur du Système",
     backHome: "Retour à l'Accueil",
@@ -192,15 +192,12 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   const [loginOtpUser, setLoginOtpUser] = useState<any | null>(null);
   const [loginOtpMessage, setLoginOtpMessage] = useState<string | null>(null);
   const [showRecovery, setShowRecovery] = useState(false);
-  const [recoveryIdentifier, setRecoveryIdentifier] = useState('');
-  const [recoveryWhatsapp, setRecoveryWhatsapp] = useState('');
-  const [recoveryOtp, setRecoveryOtp] = useState('');
-  const [recoveryInputOtp, setRecoveryInputOtp] = useState('');
-  const [recoveryNewPassword, setRecoveryNewPassword] = useState('');
-  const [recoverySecurityAnswer, setRecoverySecurityAnswer] = useState('');
-  const [recoveryUser, setRecoveryUser] = useState<any | null>(null);
-  const [recoveryStep, setRecoveryStep] = useState<'identify' | 'security' | 'verify'>('identify');
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetSent, setResetSent] = useState(false);
   const [recoveryMessage, setRecoveryMessage] = useState<string | null>(null);
+  const [isPasswordRecoverySession, setIsPasswordRecoverySession] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [newPasswordConfirm, setNewPasswordConfirm] = useState('');
 
   // Registration Form States
   const [ownerName, setOwnerName] = useState('');
@@ -292,6 +289,25 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
 
     return () => window.removeEventListener('saas_niches_updated', handleUpdate);
   }, [tenantLogoFromContext, isTenantDomainLogin]);
+
+  useEffect(() => {
+    let subscription: { unsubscribe: () => void } | null = null;
+    let cancelled = false;
+    getSecureDataBridgeClient().then((client: any) => {
+      if (cancelled || isPlaceholderSecureDataBridgeClient(client)) return;
+      const { data } = client.auth.onAuthStateChange((event: string) => {
+        if (event === 'PASSWORD_RECOVERY') {
+          setIsPasswordRecoverySession(true);
+          setShowRecovery(true);
+        }
+      });
+      subscription = data?.subscription || null;
+    }).catch(() => undefined);
+    return () => {
+      cancelled = true;
+      subscription?.unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     const clearTransientLoginError = () => {
@@ -425,84 +441,67 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     return `${base}@signup.jasper.local`;
   };
 
-  const isOwnerRecoveryRole = (role?: string) => {
-    const normalized = (role || '').toLowerCase();
-    return ['admin', 'manager', 'superadmin', 'owner'].some(r => normalized.includes(r));
-  };
-
-  const normalizeSecurityAnswer = (answer: string) =>
-    answer.trim().toLowerCase().replace(/\s+/g, ' ');
-
-  const handleStartRecovery = (e: FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setRecoveryMessage(null);
-
-    const identifier = recoveryIdentifier.trim() || email.trim();
-    if (!identifier) {
-      setRecoveryMessage('Enter your WhatsApp number first.');
-      return;
-    }
-
-    const found = getAllSystemUsers().find((u: any) =>
-      sameLoginIdentifier(u.phone, identifier) || sameLoginIdentifier(u.email, identifier)
-    );
-
-    if (!found) {
-      setRecoveryMessage('No account found with that WhatsApp number.');
-      return;
-    }
-
-    if (!isOwnerRecoveryRole(found.role)) {
-      setRecoveryMessage('Staff password reset is handled by the business admin in Staff Members.');
-      return;
-    }
-
-    if (!found.securityQuestion || !found.securityAnswer) {
-      setRecoveryMessage('Sorry, we could not verify that it was you. If you are confident it is you, please contact Orvix support.');
-      return;
-    }
-
-    setRecoveryUser(found);
-    setRecoveryWhatsapp(normalizePhoneForWhatsapp(found.phone || identifier));
-    setRecoverySecurityAnswer('');
-    setRecoveryStep('security');
-    setRecoveryMessage(null);
-  };
-
-  const handleVerifyRecoverySecurity = (e: FormEvent) => {
+  const handleRequestPasswordReset = async (e: FormEvent) => {
     e.preventDefault();
     setRecoveryMessage(null);
-
-    if (!recoveryUser) {
-      setRecoveryStep('identify');
-      setRecoveryMessage('Start the reset again.');
+    const targetEmail = resetEmail.trim().toLowerCase();
+    if (!targetEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(targetEmail)) {
+      setRecoveryMessage('Please enter a valid email address.');
       return;
     }
-
-    if (normalizeSecurityAnswer(recoverySecurityAnswer) !== normalizeSecurityAnswer(recoveryUser.securityAnswer || '')) {
-      setRecoveryMessage('Sorry, we could not verify that it was you. If you are confident it is you, please contact Orvix support.');
-      return;
+    setIsLoading(true);
+    try {
+      const client: any = await getSecureDataBridgeClient();
+      const { error: resetError } = await client.auth.resetPasswordForEmail(targetEmail, {
+        redirectTo: window.location.origin + '/login',
+      });
+      if (resetError) throw resetError;
+      setResetSent(true);
+    } catch (err: any) {
+      const safeError = toUserFacingError(err, {
+        language: currentLang,
+        context: 'sign_in',
+        fallbackCode: 'AUTH_ERROR',
+      });
+      setRecoveryMessage(safeError.message);
+    } finally {
+      setIsLoading(false);
     }
-
-    const otp = String(Math.floor(100000 + Math.random() * 900000));
-    const whatsappNumber = normalizePhoneForWhatsapp(recoveryWhatsapp || recoveryUser.phone || recoveryIdentifier);
-    if (!whatsappNumber) {
-      setRecoveryMessage('Enter the owner/admin WhatsApp number to receive OTP.');
-      return;
-    }
-    setRecoveryOtp(otp);
-    setRecoveryWhatsapp(whatsappNumber);
-    setRecoveryStep('verify');
-    setRecoveryMessage('Security answer verified. OTP prepared. Send it to the owner/admin WhatsApp, then enter it here.');
-
-    const message = `Orvix password reset OTP: ${otp}. Use this code to reset your admin account password. If you did not request this, please ignore it.`;
-    window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
   };
 
-  const handleFinishRecovery = (e: FormEvent) => {
+  const handleSetNewPassword = async (e: FormEvent) => {
     e.preventDefault();
-    setRecoveryMessage('Password changes are protected by Supabase Auth. Continue with Google or contact your business administrator for a secure invitation.');
+    setRecoveryMessage(null);
+    if (newPassword.length < 10 || !/[A-Za-z]/.test(newPassword) || !/\d/.test(newPassword)) {
+      setRecoveryMessage('Password must be at least 10 characters and include a letter and a number.');
+      return;
+    }
+    if (newPassword !== newPasswordConfirm) {
+      setRecoveryMessage('Passwords do not match.');
+      return;
+    }
+    setIsLoading(true);
+    try {
+      const client: any = await getSecureDataBridgeClient();
+      const { error: updateError } = await client.auth.updateUser({ password: newPassword });
+      if (updateError) throw updateError;
+      setIsPasswordRecoverySession(false);
+      setShowRecovery(false);
+      setResetSent(false);
+      setNewPassword('');
+      setNewPasswordConfirm('');
+      setSuccessMessage('Password updated. Please sign in with your new password.');
+      await client.auth.signOut();
+    } catch (err: any) {
+      const safeError = toUserFacingError(err, {
+        language: currentLang,
+        context: 'sign_in',
+        fallbackCode: 'AUTH_ERROR',
+      });
+      setRecoveryMessage(safeError.message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleCheckEmail = (e: FormEvent) => {
@@ -1452,7 +1451,93 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         {/* Action card boundary */}
         <div className="bg-white border border-slate-200 rounded-3xl p-8 shadow-sm space-y-6">
 
-          {onboardingUser ? (
+          {showRecovery ? (
+            /* Password recovery: request reset email, or (after clicking the email link) set a new password */
+            isPasswordRecoverySession ? (
+              <form className="space-y-5" onSubmit={handleSetNewPassword}>
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-center">
+                  <Shield className="mx-auto h-7 w-7 text-emerald-700" />
+                  <h3 className="mt-2 text-sm font-black text-slate-900">Set a new password</h3>
+                </div>
+                {recoveryMessage && (
+                  <p className="text-xs font-semibold text-rose-600 text-center">{recoveryMessage}</p>
+                )}
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block tracking-wider">New Password</label>
+                  <input
+                    type="password"
+                    required
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full bg-white border border-slate-200 focus:border-emerald-500 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 placeholder:text-slate-400 outline-none font-mono transition-all"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase block tracking-wider">Confirm New Password</label>
+                  <input
+                    type="password"
+                    required
+                    value={newPasswordConfirm}
+                    onChange={(e) => setNewPasswordConfirm(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full bg-white border border-slate-200 focus:border-emerald-500 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 placeholder:text-slate-400 outline-none font-mono transition-all"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-55 text-white font-bold rounded-2xl text-xs uppercase tracking-wider transition-all cursor-pointer"
+                >
+                  {isLoading ? 'Updating…' : 'Update Password'}
+                </button>
+              </form>
+            ) : (
+              <form className="space-y-5" onSubmit={handleRequestPasswordReset}>
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-center">
+                  <Shield className="mx-auto h-7 w-7 text-emerald-700" />
+                  <h3 className="mt-2 text-sm font-black text-slate-900">Reset your password</h3>
+                  <p className="mt-1 text-xs text-slate-600">Enter your account email and we'll send you a link to reset your password.</p>
+                </div>
+                {resetSent ? (
+                  <p className="text-xs font-semibold text-emerald-700 text-center">Check your email for a password reset link.</p>
+                ) : (
+                  <>
+                    {recoveryMessage && (
+                      <p className="text-xs font-semibold text-rose-600 text-center">{recoveryMessage}</p>
+                    )}
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase block tracking-wider">Email</label>
+                      <input
+                        type="email"
+                        required
+                        value={resetEmail}
+                        onChange={(e) => setResetEmail(e.target.value)}
+                        placeholder="email@example.com"
+                        className="w-full bg-white border border-slate-200 focus:border-emerald-500 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 placeholder:text-slate-400 outline-none transition-all"
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={isLoading}
+                      className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-55 text-white font-bold rounded-2xl text-xs uppercase tracking-wider transition-all cursor-pointer"
+                    >
+                      {isLoading ? 'Sending…' : 'Send Reset Link'}
+                    </button>
+                  </>
+                )}
+                <div className="text-center">
+                  <button
+                    type="button"
+                    onClick={() => { setShowRecovery(false); setResetSent(false); setResetEmail(''); setRecoveryMessage(null); }}
+                    className="text-[11px] font-bold text-slate-400 hover:text-emerald-600 transition-all underline underline-offset-2"
+                  >
+                    Back to sign in
+                  </button>
+                </div>
+              </form>
+            )
+          ) : onboardingUser ? (
             /* Onboarding Form Screen */
             <form className="space-y-5 animate-fade-in" onSubmit={handleOnboardingSubmit}>
               <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-center">
@@ -1596,22 +1681,22 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
               ) : <>
               <div className="space-y-4">
                 <div className="space-y-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase block tracking-wider">{t('emailLabel')}</label>
+                  <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase block tracking-wider">{t('emailLabel')}</label>
                   <div className="relative">
                     <input
-                      type="text"
+                      type="email"
                       required
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      placeholder="email@example.com or phone"
-                      className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 outline-none transition-all"
+                      placeholder="email@example.com"
+                      className="w-full bg-white border border-slate-200 focus:border-emerald-500 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 placeholder:text-slate-400 outline-none transition-all"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-1.5">
                   <div className="flex justify-between items-center">
-                    <label className="text-[10px] font-bold text-slate-500 uppercase block tracking-wider">{t('passLabel')}</label>
+                    <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase block tracking-wider">{t('passLabel')}</label>
                   </div>
                   <div className="relative">
                     <input
@@ -1620,14 +1705,23 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="••••••••"
-                      className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 rounded-xl px-3.5 py-2.5 pr-11 text-xs text-slate-800 outline-none font-mono transition-all"
+                      className="w-full bg-white border border-slate-200 focus:border-emerald-500 rounded-xl px-3.5 py-2.5 pr-11 text-xs text-slate-800 placeholder:text-slate-400 outline-none font-mono transition-all"
                     />
                     <button
                       type="button"
                       onClick={() => setShowLoginPassword((prev) => !prev)}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-2 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:text-slate-200"
                     >
                       {showLoginPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setShowRecovery(true)}
+                      className="text-[11px] font-bold text-slate-400 hover:text-emerald-600 transition-all underline underline-offset-2"
+                    >
+                      Forgot Password?
                     </button>
                   </div>
                 </div>
@@ -1654,16 +1748,6 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                   <span>Continue</span>
                 )}
               </button>
-
-              <div className="text-center">
-                <button
-                  type="button"
-                  onClick={() => setShowRecovery(true)}
-                  className="text-[11px] font-bold text-slate-400 hover:text-emerald-600 transition-all underline underline-offset-2"
-                >
-                  Forgot Password?
-                </button>
-              </div>
 
               <div className="flex items-center gap-3 py-2">
                 <div className="flex-1 h-px bg-slate-200" />

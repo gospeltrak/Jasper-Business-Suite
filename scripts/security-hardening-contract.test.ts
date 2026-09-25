@@ -109,10 +109,10 @@ test('staff passwords are verified by Auth and purged from legacy workspace payl
   assert.match(loginPage, /if \(\(import\.meta as any\)\.env\?\.PROD\)[\s\S]*Local development demo fallback/);
 });
 
-test('tenant login offers both Google sign-in and email/phone + password sign-in', () => {
+test('tenant login offers both Google sign-in and email + password sign-in', () => {
   assert.match(loginPage, /onClick=\{handleGoogleLoginClick\}[\s\S]*\{t\('continueGoogle'\)\}/);
   assert.match(loginPage, /type=\{showLoginPassword \? 'text' : 'password'\}[\s\S]*value=\{password\}/);
-  assert.match(loginPage, /placeholder="email@example\.com or phone"/);
+  assert.match(loginPage, /type="email"[\s\S]*value=\{email\}/);
   assert.doesNotMatch(loginPage, /Owners, administrators and staff sign in with the Google account connected to this business/);
 });
 
