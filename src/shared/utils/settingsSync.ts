@@ -1,4 +1,4 @@
-import { SystemSettings } from '../types';
+import { SystemSettings } from '../../types';
 
 export const SETTINGS_SYNC_FIELD = 'settingsSync';
 

@@ -8,7 +8,7 @@
  */
 
 import { getSecureDataBridgeClient } from '../shared/dataBridge/secureDataBridge';
-import { ONLINE_ONLY_WRITE_MESSAGE, canWriteBusinessDataOnline, warnOfflineWriteBlocked } from './onlineOnly';
+import { ONLINE_ONLY_WRITE_MESSAGE, canWriteBusinessDataOnline, warnOfflineWriteBlocked } from '../shared/utils/onlineOnly';
 
 const GLOBAL_SCOPE = 'saas-global';
 

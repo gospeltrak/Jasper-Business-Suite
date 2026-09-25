@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Receipt, Trash } from 'lucide-react';
 import { loadPlatformRecord, savePlatformRecord } from '../../../utils/superAdminPlatformRecords';
-import { ONLINE_ONLY_WRITE_MESSAGE } from '../../../utils/onlineOnly';
+import { ONLINE_ONLY_WRITE_MESSAGE } from '../../../shared/utils/onlineOnly';
 import { formatLocalDate } from '../../../utils/localDate';
 
 interface ExpenseRecord {

@@ -53,7 +53,7 @@ import { initPlatformSync } from '../../../utils/superAdminPlatformRecords';
 import SaaSWebEditor from './SaaSWebEditor';
 import SaaSAdPlacementsPanel from './SaaSAdPlacementsPanel';
 import { loadPlatformRecord, savePlatformRecord } from '../../../utils/superAdminPlatformRecords';
-import { ONLINE_ONLY_WRITE_MESSAGE, canWriteBusinessDataOnline } from '../../../utils/onlineOnly';
+import { ONLINE_ONLY_WRITE_MESSAGE, canWriteBusinessDataOnline } from '../../../shared/utils/onlineOnly';
 import { verifySuperAdminPassword } from '../utils/superAdminData';
 import { prepareSuperAdminMfa, SuperAdminMfaPrompt, verifySuperAdminMfa } from '../utils/superAdminMfa';
 

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ShoppingCart, Search, Plus, Trash, CheckCircle, User } from 'lucide-react';
 import { defaultHardwareInventory, loadPlatformRecord, savePlatformRecord } from '../../utils/superAdminPlatformRecords';
 import { getSecureDataBridgeClient } from '../dataBridge/secureDataBridge';
-import { ONLINE_ONLY_WRITE_MESSAGE } from '../../utils/onlineOnly';
+import { ONLINE_ONLY_WRITE_MESSAGE } from '../utils/onlineOnly';
 
 async function loadAffiliatesForPOS(): Promise<any[]> {
   const results: any[] = [];

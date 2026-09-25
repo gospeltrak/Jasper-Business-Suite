@@ -26,7 +26,7 @@ const remoteWorkspace = {
   saleTombstones: {},
 };
 
-vi.mock('./onlineOnly', () => ({
+vi.mock('../shared/utils/onlineOnly', () => ({
   canWriteBusinessDataOnline: () => true,
   isBrowserOnline: () => true,
   warnOfflineWriteBlocked: () => {},

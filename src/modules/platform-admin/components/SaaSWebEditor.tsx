@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { DEFAULT_TENANTS } from '../../../data';
 import { loadPlatformRecord, savePlatformRecord } from '../../../utils/superAdminPlatformRecords';
-import { ONLINE_ONLY_WRITE_MESSAGE } from '../../../utils/onlineOnly';
+import { ONLINE_ONLY_WRITE_MESSAGE } from '../../../shared/utils/onlineOnly';
 import { compressImageFile } from '../../../shared/utils/imageCompression';
 import { loadSuperAdminOverview } from '../utils/superAdminData';
 import { getSecureDataBridgeClient } from '../../../shared/dataBridge/secureDataBridge';

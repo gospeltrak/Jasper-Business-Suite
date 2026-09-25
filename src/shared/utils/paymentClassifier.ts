@@ -1,4 +1,4 @@
-import { PaymentModeConfig } from '../types';
+import { PaymentModeConfig } from '../../types';
 
 export type PaymentType = 'cash' | 'mobile_money' | 'bank' | 'card' | 'credit';
 

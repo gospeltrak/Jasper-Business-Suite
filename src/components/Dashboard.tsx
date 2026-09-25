@@ -13,7 +13,7 @@ import {
   MOCK_SALES_HISTORY,
   MOCK_EXPENSES_HISTORY
 } from '../data';
-import { lazyWithReload } from '../utils/lazyWithReload';
+import { lazyWithReload } from '../shared/utils/lazyWithReload';
 
 // Subcomponents imports
 // Each dashboard tab (and the SaaS admin view) is code-split via React.lazy().
@@ -33,7 +33,7 @@ const DashboardExpenses = lazyWithReload('DashboardExpenses', () => import('../m
 const DashboardSalesList = lazyWithReload('DashboardSalesList', () => import('../modules/sales/DashboardSalesList'));
 const DashboardForecasting = lazyWithReload('DashboardForecasting', () => import('../modules/forecasting/DashboardForecasting'));
 const DashboardCashBank = lazyWithReload('DashboardCashBank', () => import('../modules/cash-bank/DashboardCashBank'));
-import { saveData } from '../utils/dbSync';
+import { saveData } from '../shared/utils/dbSync';
 const DashboardPurchases = lazyWithReload('DashboardPurchases', () => import('../modules/purchases/DashboardPurchases'));
 const DashboardDeliveries = lazyWithReload('DashboardDeliveries', () => import('../modules/deliveries/DashboardDeliveries'));
 const DashboardSandboxVerticals = lazyWithReload('DashboardSandboxVerticals', () => import('../modules/verticals/DashboardSandboxVerticals'));
@@ -46,7 +46,7 @@ import GlobalStickyAd from '../shared/components/GlobalStickyAd';
 const SuperSaaSAdminView = lazyWithReload('SuperSaaSAdminView', () => import('../modules/platform-admin/components/SuperSaaSAdminView'));
 import DuressDashboard from '../shared/components/DuressDashboard';
 import CachedImage from '../shared/components/CachedImage';
-import { savePendingSaleOffline } from '../utils/offlineDb';
+import { savePendingSaleOffline } from '../shared/utils/offlineDb';
 import { createCleanTenantSettings, isDemoTenant } from '../shared/utils/tenantIsolation';
 import { flushPendingTenantWorkspace, hasPendingTenantWorkspaceSave, loadTenantProductFresh, loadTenantWorkspace, loadTenantWorkspaceCore, markTenantProductsUpdated, readCachedWorkspace, reloadTenantWorkspace, saveTenantSettings, saveTenantWorkspace, scheduleTenantWorkspaceSave, subscribeToTenantBusinessType, subscribeToTenantWorkspace, TenantWorkspace, waitForTenantWorkspaceLoad, workspaceHasBusinessData } from '../utils/tenantWorkspace';
 import { safeSetJsonItem, safeSetTenantMapItem } from '../shared/utils/dataSafety';
@@ -61,7 +61,7 @@ import {
   saleHasTenantConflict,
   writeLocalSaleTombstones,
 } from '../utils/saleSync';
-import { mergeSettingsForSync, stampSettingsForSync } from '../utils/settingsSync';
+import { mergeSettingsForSync, stampSettingsForSync } from '../shared/utils/settingsSync';
 import { BranchProvider, useBranchContext, useOptionalBranchContext } from '../modules/branches/BranchContext';
 import GlobalBranchSwitcher from '../modules/branches/components/GlobalBranchSwitcher';
 import {
@@ -72,7 +72,7 @@ import {
   scopeProductsForBranch,
   type ActiveBranchSelection,
 } from '../modules/branches/branchScope';
-import { ONLINE_ONLY_WRITE_MESSAGE, canWriteBusinessDataOnline } from '../utils/onlineOnly';
+import { ONLINE_ONLY_WRITE_MESSAGE, canWriteBusinessDataOnline } from '../shared/utils/onlineOnly';
 import { getSecureDataBridgeClient, isPlaceholderSecureDataBridgeClient } from '../shared/dataBridge/secureDataBridge';
 import { postTreasuryEntry, postTreasurySplitIncome, postTreasurySplitOutgoing, reverseTreasuryEntry } from '../utils/treasuryApi';
 import { reversePurchaseInventory } from '../utils/inventoryCosting';

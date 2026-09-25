@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { formatSaleItemQuantity } from '../../shared/utils/unitFormatter';
 import { isDemoTenant } from '../../shared/utils/tenantIsolation';
 import { safeSetJsonItem } from '../../shared/utils/dataSafety';
-import { canWriteBusinessDataOnline } from '../../utils/onlineOnly';
+import { canWriteBusinessDataOnline } from '../../shared/utils/onlineOnly';
 import { formatLocalDate, localDateToIso, timestampToLocalDate } from '../../utils/localDate';
 import {
 

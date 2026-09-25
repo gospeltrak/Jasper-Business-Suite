@@ -9,13 +9,13 @@
  * On conflict:   Supabase wins (server-side timestamp comparison)
  */
 
-import { getSecureDataBridgeClient } from '../shared/dataBridge/secureDataBridge';
+import { getSecureDataBridgeClient } from '../dataBridge/secureDataBridge';
 import {
   getTenantArray,
   isProtectedDataKey,
   payloadHasRecords,
   protectTenantPayload,
-} from '../shared/utils/dataSafety';
+} from './dataSafety';
 import {
   attachPayloadProductTombstones,
   extractPayloadProductTombstones,
@@ -23,7 +23,7 @@ import {
   mergeProductTombstones,
   readLocalProductTombstones,
   writeLocalProductTombstones,
-} from './productSync';
+} from '../../utils/productSync';
 import { APPEND_MERGE_DATA_KEYS, mergeRecordsById } from './recordSync';
 import { mergeSettingsForSync } from './settingsSync';
 import { ONLINE_ONLY_WRITE_MESSAGE, canWriteBusinessDataOnline, warnOfflineWriteBlocked } from './onlineOnly';

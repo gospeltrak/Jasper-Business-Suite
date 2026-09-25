@@ -46,7 +46,7 @@ import { DashboardNotificationsSettings } from '../notifications-settings/Dashbo
 import { getSecureDataBridgeClient } from '../../shared/dataBridge/secureDataBridge';
 import { compressImageFile } from '../../shared/utils/imageCompression';
 import { getTreasuryPaymentMethods, reconcilePaymentChannels } from '../../shared/utils/paymentAccounts';
-import { lazyWithReload } from '../../utils/lazyWithReload';
+import { lazyWithReload } from '../../shared/utils/lazyWithReload';
 
 const DashboardBranchesSettings = lazyWithReload('SettingsDashboardBranches', () => import('../branches/components/DashboardBranchesSettings'));
 

@@ -75,7 +75,7 @@ test('lazy screens recover safely after a deployment changes chunk filenames', a
   const dashboardSource = await read('src/components/Dashboard.tsx');
   const appSource = await read('src/App.tsx');
   const boundarySource = await read('src/shared/components/DashboardScreenErrorBoundary.tsx');
-  const lazyLoaderSource = await read('src/utils/lazyWithReload.ts');
+  const lazyLoaderSource = await read('src/shared/utils/lazyWithReload.ts');
 
   assert.match(dashboardSource, /lazyWithReload\('DashboardCashBank'/);
   assert.match(appSource, /lazyWithReload\('Dashboard'/);
@@ -248,7 +248,7 @@ test('workspace sync uses realtime with a low-frequency recovery poll and coales
 });
 
 test('legacy hydration excludes backups and protected saves reuse one guard read', async () => {
-  const syncSource = await read('src/utils/dbSync.ts');
+  const syncSource = await read('src/shared/utils/dbSync.ts');
   const storageSource = await read('src/utils/onlineStorage.ts');
   const migrationSource = await read('supabase/migrations/20260729000300_runtime_load_indexes_rls.sql');
   assert.match(syncSource, /\.not\('data_key', 'like', 'workspace_backup_%'\)/);

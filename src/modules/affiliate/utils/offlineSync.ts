@@ -11,7 +11,7 @@
  */
 
 import { getSecureDataBridgeClient } from '../../../shared/dataBridge/secureDataBridge';
-import { ONLINE_ONLY_WRITE_MESSAGE, warnOfflineWriteBlocked } from '../../../utils/onlineOnly';
+import { ONLINE_ONLY_WRITE_MESSAGE, warnOfflineWriteBlocked } from '../../../shared/utils/onlineOnly';
 
 // ─── Network status ────────────────────────────────────────────────────────
 

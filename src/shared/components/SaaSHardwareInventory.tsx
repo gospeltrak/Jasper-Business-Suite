@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Package, Plus, Edit2, Trash } from 'lucide-react';
 import { defaultHardwareInventory, loadPlatformRecord, savePlatformRecord } from '../../utils/superAdminPlatformRecords';
-import { ONLINE_ONLY_WRITE_MESSAGE } from '../../utils/onlineOnly';
+import { ONLINE_ONLY_WRITE_MESSAGE } from '../utils/onlineOnly';
 
 export default function SaaSHardwareInventory({ affiliateId }: { affiliateId?: string }) {
   const [inventory, setInventory] = useState<any[]>([]);

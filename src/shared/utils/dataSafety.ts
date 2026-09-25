@@ -1,6 +1,6 @@
 type DataSafetyReason = 'empty-overwrite' | 'shrink-save' | 'local-cache';
 
-import { canWriteBusinessDataOnline, warnOfflineWriteBlocked } from '../../utils/onlineOnly';
+import { canWriteBusinessDataOnline, warnOfflineWriteBlocked } from './onlineOnly';
 import {
   attachPayloadSaleTombstones,
   extractPayloadSaleTombstones,

@@ -8,8 +8,8 @@ import {
   readLocalProductTombstones,
   writeLocalProductTombstones,
 } from './productSync';
-import { mergeRecordsById } from './recordSync';
-import { mergeSettingsForSync } from './settingsSync';
+import { mergeRecordsById } from '../shared/utils/recordSync';
+import { mergeSettingsForSync } from '../shared/utils/settingsSync';
 import {
   extractPayloadSaleTombstones,
   mergeSalesForSync,
@@ -18,7 +18,7 @@ import {
   writeLocalSaleTombstones,
   type SaleTombstones,
 } from './saleSync';
-import { canWriteBusinessDataOnline, isBrowserOnline, warnOfflineWriteBlocked } from './onlineOnly';
+import { canWriteBusinessDataOnline, isBrowserOnline, warnOfflineWriteBlocked } from '../shared/utils/onlineOnly';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 

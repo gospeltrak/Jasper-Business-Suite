@@ -21,7 +21,7 @@ let bootstrapCallCount = 0;
 let releaseSalesPage: (() => void) | null = null;
 const upsertCalls: any[] = [];
 
-vi.mock('./onlineOnly', () => ({
+vi.mock('../shared/utils/onlineOnly', () => ({
   canWriteBusinessDataOnline: () => true,
   isBrowserOnline: () => true,
   warnOfflineWriteBlocked: () => {},

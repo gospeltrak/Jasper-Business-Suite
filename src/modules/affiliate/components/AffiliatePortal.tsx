@@ -65,7 +65,7 @@ import {
   flushSyncQueue,
   AffiliateSession,
 } from "../utils/offlineSync";
-import { ONLINE_ONLY_WRITE_MESSAGE } from "../../../utils/onlineOnly";
+import { ONLINE_ONLY_WRITE_MESSAGE } from "../../../shared/utils/onlineOnly";
 import { endCloudSession, startCloudSession, touchCloudSession } from "../../../shared/utils/sessionControl";
 import { useTranslation } from "../../../shared/contexts/LanguageContext";
 import {

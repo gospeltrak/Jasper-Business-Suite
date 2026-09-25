@@ -1,4 +1,4 @@
-import { Sale } from '../types';
+import { Sale } from '../../types';
 import { warnOfflineWriteBlocked } from './onlineOnly';
 
 const DB_NAME = 'jasper-offline-db';

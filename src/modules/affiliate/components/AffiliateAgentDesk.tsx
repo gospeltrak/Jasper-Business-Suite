@@ -35,7 +35,7 @@ import {
   clearAffiliateSession,
   flushSyncQueue,
 } from '../utils/offlineSync';
-import { ONLINE_ONLY_WRITE_MESSAGE } from '../../../utils/onlineOnly';
+import { ONLINE_ONLY_WRITE_MESSAGE } from '../../../shared/utils/onlineOnly';
 import { canShowDashboardAd, useGlobalAdSettings } from '../../../utils/adPlacement';
 import { sanitizeTrustedHtml } from '../../../shared/utils/safeHtml';
 import { isSettledPaymentStatus } from '../../../utils/financialStatus';
