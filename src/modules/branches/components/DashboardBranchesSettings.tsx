@@ -26,7 +26,7 @@ import type { Tenant } from '../../../types';
 import { useBranchContext } from '../BranchContext';
 import type { BranchRelationshipType, BranchSummary, CreateBranchInput } from '../branchTypes';
 import { loadBranchContactProfile, updateBranchContactProfile } from '../branchApi';
-import { formatLocalDate } from '../../../utils/localDate';
+import { formatLocalDate } from '../../../shared/utils/localDate';
 
 interface DashboardBranchesSettingsProps {
   activeTenant: Tenant;
@@ -361,7 +361,7 @@ function BranchLogoUploadCard({
     setStatusMessage(null);
     try {
       const [{ compressImage }, { uploadBranchLogoAsset }] = await Promise.all([
-        import('../../../utils/imageStorage'),
+        import('../../../shared/utils/imageStorage'),
         import('../branchApi'),
       ]);
       const compressed = await compressImage(file);

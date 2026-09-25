@@ -30,7 +30,7 @@ import {
   Sparkle
 } from 'lucide-react';
 import { Tenant, User as AppUser, SyncLog } from '../../types';
-import { formatLocalDate, parseLocalDate } from '../../utils/localDate';
+import { formatLocalDate, parseLocalDate } from '../../shared/utils/localDate';
 
 interface DashboardHotelPMSProps {
   activeTenant: Tenant;

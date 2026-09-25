@@ -53,7 +53,7 @@ import AffiliateAgentDesk from "./AffiliateAgentDesk";
 // AffiliateWorkspace.tsx) load their own workspace data after an explicit
 // login, so this portal-level component never auto-loads a dashboard.
 import { getSecureDataBridgeClient } from "../../../shared/dataBridge/secureDataBridge";
-import { formatLocalDate } from "../../../utils/localDate";
+import { formatLocalDate } from "../../../shared/utils/localDate";
 import {
   requireOnline,
   isOnline,
@@ -1367,7 +1367,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
             setDatabaseWorkspaceEnabled(true);
           }
           // Start presence tracking
-          import('../../../utils/userPresence').then(({ startPresenceTracking }) => {
+          import('../../../shared/utils/userPresence').then(({ startPresenceTracking }) => {
             startPresenceTracking(
               profile.id,
               isPartnerAccount ? 'partner' : 'affiliate',
@@ -1443,7 +1443,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
   const handleLogoutAffiliate = async () => {
     // Stop presence tracking immediately on logout
-    import('../../../utils/userPresence').then(({ stopPresenceTracking }) => {
+    import('../../../shared/utils/userPresence').then(({ stopPresenceTracking }) => {
       stopPresenceTracking();
     });
     try {

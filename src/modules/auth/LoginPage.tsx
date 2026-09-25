@@ -667,7 +667,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     setIsLoading(false); // Stop any form loading spinners
 
     // Start presence tracking for this tenant user (fire-and-forget)
-    import('../../utils/userPresence').then(({ startPresenceTracking }) => {
+    import('../../shared/utils/userPresence').then(({ startPresenceTracking }) => {
       startPresenceTracking(
         userPayload.id || userPayload.tenantId || 'tenant-unknown',
         'tenant',

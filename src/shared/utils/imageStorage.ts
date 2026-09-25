@@ -21,7 +21,7 @@
  *     quota limits
  */
 
-import { getSecureDataBridgeClient } from '../shared/dataBridge/secureDataBridge';
+import { getSecureDataBridgeClient } from '../dataBridge/secureDataBridge';
 
 // ─── Compression ─────────────────────────────────────────────────────────────
 

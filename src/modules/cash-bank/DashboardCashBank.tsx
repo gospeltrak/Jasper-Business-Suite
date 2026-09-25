@@ -4,7 +4,7 @@ import { isDemoTenant } from '../../shared/utils/tenantIsolation';
 import { safeSetJsonItem } from '../../shared/utils/dataSafety';
 import { findPaymentChannel, getMaskedAccountReference, getTreasuryPaymentMethods, reconcilePaymentChannels } from '../../shared/utils/paymentAccounts';
 import { postTreasuryEntry, syncTreasuryPaymentAccounts, transferTreasuryFunds } from './utils/treasuryApi';
-import { formatLocalDate } from '../../utils/localDate';
+import { formatLocalDate } from '../../shared/utils/localDate';
 import { 
   Landmark, 
   Wallet, 

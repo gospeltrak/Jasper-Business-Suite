@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Tenant, User, Sale, SaleItem } from '../../types';
-import { formatLocalDate } from '../../utils/localDate';
+import { formatLocalDate } from '../../shared/utils/localDate';
 import { 
   Pill, 
   Sparkles, 

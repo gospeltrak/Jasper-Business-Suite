@@ -581,7 +581,7 @@ export default function DashboardSettings({
         applyLogoUrl(base64String);
 
         // Then upload to Storage and replace with permanent URL
-        import('../../utils/imageStorage').then(({ uploadTenantLogo }) =>
+        import('../../shared/utils/imageStorage').then(({ uploadTenantLogo }) =>
           uploadTenantLogo(file, activeTenant.id)
         ).then((storageUrl) => {
           if (storageUrl) applyLogoUrl(storageUrl);

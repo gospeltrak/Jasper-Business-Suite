@@ -6,7 +6,7 @@ import {
   ProductBatch,
   Purchase,
   SaleBatchInfo,
-} from '../types';
+} from '../../types';
 
 export const mapLegacySellingMethod = (method?: Product['sellingMethod']): InventoryCostingMethod => {
   if (method === 'average_cost') return 'average_price';

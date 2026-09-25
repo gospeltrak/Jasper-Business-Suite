@@ -41,9 +41,9 @@ import {
   detectPriceChange,
   getDefaultFractionOptions,
   mapCostingMethodToLegacy,
-} from '../../utils/inventoryCosting';
+} from '../../shared/utils/inventoryCosting';
 import { formatProductQuantity } from '../../shared/utils/unitFormatter';
-import { formatLocalDate } from '../../utils/localDate';
+import { formatLocalDate } from '../../shared/utils/localDate';
 import { classifyUniversalImportRows, downloadableUniversalTemplate } from './utils/bulkProductImport';
 import { compressImageFile } from '../../shared/utils/imageCompression';
 import { safeSetJsonItem } from '../../shared/utils/dataSafety';

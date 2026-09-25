@@ -33,7 +33,7 @@ import {
 } from 'lucide-react';
 
 import SaaSUserDesk from './SaaSUserDesk';
-import { formatLocalDate } from '../../../utils/localDate';
+import { formatLocalDate } from '../../../shared/utils/localDate';
 import SuperAffiliateControlCenter from './SuperAffiliateControlCenter';
 import Dashboard from '../../../components/Dashboard';
 import AffiliateWorkspace from '../../affiliate/components/AffiliateWorkspace';

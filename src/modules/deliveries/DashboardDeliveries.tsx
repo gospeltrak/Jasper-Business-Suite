@@ -33,7 +33,7 @@ import { printPdfFromElement, downloadPdfFromElement, shareElementPdfToWhatsApp 
 import { getActiveBranchAddress, getActiveBranchDisplayName, getActiveBranchEmail, getActiveBranchLogo, getActiveBranchPhone } from '../../shared/utils/businessBranding';
 import type { BranchSummary } from '../branches/branchTypes';
 import { formatSaleItemQuantity } from '../../shared/utils/unitFormatter';
-import { buildWhatsAppLink } from '../../utils/whatsapp';
+import { buildWhatsAppLink } from '../../shared/utils/whatsapp';
 
 // A high-fidelity composite component representing a rider on a motorcycle with a delivery basket on their back
 function DeliveryMotorcycleIcon({ className, size = 18 }: { className?: string; size?: number }) {

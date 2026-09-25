@@ -6,7 +6,7 @@ import {
   SAMPLE_HORIZONTAL_AD_CODE,
   SAMPLE_STICKY_AD_CODE,
   saveGlobalAdSettings,
-} from '../../../utils/adPlacement';
+} from '../../../shared/utils/adPlacement';
 
 export default function SaaSAdPlacementsPanel({ compact = false }: { compact?: boolean }) {
   const [dashboardAdCode, setDashboardAdCode] = useState('');

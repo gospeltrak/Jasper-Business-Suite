@@ -1,6 +1,6 @@
 import { getSecureDataBridgeClient } from '../../../shared/dataBridge/secureDataBridge';
 import { isEarnedCommissionStatus, isPaidPayoutStatus, isSettledPaymentStatus } from '../../../shared/utils/financialStatus';
-import { formatLocalDate } from '../../../utils/localDate';
+import { formatLocalDate } from '../../../shared/utils/localDate';
 
 export interface SuperAdminOverview {
   tenants: any[];

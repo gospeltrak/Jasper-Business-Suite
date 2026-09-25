@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import PWAInstallBanner from '../shared/components/PWAInstallBanner';
-import { requestManualInstallPrompt } from '../utils/pwaInstallPrompt';
+import { requestManualInstallPrompt } from '../shared/utils/pwaInstallPrompt';
 import { useTranslation } from '../shared/contexts/LanguageContext';
 import { useTenantLogo } from '../shared/contexts/TenantLogoContext';
 import { useJasperNotifications } from '../shared/contexts/JasperNotificationContext';
@@ -75,11 +75,11 @@ import {
 import { ONLINE_ONLY_WRITE_MESSAGE, canWriteBusinessDataOnline } from '../shared/utils/onlineOnly';
 import { getSecureDataBridgeClient, isPlaceholderSecureDataBridgeClient } from '../shared/dataBridge/secureDataBridge';
 import { postTreasuryEntry, postTreasurySplitIncome, postTreasurySplitOutgoing, reverseTreasuryEntry } from '../modules/cash-bank/utils/treasuryApi';
-import { reversePurchaseInventory } from '../utils/inventoryCosting';
+import { reversePurchaseInventory } from '../shared/utils/inventoryCosting';
 import { isPurchaseFundingBalanced, registeredPurchaseFunding } from '../modules/purchases/utils/purchaseFunding';
 import { getSubscriptionReminder, getSubscriptionReminderKey } from '../shared/utils/subscriptionReminder';
 import { compressImageFile } from '../shared/utils/imageCompression';
-import { formatLocalDate } from '../utils/localDate';
+import { formatLocalDate } from '../shared/utils/localDate';
 import { Shield, Sparkles as SparklesIcon, AlertTriangle, CheckCircle, HelpCircle as HelpIcon, Play, RefreshCcw, CreditCard as CardIcon, Bell } from 'lucide-react';
 import { 
   getSubscriptionState, 

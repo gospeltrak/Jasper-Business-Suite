@@ -36,13 +36,13 @@ import {
   flushSyncQueue,
 } from '../utils/offlineSync';
 import { ONLINE_ONLY_WRITE_MESSAGE } from '../../../shared/utils/onlineOnly';
-import { canShowDashboardAd, useGlobalAdSettings } from '../../../utils/adPlacement';
+import { canShowDashboardAd, useGlobalAdSettings } from '../../../shared/utils/adPlacement';
 import { sanitizeTrustedHtml } from '../../../shared/utils/safeHtml';
 import { isSettledPaymentStatus } from '../../../shared/utils/financialStatus';
 import GlobalStickyAd from '../../../shared/components/GlobalStickyAd';
 import SaaSHardwarePOS from '../../../shared/components/SaaSHardwarePOS';
 import SaaSHardwareInventory from '../../../shared/components/SaaSHardwareInventory';
-import { formatLocalMonth } from '../../../utils/localDate';
+import { formatLocalMonth } from '../../../shared/utils/localDate';
 import {
   SubAffiliateProfile,
   MonthlyReconciliationRow,

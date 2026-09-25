@@ -552,7 +552,7 @@ test('branch logos upload through the authenticated backend instead of browser s
 
 test('editing a sale persists the chosen local calendar date without UTC day rollback', async () => {
   const salesSource = await read('src/modules/sales/DashboardSalesList.tsx');
-  const dateSource = await read('src/utils/localDate.ts');
+  const dateSource = await read('src/shared/utils/localDate.ts');
   assert.match(salesSource, /localDateToIso\(editFormFields\.saleDate, original\)/);
   assert.match(dateSource, /new Date\([\s\S]{0,180}Number\(month\) - 1/);
   assert.match(salesSource, /timestamp: updatedTimestamp/);

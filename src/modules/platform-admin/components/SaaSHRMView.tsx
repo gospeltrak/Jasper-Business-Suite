@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Plus, Trash, Shield, Activity, Edit2, DollarSign } from 'lucide-react';
-import { formatLocalDate } from '../../../utils/localDate';
+import { formatLocalDate } from '../../../shared/utils/localDate';
 
 interface HiredStaff {
   id: string;

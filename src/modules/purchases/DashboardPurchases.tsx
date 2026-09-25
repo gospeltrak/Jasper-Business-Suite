@@ -4,9 +4,9 @@ import { Product, Supplier, Purchase, PurchaseItem, Tenant, SystemSettings, Paym
 import { getMaskedAccountReference } from '../../shared/utils/paymentAccounts';
 import ModernSelect from '../../shared/components/ModernSelect';
 import CachedImage from '../../shared/components/CachedImage';
-import { addBatchToProduct, createInventoryBatch } from '../../utils/inventoryCosting';
+import { addBatchToProduct, createInventoryBatch } from '../../shared/utils/inventoryCosting';
 import { formatProductQuantity } from '../../shared/utils/unitFormatter';
-import { calculateBaseCost, convertToBaseQuantity, getBaseUnitLabel, resolvePackageLevels } from '../../utils/universalUnits';
+import { calculateBaseCost, convertToBaseQuantity, getBaseUnitLabel, resolvePackageLevels } from '../../shared/utils/universalUnits';
 import { calculateFractionPurchaseLine, isFractionSaleEnabled, resolveFractionSaleConfig } from '../sales/utils/fractionSale';
 import { 
   Truck, 

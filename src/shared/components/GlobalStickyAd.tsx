@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { canShowStickyBottomAd, useGlobalAdSettings } from '../../utils/adPlacement';
+import { canShowStickyBottomAd, useGlobalAdSettings } from '../utils/adPlacement';
 import { sanitizeTrustedHtml } from '../utils/safeHtml';
 
 const STICKY_AD_RETURN_DELAY_MS = 45000;

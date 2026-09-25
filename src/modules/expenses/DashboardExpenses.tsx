@@ -40,7 +40,7 @@ import {
 import { Tenant, Expense, Product, Sale, SystemSettings } from '../../types';
 import { safeSetJsonItem } from '../../shared/utils/dataSafety';
 import { getMaskedAccountReference, getTreasuryPaymentMethods, reconcilePaymentChannels } from '../../shared/utils/paymentAccounts';
-import { formatLocalDate, localDateToIso, timestampToLocalDate } from '../../utils/localDate';
+import { formatLocalDate, localDateToIso, timestampToLocalDate } from '../../shared/utils/localDate';
 
 
 

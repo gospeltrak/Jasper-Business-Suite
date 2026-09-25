@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 import { toCanvas as htmlToCanvas } from 'html-to-image';
-import { buildWhatsAppLink } from '../../utils/whatsapp';
+import { buildWhatsAppLink } from './whatsapp';
 
 const sanitizeFileName = (name: string) =>
   name.replace(/[^\w.-]+/g, '_').replace(/_+/g, '_').replace(/^_+|_+$/g, '');

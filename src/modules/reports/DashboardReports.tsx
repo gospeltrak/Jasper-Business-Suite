@@ -52,13 +52,13 @@ import {
   Scale
 } from 'lucide-react';
 import { formatProductQuantity, formatSaleItemQuantity, getProductUnitName } from '../../shared/utils/unitFormatter';
-import { getDisplayStockBreakdown, resolvePackageLevels } from '../../utils/universalUnits';
+import { getDisplayStockBreakdown, resolvePackageLevels } from '../../shared/utils/universalUnits';
 import { downloadPdfFromElement } from '../../shared/utils/pdfShare';
 import CachedImage from '../../shared/components/CachedImage';
 import ModernSelect from '../../shared/components/ModernSelect';
 import { getActiveBranchAddress, getActiveBranchDisplayName, getActiveBranchEmail, getActiveBranchPhone } from '../../shared/utils/businessBranding';
 import type { BranchSummary } from '../branches/branchTypes';
-import { formatLocalDate, parseLocalDate, timestampToLocalDate } from '../../utils/localDate';
+import { formatLocalDate, parseLocalDate, timestampToLocalDate } from '../../shared/utils/localDate';
 import { getSaleItemGrossTotal, getSaleItemLineTotal } from '../sales/utils/saleItemTotals';
 
 const saleProductRevenue = (s: any): number =>

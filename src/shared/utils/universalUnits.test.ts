@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Product } from '../types';
+import { Product } from '../../types';
 import {
   calculateBaseCost,
   convertFromBaseQuantity,

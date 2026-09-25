@@ -5,7 +5,7 @@ import {
   deductBatchesForSale,
   getPosSellingPriceForCostingMethod,
   getProductCostingMethod,
-} from '../../utils/inventoryCosting';
+} from '../../shared/utils/inventoryCosting';
 import { formatProductQuantity, formatSaleItemQuantity } from '../../shared/utils/unitFormatter';
 import { getPaymentModeName } from '../../shared/utils/paymentAccounts';
 import { getActiveBranchAddress, getActiveBranchDisplayName, getActiveBranchLogo, getActiveBranchPhone } from '../../shared/utils/businessBranding';
@@ -44,7 +44,7 @@ import {
 import DashboardBarcodeScanner from '../../shared/components/DashboardBarcodeScanner';
 import CachedImage from '../../shared/components/CachedImage';
 import { downloadPdfFromElement, shareElementPdfToWhatsApp } from '../../shared/utils/pdfShare';
-import { localDateToIso, timestampToLocalDate } from '../../utils/localDate';
+import { localDateToIso, timestampToLocalDate } from '../../shared/utils/localDate';
 import { getPharmacyDoseConfig, resolvePharmacyPosLine } from '../verticals/utils/pharmacyPosPricing';
 import {
   calculateFractionSaleLine,

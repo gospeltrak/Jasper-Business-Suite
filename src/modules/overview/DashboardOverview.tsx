@@ -4,10 +4,10 @@ import { useTheme } from '../../shared/contexts/ThemeContext';
 import { useTranslation } from '../../shared/contexts/LanguageContext';
 import { Tenant, Product, Sale } from '../../types';
 import { formatProductQuantity, formatSaleItemQuantity } from '../../shared/utils/unitFormatter';
-import { canShowDashboardAd, useGlobalAdSettings } from '../../utils/adPlacement';
+import { canShowDashboardAd, useGlobalAdSettings } from '../../shared/utils/adPlacement';
 import { sanitizeTrustedHtml } from '../../shared/utils/safeHtml';
 import { getBusinessDisplayName } from '../../shared/utils/businessBranding';
-import { formatLocalDate, timestampToLocalDate } from '../../utils/localDate';
+import { formatLocalDate, timestampToLocalDate } from '../../shared/utils/localDate';
 import { 
   ResponsiveContainer, 
   ComposedChart, 

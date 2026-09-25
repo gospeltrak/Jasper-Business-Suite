@@ -12,7 +12,7 @@ import {
   deletePartner,
 } from '../utils/superAffiliateAdmin';
 import { verifySuperAdminPassword } from '../utils/superAdminData';
-import { formatLocalDate } from '../../../utils/localDate';
+import { formatLocalDate } from '../../../shared/utils/localDate';
 
 const money = new Intl.NumberFormat('en-TZ', { style: 'currency', currency: 'TZS', maximumFractionDigits: 0 });
 const csvValue = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`;

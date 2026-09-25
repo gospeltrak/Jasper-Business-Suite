@@ -1,4 +1,4 @@
-import { Sale, Tenant } from '../types';
+import { Sale, Tenant } from '../../types';
 
 /**
  * Formats a sales receipt into structured text and returns a sanitized WhatsApp api link.

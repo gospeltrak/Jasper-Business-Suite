@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Product, ProductBatch, Purchase } from '../types';
+import { Product, ProductBatch, Purchase } from '../../types';
 
 describe('pharmacy packet pricing persistence contract', () => {
   it('keeps the packet price distinct from derived dose and tablet prices', () => {
