@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, ReactNode } from 'react';
 import { Tenant } from '../../types';
 import { createLucyResponse, detectLucyLanguage, getLucyGreeting } from './utils/lucyBrain';
-import { normalizeSubscriptionPlanId } from '../../utils/subscription';
+import { normalizeSubscriptionPlanId } from '../../shared/utils/subscription';
 import { getSecureDataBridgeClient, isPlaceholderSecureDataBridgeClient } from '../../shared/dataBridge/secureDataBridge';
 import { 
   Sparkles, 

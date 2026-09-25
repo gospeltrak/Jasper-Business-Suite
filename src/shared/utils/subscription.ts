@@ -219,7 +219,7 @@ export interface SubscriptionState {
 export async function loadSubscriptionFromDB(tenantId: string): Promise<SubscriptionState | null> {
   if (!tenantId) return null;
   try {
-    const { getSecureDataBridgeClient } = await import('../shared/dataBridge/secureDataBridge');
+    const { getSecureDataBridgeClient } = await import('../dataBridge/secureDataBridge');
     const client: any = await getSecureDataBridgeClient();
     const url: string = (client as any).supabaseUrl || '';
     if (!url || url.includes('placeholder')) return null;

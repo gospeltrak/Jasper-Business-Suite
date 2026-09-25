@@ -58,7 +58,7 @@ import CachedImage from '../../shared/components/CachedImage';
 import { getActiveBranchAddress, getActiveBranchDisplayName, getActiveBranchEmail, getActiveBranchLogo, getActiveBranchPhone } from '../../shared/utils/businessBranding';
 import type { BranchSummary } from '../branches/branchTypes';
 import { useOptionalBranchContext } from '../branches/BranchContext';
-import { normalizeSubscriptionPlanId } from '../../utils/subscription';
+import { normalizeSubscriptionPlanId } from '../../shared/utils/subscription';
 import { findPaymentChannel, getPaymentModeName } from '../../shared/utils/paymentAccounts';
 import { calculateSalesDocumentTotals } from './utils/salesDocumentTotals';
 import { getSaleItemLineTotal } from './utils/saleItemTotals';

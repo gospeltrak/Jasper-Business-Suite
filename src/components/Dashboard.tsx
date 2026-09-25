@@ -77,7 +77,7 @@ import { getSecureDataBridgeClient, isPlaceholderSecureDataBridgeClient } from '
 import { postTreasuryEntry, postTreasurySplitIncome, postTreasurySplitOutgoing, reverseTreasuryEntry } from '../modules/cash-bank/utils/treasuryApi';
 import { reversePurchaseInventory } from '../utils/inventoryCosting';
 import { isPurchaseFundingBalanced, registeredPurchaseFunding } from '../modules/purchases/utils/purchaseFunding';
-import { getSubscriptionReminder, getSubscriptionReminderKey } from '../utils/subscriptionReminder';
+import { getSubscriptionReminder, getSubscriptionReminderKey } from '../shared/utils/subscriptionReminder';
 import { compressImageFile } from '../shared/utils/imageCompression';
 import { formatLocalDate } from '../utils/localDate';
 import { Shield, Sparkles as SparklesIcon, AlertTriangle, CheckCircle, HelpCircle as HelpIcon, Play, RefreshCcw, CreditCard as CardIcon, Bell } from 'lucide-react';
@@ -91,7 +91,7 @@ import {
   normalizeSubscriptionPlanId,
   SubscriptionPlanId,
   SubscriptionState
-} from '../utils/subscription';
+} from '../shared/utils/subscription';
 
 const DashboardBranchesSettings = lazyWithReload('DashboardBranchesSettings', () => import('../modules/branches/components/DashboardBranchesSettings'));
 

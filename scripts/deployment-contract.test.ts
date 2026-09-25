@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import test from 'node:test';
-import { isTenantPackageTabAllowed } from '../src/utils/subscription';
+import { isTenantPackageTabAllowed } from '../src/shared/utils/subscription';
 import {
   attachPayloadSaleTombstones,
   extractPayloadSaleTombstones,
@@ -712,7 +712,7 @@ test('branch stock transfer is atomic and exposed through authenticated API wiri
 test('Tanzanite branch navigation uses the database entitlement workspace', async () => {
   const dashboardSource = await read('src/components/Dashboard.tsx');
   const branchSettingsSource = await read('src/modules/branches/components/DashboardBranchesSettings.tsx');
-  const subscriptionSource = await read('src/utils/subscription.ts');
+  const subscriptionSource = await read('src/shared/utils/subscription.ts');
   assert.match(dashboardSource, /label:\s*'Branches'.*tabId:\s*'branches'.*plans:\s*\['tanzanite'\]/);
   assert.match(dashboardSource, /activeTab === 'branches'/);
   assert.match(subscriptionSource, /TANZANITE_ONLY_TABS[\s\S]*'branches'/);
@@ -738,7 +738,7 @@ test('Branch eligibility uses authoritative expiry, normalized package values, a
 test('package activation uses one authoritative database-time transaction', async () => {
   const serverSource = await read('server.ts');
   const migration = await read('supabase/migrations/20260728000200_authoritative_subscription_activation.sql');
-  const subscriptionSource = await read('src/utils/subscription.ts');
+  const subscriptionSource = await read('src/shared/utils/subscription.ts');
   assert.match(serverSource, /\.rpc\('activate_tenant_package_period'/);
   assert.doesNotMatch(serverSource, /expiresAt = new Date\(now\.getTime\(\) \+ durationDays/);
   assert.match(migration, /transaction_timestamp\(\)/);
@@ -750,7 +750,7 @@ test('package activation uses one authoritative database-time transaction', asyn
 });
 
 test('Tanzanite reminders are limited to 3/2/1 days and are session-deduplicated', async () => {
-  const reminderSource = await read('src/utils/subscriptionReminder.ts');
+  const reminderSource = await read('src/shared/utils/subscriptionReminder.ts');
   const dashboardSource = await read('src/components/Dashboard.tsx');
   assert.match(reminderSource, /if \(daysRemaining > 3\) return null/);
   assert.match(reminderSource, /expires in 3 days/);
