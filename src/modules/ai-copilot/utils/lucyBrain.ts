@@ -1,4 +1,4 @@
-import { Product, Sale, Tenant } from '../types';
+import { Product, Sale, Tenant } from '../../../types';
 
 export type LucyLanguage = 'sw' | 'en';
 

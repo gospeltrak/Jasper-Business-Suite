@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Product, Sale, Tenant } from '../../types';
-import { createLucyResponse, detectLucyLanguage, getLucyGreeting } from '../../utils/lucyBrain';
+import { createLucyResponse, detectLucyLanguage, getLucyGreeting } from '../ai-copilot/utils/lucyBrain';
 import { getSecureDataBridgeClient } from '../../shared/dataBridge/secureDataBridge';
-import { speakWithGeminiLucy, stopLucySpeech } from '../../utils/lucySpeech';
+import { speakWithGeminiLucy, stopLucySpeech } from '../ai-copilot/utils/lucySpeech';
 import { 
   ResponsiveContainer, 
   LineChart, 

@@ -851,7 +851,7 @@ test('Lucy uses authenticated Gemini Swahili speech and current market grounding
   const lucySource = await read('api/lucy.ts');
   const copilotSource = await read('src/modules/ai-copilot/AIBusinessCopilot.tsx');
   const forecastingSource = await read('src/modules/forecasting/DashboardForecasting.tsx');
-  const speechSource = await read('src/utils/lucySpeech.ts');
+  const speechSource = await read('src/modules/ai-copilot/utils/lucySpeech.ts');
 
   assert.match(serverSource, /app\.post\('\/api\/lucy\/speech'/);
   assert.match(serverSource, /await requireTenantUser\(req, tenantId\)/);
