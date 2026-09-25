@@ -17,7 +17,7 @@ import {
   readLocalSaleTombstones,
   writeLocalSaleTombstones,
   type SaleTombstones,
-} from './saleSync';
+} from '../modules/sales/utils/saleSync';
 import { canWriteBusinessDataOnline, isBrowserOnline, warnOfflineWriteBlocked } from '../shared/utils/onlineOnly';
 
 // ─── Types ─────────────────────────────────────────────────────────────────

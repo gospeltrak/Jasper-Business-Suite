@@ -51,7 +51,7 @@ import {
   isFractionSaleEnabled,
   resolveFractionSaleConfig,
   type FractionSaleLevel,
-} from '../../utils/fractionSale';
+} from '../sales/utils/fractionSale';
 
 // Web Audio API helper for offline-friendly beep sound
 // Shared AudioContext singleton — created once, reused for all beeps (eliminates init lag)

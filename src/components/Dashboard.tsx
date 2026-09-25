@@ -60,7 +60,7 @@ import {
   reverseSaleInventory,
   saleHasTenantConflict,
   writeLocalSaleTombstones,
-} from '../utils/saleSync';
+} from '../modules/sales/utils/saleSync';
 import { mergeSettingsForSync, stampSettingsForSync } from '../shared/utils/settingsSync';
 import { BranchProvider, useBranchContext, useOptionalBranchContext } from '../modules/branches/BranchContext';
 import GlobalBranchSwitcher from '../modules/branches/components/GlobalBranchSwitcher';

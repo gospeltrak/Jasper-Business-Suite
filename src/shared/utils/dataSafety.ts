@@ -8,7 +8,7 @@ import {
   mergeSalesForSync,
   mergeSaleTombstones,
   readLocalSaleTombstones,
-} from '../../utils/saleSync';
+} from '../../modules/sales/utils/saleSync';
 
 const PROTECTED_DATA_KEYS = new Set([
   'products',

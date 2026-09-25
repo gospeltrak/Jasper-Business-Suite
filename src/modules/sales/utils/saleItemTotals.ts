@@ -1,4 +1,4 @@
-import type { SaleItem } from '../types';
+import type { SaleItem } from '../../../types';
 
 const safeNumber = (value: unknown): number => {
   const parsed = Number(value);

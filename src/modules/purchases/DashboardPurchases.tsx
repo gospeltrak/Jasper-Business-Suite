@@ -7,7 +7,7 @@ import CachedImage from '../../shared/components/CachedImage';
 import { addBatchToProduct, createInventoryBatch } from '../../utils/inventoryCosting';
 import { formatProductQuantity } from '../../shared/utils/unitFormatter';
 import { calculateBaseCost, convertToBaseQuantity, getBaseUnitLabel, resolvePackageLevels } from '../../utils/universalUnits';
-import { calculateFractionPurchaseLine, isFractionSaleEnabled, resolveFractionSaleConfig } from '../../utils/fractionSale';
+import { calculateFractionPurchaseLine, isFractionSaleEnabled, resolveFractionSaleConfig } from '../sales/utils/fractionSale';
 import { 
   Truck, 
   Package, 

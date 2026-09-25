@@ -48,7 +48,7 @@ import { classifyUniversalImportRows, downloadableUniversalTemplate } from '../.
 import { compressImageFile } from '../../shared/utils/imageCompression';
 import { safeSetJsonItem } from '../../shared/utils/dataSafety';
 import { generateUniqueEan13Barcode } from './barcode';
-import { calculateFractionSalePacketPrice } from '../../utils/fractionSale';
+import { calculateFractionSalePacketPrice } from '../sales/utils/fractionSale';
 import ModernSelect, { ModernSelectOption } from '../../shared/components/ModernSelect';
 import DashboardBarcodeScanner from '../../shared/components/DashboardBarcodeScanner';
 import { loadBranchWorkspace, transferStockBetweenBranches } from '../branches/branchApi';

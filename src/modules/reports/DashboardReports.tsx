@@ -59,7 +59,7 @@ import ModernSelect from '../../shared/components/ModernSelect';
 import { getActiveBranchAddress, getActiveBranchDisplayName, getActiveBranchEmail, getActiveBranchPhone } from '../../shared/utils/businessBranding';
 import type { BranchSummary } from '../branches/branchTypes';
 import { formatLocalDate, parseLocalDate, timestampToLocalDate } from '../../utils/localDate';
-import { getSaleItemGrossTotal, getSaleItemLineTotal } from '../../utils/saleItemTotals';
+import { getSaleItemGrossTotal, getSaleItemLineTotal } from '../sales/utils/saleItemTotals';
 
 const saleProductRevenue = (s: any): number =>
   s.productTotal !== undefined ? s.productTotal : (s.total - (s.deliveryCost || 0));

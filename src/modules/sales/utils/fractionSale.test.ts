@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Product } from '../types';
+import type { Product } from '../../../types';
 import {
   calculateFractionSaleLine,
   calculateFractionPurchaseLine,

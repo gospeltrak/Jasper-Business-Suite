@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { SaleItem } from '../types';
+import type { SaleItem } from '../../../types';
 import { getSaleItemGrossTotal, getSaleItemLineTotal } from './saleItemTotals';
 
 const item = (overrides: Partial<SaleItem> = {}): SaleItem => ({

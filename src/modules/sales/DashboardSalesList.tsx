@@ -60,8 +60,8 @@ import type { BranchSummary } from '../branches/branchTypes';
 import { useOptionalBranchContext } from '../branches/BranchContext';
 import { normalizeSubscriptionPlanId } from '../../utils/subscription';
 import { findPaymentChannel, getPaymentModeName } from '../../shared/utils/paymentAccounts';
-import { calculateSalesDocumentTotals } from '../../utils/salesDocumentTotals';
-import { getSaleItemLineTotal } from '../../utils/saleItemTotals';
+import { calculateSalesDocumentTotals } from './utils/salesDocumentTotals';
+import { getSaleItemLineTotal } from './utils/saleItemTotals';
 import {
   createStandardCommercialDocument,
   createCrossBranchCommercialDocument,
