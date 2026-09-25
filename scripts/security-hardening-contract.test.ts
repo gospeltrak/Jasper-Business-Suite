@@ -109,15 +109,11 @@ test('staff passwords are verified by Auth and purged from legacy workspace payl
   assert.match(loginPage, /if \(\(import\.meta as any\)\.env\?\.PROD\)[\s\S]*Local development demo fallback/);
 });
 
-test('tenant login is Google-only for owners, administrators, and staff', () => {
-  assert.match(loginPage, /const tenantGoogleOnlySignIn = !isSaasAdminPortal/);
-  assert.match(loginPage, /tenantGoogleOnlySignIn \? \([\s\S]*data-tenant-google-only="true"/);
-  assert.match(loginPage, /\{t\('secureGoogle'\)\}/);
+test('tenant login offers both Google sign-in and email/phone + password sign-in', () => {
+  assert.match(loginPage, /onClick=\{handleGoogleLoginClick\}[\s\S]*\{t\('continueGoogle'\)\}/);
+  assert.match(loginPage, /type=\{showLoginPassword \? 'text' : 'password'\}[\s\S]*value=\{password\}/);
+  assert.match(loginPage, /placeholder="email@example\.com or phone"/);
   assert.doesNotMatch(loginPage, /Owners, administrators and staff sign in with the Google account connected to this business/);
-  const tenantGoogleStart = loginPage.indexOf('{tenantGoogleOnlySignIn ? (');
-  const tenantPasswordFallback = loginPage.indexOf('id="login-email"', tenantGoogleStart);
-  const tenantConditionalEnd = loginPage.indexOf('</>}', tenantPasswordFallback);
-  assert.ok(tenantGoogleStart >= 0 && tenantPasswordFallback > tenantGoogleStart && tenantConditionalEnd > tenantPasswordFallback);
 });
 
 test('tenant image uploads require JSON, tenant authorization, and verified file signatures', () => {
