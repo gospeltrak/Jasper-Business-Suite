@@ -238,7 +238,7 @@ test('branch bootstrap uses one authenticated HTTP request and one directory cal
 
 test('workspace sync uses realtime with a low-frequency recovery poll and coalesced autosaves', async () => {
   const dashboardSource = await read('src/components/Dashboard.tsx');
-  const workspaceSource = await read('src/utils/tenantWorkspace.ts');
+  const workspaceSource = await read('src/shared/utils/tenantWorkspace.ts');
   assert.match(dashboardSource, /scheduleTenantWorkspaceSave\(activeTenant\.id, workspace\)/);
   assert.match(dashboardSource, /90_000/);
   assert.doesNotMatch(dashboardSource, /setInterval\(refreshWorkspaceFromDatabase,\s*5000\)/);
@@ -249,12 +249,12 @@ test('workspace sync uses realtime with a low-frequency recovery poll and coales
 
 test('legacy hydration excludes backups and protected saves reuse one guard read', async () => {
   const syncSource = await read('src/shared/utils/dbSync.ts');
-  const storageSource = await read('src/utils/onlineStorage.ts');
+  const storageSource = await read('src/shared/utils/onlineStorage.ts');
   const migrationSource = await read('supabase/migrations/20260729000300_runtime_load_indexes_rls.sql');
   assert.match(syncSource, /\.not\('data_key', 'like', 'workspace_backup_%'\)/);
   assert.match(syncSource, /\.not\('data_key', 'like', 'data_backup_%'\)/);
   assert.match(syncSource, /data_backup_latest_\$\{dataKey\}/);
-  assert.match(await read('src/utils/tenantWorkspace.ts'), /data_key: 'workspace_backup_latest'/);
+  assert.match(await read('src/shared/utils/tenantWorkspace.ts'), /data_key: 'workspace_backup_latest'/);
   assert.doesNotMatch(syncSource, /data_backup_\$\{dataKey\}_\$\{stamp\}/);
   assert.doesNotMatch(syncSource, /const \{ data: remoteData, error: remoteError \}/);
   assert.match(storageSource, /PERSIST_DEBOUNCE_MS = 1000/);
@@ -780,7 +780,7 @@ test('renewals preserve unused time and reject duplicate grants atomically', asy
 
 test('branch workspace data is filtered at the database boundary, not only in React', async () => {
   const migration = await read('supabase/migrations/20260728000400_branch_scoped_workspace_security.sql');
-  const workspaceSource = await read('src/utils/tenantWorkspace.ts');
+  const workspaceSource = await read('src/shared/utils/tenantWorkspace.ts');
   const dashboardSource = await read('src/components/Dashboard.tsx');
   assert.match(migration, /get_current_branch_workspace/);
   assert.match(migration, /save_current_branch_workspace/);
@@ -911,7 +911,7 @@ test('branch migrations never contain destructive tenant-data DML', async () => 
 test('tenant settings can only change through the explicit authoritative save path', async () => {
   const dashboardSource = await read('src/components/Dashboard.tsx');
   const settingsSource = await read('src/modules/settings/DashboardSettings.tsx');
-  const workspaceSource = await read('src/utils/tenantWorkspace.ts');
+  const workspaceSource = await read('src/shared/utils/tenantWorkspace.ts');
   const migrationSource = await read('supabase/migrations/20260728000500_authoritative_tenant_settings.sql');
 
   assert.match(dashboardSource, /saveTenantSettings\(activeTenant\.id,\s*syncedSettings\)/);

@@ -1,4 +1,4 @@
-import './utils/onlineStorage';
+import './shared/utils/onlineStorage';
 import './shared/utils/pwaInstallPrompt';
 import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';

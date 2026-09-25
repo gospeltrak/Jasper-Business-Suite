@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
-import { loadTenantWorkspaceCore } from '../../utils/tenantWorkspace';
+import { loadTenantWorkspaceCore } from '../utils/tenantWorkspace';
 
 interface TenantLogoContextType {
   logoUrl: string | null;

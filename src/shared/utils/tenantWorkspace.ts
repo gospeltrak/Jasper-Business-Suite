@@ -1,15 +1,15 @@
 import { RealtimeChannel } from '@supabase/supabase-js';
-import { Branch, BranchStaffAssignment, BranchStock, Delivery, Expense, Product, Purchase, SystemSettings } from '../types';
-import { getSecureDataBridgeClient } from '../shared/dataBridge/secureDataBridge';
-import { getProductPayloadQualityScore, isProductPayloadDestructiveShrink, isProductPayloadQualityDowngrade } from '../shared/utils/dataSafety';
+import { Branch, BranchStaffAssignment, BranchStock, Delivery, Expense, Product, Purchase, SystemSettings } from '../../types';
+import { getSecureDataBridgeClient } from '../dataBridge/secureDataBridge';
+import { getProductPayloadQualityScore, isProductPayloadDestructiveShrink, isProductPayloadQualityDowngrade } from './dataSafety';
 import {
   mergeProductsForSync,
   mergeProductTombstones,
   readLocalProductTombstones,
   writeLocalProductTombstones,
-} from '../modules/products/utils/productSync';
-import { mergeRecordsById } from '../shared/utils/recordSync';
-import { mergeSettingsForSync } from '../shared/utils/settingsSync';
+} from '../../modules/products/utils/productSync';
+import { mergeRecordsById } from './recordSync';
+import { mergeSettingsForSync } from './settingsSync';
 import {
   extractPayloadSaleTombstones,
   mergeSalesForSync,
@@ -17,8 +17,8 @@ import {
   readLocalSaleTombstones,
   writeLocalSaleTombstones,
   type SaleTombstones,
-} from '../modules/sales/utils/saleSync';
-import { canWriteBusinessDataOnline, isBrowserOnline, warnOfflineWriteBlocked } from '../shared/utils/onlineOnly';
+} from '../../modules/sales/utils/saleSync';
+import { canWriteBusinessDataOnline, isBrowserOnline, warnOfflineWriteBlocked } from './onlineOnly';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 

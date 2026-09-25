@@ -6,11 +6,11 @@ import { useTenantLogo } from './shared/contexts/TenantLogoContext';
 import { getSecureDataBridgeClient, isPlaceholderSecureDataBridgeClient } from './shared/dataBridge/secureDataBridge';
 import { endCloudSession, startCloudSession, touchCloudSession } from './shared/utils/sessionControl';
 import { pullFromCloud, pushToCloud } from './shared/utils/dbSync';
-import { configureOnlineStorage, resetOnlineStorage } from './utils/onlineStorage';
+import { configureOnlineStorage, resetOnlineStorage } from './shared/utils/onlineStorage';
 import { lazyWithReload } from './shared/utils/lazyWithReload';
 import SystemErrorPage, { type SystemErrorStatus } from './shared/components/SystemErrorPage';
 import { resolveProfileRolePermissions } from './shared/utils/profilePermissions';
-import { loadTenantWorkspace } from './utils/tenantWorkspace';
+import { loadTenantWorkspace } from './shared/utils/tenantWorkspace';
 import { preloadBranchWorkspace } from './modules/branches/BranchContext';
 
 // Route-level code splitting keeps the large business workspaces out of the

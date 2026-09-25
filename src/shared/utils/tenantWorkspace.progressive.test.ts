@@ -21,7 +21,7 @@ let bootstrapCallCount = 0;
 let releaseSalesPage: (() => void) | null = null;
 const upsertCalls: any[] = [];
 
-vi.mock('../shared/utils/onlineOnly', () => ({
+vi.mock('./onlineOnly', () => ({
   canWriteBusinessDataOnline: () => true,
   isBrowserOnline: () => true,
   warnOfflineWriteBlocked: () => {},
@@ -32,7 +32,7 @@ const emptyLedgerPage = (collection: string) => ({
   error: null,
 });
 
-vi.mock('../shared/dataBridge/secureDataBridge', () => ({
+vi.mock('../dataBridge/secureDataBridge', () => ({
   getSecureDataBridgeClient: vi.fn(async () => ({
     supabaseUrl: 'https://fake-project.supabase.co',
     rpc: async (fn: string, args?: any) => {

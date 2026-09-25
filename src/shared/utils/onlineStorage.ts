@@ -1,4 +1,4 @@
-import { getSecureDataBridgeClient } from '../shared/dataBridge/secureDataBridge';
+import { getSecureDataBridgeClient } from '../dataBridge/secureDataBridge';
 
 const DATA_KEY = 'application_state';
 const values = new Map<string, string>();

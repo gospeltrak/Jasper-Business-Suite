@@ -33,13 +33,13 @@ let mockDbState: any = null;
 const upsertCalls: any[] = [];
 let releaseFirstUpsert: (() => void) | null = null;
 
-vi.mock('../shared/utils/onlineOnly', () => ({
+vi.mock('./onlineOnly', () => ({
   canWriteBusinessDataOnline: () => true,
   isBrowserOnline: () => true,
   warnOfflineWriteBlocked: () => {},
 }));
 
-vi.mock('../shared/dataBridge/secureDataBridge', () => {
+vi.mock('../dataBridge/secureDataBridge', () => {
   return {
     getSecureDataBridgeClient: vi.fn(async () => ({
       supabaseUrl: 'https://fake-project.supabase.co',

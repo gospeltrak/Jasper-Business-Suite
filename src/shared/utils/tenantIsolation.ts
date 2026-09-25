@@ -1,5 +1,5 @@
 import { SystemSettings, Tenant } from '../../types';
-import { initializeNewTenantWorkspace } from '../../utils/tenantWorkspace';
+import { initializeNewTenantWorkspace } from './tenantWorkspace';
 import { payloadHasRecords, readJsonValue, safeSetJsonItem, safeSetTenantMapItem } from './dataSafety';
 
 // Demo records are deliberately opt-in. Every other tenant starts and remains empty until its users add data.

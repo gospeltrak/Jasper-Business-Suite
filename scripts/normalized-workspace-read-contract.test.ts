@@ -4,7 +4,7 @@ import test from 'node:test';
 
 const sql = readFileSync(new URL('../supabase/migrations/20260812000100_verified_normalized_workspace_reads.sql', import.meta.url), 'utf8');
 const paginatedSql = readFileSync(new URL('../supabase/migrations/20260814000300_paginated_normalized_workspace_reads.sql', import.meta.url), 'utf8');
-const client = readFileSync(new URL('../src/utils/tenantWorkspace.ts', import.meta.url), 'utf8');
+const client = readFileSync(new URL('../src/shared/utils/tenantWorkspace.ts', import.meta.url), 'utf8');
 
 test('normalized reads are verified, scoped, and reversible', () => {
   for (const contract of [

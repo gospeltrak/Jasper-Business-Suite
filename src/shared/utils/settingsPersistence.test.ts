@@ -26,13 +26,13 @@ const remoteWorkspace = {
   saleTombstones: {},
 };
 
-vi.mock('../shared/utils/onlineOnly', () => ({
+vi.mock('./onlineOnly', () => ({
   canWriteBusinessDataOnline: () => true,
   isBrowserOnline: () => true,
   warnOfflineWriteBlocked: () => {},
 }));
 
-vi.mock('../shared/dataBridge/secureDataBridge', () => ({
+vi.mock('../dataBridge/secureDataBridge', () => ({
   getSecureDataBridgeClient: vi.fn(async () => ({
     supabaseUrl: 'https://fake-project.supabase.co',
     rpc: vi.fn(async (name: string, args?: any) => {
