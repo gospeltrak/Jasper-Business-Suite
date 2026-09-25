@@ -1,5 +1,5 @@
 import { getSecureDataBridgeClient } from '../../../shared/dataBridge/secureDataBridge';
-import { isSettledPaymentStatus } from '../../../utils/financialStatus';
+import { isSettledPaymentStatus } from '../../../shared/utils/financialStatus';
 
 export type SourceType = 'organic' | 'organic_affiliate' | 'sub_affiliate' | 'unknown' | 'untracked';
 

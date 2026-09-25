@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { isPurchaseFundingBalanced, registeredPurchaseFunding, sumPurchaseFunding } from './purchaseFunding';
-import type { PurchasePaymentAllocation } from '../types';
+import type { PurchasePaymentAllocation } from '../../../types';
 
 const allocation = (
   fundingType: PurchasePaymentAllocation['fundingType'],

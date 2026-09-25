@@ -1,6 +1,6 @@
-import type { PaymentChannel } from '../types';
-import { getSecureDataBridgeClient } from '../shared/dataBridge/secureDataBridge';
-import { getMaskedAccountReference } from '../shared/utils/paymentAccounts';
+import type { PaymentChannel } from '../../../types';
+import { getSecureDataBridgeClient } from '../../../shared/dataBridge/secureDataBridge';
+import { getMaskedAccountReference } from '../../../shared/utils/paymentAccounts';
 
 type TreasuryDirection = 'in' | 'out';
 

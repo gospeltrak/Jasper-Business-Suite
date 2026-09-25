@@ -3,7 +3,7 @@ import { Tenant, Sale, Expense, PaymentChannel, LedgerEntry, User as AppUser, Sy
 import { isDemoTenant } from '../../shared/utils/tenantIsolation';
 import { safeSetJsonItem } from '../../shared/utils/dataSafety';
 import { findPaymentChannel, getMaskedAccountReference, getTreasuryPaymentMethods, reconcilePaymentChannels } from '../../shared/utils/paymentAccounts';
-import { postTreasuryEntry, syncTreasuryPaymentAccounts, transferTreasuryFunds } from '../../utils/treasuryApi';
+import { postTreasuryEntry, syncTreasuryPaymentAccounts, transferTreasuryFunds } from './utils/treasuryApi';
 import { formatLocalDate } from '../../utils/localDate';
 import { 
   Landmark, 

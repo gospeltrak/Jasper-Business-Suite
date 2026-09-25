@@ -55,7 +55,7 @@ import {
 import { ONLINE_ONLY_WRITE_MESSAGE } from '../../../shared/utils/onlineOnly';
 import { canShowDashboardAd, useGlobalAdSettings } from '../../../utils/adPlacement';
 import { sanitizeTrustedHtml } from '../../../shared/utils/safeHtml';
-import { isEarnedCommissionStatus, isSettledPaymentStatus } from '../../../utils/financialStatus';
+import { isEarnedCommissionStatus, isSettledPaymentStatus } from '../../../shared/utils/financialStatus';
 import GlobalStickyAd from '../../../shared/components/GlobalStickyAd';
 import { formatLocalMonth } from '../../../utils/localDate';
 

@@ -30,7 +30,7 @@ import {
   updateSuperAdminUser,
   verifySuperAdminPassword
 } from '../utils/superAdminData';
-import { loadPlatformRecord, savePlatformRecord } from '../../../utils/superAdminPlatformRecords';
+import { loadPlatformRecord, savePlatformRecord } from '../utils/superAdminPlatformRecords';
 
 interface SessionLog {
   loginTime: string;

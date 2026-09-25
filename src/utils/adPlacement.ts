@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { getSecureDataBridgeClient } from '../shared/dataBridge/secureDataBridge';
-import { loadPlatformRecord, savePlatformRecord } from './superAdminPlatformRecords';
+import { loadPlatformRecord, savePlatformRecord } from '../modules/platform-admin/utils/superAdminPlatformRecords';
 
 export interface GlobalAdPlacementSettings {
   dashboardAdCode: string;

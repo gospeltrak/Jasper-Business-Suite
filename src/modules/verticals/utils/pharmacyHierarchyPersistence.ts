@@ -1,4 +1,4 @@
-import type { Product } from '../types';
+import type { Product } from '../../../types';
 
 export type PharmacyHierarchySnapshot = Pick<Product,
   | 'productType'

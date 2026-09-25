@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Inbox, CheckCircle, Clock, Trash, AlertTriangle, Reply } from 'lucide-react';
-import { loadPlatformRecord, savePlatformRecord } from '../../../utils/superAdminPlatformRecords';
+import { loadPlatformRecord, savePlatformRecord } from '../utils/superAdminPlatformRecords';
 import { ONLINE_ONLY_WRITE_MESSAGE } from '../../../shared/utils/onlineOnly';
 
 interface InboxMessage {

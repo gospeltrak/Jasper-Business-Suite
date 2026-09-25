@@ -1,4 +1,4 @@
-import type { PurchasePaymentAllocation } from '../types';
+import type { PurchasePaymentAllocation } from '../../../types';
 
 export const sumPurchaseFunding = (
   allocations: readonly Pick<PurchasePaymentAllocation, 'amount'>[] = [],

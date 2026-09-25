@@ -45,7 +45,7 @@ import DashboardBarcodeScanner from '../../shared/components/DashboardBarcodeSca
 import CachedImage from '../../shared/components/CachedImage';
 import { downloadPdfFromElement, shareElementPdfToWhatsApp } from '../../shared/utils/pdfShare';
 import { localDateToIso, timestampToLocalDate } from '../../utils/localDate';
-import { getPharmacyDoseConfig, resolvePharmacyPosLine } from '../../utils/pharmacyPosPricing';
+import { getPharmacyDoseConfig, resolvePharmacyPosLine } from '../verticals/utils/pharmacyPosPricing';
 import {
   calculateFractionSaleLine,
   isFractionSaleEnabled,

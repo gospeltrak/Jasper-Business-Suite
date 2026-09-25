@@ -22,7 +22,7 @@ import {
   Image as ImageIcon
 } from 'lucide-react';
 import { DEFAULT_TENANTS } from '../../../data';
-import { loadPlatformRecord, savePlatformRecord } from '../../../utils/superAdminPlatformRecords';
+import { loadPlatformRecord, savePlatformRecord } from '../utils/superAdminPlatformRecords';
 import { ONLINE_ONLY_WRITE_MESSAGE } from '../../../shared/utils/onlineOnly';
 import { compressImageFile } from '../../../shared/utils/imageCompression';
 import { loadSuperAdminOverview } from '../utils/superAdminData';

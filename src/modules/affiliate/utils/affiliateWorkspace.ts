@@ -1,6 +1,6 @@
 import { getSecureDataBridgeClient } from '../../../shared/dataBridge/secureDataBridge';
-import { loadPlatformRecord } from '../../../utils/superAdminPlatformRecords';
-import { isSettledPaymentStatus } from '../../../utils/financialStatus';
+import { loadPlatformRecord } from '../../platform-admin/utils/superAdminPlatformRecords';
+import { isSettledPaymentStatus } from '../../../shared/utils/financialStatus';
 
 export type AffiliateTaskStatus = 'new' | 'pending' | 'completed' | 'reviewed';
 export type AffiliateMeetingStatus = 'upcoming' | 'live' | 'completed' | 'cancelled';

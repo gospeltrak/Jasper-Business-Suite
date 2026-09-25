@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { Product } from '../types';
+import type { Product } from '../../../types';
 import { getPharmacyHierarchySnapshot, pharmacyHierarchyMatches } from './pharmacyHierarchyPersistence';
-import { mergeProductsForSync } from '../modules/products/utils/productSync';
+import { mergeProductsForSync } from '../../products/utils/productSync';
 
 const medicine = (overrides: Partial<Product> = {}): Product => ({
   id: 'medicine-1', name: 'Panadol', category: 'Medicine', unit: 'Tablet',

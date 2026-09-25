@@ -52,7 +52,7 @@ import { flushPendingTenantWorkspace, hasPendingTenantWorkspaceSave, loadTenantP
 import { safeSetJsonItem, safeSetTenantMapItem } from '../shared/utils/dataSafety';
 import { findPaymentChannel, getTreasuryPaymentMethods, reconcilePaymentChannels } from '../shared/utils/paymentAccounts';
 import { attachPayloadProductTombstones, markLocalProductTombstones, mergeProductTombstones, mergeProductsForSync, readLocalProductTombstones, stampProductsForSync, writeLocalProductTombstones } from '../modules/products/utils/productSync';
-import { pharmacyHierarchyMatches } from '../utils/pharmacyHierarchyPersistence';
+import { pharmacyHierarchyMatches } from '../modules/verticals/utils/pharmacyHierarchyPersistence';
 import {
   attachPayloadSaleTombstones,
   markLocalSaleTombstone,
@@ -74,9 +74,9 @@ import {
 } from '../modules/branches/branchScope';
 import { ONLINE_ONLY_WRITE_MESSAGE, canWriteBusinessDataOnline } from '../shared/utils/onlineOnly';
 import { getSecureDataBridgeClient, isPlaceholderSecureDataBridgeClient } from '../shared/dataBridge/secureDataBridge';
-import { postTreasuryEntry, postTreasurySplitIncome, postTreasurySplitOutgoing, reverseTreasuryEntry } from '../utils/treasuryApi';
+import { postTreasuryEntry, postTreasurySplitIncome, postTreasurySplitOutgoing, reverseTreasuryEntry } from '../modules/cash-bank/utils/treasuryApi';
 import { reversePurchaseInventory } from '../utils/inventoryCosting';
-import { isPurchaseFundingBalanced, registeredPurchaseFunding } from '../utils/purchaseFunding';
+import { isPurchaseFundingBalanced, registeredPurchaseFunding } from '../modules/purchases/utils/purchaseFunding';
 import { getSubscriptionReminder, getSubscriptionReminderKey } from '../utils/subscriptionReminder';
 import { compressImageFile } from '../shared/utils/imageCompression';
 import { formatLocalDate } from '../utils/localDate';

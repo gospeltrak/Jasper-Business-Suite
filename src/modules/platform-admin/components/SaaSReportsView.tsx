@@ -27,10 +27,10 @@ import {
   Legend,
 } from "recharts";
 import { Tenant } from "../../../types";
-import { loadPlatformRecord } from "../../../utils/superAdminPlatformRecords";
+import { loadPlatformRecord } from "../utils/superAdminPlatformRecords";
 import { loadSuperAdminOverview } from "../utils/superAdminData";
 import { printPdfFromElement } from "../../../shared/utils/pdfShare";
-import { isEarnedCommissionStatus, isSettledPaymentStatus } from "../../../utils/financialStatus";
+import { isEarnedCommissionStatus, isSettledPaymentStatus } from "../../../shared/utils/financialStatus";
 
 interface ExpenseRecord {
   id: string;

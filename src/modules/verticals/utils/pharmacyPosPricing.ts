@@ -1,4 +1,4 @@
-import type { Product, SaleItem } from '../types';
+import type { Product, SaleItem } from '../../../types';
 
 export type PharmacySellingLevel = NonNullable<SaleItem['dosageType']>;
 
