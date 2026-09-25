@@ -11,7 +11,7 @@ import {
   subscribeToInstallPrompt,
   subscribeToInstalled,
   subscribeToManualInstallTrigger,
-} from '../utils/pwaInstallPrompt';
+} from '../../utils/pwaInstallPrompt';
 
 interface PWAInstallBannerProps {
   tenantId: string;

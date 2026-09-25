@@ -115,7 +115,7 @@ test('optional tenant branding and workspace hydration never block a successful 
 
 test('workspace entry and branch switching stay fast and non-blocking', async () => {
   const appSource = await read('src/App.tsx');
-  const splashSource = await read('src/components/JasperSplashScreen.tsx');
+  const splashSource = await read('src/shared/components/JasperSplashScreen.tsx');
   const branchContextSource = await read('src/modules/branches/BranchContext.tsx');
   const dashboardSource = await read('src/components/Dashboard.tsx');
 

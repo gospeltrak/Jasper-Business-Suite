@@ -34,7 +34,7 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { useTranslation } from '../../shared/contexts/LanguageContext';
-import CachedImage, { evictImageCache } from '../../components/CachedImage';
+import CachedImage, { evictImageCache } from '../../shared/components/CachedImage';
 import {
   addBatchToProduct,
   createInventoryBatch,

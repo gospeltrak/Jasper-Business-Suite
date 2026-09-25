@@ -29,7 +29,7 @@ import { initializeCleanTenantWorkspace } from '../../shared/utils/tenantIsolati
 import { startCloudSession } from '../../shared/utils/sessionControl';
 import { toUserFacingError } from '../../shared/utils/safeError';
 import PrivacyAndTermsModals from '../../components/PrivacyAndTermsModals';
-import TurnstileWidget from '../../components/TurnstileWidget';
+import TurnstileWidget from '../../shared/components/TurnstileWidget';
 import { prepareSuperAdminMfa, verifySuperAdminMfa, type SuperAdminMfaPrompt } from '../platform-admin/utils/superAdminMfa';
 import { resolveProfileRolePermissions } from '../../utils/profilePermissions';
 

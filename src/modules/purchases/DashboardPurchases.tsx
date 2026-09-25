@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Product, Supplier, Purchase, PurchaseItem, Tenant, SystemSettings, PaymentChannel } from '../../types';
 import { getMaskedAccountReference } from '../../shared/utils/paymentAccounts';
 import ModernSelect from '../../components/ui/ModernSelect';
-import CachedImage from '../../components/CachedImage';
+import CachedImage from '../../shared/components/CachedImage';
 import { addBatchToProduct, createInventoryBatch } from '../../utils/inventoryCosting';
 import { formatProductQuantity } from '../../shared/utils/unitFormatter';
 import { calculateBaseCost, convertToBaseQuantity, getBaseUnitLabel, resolvePackageLevels } from '../../utils/universalUnits';

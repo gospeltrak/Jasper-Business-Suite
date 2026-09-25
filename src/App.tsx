@@ -1,5 +1,5 @@
 import { Suspense, useState, useEffect, useRef } from 'react';
-import JasperSplashScreen from './components/JasperSplashScreen';
+import JasperSplashScreen from './shared/components/JasperSplashScreen';
 import { User, Tenant } from './types';
 import { useTheme } from './shared/contexts/ThemeContext';
 import { useTenantLogo } from './shared/contexts/TenantLogoContext';

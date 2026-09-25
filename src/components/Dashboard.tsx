@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import PWAInstallBanner from './PWAInstallBanner';
+import PWAInstallBanner from '../shared/components/PWAInstallBanner';
 import { requestManualInstallPrompt } from '../utils/pwaInstallPrompt';
 import { useTranslation } from '../shared/contexts/LanguageContext';
 import { useTenantLogo } from '../shared/contexts/TenantLogoContext';
@@ -42,10 +42,10 @@ const DashboardSettings = lazyWithReload('DashboardSettings', () => import('../m
 const DashboardStaff = lazyWithReload('DashboardStaff', () => import('../modules/staff/DashboardStaff'));
 import DashboardScreenErrorBoundary from '../shared/components/DashboardScreenErrorBoundary';
 import AIBusinessCopilot from './AIBusinessCopilot';
-import GlobalStickyAd from './GlobalStickyAd';
+import GlobalStickyAd from '../shared/components/GlobalStickyAd';
 const SuperSaaSAdminView = lazyWithReload('SuperSaaSAdminView', () => import('../modules/platform-admin/components/SuperSaaSAdminView'));
 import DuressDashboard from './DuressDashboard';
-import CachedImage from './CachedImage';
+import CachedImage from '../shared/components/CachedImage';
 import { savePendingSaleOffline } from '../utils/offlineDb';
 import { createCleanTenantSettings, isDemoTenant } from '../shared/utils/tenantIsolation';
 import { flushPendingTenantWorkspace, hasPendingTenantWorkspaceSave, loadTenantProductFresh, loadTenantWorkspace, loadTenantWorkspaceCore, markTenantProductsUpdated, readCachedWorkspace, reloadTenantWorkspace, saveTenantSettings, saveTenantWorkspace, scheduleTenantWorkspaceSave, subscribeToTenantBusinessType, subscribeToTenantWorkspace, TenantWorkspace, waitForTenantWorkspaceLoad, workspaceHasBusinessData } from '../utils/tenantWorkspace';

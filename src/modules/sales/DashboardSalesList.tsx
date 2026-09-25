@@ -54,7 +54,7 @@ import {
   Minus
 } from 'lucide-react';
 import { downloadPdfFromElement, shareElementPdfToWhatsApp } from '../../shared/utils/pdfShare';
-import CachedImage from '../../components/CachedImage';
+import CachedImage from '../../shared/components/CachedImage';
 import { getActiveBranchAddress, getActiveBranchDisplayName, getActiveBranchEmail, getActiveBranchLogo, getActiveBranchPhone } from '../../shared/utils/businessBranding';
 import type { BranchSummary } from '../branches/branchTypes';
 import { useOptionalBranchContext } from '../branches/BranchContext';

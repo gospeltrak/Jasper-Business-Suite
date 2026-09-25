@@ -77,7 +77,7 @@ import {
   renderTermsContent,
 } from "./TermsTranslations";
 import { downloadPdfFromElement } from "../../../shared/utils/pdfShare";
-import TurnstileWidget from "../../../components/TurnstileWidget";
+import TurnstileWidget from "../../../shared/components/TurnstileWidget";
 
 interface Affiliate {
   id: string;
