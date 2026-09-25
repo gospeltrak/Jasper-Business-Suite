@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Product, Supplier, Purchase, PurchaseItem, Tenant, SystemSettings, PaymentChannel } from '../../types';
 import { getMaskedAccountReference } from '../../shared/utils/paymentAccounts';
-import ModernSelect from '../../components/ui/ModernSelect';
+import ModernSelect from '../../shared/components/ModernSelect';
 import CachedImage from '../../shared/components/CachedImage';
 import { addBatchToProduct, createInventoryBatch } from '../../utils/inventoryCosting';
 import { formatProductQuantity } from '../../shared/utils/unitFormatter';

@@ -49,7 +49,7 @@ import { compressImageFile } from '../../shared/utils/imageCompression';
 import { safeSetJsonItem } from '../../shared/utils/dataSafety';
 import { generateUniqueEan13Barcode } from './barcode';
 import { calculateFractionSalePacketPrice } from '../../utils/fractionSale';
-import ModernSelect, { ModernSelectOption } from '../../components/ui/ModernSelect';
+import ModernSelect, { ModernSelectOption } from '../../shared/components/ModernSelect';
 import DashboardBarcodeScanner from '../../shared/components/DashboardBarcodeScanner';
 import { loadBranchWorkspace, transferStockBetweenBranches } from '../branches/branchApi';
 import type { BranchSummary } from '../branches/branchTypes';

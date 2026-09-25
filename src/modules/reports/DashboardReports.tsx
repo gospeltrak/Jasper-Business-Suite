@@ -55,7 +55,7 @@ import { formatProductQuantity, formatSaleItemQuantity, getProductUnitName } fro
 import { getDisplayStockBreakdown, resolvePackageLevels } from '../../utils/universalUnits';
 import { downloadPdfFromElement } from '../../shared/utils/pdfShare';
 import CachedImage from '../../shared/components/CachedImage';
-import ModernSelect from '../../components/ui/ModernSelect';
+import ModernSelect from '../../shared/components/ModernSelect';
 import { getActiveBranchAddress, getActiveBranchDisplayName, getActiveBranchEmail, getActiveBranchPhone } from '../../shared/utils/businessBranding';
 import type { BranchSummary } from '../branches/branchTypes';
 import { formatLocalDate, parseLocalDate, timestampToLocalDate } from '../../utils/localDate';
