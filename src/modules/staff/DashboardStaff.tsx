@@ -302,6 +302,13 @@ export default function DashboardStaff({
   const [salaryPaymentNotes, setSalaryPaymentNotes] = useState('');
   const [salaryPaymentAttachment, setSalaryPaymentAttachment] = useState<{ name: string; data: string } | null>(null);
   const [activeBranchContext, setActiveBranchContext] = useState<{ id: string; name: string } | null>(null);
+  const [availableBranches, setAvailableBranches] = useState<{ id: string; name: string }[]>([]);
+  const [regBranchId, setRegBranchId] = useState('');
+  const [regAccessScope, setRegAccessScope] = useState<'assigned_branches' | 'all_branches'>('assigned_branches');
+  const [staffAccessScopes, setStaffAccessScopes] = useState<Record<string, 'assigned_branches' | 'all_branches'>>({});
+  const [profileBranchId, setProfileBranchId] = useState('');
+  const [profileAccessScope, setProfileAccessScope] = useState<'assigned_branches' | 'all_branches'>('assigned_branches');
+  const [isSavingBranchAccess, setIsSavingBranchAccess] = useState(false);
   const [allowanceForm, setAllowanceForm] = useState({
     name: 'Food allowance',
     customName: '',
@@ -344,15 +351,51 @@ export default function DashboardStaff({
     };
     const onContextChange = (event: Event) => applyContext((event as CustomEvent).detail);
     window.addEventListener('jasper_branch_context_changed', onContextChange);
-    void loadBranchWorkspace().then(snapshot => applyContext({
-      activeBranchId: snapshot.context.activeBranchId,
-      businessName: snapshot.context.selectedBranch?.businessName || snapshot.context.selectedBranch?.branchName,
-    })).catch(() => setActiveBranchContext(null));
+    void loadBranchWorkspace().then(snapshot => {
+      applyContext({
+        activeBranchId: snapshot.context.activeBranchId,
+        businessName: snapshot.context.selectedBranch?.businessName || snapshot.context.selectedBranch?.branchName,
+      });
+      if (!mounted) return;
+      const physicalBranches = (snapshot.directory.branches || [])
+        .filter(branch => branch.isPhysical && branch.id)
+        .map(branch => ({ id: branch.id as string, name: branch.branchName || branch.businessName || 'Branch' }));
+      setAvailableBranches(physicalBranches);
+    }).catch(() => setActiveBranchContext(null));
     return () => {
       mounted = false;
       window.removeEventListener('jasper_branch_context_changed', onContextChange);
     };
   }, [activeTenant.id]);
+
+  // Which staff already have "All Branches" access, keyed by their login
+  // email -- fetched once so the toggle below reflects real database state
+  // instead of a local guess. Staff absent from the map are on the default
+  // single-branch scope.
+  useEffect(() => {
+    let mounted = true;
+    const loadAccessScopes = async () => {
+      try {
+        const client: any = await getSecureDataBridgeClient();
+        const { data } = await client.auth.getSession();
+        const accessToken = data?.session?.access_token;
+        if (!accessToken) return;
+        const response = await fetch('/api/staff/branch-access', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        if (!response.ok) return;
+        const result = await response.json().catch(() => null);
+        if (mounted && result?.accessScopes) setStaffAccessScopes(result.accessScopes);
+      } catch { /* branch-access display is best-effort */ }
+    };
+    void loadAccessScopes();
+    return () => { mounted = false; };
+  }, [activeTenant.id]);
+
+  useEffect(() => {
+    if (!regBranchId && activeBranchContext?.id) setRegBranchId(activeBranchContext.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeBranchContext?.id]);
 
   useEffect(() => {
     const loadSessions = () => {
@@ -485,7 +528,10 @@ export default function DashboardStaff({
     return Boolean(response.ok && result.updated);
   };
 
-  const createGoogleInvitation = async (staff: StaffSettings) => {
+  const createGoogleInvitation = async (
+    staff: StaffSettings,
+    accessScope: 'assigned_branches' | 'all_branches' = 'assigned_branches',
+  ) => {
     if (!staff.email) throw new Error('Add the staff Gmail first.');
     const client: any = await getSecureDataBridgeClient();
     const { data } = await client.auth.getSession();
@@ -497,6 +543,7 @@ export default function DashboardStaff({
       body: JSON.stringify({
         staffId: staff.id, name: staff.name, email: staff.email, phone: staff.phone,
         role: staff.role, branchId: staff.branchId || activeBranchId || activeBranchContext?.id,
+        accessScope,
         permissions: customRoles.find(item => item.name.toLowerCase() === staff.role.toLowerCase())?.permissions || {},
       }),
     });
@@ -504,6 +551,39 @@ export default function DashboardStaff({
     if (!response.ok || !result.invitationUrl) throw new Error(result.error || 'Invitation link could not be created.');
     setInvitationLink(result.invitationUrl);
     return result.invitationUrl as string;
+  };
+
+  const saveStaffBranchAccess = async (staff: StaffSettings) => {
+    if (!staff.email) return;
+    setIsSavingBranchAccess(true);
+    try {
+      const client: any = await getSecureDataBridgeClient();
+      const { data } = await client.auth.getSession();
+      const accessToken = data?.session?.access_token;
+      if (!accessToken) throw new Error('Admin session is required.');
+      const response = await fetch('/api/staff/branch-access', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({
+          email: staff.email, accessScope: profileAccessScope,
+          homeBranchId: profileBranchId || staff.branchId || activeBranchId || activeBranchContext?.id,
+          permissions: customRoles.find(item => item.name.toLowerCase() === staff.role.toLowerCase())?.permissions || {},
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result?.error || 'Branch access could not be saved.');
+      if (result.updated) {
+        setStaffAccessScopes(prev => ({ ...prev, [staff.email!.trim().toLowerCase()]: profileAccessScope }));
+        setSuccessMessage('Branch access updated.');
+      } else {
+        setSuccessMessage('This staff has not accepted their Google invitation yet. Create/replace the invitation below to apply this access when they join.');
+      }
+    } catch (error) {
+      setSuccessMessage(error instanceof Error ? error.message : 'Branch access could not be saved.');
+    } finally {
+      setIsSavingBranchAccess(false);
+      setTimeout(() => setSuccessMessage(''), 6000);
+    }
   };
 
   const handleRegisterStaff = async (e: React.FormEvent) => {
@@ -520,7 +600,7 @@ export default function DashboardStaff({
       name: fullName.trim(),
       email: email.trim().toLowerCase(),
       phone: phone.trim(),
-      branchId: activeBranchId || activeBranchContext?.id,
+      branchId: regBranchId || activeBranchId || activeBranchContext?.id,
       role: roleType === 'delivery' ? classification : selectedRole,
       salary: Number(salaryAmount) || 0,
       salaryType,
@@ -556,7 +636,7 @@ export default function DashboardStaff({
     }
 
     try {
-      await createGoogleInvitation(newStaff);
+      await createGoogleInvitation(newStaff, regAccessScope);
       setSuccessMessage(`Staff member "${fullName}" saved. Share the secure Google invitation link below.`);
     } catch {
       setSuccessMessage(`Staff member "${fullName}" saved, but the Google invitation was not created. Open the staff profile and try again.`);
@@ -574,6 +654,7 @@ export default function DashboardStaff({
     setSalaryType('monthly');
     setSalaryStartDate(todayIsoDate());
     setSalaryNotes('');
+    setRegAccessScope('assigned_branches');
 
     setTimeout(() => {
       setSuccessMessage('');
@@ -668,6 +749,8 @@ export default function DashboardStaff({
 
   const openStaffProfile = (staff: StaffSettings) => {
     setSelectedStaff(staff);
+    setProfileBranchId(staff.branchId || activeBranchId || activeBranchContext?.id || '');
+    setProfileAccessScope(staffAccessScopes[staff.email?.trim().toLowerCase() || ''] || 'assigned_branches');
     setAllowanceForm({
       name: 'Food allowance',
       customName: '',
@@ -1240,6 +1323,30 @@ export default function DashboardStaff({
                   <div className="md:col-span-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-bold text-emerald-800">
                     Login credentials are created through the secure Google invitation and are never stored in workspace data.
                   </div>
+                  {availableBranches.length > 1 && (
+                    <>
+                      <label className="space-y-1.5 md:col-span-2">
+                        <span className="text-xs font-black text-slate-700">Branch</span>
+                        <select value={regBranchId} onChange={e => setRegBranchId(e.target.value)} className="w-full min-h-[48px] rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black outline-none focus:border-indigo-500">
+                          {availableBranches.map(branch => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
+                        </select>
+                      </label>
+                      <div className="space-y-1.5 md:col-span-2">
+                        <span className="text-xs font-black text-slate-700">Branch Access</span>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button type="button" onClick={() => setRegAccessScope('assigned_branches')} className={`min-h-[44px] rounded-xl text-xs font-black border ${regAccessScope === 'assigned_branches' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-200'}`}>
+                            Single Branch
+                          </button>
+                          <button type="button" onClick={() => setRegAccessScope('all_branches')} className={`min-h-[44px] rounded-xl text-xs font-black border ${regAccessScope === 'all_branches' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-200'}`}>
+                            All Branches
+                          </button>
+                        </div>
+                        {regAccessScope === 'all_branches' && (
+                          <p className="text-[11px] text-slate-500">This staff can access and operate any branch, not only the one selected above.</p>
+                        )}
+                      </div>
+                    </>
+                  )}
                   <label className="space-y-1.5">
                     <span className="text-xs font-black text-slate-700">Staff Type</span>
                     <select value={staffType} onChange={e => setStaffType(e.target.value as NonNullable<StaffSettings['staffType']>)} className="w-full min-h-[48px] rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black outline-none focus:border-indigo-500">
@@ -1753,10 +1860,35 @@ export default function DashboardStaff({
                       <strong className="mt-1 block text-sm text-slate-900">{selectedStaff.email ? 'Ready for secure invitation' : 'Gmail required'}</strong>
                     </div>
                   </div>
+                  {availableBranches.length > 1 && (
+                    <div className="mt-4 rounded-2xl bg-white border border-slate-200 p-3 space-y-2">
+                      <span className="block text-[10px] font-black uppercase text-slate-400">Branch Access</span>
+                      <select value={profileBranchId} onChange={e => setProfileBranchId(e.target.value)} className="w-full min-h-[44px] rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-black outline-none">
+                        {availableBranches.map(branch => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
+                      </select>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button type="button" onClick={() => setProfileAccessScope('assigned_branches')} className={`min-h-[42px] rounded-xl text-xs font-black border ${profileAccessScope === 'assigned_branches' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-200'}`}>
+                          Single Branch
+                        </button>
+                        <button type="button" onClick={() => setProfileAccessScope('all_branches')} className={`min-h-[42px] rounded-xl text-xs font-black border ${profileAccessScope === 'all_branches' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-200'}`}>
+                          All Branches
+                        </button>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={isSavingBranchAccess}
+                        onClick={() => void saveStaffBranchAccess(selectedStaff)}
+                        className="w-full min-h-[42px] rounded-xl bg-slate-900 disabled:opacity-60 text-white text-xs font-black"
+                      >
+                        {isSavingBranchAccess ? 'Saving…' : 'Save Branch Access'}
+                      </button>
+                      <p className="text-[11px] text-slate-500">Applies immediately if this staff already signed in. Otherwise it takes effect on their next invitation below.</p>
+                    </div>
+                  )}
                   <button
                     type="button"
                     disabled={!selectedStaff.email}
-                    onClick={() => void createGoogleInvitation(selectedStaff)
+                    onClick={() => void createGoogleInvitation(selectedStaff, profileAccessScope)
                       .then(() => setSuccessMessage('New Google invitation created. Copy and share the link below.'))
                       .catch(error => setSuccessMessage(error instanceof Error ? error.message : 'Invitation could not be created.'))}
                     className="mt-4 w-full min-h-[46px] rounded-2xl bg-emerald-700 disabled:bg-slate-300 text-white text-xs font-black inline-flex items-center justify-center gap-2"

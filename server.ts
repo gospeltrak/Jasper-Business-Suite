@@ -4001,6 +4001,64 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     return allowed && isUuid(tenantId) ? { authUser: authData.user, profile, tenantId } : null;
   };
 
+  // A staff member's home branch (from their invitation/assignment) always
+  // grants read+write there. "All Branches" access additionally needs (1)
+  // visibility into every other branch -- branch_staff_access_profiles,
+  // checked by private.is_branch_assigned/can_read_branch -- and (2) the
+  // matching write permissions there too, since branch_staff_assignments
+  // only ever covers their one home branch. branch_permission_grants with
+  // branch_id = null is the tenant-wide grant private.has_branch_permission
+  // already checks for exactly this case. Only write-capable module
+  // permissions are mirrored tenant-wide; branches.manage (branch structure
+  // itself) is deliberately never granted this way.
+  const ALL_BRANCHES_WRITE_PERMISSION_KEYS: Record<string, string> = {
+    pos: 'pos.write',
+    products: 'products.write',
+    expenses: 'expenses.write',
+    deliveries: 'deliveries.write',
+    settings: 'settings.write',
+  };
+
+  const syncStaffBranchAccessScope = async (options: {
+    tenantId: string;
+    staffAuthId: string;
+    accessScope: 'assigned_branches' | 'all_branches';
+    permissions: Record<string, any> | null | undefined;
+    homeBranchId: string | null;
+    grantedBy: string;
+  }) => {
+    const { tenantId, staffAuthId, accessScope, permissions, homeBranchId, grantedBy } = options;
+    if (accessScope === 'all_branches') {
+      const { error: profileError } = await adminTable('branch_staff_access_profiles').upsert({
+        tenant_id: tenantId, staff_id: staffAuthId, access_scope: 'all_branches',
+        can_view_consolidated: false, status: 'active', granted_by: grantedBy,
+        home_branch_id: homeBranchId || null,
+      }, { onConflict: 'tenant_id,staff_id' });
+      if (profileError) throw profileError;
+    } else {
+      const { error: profileError } = await adminTable('branch_staff_access_profiles')
+        .delete().eq('tenant_id', tenantId).eq('staff_id', staffAuthId);
+      if (profileError) throw profileError;
+    }
+
+    const { error: clearGrantsError } = await adminTable('branch_permission_grants')
+      .delete().eq('tenant_id', tenantId).eq('staff_id', staffAuthId).is('branch_id', null);
+    if (clearGrantsError) throw clearGrantsError;
+
+    if (accessScope === 'all_branches') {
+      const grants = Object.entries(ALL_BRANCHES_WRITE_PERMISSION_KEYS)
+        .filter(([moduleKey]) => Boolean((permissions as any)?.[moduleKey]?.write))
+        .map(([, permissionKey]) => ({
+          tenant_id: tenantId, branch_id: null, staff_id: staffAuthId,
+          permission_key: permissionKey, effect: 'allow', granted_by: grantedBy,
+        }));
+      if (grants.length > 0) {
+        const { error: grantError } = await adminTable('branch_permission_grants').insert(grants);
+        if (grantError) throw grantError;
+      }
+    }
+  };
+
   // Updates an EXISTING staff member's real permissions directly (their
   // users.role/role_key/role_permissions row) without requiring a fresh
   // invitation link. A brand-new hire has no users row yet (they haven't
@@ -4043,6 +4101,67 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     }
   });
 
+  // Current access scope for every already-active staff member of this
+  // tenant, keyed by email (the same identifier the Staff tab already
+  // matches on). Staff with no branch_staff_access_profiles row are on the
+  // default single-branch scope and are simply absent from the map.
+  app.get('/api/staff/branch-access', rateLimit({ windowMs: 60_000, max: 40, prefix: 'staff-branch-access-read' }), async (req, res) => {
+    const admin = await getTenantAdminRequestProfile(req);
+    if (!admin) return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 403, 'registration');
+    try {
+      const { data: profiles, error: profilesError } = await adminTable('branch_staff_access_profiles')
+        .select('staff_id,access_scope').eq('tenant_id', admin.tenantId).eq('status', 'active');
+      if (profilesError) throw profilesError;
+      const staffIds = (profiles || []).map((row: any) => row.staff_id);
+      const accessScopes: Record<string, string> = {};
+      if (staffIds.length > 0) {
+        const { data: staffUsers, error: staffUsersError } = await adminTable('users')
+          .select('id,email').in('id', staffIds);
+        if (staffUsersError) throw staffUsersError;
+        const emailById = new Map((staffUsers || []).map((row: any) => [row.id, normalizeEmail(row.email)]));
+        for (const row of profiles || []) {
+          const staffEmail = emailById.get(row.staff_id);
+          if (staffEmail) accessScopes[staffEmail] = row.access_scope;
+        }
+      }
+      return res.json({ accessScopes });
+    } catch (error) {
+      return sendUnexpectedSafeApiError(req, res, error, { fallbackCode: 'LOAD_ERROR', context: 'registration', operation: 'staff_branch_access_read' });
+    }
+  });
+
+  // Changes an already-active staff member's branch access scope directly
+  // (mirrors update-role above). A brand-new hire with no users row yet has
+  // no access to change here -- their choice is carried on the invitation
+  // itself and applied by accept-staff-invitation below when they join.
+  app.post('/api/staff/branch-access', rateLimit({ windowMs: 60_000, max: 20, prefix: 'staff-branch-access-write' }), async (req, res) => {
+    const admin = await getTenantAdminRequestProfile(req);
+    if (!admin) return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 403, 'registration');
+    const email = normalizeEmail(req.body?.email);
+    const accessScope = req.body?.accessScope === 'all_branches' ? 'all_branches' : 'assigned_branches';
+    const homeBranchId = isUuid(req.body?.homeBranchId) ? String(req.body.homeBranchId) : null;
+    const permissions = req.body?.permissions && typeof req.body.permissions === 'object' && !Array.isArray(req.body.permissions)
+      ? req.body.permissions : {};
+    if (!email || !email.includes('@')) {
+      return sendExpectedSafeApiError(req, res, 'VALIDATION_ERROR', 400, 'registration');
+    }
+    try {
+      const { data: existing } = await adminTable('users')
+        .select('id,tenant_id,account_type')
+        .eq('email', email).eq('tenant_id', admin.tenantId).maybeSingle();
+      if (!existing) {
+        return res.json({ updated: false, reason: 'no_account_yet' });
+      }
+      await syncStaffBranchAccessScope({
+        tenantId: admin.tenantId, staffAuthId: String(existing.id), accessScope,
+        permissions, homeBranchId, grantedBy: admin.authUser.id,
+      });
+      return res.json({ updated: true });
+    } catch (error) {
+      return sendUnexpectedSafeApiError(req, res, error, { fallbackCode: 'SAVE_ERROR', context: 'registration', operation: 'staff_branch_access_write' });
+    }
+  });
+
   app.post('/api/staff/google-invitations', rateLimit({ windowMs: 60_000, max: 20, prefix: 'staff-invite' }), async (req, res) => {
     const admin = await getTenantAdminRequestProfile(req);
     if (!admin) return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 403, 'registration');
@@ -4052,6 +4171,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     const phone = normalizeText(req.body?.phone, 40);
     const role = normalizeText(req.body?.role, 80) || 'Cashier';
     const branchId = isUuid(req.body?.branchId) ? String(req.body.branchId) : null;
+    const accessScope = req.body?.accessScope === 'all_branches' ? 'all_branches' : 'assigned_branches';
     const permissions = req.body?.permissions && typeof req.body.permissions === 'object' && !Array.isArray(req.body.permissions)
       ? req.body.permissions : {};
     if (!staffId || !name || !email || !email.includes('@') || !phone) {
@@ -4070,7 +4190,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       const { error } = await adminTable('staff_google_invitations').insert({
         token_hash: tokenHash, tenant_id: admin.tenantId, staff_workspace_id: staffId,
         email, staff_name: name, phone, role_key: role, permissions, branch_id: branchId,
-        created_by: admin.authUser.id, expires_at: expiresAt,
+        access_scope: accessScope, created_by: admin.authUser.id, expires_at: expiresAt,
       });
       if (error) throw error;
       const origin = normalizeText(req.headers.origin, 240) || `https://${getBaseDomain()}`;
@@ -4126,6 +4246,13 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         }, { onConflict: 'tenant_id,branch_id,staff_id' });
         if (assignmentError) throw assignmentError;
       }
+      // Home branch assignment above always applies; "all_branches" additionally
+      // grants visibility + matching write permissions on every other branch.
+      await syncStaffBranchAccessScope({
+        tenantId: String(invitation.tenant_id), staffAuthId: authUser.id,
+        accessScope: invitation.access_scope === 'all_branches' ? 'all_branches' : 'assigned_branches',
+        permissions: invitation.permissions, homeBranchId: invitation.branch_id, grantedBy: invitation.created_by,
+      });
       const { data: consumed, error: consumeError } = await adminTable('staff_google_invitations')
         .update({ status: 'accepted', accepted_by: authUser.id, accepted_at: new Date().toISOString() })
         .eq('id', invitation.id).eq('status', 'pending').select('id').maybeSingle();
