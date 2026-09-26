@@ -54,6 +54,18 @@ test('staff and custom roles survive stale realtime payloads and database writes
   assert.match(migrationSource, /v_existing_settings -> v_protected_key/);
 });
 
+test('the general branch workspace autosave cannot erase staff with a stale snapshot', async () => {
+  const migrationSource = await read('supabase/migrations/20260926000100_protect_staff_settings_in_branch_workspace_save.sql');
+  assert.match(migrationSource, /array\['staffs', 'customRoles'\]/);
+  assert.match(migrationSource, /v_incoming_sync <= v_existing_sync/);
+  assert.match(migrationSource, /v_existing_settings -> v_protected_key/);
+  // Both write paths (the admin all_branches full replace, and the
+  // branch-scoped replace_branch_json_array merge) must consume the
+  // guarded settings, not the raw, possibly-stale caller payload.
+  assert.match(migrationSource, /v_next := p_workspace \|\| jsonb_build_object\('settings', v_effective_settings\)/);
+  assert.match(migrationSource, /v_effective_settings \|\| jsonb_build_object\(\s*'staffs', private\.replace_branch_json_array\(\s*v_existing_settings -> 'staffs',\s*v_effective_settings -> 'staffs'/);
+});
+
 test('tenant login bootstrap displays only the tenant logo without restoration copy', async () => {
   const dashboardSource = await read('src/components/Dashboard.tsx');
   assert.match(dashboardSource, /function WorkspaceBootstrapScreen\(\)[\s\S]{0,260}const \{ logoUrl \} = useTenantLogo\(\)/);
