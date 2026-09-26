@@ -41,7 +41,7 @@ const DashboardWhiteLabel = lazyWithReload('DashboardWhiteLabel', () => import('
 const DashboardSettings = lazyWithReload('DashboardSettings', () => import('../modules/settings/DashboardSettings'));
 const DashboardStaff = lazyWithReload('DashboardStaff', () => import('../modules/staff/DashboardStaff'));
 import DashboardScreenErrorBoundary from '../shared/components/DashboardScreenErrorBoundary';
-import AIBusinessCopilot from '../modules/ai-copilot/AIBusinessCopilot';
+const AIBusinessCopilot = lazyWithReload('AIBusinessCopilot', () => import('../modules/ai-copilot/AIBusinessCopilot'));
 import GlobalStickyAd from '../shared/components/GlobalStickyAd';
 const SuperSaaSAdminView = lazyWithReload('SuperSaaSAdminView', () => import('../modules/platform-admin/components/SuperSaaSAdminView'));
 import DuressDashboard from '../shared/components/DuressDashboard';
@@ -4863,15 +4863,17 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
         </div> {/* End of Main scroll-container */}
 
       {/* Intelligent AI business copilot module / chat drawer */}
-      <AIBusinessCopilot 
-        activeTenant={activeTenant}
-        activeTab={activeTab}
-        onNavigate={(tabId) => setActiveTab(tabId as any)}
-        products={activeProducts}
-        sales={activeSales}
-        expenses={activeExpenses}
-        subscriptionStatus={subStatus}
-      />
+      <React.Suspense fallback={null}>
+        <AIBusinessCopilot
+          activeTenant={activeTenant}
+          activeTab={activeTab}
+          onNavigate={(tabId) => setActiveTab(tabId as any)}
+          products={activeProducts}
+          sales={activeSales}
+          expenses={activeExpenses}
+          subscriptionStatus={subStatus}
+        />
+      </React.Suspense>
       {user.role !== 'SuperAdmin' && (
         <GlobalStickyAd
           bottomOffsetClass="bottom-[var(--dashboard-sticky-ad-clearance)] xl:bottom-4"
