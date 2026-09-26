@@ -20,7 +20,8 @@ import {
   RefreshCw,
   Eye,
   EyeOff,
-  Check
+  Check,
+  Mail
 } from 'lucide-react';
 import { DEMO_USERS, DEFAULT_TENANTS } from '../../data';
 import { User, Tenant } from '../../types';
@@ -56,6 +57,7 @@ const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     nicheLabel: "Business Type (Required)",
     compileBtn: "Create Account",
     continueGoogle: "Continue with Google",
+    continueEmail: "Continue with Email",
     googleOr: "OR CREATE AN ACCOUNT WITH GOOGLE",
     googleOrSig: "OR",
     demoProfiles: "TEST ACCOUNTS",
@@ -86,6 +88,7 @@ const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     nicheLabel: "Aina ya Biashara (Lazima)",
     compileBtn: "Fungua Akaunti",
     continueGoogle: "Endelea na Google",
+    continueEmail: "Endelea na Barua Pepe",
     googleOr: "AU SAJILI KWA BOFYA MOJA YA GOOGLE",
     googleOrSig: "AU",
     demoProfiles: "AKAUNTI ZA MAJARIBIO",
@@ -111,6 +114,7 @@ const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     nicheLabel: "مجال العمل التجاري (إلزامي)",
     compileBtn: "تأكيد وتسجيل الحساب",
     continueGoogle: "المتابعة باستخدام Google",
+    continueEmail: "المتابعة بالبريد الإلكتروني",
     googleOr: "أو التسجيل السريع ببنقرة واحدة عبر Google",
     googleOrSig: "أو",
     demoProfiles: "حسابات تجريبية سريعة جاهزة",
@@ -141,6 +145,7 @@ const LOGIN_TRANSLATIONS: Record<string, Record<string, string>> = {
     nicheLabel: "Type d'Entreprise (Obligatoire)",
     compileBtn: "Créer le Compte",
     continueGoogle: "Continuer avec Google",
+    continueEmail: "Continuer avec e-mail",
     googleOr: "OU S'INSCRIRE EN UN CLIC AVEC GOOGLE",
     googleOrSig: "OU",
     demoProfiles: "COMPTES DE TEST",
@@ -173,6 +178,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     return 'signin';
   });
 
+  const [showEmailRegisterForm, setShowEmailRegisterForm] = useState(false);
   const [emailChecked, setEmailChecked] = useState(false);
 
   // Sign in Form States
@@ -1428,13 +1434,13 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         {!isSaasAdminPortal && !onboardingUser && !isTenantDomainLogin && (
           <div className="flex bg-slate-200 p-1 rounded-2xl grid grid-cols-2 font-bold text-xs shadow-inner">
             <button
-              onClick={() => { setAuthTab('signin'); setError(null); }}
+              onClick={() => { setAuthTab('signin'); setError(null); setShowEmailRegisterForm(false); }}
               className={`py-3 rounded-xl transition-all cursor-pointer text-center ${authTab === 'signin' ? 'bg-white text-slate-900 shadow' : 'text-slate-500 hover:text-slate-700 bg-transparent border-none'}`}
             >
 	            Sign In
             </button>
             <button
-              onClick={() => { setAuthTab('register'); setError(null); }}
+              onClick={() => { setAuthTab('register'); setError(null); setShowEmailRegisterForm(false); }}
               className={`py-3 rounded-xl transition-all cursor-pointer text-center ${authTab === 'register' ? 'bg-white text-slate-900 shadow' : 'text-slate-500 hover:text-slate-700 bg-transparent border-none'}`}
             >
 	            {t('registerTab')}
@@ -1767,33 +1773,48 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
             </form>
 
           ) : (
-            /* Registration screen with picker for the 4 dynamic business sectors */
+            /* Registration screen: choose Email or Google first, or fill the Email form */
             <>
-              <div className="space-y-5 animate-fade-in">
-                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-center">
-                  <h3 className="text-sm font-black text-slate-900">{t('createBusinessAccount')}</h3>
-                  <p className="mt-1 text-xs leading-relaxed text-slate-600">{t('connectGoogleFirst')}</p>
+              {!showEmailRegisterForm ? (
+                <div className="space-y-4 animate-fade-in">
+                  <div className="flex justify-center">
+                    <TurnstileWidget onVerify={setTurnstileToken} onExpire={() => setTurnstileToken(null)} />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowEmailRegisterForm(true)}
+                    className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-55 text-white font-bold rounded-2xl text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2.5"
+                  >
+                    <Mail className="w-4 h-4 shrink-0" />
+                    <span>{t('continueEmail')}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleGoogleLoginClick}
+                    disabled={isLoading}
+                    className="w-full py-3.5 border border-slate-200 hover:border-emerald-300 disabled:opacity-55 rounded-2xl text-xs font-bold text-slate-700 transition-all cursor-pointer flex items-center justify-center gap-2.5"
+                  >
+                    <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
+                      <path fill="#4285F4" d="M23.52 12.27c0-.85-.08-1.67-.22-2.45H12v4.64h6.47c-.28 1.5-1.13 2.77-2.4 3.62v3h3.88c2.27-2.09 3.57-5.17 3.57-8.81z"/>
+                      <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3c-1.08.72-2.45 1.15-4.05 1.15-3.12 0-5.76-2.1-6.7-4.93H1.29v3.1C3.26 21.3 7.31 24 12 24z"/>
+                      <path fill="#FBBC05" d="M5.3 14.31A7.2 7.2 0 0 1 4.9 12c0-.8.14-1.58.4-2.31v-3.1H1.29A11.98 11.98 0 0 0 0 12c0 1.93.46 3.76 1.29 5.41l4.01-3.1z"/>
+                      <path fill="#EA4335" d="M12 4.77c1.76 0 3.34.6 4.58 1.79l3.44-3.44C17.94 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.59l4.01 3.1c.94-2.83 3.58-4.92 6.7-4.92z"/>
+                    </svg>
+                    <span>{t('continueGoogle')}</span>
+                  </button>
+                  <p className="text-center text-[10px] leading-relaxed text-slate-500">{t('existingGoogleAccount')}</p>
                 </div>
-                <div className="flex justify-center">
-                  <TurnstileWidget onVerify={setTurnstileToken} onExpire={() => setTurnstileToken(null)} />
-                </div>
+              ) : (
+              <form className="space-y-5" onSubmit={handleRegisterSubmit}>
+              <div className="text-center">
                 <button
                   type="button"
-                  onClick={handleGoogleLoginClick}
-                  disabled={isLoading}
-                  className="w-full py-3.5 border border-slate-200 hover:border-emerald-300 disabled:opacity-55 rounded-2xl text-xs font-bold text-slate-700 transition-all cursor-pointer flex items-center justify-center gap-2.5"
+                  onClick={() => setShowEmailRegisterForm(false)}
+                  className="text-[11px] font-bold text-slate-400 hover:text-emerald-600 transition-all underline underline-offset-2"
                 >
-                  <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
-                    <path fill="#4285F4" d="M23.52 12.27c0-.85-.08-1.67-.22-2.45H12v4.64h6.47c-.28 1.5-1.13 2.77-2.4 3.62v3h3.88c2.27-2.09 3.57-5.17 3.57-8.81z"/>
-                    <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3c-1.08.72-2.45 1.15-4.05 1.15-3.12 0-5.76-2.1-6.7-4.93H1.29v3.1C3.26 21.3 7.31 24 12 24z"/>
-                    <path fill="#FBBC05" d="M5.3 14.31A7.2 7.2 0 0 1 4.9 12c0-.8.14-1.58.4-2.31v-3.1H1.29A11.98 11.98 0 0 0 0 12c0 1.93.46 3.76 1.29 5.41l4.01-3.1z"/>
-                    <path fill="#EA4335" d="M12 4.77c1.76 0 3.34.6 4.58 1.79l3.44-3.44C17.94 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.59l4.01 3.1c.94-2.83 3.58-4.92 6.7-4.92z"/>
-                  </svg>
-                  <span>{t('continueGoogle')}</span>
+                  ← Back
                 </button>
-                <p className="text-center text-[10px] leading-relaxed text-slate-500">{t('existingGoogleAccount')}</p>
               </div>
-              <form className="space-y-5" onSubmit={handleRegisterSubmit}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold text-slate-500 uppercase block">Owner Full Name</label>
@@ -1981,6 +2002,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
               </button>
 
               </form>
+              )}
             </>
           )}
 
