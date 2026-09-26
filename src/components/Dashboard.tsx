@@ -693,6 +693,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
   const autosaveFailedRef = useRef(false);
   const settingsSaveVersionRef = useRef(0);
   const branchWorkspaceCacheRef = useRef(new Map<string, TenantWorkspace>());
+  const lastBranchReloadAttemptRef = useRef<{ cacheKey: string; at: number } | null>(null);
   const LOCAL_WORKSPACE_PROTECTION_MS = 10000; // 10s — save completes in < 5s normally
 
   useEffect(() => {
@@ -1010,6 +1011,17 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
         applyBranchWorkspace(cachedWorkspace);
         setBranchSwitching(false);
       }
+      // A single branch switch publishes this event twice -- once optimistically
+      // (before the server confirms) and once with the confirmed context -- so
+      // this handler fires twice per switch. Without this guard, a real or
+      // transient reload failure showed the same error toast twice for one
+      // user action. Skip the redundant reload attempt within the same burst.
+      const lastAttempt = lastBranchReloadAttemptRef.current;
+      if (lastAttempt && lastAttempt.cacheKey === cacheKey && Date.now() - lastAttempt.at < 1500) {
+        if (!cachedWorkspace) setBranchSwitching(false);
+        return;
+      }
+      lastBranchReloadAttemptRef.current = { cacheKey, at: Date.now() };
       try {
         const workspace = await reloadTenantWorkspace(activeTenant.id);
         if (!active) return;

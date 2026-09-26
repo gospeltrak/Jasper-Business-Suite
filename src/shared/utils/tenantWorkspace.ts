@@ -18,7 +18,7 @@ import {
   writeLocalSaleTombstones,
   type SaleTombstones,
 } from '../../modules/sales/utils/saleSync';
-import { canWriteBusinessDataOnline, isBrowserOnline, warnOfflineWriteBlocked } from './onlineOnly';
+import { canWriteBusinessDataOnline, warnOfflineWriteBlocked } from './onlineOnly';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -432,7 +432,12 @@ export async function waitForTenantWorkspaceLoad(tenantId: string): Promise<void
 
 async function fetchWorkspaceCore(tenantId: string): Promise<WorkspaceCoreResult | null> {
   if (!tenantId) return null;
-  if (!isBrowserOnline()) return null;
+  // Deliberately does not gate on navigator.onLine: that flag is known to be
+  // unreliable (it can report false while the device has a working
+  // connection, e.g. after a WiFi/cellular handoff) and this is a read, not
+  // a write -- there is no data-safety reason to refuse attempting it. If
+  // there truly is no connectivity, the request below fails on its own and
+  // is handled by the existing error paths.
 
   const client = await getConfiguredClient();
   if (!client) return null;
