@@ -690,6 +690,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
   const cloudWorkspaceLoadedRef = useRef(false);
   const localWorkspaceChangedAtRef = useRef(0);
   const skipNextWorkspaceSaveRef = useRef(false);
+  const autosaveFailedRef = useRef(false);
   const settingsSaveVersionRef = useRef(0);
   const branchWorkspaceCacheRef = useRef(new Map<string, TenantWorkspace>());
   const LOCAL_WORKSPACE_PROTECTION_MS = 10000; // 10s — save completes in < 5s normally
@@ -1063,7 +1064,20 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     }
     // Coalesce render-driven snapshots. Explicit sale, stock, treasury and
     // settings operations still use immediate durable save paths.
-    void scheduleTenantWorkspaceSave(activeTenant.id, workspace);
+    // The save is fire-and-forget from React's perspective, but a failure here
+    // was previously silent (console.warn only) -- the user kept working while
+    // nothing reached the database. Surface it once per failure streak so a
+    // real connectivity/backend problem is visible instead of losing data quietly.
+    void scheduleTenantWorkspaceSave(activeTenant.id, workspace).then((saved) => {
+      if (!saved) {
+        if (!autosaveFailedRef.current) {
+          autosaveFailedRef.current = true;
+          addToast('Your recent changes could not be saved. Please check your connection and try again.', 'error');
+        }
+      } else {
+        autosaveFailedRef.current = false;
+      }
+    });
   }, [workspaceReady, activeTenant.id, branchesMap, branchStocksMap, branchStaffAssignmentsMap, productsMap, salesMap, expensesMap, systemSettings, deliveriesMap, pendingDeliveryNotesMap, purchasesMap]);
 
   // PHASE 3 — Auto-create the business owner as a staff record on first login.
