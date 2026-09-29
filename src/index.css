@@ -991,12 +991,20 @@ body.rtl { font-family: 'Cairo', "Plus Jakarta Sans", "Inter", system-ui, sans-s
     grid-column: 1;
     display: flex;
     flex-direction: column;
+    /* Explicit height, not just relying on the grid's default
+       align-items: stretch -- Safari/WebKit (iPad) has a known history of
+       not reliably stretching a grid item that is itself display:flex to
+       its row's height, which left this card shorter than the cart
+       column next to it on a real tablet even though the two matched in
+       every desktop-browser check. */
+    height: 100%;
     min-height: 0;
     overflow: hidden;
   }
 
   #dashboard-scaffold .purchases-tablet-cart-col {
     grid-column: 2;
+    height: 100%;
     min-height: 0;
     overflow-y: auto;
   }
