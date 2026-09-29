@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Product, Supplier, Purchase, PurchaseItem, Tenant, SystemSettings, PaymentChannel } from '../../types';
 import { getMaskedAccountReference } from '../../shared/utils/paymentAccounts';
@@ -343,6 +343,44 @@ export default function DashboardPurchases({
   
   const [searchTerm, setSearchTerm] = useState('');
   const [cart, setCart] = useState<Array<{ product: Product; qty: number; costPrice: number | ''; unitLevelId: string; expiryDate?: string }>>([]);
+
+  // Tablet/desktop split layout: the right panel (supplier/cart/payment) must
+  // always show its full content with no internal scroll -- it drives the
+  // row's height. The left panel (product catalog) is locked to match that
+  // measured height and scrolls internally instead. This is done with a
+  // ResizeObserver rather than pure CSS (e.g. relying on the grid's
+  // automatic-minimum-size behavior) because this exact codebase has already
+  // hit a real Safari/iPad-only CSS quirk once this session (a flex grid
+  // item not stretching the way every desktop-browser check said it would);
+  // a JS-measured pixel height has no such cross-browser ambiguity.
+  const purchasesCartColRef = useRef<HTMLDivElement>(null);
+  const [isPurchasesTabletUp, setIsPurchasesTabletUp] = useState(
+    () => typeof window !== 'undefined' ? window.matchMedia('(min-width: 768px)').matches : false
+  );
+  const [purchasesCartHeight, setPurchasesCartHeight] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mql = window.matchMedia('(min-width: 768px)');
+    const handleChange = () => setIsPurchasesTabletUp(mql.matches);
+    handleChange();
+    mql.addEventListener('change', handleChange);
+    return () => mql.removeEventListener('change', handleChange);
+  }, []);
+
+  useEffect(() => {
+    if (!isPurchasesTabletUp || !purchasesCartColRef.current || typeof ResizeObserver === 'undefined') {
+      setPurchasesCartHeight(null);
+      return;
+    }
+    const el = purchasesCartColRef.current;
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) setPurchasesCartHeight(entry.contentRect.height);
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [isPurchasesTabletUp]);
   const [paymentMethod, setPaymentMethod] = useState<string>('Cash');
   const [fundingRows, setFundingRows] = useState<PurchaseFundingRow[]>([createPurchaseFundingRow()]);
   const [purchaseSuccess, setPurchaseSuccess] = useState(false);
@@ -559,6 +597,17 @@ export default function DashboardPurchases({
   const amountPaid = allocatedAmount;
   const allocationDifference = totalAmount - allocatedAmount;
   const amountDue = Math.max(0, allocationDifference);
+  // Every displayed amount in this screen is rounded to whole currency
+  // units (Math.round(...).toLocaleString(), no decimals shown anywhere).
+  // Comparing the raw fractional allocationDifference against 0 meant a
+  // purchase that looked fully paid on screen (e.g. totals of 45,678.37
+  // vs funding of 45,678) could stay stuck on "REMAINING" / a disabled
+  // Purchase & Restock button forever, since 0.37 is never exactly 0.
+  // This rounds both sides the same way the UI already displays them
+  // before comparing, for display/enablement decisions only -- the exact
+  // allocationDifference/amountDue above are still saved on the purchase
+  // record unrounded.
+  const roundedAllocationDifference = Math.round(totalAmount) - Math.round(allocatedAmount);
   const paymentAccounts = (systemSettings.paymentChannels || [])
     .filter(account => account.category !== 'person' && account.status !== 'inactive' && account.status !== 'archived');
 
@@ -600,7 +649,7 @@ export default function DashboardPurchases({
       alert("Please select a valid supplier first!");
       return;
     }
-    if (Math.abs(allocatedAmount - totalAmount) > 0.01) {
+    if (roundedAllocationDifference !== 0) {
       setPurchaseError(`Funding must equal the purchase total. Remaining: ${currency}${Math.round(Math.abs(totalAmount - allocatedAmount)).toLocaleString()}`);
       return;
     }
@@ -1378,7 +1427,10 @@ export default function DashboardPurchases({
           <div className="gap-6 pb-4 purchases-tablet-split-grid">
 
             {/* Left panel: Product List — hidden on mobile (use search in cart) */}
-            <div className="block bg-white border border-slate-200 rounded-3xl p-4 sm:p-6 space-y-5 shadow-xs purchases-tablet-catalog-col">
+            <div
+              className="block bg-white border border-slate-200 rounded-3xl p-4 sm:p-6 space-y-5 shadow-xs purchases-tablet-catalog-col"
+              style={isPurchasesTabletUp && purchasesCartHeight ? { height: purchasesCartHeight } : undefined}
+            >
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
                 <div>
                   <h5 className="font-black text-slate-800 text-sm font-sans">Product List</h5>
@@ -1446,7 +1498,7 @@ export default function DashboardPurchases({
             </div>
 
             {/* Right panel: Cart & Order Metadata — full width on mobile */}
-            <div className="bg-white border border-slate-200 rounded-3xl p-4 sm:p-6 space-y-5 shadow-xs purchases-tablet-cart-col">
+            <div ref={purchasesCartColRef} className="bg-white border border-slate-200 rounded-3xl p-4 sm:p-6 space-y-5 shadow-xs purchases-tablet-cart-col">
               
               {/* Supplier & Destination */}
               <div className="space-y-3 border-b border-slate-200 pb-4">
@@ -1754,7 +1806,7 @@ export default function DashboardPurchases({
                     ))}
                     <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 font-mono text-[10px]">
                       <div className="flex justify-between text-slate-600"><span>ALLOCATED</span><span className="font-black">{currency}{Math.round(allocatedAmount).toLocaleString()}</span></div>
-                      <div className="flex justify-between text-slate-600"><span>{allocationDifference < 0 ? 'OVER ALLOCATED' : 'REMAINING'}</span><span className={`font-black ${allocationDifference === 0 ? 'text-emerald-600' : 'text-amber-600'}`}>{currency}{Math.round(Math.abs(allocationDifference)).toLocaleString()}</span></div>
+                      <div className="flex justify-between text-slate-600"><span>{roundedAllocationDifference < 0 ? 'OVER ALLOCATED' : 'REMAINING'}</span><span className={`font-black ${roundedAllocationDifference === 0 ? 'text-emerald-600' : 'text-amber-600'}`}>{currency}{Math.round(Math.abs(allocationDifference)).toLocaleString()}</span></div>
                     </div>
                   </div>
                   {purchaseError && (
@@ -1765,9 +1817,9 @@ export default function DashboardPurchases({
 
                   <div className="flex justify-between items-center text-xs font-mono font-bold text-slate-600 border-t border-dashed border-slate-250 pt-2.5">
                     <span>OUTSTANDING BALANCE</span>
-                    {allocationDifference > 0 ? (
+                    {roundedAllocationDifference > 0 ? (
                       <span className="text-amber-600 font-black">{currency}{Math.round(amountDue).toLocaleString()}</span>
-                    ) : allocationDifference < 0 ? (
+                    ) : roundedAllocationDifference < 0 ? (
                       <span className="text-red-600 font-black">Over {currency}{Math.round(Math.abs(allocationDifference)).toLocaleString()}</span>
                     ) : (
                       <span className="text-emerald-600 font-black">Paid in Full</span>
@@ -1777,7 +1829,7 @@ export default function DashboardPurchases({
                   {/* Modern CTA button */}
                   <button
                     type="button"
-                    disabled={purchaseSuccess || Math.abs(allocatedAmount - totalAmount) > 0.01 || fundingRows.some(row => row.amount > 0 && row.fundingType === 'registered' && !row.accountId)}
+                    disabled={purchaseSuccess || roundedAllocationDifference !== 0 || fundingRows.some(row => row.amount > 0 && row.fundingType === 'registered' && !row.accountId)}
                     onClick={handleCommitPurchase}
                     className="w-full relative overflow-hidden bg-gradient-to-br from-slate-800 to-slate-950 hover:from-slate-700 hover:to-slate-900 disabled:from-slate-200 disabled:to-slate-100 text-white font-black py-4 px-4 rounded-2xl text-xs uppercase tracking-wider cursor-pointer flex items-center justify-center gap-2 transition-all shadow-lg active:scale-[0.98]"
                   >

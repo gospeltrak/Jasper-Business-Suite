@@ -974,39 +974,31 @@ body.rtl { font-family: 'Cairo', "Plus Jakarta Sans", "Inter", system-ui, sans-s
 @media (min-width: 768px) {
   #dashboard-scaffold .purchases-tablet-split-grid {
     grid-template-columns: minmax(0, 1.6fr) minmax(260px, 1fr);
-    /* Requested follow-up: catalog and cart/payment panel each scroll on
-       their own instead of the whole page scrolling. A fixed height (not
-       a 100dvh calc) is deliberate -- .pos-tablet-split-grid above uses
-       calc(100dvh - 130px) and its own comment records that this exact
-       trick failed to hold on a specific real tablet (the grid overflowed
-       its bound and the page scrolled instead). Purchases has a taller,
-       more variable header stack above it (hero/KPI cards + tabs) than
-       POS does, so reusing that viewport-subtraction approach here would
-       be guessing at a number that's even less likely to hold. A plain
-       fixed height carries no such assumption either way. */
-    height: 640px;
+    align-items: stretch;
+    /* No fixed height here on purpose: the cart/supplier column must show
+       its full content with no internal scroll or cutoff (every field
+       down to the Purchase & Restock button, always visible by scrolling
+       the page, never clipped) -- it is the one that determines this
+       row's height. The catalog column matches whatever that resolves to
+       and scrolls its own product grid internally instead. That height is
+       applied from JS (see purchasesCartHeight / ResizeObserver in
+       DashboardPurchases.tsx), not CSS auto-sizing tricks -- this exact
+       codebase already hit one real Safari/iPad-only quirk this session
+       where a CSS mechanism that checked out in every desktop-browser
+       test didn't hold on a real device, and a JS-measured pixel height
+       has no such cross-browser ambiguity. */
   }
 
   #dashboard-scaffold .purchases-tablet-catalog-col {
     grid-column: 1;
     display: flex;
     flex-direction: column;
-    /* Explicit height, not just relying on the grid's default
-       align-items: stretch -- Safari/WebKit (iPad) has a known history of
-       not reliably stretching a grid item that is itself display:flex to
-       its row's height, which left this card shorter than the cart
-       column next to it on a real tablet even though the two matched in
-       every desktop-browser check. */
-    height: 100%;
     min-height: 0;
     overflow: hidden;
   }
 
   #dashboard-scaffold .purchases-tablet-cart-col {
     grid-column: 2;
-    height: 100%;
-    min-height: 0;
-    overflow-y: auto;
   }
 
   #dashboard-scaffold .purchases-product-grid {
