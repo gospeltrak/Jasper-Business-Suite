@@ -1375,10 +1375,10 @@ export default function DashboardPurchases({
 
         ) : (
           /* ── ADD PURCHASE TAB ─────────────────────────────────────────── */
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start pb-4">
+          <div className="gap-6 items-start pb-4 purchases-tablet-split-grid">
 
             {/* Left panel: Product List — hidden on mobile (use search in cart) */}
-            <div className="block md:col-span-7 bg-white border border-slate-200 rounded-3xl p-4 sm:p-6 space-y-5 shadow-xs">
+            <div className="block bg-white border border-slate-200 rounded-3xl p-4 sm:p-6 space-y-5 shadow-xs purchases-tablet-catalog-col">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <h5 className="font-black text-slate-800 text-sm font-sans">Product List</h5>
@@ -1399,7 +1399,7 @@ export default function DashboardPurchases({
               </div>
 
               {/* Product cards */}
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-h-[500px] overflow-y-auto pr-1">
+              <div className="gap-3 max-h-[500px] overflow-y-auto pr-1 purchases-product-grid">
                 {filteredProducts.map(prod => (
                   <div 
                     key={prod.id}
@@ -1446,7 +1446,7 @@ export default function DashboardPurchases({
             </div>
 
             {/* Right panel: Cart & Order Metadata — full width on mobile */}
-            <div className="md:col-span-5 col-span-1 bg-white border border-slate-200 rounded-3xl p-4 sm:p-6 space-y-5 shadow-xs">
+            <div className="bg-white border border-slate-200 rounded-3xl p-4 sm:p-6 space-y-5 shadow-xs purchases-tablet-cart-col">
               
               {/* Supplier & Destination */}
               <div className="space-y-3 border-b border-slate-200 pb-4">

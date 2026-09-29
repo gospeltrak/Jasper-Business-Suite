@@ -939,6 +939,46 @@ body.rtl { font-family: 'Cairo', "Plus Jakarta Sans", "Inter", system-ui, sans-s
   }
 }
 
+/* Purchases "Add Purchase" product catalog + supplier/payment panel split.
+   Fully custom-class driven, no Tailwind grid-cols/col-span utilities here
+   at all -- two separate "safety net" rules elsewhere in this file
+   (~line 219 and ~line 1766) collapse ANY class containing grid-cols-2, -3,
+   -4, -5, -6 or -12 back to a single column for every width up to 1279px
+   (mobile AND tablet), by design, to stop desktop-style grids leaking onto
+   screens never built for tablet. Mixing Tailwind grid-cols utilities into
+   this layout would get silently swallowed by those rules, which is
+   exactly what happened to the first version of this fix. Covers tablet
+   and desktop with one simple 2-column split from 768px up;
+   #pos-product-grid and .pos-tablet-split-grid use the same custom-class
+   technique. */
+#dashboard-scaffold .purchases-tablet-split-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+#dashboard-scaffold .purchases-product-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (min-width: 768px) {
+  #dashboard-scaffold .purchases-tablet-split-grid {
+    grid-template-columns: minmax(0, 1.6fr) minmax(260px, 1fr);
+  }
+
+  #dashboard-scaffold .purchases-tablet-catalog-col {
+    grid-column: 1;
+  }
+
+  #dashboard-scaffold .purchases-tablet-cart-col {
+    grid-column: 2;
+  }
+
+  #dashboard-scaffold .purchases-product-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 767px) {
   .phone {
     margin: 0;
