@@ -863,7 +863,7 @@ Vehicle Plate Number: ${plateNumber}
 
   const filteredDeliveries = deliveries.filter(del => {
     const matchesSearch = 
-      del.customerName.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      (del.customerName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       del.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (del.customerPhone && del.customerPhone.includes(searchTerm));
     return matchesSearch;

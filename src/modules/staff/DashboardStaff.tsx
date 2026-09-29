@@ -229,7 +229,7 @@ const getSaleProfit = (sale: Sale) => {
   const directProfit = (sale as Sale & { profit?: number }).profit;
   if (typeof directProfit === 'number') return directProfit;
 
-  return sale.items.reduce((sum, item) => {
+  return (sale.items || []).reduce((sum, item) => {
     const gross = item.qty * item.price * (1 - (item.discount || 0) / 100);
     const cost = (item.costPriceAtSale || 0) * item.qty;
     return sum + Math.max(0, gross - cost);
