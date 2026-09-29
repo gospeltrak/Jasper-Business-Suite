@@ -2308,3 +2308,22 @@ button:active:not(:disabled),
     cursor: pointer;
   }
 }
+
+/* Business Reports tab bar: one column (vertical stack) on phone and
+   tablet, a single row on desktop -- a plain Tailwind grid-cols-* utility
+   here would get silently neutered by this file's own generic
+   [class*="grid-cols-*"] safety net (~line 219 and ~line 1766), the same
+   trap the Purchases tablet layout hit earlier, so this uses a dedicated
+   custom class instead. */
+#dashboard-scaffold .reports-tab-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 1280px) {
+  #dashboard-scaffold .reports-tab-grid {
+    grid-auto-flow: column;
+    grid-template-columns: none;
+    justify-content: end;
+  }
+}

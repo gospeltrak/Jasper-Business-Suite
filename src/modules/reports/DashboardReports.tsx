@@ -263,8 +263,8 @@ export default function DashboardReports({
     csv += "Receipt ID,Customer,Items Count,Voucher Total,VAT/Sales Tax,Discount Amnt,Grand Amount Paid,Remaining Due,Mode,Logged Timestamp\\r\\n";
     
     filteredSales.forEach(s => {
-      const itemsCount = s.items.length;
-      const originalSub = s.items.reduce((sum, item) => sum + getSaleItemGrossTotal(item), 0);
+      const itemsCount = (s.items || []).length;
+      const originalSub = (s.items || []).reduce((sum, item) => sum + getSaleItemGrossTotal(item), 0);
       const discountVal = s.discountType === 'percent' ? (originalSub * (s.discount || 0)) / 100 : (s.discount || 0);
       const totalPaid = saleProductRevenue(s);
       const unpaidDue = s.amountDue || 0;
@@ -330,7 +330,7 @@ export default function DashboardReports({
     
     let estimatedCOGS = 0;
     filteredSales.forEach(s => {
-      s.items.forEach(item => {
+      (s.items || []).forEach(item => {
         const matchingProd = products.find(p => p.id === item.productId);
         if (matchingProd) {
           estimatedCOGS += ((item.costPriceAtSale ?? matchingProd.costPrice) * item.qty);
@@ -403,13 +403,13 @@ export default function DashboardReports({
         csv += "Rank,Product Name,Item Code,Cost Buy,Retail Pricing,Profit Margin,Units Sold,Gross Revenue,Margin Earned\\r\\n";
         const prodPerfMap: Record<string, any> = {};
         products.forEach(p => {
-          const s = sales.filter(sl => sl.items.some(item => item.productId === p.id));
+          const s = sales.filter(sl => (sl.items || []).some(item => item.productId === p.id));
           const rev = s.reduce((sum, sl) => {
-            const item = sl.items.find(i => i.productId === p.id);
+            const item = (sl.items || []).find(i => i.productId === p.id);
             return sum + (item ? item.lineTotal : 0);
           }, 0);
           const qty = s.reduce((sum, sl) => {
-            const item = sl.items.find(i => i.productId === p.id);
+            const item = (sl.items || []).find(i => i.productId === p.id);
             return sum + (item ? item.qty : 0);
           }, 0);
           const cost = qty * p.costPrice;
@@ -488,7 +488,7 @@ export default function DashboardReports({
     const totalExpensesCharged = filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
     let totalCOGS = 0;
     filteredSales.forEach(s => {
-      s.items.forEach(item => {
+      (s.items || []).forEach(item => {
         const matchingProd = products.find(p => p.id === item.productId);
         totalCOGS += (matchingProd ? (item.costPriceAtSale ?? matchingProd.costPrice) : (getSaleItemGrossTotal(item) * 0.75)) * item.qty;
       });
@@ -497,6 +497,57 @@ export default function DashboardReports({
     const netProfit = grossProfit - totalExpensesCharged;
     return { totalSalesRevenue, totalCOGS, grossProfit, netProfit, totalExpensesCharged };
   }, [filteredSales, filteredExpenses, products]);
+
+  // Product Audit report: profit ranking per product, computed once from
+  // filteredSales (respecting the same date range as every other report on
+  // this screen, unlike the CSV export switch above which uses raw `sales`)
+  // instead of iterating products.forEach + sales.filter per product.
+  const productAuditRows = useMemo(() => {
+    const perfById = new Map<string, { qty: number; revenue: number }>();
+    filteredSales.forEach(s => {
+      (s.items || []).forEach(item => {
+        const existing = perfById.get(item.productId) || { qty: 0, revenue: 0 };
+        existing.qty += item.qty;
+        existing.revenue += item.lineTotal ?? 0;
+        perfById.set(item.productId, existing);
+      });
+    });
+    return products
+      .map(p => {
+        const perf = perfById.get(p.id) || { qty: 0, revenue: 0 };
+        const cost = perf.qty * (p.costPrice || 0);
+        const profit = perf.revenue - cost;
+        const margin = perf.revenue > 0 ? (profit / perf.revenue) * 100 : 0;
+        return { product: p, qty: perf.qty, revenue: perf.revenue, cost, profit, margin };
+      })
+      .filter(row => row.qty > 0)
+      .sort((a, b) => b.profit - a.profit);
+  }, [filteredSales, products]);
+
+  const filteredInventoryProducts = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    if (!q) return products;
+    return products.filter(p =>
+      String(p.name || '').toLowerCase().includes(q) ||
+      String(p.sku || '').toLowerCase().includes(q) ||
+      String(p.category || '').toLowerCase().includes(q)
+    );
+  }, [products, searchTerm]);
+
+  const inventoryTotals = useMemo(() => {
+    return filteredInventoryProducts.reduce((acc, p) => {
+      const onHand = (p.shopStockQty || 0) + (p.storeStockQty || 0);
+      acc.totalUnits += onHand;
+      acc.totalValuation += onHand * (p.costPrice || 0);
+      if (onHand <= (p.alertQty || 0)) acc.lowStockCount += 1;
+      return acc;
+    }, { totalUnits: 0, totalValuation: 0, lowStockCount: 0 });
+  }, [filteredInventoryProducts]);
+
+  const expenseCategoryOptions = useMemo(() => {
+    const unique = Array.from(new Set(expenses.map(e => e.category).filter(Boolean)));
+    return [{ value: 'All', label: 'All Categories' }, ...unique.map(c => ({ value: c, label: c }))];
+  }, [expenses]);
 
   const { totalSalesRevenue, totalCOGS, grossProfit, netProfit, totalExpensesCharged } = pnlStats;
 
@@ -514,36 +565,27 @@ export default function DashboardReports({
           </p>
         </div>
 
-        <div className="flex flex-wrap justify-center gap-2">
-          <div className="grid grid-cols-2 gap-2 w-full overflow-hidden">
-            {[
-              { id: 'p&l', label: 'Profit & Loss', icon: BarChart3 },
-              { id: 'sales-report', label: 'Sales', icon: ShoppingBag },
-              { id: 'inventory', label: 'Inventory', icon: Package },
-              { id: 'expenses', label: 'Expenses', icon: Receipt },
-              { id: 'product-monitoring', label: 'Product Audit', icon: Tag },
-            ].map((tab, i) => (
-              <button
-                key={tab.id}
-                onClick={() => { setReportTab(tab.id as any); setMobileView('report'); }}
-                className={`px-3 py-2 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap ${
-                  reportTab === tab.id
-                    ? 'bg-emerald-600 text-white shadow-md'
-                    : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                }`}
-              >
-                <tab.icon className={`w-3 h-3 ${reportTab === tab.id ? 'text-white' : 'text-slate-400'}`} />
-                <span>{tab.label}</span>
-              </button>
-            ))}
-          </div>
-          <button 
-            onClick={handleDownloadActiveTabCSV}
-            className="bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase flex items-center gap-2 transition-all active:scale-95 shadow-sm"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>Export CSV</span>
-          </button>
+        <div className="reports-tab-grid gap-2 w-full lg:w-auto">
+          {[
+            { id: 'p&l', label: 'Profit & Loss', icon: BarChart3 },
+            { id: 'sales-report', label: 'Sales', icon: ShoppingBag },
+            { id: 'inventory', label: 'Inventory', icon: Package },
+            { id: 'expenses', label: 'Expenses', icon: Receipt },
+            { id: 'product-monitoring', label: 'Product Audit', icon: Tag },
+          ].map((tab, i) => (
+            <button
+              key={tab.id}
+              onClick={() => { setReportTab(tab.id as any); setMobileView('report'); }}
+              className={`px-3 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap ${
+                reportTab === tab.id
+                  ? 'bg-emerald-600 text-white shadow-md'
+                  : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+              }`}
+            >
+              <tab.icon className={`w-3 h-3 shrink-0 ${reportTab === tab.id ? 'text-white' : 'text-slate-400'}`} />
+              <span>{tab.label}</span>
+            </button>
+          ))}
         </div>
       </div>
 
@@ -588,6 +630,15 @@ export default function DashboardReports({
       <div className="min-h-[400px]">
         {reportTab === 'p&l' && (
           <div className="space-y-6">
+            <div className="flex justify-end">
+              <button
+                onClick={handleDownloadActiveTabCSV}
+                className="bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Export CSV</span>
+              </button>
+            </div>
             <div className="md:hidden space-y-4">
               <div className="grid grid-cols-1 gap-4">
                 <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex items-center justify-between hover:bg-white hover:shadow-sm transition-all group cursor-pointer">
@@ -708,9 +759,9 @@ export default function DashboardReports({
         {reportTab === 'sales-report' && (
           <div className="space-y-6">
             <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
-              <div className="flex items-center justify-between mb-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
                 <h3 className="font-black text-slate-800 uppercase tracking-wider">Sales Performance Ledger</h3>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <ModernSelect
                     title="Payment Mode"
                     value={selectedPaymentMode}
@@ -724,29 +775,36 @@ export default function DashboardReports({
                     ]}
                     onChange={setSelectedPaymentMode}
                   />
+                  <button
+                    onClick={handleDownloadActiveTabCSV}
+                    className="bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm shrink-0"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Export CSV</span>
+                  </button>
                 </div>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-50 border-b border-slate-200">
                     <tr>
+                      <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Date</th>
                       <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Receipt</th>
                       <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Customer</th>
                       <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Total Paid</th>
                       <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-center">Mode</th>
-                      <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Timestamp</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {filteredSales.map(s => (
                       <tr key={s.id} className="hover:bg-slate-50 cursor-pointer transition-colors" onClick={() => setSelectedInspectSale(s)}>
+                        <td className="p-3 text-slate-500 whitespace-nowrap">{formatLocalDate(new Date(s.timestamp))}</td>
                         <td className="p-3 font-mono font-bold text-slate-600">{s.id}</td>
                         <td className="p-3 font-medium text-slate-800">{s.customerName || 'Walk-in'}</td>
                         <td className="p-3 text-right font-black text-slate-900">{currency}{saleProductRevenue(s).toLocaleString()}</td>
                         <td className="p-3 text-center">
                           <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10px] font-bold uppercase">{s.paymentMethod}</span>
                         </td>
-                        <td className="p-3 text-right text-slate-500">{formatLocalDate(new Date(s.timestamp))}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -756,7 +814,188 @@ export default function DashboardReports({
           </div>
         )}
 
-        {reportTab !== 'p&l' && reportTab !== 'sales-report' && (
+        {reportTab === 'inventory' && (
+          <div className="space-y-6">
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <h3 className="font-black text-slate-800 uppercase tracking-wider">Inventory Valuation</h3>
+                <button
+                  onClick={handleDownloadActiveTabCSV}
+                  className="bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm shrink-0"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Export CSV</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Units On Hand</p>
+                  <p className="text-lg font-black text-slate-900 font-mono mt-1">{inventoryTotals.totalUnits.toLocaleString()}</p>
+                </div>
+                <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-100">
+                  <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest">Stock Valuation (Cost)</p>
+                  <p className="text-lg font-black text-emerald-800 font-mono mt-1">{currency}{Math.round(inventoryTotals.totalValuation).toLocaleString()}</p>
+                </div>
+                <div className="p-4 rounded-2xl bg-amber-50 border border-amber-100">
+                  <p className="text-[10px] font-bold text-amber-700 uppercase tracking-widest">Low Stock Items</p>
+                  <p className="text-lg font-black text-amber-800 font-mono mt-1">{inventoryTotals.lowStockCount.toLocaleString()}</p>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 border-b border-slate-200">
+                    <tr>
+                      <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Product</th>
+                      <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Category</th>
+                      <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">On Hand</th>
+                      <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Cost Price</th>
+                      <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Selling Price</th>
+                      <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Valuation</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredInventoryProducts.map(p => {
+                      const onHand = (p.shopStockQty || 0) + (p.storeStockQty || 0);
+                      const isLow = onHand <= (p.alertQty || 0);
+                      return (
+                        <tr key={p.id} className="hover:bg-slate-50 transition-colors">
+                          <td className="p-3">
+                            <p className="font-bold text-slate-800">{p.name}</p>
+                            <p className="text-[10px] text-slate-400 font-mono">{p.sku}</p>
+                          </td>
+                          <td className="p-3 text-slate-600">{p.category || 'General'}</td>
+                          <td className="p-3 text-right">
+                            <span className={`font-mono font-bold ${isLow ? 'text-amber-600' : 'text-slate-800'}`}>
+                              {formatProductQuantity(onHand, p)}
+                            </span>
+                          </td>
+                          <td className="p-3 text-right font-mono text-slate-600">{currency}{Math.round(p.costPrice || 0).toLocaleString()}</td>
+                          <td className="p-3 text-right font-mono text-slate-600">{currency}{Math.round(p.sellingPrice || 0).toLocaleString()}</td>
+                          <td className="p-3 text-right font-mono font-black text-slate-900">{currency}{Math.round(onHand * (p.costPrice || 0)).toLocaleString()}</td>
+                        </tr>
+                      );
+                    })}
+                    {filteredInventoryProducts.length === 0 && (
+                      <tr><td colSpan={6} className="p-8 text-center text-slate-400">No products matched.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {reportTab === 'expenses' && (
+          <div className="space-y-6">
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <h3 className="font-black text-slate-800 uppercase tracking-wider">Operating Expenses</h3>
+                <div className="flex flex-wrap gap-2">
+                  <ModernSelect
+                    title="Expense Category"
+                    value={selectedCategory}
+                    options={expenseCategoryOptions}
+                    onChange={setSelectedCategory}
+                  />
+                  <button
+                    onClick={handleDownloadActiveTabCSV}
+                    className="bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm shrink-0"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Export CSV</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-between">
+                <span className="text-sm font-bold text-rose-800">Total Charged This Period</span>
+                <span className="text-lg font-black text-rose-700 font-mono">{currency}{Math.round(filteredExpenses.reduce((sum, e) => sum + e.amount, 0)).toLocaleString()}</span>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 border-b border-slate-200">
+                    <tr>
+                      <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Date</th>
+                      <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Category</th>
+                      <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Description</th>
+                      <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredExpenses.map(e => (
+                      <tr key={e.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="p-3 text-slate-500 whitespace-nowrap">{formatLocalDate(new Date(e.timestamp))}</td>
+                        <td className="p-3">
+                          <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10px] font-bold uppercase">{e.category}</span>
+                        </td>
+                        <td className="p-3 font-medium text-slate-800">{e.description || '—'}</td>
+                        <td className="p-3 text-right font-mono font-black text-slate-900">{currency}{Math.round(e.amount).toLocaleString()}</td>
+                      </tr>
+                    ))}
+                    {filteredExpenses.length === 0 && (
+                      <tr><td colSpan={4} className="p-8 text-center text-slate-400">No expenses matched.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {reportTab === 'product-monitoring' && (
+          <div className="space-y-6">
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <h3 className="font-black text-slate-800 uppercase tracking-wider">Product Profit Audit</h3>
+                <button
+                  onClick={handleDownloadActiveTabCSV}
+                  className="bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm shrink-0"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Export CSV</span>
+                </button>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 border-b border-slate-200">
+                    <tr>
+                      <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">#</th>
+                      <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Product</th>
+                      <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Units Sold</th>
+                      <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Revenue</th>
+                      <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Profit</th>
+                      <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Margin</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {productAuditRows.map((row, idx) => (
+                      <tr key={row.product.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="p-3 text-slate-400 font-mono">{idx + 1}</td>
+                        <td className="p-3">
+                          <p className="font-bold text-slate-800">{row.product.name}</p>
+                          <p className="text-[10px] text-slate-400 font-mono">{row.product.sku}</p>
+                        </td>
+                        <td className="p-3 text-right font-mono text-slate-700">{formatProductQuantity(row.qty, row.product)}</td>
+                        <td className="p-3 text-right font-mono text-slate-700">{currency}{Math.round(row.revenue).toLocaleString()}</td>
+                        <td className={`p-3 text-right font-mono font-black ${row.profit >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>{currency}{Math.round(row.profit).toLocaleString()}</td>
+                        <td className="p-3 text-right font-mono text-slate-600">{row.margin.toFixed(1)}%</td>
+                      </tr>
+                    ))}
+                    {productAuditRows.length === 0 && (
+                      <tr><td colSpan={6} className="p-8 text-center text-slate-400">No sales recorded for this period.</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {reportTab !== 'p&l' && reportTab !== 'sales-report' && reportTab !== 'inventory' && reportTab !== 'expenses' && reportTab !== 'product-monitoring' && (
           <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
             <div className="p-6 bg-slate-50 rounded-full text-slate-300">
               <FileText className="w-12 h-12" />
