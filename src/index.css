@@ -956,6 +956,16 @@ body.rtl { font-family: 'Cairo', "Plus Jakarta Sans", "Inter", system-ui, sans-s
   grid-template-columns: minmax(0, 1fr);
 }
 
+/* Shop/Store destination toggle: same grid-cols-2 trap as above, at every
+   width (not just tablet), since the two safety-net rules this file's own
+   comment mentions both match a plain grid-cols-2 class up to 1279px --
+   this button pair needs to be side by side from phone width up, so it
+   gets the same custom-class treatment unconditionally, no media query. */
+#dashboard-scaffold .purchases-destination-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 #dashboard-scaffold .purchases-product-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

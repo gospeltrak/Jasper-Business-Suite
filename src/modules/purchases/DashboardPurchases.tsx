@@ -1399,7 +1399,7 @@ export default function DashboardPurchases({
               </div>
 
               {/* Product cards */}
-              <div className="gap-3 max-h-[500px] overflow-y-auto pr-1 purchases-product-grid">
+              <div className="gap-3 max-h-[950px] overflow-y-auto pr-1 purchases-product-grid">
                 {filteredProducts.map(prod => (
                   <div 
                     key={prod.id}
@@ -1470,7 +1470,7 @@ export default function DashboardPurchases({
 
                   <div id="restock-destination" className="space-y-1">
                     <label className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest block font-mono">Stock Destination</label>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="gap-2 purchases-destination-grid">
                       <button
                         type="button"
                         onClick={() => setDestination('shop')}
