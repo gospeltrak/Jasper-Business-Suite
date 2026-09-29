@@ -734,7 +734,7 @@ export default function DashboardOverview({
                 {(() => {
                   const currentLang = lang;
                   const options: Intl.DateTimeFormatOptions = { weekday: 'long', month: 'short', day: 'numeric' };
-                  return new Date().toLocaleDateString(currentLang === 'sw' ? 'sw-TZ' : currentLang === 'fr' ? 'fr-FR' : 'en-US', options);
+                  return new Date().toLocaleDateString(currentLang === 'sw' ? 'sw-TZ' : 'en-US', options);
                 })()}
               </span>
             </div>

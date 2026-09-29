@@ -738,7 +738,6 @@ export default function ToolsHub({ onNavigate, isDark, onToggleTheme }: ToolsHub
                     {[
                       { code: 'en', label: 'English' },
                       { code: 'sw', label: 'Kiswahili' },
-                      { code: 'fr', label: '🇫🇷 Français' }
                     ].map((item) => (
                       <button
                         key={item.code}

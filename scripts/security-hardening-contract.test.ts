@@ -204,7 +204,7 @@ test('manual receipts are optimized images and payment approval cannot change th
 
 test('system error pages are localized and never render technical error details', () => {
   for (const status of [401, 403, 404, 500]) assert.match(systemErrorPage, new RegExp(`${status}:`));
-  assert.match(systemErrorPage, /en:[\s\S]*sw:[\s\S]*fr:/);
+  assert.match(systemErrorPage, /en:[\s\S]*sw:/);
   assert.match(appErrorBoundary, /Orvix inarudisha mfumo wako/);
   assert.match(dashboardErrorBoundary, /Tunarudisha sehemu yako/);
   assert.doesNotMatch(appErrorBoundary, /SystemErrorPage status=\{500\}/);
@@ -215,7 +215,7 @@ test('system error pages are localized and never render technical error details'
   assert.match(server, /const platformAdminError[\s\S]*makeSafeErrorResponse/);
   assert.match(server, /\['\/401', 401\], \['\/403', 403\], \['\/404', 404\], \['\/500', 500\]/);
   assert.match(server, /knownAppPath \? 200 : 404/);
-  assert.match(safeErrors, /SafeErrorLanguage = 'en' \| 'sw' \| 'fr'/);
+  assert.match(safeErrors, /SafeErrorLanguage = 'en' \| 'sw'/);
 });
 
 test('installed PWAs automatically activate each new deployment without caching tenant data', () => {

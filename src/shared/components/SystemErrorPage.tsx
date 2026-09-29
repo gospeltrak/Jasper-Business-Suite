@@ -23,12 +23,6 @@ const copy: Record<LanguageType, Record<SystemErrorStatus, { title: string; mess
     404: { title: 'Ukurasa haujapatikana', message: 'Ukurasa unaoutafuta haupatikani au umehamishwa.' },
     500: { title: 'Mfumo umepata changamoto', message: 'Ombi hili halijakamilika. Tafadhali jaribu tena.' },
   },
-  fr: {
-    401: { title: 'Veuillez vous reconnecter', message: 'Votre session est terminée. Connectez-vous pour continuer en toute sécurité.' },
-    403: { title: 'Accès non autorisé', message: "Votre compte n’est pas autorisé à ouvrir cette page." },
-    404: { title: 'Page introuvable', message: 'La page demandée est indisponible ou a été déplacée.' },
-    500: { title: 'Un problème est survenu', message: "Le système n’a pas pu terminer cette demande. Veuillez réessayer." },
-  },
 };
 
 const icons = { 401: LockKeyhole, 403: ShieldX, 404: SearchX, 500: AlertTriangle } as const;
@@ -37,9 +31,9 @@ export default function SystemErrorPage({ status, onHome, onBack, onRetry }: Sys
   const { lang } = useTranslation();
   const text = copy[lang]?.[status] || copy.en[status];
   const Icon = icons[status];
-  const homeLabel = lang === 'sw' ? 'Nenda nyumbani' : lang === 'fr' ? "Retour à l’accueil" : 'Go home';
-  const backLabel = lang === 'sw' ? 'Rudi nyuma' : lang === 'fr' ? 'Retour' : 'Go back';
-  const retryLabel = lang === 'sw' ? 'Jaribu tena' : lang === 'fr' ? 'Réessayer' : 'Try again';
+  const homeLabel = lang === 'sw' ? 'Nenda nyumbani' : 'Go home';
+  const backLabel = lang === 'sw' ? 'Rudi nyuma' : 'Go back';
+  const retryLabel = lang === 'sw' ? 'Jaribu tena' : 'Try again';
 
   return (
     <main className="flex min-h-[100dvh] items-center justify-center bg-slate-50 px-5 py-10 text-slate-950 dark:bg-slate-950 dark:text-white">

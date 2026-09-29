@@ -3873,7 +3873,6 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                       {[
                         { code: 'en', label: 'English' },
                         { code: 'sw', label: 'Kiswahili' },
-                        { code: 'fr', label: '🇫🇷 Français' }
                       ].map((item) => (
                         <button
                           key={item.code}
@@ -4089,7 +4088,6 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                       {[
                         { code: 'en', label: 'English' },
                         { code: 'sw', label: 'Kiswahili' },
-                        { code: 'fr', label: '🇫🇷 Français' }
                       ].map((item) => (
                         <button
                           key={item.code}

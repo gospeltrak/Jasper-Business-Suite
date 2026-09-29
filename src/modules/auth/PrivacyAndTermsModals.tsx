@@ -35,6 +35,10 @@ function FrenchLegalContent({ type, isDark }: { type: 'privacy' | 'terms'; isDar
 
 export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = false }: PrivacyAndTermsModalsProps) {
   const { lang } = useTranslation();
+  // 'fr' stays in this local type even though the language switcher above no
+  // longer offers it (the global LanguageType is now 'en' | 'sw' only) --
+  // this modal's existing French legal copy is left in place, just
+  // unreachable from the UI, rather than deleting translated legal text.
   const [modalLang, setModalLang] = useState<'en' | 'sw' | 'fr'>(lang);
 
   useEffect(() => {
@@ -100,16 +104,6 @@ export default function PrivacyAndTermsModals({ isOpen, type, onClose, isDark = 
                 }`}
               >
                 Kiswahili
-              </button>
-              <button
-                onClick={() => setModalLang('fr')}
-                className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                  modalLang === 'fr'
-                    ? isDark ? 'bg-emerald-500 text-slate-950' : 'bg-[#00b87a] text-white shadow-xs'
-                    : 'text-slate-400 hover:text-slate-500'
-                }`}
-              >
-                Français
               </button>
             </div>
 

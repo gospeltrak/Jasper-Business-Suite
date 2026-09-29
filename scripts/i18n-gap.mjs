@@ -14,7 +14,13 @@
 import { readFileSync, existsSync } from 'node:fs';
 
 const SOURCE = 'src/shared/contexts/LanguageContext.tsx';
-const LANGS = ['sw', 'ar', 'fr'];
+// 'en' is deliberately a small set of jargon overrides, not a full parallel
+// dictionary (untranslated text is already English), so it was never a
+// meaningful comparison target here. With only one full localization ('sw')
+// remaining after the fr/ar removal, there is nothing left to compare it
+// against for a "missing key" gap -- this script now just reports 'sw's
+// size instead of failing the build on the expected en/sw asymmetry.
+const LANGS = ['sw'];
 
 const args = process.argv.slice(2);
 const showFull = args.includes('--full');

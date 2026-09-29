@@ -23,8 +23,8 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
       const target = event.target as Element | null;
       const languageOption = target?.closest<HTMLButtonElement>('[data-lang]');
       const selectedLanguage = languageOption?.dataset.lang;
-      if (selectedLanguage && ['en', 'sw', 'fr'].includes(selectedLanguage)) {
-        setLang(selectedLanguage as 'en' | 'sw' | 'fr');
+      if (selectedLanguage && ['en', 'sw'].includes(selectedLanguage)) {
+        setLang(selectedLanguage as 'en' | 'sw');
         return;
       }
 
@@ -64,7 +64,7 @@ export default function LandingPage({ onNavigate }: LandingPageProps) {
     const handleLandingLanguage = (event: MessageEvent) => {
       if (event.source !== frameRef.current?.contentWindow) return;
       if (event.data?.type !== 'orvix-language-change') return;
-      if (!['en', 'sw', 'fr'].includes(event.data.language)) return;
+      if (!['en', 'sw'].includes(event.data.language)) return;
       setLang(event.data.language);
     };
     window.addEventListener('message', handleLandingLanguage);
