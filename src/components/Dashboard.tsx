@@ -146,7 +146,8 @@ import {
   MinusCircle,
   RefreshCw,
   Handshake,
-  Download
+  Download,
+  LoaderCircle
 } from 'lucide-react';
 
 // A high-fidelity composite component representing a rider on a motorcycle with a delivery basket on their back
@@ -3574,6 +3575,19 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
           enabled={workspaceReady && Boolean(onlineBusinessName)}
         />
       ) : null}
+
+      {/* Branch-switch data reload indicator. GlobalBranchSwitcher's own
+          spinner only covers the quick branch-selection step; this covers
+          the longer step after it -- reloading that branch's actual
+          workspace data -- which previously had no visible feedback at all
+          (branchSwitching was tracked but never rendered), so a slow or
+          retried reload looked like the app had frozen. */}
+      {branchSwitching && (
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[9998] flex items-center gap-2 rounded-full bg-slate-900/90 dark:bg-slate-800/90 px-4 py-2 text-xs font-bold text-white shadow-lg pointer-events-none">
+          <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+          <span>Inapakia data ya tawi…</span>
+        </div>
+      )}
 
       {/* 0. HIGH-FIDELITY FLOATING TOAST STACK (Centered at top on mobile, max 3 stacked) */}
       <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[9999] flex flex-col items-center space-y-2 w-full max-w-sm px-4 pointer-events-none">

@@ -87,6 +87,19 @@ test('a branch switch cannot erase a branch\'s sales/expenses/deliveries/purchas
   );
 });
 
+test('a large-but-not-total branch ledger shrink is logged, not silently accepted or blocked', async () => {
+  const migrationSource = await read('supabase/migrations/20260929010000_warn_on_suspicious_branch_ledger_shrink.sql');
+  assert.match(migrationSource, /v_incoming_count < \(v_existing_count \* 0\.5\)/);
+  assert.match(migrationSource, /raise warning using message = format\(/);
+  // Both write paths get the canary, matching the existing empty-vs-
+  // non-empty guard's coverage.
+  assert.match(migrationSource, /scope=all_branches key=%s existing=%s incoming=%s/);
+  assert.match(migrationSource, /branch=%s key=%s existing=%s incoming=%s/);
+  // A partial shrink is only ever logged, never used to change v_next --
+  // the save must still proceed with the caller's data either way.
+  assert.doesNotMatch(migrationSource, /elsif v_existing_count > 0 and v_incoming_count > 0[\s\S]{0,80}continue;/);
+});
+
 test('tenant login bootstrap displays only the tenant logo without restoration copy', async () => {
   const dashboardSource = await read('src/components/Dashboard.tsx');
   assert.match(dashboardSource, /function WorkspaceBootstrapScreen\(\)[\s\S]{0,260}const \{ logoUrl \} = useTenantLogo\(\)/);
