@@ -436,6 +436,16 @@ export default function DashboardReports({
     document.body.removeChild(link);
   };
 
+  const classifyPaymentMethod = (method: string) => {
+    const m = method.toLowerCase();
+    if (m.includes('cash')) return 'Cash';
+    if (m.includes('card') || m.includes('online') || m.includes('stripe') || m.includes('paypal')) return 'CardAndOnline';
+    if (m.includes('mobile') || m.includes('mpesa') || m.includes('tigo') || m.includes('airtel')) return 'MobileMoney';
+    if (m.includes('bank') || m.includes('transfer')) return 'BankTransfer';
+    if (m.includes('credit') || m.includes('deferred')) return 'Credit';
+    return 'Cash';
+  };
+
   const filteredSales = useMemo(() => {
     return sales.filter(s => {
       const date = new Date(s.timestamp);
@@ -472,16 +482,6 @@ export default function DashboardReports({
     });
     return breakdown;
   }, [filteredSales]);
-
-  const classifyPaymentMethod = (method: string) => {
-    const m = method.toLowerCase();
-    if (m.includes('cash')) return 'Cash';
-    if (m.includes('card') || m.includes('online') || m.includes('stripe') || m.includes('paypal')) return 'CardAndOnline';
-    if (m.includes('mobile') || m.includes('mpesa') || m.includes('tigo') || m.includes('airtel')) return 'MobileMoney';
-    if (m.includes('bank') || m.includes('transfer')) return 'BankTransfer';
-    if (m.includes('credit') || m.includes('deferred')) return 'Credit';
-    return 'Cash';
-  };
 
   const pnlStats = useMemo(() => {
     const totalSalesRevenue = filteredSales.reduce((sum, s) => sum + saleProductRevenue(s), 0);
