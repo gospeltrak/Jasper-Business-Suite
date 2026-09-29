@@ -227,6 +227,7 @@ export default function DashboardReports({
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [velocitySortOrder, setVelocitySortOrder] = useState<'desc' | 'asc'>('desc');
   const [searchTerm, setSearchTerm] = useState('');
+  const [auditView, setAuditView] = useState<'overview' | 'drilldown' | 'velocity'>('overview');
 
   const [plValuationSegment, setPlValuationSegment] = useState<'shop' | 'store' | 'combined'>('shop');
   const [plValuationSearch, setPlValuationSearch] = useState('');
@@ -519,6 +520,71 @@ export default function DashboardReports({
       .filter(row => row.qty > 0)
       .sort((a, b) => b.profit - a.profit);
   }, [filteredSales, products]);
+
+  // Product Audit "look up one product" tracker: search/select a single
+  // product (or 'all') and see its own qty/revenue/COGS/profit/margin plus
+  // a day-by-day trend, instead of only the ranked list above.
+  const productDrilldownOptions = useMemo(() => [
+    { value: 'all', label: 'All Products', description: `${products.length} tracked` },
+    ...monitoredProductSearchOptions.map(p => ({ value: p.id, label: p.name, description: p.sku || p.category || undefined })),
+  ], [products.length, monitoredProductSearchOptions]);
+
+  const productDrilldownStats = useMemo(() => {
+    const isAll = selectedMonitoredProductId === 'all';
+    const product = isAll ? undefined : products.find(p => p.id === selectedMonitoredProductId);
+    const dailyMap = new Map<string, { date: string; qty: number; revenue: number }>();
+    let qty = 0;
+    let revenue = 0;
+    let cogs = 0;
+
+    filteredSales.forEach(s => {
+      const dayKey = timestampToLocalDate(s.timestamp);
+      let dayQty = 0;
+      let dayRevenue = 0;
+      (s.items || []).forEach(item => {
+        if (!isAll && item.productId !== selectedMonitoredProductId) return;
+        const matchingProd = products.find(p => p.id === item.productId);
+        const lineRevenue = item.lineTotal ?? 0;
+        qty += item.qty;
+        revenue += lineRevenue;
+        cogs += (item.costPriceAtSale ?? matchingProd?.costPrice ?? 0) * item.qty;
+        dayQty += item.qty;
+        dayRevenue += lineRevenue;
+      });
+      if (dayQty > 0 || dayRevenue > 0) {
+        const existing = dailyMap.get(dayKey) || { date: dayKey, qty: 0, revenue: 0 };
+        existing.qty += dayQty;
+        existing.revenue += dayRevenue;
+        dailyMap.set(dayKey, existing);
+      }
+    });
+
+    const profit = revenue - cogs;
+    const margin = revenue > 0 ? (profit / revenue) * 100 : 0;
+    const dailyTrend = Array.from(dailyMap.values()).sort((a, b) => a.date.localeCompare(b.date));
+    return { isAll, product, qty, revenue, cogs, profit, margin, dailyTrend };
+  }, [filteredSales, products, selectedMonitoredProductId]);
+
+  // Velocity (fast/slow movers): units sold per product within the current
+  // date range, ranked and expressed as units/day over that same range.
+  const velocityRows = useMemo(() => {
+    const qtyById = new Map<string, number>();
+    filteredSales.forEach(s => {
+      (s.items || []).forEach(item => {
+        qtyById.set(item.productId, (qtyById.get(item.productId) || 0) + item.qty);
+      });
+    });
+    const start = parseLocalDate(startDateStr);
+    const end = parseLocalDate(endDateStr);
+    const periodDays = Number.isFinite(start.getTime()) && Number.isFinite(end.getTime())
+      ? Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000) + 1)
+      : 1;
+    const rows = products.map(p => {
+      const qty = qtyById.get(p.id) || 0;
+      return { product: p, qty, perDay: qty / periodDays };
+    });
+    return rows.sort((a, b) => velocitySortOrder === 'desc' ? b.qty - a.qty : a.qty - b.qty);
+  }, [filteredSales, products, velocitySortOrder, startDateStr, endDateStr]);
 
   const filteredInventoryProducts = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
@@ -1053,52 +1119,196 @@ export default function DashboardReports({
                 </button>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 border-b border-slate-200">
-                    <tr>
-                      <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">#</th>
-                      <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Product</th>
-                      <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Units Sold</th>
-                      <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Revenue</th>
-                      <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Profit</th>
-                      <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Margin</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {productAuditRows.map((row, idx) => (
-                      <tr key={row.product.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="p-3">
-                          <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-black font-mono ${
-                            idx === 0 ? 'bg-amber-100 text-amber-700'
-                              : idx === 1 ? 'bg-slate-200 text-slate-600'
-                              : idx === 2 ? 'bg-orange-100 text-orange-700'
-                              : 'text-slate-400'
-                          }`}>{idx + 1}</span>
-                        </td>
-                        <td className="p-3">
-                          <p className="font-bold text-slate-800">{row.product.name}</p>
-                          <p className="text-[10px] text-slate-400 font-mono">{row.product.sku}</p>
-                        </td>
-                        <td className="p-3 text-right font-mono text-slate-700">{formatProductQuantity(row.qty, row.product)}</td>
-                        <td className="p-3 text-right font-mono text-slate-700">{currency}{Math.round(row.revenue).toLocaleString()}</td>
-                        <td className={`p-3 text-right font-mono font-black ${row.profit >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>{currency}{Math.round(row.profit).toLocaleString()}</td>
-                        <td className="p-3 text-right font-mono text-slate-600">{row.margin.toFixed(1)}%</td>
-                      </tr>
-                    ))}
-                    {productAuditRows.length === 0 && (
-                      <tr>
-                        <td colSpan={6} className="p-10 text-center text-slate-400">
-                          <div className="flex flex-col items-center gap-2">
-                            <Tag className="w-8 h-8 text-slate-200" />
-                            <span>No sales recorded for this period.</span>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+              <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 text-[11px] font-bold w-full sm:w-auto sm:inline-flex overflow-x-auto no-scrollbar">
+                {([
+                  { id: 'overview', label: 'Overview' },
+                  { id: 'drilldown', label: 'Product Lookup' },
+                  { id: 'velocity', label: 'Velocity' },
+                ] as const).map(v => (
+                  <button
+                    key={v.id}
+                    onClick={() => setAuditView(v.id)}
+                    className={`flex-1 sm:flex-none px-4 py-2 rounded-lg transition-colors whitespace-nowrap ${
+                      auditView === v.id ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    {v.label}
+                  </button>
+                ))}
               </div>
+
+              {auditView === 'overview' && (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50 border-b border-slate-200">
+                      <tr>
+                        <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">#</th>
+                        <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Product</th>
+                        <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Units Sold</th>
+                        <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Revenue</th>
+                        <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Profit</th>
+                        <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Margin</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {productAuditRows.map((row, idx) => (
+                        <tr key={row.product.id} className="hover:bg-slate-50 transition-colors">
+                          <td className="p-3">
+                            <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-black font-mono ${
+                              idx === 0 ? 'bg-amber-100 text-amber-700'
+                                : idx === 1 ? 'bg-slate-200 text-slate-600'
+                                : idx === 2 ? 'bg-orange-100 text-orange-700'
+                                : 'text-slate-400'
+                            }`}>{idx + 1}</span>
+                          </td>
+                          <td className="p-3">
+                            <p className="font-bold text-slate-800">{row.product.name}</p>
+                            <p className="text-[10px] text-slate-400 font-mono">{row.product.sku}</p>
+                          </td>
+                          <td className="p-3 text-right font-mono text-slate-700">{formatProductQuantity(row.qty, row.product)}</td>
+                          <td className="p-3 text-right font-mono text-slate-700">{currency}{Math.round(row.revenue).toLocaleString()}</td>
+                          <td className={`p-3 text-right font-mono font-black ${row.profit >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>{currency}{Math.round(row.profit).toLocaleString()}</td>
+                          <td className="p-3 text-right font-mono text-slate-600">{row.margin.toFixed(1)}%</td>
+                        </tr>
+                      ))}
+                      {productAuditRows.length === 0 && (
+                        <tr>
+                          <td colSpan={6} className="p-10 text-center text-slate-400">
+                            <div className="flex flex-col items-center gap-2">
+                              <Tag className="w-8 h-8 text-slate-200" />
+                              <span>No sales recorded for this period.</span>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {auditView === 'drilldown' && (
+                <div className="space-y-6">
+                  <div className="max-w-md">
+                    <ModernSelect
+                      title="Select a Product"
+                      searchable
+                      searchPlaceholder="Search by name, SKU or barcode"
+                      value={selectedMonitoredProductId}
+                      options={productDrilldownOptions}
+                      onChange={setSelectedMonitoredProductId}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {[
+                      { label: 'Units Sold', value: productDrilldownStats.product ? formatProductQuantity(productDrilldownStats.qty, productDrilldownStats.product) : productDrilldownStats.qty.toLocaleString(), icon: Package, color: 'text-slate-900' },
+                      { label: 'Revenue Generated', value: `${currency}${Math.round(productDrilldownStats.revenue).toLocaleString()}`, icon: DollarSign, color: 'text-slate-900' },
+                      { label: 'Profit Generated', value: `${currency}${Math.round(productDrilldownStats.profit).toLocaleString()}`, icon: TrendingUp, color: productDrilldownStats.profit >= 0 ? 'text-emerald-700' : 'text-rose-600' },
+                    ].map((metric, i) => (
+                      <div key={i} className="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 shadow-sm">
+                            <metric.icon className="w-5 h-5" />
+                          </div>
+                          <div className="text-left">
+                            <h6 className="text-sm font-bold text-slate-900">{metric.label}</h6>
+                            <p className="text-xs text-slate-500">{productDrilldownStats.product ? productDrilldownStats.product.name : 'All products, period total'}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className={`text-sm font-black ${metric.color}`}>{metric.value}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+                    <span className="text-sm font-bold text-slate-700">Margin</span>
+                    <span className="text-sm font-black text-slate-900 font-mono">{productDrilldownStats.margin.toFixed(1)}%</span>
+                  </div>
+
+                  <div>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Daily Units Sold</p>
+                    {productDrilldownStats.dailyTrend.length === 0 ? (
+                      <div className="p-10 text-center text-slate-400 bg-slate-50 rounded-2xl border border-slate-200">
+                        <Package className="w-8 h-8 text-slate-200 mx-auto mb-2" />
+                        <span>No sales recorded for this period.</span>
+                      </div>
+                    ) : (
+                      <div className="h-56 bg-slate-50 rounded-2xl border border-slate-200 p-3">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={productDrilldownStats.dailyTrend}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                            <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                            <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} allowDecimals={false} />
+                            <Tooltip contentStyle={{ borderRadius: 12, fontSize: 11, border: '1px solid #e2e8f0' }} />
+                            <Bar dataKey="qty" name="Units Sold" fill="#059669" radius={[4, 4, 0, 0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {auditView === 'velocity' && (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-2xl p-1 max-w-md">
+                    <button
+                      type="button"
+                      onClick={() => setVelocitySortOrder('desc')}
+                      className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer border-none ${velocitySortOrder === 'desc' ? 'bg-emerald-600 text-white shadow-sm' : 'text-slate-500 bg-transparent hover:bg-slate-100'}`}
+                    >
+                      <TrendingUp className="w-3.5 h-3.5" /> Fast Movers
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setVelocitySortOrder('asc')}
+                      className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer border-none ${velocitySortOrder === 'asc' ? 'bg-rose-600 text-white shadow-sm' : 'text-slate-500 bg-transparent hover:bg-slate-100'}`}
+                    >
+                      <MinusCircle className="w-3.5 h-3.5" /> Slow Movers
+                    </button>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-50 border-b border-slate-200">
+                        <tr>
+                          <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">#</th>
+                          <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Product</th>
+                          <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Category</th>
+                          <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Units Sold</th>
+                          <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Velocity / Day</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {velocityRows.slice(0, 50).map((row, idx) => (
+                          <tr key={row.product.id} className="hover:bg-slate-50 transition-colors">
+                            <td className="p-3 text-slate-400 font-mono">{idx + 1}</td>
+                            <td className="p-3">
+                              <p className="font-bold text-slate-800">{row.product.name}</p>
+                              <p className="text-[10px] text-slate-400 font-mono">{row.product.sku}</p>
+                            </td>
+                            <td className="p-3 text-slate-600">{row.product.category || 'General'}</td>
+                            <td className="p-3 text-right font-mono text-slate-700">{formatProductQuantity(row.qty, row.product)}</td>
+                            <td className={`p-3 text-right font-mono font-black ${velocitySortOrder === 'desc' ? 'text-emerald-700' : 'text-rose-600'}`}>{row.perDay.toFixed(2)}/day</td>
+                          </tr>
+                        ))}
+                        {velocityRows.length === 0 && (
+                          <tr>
+                            <td colSpan={5} className="p-10 text-center text-slate-400">
+                              <div className="flex flex-col items-center gap-2">
+                                <ArrowUpDown className="w-8 h-8 text-slate-200" />
+                                <span>No products to rank yet.</span>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
