@@ -1794,12 +1794,19 @@ export default function DashboardSalesList({
         {/* Quick date chips */}
         <div className="flex items-center gap-2">
           <div className="flex gap-1.5 flex-1">
-            {[
-              { label: 'Today', action: () => { const s = getTodayLocalDateStr(); setStartDate(s); setEndDate(s); }, active: startDate === getTodayLocalDateStr() && endDate === getTodayLocalDateStr() },
-              { label: 'Week',  action: () => { const p = new Date(); p.setDate(p.getDate()-6); const s = `${p.getFullYear()}-${String(p.getMonth()+1).padStart(2,'0')}-${String(p.getDate()).padStart(2,'0')}`; setStartDate(s); setEndDate(getTodayLocalDateStr()); }, active: startDate !== getTodayLocalDateStr() && endDate === getTodayLocalDateStr() && startDate !== endDate },
-              { label: 'Month', action: () => { const p = new Date(); p.setDate(p.getDate()-29); const s = `${p.getFullYear()}-${String(p.getMonth()+1).padStart(2,'0')}-${String(p.getDate()).padStart(2,'0')}`; setStartDate(s); setEndDate(getTodayLocalDateStr()); }, active: (() => { const p = new Date(); p.setDate(p.getDate()-29); const s = `${p.getFullYear()}-${String(p.getMonth()+1).padStart(2,'0')}-${String(p.getDate()).padStart(2,'0')}`; return startDate === s && endDate === getTodayLocalDateStr(); })() },
-              { label: 'All',   action: () => { setStartDate(''); setEndDate(''); }, active: !startDate && !endDate },
-            ].map(opt => (
+            {(() => {
+              const todayStr = getTodayLocalDateStr();
+              const week = new Date(); week.setDate(week.getDate() - 6);
+              const weekStartStr = `${week.getFullYear()}-${String(week.getMonth()+1).padStart(2,'0')}-${String(week.getDate()).padStart(2,'0')}`;
+              const month = new Date(); month.setDate(month.getDate() - 29);
+              const monthStartStr = `${month.getFullYear()}-${String(month.getMonth()+1).padStart(2,'0')}-${String(month.getDate()).padStart(2,'0')}`;
+              return [
+                { label: 'Today', action: () => { setStartDate(todayStr); setEndDate(todayStr); }, active: startDate === todayStr && endDate === todayStr },
+                { label: 'Week',  action: () => { setStartDate(weekStartStr); setEndDate(todayStr); }, active: startDate === weekStartStr && endDate === todayStr },
+                { label: 'Month', action: () => { setStartDate(monthStartStr); setEndDate(todayStr); }, active: startDate === monthStartStr && endDate === todayStr },
+                { label: 'All',   action: () => { setStartDate(''); setEndDate(''); }, active: !startDate && !endDate },
+              ];
+            })().map(opt => (
               <button key={opt.label} type="button" onClick={opt.action}
                 className="flex-1 py-1.5 rounded-xl text-[11px] font-bold"
                 style={{ background: opt.active ? '#0f172a' : '#f1f5f9', color: opt.active ? '#ffffff' : '#64748b' }}>
