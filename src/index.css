@@ -2309,21 +2309,33 @@ button:active:not(:disabled),
   }
 }
 
-/* Business Reports tab bar: one column (vertical stack) on phone and
-   tablet, a single row on desktop -- a plain Tailwind grid-cols-* utility
-   here would get silently neutered by this file's own generic
-   [class*="grid-cols-*"] safety net (~line 219 and ~line 1766), the same
-   trap the Purchases tablet layout hit earlier, so this uses a dedicated
-   custom class instead. */
+/* Business Reports tab bar: always a single horizontal row (native-app
+   tab-bar style), on phone, tablet and desktop alike -- it scrolls
+   sideways on narrow screens instead of wrapping into a column. A plain
+   Tailwind grid-cols-* utility here would get silently neutered by this
+   file's own generic [class*="grid-cols-*"] safety net (~line 219 and
+   ~line 1766), the same trap the Purchases tablet layout hit earlier, so
+   this uses a dedicated custom class instead. */
 #dashboard-scaffold .reports-tab-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+#dashboard-scaffold .reports-tab-grid::-webkit-scrollbar {
+  display: none;
+}
+
+#dashboard-scaffold .reports-tab-grid > button {
+  flex: 0 0 auto;
 }
 
 @media (min-width: 1280px) {
   #dashboard-scaffold .reports-tab-grid {
-    grid-auto-flow: column;
-    grid-template-columns: none;
-    justify-content: end;
+    overflow-x: visible;
+    justify-content: flex-end;
   }
 }

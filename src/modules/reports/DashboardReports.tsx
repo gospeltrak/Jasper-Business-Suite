@@ -549,6 +549,18 @@ export default function DashboardReports({
     return [{ value: 'All', label: 'All Categories' }, ...unique.map(c => ({ value: c, label: c }))];
   }, [expenses]);
 
+  const salesTotals = useMemo(() => {
+    const totalRevenue = filteredSales.reduce((sum, s) => sum + saleProductRevenue(s), 0);
+    const count = filteredSales.length;
+    return { totalRevenue, count, avg: count > 0 ? totalRevenue / count : 0 };
+  }, [filteredSales]);
+
+  const expenseTotals = useMemo(() => {
+    const total = filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
+    const count = filteredExpenses.length;
+    return { total, count, avg: count > 0 ? total / count : 0 };
+  }, [filteredExpenses]);
+
   const { totalSalesRevenue, totalCOGS, grossProfit, netProfit, totalExpensesCharged } = pnlStats;
 
   return (
@@ -758,8 +770,8 @@ export default function DashboardReports({
 
         {reportTab === 'sales-report' && (
           <div className="space-y-6">
-            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <h3 className="font-black text-slate-800 uppercase tracking-wider">Sales Performance Ledger</h3>
                 <div className="flex flex-wrap gap-2">
                   <ModernSelect
@@ -784,6 +796,22 @@ export default function DashboardReports({
                   </button>
                 </div>
               </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Revenue</p>
+                  <p className="text-lg font-black text-slate-900 font-mono mt-1">{currency}{Math.round(salesTotals.totalRevenue).toLocaleString()}</p>
+                </div>
+                <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-100">
+                  <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest">Transactions</p>
+                  <p className="text-lg font-black text-emerald-800 font-mono mt-1">{salesTotals.count.toLocaleString()}</p>
+                </div>
+                <div className="p-4 rounded-2xl bg-amber-50 border border-amber-100">
+                  <p className="text-[10px] font-bold text-amber-700 uppercase tracking-widest">Average Ticket</p>
+                  <p className="text-lg font-black text-amber-800 font-mono mt-1">{currency}{Math.round(salesTotals.avg).toLocaleString()}</p>
+                </div>
+              </div>
+
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-50 border-b border-slate-200">
@@ -807,6 +835,16 @@ export default function DashboardReports({
                         </td>
                       </tr>
                     ))}
+                    {filteredSales.length === 0 && (
+                      <tr>
+                        <td colSpan={5} className="p-10 text-center text-slate-400">
+                          <div className="flex flex-col items-center gap-2">
+                            <ShoppingBag className="w-8 h-8 text-slate-200" />
+                            <span>No sales recorded for this period.</span>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -878,7 +916,14 @@ export default function DashboardReports({
                       );
                     })}
                     {filteredInventoryProducts.length === 0 && (
-                      <tr><td colSpan={6} className="p-8 text-center text-slate-400">No products matched.</td></tr>
+                      <tr>
+                        <td colSpan={6} className="p-10 text-center text-slate-400">
+                          <div className="flex flex-col items-center gap-2">
+                            <Package className="w-8 h-8 text-slate-200" />
+                            <span>No products matched.</span>
+                          </div>
+                        </td>
+                      </tr>
                     )}
                   </tbody>
                 </table>
@@ -909,9 +954,19 @@ export default function DashboardReports({
                 </div>
               </div>
 
-              <div className="p-4 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-between">
-                <span className="text-sm font-bold text-rose-800">Total Charged This Period</span>
-                <span className="text-lg font-black text-rose-700 font-mono">{currency}{Math.round(filteredExpenses.reduce((sum, e) => sum + e.amount, 0)).toLocaleString()}</span>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="p-4 rounded-2xl bg-rose-50 border border-rose-100">
+                  <p className="text-[10px] font-bold text-rose-700 uppercase tracking-widest">Total Charged</p>
+                  <p className="text-lg font-black text-rose-700 font-mono mt-1">{currency}{Math.round(expenseTotals.total).toLocaleString()}</p>
+                </div>
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Entries Logged</p>
+                  <p className="text-lg font-black text-slate-900 font-mono mt-1">{expenseTotals.count.toLocaleString()}</p>
+                </div>
+                <div className="p-4 rounded-2xl bg-amber-50 border border-amber-100">
+                  <p className="text-[10px] font-bold text-amber-700 uppercase tracking-widest">Average Entry</p>
+                  <p className="text-lg font-black text-amber-800 font-mono mt-1">{currency}{Math.round(expenseTotals.avg).toLocaleString()}</p>
+                </div>
               </div>
 
               <div className="overflow-x-auto">
@@ -936,7 +991,14 @@ export default function DashboardReports({
                       </tr>
                     ))}
                     {filteredExpenses.length === 0 && (
-                      <tr><td colSpan={4} className="p-8 text-center text-slate-400">No expenses matched.</td></tr>
+                      <tr>
+                        <td colSpan={4} className="p-10 text-center text-slate-400">
+                          <div className="flex flex-col items-center gap-2">
+                            <Receipt className="w-8 h-8 text-slate-200" />
+                            <span>No expenses matched.</span>
+                          </div>
+                        </td>
+                      </tr>
                     )}
                   </tbody>
                 </table>
@@ -974,7 +1036,14 @@ export default function DashboardReports({
                   <tbody className="divide-y divide-slate-100">
                     {productAuditRows.map((row, idx) => (
                       <tr key={row.product.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="p-3 text-slate-400 font-mono">{idx + 1}</td>
+                        <td className="p-3">
+                          <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-black font-mono ${
+                            idx === 0 ? 'bg-amber-100 text-amber-700'
+                              : idx === 1 ? 'bg-slate-200 text-slate-600'
+                              : idx === 2 ? 'bg-orange-100 text-orange-700'
+                              : 'text-slate-400'
+                          }`}>{idx + 1}</span>
+                        </td>
                         <td className="p-3">
                           <p className="font-bold text-slate-800">{row.product.name}</p>
                           <p className="text-[10px] text-slate-400 font-mono">{row.product.sku}</p>
@@ -986,7 +1055,14 @@ export default function DashboardReports({
                       </tr>
                     ))}
                     {productAuditRows.length === 0 && (
-                      <tr><td colSpan={6} className="p-8 text-center text-slate-400">No sales recorded for this period.</td></tr>
+                      <tr>
+                        <td colSpan={6} className="p-10 text-center text-slate-400">
+                          <div className="flex flex-col items-center gap-2">
+                            <Tag className="w-8 h-8 text-slate-200" />
+                            <span>No sales recorded for this period.</span>
+                          </div>
+                        </td>
+                      </tr>
                     )}
                   </tbody>
                 </table>
