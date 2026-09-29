@@ -66,6 +66,27 @@ test('the general branch workspace autosave cannot erase staff with a stale snap
   assert.match(migrationSource, /v_effective_settings \|\| jsonb_build_object\(\s*'staffs', private\.replace_branch_json_array\(\s*v_existing_settings -> 'staffs',\s*v_effective_settings -> 'staffs'/);
 });
 
+test('a branch switch cannot erase a branch\'s sales/expenses/deliveries/purchases with an incomplete snapshot', async () => {
+  const migrationSource = await read('supabase/migrations/20260929000100_protect_branch_ledgers_from_incomplete_autosave.sql');
+  // Branch-scoped path: never replace a branch's ledger with an empty
+  // incoming snapshot when the database still holds real records for it.
+  assert.match(
+    migrationSource,
+    /v_key in \('sales', 'expenses', 'deliveries', 'pendingDeliveryNotes', 'purchases'\)\s*\n\s*and jsonb_array_length\(private\.filter_branch_json_array\(v_existing -> v_key, v_branch_id, v_key_include_unassigned\)\) > 0\s*\n\s*and jsonb_array_length\(private\.filter_branch_json_array\(p_workspace -> v_key, v_branch_id, v_key_include_unassigned\)\) = 0/,
+  );
+  assert.match(migrationSource, /continue;/);
+  // All_branches admin path: same guard, applied per key since this path
+  // has no per-branch scoping to filter through at all.
+  assert.match(
+    migrationSource,
+    /foreach v_key in array array\[\s*\n\s*'products', 'sales', 'expenses', 'deliveries', 'pendingDeliveryNotes', 'purchases'\s*\n\s*\]/,
+  );
+  assert.match(
+    migrationSource,
+    /jsonb_array_length\(coalesce\(v_existing -> v_key, '\[\]'::jsonb\)\) > 0\s*\n\s*and jsonb_array_length\(coalesce\(p_workspace -> v_key, '\[\]'::jsonb\)\) = 0/,
+  );
+});
+
 test('tenant login bootstrap displays only the tenant logo without restoration copy', async () => {
   const dashboardSource = await read('src/components/Dashboard.tsx');
   assert.match(dashboardSource, /function WorkspaceBootstrapScreen\(\)[\s\S]{0,260}const \{ logoUrl \} = useTenantLogo\(\)/);
