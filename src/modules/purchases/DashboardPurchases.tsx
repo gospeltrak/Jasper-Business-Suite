@@ -342,7 +342,7 @@ export default function DashboardPurchases({
   const [deliveryStatus, setDeliveryStatus] = useState<'Pending' | 'Partial' | 'Full order delivered'>('Full order delivered');
   
   const [searchTerm, setSearchTerm] = useState('');
-  const [cart, setCart] = useState<Array<{ product: Product; qty: number; costPrice: number; unitLevelId: string; expiryDate?: string }>>([]);
+  const [cart, setCart] = useState<Array<{ product: Product; qty: number; costPrice: number | ''; unitLevelId: string; expiryDate?: string }>>([]);
   const [paymentMethod, setPaymentMethod] = useState<string>('Cash');
   const [fundingRows, setFundingRows] = useState<PurchaseFundingRow[]>([createPurchaseFundingRow()]);
   const [purchaseSuccess, setPurchaseSuccess] = useState(false);
@@ -499,9 +499,9 @@ export default function DashboardPurchases({
     }
   };
 
-  const handleUpdateCostPrice = (productId: string, cost: number) => {
+  const handleUpdateCostPrice = (productId: string, cost: number | '') => {
     setCart(cart.map(item =>
-      item.product.id === productId ? { ...item, costPrice: Math.max(0, cost) } : item
+      item.product.id === productId ? { ...item, costPrice: cost === '' ? '' : Math.max(0, cost) } : item
     ));
   };
 
@@ -537,7 +537,7 @@ export default function DashboardPurchases({
       // keeping the old unit's number under a different label -- switching
       // "Buying as" from Kg (e.g. 1,000/Kg) to Sack (50 Kg) should suggest
       // 50,000/Sack, not leave 1,000 sitting there misread as a Sack price.
-      const costPerBase = getPurchaseBaseCost(item.costPrice, item.unitLevelId, item.product);
+      const costPerBase = getPurchaseBaseCost(Number(item.costPrice) || 0, item.unitLevelId, item.product);
       const newLevelBaseQty = getPurchaseBaseQuantity(1, unitLevelId, item.product);
       const nextCostPrice = Number((costPerBase * newLevelBaseQty).toFixed(2));
       return { ...item, unitLevelId, costPrice: nextCostPrice };
@@ -550,7 +550,7 @@ export default function DashboardPurchases({
     ));
   };
 
-  const subtotal = cart.reduce((sum, item) => sum + (item.costPrice * item.qty), 0);
+  const subtotal = cart.reduce((sum, item) => sum + ((Number(item.costPrice) || 0) * item.qty), 0);
   const discountAmount = purchaseDiscountType === 'percentage'
     ? (subtotal * purchaseDiscount) / 100
     : purchaseDiscount;
@@ -619,23 +619,24 @@ export default function DashboardPurchases({
         ? calculateFractionPurchaseLine(
           isFractionPacket ? 'packet' : 'piece',
           item.qty,
-          item.costPrice,
+          Number(item.costPrice) || 0,
           resolveFractionSaleConfig(item.product, activeTenant.businessType),
         )
         : null;
+      const resolvedCostPrice = Number(item.costPrice) || 0;
       return {
         productId: item.product.id,
         productName: item.product.name,
         qty: item.qty,
-        costPrice: item.costPrice,
+        costPrice: resolvedCostPrice,
         packageLevelId: level?.id,
         packageLevelLabel: level?.label,
         baseQty,
         selectedLevel: isFractionPacket ? 'packet' : level ? 'package' : (isFractionSaleEnabled(item.product, activeTenant.businessType) ? 'piece' : 'base'),
         selectedLevelQuantity: fractionLine?.selectedLevelQuantity ?? item.qty,
         unitsPerSelectedLevel: fractionLine?.unitsPerSelectedLevel ?? level?.quantityInBaseUnit ?? 1,
-        selectedUnitCost: item.costPrice,
-        lineTotal: Number((item.costPrice * item.qty).toFixed(2)),
+        selectedUnitCost: resolvedCostPrice,
+        lineTotal: Number((resolvedCostPrice * item.qty).toFixed(2)),
         baseUnit: getBaseUnitLabel(item.product),
       };
     });
@@ -681,7 +682,7 @@ export default function DashboardPurchases({
         // and batch costing always operate on base units (e.g. 200 Capsules),
         // never on the raw quantity the tenant typed.
         const addedQty = getPurchaseBaseQuantity(cartItem.qty, cartItem.unitLevelId, prod);
-        const baseCostPrice = getPurchaseBaseCost(cartItem.costPrice, cartItem.unitLevelId, prod);
+        const baseCostPrice = getPurchaseBaseCost(Number(cartItem.costPrice) || 0, cartItem.unitLevelId, prod);
         let newShopQty = prod.shopStockQty;
         let newStoreQty = prod.storeStockQty;
         if (destination === 'shop') {
@@ -1374,10 +1375,10 @@ export default function DashboardPurchases({
 
         ) : (
           /* ── ADD PURCHASE TAB ─────────────────────────────────────────── */
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start pb-4">
-            
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start pb-4">
+
             {/* Left panel: Product List — hidden on mobile (use search in cart) */}
-            <div className="block lg:col-span-7 bg-white border border-slate-200 rounded-3xl p-4 sm:p-6 space-y-5 shadow-xs">
+            <div className="block md:col-span-7 bg-white border border-slate-200 rounded-3xl p-4 sm:p-6 space-y-5 shadow-xs">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <h5 className="font-black text-slate-800 text-sm font-sans">Product List</h5>
@@ -1398,7 +1399,7 @@ export default function DashboardPurchases({
               </div>
 
               {/* Product cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 max-h-[500px] overflow-y-auto pr-1">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3 max-h-[500px] overflow-y-auto pr-1">
                 {filteredProducts.map(prod => (
                   <div 
                     key={prod.id}
@@ -1445,7 +1446,7 @@ export default function DashboardPurchases({
             </div>
 
             {/* Right panel: Cart & Order Metadata — full width on mobile */}
-            <div className="lg:col-span-5 col-span-1 bg-white border border-slate-200 rounded-3xl p-4 sm:p-6 space-y-5 shadow-xs">
+            <div className="md:col-span-5 col-span-1 bg-white border border-slate-200 rounded-3xl p-4 sm:p-6 space-y-5 shadow-xs">
               
               {/* Supplier & Destination */}
               <div className="space-y-3 border-b border-slate-200 pb-4">
@@ -1542,7 +1543,7 @@ export default function DashboardPurchases({
 
                 <h6 className="text-[10.5px] font-black uppercase tracking-wider text-slate-500 font-mono flex items-center justify-between">
                   <span>Purchased Items ({cart.length})</span>
-                  {cart.length > 0 && <span className="text-emerald-600">{currency}{cart.reduce((s,i) => s + i.costPrice * i.qty, 0).toLocaleString()}</span>}
+                  {cart.length > 0 && <span className="text-emerald-600">{currency}{cart.reduce((s,i) => s + (Number(i.costPrice) || 0) * i.qty, 0).toLocaleString()}</span>}
                 </h6>
                 
                 {cart.length === 0 ? (
@@ -1603,9 +1604,9 @@ export default function DashboardPurchases({
                             </span>
                             <div className="flex items-center bg-white border border-slate-250 rounded-lg px-2 py-0.5">
                               <span className="text-slate-500 font-bold text-[10px]">{currency}</span>
-                              <input 
-                                type="number" min="0" value={item.costPrice || ''}
-                                onChange={(e) => handleUpdateCostPrice(item.product.id, parseFloat(e.target.value) || 0)}
+                              <input
+                                type="number" min="0" value={item.costPrice}
+                                onChange={(e) => handleUpdateCostPrice(item.product.id, e.target.value === '' ? '' : Number(e.target.value))}
                                 className="w-16 bg-transparent text-slate-800 font-black focus:outline-none focus:ring-0 text-right border-0 text-xs py-0.5"
                                 placeholder="Cost"
                               />
@@ -1623,7 +1624,7 @@ export default function DashboardPurchases({
                         </div>
                         <div className="text-right text-[10.5px] font-mono text-slate-505 pt-0.5">
                           <span>Total: </span>
-                          <span className="font-black text-slate-705">{currency}{(item.costPrice * item.qty).toLocaleString()}</span>
+                          <span className="font-black text-slate-705">{currency}{((Number(item.costPrice) || 0) * item.qty).toLocaleString()}</span>
                         </div>
                       </div>
                     ))}
