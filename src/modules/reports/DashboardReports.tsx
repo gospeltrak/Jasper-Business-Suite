@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Product, Sale, Tenant, Expense, CustomRole, Supplier } from '../../types';
 import { 
   ResponsiveContainer, 
@@ -45,6 +45,7 @@ import {
   Truck,
   ChevronDown,
   ChevronUp,
+  ChevronRight,
   MinusCircle,
   ShoppingCart,
   ArrowLeft,
@@ -230,6 +231,9 @@ export default function DashboardReports({
   const [velocitySortOrder, setVelocitySortOrder] = useState<'desc' | 'asc'>('desc');
   const [searchTerm, setSearchTerm] = useState('');
   const [auditView, setAuditView] = useState<'overview' | 'drilldown' | 'velocity'>('overview');
+  const [showDateRangePicker, setShowDateRangePicker] = useState(false);
+  const tabScrollRef = useRef<HTMLDivElement>(null);
+  const [showTabScrollHint, setShowTabScrollHint] = useState(false);
 
   const [plValuationSegment, setPlValuationSegment] = useState<'shop' | 'store' | 'combined'>('shop');
   const [plValuationSearch, setPlValuationSearch] = useState('');
@@ -612,125 +616,16 @@ export default function DashboardReports({
     return rows.sort((a, b) => velocitySortOrder === 'desc' ? b.qty - a.qty : a.qty - b.qty);
   }, [filteredSales, products, velocitySortOrder, startDateStr, endDateStr]);
 
-  // Payments / Money & Bank: broken down by the tenant's real configured
-  // payment channels (systemSettings.paymentChannels), the same source
-  // Settings and Money & Bank already treat as authoritative. Channels are
-  // matched by name since a Sale only ever records a method name string
-  // (there is no payment_channel_id on Sale) -- an unmatched/renamed/
-  // disabled channel still displays under its recorded name instead of
-  // disappearing, so historical reports stay accurate after Settings edits.
-  const configuredPaymentChannels = systemSettings?.paymentChannels || [];
-  const matchPaymentChannelByName = (method: string) => configuredPaymentChannels.find(ch =>
-    ch.name?.toLowerCase() === method.toLowerCase() ||
-    ch.provider?.toLowerCase() === method.toLowerCase() ||
-    method.toLowerCase().includes((ch.name || '').toLowerCase()) ||
-    (ch.name || '').toLowerCase().includes(method.toLowerCase())
-  );
-
-  // Split (Multi-Channel) sales allocate only the exact amount actually paid
-  // through each method - never the full sale total under every method - by
-  // reading sale.paymentBreakdown, written at checkout with the real
-  // per-method amounts. Non-split sales keep saleProductRevenue().
-  const paymentMethodTotals = useMemo(() => {
-    const totals: Record<string, { amount: number; count: number; label: string; isCredit: boolean }> = {};
-    const addEntry = (method: string, amount: number) => {
-      const matched = matchPaymentChannelByName(method);
-      const key = matched ? matched.id : method;
-      if (!totals[key]) {
-        totals[key] = { amount: 0, count: 0, label: matched ? matched.name : method, isCredit: classifyPaymentMethod(method) === 'Credit' };
-      }
-      totals[key].amount += amount;
-      totals[key].count += 1;
-    };
-    filteredSales.forEach(s => {
-      const splitEntries = Array.isArray(s.paymentBreakdown) ? s.paymentBreakdown.filter(e => Number(e?.amount) > 0) : [];
-      if (s.paymentMethod === 'Multi-Channel' && splitEntries.length > 0) {
-        splitEntries.forEach(entry => addEntry(entry.method || 'Cash', Number(entry.amount) || 0));
-      } else {
-        addEntry(s.paymentMethod || 'Cash', saleProductRevenue(s));
-      }
-    });
-    return totals;
-  }, [filteredSales, configuredPaymentChannels]);
-
-  const paymentMethodEntries = useMemo(
-    () => Object.entries(paymentMethodTotals).sort((a, b) => b[1].amount - a[1].amount),
-    [paymentMethodTotals]
-  );
-
-  const purchaseFundingTotals = useMemo(() => {
-    const totals: Record<string, { amount: number; count: number }> = {};
-    const addFunding = (label: string, amount: number) => {
-      if (amount <= 0) return;
-      if (!totals[label]) totals[label] = { amount: 0, count: 0 };
-      totals[label].amount += amount;
-      totals[label].count += 1;
-    };
-    purchases.forEach(purchase => {
-      const allocations = Array.isArray(purchase.paymentAllocations) && purchase.paymentAllocations.length > 0
-        ? purchase.paymentAllocations
-        : purchase.paidFromAccountId
-          ? [{ fundingType: 'registered' as const, accountId: purchase.paidFromAccountId, accountName: purchase.paymentMethod, amount: purchase.amountPaid }]
-          : [];
-      allocations.forEach((allocation: any) => {
-        const account = allocation.fundingType === 'external'
-          ? null
-          : configuredPaymentChannels.find(channel => channel.id === allocation.accountId || channel.id === allocation.sourceKey);
-        addFunding(
-          allocation.fundingType === 'external'
-            ? 'External Account'
-            : allocation.accountName || account?.name || allocation.accountId || 'Registered Account',
-          Math.max(0, Number(allocation.amount || 0)),
-        );
-      });
-    });
-    return totals;
-  }, [purchases, configuredPaymentChannels]);
-
-  const purchaseFundingEntries = useMemo(
-    () => Object.entries(purchaseFundingTotals).sort((a, b) => b[1].amount - a[1].amount),
-    [purchaseFundingTotals]
-  );
-
-  const dailyPaymentGroups = useMemo(() => {
-    const groups: Record<string, { total: number; cash: number; cardOnline: number; mobileMoney: number; bank: number; credit: number; count: number }> = {};
-    filteredSales.forEach(sale => {
-      const key = timestampToLocalDate(sale.timestamp);
-      if (!groups[key]) groups[key] = { total: 0, cash: 0, cardOnline: 0, mobileMoney: 0, bank: 0, credit: 0, count: 0 };
-      const revenue = saleProductRevenue(sale);
-      groups[key].total += revenue;
-      groups[key].count += 1;
-      const cls = classifyPaymentMethod(sale.paymentMethod);
-      if (cls === 'Cash') groups[key].cash += revenue;
-      else if (cls === 'CardAndOnline') groups[key].cardOnline += revenue;
-      else if (cls === 'MobileMoney') groups[key].mobileMoney += revenue;
-      else if (cls === 'BankTransfer') groups[key].bank += revenue;
-      else if (cls === 'Credit') groups[key].credit += revenue;
-    });
-    return Object.entries(groups)
-      .map(([date, vals]) => ({ date, ...vals }))
-      .sort((a, b) => b.date.localeCompare(a.date));
-  }, [filteredSales]);
-
-  // Deliveries: filtered to the same date range as every other report on
-  // this screen (the pre-deletion version read the whole `deliveries` array
-  // unfiltered, which would show every delivery ever regardless of the
-  // Date range picker above -- inconsistent with how the rest of this
-  // screen behaves, so scoped it to match).
-  const filteredDeliveries = useMemo(() => {
-    return deliveries.filter(d => {
-      const date = new Date(d.timestamp);
-      const start = new Date(startDateStr);
-      const end = new Date(endDateStr);
-      end.setHours(23, 59, 59, 999);
-      return date >= start && date <= end;
-    });
-  }, [deliveries, startDateStr, endDateStr]);
-
+  // Deliveries: deliberately NOT scoped to the Date range picker above.
+  // A real tenant check found every one of a business's logged deliveries
+  // older than the default 30-day window, which made the report look
+  // permanently empty/disconnected from real data for any business that
+  // logs deliveries infrequently. Reverted to the pre-deletion behavior of
+  // always showing the full delivery log.
   const deliveryReportStats = useMemo(() => {
-    const validDeliveries = filteredDeliveries.filter(d => d.status !== 'Cancelled');
+    const validDeliveries = deliveries.filter(d => d.status !== 'Cancelled');
     const deliveryIncome = validDeliveries.reduce((sum, d) => sum + (Number(d.deliveryCost) || 0), 0);
-    const deliveryExpensesList = filteredExpenses.filter(e => e.category === 'Delivery Expense' || e.category === 'Delivery Maintainance');
+    const deliveryExpensesList = expenses.filter(e => e.category === 'Delivery Expense' || e.category === 'Delivery Maintainance');
     const totalDeliveryExpenses = deliveryExpensesList.reduce((sum, e) => sum + e.amount, 0);
     const netDeliveryProfit = deliveryIncome - totalDeliveryExpenses;
     return {
@@ -739,7 +634,7 @@ export default function DashboardReports({
       totalDeliveryExpenses,
       netDeliveryProfit,
     };
-  }, [filteredDeliveries, filteredExpenses]);
+  }, [deliveries, expenses]);
 
   // Purchases ledger: did not exist as a report before this restoration --
   // built new, matching the Sales report's shape (date-scoped list +
@@ -832,6 +727,38 @@ export default function DashboardReports({
 
   const { totalSalesRevenue, totalCOGS, grossProfit, netProfit, totalExpensesCharged } = pnlStats;
 
+  // Exact expected start date for each preset, computed with the same math
+  // setPresetDateRange uses, so a preset button only shows as active when
+  // startDateStr/endDateStr are an exact match -- not a loose "ends today"
+  // check, which previously made Week and Month highlight together.
+  const todayStr = formatLocalDate();
+  const weekPresetStart = (() => {
+    const d = new Date();
+    const dayOfWeek = d.getDay();
+    const diff = d.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+    return formatLocalDate(new Date(d.setDate(diff)));
+  })();
+  const monthPresetStart = formatLocalDate(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+  const activePreset = startDateStr === todayStr && endDateStr === todayStr ? 'today'
+    : startDateStr === weekPresetStart && endDateStr === todayStr ? 'this-week'
+    : startDateStr === monthPresetStart && endDateStr === todayStr ? 'this-month'
+    : null;
+
+  useEffect(() => {
+    const el = tabScrollRef.current;
+    if (!el) return;
+    const updateHint = () => {
+      setShowTabScrollHint(el.scrollWidth > el.clientWidth + 4 && el.scrollLeft < el.scrollWidth - el.clientWidth - 4);
+    };
+    updateHint();
+    el.addEventListener('scroll', updateHint, { passive: true });
+    window.addEventListener('resize', updateHint);
+    return () => {
+      el.removeEventListener('scroll', updateHint);
+      window.removeEventListener('resize', updateHint);
+    };
+  }, []);
+
   return (
     <div id="reports-view" className="space-y-6 p-2 md:p-0">
       {/* HEADER & TOOLBAR */}
@@ -846,64 +773,75 @@ export default function DashboardReports({
           </p>
         </div>
 
-        <div className="reports-tab-grid gap-2 w-full lg:w-auto">
-          {[
-            { id: 'p&l', label: 'Profit & Loss', icon: BarChart3 },
-            { id: 'sales-report', label: 'Sales', icon: ShoppingBag },
-            { id: 'inventory', label: 'Inventory', icon: Package },
-            { id: 'expenses', label: 'Expenses', icon: Receipt },
-            { id: 'product-monitoring', label: 'Product Audit', icon: Tag },
-            { id: 'payments', label: 'Payments', icon: DollarSign },
-            { id: 'deliveries', label: 'Deliveries', icon: Truck },
-            { id: 'purchases-report', label: 'Purchases', icon: ShoppingCart },
-            { id: 'stock-adjustment', label: 'Stock Adjustment', icon: ArrowUpDown },
-          ].map((tab, i) => (
-            <button
-              key={tab.id}
-              onClick={() => { setReportTab(tab.id as any); setMobileView('report'); }}
-              className={`px-3 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap ${
-                reportTab === tab.id
-                  ? 'bg-emerald-600 text-white shadow-md'
-                  : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-              }`}
-            >
-              <tab.icon className={`w-3 h-3 shrink-0 ${reportTab === tab.id ? 'text-white' : 'text-slate-400'}`} />
-              <span>{tab.label}</span>
-            </button>
-          ))}
+        <div className="relative w-full lg:w-auto">
+          <div ref={tabScrollRef} className="reports-tab-grid gap-2 w-full lg:w-auto">
+            {[
+              { id: 'p&l', label: 'Profit & Loss', icon: BarChart3 },
+              { id: 'sales-report', label: 'Sales', icon: ShoppingBag },
+              { id: 'inventory', label: 'Inventory', icon: Package },
+              { id: 'expenses', label: 'Expenses', icon: Receipt },
+              { id: 'product-monitoring', label: 'Product Audit', icon: Tag },
+              { id: 'deliveries', label: 'Deliveries', icon: Truck },
+              { id: 'purchases-report', label: 'Purchases', icon: ShoppingCart },
+              { id: 'stock-adjustment', label: 'Stock Adjustment', icon: ArrowUpDown },
+            ].map((tab, i) => (
+              <button
+                key={tab.id}
+                onClick={() => { setReportTab(tab.id as any); setMobileView('report'); }}
+                className={`px-3 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap ${
+                  reportTab === tab.id
+                    ? 'bg-emerald-600 text-white shadow-md'
+                    : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                }`}
+              >
+                <tab.icon className={`w-3 h-3 shrink-0 ${reportTab === tab.id ? 'text-white' : 'text-slate-400'}`} />
+                <span>{tab.label}</span>
+              </button>
+            ))}
+          </div>
+          {showTabScrollHint && (
+            <div className="lg:hidden pointer-events-none absolute right-0 top-0 bottom-0 w-10 flex items-center justify-end bg-gradient-to-l from-white via-white/90 to-transparent rounded-r-xl">
+              <ChevronRight className="w-4 h-4 text-slate-400" />
+            </div>
+          )}
         </div>
       </div>
 
-      {/* FILTERS BAR */}
-      <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-white border border-slate-200 p-4 md:p-6 rounded-3xl shadow-sm">
-        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-          <div className="relative flex-1 md:flex-none">
-            <Calendar className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <input
-              type="date"
-              value={startDateStr}
-              max={endDateStr}
-              onChange={e => e.target.value && setStartDateStr(e.target.value)}
-              className="bg-slate-50 border border-slate-200 pl-9 pr-3 py-2 rounded-xl text-xs font-mono w-full focus:outline-none focus:border-emerald-500"
-            />
-          </div>
-          <span className="text-slate-300 font-bold">→</span>
-          <div className="relative flex-1 md:flex-none">
-            <Calendar className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <input
-              type="date"
-              value={endDateStr}
-              min={startDateStr}
-              onChange={e => e.target.value && setEndDateStr(e.target.value)}
-              className="bg-slate-50 border border-slate-200 pl-9 pr-3 py-2 rounded-xl text-xs font-mono w-full focus:outline-none focus:border-emerald-500"
-            />
-          </div>
-          <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 overflow-x-auto no-scrollbar">
+      {/* FILTERS BAR: search first, then date-range select, then quick presets
+          -- in that order, each on its own row, so this stays compact and
+          doesn't feel scattered on tablet the way one wide packed row did. */}
+      <div className="bg-white border border-slate-200 p-4 md:p-6 rounded-3xl shadow-sm space-y-3">
+        <div className="relative w-full">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            placeholder="Search reports..."
+            className="w-full bg-slate-50 border border-slate-200 pl-9 pr-4 py-2 rounded-xl text-xs focus:outline-none focus:border-emerald-500"
+          />
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowDateRangePicker(v => !v)}
+            aria-expanded={showDateRangePicker}
+            className={`h-9 px-3 flex items-center gap-1 rounded-xl border shrink-0 transition-colors ${
+              showDateRangePicker ? 'bg-slate-900 border-slate-900 text-white' : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'
+            }`}
+          >
+            <Calendar className="w-4 h-4" />
+            <ChevronDown className={`w-3 h-3 transition-transform ${showDateRangePicker ? 'rotate-180' : ''}`} />
+          </button>
+          <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 overflow-x-auto no-scrollbar flex-1">
             {['today', 'this-week', 'this-month'].map(preset => (
               <button
                 key={preset}
                 onClick={() => setPresetDateRange(preset as any)}
-                className="px-3 py-1 rounded-lg text-[10px] font-bold uppercase text-slate-500 hover:bg-white hover:text-slate-900 transition-all whitespace-nowrap"
+                className={`flex-1 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase whitespace-nowrap transition-all ${
+                  activePreset === preset ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:bg-white hover:text-slate-900'
+                }`}
               >
                 {preset.replace('-', ' ')}
               </button>
@@ -911,16 +849,26 @@ export default function DashboardReports({
           </div>
         </div>
 
-        <div className="relative w-full md:w-64">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input 
-            type="text" 
-            value={searchTerm} 
-            onChange={e => setSearchTerm(e.target.value)}
-            placeholder="Search reports..." 
-            className="w-full bg-slate-50 border border-slate-200 pl-9 pr-4 py-2 rounded-xl text-xs focus:outline-none focus:border-emerald-500" 
-          />
-        </div>
+        {showDateRangePicker && (
+          <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5">
+            <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+            <input
+              type="date"
+              value={startDateStr}
+              max={endDateStr}
+              onChange={e => e.target.value && setStartDateStr(e.target.value)}
+              className="flex-1 bg-transparent text-xs font-semibold text-slate-700 outline-none min-w-0"
+            />
+            <span className="text-slate-300 text-xs shrink-0">→</span>
+            <input
+              type="date"
+              value={endDateStr}
+              min={startDateStr}
+              onChange={e => e.target.value && setEndDateStr(e.target.value)}
+              className="flex-1 bg-transparent text-xs font-semibold text-slate-700 outline-none min-w-0"
+            />
+          </div>
+        )}
       </div>
 
       {/* CONTENT AREA */}
@@ -1524,141 +1472,14 @@ export default function DashboardReports({
           </div>
         )}
 
-        {reportTab === 'payments' && (
-          <div className="space-y-6">
-            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <h3 className="font-black text-slate-800 uppercase tracking-wider">Payments &amp; Money / Bank</h3>
-                <div className="flex flex-wrap gap-2">
-                  <ModernSelect
-                    title="Payment Mode"
-                    value={selectedPaymentMode}
-                    options={[
-                      { value: 'All', label: 'All' },
-                      { value: 'Cash', label: 'Cash' },
-                      { value: 'CardAndOnline', label: 'Card' },
-                      { value: 'MobileMoney', label: 'Mobile Money' },
-                      { value: 'BankTransfer', label: 'Bank' },
-                      { value: 'Credit', label: 'Credit' },
-                    ]}
-                    onChange={setSelectedPaymentMode}
-                  />
-                  <button
-                    onClick={handleDownloadActiveTabCSV}
-                    className="bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm shrink-0"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>Export CSV</span>
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Received By Channel</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {paymentMethodEntries.map(([key, entry]) => (
-                    <div key={key} className="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex items-center justify-between">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 shadow-sm shrink-0">
-                          <DollarSign className="w-5 h-5" />
-                        </div>
-                        <div className="text-left min-w-0">
-                          <h6 className="text-sm font-bold text-slate-900 truncate">{entry.label}</h6>
-                          <p className="text-xs text-slate-500">{entry.count} transaction{entry.count !== 1 ? 's' : ''}</p>
-                        </div>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <p className={`text-sm font-black ${entry.isCredit ? 'text-amber-600' : 'text-slate-900'}`}>{currency}{Math.round(entry.amount).toLocaleString()}</p>
-                      </div>
-                    </div>
-                  ))}
-                  {paymentMethodEntries.length === 0 && (
-                    <div className="col-span-full p-10 text-center text-slate-400 bg-slate-50 rounded-2xl border border-slate-200">
-                      <DollarSign className="w-8 h-8 text-slate-200 mx-auto mb-2" />
-                      <span>No payments recorded for this period.</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {purchaseFundingEntries.length > 0 && (
-                <div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Purchase Funding Breakdown</p>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs">
-                      <thead className="bg-slate-50 border-b border-slate-200">
-                        <tr>
-                          <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Paid From</th>
-                          <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Amount</th>
-                          <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Allocations</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {purchaseFundingEntries.map(([label, summary]) => (
-                          <tr key={label} className="hover:bg-slate-50 transition-colors">
-                            <td className={`p-3 font-bold ${label === 'External Account' ? 'text-amber-700' : 'text-slate-700'}`}>{label}</td>
-                            <td className="p-3 text-right font-mono font-black text-slate-900">{currency}{Math.round(summary.amount).toLocaleString()}</td>
-                            <td className="p-3 text-right text-slate-500">{summary.count}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Daily Transactions</p>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50 border-b border-slate-200">
-                      <tr>
-                        <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Date</th>
-                        <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-center">Receipts</th>
-                        <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Cash</th>
-                        <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Card/Online</th>
-                        <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Mobile Money</th>
-                        <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Bank</th>
-                        <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Credit</th>
-                        <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {dailyPaymentGroups.map(row => (
-                        <tr key={row.date} className="hover:bg-slate-50 transition-colors">
-                          <td className="p-3 font-mono font-bold text-slate-800 whitespace-nowrap">{row.date}</td>
-                          <td className="p-3 text-center font-bold text-slate-500">{row.count}</td>
-                          <td className="p-3 text-right font-mono text-slate-700">{currency}{Math.round(row.cash).toLocaleString()}</td>
-                          <td className="p-3 text-right font-mono text-slate-700">{currency}{Math.round(row.cardOnline).toLocaleString()}</td>
-                          <td className="p-3 text-right font-mono text-slate-700">{currency}{Math.round(row.mobileMoney).toLocaleString()}</td>
-                          <td className="p-3 text-right font-mono text-slate-700">{currency}{Math.round(row.bank).toLocaleString()}</td>
-                          <td className="p-3 text-right font-mono text-amber-700 font-bold">{currency}{Math.round(row.credit).toLocaleString()}</td>
-                          <td className="p-3 text-right font-mono font-black text-slate-900">{currency}{Math.round(row.total).toLocaleString()}</td>
-                        </tr>
-                      ))}
-                      {dailyPaymentGroups.length === 0 && (
-                        <tr>
-                          <td colSpan={8} className="p-10 text-center text-slate-400">
-                            <div className="flex flex-col items-center gap-2">
-                              <Receipt className="w-8 h-8 text-slate-200" />
-                              <span>No transactions found for this date range.</span>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
         {reportTab === 'deliveries' && (
           <div className="space-y-6">
             <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <h3 className="font-black text-slate-800 uppercase tracking-wider">Delivery Operations</h3>
+                <div>
+                  <h3 className="font-black text-slate-800 uppercase tracking-wider">Delivery Operations</h3>
+                  <p className="text-xs text-slate-500 mt-1">Full delivery history (not limited by the Date range above).</p>
+                </div>
                 <button
                   onClick={handleDownloadActiveTabCSV}
                   className="bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm shrink-0"
@@ -1682,7 +1503,7 @@ export default function DashboardReports({
                       </div>
                       <div className="text-left min-w-0">
                         <h6 className="text-sm font-bold text-slate-900">{metric.label}</h6>
-                        <p className="text-xs text-slate-500">Calculated over period</p>
+                        <p className="text-xs text-slate-500">All-time total</p>
                       </div>
                     </div>
                     <div className="text-right shrink-0">
