@@ -60,6 +60,7 @@ import { getActiveBranchAddress, getActiveBranchDisplayName, getActiveBranchEmai
 import type { BranchSummary } from '../branches/branchTypes';
 import { formatLocalDate, parseLocalDate, timestampToLocalDate } from '../../shared/utils/localDate';
 import { getSaleItemGrossTotal, getSaleItemLineTotal } from '../sales/utils/saleItemTotals';
+import { onlineStorage } from '../../shared/utils/onlineStorage';
 
 const saleProductRevenue = (s: any): number =>
   s.productTotal !== undefined ? s.productTotal : (s.total - (s.deliveryCost || 0));
@@ -437,6 +438,14 @@ export default function DashboardReports({
         });
         break;
       }
+      case 'stock-adjustment': {
+        csv = headerPrefix;
+        csv += "Adjustment ID,Product,SKU,Type,Qty,Before,After,Reason,Adjusted At\\r\\n";
+        stockAdjustmentRows.forEach((a: any) => {
+          csv += `"${a.id}","${a.productName}","${a.sku || ''}","${a.type}",${a.qty},${a.previousStock},${a.newStock},"${(a.reason || '').replace(/"/g, '""')}","${new Date(a.adjustedAt).toLocaleString()}"\\r\\n`;
+        });
+        break;
+      }
       default:
         csv = "Export not supported for this report type.";
     }
@@ -753,6 +762,37 @@ export default function DashboardReports({
     return { sorted, totalPurchased, totalPaid, totalOutstanding };
   }, [filteredPurchases]);
 
+  // Stock Adjustment: reads the log that Products -> Adjust Stock already
+  // writes today (onlineStorage key 'jasper_stock_adjustments', synced per
+  // tenant via the tenant_data table -- see src/shared/utils/onlineStorage.ts).
+  // Only the report view was ever deleted; the write side was never touched
+  // and needs no changes. Re-reads when this tab is opened or the date
+  // range changes, since onlineStorage has no React subscription mechanism.
+  const stockAdjustmentRows = useMemo(() => {
+    if (reportTab !== 'stock-adjustment') return [];
+    let all: any[] = [];
+    try {
+      all = JSON.parse(onlineStorage.getItem('jasper_stock_adjustments') || '[]');
+    } catch {
+      all = [];
+    }
+    const start = new Date(startDateStr);
+    const end = new Date(endDateStr);
+    end.setHours(23, 59, 59, 999);
+    return all
+      .filter((a: any) => {
+        const t = new Date(a.adjustedAt).getTime();
+        return t >= start.getTime() && t <= end.getTime();
+      })
+      .sort((a: any, b: any) => new Date(b.adjustedAt).getTime() - new Date(a.adjustedAt).getTime());
+  }, [reportTab, startDateStr, endDateStr]);
+
+  const stockAdjustmentTotals = useMemo(() => {
+    const totalAdded = stockAdjustmentRows.filter((a: any) => a.type === 'add').reduce((s: number, a: any) => s + a.qty, 0);
+    const totalDeducted = stockAdjustmentRows.filter((a: any) => a.type === 'deduct').reduce((s: number, a: any) => s + a.qty, 0);
+    return { totalAdded, totalDeducted };
+  }, [stockAdjustmentRows]);
+
   const filteredInventoryProducts = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
     if (!q) return products;
@@ -816,6 +856,7 @@ export default function DashboardReports({
             { id: 'payments', label: 'Payments', icon: DollarSign },
             { id: 'deliveries', label: 'Deliveries', icon: Truck },
             { id: 'purchases-report', label: 'Purchases', icon: ShoppingCart },
+            { id: 'stock-adjustment', label: 'Stock Adjustment', icon: ArrowUpDown },
           ].map((tab, i) => (
             <button
               key={tab.id}
@@ -1782,7 +1823,97 @@ export default function DashboardReports({
           </div>
         )}
 
-        {reportTab !== 'p&l' && reportTab !== 'sales-report' && reportTab !== 'inventory' && reportTab !== 'expenses' && reportTab !== 'product-monitoring' && reportTab !== 'payments' && reportTab !== 'deliveries' && reportTab !== 'purchases-report' && (
+        {reportTab === 'stock-adjustment' && (
+          <div className="space-y-6">
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h3 className="font-black text-slate-800 uppercase tracking-wider">Stock Adjustment Log</h3>
+                  <p className="text-xs text-slate-500 mt-1">Manual stock additions and deductions from Products → Adjust Stock.</p>
+                </div>
+                <button
+                  onClick={handleDownloadActiveTabCSV}
+                  className="bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm shrink-0"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Export CSV</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {[
+                  { label: 'Total Events', value: stockAdjustmentRows.length.toLocaleString(), icon: ArrowUpDown, color: 'text-slate-900' },
+                  { label: 'Units Added', value: `+${stockAdjustmentTotals.totalAdded.toLocaleString()}`, icon: TrendingUp, color: 'text-emerald-700' },
+                  { label: 'Units Deducted', value: `-${stockAdjustmentTotals.totalDeducted.toLocaleString()}`, icon: MinusCircle, color: 'text-rose-600' },
+                ].map((metric, i) => (
+                  <div key={i} className="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 shadow-sm">
+                        <metric.icon className="w-5 h-5" />
+                      </div>
+                      <div className="text-left">
+                        <h6 className="text-sm font-bold text-slate-900">{metric.label}</h6>
+                        <p className="text-xs text-slate-500">Calculated over period</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className={`text-sm font-black ${metric.color}`}>{metric.value}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 border-b border-slate-200">
+                    <tr>
+                      <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Date &amp; Time</th>
+                      <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Product</th>
+                      <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-center">Type</th>
+                      <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Qty</th>
+                      <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Before</th>
+                      <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">After</th>
+                      <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Reason</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {stockAdjustmentRows.map((a: any, i: number) => (
+                      <tr key={a.id || i} className="hover:bg-slate-50 transition-colors">
+                        <td className="p-3 text-slate-500 whitespace-nowrap">{new Date(a.adjustedAt).toLocaleDateString()} {new Date(a.adjustedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                        <td className="p-3">
+                          <p className="font-bold text-slate-800">{a.productName}</p>
+                          <p className="text-[10px] text-slate-400 font-mono">{a.sku || '—'}</p>
+                        </td>
+                        <td className="p-3 text-center">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${a.type === 'add' ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'}`}>
+                            {a.type === 'add' ? '+ Add' : '− Deduct'}
+                          </span>
+                        </td>
+                        <td className={`p-3 text-right font-mono font-black ${a.type === 'add' ? 'text-emerald-700' : 'text-rose-600'}`}>{a.type === 'add' ? '+' : '-'}{a.qty}</td>
+                        <td className="p-3 text-right font-mono text-slate-500">{a.previousStock}</td>
+                        <td className="p-3 text-right font-mono font-bold text-slate-800">{a.newStock}</td>
+                        <td className="p-3 text-slate-500 max-w-[180px] truncate">{a.reason || '—'}</td>
+                      </tr>
+                    ))}
+                    {stockAdjustmentRows.length === 0 && (
+                      <tr>
+                        <td colSpan={7} className="p-10 text-center text-slate-400">
+                          <div className="flex flex-col items-center gap-2">
+                            <ArrowUpDown className="w-8 h-8 text-slate-200" />
+                            <span>No stock adjustments in this date range.</span>
+                            <span className="text-[11px] text-slate-300">Use Products → Adjust Stock to record manual changes.</span>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {reportTab !== 'p&l' && reportTab !== 'sales-report' && reportTab !== 'inventory' && reportTab !== 'expenses' && reportTab !== 'product-monitoring' && reportTab !== 'payments' && reportTab !== 'deliveries' && reportTab !== 'purchases-report' && reportTab !== 'stock-adjustment' && (
           <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
             <div className="p-6 bg-slate-50 rounded-full text-slate-300">
               <FileText className="w-12 h-12" />
