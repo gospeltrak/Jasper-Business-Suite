@@ -202,7 +202,7 @@ export default function DashboardReports({
 
   const [mobileView, setMobileView] = useState<'menu' | 'report'>('menu');
 
-  const setPresetDateRange = (preset: 'today' | 'this-week' | 'this-month' | 'last-30') => {
+  const setPresetDateRange = (preset: 'today' | 'this-week' | 'this-month') => {
     const today = new Date();
     const endStr = formatLocalDate(today);
     let startStr = '';
@@ -217,10 +217,6 @@ export default function DashboardReports({
     } else if (preset === 'this-month') {
       const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
       startStr = formatLocalDate(firstDay);
-    } else if (preset === 'last-30') {
-      const past30 = new Date();
-      past30.setDate(past30.getDate() - 30);
-      startStr = formatLocalDate(past30);
     }
 
     setStartDateStr(startStr);
@@ -605,18 +601,30 @@ export default function DashboardReports({
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between bg-white border border-slate-200 p-4 md:p-6 rounded-3xl shadow-sm">
         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
           <div className="relative flex-1 md:flex-none">
-            <Calendar className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input type="text" readOnly value={startDateStr} className="bg-slate-50 border border-slate-200 pl-9 pr-3 py-2 rounded-xl text-xs font-mono w-full" />
+            <Calendar className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="date"
+              value={startDateStr}
+              max={endDateStr}
+              onChange={e => e.target.value && setStartDateStr(e.target.value)}
+              className="bg-slate-50 border border-slate-200 pl-9 pr-3 py-2 rounded-xl text-xs font-mono w-full focus:outline-none focus:border-emerald-500"
+            />
           </div>
           <span className="text-slate-300 font-bold">→</span>
           <div className="relative flex-1 md:flex-none">
-            <Calendar className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input type="text" readOnly value={endDateStr} className="bg-slate-50 border border-slate-200 pl-9 pr-3 py-2 rounded-xl text-xs font-mono w-full" />
+            <Calendar className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              type="date"
+              value={endDateStr}
+              min={startDateStr}
+              onChange={e => e.target.value && setEndDateStr(e.target.value)}
+              className="bg-slate-50 border border-slate-200 pl-9 pr-3 py-2 rounded-xl text-xs font-mono w-full focus:outline-none focus:border-emerald-500"
+            />
           </div>
           <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 overflow-x-auto no-scrollbar">
-            {['today', 'this-week', 'this-month', 'last-30'].map(preset => (
-              <button 
-                key={preset} 
+            {['today', 'this-week', 'this-month'].map(preset => (
+              <button
+                key={preset}
                 onClick={() => setPresetDateRange(preset as any)}
                 className="px-3 py-1 rounded-lg text-[10px] font-bold uppercase text-slate-500 hover:bg-white hover:text-slate-900 transition-all whitespace-nowrap"
               >
@@ -798,18 +806,26 @@ export default function DashboardReports({
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Revenue</p>
-                  <p className="text-lg font-black text-slate-900 font-mono mt-1">{currency}{Math.round(salesTotals.totalRevenue).toLocaleString()}</p>
-                </div>
-                <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-100">
-                  <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest">Transactions</p>
-                  <p className="text-lg font-black text-emerald-800 font-mono mt-1">{salesTotals.count.toLocaleString()}</p>
-                </div>
-                <div className="p-4 rounded-2xl bg-amber-50 border border-amber-100">
-                  <p className="text-[10px] font-bold text-amber-700 uppercase tracking-widest">Average Ticket</p>
-                  <p className="text-lg font-black text-amber-800 font-mono mt-1">{currency}{Math.round(salesTotals.avg).toLocaleString()}</p>
-                </div>
+                {[
+                  { label: 'Total Revenue', value: `${currency}${Math.round(salesTotals.totalRevenue).toLocaleString()}`, icon: DollarSign, color: 'text-slate-900' },
+                  { label: 'Transactions', value: salesTotals.count.toLocaleString(), icon: ShoppingBag, color: 'text-slate-900' },
+                  { label: 'Average Ticket', value: `${currency}${Math.round(salesTotals.avg).toLocaleString()}`, icon: TrendingUp, color: 'text-slate-900' },
+                ].map((metric, i) => (
+                  <div key={i} className="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 shadow-sm">
+                        <metric.icon className="w-5 h-5" />
+                      </div>
+                      <div className="text-left">
+                        <h6 className="text-sm font-bold text-slate-900">{metric.label}</h6>
+                        <p className="text-xs text-slate-500">Calculated over period</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className={`text-sm font-black ${metric.color}`}>{metric.value}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
 
               <div className="overflow-x-auto">
@@ -867,18 +883,26 @@ export default function DashboardReports({
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Units On Hand</p>
-                  <p className="text-lg font-black text-slate-900 font-mono mt-1">{inventoryTotals.totalUnits.toLocaleString()}</p>
-                </div>
-                <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-100">
-                  <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest">Stock Valuation (Cost)</p>
-                  <p className="text-lg font-black text-emerald-800 font-mono mt-1">{currency}{Math.round(inventoryTotals.totalValuation).toLocaleString()}</p>
-                </div>
-                <div className="p-4 rounded-2xl bg-amber-50 border border-amber-100">
-                  <p className="text-[10px] font-bold text-amber-700 uppercase tracking-widest">Low Stock Items</p>
-                  <p className="text-lg font-black text-amber-800 font-mono mt-1">{inventoryTotals.lowStockCount.toLocaleString()}</p>
-                </div>
+                {[
+                  { label: 'Units On Hand', value: inventoryTotals.totalUnits.toLocaleString(), icon: Package, color: 'text-slate-900' },
+                  { label: 'Stock Valuation (Cost)', value: `${currency}${Math.round(inventoryTotals.totalValuation).toLocaleString()}`, icon: DollarSign, color: 'text-slate-900' },
+                  { label: 'Low Stock Items', value: inventoryTotals.lowStockCount.toLocaleString(), icon: AlertCircle, color: inventoryTotals.lowStockCount > 0 ? 'text-amber-600' : 'text-slate-900' },
+                ].map((metric, i) => (
+                  <div key={i} className="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 shadow-sm">
+                        <metric.icon className="w-5 h-5" />
+                      </div>
+                      <div className="text-left">
+                        <h6 className="text-sm font-bold text-slate-900">{metric.label}</h6>
+                        <p className="text-xs text-slate-500">Calculated over period</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className={`text-sm font-black ${metric.color}`}>{metric.value}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
 
               <div className="overflow-x-auto">
@@ -955,18 +979,26 @@ export default function DashboardReports({
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="p-4 rounded-2xl bg-rose-50 border border-rose-100">
-                  <p className="text-[10px] font-bold text-rose-700 uppercase tracking-widest">Total Charged</p>
-                  <p className="text-lg font-black text-rose-700 font-mono mt-1">{currency}{Math.round(expenseTotals.total).toLocaleString()}</p>
-                </div>
-                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Entries Logged</p>
-                  <p className="text-lg font-black text-slate-900 font-mono mt-1">{expenseTotals.count.toLocaleString()}</p>
-                </div>
-                <div className="p-4 rounded-2xl bg-amber-50 border border-amber-100">
-                  <p className="text-[10px] font-bold text-amber-700 uppercase tracking-widest">Average Entry</p>
-                  <p className="text-lg font-black text-amber-800 font-mono mt-1">{currency}{Math.round(expenseTotals.avg).toLocaleString()}</p>
-                </div>
+                {[
+                  { label: 'Total Charged', value: `${currency}${Math.round(expenseTotals.total).toLocaleString()}`, icon: Receipt, color: 'text-rose-600' },
+                  { label: 'Entries Logged', value: expenseTotals.count.toLocaleString(), icon: FileText, color: 'text-slate-900' },
+                  { label: 'Average Entry', value: `${currency}${Math.round(expenseTotals.avg).toLocaleString()}`, icon: DollarSign, color: 'text-slate-900' },
+                ].map((metric, i) => (
+                  <div key={i} className="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 shadow-sm">
+                        <metric.icon className="w-5 h-5" />
+                      </div>
+                      <div className="text-left">
+                        <h6 className="text-sm font-bold text-slate-900">{metric.label}</h6>
+                        <p className="text-xs text-slate-500">Calculated over period</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className={`text-sm font-black ${metric.color}`}>{metric.value}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
 
               <div className="overflow-x-auto">
