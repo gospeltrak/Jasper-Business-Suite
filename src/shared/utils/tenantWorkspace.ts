@@ -622,12 +622,26 @@ export async function loadTenantWorkspace(tenantId: string): Promise<TenantWorks
   return readCachedWorkspace(tenantId) || core;
 }
 
+// A failed core fetch here is far more often a brief mobile-network blip
+// than a real outage -- retrying a couple of times, a moment apart, lets
+// that kind of transient failure self-heal before the caller (a branch
+// switch) shows the user an error. Bounded and only on the failure path, so
+// the normal, successful case is completely unaffected.
+const RELOAD_RETRY_ATTEMPTS = 2;
+const RELOAD_RETRY_DELAY_MS = 800;
+const delay = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
 /** Reloads branch-scoped workspace data after the active branch changes. */
 export async function reloadTenantWorkspace(tenantId: string): Promise<TenantWorkspace | null> {
   if (!tenantId) return null;
   inFlightCoreLoads.delete(tenantId);
   inFlightLedgerLoads.delete(tenantId);
-  const core = await fetchWorkspaceCore(tenantId);
+  let core = await fetchWorkspaceCore(tenantId);
+  for (let attempt = 0; !core && attempt < RELOAD_RETRY_ATTEMPTS; attempt++) {
+    await delay(RELOAD_RETRY_DELAY_MS);
+    inFlightCoreLoads.delete(tenantId);
+    core = await fetchWorkspaceCore(tenantId);
+  }
   if (!core) return null;
   if (!core.complete) {
     const ledgers = completeWorkspaceLedgers(tenantId, core).finally(() => {

@@ -794,6 +794,15 @@ test('Tanzanite reminders are limited to 3/2/1 days and are session-deduplicated
   assert.match(dashboardSource, /sessionStorage\.setItem\(subscriptionReminderKey, 'dismissed'\)/);
 });
 
+test('a branch switch retries a failed reload before showing an error toast', async () => {
+  const workspaceSource = await read('src/shared/utils/tenantWorkspace.ts');
+  assert.match(workspaceSource, /RELOAD_RETRY_ATTEMPTS = 2/);
+  assert.match(
+    workspaceSource,
+    /for \(let attempt = 0; !core && attempt < RELOAD_RETRY_ATTEMPTS; attempt\+\+\)/,
+  );
+});
+
 test('renewals preserve unused time and reject duplicate grants atomically', async () => {
   const serverSource = await read('server.ts');
   const migration = await read('supabase/migrations/20260728000300_subscription_renewal_preservation.sql');
