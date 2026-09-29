@@ -2,6 +2,7 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 import {defineConfig, loadEnv} from 'vite';
+import {visualizer} from 'rollup-plugin-visualizer';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
@@ -9,7 +10,18 @@ export default defineConfig(({ mode }) => {
   const supabaseAnonKey = env.VITE_SUPABASE_ANON_KEY || env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
 
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [
+      react(),
+      tailwindcss(),
+      // Dev-only bundle inspection, opt-in via ANALYZE=true. Never runs in a
+      // normal build, so it changes nothing about the shipped app.
+      ...(process.env.ANALYZE === 'true' ? [visualizer({
+        filename: 'dist/bundle-analysis.html',
+        gzipSize: true,
+        brotliSize: true,
+        template: 'treemap',
+      })] : []),
+    ],
     define: {
       'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(supabaseUrl),
       'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(supabaseAnonKey),
