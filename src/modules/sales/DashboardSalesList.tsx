@@ -1856,6 +1856,7 @@ export default function DashboardSalesList({
         {/* Mobile View: Cards */}
         <div className="sales-cards-tablet-grid xl:hidden flex flex-col space-y-3 pb-[calc(80px+env(safe-area-inset-bottom))]">
           {filteredSales.map((sale) => {
+            const saleItems = sale.items || [];
             const totalVal = sale.total;
             const isCredit = sale.paymentMethod === 'Credit';
             const amountPaid = sale.amountPaid !== undefined ? sale.amountPaid : totalVal;
@@ -1888,14 +1889,14 @@ export default function DashboardSalesList({
                         <p className="font-extrabold text-slate-900 text-[14px] leading-tight truncate">
                           {sale.customerName || 'Customer'}
                         </p>
-                        {sale.items.some(i => i.prescriptionRequired) && (
+                        {saleItems.some(i => i.prescriptionRequired) && (
                           <span title="Includes a prescription medicine" className="shrink-0 px-1.5 py-0.5 rounded-full text-[8.5px] font-mono font-black uppercase tracking-wider bg-rose-100 text-rose-700 border border-rose-200">
                             Rx
                           </span>
                         )}
                       </div>
                       <p className="text-[10px] text-slate-400 font-mono mt-0.5">
-                        #{sale.reference || sale.id.substring(0,6)} · {sale.items.length} line item{sale.items.length === 1 ? '' : 's'}
+                        #{sale.reference || sale.id.substring(0,6)} · {saleItems.length} line item{saleItems.length === 1 ? '' : 's'}
                       </p>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
@@ -1993,6 +1994,7 @@ export default function DashboardSalesList({
               </thead>
               <tbody>
                 {filteredSales.map((sale, idx) => {
+                  const saleItems = sale.items || [];
                   const totalVal = sale.total;
                   const isCredit = sale.paymentMethod === 'Credit';
                   const initialPaid = sale.amountPaid !== undefined ? sale.amountPaid : (isCredit ? 0 : totalVal);
@@ -2030,14 +2032,14 @@ export default function DashboardSalesList({
                       {/* Items */}
                       <td className="py-3.5 px-4 max-w-[160px]">
                         <div className="flex items-center gap-1.5">
-                          <p className="font-bold text-slate-700 text-[12px]">{sale.items.length} line item{sale.items.length === 1 ? '' : 's'}</p>
-                          {sale.items.some(i => i.prescriptionRequired) && (
+                          <p className="font-bold text-slate-700 text-[12px]">{saleItems.length} line item{saleItems.length === 1 ? '' : 's'}</p>
+                          {saleItems.some(i => i.prescriptionRequired) && (
                             <span title="Includes a prescription medicine" className="shrink-0 px-1.5 py-0.5 rounded-full text-[8.5px] font-mono font-black uppercase tracking-wider bg-rose-100 text-rose-700 border border-rose-200">
                               Rx
                             </span>
                           )}
                         </div>
-                        <p className="text-[10px] text-slate-400 truncate">{sale.items.slice(0,2).map(i => i.productName).join(', ')}{sale.items.length > 2 ? ` +${sale.items.length-2}` : ''}</p>
+                        <p className="text-[10px] text-slate-400 truncate">{saleItems.slice(0,2).map(i => i.productName).join(', ')}{saleItems.length > 2 ? ` +${saleItems.length-2}` : ''}</p>
                       </td>
 
                       {/* Method */}
@@ -2127,7 +2129,7 @@ export default function DashboardSalesList({
                                   className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
                                   <Eye className="w-3.5 h-3.5 text-slate-400 shrink-0" /> View Sale
                                 </button>
-                                <button onClick={() => { setEditingSale(sale); setEditFormFields({customerName:sale.customerName||'',customerPhone:sale.customerPhone||'',paymentMethod:sale.paymentMethod,amountPaid:initialPaid,amountDue:calculatedDue,items:[...sale.items],saleDate:computeSaleDateStr(sale)}); setEditCartEmptyWarning(null); setActiveMenuId(null); setMenuPos(null); }}
+                                <button onClick={() => { setEditingSale(sale); setEditFormFields({customerName:sale.customerName||'',customerPhone:sale.customerPhone||'',paymentMethod:sale.paymentMethod,amountPaid:initialPaid,amountDue:calculatedDue,items:[...(sale.items || [])],saleDate:computeSaleDateStr(sale)}); setEditCartEmptyWarning(null); setActiveMenuId(null); setMenuPos(null); }}
                                   className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
                                   <Edit className="w-3.5 h-3.5 text-amber-400 shrink-0" /> Edit Sale
                                 </button>
@@ -2413,7 +2415,7 @@ export default function DashboardSalesList({
                         <div className="bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-700 rounded-xl p-3 text-[11px] space-y-1">
                           <span className="block text-[8px] font-mono font-bold uppercase tracking-widest text-slate-400">Items summary</span>
                           <div className="max-h-[70px] overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
-                            {s.items.map((item, idx) => (
+                            {(s.items || []).map((item, idx) => (
                               <div key={idx} className="flex justify-between py-1 font-sans text-slate-600 dark:text-slate-300 text-[11px]">
                                 <span className="truncate pr-2">{formatSaleItemQuantity(item, products.find(product => product.id === item.productId))} × {item.productName}</span>
                                 <span className="font-mono shrink-0">{currency}{item.price.toLocaleString()}</span>
@@ -2471,7 +2473,7 @@ export default function DashboardSalesList({
                         <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 text-[11px] space-y-1">
                           <span className="block text-[8px] font-mono font-bold uppercase tracking-widest text-slate-400">Items summary</span>
                           <div className="max-h-[70px] overflow-y-auto divide-y divide-slate-100">
-                            {s.items.map((item, idx) => (
+                            {(s.items || []).map((item, idx) => (
                               <div key={idx} className="flex justify-between py-1 font-sans text-slate-600 text-[11px]">
                                 <span>{formatSaleItemQuantity(item, products.find(product => product.id === item.productId))} × {item.productName}</span>
                                 <span className="font-mono">{currency}{item.price.toLocaleString()}</span>
@@ -2866,7 +2868,7 @@ export default function DashboardSalesList({
 
                           <div className="space-y-1.5 max-h-[160px] overflow-y-auto pr-1">
                             {todayCashSales.map(s => {
-                              const itemsSummary = s.items.map(i => `${i.productName} (${formatSaleItemQuantity(i, products.find(product => product.id === i.productId))})`).join(', ');
+                              const itemsSummary = (s.items || []).map(i => `${i.productName} (${formatSaleItemQuantity(i, products.find(product => product.id === i.productId))})`).join(', ');
                               return (
                                 <div key={s.id} className="bg-white border border-slate-200 p-2 rounded-xl flex items-center justify-between text-[11px] hover:border-indigo-300 transition-all">
                                   <div>
@@ -3390,7 +3392,7 @@ export default function DashboardSalesList({
         const filteredDocs = documents.filter(doc => {
           if (doc.deletedAt) return false;
           const matchType = selectedDocTypeFilter === 'all' || doc.type === selectedDocTypeFilter;
-          const matchSearch = doc.customerName.toLowerCase().includes(searchTerm.toLowerCase()) || doc.documentNumber.toLowerCase().includes(searchTerm.toLowerCase());
+          const matchSearch = (doc.customerName || '').toLowerCase().includes(searchTerm.toLowerCase()) || doc.documentNumber.toLowerCase().includes(searchTerm.toLowerCase());
           return matchType && matchSearch;
         });
 
@@ -3487,7 +3489,7 @@ export default function DashboardSalesList({
                         </span>
                         <span className="text-slate-200">·</span>
                         <span className="text-[10px] text-slate-400">
-                          {doc.items.length} item{doc.items.length !== 1 ? 's' : ''}
+                          {(doc.items || []).length} item{(doc.items || []).length !== 1 ? 's' : ''}
                         </span>
                       </div>
 
@@ -3714,7 +3716,7 @@ export default function DashboardSalesList({
                       </tr>
                     </thead>
                     <tbody>
-                      {selectedSale.items.map((item, index) => (
+                      {(selectedSale.items || []).map((item, index) => (
                         <tr key={index} className={index % 2 ? 'bg-slate-50/60' : 'bg-white'}>
                           <td className="py-3 px-4 text-slate-400 font-mono">{index + 1}</td>
                           <td className="py-3 px-4 font-semibold text-slate-800">{item.productName}</td>
@@ -3729,7 +3731,7 @@ export default function DashboardSalesList({
                   <div className="flex justify-end">
                     <div className="w-72 space-y-2 font-mono text-xs shrink-0">
                       {(() => {
-                        const subtotal = selectedSale.items.reduce((sum, item) => sum + getSaleItemLineTotal(item), 0);
+                        const subtotal = (selectedSale.items || []).reduce((sum, item) => sum + getSaleItemLineTotal(item), 0);
                         const paid = selectedSale.amountPaid !== undefined ? selectedSale.amountPaid : (selectedSale.paymentMethod === 'Credit' ? 0 : selectedSale.total);
                         const balance = Math.max(0, selectedSale.total - paid);
                         return <>
@@ -3884,7 +3886,7 @@ export default function DashboardSalesList({
                     <span className="w-16 shrink-0 text-right">Bei</span>
                     <span className="w-16 shrink-0 text-right">Jumla</span>
                   </div>
-                  {selectedSale.items.map((item, index) => {
+                  {(selectedSale.items || []).map((item, index) => {
                     const isItemCash = item.discountType === 'cash';
                     const priceAfterDiscount = isItemCash
                       ? Math.max(0, (item.selectedUnitPrice ?? item.price) - item.discount)
@@ -3899,7 +3901,7 @@ export default function DashboardSalesList({
                           <span className="w-16 shrink-0 text-right">{currency}{Math.round(priceAfterDiscount).toLocaleString()}</span>
                           <span className="w-16 shrink-0 text-right font-bold">{currency}{Math.round(priceAfterDiscount * item.qty).toLocaleString()}</span>
                         </div>
-                        {index < selectedSale.items.length - 1 && <div className="border-t border-dashed border-slate-200" />}
+                        {index < (selectedSale.items || []).length - 1 && <div className="border-t border-dashed border-slate-200" />}
                       </div>
                     );
                   })}
@@ -4456,7 +4458,7 @@ export default function DashboardSalesList({
                 <h5 className="text-[10px] uppercase font-mono font-bold text-slate-400 tracking-wider">Items Purchased</h5>
                 
                 <div className="divide-y divide-slate-100 border border-slate-200 rounded-2xl overflow-hidden bg-white">
-                  {viewingSaleDetail.items.map((item, index) => {
+                  {(viewingSaleDetail.items || []).map((item, index) => {
                     const matchingProduct = products?.find(
                       p => p.id === item.productId || p.barcode === item.productId
                     );
@@ -4495,7 +4497,7 @@ export default function DashboardSalesList({
               {/* Balance tally */}
               <div className="border-t border-slate-100 pt-4 space-y-2 text-xs">
                 {(() => {
-                  const itemsSubtotal = viewingSaleDetail.items.reduce((sum, item) => sum + getSaleItemLineTotal(item), 0);
+                  const itemsSubtotal = (viewingSaleDetail.items || []).reduce((sum, item) => sum + getSaleItemLineTotal(item), 0);
                   const discountVal = viewingSaleDetail.discount !== undefined ? viewingSaleDetail.discount : 0;
                   const discountType = viewingSaleDetail.discountType || 'percent';
                   const computedDiscountAmount = discountType === 'percent' ? itemsSubtotal * (discountVal / 100) : discountVal;
@@ -5667,7 +5669,7 @@ export default function DashboardSalesList({
                           </tr>
                         </thead>
                         <tbody>
-                          {viewingDocument.items.map((item, idx) => {
+                          {(viewingDocument.items || []).map((item, idx) => {
                             const lineTotal = getLineTotal(item);
                             const displayName = getDocumentItemName(item);
                             const itemDescription = (item as any).description || (item as any).item_description;
@@ -5915,7 +5917,7 @@ export default function DashboardSalesList({
                       paymentMethod: mobileActionsSale.paymentMethod,
                       amountPaid: initialPaid,
                       amountDue: calculatedDue,
-                      items: [...mobileActionsSale.items],
+                      items: [...(mobileActionsSale.items || [])],
                       saleDate: computeSaleDateStr(mobileActionsSale)
                     });
                     setEditCartEmptyWarning(null);

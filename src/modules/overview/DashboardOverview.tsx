@@ -137,7 +137,7 @@ export default function DashboardOverview({
   // Calculate cost of items sold, gross profit
   const totalCost = useMemo(() => {
     return filteredSales.reduce((sum, s) => {
-      return sum + s.items.reduce((itemSum, item) => {
+      return sum + (s.items || []).reduce((itemSum, item) => {
         const prod = products.find(p => p.id === item.productId);
         const cost = prod ? prod.costPrice : item.price * 0.70; // fallback to 30% margin
         return itemSum + (cost * item.qty);
@@ -285,7 +285,7 @@ export default function DashboardOverview({
 
   // Calculate total sold units dynamically
   const totalQtySold = useMemo(() => {
-    return filteredSales.reduce((acc, s) => acc + s.items.reduce((sum, item) => sum + item.qty, 0), 0);
+    return filteredSales.reduce((acc, s) => acc + (s.items || []).reduce((sum, item) => sum + item.qty, 0), 0);
   }, [filteredSales]);
 
   // Row expansion state for invoice ID
@@ -344,7 +344,7 @@ export default function DashboardOverview({
 
         const actualSum = segSales.reduce((acc, s) => acc + saleProductRevenue(s), 0);
         const actualCost = segSales.reduce((sum, s) => {
-          return sum + s.items.reduce((itemSum, item) => {
+          return sum + (s.items || []).reduce((itemSum, item) => {
             const prod = products.find(p => p.id === item.productId);
             const cost = prod ? prod.costPrice : item.price * 0.70;
             return itemSum + (cost * item.qty);
@@ -391,7 +391,7 @@ export default function DashboardOverview({
 
         const actualSum = daySales.reduce((acc, s) => acc + saleProductRevenue(s), 0);
         const actualCost = daySales.reduce((sum, s) => {
-          return sum + s.items.reduce((itemSum, item) => {
+          return sum + (s.items || []).reduce((itemSum, item) => {
             const prod = products.find(p => p.id === item.productId);
             const cost = prod ? prod.costPrice : item.price * 0.70;
             return itemSum + (cost * item.qty);
@@ -428,7 +428,7 @@ export default function DashboardOverview({
 
         const actualSum = wkSales.reduce((acc, s) => acc + saleProductRevenue(s), 0);
         const actualCost = wkSales.reduce((sum, s) => {
-          return sum + s.items.reduce((itemSum, item) => {
+          return sum + (s.items || []).reduce((itemSum, item) => {
             const prod = products.find(p => p.id === item.productId);
             const cost = prod ? prod.costPrice : item.price * 0.70;
             return itemSum + (cost * item.qty);
@@ -470,7 +470,7 @@ export default function DashboardOverview({
 
       const actualSum = monthSales.reduce((acc, s) => acc + saleProductRevenue(s), 0);
       const actualCost = monthSales.reduce((sum, s) => {
-        return sum + s.items.reduce((itemSum, item) => {
+        return sum + (s.items || []).reduce((itemSum, item) => {
           const prod = products.find(p => p.id === item.productId);
           const cost = prod ? prod.costPrice : item.price * 0.70;
           return itemSum + (cost * item.qty);
@@ -531,7 +531,7 @@ export default function DashboardOverview({
     const productSalesMap: Record<string, { name: string; qty: number; revenue: number }> = {};
     
     filteredSales.forEach(sale => {
-      sale.items.forEach(item => {
+      (sale.items || []).forEach(item => {
         if (!productSalesMap[item.productId]) {
           productSalesMap[item.productId] = {
             name: item.productName || 'Unknown Product',
@@ -1401,7 +1401,7 @@ export default function DashboardOverview({
                               <div className="space-y-2 text-left">
                                 <p className="text-[10px] font-bold text-indigo-600 uppercase tracking-wider font-sans mb-1">Invoice Items Details Log</p>
                                 <div className="space-y-1.5">
-                                  {sale.items.map((item, entryIdx) => {
+                                  {(sale.items || []).map((item, entryIdx) => {
                                     const itemProductObj = products.find(p => p.id === item.productId);
                                     return (
                                       <div key={entryIdx} className="flex items-center justify-between text-slate-600 text-xs py-1 border-b border-dashed border-slate-100 last:border-0 font-sans">
@@ -1497,7 +1497,7 @@ export default function DashboardOverview({
                             <div className="h-px bg-slate-200/60 flex-grow" />
                           </div>
                           <ul className="space-y-2.5">
-                            {sale.items.map((item, idxx) => (
+                            {(sale.items || []).map((item, idxx) => (
                               <li key={idxx} className="flex justify-between items-start text-[13px]">
                                 <div className="flex items-start space-x-2">
                                   <span className="w-1.5 h-1.5 rounded-full bg-slate-300 mt-1.5 shrink-0" />
