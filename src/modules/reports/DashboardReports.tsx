@@ -586,6 +586,106 @@ export default function DashboardReports({
     return rows.sort((a, b) => velocitySortOrder === 'desc' ? b.qty - a.qty : a.qty - b.qty);
   }, [filteredSales, products, velocitySortOrder, startDateStr, endDateStr]);
 
+  // Payments / Money & Bank: broken down by the tenant's real configured
+  // payment channels (systemSettings.paymentChannels), the same source
+  // Settings and Money & Bank already treat as authoritative. Channels are
+  // matched by name since a Sale only ever records a method name string
+  // (there is no payment_channel_id on Sale) -- an unmatched/renamed/
+  // disabled channel still displays under its recorded name instead of
+  // disappearing, so historical reports stay accurate after Settings edits.
+  const configuredPaymentChannels = systemSettings?.paymentChannels || [];
+  const matchPaymentChannelByName = (method: string) => configuredPaymentChannels.find(ch =>
+    ch.name?.toLowerCase() === method.toLowerCase() ||
+    ch.provider?.toLowerCase() === method.toLowerCase() ||
+    method.toLowerCase().includes((ch.name || '').toLowerCase()) ||
+    (ch.name || '').toLowerCase().includes(method.toLowerCase())
+  );
+
+  // Split (Multi-Channel) sales allocate only the exact amount actually paid
+  // through each method - never the full sale total under every method - by
+  // reading sale.paymentBreakdown, written at checkout with the real
+  // per-method amounts. Non-split sales keep saleProductRevenue().
+  const paymentMethodTotals = useMemo(() => {
+    const totals: Record<string, { amount: number; count: number; label: string; isCredit: boolean }> = {};
+    const addEntry = (method: string, amount: number) => {
+      const matched = matchPaymentChannelByName(method);
+      const key = matched ? matched.id : method;
+      if (!totals[key]) {
+        totals[key] = { amount: 0, count: 0, label: matched ? matched.name : method, isCredit: classifyPaymentMethod(method) === 'Credit' };
+      }
+      totals[key].amount += amount;
+      totals[key].count += 1;
+    };
+    filteredSales.forEach(s => {
+      const splitEntries = Array.isArray(s.paymentBreakdown) ? s.paymentBreakdown.filter(e => Number(e?.amount) > 0) : [];
+      if (s.paymentMethod === 'Multi-Channel' && splitEntries.length > 0) {
+        splitEntries.forEach(entry => addEntry(entry.method || 'Cash', Number(entry.amount) || 0));
+      } else {
+        addEntry(s.paymentMethod || 'Cash', saleProductRevenue(s));
+      }
+    });
+    return totals;
+  }, [filteredSales, configuredPaymentChannels]);
+
+  const paymentMethodEntries = useMemo(
+    () => Object.entries(paymentMethodTotals).sort((a, b) => b[1].amount - a[1].amount),
+    [paymentMethodTotals]
+  );
+
+  const purchaseFundingTotals = useMemo(() => {
+    const totals: Record<string, { amount: number; count: number }> = {};
+    const addFunding = (label: string, amount: number) => {
+      if (amount <= 0) return;
+      if (!totals[label]) totals[label] = { amount: 0, count: 0 };
+      totals[label].amount += amount;
+      totals[label].count += 1;
+    };
+    purchases.forEach(purchase => {
+      const allocations = Array.isArray(purchase.paymentAllocations) && purchase.paymentAllocations.length > 0
+        ? purchase.paymentAllocations
+        : purchase.paidFromAccountId
+          ? [{ fundingType: 'registered' as const, accountId: purchase.paidFromAccountId, accountName: purchase.paymentMethod, amount: purchase.amountPaid }]
+          : [];
+      allocations.forEach((allocation: any) => {
+        const account = allocation.fundingType === 'external'
+          ? null
+          : configuredPaymentChannels.find(channel => channel.id === allocation.accountId || channel.id === allocation.sourceKey);
+        addFunding(
+          allocation.fundingType === 'external'
+            ? 'External Account'
+            : allocation.accountName || account?.name || allocation.accountId || 'Registered Account',
+          Math.max(0, Number(allocation.amount || 0)),
+        );
+      });
+    });
+    return totals;
+  }, [purchases, configuredPaymentChannels]);
+
+  const purchaseFundingEntries = useMemo(
+    () => Object.entries(purchaseFundingTotals).sort((a, b) => b[1].amount - a[1].amount),
+    [purchaseFundingTotals]
+  );
+
+  const dailyPaymentGroups = useMemo(() => {
+    const groups: Record<string, { total: number; cash: number; cardOnline: number; mobileMoney: number; bank: number; credit: number; count: number }> = {};
+    filteredSales.forEach(sale => {
+      const key = timestampToLocalDate(sale.timestamp);
+      if (!groups[key]) groups[key] = { total: 0, cash: 0, cardOnline: 0, mobileMoney: 0, bank: 0, credit: 0, count: 0 };
+      const revenue = saleProductRevenue(sale);
+      groups[key].total += revenue;
+      groups[key].count += 1;
+      const cls = classifyPaymentMethod(sale.paymentMethod);
+      if (cls === 'Cash') groups[key].cash += revenue;
+      else if (cls === 'CardAndOnline') groups[key].cardOnline += revenue;
+      else if (cls === 'MobileMoney') groups[key].mobileMoney += revenue;
+      else if (cls === 'BankTransfer') groups[key].bank += revenue;
+      else if (cls === 'Credit') groups[key].credit += revenue;
+    });
+    return Object.entries(groups)
+      .map(([date, vals]) => ({ date, ...vals }))
+      .sort((a, b) => b.date.localeCompare(a.date));
+  }, [filteredSales]);
+
   const filteredInventoryProducts = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
     if (!q) return products;
@@ -646,6 +746,7 @@ export default function DashboardReports({
             { id: 'inventory', label: 'Inventory', icon: Package },
             { id: 'expenses', label: 'Expenses', icon: Receipt },
             { id: 'product-monitoring', label: 'Product Audit', icon: Tag },
+            { id: 'payments', label: 'Payments', icon: DollarSign },
           ].map((tab, i) => (
             <button
               key={tab.id}
@@ -1313,7 +1414,137 @@ export default function DashboardReports({
           </div>
         )}
 
-        {reportTab !== 'p&l' && reportTab !== 'sales-report' && reportTab !== 'inventory' && reportTab !== 'expenses' && reportTab !== 'product-monitoring' && (
+        {reportTab === 'payments' && (
+          <div className="space-y-6">
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <h3 className="font-black text-slate-800 uppercase tracking-wider">Payments &amp; Money / Bank</h3>
+                <div className="flex flex-wrap gap-2">
+                  <ModernSelect
+                    title="Payment Mode"
+                    value={selectedPaymentMode}
+                    options={[
+                      { value: 'All', label: 'All' },
+                      { value: 'Cash', label: 'Cash' },
+                      { value: 'CardAndOnline', label: 'Card' },
+                      { value: 'MobileMoney', label: 'Mobile Money' },
+                      { value: 'BankTransfer', label: 'Bank' },
+                      { value: 'Credit', label: 'Credit' },
+                    ]}
+                    onChange={setSelectedPaymentMode}
+                  />
+                  <button
+                    onClick={handleDownloadActiveTabCSV}
+                    className="bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm shrink-0"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Export CSV</span>
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Received By Channel</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {paymentMethodEntries.map(([key, entry]) => (
+                    <div key={key} className="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex items-center justify-between">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 shadow-sm shrink-0">
+                          <DollarSign className="w-5 h-5" />
+                        </div>
+                        <div className="text-left min-w-0">
+                          <h6 className="text-sm font-bold text-slate-900 truncate">{entry.label}</h6>
+                          <p className="text-xs text-slate-500">{entry.count} transaction{entry.count !== 1 ? 's' : ''}</p>
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className={`text-sm font-black ${entry.isCredit ? 'text-amber-600' : 'text-slate-900'}`}>{currency}{Math.round(entry.amount).toLocaleString()}</p>
+                      </div>
+                    </div>
+                  ))}
+                  {paymentMethodEntries.length === 0 && (
+                    <div className="col-span-full p-10 text-center text-slate-400 bg-slate-50 rounded-2xl border border-slate-200">
+                      <DollarSign className="w-8 h-8 text-slate-200 mx-auto mb-2" />
+                      <span>No payments recorded for this period.</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {purchaseFundingEntries.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Purchase Funding Breakdown</p>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-slate-50 border-b border-slate-200">
+                        <tr>
+                          <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Paid From</th>
+                          <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Amount</th>
+                          <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Allocations</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {purchaseFundingEntries.map(([label, summary]) => (
+                          <tr key={label} className="hover:bg-slate-50 transition-colors">
+                            <td className={`p-3 font-bold ${label === 'External Account' ? 'text-amber-700' : 'text-slate-700'}`}>{label}</td>
+                            <td className="p-3 text-right font-mono font-black text-slate-900">{currency}{Math.round(summary.amount).toLocaleString()}</td>
+                            <td className="p-3 text-right text-slate-500">{summary.count}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Daily Transactions</p>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50 border-b border-slate-200">
+                      <tr>
+                        <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Date</th>
+                        <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-center">Receipts</th>
+                        <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Cash</th>
+                        <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Card/Online</th>
+                        <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Mobile Money</th>
+                        <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Bank</th>
+                        <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Credit</th>
+                        <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {dailyPaymentGroups.map(row => (
+                        <tr key={row.date} className="hover:bg-slate-50 transition-colors">
+                          <td className="p-3 font-mono font-bold text-slate-800 whitespace-nowrap">{row.date}</td>
+                          <td className="p-3 text-center font-bold text-slate-500">{row.count}</td>
+                          <td className="p-3 text-right font-mono text-slate-700">{currency}{Math.round(row.cash).toLocaleString()}</td>
+                          <td className="p-3 text-right font-mono text-slate-700">{currency}{Math.round(row.cardOnline).toLocaleString()}</td>
+                          <td className="p-3 text-right font-mono text-slate-700">{currency}{Math.round(row.mobileMoney).toLocaleString()}</td>
+                          <td className="p-3 text-right font-mono text-slate-700">{currency}{Math.round(row.bank).toLocaleString()}</td>
+                          <td className="p-3 text-right font-mono text-amber-700 font-bold">{currency}{Math.round(row.credit).toLocaleString()}</td>
+                          <td className="p-3 text-right font-mono font-black text-slate-900">{currency}{Math.round(row.total).toLocaleString()}</td>
+                        </tr>
+                      ))}
+                      {dailyPaymentGroups.length === 0 && (
+                        <tr>
+                          <td colSpan={8} className="p-10 text-center text-slate-400">
+                            <div className="flex flex-col items-center gap-2">
+                              <Receipt className="w-8 h-8 text-slate-200" />
+                              <span>No transactions found for this date range.</span>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {reportTab !== 'p&l' && reportTab !== 'sales-report' && reportTab !== 'inventory' && reportTab !== 'expenses' && reportTab !== 'product-monitoring' && reportTab !== 'payments' && (
           <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
             <div className="p-6 bg-slate-50 rounded-full text-slate-300">
               <FileText className="w-12 h-12" />
