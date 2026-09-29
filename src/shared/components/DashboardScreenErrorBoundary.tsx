@@ -21,8 +21,17 @@ export default class DashboardScreenErrorBoundary extends React.Component<
     return { error };
   }
 
-  componentDidCatch(error: Error) {
-    console.error('[DashboardScreenErrorBoundary] A dashboard screen failed to render.', { name: error.name });
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    // Temporary: logging only error.name hid the actual crash reason behind
+    // this boundary's auto-redirect, making a tablet-only navigation bug
+    // unreproducible from reports alone. Logging the full error surfaces the
+    // real cause the next time this fires.
+    console.error('[DashboardScreenErrorBoundary] A dashboard screen failed to render.', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+      componentStack: errorInfo.componentStack,
+    });
     // Keep the dashboard shell alive. A transient lazy-screen/render failure
     // should return to the safe landing tab instead of becoming a full 500 page.
     window.setTimeout(this.props.onReturnToDashboard, 0);
