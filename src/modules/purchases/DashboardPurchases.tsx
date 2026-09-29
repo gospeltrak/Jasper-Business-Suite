@@ -1375,11 +1375,11 @@ export default function DashboardPurchases({
 
         ) : (
           /* ── ADD PURCHASE TAB ─────────────────────────────────────────── */
-          <div className="gap-6 items-start pb-4 purchases-tablet-split-grid">
+          <div className="gap-6 pb-4 purchases-tablet-split-grid">
 
             {/* Left panel: Product List — hidden on mobile (use search in cart) */}
             <div className="block bg-white border border-slate-200 rounded-3xl p-4 sm:p-6 space-y-5 shadow-xs purchases-tablet-catalog-col">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 shrink-0">
                 <div>
                   <h5 className="font-black text-slate-800 text-sm font-sans">Product List</h5>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest font-mono">Select items to procure</p>

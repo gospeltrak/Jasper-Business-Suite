@@ -964,18 +964,44 @@ body.rtl { font-family: 'Cairo', "Plus Jakarta Sans", "Inter", system-ui, sans-s
 @media (min-width: 768px) {
   #dashboard-scaffold .purchases-tablet-split-grid {
     grid-template-columns: minmax(0, 1.6fr) minmax(260px, 1fr);
+    /* Requested follow-up: catalog and cart/payment panel each scroll on
+       their own instead of the whole page scrolling. A fixed height (not
+       a 100dvh calc) is deliberate -- .pos-tablet-split-grid above uses
+       calc(100dvh - 130px) and its own comment records that this exact
+       trick failed to hold on a specific real tablet (the grid overflowed
+       its bound and the page scrolled instead). Purchases has a taller,
+       more variable header stack above it (hero/KPI cards + tabs) than
+       POS does, so reusing that viewport-subtraction approach here would
+       be guessing at a number that's even less likely to hold. A plain
+       fixed height carries no such assumption either way. */
+    height: 640px;
   }
 
   #dashboard-scaffold .purchases-tablet-catalog-col {
     grid-column: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
   }
 
   #dashboard-scaffold .purchases-tablet-cart-col {
     grid-column: 2;
+    min-height: 0;
+    overflow-y: auto;
   }
 
   #dashboard-scaffold .purchases-product-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+    flex: 1 1 auto;
+    min-height: 0;
+    /* Cancels the mobile-only max-h-[500px] Tailwind class on this same
+       element -- that cap is correct on phone (no split layout, this grid
+       is just one block among others in the normal page scroll), but from
+       here up the grid needs to fill whatever height purchases-tablet-
+       catalog-col's flex layout leaves it, not stop at a fixed 500px. */
+    max-height: none;
+    overflow-y: auto;
   }
 }
 
