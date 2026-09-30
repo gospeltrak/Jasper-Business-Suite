@@ -107,8 +107,14 @@ export const getPosSellingPriceForCostingMethod = (
     return active[0].finalSellingPrice || active[0].suggestedSellingPrice || fallbackPrice;
   }
 
+  // Average costing intentionally does NOT blend in each batch's own
+  // locked-in finalSellingPrice (unlike FIFO/batch_price, where old stock
+  // deliberately keeps selling at its old price until exhausted). A price
+  // edit on the product should take effect immediately under Average --
+  // including right after switching a product from FIFO to Average -- so
+  // this always reflects the product's current selling price.
   if (method === 'average_price') {
-    return calculateWeightedAverageSellingPrice(product, fallbackPrice);
+    return fallbackPrice;
   }
 
   return fallbackPrice;

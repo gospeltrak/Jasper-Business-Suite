@@ -20,6 +20,7 @@ import {
   createInventoryBatch,
   deductBatchesForSale,
   getActiveBatchesOldestFirst,
+  getPosSellingPriceForCostingMethod,
   reversePurchaseInventory,
 } from './inventoryCosting';
 
@@ -148,6 +149,33 @@ describe('getActiveBatchesOldestFirst / FEFO ordering', () => {
     });
     const ordered = getActiveBatchesOldestFirst(product);
     expect(ordered.map(b => b.id)).toEqual(['dated', 'undated-but-oldest']);
+  });
+});
+
+describe('getPosSellingPriceForCostingMethod', () => {
+  it('FIFO/batch_price: old stock keeps selling at its own locked-in batch price after a product price edit', () => {
+    const product = baseProduct({
+      sellingPrice: 500, // edited price -- should NOT apply until the old batch sells out
+      batches: [batch({ finalSellingPrice: 400, quantityRemaining: 30 })],
+    });
+    expect(getPosSellingPriceForCostingMethod(product, product.sellingPrice, 'fifo')).toBe(400);
+  });
+
+  it('average_price: follows the product\'s current selling price immediately, ignoring any locked-in batch price', () => {
+    const product = baseProduct({
+      sellingPrice: 500, // edited price -- should apply right away under Average
+      batches: [batch({ finalSellingPrice: 400, quantityRemaining: 30 })],
+    });
+    expect(getPosSellingPriceForCostingMethod(product, product.sellingPrice, 'average_price')).toBe(500);
+  });
+
+  it('average_price: still follows the current price right after switching a product from FIFO to Average', () => {
+    const product = baseProduct({
+      sellingPrice: 650,
+      batches: [batch({ finalSellingPrice: 400, quantityRemaining: 10 })],
+    });
+    // Same batches as when the product was FIFO -- only the requested method changes.
+    expect(getPosSellingPriceForCostingMethod(product, product.sellingPrice, 'average_price')).toBe(650);
   });
 });
 
