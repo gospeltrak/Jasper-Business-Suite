@@ -677,6 +677,38 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
   const branchContextValue = useOptionalBranchContext();
   const branchContextSelectedBranch = branchContextValue?.snapshot?.context.selectedBranch || null;
 
+  // Self-healing fallback for activeBranchSelection itself, not just the
+  // header's business name above. That state is otherwise only advanced by
+  // the 'jasper_branch_context_changed' event; if that event is ever missed
+  // (e.g. a network hiccup during the initial load, before this listener
+  // is mounted), activeBranchSelection stays stuck at its literal initial
+  // default (activeBranchId: null / 'compatibility_primary') even though
+  // the header already shows the real branch name via the direct hook read.
+  // Live data confirmed this actually happens: products added/edited while
+  // stuck end up tagged to the wrong branch (or none), so they silently
+  // vanish from Purchases/Catalog for the branch the user is really on.
+  // Resync from this always-current hook read whenever it disagrees with
+  // the event-driven state, so a missed event can never leave it stuck.
+  useEffect(() => {
+    const resolvedContext = branchContextValue?.snapshot?.context;
+    if (!resolvedContext) return;
+    const resolvedBranchId = resolvedContext.activeBranchId || null;
+    const resolvedScope = resolvedContext.activeScope || 'no_branch_access';
+    const resolvedSelectedBranch = resolvedContext.selectedBranch || null;
+    setActiveBranchSelection(previous => {
+      if (
+        previous.activeBranchId === resolvedBranchId
+        && previous.activeScope === resolvedScope
+        && previous.selectedBranch?.id === resolvedSelectedBranch?.id
+      ) return previous;
+      return {
+        activeBranchId: resolvedBranchId,
+        activeScope: resolvedScope,
+        selectedBranch: resolvedSelectedBranch,
+      };
+    });
+  }, [branchContextValue?.snapshot?.context]);
+
   const [preloadedCart, setPreloadedCart] = useState<{
     items: SaleItem[];
     backdate?: string;
