@@ -119,7 +119,7 @@ function ViewPurchaseModal({ pc, currency, onClose, onEdit, onDelete }: {
           <div>
             <p className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest font-mono mb-2">Items Purchased</p>
             <div className="space-y-2">
-              {pc.items.map((it, i) => (
+              {(pc.items || []).map((it, i) => (
                 <div key={i} className="flex justify-between items-center bg-slate-50 rounded-xl px-3.5 py-2.5 text-xs">
                   <span className="font-semibold text-slate-700 truncate max-w-[55%]">{it.productName}</span>
                   <div className="text-right">
@@ -374,9 +374,17 @@ export default function DashboardPurchases({
       return;
     }
     const el = purchasesCartColRef.current;
-    const observer = new ResizeObserver((entries) => {
-      const entry = entries[0];
-      if (entry) setPurchasesCartHeight(entry.contentRect.height);
+    const observer = new ResizeObserver(() => {
+      // getBoundingClientRect (not entry.contentRect) on purpose:
+      // ResizeObserver's contentRect always reports the CONTENT box only,
+      // excluding this column's own padding/border -- applying that
+      // shorter number as the catalog column's CSS height (which, under
+      // this app's global border-box sizing, includes ITS OWN padding/
+      // border) made the catalog column render visibly shorter than the
+      // cart column by roughly 2x the padding, instead of matching it
+      // exactly. getBoundingClientRect returns the true rendered
+      // border-box height, which is what a CSS height needs to match.
+      setPurchasesCartHeight(el.getBoundingClientRect().height);
     });
     observer.observe(el);
     return () => observer.disconnect();
@@ -469,7 +477,7 @@ export default function DashboardPurchases({
       const matchesSearch = 
         pc.id.toLowerCase().includes(searchLower) ||
         pc.supplierName.toLowerCase().includes(searchLower) ||
-        pc.items.some(item => item.productName.toLowerCase().includes(searchLower));
+        (pc.items || []).some(item => item.productName.toLowerCase().includes(searchLower));
       const matchesDestination = historyDestination === 'all' || pc.destination === historyDestination;
       const matchesDelivery = historyDeliveryStatus === 'all' || pc.deliveryStatus === historyDeliveryStatus;
       const matchesPayment = 
@@ -781,7 +789,16 @@ export default function DashboardPurchases({
       {/* Slide-up keyframe */}
       <style>{`@keyframes slideUp{from{transform:translateY(60px);opacity:0}to{transform:translateY(0);opacity:1}}`}</style>
 
-      <div id="purchases-view-container" className="space-y-6 pb-8">
+      {/* pb-8 gives the History tab clearance above the fixed mobile bottom
+          nav (on top of the app-wide safe-area padding every screen already
+          gets). On the Add Purchase tab at tablet+, the cart column already
+          drives this row's exact height with no internal scroll -- stacking
+          this screen's own extra bottom padding on top of that measured
+          height pushed the page's true bottom well past where the cart
+          panel visibly ends, which read as unwanted trailing white space /
+          extra scroll. Drop it there; History and mobile Add Purchase keep
+          their normal clearance. */}
+      <div id="purchases-view-container" className={`space-y-6 ${isPurchasesTabletUp && activeSubTab === 'till' ? '' : 'pb-8'}`}>
         
       {/* ── MOBILE HERO + TABS ── xl:hidden */}
       <div className="xl:hidden space-y-3">
@@ -1158,8 +1175,8 @@ export default function DashboardPurchases({
                             </td>
                             {/* Items */}
                             <td className="py-3.5 px-4 max-w-[160px]">
-                              <p className="text-[11px] font-bold text-slate-700">{pc.items.length} item{pc.items.length !== 1 ? 's' : ''}</p>
-                              <p className="text-[10px] text-slate-400 truncate">{pc.items.slice(0,2).map(i => i.productName).join(', ')}{pc.items.length > 2 ? ` +${pc.items.length-2}` : ''}</p>
+                              <p className="text-[11px] font-bold text-slate-700">{(pc.items || []).length} item{(pc.items || []).length !== 1 ? 's' : ''}</p>
+                              <p className="text-[10px] text-slate-400 truncate">{(pc.items || []).slice(0,2).map(i => i.productName).join(', ')}{(pc.items || []).length > 2 ? ` +${(pc.items || []).length-2}` : ''}</p>
                             </td>
                             {/* Target */}
                             <td className="py-3.5 px-4">
@@ -1283,7 +1300,7 @@ export default function DashboardPurchases({
                             <div className="flex-1 min-w-0">
                               <p className="font-extrabold text-slate-900 text-[14px] leading-tight truncate">{pc.supplierName}</p>
                               <p className="text-[10px] text-slate-400 font-mono mt-0.5">
-                                {new Date(pc.timestamp).toLocaleDateString([],{day:'numeric',month:'short',year:'numeric'})} · {pc.items.length} item{pc.items.length!==1?'s':''} · {pc.destination==='shop'?'🏪':'📦'}
+                                {new Date(pc.timestamp).toLocaleDateString([],{day:'numeric',month:'short',year:'numeric'})} · {(pc.items || []).length} item{(pc.items || []).length!==1?'s':''} · {pc.destination==='shop'?'🏪':'📦'}
                               </p>
                             </div>
                             <div className="text-right shrink-0">
@@ -1296,14 +1313,14 @@ export default function DashboardPurchases({
                           </div>
 
                           {/* Item pills */}
-                          {pc.items.length > 0 && (
+                          {(pc.items || []).length > 0 && (
                             <div className="flex flex-wrap gap-1 mt-3">
-                              {pc.items.slice(0, 3).map((item, i) => (
+                              {(pc.items || []).slice(0, 3).map((item, i) => (
                                 <span key={i} className="text-[9px] font-semibold bg-slate-50 border border-slate-100 text-slate-500 px-2 py-0.5 rounded-full">
                                   {item.productName} ×{item.qty}
                                 </span>
                               ))}
-                              {pc.items.length > 3 && <span className="text-[9px] text-slate-400 px-1 py-0.5">+{pc.items.length-3} more</span>}
+                              {(pc.items || []).length > 3 && <span className="text-[9px] text-slate-400 px-1 py-0.5">+{(pc.items || []).length-3} more</span>}
                             </div>
                           )}
 
@@ -1424,7 +1441,7 @@ export default function DashboardPurchases({
 
         ) : (
           /* ── ADD PURCHASE TAB ─────────────────────────────────────────── */
-          <div className="gap-6 pb-4 purchases-tablet-split-grid">
+          <div className={`gap-6 purchases-tablet-split-grid ${isPurchasesTabletUp ? '' : 'pb-4'}`}>
 
             {/* Left panel: Product List — hidden on mobile (use search in cart) */}
             <div
