@@ -1064,6 +1064,279 @@ export function saveTenantProductsOnly(
   return next;
 }
 
+// Same narrow-save pattern as saveTenantProductsOnly, for Expenses.
+// handleUpdateExpense's only explicit save currently round-trips the whole
+// workspace to change one expense row; this calls save_current_branch_expenses
+// instead, which touches only the `expenses` key server-side.
+async function saveTenantExpensesOnlyNow(
+  tenantId: string,
+  expenses: Expense[],
+): Promise<boolean> {
+  if (!canWriteBusinessDataOnline()) {
+    warnOfflineWriteBlocked(`saveTenantExpensesOnly:${tenantId}`);
+    return false;
+  }
+  const client = await getConfiguredClient();
+  if (!client) {
+    warnOfflineWriteBlocked(`saveTenantExpensesOnly:no-client:${tenantId}`);
+    return false;
+  }
+  try {
+    if (typeof client.rpc === 'function') {
+      const result = await client.rpc('save_current_branch_expenses', { p_expenses: expenses });
+      const missingRpc = ['PGRST202', '42883'].includes(String(result.error?.code || ''));
+      if (!result.error) {
+        const mergedExpenses = Array.isArray(result.data?.expenses)
+          ? result.data.expenses as Expense[]
+          : expenses;
+        const cached = readCachedWorkspace(tenantId);
+        cacheWorkspace(tenantId, { ...(cached || emptyWorkspace()), expenses: mergedExpenses });
+        return true;
+      }
+      if (!missingRpc) {
+        console.warn('[workspace] expenses-only save error:', result.error.message);
+        return false;
+      }
+    }
+    const current = readCachedWorkspace(tenantId) || await loadTenantWorkspace(tenantId) || emptyWorkspace();
+    return await saveTenantWorkspaceNow(tenantId, { ...current, expenses });
+  } catch (error: any) {
+    console.warn('[workspace] expenses-only save exception:', error?.message || error);
+    return false;
+  }
+}
+
+export function saveTenantExpensesOnly(
+  tenantId: string,
+  expenses: Expense[],
+): Promise<boolean> {
+  if (!tenantId) return Promise.resolve(false);
+  const previous = workspaceSaveQueue.get(tenantId) || Promise.resolve(true);
+  const next = previous.catch(() => false).then(() => saveTenantExpensesOnlyNow(tenantId, expenses));
+  workspaceSaveQueue.set(tenantId, next);
+  void next.finally(() => {
+    if (workspaceSaveQueue.get(tenantId) === next) workspaceSaveQueue.delete(tenantId);
+  });
+  return next;
+}
+
+// Same narrow-save pattern, for Deliveries. handleUpdateDeliveryDetails and
+// handleDeleteDelivery each only change the `deliveries` key today; this
+// calls save_current_branch_deliveries instead of the full workspace save.
+async function saveTenantDeliveriesOnlyNow(
+  tenantId: string,
+  deliveries: Delivery[],
+): Promise<boolean> {
+  if (!canWriteBusinessDataOnline()) {
+    warnOfflineWriteBlocked(`saveTenantDeliveriesOnly:${tenantId}`);
+    return false;
+  }
+  const client = await getConfiguredClient();
+  if (!client) {
+    warnOfflineWriteBlocked(`saveTenantDeliveriesOnly:no-client:${tenantId}`);
+    return false;
+  }
+  try {
+    if (typeof client.rpc === 'function') {
+      const result = await client.rpc('save_current_branch_deliveries', { p_deliveries: deliveries });
+      const missingRpc = ['PGRST202', '42883'].includes(String(result.error?.code || ''));
+      if (!result.error) {
+        const mergedDeliveries = Array.isArray(result.data?.deliveries)
+          ? result.data.deliveries as Delivery[]
+          : deliveries;
+        const cached = readCachedWorkspace(tenantId);
+        cacheWorkspace(tenantId, { ...(cached || emptyWorkspace()), deliveries: mergedDeliveries });
+        return true;
+      }
+      if (!missingRpc) {
+        console.warn('[workspace] deliveries-only save error:', result.error.message);
+        return false;
+      }
+    }
+    const current = readCachedWorkspace(tenantId) || await loadTenantWorkspace(tenantId) || emptyWorkspace();
+    return await saveTenantWorkspaceNow(tenantId, { ...current, deliveries });
+  } catch (error: any) {
+    console.warn('[workspace] deliveries-only save exception:', error?.message || error);
+    return false;
+  }
+}
+
+export function saveTenantDeliveriesOnly(
+  tenantId: string,
+  deliveries: Delivery[],
+): Promise<boolean> {
+  if (!tenantId) return Promise.resolve(false);
+  const previous = workspaceSaveQueue.get(tenantId) || Promise.resolve(true);
+  const next = previous.catch(() => false).then(() => saveTenantDeliveriesOnlyNow(tenantId, deliveries));
+  workspaceSaveQueue.set(tenantId, next);
+  void next.finally(() => {
+    if (workspaceSaveQueue.get(tenantId) === next) workspaceSaveQueue.delete(tenantId);
+  });
+  return next;
+}
+
+// Same narrow-save pattern, for Sales. Unlike Expenses/Deliveries, two
+// Sales handlers are genuinely atomic with other keys today:
+// handleAddSale (and the bulk sales sync save) only ever touch `sales`,
+// but handleDeleteSale also restores stock onto `products` and removes
+// the sale's linked `deliveries` row in the same save. products/deliveries
+// are therefore optional -- omitted means "don't touch that collection",
+// matching handleAddSale; provided means "replace it", matching
+// handleDeleteSale -- exactly mirroring save_current_branch_sales' RPC
+// contract.
+async function saveTenantSalesOnlyNow(
+  tenantId: string,
+  sales: any[],
+  saleTombstones: Record<string, string>,
+  products?: Product[],
+  deliveries?: Delivery[],
+): Promise<boolean> {
+  if (!canWriteBusinessDataOnline()) {
+    warnOfflineWriteBlocked(`saveTenantSalesOnly:${tenantId}`);
+    return false;
+  }
+  const client = await getConfiguredClient();
+  if (!client) {
+    warnOfflineWriteBlocked(`saveTenantSalesOnly:no-client:${tenantId}`);
+    return false;
+  }
+  try {
+    if (typeof client.rpc === 'function') {
+      const result = await client.rpc('save_current_branch_sales', {
+        p_sales: sales,
+        p_sale_tombstones: saleTombstones,
+        p_products: products ?? null,
+        p_deliveries: deliveries ?? null,
+      });
+      const missingRpc = ['PGRST202', '42883'].includes(String(result.error?.code || ''));
+      if (!result.error) {
+        const cached = readCachedWorkspace(tenantId);
+        const base = cached || emptyWorkspace();
+        cacheWorkspace(tenantId, {
+          ...base,
+          sales: Array.isArray(result.data?.sales) ? result.data.sales : sales,
+          saleTombstones: (result.data?.saleTombstones || saleTombstones) as Record<string, string>,
+          products: Array.isArray(result.data?.products) ? result.data.products as Product[] : base.products,
+          deliveries: Array.isArray(result.data?.deliveries) ? result.data.deliveries as Delivery[] : base.deliveries,
+        });
+        return true;
+      }
+      if (!missingRpc) {
+        console.warn('[workspace] sales-only save error:', result.error.message);
+        return false;
+      }
+    }
+    const current = readCachedWorkspace(tenantId) || await loadTenantWorkspace(tenantId) || emptyWorkspace();
+    return await saveTenantWorkspaceNow(tenantId, {
+      ...current,
+      sales,
+      saleTombstones: { ...(current.saleTombstones || {}), ...saleTombstones },
+      ...(products ? { products } : {}),
+      ...(deliveries ? { deliveries } : {}),
+    });
+  } catch (error: any) {
+    console.warn('[workspace] sales-only save exception:', error?.message || error);
+    return false;
+  }
+}
+
+export function saveTenantSalesOnly(
+  tenantId: string,
+  sales: any[],
+  saleTombstones: Record<string, string> = {},
+  products?: Product[],
+  deliveries?: Delivery[],
+): Promise<boolean> {
+  if (!tenantId) return Promise.resolve(false);
+  const previous = workspaceSaveQueue.get(tenantId) || Promise.resolve(true);
+  const next = previous
+    .catch(() => false)
+    .then(() => saveTenantSalesOnlyNow(tenantId, sales, saleTombstones, products, deliveries));
+  workspaceSaveQueue.set(tenantId, next);
+  void next.finally(() => {
+    if (workspaceSaveQueue.get(tenantId) === next) workspaceSaveQueue.delete(tenantId);
+  });
+  return next;
+}
+
+// Same narrow-save pattern, for Purchases. handleAddPurchase and
+// handleDeletePurchase both adjust `products` (stock received/reversed)
+// and `branchStocks` in the same save that adds/removes the purchase;
+// handleUpdatePurchases only ever touches `purchases`. products/
+// branchStocks are therefore optional, mirroring save_current_branch_purchases'
+// RPC contract exactly.
+async function saveTenantPurchasesOnlyNow(
+  tenantId: string,
+  purchases: Purchase[],
+  products?: Product[],
+  branchStocks?: BranchStock[],
+): Promise<boolean> {
+  if (!canWriteBusinessDataOnline()) {
+    warnOfflineWriteBlocked(`saveTenantPurchasesOnly:${tenantId}`);
+    return false;
+  }
+  const client = await getConfiguredClient();
+  if (!client) {
+    warnOfflineWriteBlocked(`saveTenantPurchasesOnly:no-client:${tenantId}`);
+    return false;
+  }
+  try {
+    if (typeof client.rpc === 'function') {
+      const result = await client.rpc('save_current_branch_purchases', {
+        p_purchases: purchases,
+        p_products: products ?? null,
+        p_branch_stocks: branchStocks ?? null,
+      });
+      const missingRpc = ['PGRST202', '42883'].includes(String(result.error?.code || ''));
+      if (!result.error) {
+        const cached = readCachedWorkspace(tenantId);
+        const base = cached || emptyWorkspace();
+        cacheWorkspace(tenantId, {
+          ...base,
+          purchases: Array.isArray(result.data?.purchases) ? result.data.purchases as Purchase[] : purchases,
+          products: Array.isArray(result.data?.products) ? result.data.products as Product[] : base.products,
+          branchStocks: Array.isArray(result.data?.branchStocks)
+            ? result.data.branchStocks as BranchStock[]
+            : base.branchStocks,
+        });
+        return true;
+      }
+      if (!missingRpc) {
+        console.warn('[workspace] purchases-only save error:', result.error.message);
+        return false;
+      }
+    }
+    const current = readCachedWorkspace(tenantId) || await loadTenantWorkspace(tenantId) || emptyWorkspace();
+    return await saveTenantWorkspaceNow(tenantId, {
+      ...current,
+      purchases,
+      ...(products ? { products } : {}),
+      ...(branchStocks ? { branchStocks } : {}),
+    });
+  } catch (error: any) {
+    console.warn('[workspace] purchases-only save exception:', error?.message || error);
+    return false;
+  }
+}
+
+export function saveTenantPurchasesOnly(
+  tenantId: string,
+  purchases: Purchase[],
+  products?: Product[],
+  branchStocks?: BranchStock[],
+): Promise<boolean> {
+  if (!tenantId) return Promise.resolve(false);
+  const previous = workspaceSaveQueue.get(tenantId) || Promise.resolve(true);
+  const next = previous
+    .catch(() => false)
+    .then(() => saveTenantPurchasesOnlyNow(tenantId, purchases, products, branchStocks));
+  workspaceSaveQueue.set(tenantId, next);
+  void next.finally(() => {
+    if (workspaceSaveQueue.get(tenantId) === next) workspaceSaveQueue.delete(tenantId);
+  });
+  return next;
+}
+
 // ─── Flush pending (called when going online) ──────────────────────────────
 
 export async function flushPendingTenantWorkspace(tenantId: string): Promise<void> {

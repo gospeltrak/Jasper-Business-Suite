@@ -452,7 +452,7 @@ test('sale deletion remains tenant-scoped and updates canonical related data', a
   assert.match(dashboardSource, /markLocalSaleTombstone\(tenantId,\s*sale\.id/);
   assert.match(dashboardSource, /reverseSaleInventory\(persistedSale,\s*currentProducts/);
   assert.match(dashboardSource, /filter\(delivery => delivery\.saleId !== sale\.id\)/);
-  assert.match(dashboardSource, /saleTombstones:\s*nextSaleTombstones/);
+  assert.match(dashboardSource, /saveTenantSalesOnly\(\s*tenantId,\s*nextSales,\s*nextSaleTombstones,\s*restoredProducts,\s*nextDeliveries,?\s*\)/);
   assert.match(dashboardSource, /Sale could not be deleted from the database\. Nothing was removed\./);
   assert.match(salesSource, /await onDeleteSale\(saleToDelete\)/);
   assert.match(salesSource, /setIsDeletingSale\(true\)/);
@@ -568,7 +568,7 @@ test('POS completion waits for a durable sale save and compensates treasury on f
     dashboardSource.indexOf('const handleAddSale = async'),
     dashboardSource.indexOf('const handleAddRider =', dashboardSource.indexOf('const handleAddSale = async')),
   );
-  assert.match(saleHandler, /const saleSaved = await saveTenantWorkspace/);
+  assert.match(saleHandler, /const saleSaved = await saveTenantSalesOnly/);
   assert.match(saleHandler, /await reverseTreasuryEntry\(postedTreasuryJournalId/);
   assert.match(saleHandler, /if \(!saleSaved\)[\s\S]{0,700}return false/);
 });

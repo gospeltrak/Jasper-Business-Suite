@@ -48,7 +48,7 @@ import DuressDashboard from '../shared/components/DuressDashboard';
 import CachedImage from '../shared/components/CachedImage';
 import { savePendingSaleOffline } from '../shared/utils/offlineDb';
 import { createCleanTenantSettings, isDemoTenant } from '../shared/utils/tenantIsolation';
-import { flushPendingTenantWorkspace, hasPendingTenantWorkspaceSave, loadTenantProductFresh, loadTenantWorkspace, loadTenantWorkspaceCore, markTenantProductsUpdated, readCachedWorkspace, reloadTenantWorkspace, saveTenantProductsOnly, saveTenantSettings, saveTenantWorkspace, scheduleTenantWorkspaceSave, subscribeToTenantBusinessType, subscribeToTenantWorkspace, TenantWorkspace, waitForTenantWorkspaceLoad, workspaceHasBusinessData } from '../shared/utils/tenantWorkspace';
+import { flushPendingTenantWorkspace, hasPendingTenantWorkspaceSave, loadTenantProductFresh, loadTenantWorkspace, loadTenantWorkspaceCore, markTenantProductsUpdated, readCachedWorkspace, reloadTenantWorkspace, saveTenantDeliveriesOnly, saveTenantExpensesOnly, saveTenantProductsOnly, saveTenantPurchasesOnly, saveTenantSalesOnly, saveTenantSettings, scheduleTenantWorkspaceSave, subscribeToTenantBusinessType, subscribeToTenantWorkspace, TenantWorkspace, waitForTenantWorkspaceLoad, workspaceHasBusinessData } from '../shared/utils/tenantWorkspace';
 import { safeSetJsonItem, safeSetTenantMapItem } from '../shared/utils/dataSafety';
 import { findPaymentChannel, getTreasuryPaymentMethods, reconcilePaymentChannels } from '../shared/utils/paymentAccounts';
 import { attachPayloadProductTombstones, markLocalProductTombstones, mergeProductTombstones, mergeProductsForSync, readLocalProductTombstones, stampProductsForSync, writeLocalProductTombstones } from '../modules/products/utils/productSync';
@@ -2016,20 +2016,9 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
         : expense
     ));
     localWorkspaceChangedAtRef.current = Date.now();
-    const saved = await saveTenantWorkspace(activeTenant.id, {
-      branches: branchesMap[activeTenant.id] || [],
-      branchStocks: branchStocksMap[activeTenant.id] || [],
-      branchStaffAssignments: branchStaffAssignmentsMap[activeTenant.id] || [],
-      products: productsMap[activeTenant.id] || [],
-      sales: salesMap[activeTenant.id] || [],
-      expenses: nextExpenses,
-      settings: systemSettings,
-      deliveries: deliveriesMap[activeTenant.id] || [],
-      pendingDeliveryNotes: pendingDeliveryNotesMap[activeTenant.id] || [],
-      purchases: purchasesMap[activeTenant.id] || [],
-      productTombstones: readLocalProductTombstones(activeTenant.id),
-      saleTombstones: readLocalSaleTombstones(activeTenant.id),
-    });
+    // Narrow save: only the `expenses` key changes here, so only it needs
+    // to travel to the server -- see saveTenantExpensesOnly.
+    const saved = await saveTenantExpensesOnly(activeTenant.id, nextExpenses);
     if (!saved) return false;
     setExpensesMap(prev => ({ ...prev, [activeTenant.id]: nextExpenses }));
     return true;
@@ -2226,21 +2215,12 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       synchronizedScopedSales,
       activeBranchSelection,
     );
-    const workspace: TenantWorkspace = {
-      branches: branchesMap[activeTenant.id] || [],
-      branchStocks: branchStocksMap[activeTenant.id] || [],
-      branchStaffAssignments: branchStaffAssignmentsMap[activeTenant.id] || [],
-      products: productsMap[activeTenant.id] || [],
-      sales: synchronizedSales,
-      expenses: expensesMap[activeTenant.id] || [],
-      settings: systemSettings,
-      deliveries: deliveriesMap[activeTenant.id] || [],
-      pendingDeliveryNotes: pendingDeliveryNotesMap[activeTenant.id] || [],
-      purchases: purchasesMap[activeTenant.id] || [],
-      productTombstones: readLocalProductTombstones(activeTenant.id),
-      saleTombstones: readLocalSaleTombstones(activeTenant.id),
-    };
-    const saved = await saveTenantWorkspace(activeTenant.id, workspace);
+    // Narrow save: only the `sales` key changes here.
+    const saved = await saveTenantSalesOnly(
+      activeTenant.id,
+      synchronizedSales,
+      readLocalSaleTombstones(activeTenant.id),
+    );
     if (!saved) {
       addToast('Sale changes could not be saved. Nothing was changed.', 'error');
       return false;
@@ -2297,20 +2277,16 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     const nextDeliveries = (deliveriesMap[tenantId] || [])
       .filter(delivery => delivery.saleId !== sale.id);
 
-    const saved = await saveTenantWorkspace(tenantId, {
-      branches: branchesMap[tenantId] || [],
-      branchStocks: branchStocksMap[tenantId] || [],
-      branchStaffAssignments: branchStaffAssignmentsMap[tenantId] || [],
-      products: restoredProducts,
-      sales: nextSales,
-      expenses: expensesMap[tenantId] || [],
-      settings: systemSettings,
-      deliveries: nextDeliveries,
-      pendingDeliveryNotes: pendingDeliveryNotesMap[tenantId] || [],
-      purchases: purchasesMap[tenantId] || [],
-      productTombstones: readLocalProductTombstones(tenantId),
-      saleTombstones: nextSaleTombstones,
-    });
+    // Narrow save: this delete atomically touches sales + products (stock
+    // restored) + deliveries (linked delivery removed) + saleTombstones,
+    // exactly as before -- see saveTenantSalesOnly's contract.
+    const saved = await saveTenantSalesOnly(
+      tenantId,
+      nextSales,
+      nextSaleTombstones,
+      restoredProducts,
+      nextDeliveries,
+    );
 
     if (!saved) {
       writeLocalSaleTombstones(tenantId, previousSaleTombstones);
@@ -2327,20 +2303,13 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
         );
       } catch (error: any) {
         writeLocalSaleTombstones(tenantId, previousSaleTombstones);
-        await saveTenantWorkspace(tenantId, {
-          branches: branchesMap[tenantId] || [],
-          branchStocks: branchStocksMap[tenantId] || [],
-          branchStaffAssignments: branchStaffAssignmentsMap[tenantId] || [],
-          products: currentProducts,
-          sales: currentSales,
-          expenses: expensesMap[tenantId] || [],
-          settings: systemSettings,
-          deliveries: deliveriesMap[tenantId] || [],
-          pendingDeliveryNotes: pendingDeliveryNotesMap[tenantId] || [],
-          purchases: purchasesMap[tenantId] || [],
-          productTombstones: readLocalProductTombstones(tenantId),
-          saleTombstones: previousSaleTombstones,
-        });
+        await saveTenantSalesOnly(
+          tenantId,
+          currentSales,
+          previousSaleTombstones,
+          currentProducts,
+          deliveriesMap[tenantId] || [],
+        );
         addToast(error?.message || 'Money & Bank could not reverse this sale safely.', 'error');
         return false;
       }
@@ -2504,20 +2473,14 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       saleToStore,
       ...(salesMap[activeTenant.id] || []).filter(existing => existing.id !== saleToStore.id),
     ];
-    const saleSaved = await saveTenantWorkspace(activeTenant.id, {
-      branches: branchesMap[activeTenant.id] || [],
-      branchStocks: branchStocksMap[activeTenant.id] || [],
-      branchStaffAssignments: branchStaffAssignmentsMap[activeTenant.id] || [],
-      products: productsMap[activeTenant.id] || [],
-      sales: nextTenantSales,
-      expenses: expensesMap[activeTenant.id] || [],
-      settings: systemSettings,
-      deliveries: deliveriesMap[activeTenant.id] || [],
-      pendingDeliveryNotes: pendingDeliveryNotesMap[activeTenant.id] || [],
-      purchases: purchasesMap[activeTenant.id] || [],
-      productTombstones: readLocalProductTombstones(activeTenant.id),
-      saleTombstones: readLocalSaleTombstones(activeTenant.id),
-    });
+    // Narrow save: only the `sales` key changes here -- stock is deducted
+    // via a separate onUpdateStocks() call right after this succeeds
+    // (DashboardPOS.tsx), exactly as before this change.
+    const saleSaved = await saveTenantSalesOnly(
+      activeTenant.id,
+      nextTenantSales,
+      readLocalSaleTombstones(activeTenant.id),
+    );
     if (!saleSaved) {
       if (postedTreasuryJournalId) {
         try {
@@ -2790,20 +2753,8 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
         : del
     );
     const nextDeliveries = applyUpdate(deliveriesMap[activeTenant.id] || []);
-    const saved = await saveTenantWorkspace(activeTenant.id, {
-      branches: branchesMap[activeTenant.id] || [],
-      branchStocks: branchStocksMap[activeTenant.id] || [],
-      branchStaffAssignments: branchStaffAssignmentsMap[activeTenant.id] || [],
-      products: productsMap[activeTenant.id] || [],
-      sales: salesMap[activeTenant.id] || [],
-      expenses: expensesMap[activeTenant.id] || [],
-      settings: systemSettings,
-      deliveries: nextDeliveries,
-      pendingDeliveryNotes: pendingDeliveryNotesMap[activeTenant.id] || [],
-      purchases: purchasesMap[activeTenant.id] || [],
-      productTombstones: readLocalProductTombstones(activeTenant.id),
-      saleTombstones: readLocalSaleTombstones(activeTenant.id),
-    });
+    // Narrow save: only the `deliveries` key changes here.
+    const saved = await saveTenantDeliveriesOnly(activeTenant.id, nextDeliveries);
     if (!saved) return false;
     setDeliveriesMap(prev => ({ ...prev, [activeTenant.id]: applyUpdate(prev[activeTenant.id] || []) }));
 
@@ -2831,20 +2782,8 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
 
     const nextDeliveries = currentDeliveries.filter(delivery => delivery.id !== deliveryId);
 
-    const workspaceBase = {
-      branches: branchesMap[tenantId] || [],
-      branchStocks: branchStocksMap[tenantId] || [],
-      branchStaffAssignments: branchStaffAssignmentsMap[tenantId] || [],
-      products: productsMap[tenantId] || [],
-      sales: salesMap[tenantId] || [],
-      expenses: expensesMap[tenantId] || [],
-      settings: systemSettings,
-      pendingDeliveryNotes: pendingDeliveryNotesMap[tenantId] || [],
-      purchases: purchasesMap[tenantId] || [],
-      productTombstones: readLocalProductTombstones(tenantId),
-    };
-
-    const saved = await saveTenantWorkspace(tenantId, { ...workspaceBase, deliveries: nextDeliveries });
+    // Narrow save: only the `deliveries` key changes here.
+    const saved = await saveTenantDeliveriesOnly(tenantId, nextDeliveries);
     if (!saved) {
       addToast('Delivery could not be deleted from the database. Nothing was removed.', 'error');
       return false;
@@ -2858,7 +2797,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
           `Deleted delivery ${currentDelivery.id}`,
         );
       } catch (error: any) {
-        await saveTenantWorkspace(tenantId, { ...workspaceBase, deliveries: currentDeliveries });
+        await saveTenantDeliveriesOnly(tenantId, currentDeliveries);
         addToast(error?.message || 'Money & Bank could not reverse this delivery income safely.', 'error');
         return false;
       }
@@ -3112,20 +3051,17 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       })()
       : (branchStocksMap[activeTenant.id] || []);
     
-    const saved = await saveTenantWorkspace(activeTenant.id, {
-      branches: branchesMap[activeTenant.id] || [],
-      branchStocks: nextBranchStocks,
-      branchStaffAssignments: branchStaffAssignmentsMap[activeTenant.id] || [],
-      products: nextProducts,
-      sales: salesMap[activeTenant.id] || [],
-      expenses: expensesMap[activeTenant.id] || [],
-      settings: systemSettings,
-      deliveries: deliveriesMap[activeTenant.id] || [],
-      pendingDeliveryNotes: pendingDeliveryNotesMap[activeTenant.id] || [],
-      purchases: updatedPurchases,
-      productTombstones: readLocalProductTombstones(activeTenant.id),
-      saleTombstones: readLocalSaleTombstones(activeTenant.id),
-    });
+    // Narrow save: purchases always changes; products/branchStocks only
+    // travel when this purchase actually adjusted stock, matching the
+    // nextProducts/nextBranchStocks computation above exactly.
+    const saved = await saveTenantPurchasesOnly(
+      activeTenant.id,
+      updatedPurchases,
+      updatedProducts ? nextProducts : undefined,
+      (activeBranchSelection.activeScope === 'branch' && activeBranchSelection.activeBranchId && updatedProducts)
+        ? nextBranchStocks
+        : undefined,
+    );
     if (!saved) {
       if (purchase.treasuryJournalId) {
         try {
@@ -3171,20 +3107,8 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       nextPurchases,
       activeBranchSelection,
     );
-    const saved = await saveTenantWorkspace(activeTenant.id, {
-      branches: branchesMap[activeTenant.id] || [],
-      branchStocks: branchStocksMap[activeTenant.id] || [],
-      branchStaffAssignments: branchStaffAssignmentsMap[activeTenant.id] || [],
-      products: productsMap[activeTenant.id] || [],
-      sales: salesMap[activeTenant.id] || [],
-      expenses: expensesMap[activeTenant.id] || [],
-      settings: systemSettings,
-      deliveries: deliveriesMap[activeTenant.id] || [],
-      pendingDeliveryNotes: pendingDeliveryNotesMap[activeTenant.id] || [],
-      purchases: tenantPurchases,
-      productTombstones: readLocalProductTombstones(activeTenant.id),
-      saleTombstones: readLocalSaleTombstones(activeTenant.id),
-    });
+    // Narrow save: only the `purchases` key changes here.
+    const saved = await saveTenantPurchasesOnly(activeTenant.id, tenantPurchases);
     if (!saved) return false;
     setPurchasesMap(prev => ({ ...prev, [activeTenant.id]: tenantPurchases }));
     return true;
@@ -3215,20 +3139,9 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
         updatedAt: new Date().toISOString(),
       };
     });
-    const saved = await saveTenantWorkspace(activeTenant.id, {
-      branches: branchesMap[activeTenant.id] || [],
-      branchStocks: nextBranchStocks,
-      branchStaffAssignments: branchStaffAssignmentsMap[activeTenant.id] || [],
-      products: nextProducts,
-      sales: salesMap[activeTenant.id] || [],
-      expenses: expensesMap[activeTenant.id] || [],
-      settings: systemSettings,
-      deliveries: deliveriesMap[activeTenant.id] || [],
-      pendingDeliveryNotes: pendingDeliveryNotesMap[activeTenant.id] || [],
-      purchases: nextPurchases,
-      productTombstones: readLocalProductTombstones(activeTenant.id),
-      saleTombstones: readLocalSaleTombstones(activeTenant.id),
-    });
+    // Narrow save: this delete atomically touches purchases + products
+    // (stock reversed) + branchStocks, exactly as before.
+    const saved = await saveTenantPurchasesOnly(activeTenant.id, nextPurchases, nextProducts, nextBranchStocks);
     if (!saved) return false;
 
     if (purchase.treasuryJournalId) {
@@ -3239,20 +3152,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
           `Voided purchase payment: ${purchase.supplierName}`,
         );
       } catch (error: any) {
-        await saveTenantWorkspace(activeTenant.id, {
-          branches: branchesMap[activeTenant.id] || [],
-          branchStocks: previousBranchStocks,
-          branchStaffAssignments: branchStaffAssignmentsMap[activeTenant.id] || [],
-          products: previousProducts,
-          sales: salesMap[activeTenant.id] || [],
-          expenses: expensesMap[activeTenant.id] || [],
-          settings: systemSettings,
-          deliveries: deliveriesMap[activeTenant.id] || [],
-          pendingDeliveryNotes: pendingDeliveryNotesMap[activeTenant.id] || [],
-          purchases: previousPurchases,
-          productTombstones: readLocalProductTombstones(activeTenant.id),
-          saleTombstones: readLocalSaleTombstones(activeTenant.id),
-        });
+        await saveTenantPurchasesOnly(activeTenant.id, previousPurchases, previousProducts, previousBranchStocks);
         addToast(error?.message || 'Money & Bank could not reverse this purchase safely. Nothing was deleted.', 'error');
         return false;
       }
