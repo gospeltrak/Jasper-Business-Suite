@@ -48,7 +48,7 @@ import DuressDashboard from '../shared/components/DuressDashboard';
 import CachedImage from '../shared/components/CachedImage';
 import { savePendingSaleOffline } from '../shared/utils/offlineDb';
 import { createCleanTenantSettings, isDemoTenant } from '../shared/utils/tenantIsolation';
-import { flushPendingTenantWorkspace, hasPendingTenantWorkspaceSave, loadTenantProductFresh, loadTenantWorkspace, loadTenantWorkspaceCore, markTenantProductsUpdated, readCachedWorkspace, reloadTenantWorkspace, saveTenantSettings, saveTenantWorkspace, scheduleTenantWorkspaceSave, subscribeToTenantBusinessType, subscribeToTenantWorkspace, TenantWorkspace, waitForTenantWorkspaceLoad, workspaceHasBusinessData } from '../shared/utils/tenantWorkspace';
+import { flushPendingTenantWorkspace, hasPendingTenantWorkspaceSave, loadTenantProductFresh, loadTenantWorkspace, loadTenantWorkspaceCore, markTenantProductsUpdated, readCachedWorkspace, reloadTenantWorkspace, saveTenantProductsOnly, saveTenantSettings, saveTenantWorkspace, scheduleTenantWorkspaceSave, subscribeToTenantBusinessType, subscribeToTenantWorkspace, TenantWorkspace, waitForTenantWorkspaceLoad, workspaceHasBusinessData } from '../shared/utils/tenantWorkspace';
 import { safeSetJsonItem, safeSetTenantMapItem } from '../shared/utils/dataSafety';
 import { findPaymentChannel, getTreasuryPaymentMethods, reconcilePaymentChannels } from '../shared/utils/paymentAccounts';
 import { attachPayloadProductTombstones, markLocalProductTombstones, mergeProductTombstones, mergeProductsForSync, readLocalProductTombstones, stampProductsForSync, writeLocalProductTombstones } from '../modules/products/utils/productSync';
@@ -2074,26 +2074,19 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     localWorkspaceChangedAtRef.current = Date.now();
     cloudWorkspaceLoadedRef.current = true;
 
-    const workspace: TenantWorkspace = {
-      branches:             branchesMap[activeTenant.id]             || [],
-      branchStocks:         branchStocksMap[activeTenant.id]         || [],
-      branchStaffAssignments: branchStaffAssignmentsMap[activeTenant.id] || [],
-      products:             syncedProducts,
-      sales:                salesMap[activeTenant.id]                || [],
-      expenses:             expensesMap[activeTenant.id]             || [],
-      settings:             systemSettings,
-      deliveries:           deliveriesMap[activeTenant.id]           || [],
-      pendingDeliveryNotes: pendingDeliveryNotesMap[activeTenant.id] || [],
-      purchases:            purchasesMap[activeTenant.id]            || [],
-      productTombstones:    readLocalProductTombstones(activeTenant.id),
-    };
-
     const changedMedicine = syncedProducts.find(product => {
       const previous = previousProducts.find(candidate => candidate.id === product.id);
       return product.productType === 'medicine' && !pharmacyHierarchyMatches(product, previous);
     });
+    // Products-only save: only the products array (and tombstones) travels
+    // to the server and gets ID-merged there, instead of round-tripping the
+    // tenant's entire sales/purchases/expenses/deliveries history on every
+    // single product edit -- confirmed live as the cause of slow product
+    // saves, worsening as that history grows. flushPendingTenantWorkspace
+    // still runs first so an older, already-scheduled full workspace
+    // autosave can't fire afterward and race this edit.
     const saved = flushPendingTenantWorkspace(activeTenant.id)
-      .then(() => saveTenantWorkspace(activeTenant.id, workspace))
+      .then(() => saveTenantProductsOnly(activeTenant.id, syncedProducts, readLocalProductTombstones(activeTenant.id)))
       .then(async (didSave) => {
         if (!didSave || !changedMedicine) return didSave;
         const persisted = await loadTenantProductFresh(activeTenant.id, changedMedicine.id);

@@ -979,6 +979,91 @@ export function saveTenantSettings(
   return next;
 }
 
+// A product create/edit/delete only ever changes the `products` array, but
+// the full saveTenantWorkspace() path round-trips the ENTIRE tenant
+// workspace (every sale, purchase, expense, delivery) on every single save --
+// confirmed live as the cause of slow product edits, and one that gets worse
+// as a tenant's transaction history grows. This calls the narrow
+// save_current_branch_products RPC instead, which merges only the products
+// array (and tombstones) server-side and never reads or rewrites the other
+// ledgers. Queued through the same workspaceSaveQueue as saveTenantWorkspace
+// so a products-only save can never race a full workspace save for the same
+// tenant.
+async function saveTenantProductsOnlyNow(
+  tenantId: string,
+  products: Product[],
+  productTombstones: Record<string, string>,
+): Promise<boolean> {
+  if (!canWriteBusinessDataOnline()) {
+    warnOfflineWriteBlocked(`saveTenantProductsOnly:${tenantId}`);
+    return false;
+  }
+
+  const client = await getConfiguredClient();
+  if (!client) {
+    warnOfflineWriteBlocked(`saveTenantProductsOnly:no-client:${tenantId}`);
+    return false;
+  }
+
+  try {
+    if (typeof client.rpc === 'function') {
+      const result = await client.rpc('save_current_branch_products', {
+        p_products: products,
+        p_product_tombstones: productTombstones,
+      });
+      const missingRpc = ['PGRST202', '42883'].includes(String(result.error?.code || ''));
+      if (!result.error) {
+        const mergedProducts = Array.isArray(result.data?.products)
+          ? result.data.products as Product[]
+          : products;
+        const mergedTombstones = (result.data?.productTombstones || productTombstones) as Record<string, string>;
+        const cached = readCachedWorkspace(tenantId);
+        cacheWorkspace(tenantId, {
+          ...(cached || emptyWorkspace()),
+          products: mergedProducts,
+          productTombstones: mergedTombstones,
+        });
+        return true;
+      }
+      if (!missingRpc) {
+        console.warn('[workspace] products-only save error:', result.error.message);
+        return false;
+      }
+    }
+
+    // Compatibility fallback for an environment that has not yet received
+    // the save_current_branch_products migration: falls back to the full
+    // workspace save this narrow path exists to avoid, so product edits
+    // never silently stop saving during a rollout window.
+    const current = readCachedWorkspace(tenantId) || await loadTenantWorkspace(tenantId) || emptyWorkspace();
+    return await saveTenantWorkspaceNow(tenantId, {
+      ...current,
+      products,
+      productTombstones: { ...(current.productTombstones || {}), ...productTombstones },
+    });
+  } catch (error: any) {
+    console.warn('[workspace] products-only save exception:', error?.message || error);
+    return false;
+  }
+}
+
+export function saveTenantProductsOnly(
+  tenantId: string,
+  products: Product[],
+  productTombstones: Record<string, string> = {},
+): Promise<boolean> {
+  if (!tenantId) return Promise.resolve(false);
+  const previous = workspaceSaveQueue.get(tenantId) || Promise.resolve(true);
+  const next = previous
+    .catch(() => false)
+    .then(() => saveTenantProductsOnlyNow(tenantId, products, productTombstones));
+  workspaceSaveQueue.set(tenantId, next);
+  void next.finally(() => {
+    if (workspaceSaveQueue.get(tenantId) === next) workspaceSaveQueue.delete(tenantId);
+  });
+  return next;
+}
+
 // ─── Flush pending (called when going online) ──────────────────────────────
 
 export async function flushPendingTenantWorkspace(tenantId: string): Promise<void> {
