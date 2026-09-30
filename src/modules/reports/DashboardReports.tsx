@@ -205,7 +205,9 @@ export default function DashboardReports({
 
   const [mobileView, setMobileView] = useState<'menu' | 'report'>('menu');
 
-  const setPresetDateRange = (preset: 'today' | 'this-week' | 'this-month') => {
+  const ALL_TIME_START = '2000-01-01';
+
+  const setPresetDateRange = (preset: 'today' | 'this-week' | 'this-month' | 'all-time') => {
     const today = new Date();
     const endStr = formatLocalDate(today);
     let startStr = '';
@@ -220,6 +222,8 @@ export default function DashboardReports({
     } else if (preset === 'this-month') {
       const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
       startStr = formatLocalDate(firstDay);
+    } else if (preset === 'all-time') {
+      startStr = ALL_TIME_START;
     }
 
     setStartDateStr(startStr);
@@ -231,6 +235,7 @@ export default function DashboardReports({
   const [velocitySortOrder, setVelocitySortOrder] = useState<'desc' | 'asc'>('desc');
   const [searchTerm, setSearchTerm] = useState('');
   const [auditView, setAuditView] = useState<'overview' | 'drilldown' | 'velocity'>('overview');
+  const [inventoryLocationFilter, setInventoryLocationFilter] = useState<'all' | 'shop' | 'store'>('all');
   const [showDateRangePicker, setShowDateRangePicker] = useState(false);
   const tabScrollRef = useRef<HTMLDivElement>(null);
   const [showTabScrollHint, setShowTabScrollHint] = useState(false);
@@ -428,9 +433,9 @@ export default function DashboardReports({
       }
       case 'deliveries': {
         csv = headerPrefix;
-        csv += "Delivery ID,Customer,Status,Rider/Driver,Delivery Fee,Logged Timestamp\\r\\n";
+        csv += "Delivery ID,Customer,Rider/Driver,Destination,Status,Delivery Fee,Logged Timestamp\\r\\n";
         deliveryReportStats.validDeliveries.forEach(d => {
-          csv += `"${d.id}","${d.customerName}","${d.status}","${d.riderDetails?.name || d.riderId || 'Unassigned'}",${(Number(d.deliveryCost) || 0).toFixed(2)},"${new Date(d.timestamp).toLocaleString()}"\\r\\n`;
+          csv += `"${d.id}","${d.customerName}","${d.riderDetails?.name || d.riderId || 'Unassigned'}","${(d.customerAddress || '').replace(/"/g, '""')}","${d.status}",${(Number(d.deliveryCost) || 0).toFixed(2)},"${new Date(d.timestamp).toLocaleString()}"\\r\\n`;
         });
         break;
       }
@@ -525,27 +530,85 @@ export default function DashboardReports({
     return { totalSalesRevenue, totalCOGS, grossProfit, netProfit, totalExpensesCharged };
   }, [filteredSales, filteredExpenses, products]);
 
+  // Daily P&L trend for the chart at the bottom of the P&L tab. Capped at
+  // 100 day-buckets so this can never iterate unboundedly -- relevant now
+  // that "All Time" exists as a preset. Anchored from the END of the range
+  // and built backward: a forward-from-start cap would, for a wide range
+  // like All Time (starting year 2000), fill its 100 buckets with ancient
+  // empty days and silently drop every real, recent transaction from the
+  // chart instead of just showing fewer days of a still-relevant window.
+  const pAndLGraphData = useMemo(() => {
+    const start = new Date(startDateStr);
+    const end = new Date(endDateStr);
+    const dateMap: Record<string, { salesRevenue: number; cogs: number; expenses: number }> = {};
+    const current = new Date(end);
+    let daysCount = 0;
+    while (current >= start && daysCount < 100) {
+      dateMap[formatLocalDate(current)] = { salesRevenue: 0, cogs: 0, expenses: 0 };
+      current.setDate(current.getDate() - 1);
+      daysCount++;
+    }
+    if (Object.keys(dateMap).length === 0) {
+      dateMap[formatLocalDate()] = { salesRevenue: 0, cogs: 0, expenses: 0 };
+    }
+    filteredSales.forEach(s => {
+      if (!s.timestamp) return;
+      const dStr = timestampToLocalDate(s.timestamp);
+      const bucket = dateMap[dStr];
+      if (!bucket) return;
+      bucket.salesRevenue += saleProductRevenue(s);
+      (s.items || []).forEach(item => {
+        const matchingProd = products.find(p => p.id === item.productId);
+        bucket.cogs += (matchingProd ? (item.costPriceAtSale ?? matchingProd.costPrice) : (getSaleItemGrossTotal(item) * 0.75)) * item.qty;
+      });
+    });
+    filteredExpenses.forEach(e => {
+      if (!e.timestamp) return;
+      const bucket = dateMap[timestampToLocalDate(e.timestamp)];
+      if (bucket) bucket.expenses += e.amount;
+    });
+    return Object.keys(dateMap).sort().map(dStr => {
+      const day = dateMap[dStr];
+      return {
+        label: new Date(dStr).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+        salesRevenue: Math.round(day.salesRevenue),
+        cogs: Math.round(day.cogs),
+        expenses: Math.round(day.expenses),
+        profit: Math.round(day.salesRevenue - day.cogs - day.expenses),
+      };
+    });
+  }, [filteredSales, filteredExpenses, products, startDateStr, endDateStr]);
+
   // Product Audit report: profit ranking per product, computed once from
   // filteredSales (respecting the same date range as every other report on
   // this screen, unlike the CSV export switch above which uses raw `sales`)
   // instead of iterating products.forEach + sales.filter per product.
   const productAuditRows = useMemo(() => {
-    const perfById = new Map<string, { qty: number; revenue: number }>();
+    // Cost is accumulated per sale item using that item's own costPriceAtSale
+    // (falling back to the product's current cost only when a historical
+    // snapshot wasn't recorded), matching pnlStats/productDrilldownStats
+    // elsewhere on this screen. Applying today's current cost price to every
+    // historical unit sold (the previous approach) produced wrong -- even
+    // negative -- profit whenever a product's cost price had since changed,
+    // since a price increase would retroactively inflate the cost of units
+    // that were actually bought and sold at the old, lower price.
+    const perfById = new Map<string, { qty: number; revenue: number; cost: number }>();
     filteredSales.forEach(s => {
       (s.items || []).forEach(item => {
-        const existing = perfById.get(item.productId) || { qty: 0, revenue: 0 };
+        const matchingProd = products.find(p => p.id === item.productId);
+        const existing = perfById.get(item.productId) || { qty: 0, revenue: 0, cost: 0 };
         existing.qty += item.qty;
         existing.revenue += item.lineTotal ?? 0;
+        existing.cost += (item.costPriceAtSale ?? matchingProd?.costPrice ?? 0) * item.qty;
         perfById.set(item.productId, existing);
       });
     });
     return products
       .map(p => {
-        const perf = perfById.get(p.id) || { qty: 0, revenue: 0 };
-        const cost = perf.qty * (p.costPrice || 0);
-        const profit = perf.revenue - cost;
+        const perf = perfById.get(p.id) || { qty: 0, revenue: 0, cost: 0 };
+        const profit = perf.revenue - perf.cost;
         const margin = perf.revenue > 0 ? (profit / perf.revenue) * 100 : 0;
-        return { product: p, qty: perf.qty, revenue: perf.revenue, cost, profit, margin };
+        return { product: p, qty: perf.qty, revenue: perf.revenue, cost: perf.cost, profit, margin };
       })
       .filter(row => row.qty > 0)
       .sort((a, b) => b.profit - a.profit);
@@ -708,6 +771,34 @@ export default function DashboardReports({
     }, { totalUnits: 0, totalValuation: 0, lowStockCount: 0 });
   }, [filteredInventoryProducts]);
 
+  // Store vs Shop breakdown: units, cost valuation, potential revenue and
+  // potential profit if everything currently sitting at that location sold
+  // at its listed price.
+  const inventoryLocationTotals = useMemo(() => {
+    const compute = (qtyKey: 'shopStockQty' | 'storeStockQty') => {
+      const totals = filteredInventoryProducts.reduce((acc, p) => {
+        const qty = p[qtyKey] || 0;
+        acc.units += qty;
+        acc.valuation += qty * (p.costPrice || 0);
+        acc.potentialRevenue += qty * (p.sellingPrice || 0);
+        return acc;
+      }, { units: 0, valuation: 0, potentialRevenue: 0 });
+      return { ...totals, potentialProfit: totals.potentialRevenue - totals.valuation };
+    };
+    return { shop: compute('shopStockQty'), store: compute('storeStockQty') };
+  }, [filteredInventoryProducts]);
+
+  const inventoryDisplayRows = useMemo(() => {
+    return filteredInventoryProducts
+      .map(p => {
+        const onHand = inventoryLocationFilter === 'shop' ? (p.shopStockQty || 0)
+          : inventoryLocationFilter === 'store' ? (p.storeStockQty || 0)
+          : (p.shopStockQty || 0) + (p.storeStockQty || 0);
+        return { p, onHand };
+      })
+      .filter(({ onHand }) => inventoryLocationFilter === 'all' || onHand > 0);
+  }, [filteredInventoryProducts, inventoryLocationFilter]);
+
   const expenseCategoryOptions = useMemo(() => {
     const unique = Array.from(new Set(expenses.map(e => e.category).filter(Boolean)));
     return [{ value: 'All', label: 'All Categories' }, ...unique.map(c => ({ value: c, label: c }))];
@@ -742,6 +833,7 @@ export default function DashboardReports({
   const activePreset = startDateStr === todayStr && endDateStr === todayStr ? 'today'
     : startDateStr === weekPresetStart && endDateStr === todayStr ? 'this-week'
     : startDateStr === monthPresetStart && endDateStr === todayStr ? 'this-month'
+    : startDateStr === ALL_TIME_START && endDateStr === todayStr ? 'all-time'
     : null;
 
   useEffect(() => {
@@ -766,11 +858,8 @@ export default function DashboardReports({
         <div className="text-center lg:text-left space-y-1">
           <h4 className="text-xl font-black text-slate-900 flex items-center justify-center lg:justify-start gap-2">
             <BarChart3 className="w-6 h-6 text-emerald-600" />
-            <span className="tracking-tight">Business Intelligence Reports</span>
+            <span className="tracking-tight">Business Reports</span>
           </h4>
-          <p className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">
-            Financial audits, performance & inventory analytics
-          </p>
         </div>
 
         <div className="relative w-full lg:w-auto">
@@ -835,7 +924,7 @@ export default function DashboardReports({
             <ChevronDown className={`w-3 h-3 transition-transform ${showDateRangePicker ? 'rotate-180' : ''}`} />
           </button>
           <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 overflow-x-auto no-scrollbar flex-1">
-            {['today', 'this-week', 'this-month'].map(preset => (
+            {['today', 'this-week', 'this-month', 'all-time'].map(preset => (
               <button
                 key={preset}
                 onClick={() => setPresetDateRange(preset as any)}
@@ -998,6 +1087,36 @@ export default function DashboardReports({
                  </div>
                </div>
             </div>
+
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
+              <div>
+                <h3 className="font-black text-slate-800 uppercase tracking-wider text-sm">Daily Performance Trend</h3>
+                <p className="text-xs text-slate-500 mt-1">Revenue, COGS, expenses and profit over the selected period.</p>
+              </div>
+              <div className="w-full h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={pAndLGraphData} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                    <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                    <YAxis
+                      tick={{ fontSize: 10, fill: '#94a3b8' }}
+                      axisLine={false}
+                      tickLine={false}
+                      tickFormatter={v => v >= 1000000 ? `${(v / 1000000).toFixed(1)}M` : v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}
+                    />
+                    <Tooltip
+                      contentStyle={{ borderRadius: 12, fontSize: 11, border: '1px solid #e2e8f0' }}
+                      formatter={(value: any, name: string) => [`${currency}${Number(value).toLocaleString()}`, name]}
+                    />
+                    <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 10, fontWeight: 700 }} />
+                    <Line type="monotone" dataKey="salesRevenue" name="Revenue" stroke="#059669" strokeWidth={2} dot={false} />
+                    <Line type="monotone" dataKey="cogs" name="COGS" stroke="#f59e0b" strokeWidth={2} strokeDasharray="4 4" dot={false} />
+                    <Line type="monotone" dataKey="expenses" name="Expenses" stroke="#e11d48" strokeWidth={2} dot={false} />
+                    <Line type="monotone" dataKey="profit" name="Net Profit" stroke="#0891b2" strokeWidth={2.5} dot={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
           </div>
         )}
 
@@ -1130,21 +1249,73 @@ export default function DashboardReports({
                 ))}
               </div>
 
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Store vs Shop</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {[
+                    { key: 'shop' as const, label: 'In Shop', icon: ShoppingBag, data: inventoryLocationTotals.shop },
+                    { key: 'store' as const, label: 'In Store', icon: Package, data: inventoryLocationTotals.store },
+                  ].map(loc => (
+                    <div key={loc.key} className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 shrink-0">
+                          <loc.icon className="w-4 h-4" />
+                        </div>
+                        <h6 className="text-sm font-bold text-slate-900">{loc.label}</h6>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Units</p>
+                          <p className="text-sm font-black text-slate-900 font-mono">{loc.data.units.toLocaleString()}</p>
+                        </div>
+                        <div>
+                          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">If Sold</p>
+                          <p className="text-sm font-black text-slate-900 font-mono">{currency}{Math.round(loc.data.potentialRevenue).toLocaleString()}</p>
+                        </div>
+                        <div>
+                          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Profit</p>
+                          <p className={`text-sm font-black font-mono ${loc.data.potentialProfit >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>{currency}{Math.round(loc.data.potentialProfit).toLocaleString()}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 w-full sm:w-auto sm:inline-flex">
+                {([
+                  { id: 'all', label: 'All' },
+                  { id: 'shop', label: 'Shop' },
+                  { id: 'store', label: 'Store' },
+                ] as const).map(loc => (
+                  <button
+                    key={loc.id}
+                    onClick={() => setInventoryLocationFilter(loc.id)}
+                    className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-[11px] font-bold uppercase transition-colors ${
+                      inventoryLocationFilter === loc.id ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    {loc.label}
+                  </button>
+                ))}
+              </div>
+
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-50 border-b border-slate-200">
                     <tr>
                       <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Product</th>
                       <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Category</th>
-                      <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">On Hand</th>
+                      <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">
+                        {inventoryLocationFilter === 'shop' ? 'In Shop' : inventoryLocationFilter === 'store' ? 'In Store' : 'On Hand'}
+                      </th>
                       <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Cost Price</th>
                       <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Selling Price</th>
                       <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Valuation</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {filteredInventoryProducts.map(p => {
-                      const onHand = (p.shopStockQty || 0) + (p.storeStockQty || 0);
+                    {inventoryDisplayRows.map(({ p, onHand }) => {
                       const isLow = onHand <= (p.alertQty || 0);
                       return (
                         <tr key={p.id} className="hover:bg-slate-50 transition-colors">
@@ -1164,12 +1335,12 @@ export default function DashboardReports({
                         </tr>
                       );
                     })}
-                    {filteredInventoryProducts.length === 0 && (
+                    {inventoryDisplayRows.length === 0 && (
                       <tr>
                         <td colSpan={6} className="p-10 text-center text-slate-400">
                           <div className="flex flex-col items-center gap-2">
                             <Package className="w-8 h-8 text-slate-200" />
-                            <span>No products matched.</span>
+                            <span>{inventoryLocationFilter === 'all' ? 'No products matched.' : `No stock in ${inventoryLocationFilter} for these products.`}</span>
                           </div>
                         </td>
                       </tr>
@@ -1396,13 +1567,13 @@ export default function DashboardReports({
                     ) : (
                       <div className="h-56 bg-slate-50 rounded-2xl border border-slate-200 p-3">
                         <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={productDrilldownStats.dailyTrend}>
+                          <LineChart data={productDrilldownStats.dailyTrend}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
                             <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
                             <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} allowDecimals={false} />
                             <Tooltip contentStyle={{ borderRadius: 12, fontSize: 11, border: '1px solid #e2e8f0' }} />
-                            <Bar dataKey="qty" name="Units Sold" fill="#059669" radius={[4, 4, 0, 0]} />
-                          </BarChart>
+                            <Line type="monotone" dataKey="qty" name="Units Sold" stroke="#059669" strokeWidth={2} dot={{ r: 3, fill: '#059669' }} activeDot={{ r: 5 }} />
+                          </LineChart>
                         </ResponsiveContainer>
                       </div>
                     )}
@@ -1520,6 +1691,7 @@ export default function DashboardReports({
                       <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Date</th>
                       <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Customer</th>
                       <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Rider / Driver</th>
+                      <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Destination</th>
                       <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-center">Status</th>
                       <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Fee</th>
                     </tr>
@@ -1530,6 +1702,7 @@ export default function DashboardReports({
                         <td className="p-3 text-slate-500 whitespace-nowrap">{formatLocalDate(new Date(d.timestamp))}</td>
                         <td className="p-3 font-medium text-slate-800">{d.customerName}</td>
                         <td className="p-3 text-slate-600">{d.riderDetails?.name || d.riderId || 'Unassigned'}</td>
+                        <td className="p-3 text-slate-600 max-w-[180px] truncate">{d.customerAddress || '—'}</td>
                         <td className="p-3 text-center">
                           <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
                             d.status === 'Delivered' ? 'bg-emerald-100 text-emerald-700'
@@ -1542,7 +1715,7 @@ export default function DashboardReports({
                     ))}
                     {deliveryReportStats.validDeliveries.length === 0 && (
                       <tr>
-                        <td colSpan={5} className="p-10 text-center text-slate-400">
+                        <td colSpan={6} className="p-10 text-center text-slate-400">
                           <div className="flex flex-col items-center gap-2">
                             <Truck className="w-8 h-8 text-slate-200" />
                             <span>No deliveries logged for this period.</span>
