@@ -4,10 +4,11 @@ import { Product, Supplier, Purchase, PurchaseItem, Tenant, SystemSettings, Paym
 import { getMaskedAccountReference } from '../../shared/utils/paymentAccounts';
 import ModernSelect from '../../shared/components/ModernSelect';
 import CachedImage from '../../shared/components/CachedImage';
-import { addBatchToProduct, createInventoryBatch } from '../../shared/utils/inventoryCosting';
+import { addBatchToProduct, createInventoryBatch, reversePurchaseInventory } from '../../shared/utils/inventoryCosting';
 import { formatProductQuantity } from '../../shared/utils/unitFormatter';
 import { calculateBaseCost, convertToBaseQuantity, getBaseUnitLabel, resolvePackageLevels } from '../../shared/utils/universalUnits';
 import { calculateFractionPurchaseLine, isFractionSaleEnabled, resolveFractionSaleConfig } from '../sales/utils/fractionSale';
+import { formatLocalDate, localDateToIso } from '../../shared/utils/localDate';
 import { 
   Truck, 
   Package, 
@@ -55,7 +56,7 @@ interface DashboardPurchasesProps {
   onUpdateStocks: (updatedProducts: Product[]) => void;
   purchases: Purchase[];
   onAddPurchase: (purchase: Purchase, updatedProducts?: Product[]) => void | boolean | Promise<void | boolean>;
-  onUpdatePurchases: (purchases: Purchase[]) => Promise<boolean> | boolean;
+  onUpdatePurchases: (purchases: Purchase[], updatedProducts?: Product[]) => Promise<boolean> | boolean;
   onDeletePurchase: (purchaseId: string) => void | boolean | Promise<void | boolean>;
   systemSettings: SystemSettings;
 }
@@ -222,12 +223,18 @@ function DeletePurchaseModal({ id, onClose, onDeletePurchase }: {
 }
 
 function EditPurchaseModal({
-  pc, currency, editAmountPaid, setEditAmountPaid, editDeliveryStatus, setEditDeliveryStatus,
+  pc, currency, products, editDate, setEditDate, editItems, setEditItems,
+  editAmountPaid, setEditAmountPaid, editDeliveryStatus, setEditDeliveryStatus,
   editPaymentMethod, setEditPaymentMethod, editPaidFromAccountId, setEditPaidFromAccountId,
   paymentAccounts, editPurchaseError, onClose, onSave,
 }: {
   pc: Purchase;
   currency: string;
+  products: Product[];
+  editDate: string;
+  setEditDate: (v: string) => void;
+  editItems: PurchaseItem[];
+  setEditItems: (v: PurchaseItem[]) => void;
   editAmountPaid: number;
   setEditAmountPaid: (v: number) => void;
   editDeliveryStatus: Purchase['deliveryStatus'];
@@ -241,18 +248,60 @@ function EditPurchaseModal({
   onClose: () => void;
   onSave: () => void;
 }) {
+  const [itemSearch, setItemSearch] = useState('');
+  const editTotalAmount = editItems.reduce((sum, item) => sum + (Number(item.costPrice) || 0) * item.qty, 0);
+  const itemSearchResults = itemSearch.trim()
+    ? products.filter(p =>
+        !editItems.some(item => item.productId === p.id) &&
+        p.name.toLowerCase().includes(itemSearch.trim().toLowerCase())
+      ).slice(0, 6)
+    : [];
+
+  const updateItemQty = (productId: string, qty: number) => {
+    if (qty <= 0) {
+      setEditItems(editItems.filter(item => item.productId !== productId));
+      return;
+    }
+    setEditItems(editItems.map(item => item.productId === productId
+      ? { ...item, qty, baseQty: qty, lineTotal: Number((qty * (Number(item.costPrice) || 0)).toFixed(2)) }
+      : item
+    ));
+  };
+
+  const updateItemCost = (productId: string, costPrice: number) => {
+    setEditItems(editItems.map(item => item.productId === productId
+      ? { ...item, costPrice, selectedUnitCost: costPrice, lineTotal: Number((item.qty * costPrice).toFixed(2)) }
+      : item
+    ));
+  };
+
+  const addProductToItems = (product: Product) => {
+    setEditItems([...editItems, {
+      productId: product.id,
+      productName: product.name,
+      qty: 1,
+      costPrice: product.costPrice,
+      baseQty: 1,
+      selectedLevel: 'base',
+      selectedUnitCost: product.costPrice,
+      lineTotal: product.costPrice,
+      baseUnit: product.baseUnit || product.unit,
+    }]);
+    setItemSearch('');
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
       <div
-        className="relative bg-white w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden"
+        className="relative bg-white w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col"
         onClick={e => e.stopPropagation()}
-        style={{ animation: 'slideUp 0.28s cubic-bezier(.32,1.2,.6,1) both' }}
+        style={{ animation: 'slideUp 0.28s cubic-bezier(.32,1.2,.6,1) both', maxHeight: '90vh' }}
       >
         <div className="flex justify-center pt-3 pb-1 sm:hidden">
           <div className="w-10 h-1 bg-slate-200 rounded-full" />
         </div>
-        <div className="flex items-center justify-between px-6 pt-4 pb-4 border-b border-slate-100">
+        <div className="flex items-center justify-between px-6 pt-4 pb-4 border-b border-slate-100 shrink-0">
           <div>
             <h3 className="font-black text-slate-800 text-base">Edit Purchase</h3>
             <p className="text-[11px] text-slate-400 font-mono mt-0.5">{pc.id}</p>
@@ -261,13 +310,116 @@ function EditPurchaseModal({
             <X className="w-4 h-4 text-slate-600" />
           </button>
         </div>
-        <div className="px-6 py-5 space-y-4 max-h-[60vh] overflow-y-auto">
+        <div className="px-6 py-5 space-y-4 overflow-y-auto">
+          <div className="space-y-1">
+            <label className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest font-mono">Purchase Date</label>
+            <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 focus-within:border-emerald-500 px-3 py-2.5 rounded-xl transition-all">
+              <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <input
+                type="date"
+                value={editDate}
+                onChange={(event) => setEditDate(event.target.value)}
+                className="bg-transparent w-full text-sm text-slate-800 font-bold font-mono focus:outline-none"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest font-mono">Items</label>
+              <span className="text-[10.5px] font-black text-emerald-600 font-mono">{currency}{Math.round(editTotalAmount).toLocaleString()}</span>
+            </div>
+            <div className="space-y-1.5 max-h-[220px] overflow-y-auto pr-0.5">
+              {editItems.map(item => {
+                const isBaseLevel = !item.selectedLevel || item.selectedLevel === 'base';
+                return (
+                  <div key={item.productId} className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-slate-800 truncate">{item.productName}</p>
+                      {!isBaseLevel && (
+                        <p className="text-[9px] text-amber-600 font-semibold">{item.packageLevelLabel || 'Packaged unit'} — remove &amp; re-add to change qty</p>
+                      )}
+                    </div>
+                    {isBaseLevel ? (
+                      <div className="flex items-center bg-white border border-slate-200 rounded-lg px-1 py-0.5 shrink-0">
+                        <button type="button" onClick={() => updateItemQty(item.productId, item.qty - 1)} className="p-1 text-slate-500 hover:text-slate-800">
+                          <Minus className="w-3 h-3" />
+                        </button>
+                        <span className="w-7 text-center font-extrabold text-slate-800 text-xs">{item.qty}</span>
+                        <button type="button" onClick={() => updateItemQty(item.productId, item.qty + 1)} className="p-1 text-slate-500 hover:text-slate-800">
+                          <Plus className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-xs font-bold text-slate-700 shrink-0">×{item.qty}</span>
+                    )}
+                    {isBaseLevel && (
+                      <div className="flex items-center bg-white border border-slate-200 rounded-lg px-1.5 py-0.5 shrink-0 w-20">
+                        <span className="text-slate-400 text-[9px] font-bold mr-0.5">{currency}</span>
+                        <input
+                          type="number" min="0" value={item.costPrice}
+                          onChange={(event) => updateItemCost(item.productId, Number(event.target.value) || 0)}
+                          className="w-full bg-transparent text-slate-800 font-bold focus:outline-none text-right text-[11px]"
+                        />
+                      </div>
+                    )}
+                    <button type="button" onClick={() => setEditItems(editItems.filter(i => i.productId !== item.productId))} className="text-slate-400 hover:text-red-500 shrink-0">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                );
+              })}
+              {editItems.length === 0 && (
+                <p className="text-[11px] text-slate-400 text-center py-3">No items — add at least one product below.</p>
+              )}
+            </div>
+            <div className="relative">
+              <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-2.5 py-2">
+                <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                <input
+                  type="text"
+                  placeholder="Add another product..."
+                  value={itemSearch}
+                  onChange={(event) => setItemSearch(event.target.value)}
+                  className="bg-transparent w-full text-xs text-slate-700 placeholder-slate-400 outline-none"
+                />
+              </div>
+              {itemSearchResults.length > 0 && (
+                <div className="absolute z-10 mt-1 w-full bg-white border border-slate-200 rounded-xl shadow-lg overflow-hidden">
+                  {itemSearchResults.map(p => (
+                    <button
+                      type="button"
+                      key={p.id}
+                      onClick={() => addProductToItems(p)}
+                      className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-slate-50"
+                    >
+                      <span className="text-xs font-semibold text-slate-700 truncate">{p.name}</span>
+                      <span className="text-[10px] font-bold text-emerald-600 shrink-0 ml-2">+ Add</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
           <div className="space-y-1">
             <label className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest font-mono">Amount Paid</label>
             <div className="flex items-center bg-slate-50 border border-slate-200 focus-within:border-emerald-500 px-3 py-2.5 rounded-xl transition-all">
               <span className="text-slate-500 font-bold font-mono mr-1.5">{currency}</span>
-              <input type="number" min="0" max={pc.totalAmount} value={editAmountPaid} onChange={(event) => setEditAmountPaid(Number(event.target.value) || 0)} className="bg-transparent w-full text-sm text-slate-800 font-black font-mono focus:outline-none text-right" />
+              <input type="number" min="0" max={editTotalAmount} value={editAmountPaid} onChange={(event) => setEditAmountPaid(Number(event.target.value) || 0)} className="bg-transparent w-full text-sm text-slate-800 font-black font-mono focus:outline-none text-right" />
+              <button
+                type="button"
+                onClick={() => setEditAmountPaid(editTotalAmount)}
+                className="ml-2 shrink-0 text-[9px] font-black uppercase text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-1 rounded-lg hover:bg-emerald-100"
+              >
+                Pay Full
+              </button>
             </div>
+            {editTotalAmount - editAmountPaid > 0 && (
+              <p className="text-[10px] font-bold text-amber-600">
+                Outstanding: {currency}{Math.round(Math.max(0, editTotalAmount - editAmountPaid)).toLocaleString()}
+              </p>
+            )}
           </div>
           <div className="space-y-1">
             <label className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest font-mono">Delivery Status</label>
@@ -295,7 +447,7 @@ function EditPurchaseModal({
             )}
           </div>
         </div>
-        <div className="px-6 pb-6 pt-2">
+        <div className="px-6 pb-6 pt-2 shrink-0">
           <button
             onClick={onSave}
             className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 text-white text-sm font-black rounded-2xl flex items-center justify-center gap-2 transition-all"
@@ -341,7 +493,10 @@ export default function DashboardPurchases({
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>(suppliers[0]?.id || defaultSupplierId);
   const [destination, setDestination] = useState<'shop' | 'store'>('store');
   const [deliveryStatus, setDeliveryStatus] = useState<'Pending' | 'Partial' | 'Full order delivered'>('Full order delivered');
-  
+  // Backdate picker for the purchase's recorded date -- mirrors DashboardPOS.tsx's
+  // "Sale Entry Date" pattern exactly (same formatLocalDate/localDateToIso utils).
+  const [purchaseDate, setPurchaseDate] = useState<string>(() => formatLocalDate());
+
   const [searchTerm, setSearchTerm] = useState('');
   const [cart, setCart] = useState<Array<{ product: Product; qty: number; costPrice: number | ''; unitLevelId: string; expiryDate?: string }>>([]);
   // Drives a brief "added to cart" pop/checkmark on a catalog card's + badge
@@ -419,6 +574,8 @@ export default function DashboardPurchases({
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [viewPurchase, setViewPurchase] = useState<Purchase | null>(null);
   const [editPurchase, setEditPurchase] = useState<Purchase | null>(null);
+  const [editDate, setEditDate] = useState('');
+  const [editItems, setEditItems] = useState<PurchaseItem[]>([]);
   const [editAmountPaid, setEditAmountPaid] = useState(0);
   const [editDeliveryStatus, setEditDeliveryStatus] = useState<Purchase['deliveryStatus']>('Pending');
   const [editPaymentMethod, setEditPaymentMethod] = useState('Cash');
@@ -430,6 +587,8 @@ export default function DashboardPurchases({
   const openEditPurchase = (purchase: Purchase) => {
     setEditPurchaseError('');
     setEditPurchase(purchase);
+    setEditDate(formatLocalDate(purchase.timestamp));
+    setEditItems((purchase.items || []).map(item => ({ ...item })));
     setEditAmountPaid(purchase.amountPaid || 0);
     setEditDeliveryStatus(purchase.deliveryStatus);
     setEditPaymentMethod(purchase.paymentMethod || 'Cash');
@@ -438,7 +597,12 @@ export default function DashboardPurchases({
 
   const saveEditedPurchase = async () => {
     if (!editPurchase) return;
-    const safePaid = Math.max(0, Math.min(editPurchase.totalAmount, Number(editAmountPaid) || 0));
+    if (editItems.length === 0) {
+      setEditPurchaseError('A purchase must have at least one item.');
+      return;
+    }
+    const editTotalAmount = editItems.reduce((sum, item) => sum + (Number(item.costPrice) || 0) * item.qty, 0);
+    const safePaid = Math.max(0, Math.min(editTotalAmount, Number(editAmountPaid) || 0));
     if (
       editPurchase.treasuryJournalId
       && (
@@ -449,17 +613,60 @@ export default function DashboardPurchases({
       setEditPurchaseError('A posted payment cannot be silently changed. Reverse/delete this purchase payment, then record the corrected purchase.');
       return;
     }
-    const saved = await onUpdatePurchases(purchases.map((purchase) => purchase.id === editPurchase.id
-      ? {
-          ...purchase,
-          amountPaid: safePaid,
-          amountDue: Math.max(0, purchase.totalAmount - safePaid),
-          deliveryStatus: editDeliveryStatus,
-          paymentMethod: editPaymentMethod,
-          paidFromAccountId: safePaid > 0 ? editPaidFromAccountId : undefined,
-        }
-      : purchase
-    ));
+
+    const nextTimestamp = localDateToIso(editDate, new Date(editPurchase.timestamp));
+    const itemsChanged = JSON.stringify(editItems.map(i => [i.productId, i.qty, i.costPrice]))
+      !== JSON.stringify((editPurchase.items || []).map(i => [i.productId, i.qty, i.costPrice]));
+
+    let updatedProducts: Product[] | undefined;
+    if (itemsChanged) {
+      // Reverse this purchase's existing stock/batch impact, then re-apply
+      // it fresh from the edited items -- reuses the exact same utilities
+      // (and therefore the exact same correctness guarantees) already used
+      // to delete a purchase and to record a new one, instead of
+      // hand-computing a quantity delta that could drift from reality.
+      const reversedProducts = reversePurchaseInventory(products, editPurchase);
+      updatedProducts = reversedProducts.map(prod => {
+        const editedItem = editItems.find(item => item.productId === prod.id);
+        if (!editedItem) return prod;
+        const addedQty = editedItem.baseQty ?? editedItem.qty;
+        const baseCostPrice = Number(editedItem.costPrice) || 0;
+        const newShopQty = editPurchase.destination === 'shop' ? (prod.shopStockQty || 0) + addedQty : (prod.shopStockQty || 0);
+        const newStoreQty = editPurchase.destination === 'store' ? (prod.storeStockQty || 0) + addedQty : (prod.storeStockQty || 0);
+        const batch = createInventoryBatch(prod, addedQty, baseCostPrice, {
+          purchaseId: editPurchase.id,
+          destination: editPurchase.destination,
+          supplierName: editPurchase.supplierName,
+          finalSellingPrice: prod.sellingPrice,
+          purchaseDate: nextTimestamp,
+        });
+        const updatedWithBatch = addBatchToProduct(prod, batch, editPurchase.destination);
+        return {
+          ...updatedWithBatch,
+          shopStockQty: Number(newShopQty.toFixed(3)),
+          storeStockQty: Number(newStoreQty.toFixed(3)),
+          stockQty: Number((newShopQty + newStoreQty).toFixed(3)),
+        };
+      });
+    }
+
+    const saved = await onUpdatePurchases(
+      purchases.map((purchase) => purchase.id === editPurchase.id
+        ? {
+            ...purchase,
+            items: editItems,
+            totalAmount: editTotalAmount,
+            timestamp: nextTimestamp,
+            amountPaid: safePaid,
+            amountDue: Math.max(0, editTotalAmount - safePaid),
+            deliveryStatus: editDeliveryStatus,
+            paymentMethod: editPaymentMethod,
+            paidFromAccountId: safePaid > 0 ? editPaidFromAccountId : undefined,
+          }
+        : purchase
+      ),
+      updatedProducts,
+    );
     if (!saved) {
       setEditPurchaseError('Purchase changes could not be saved. Nothing was changed in the database.');
       return;
@@ -741,7 +948,7 @@ export default function DashboardPurchases({
         }),
       destination,
       deliveryStatus,
-      timestamp: new Date().toISOString(),
+      timestamp: localDateToIso(purchaseDate, new Date()),
       tenantId: activeTenant.id,
       discount: purchaseDiscount,
       discountType: purchaseDiscountType,
@@ -795,6 +1002,7 @@ export default function DashboardPurchases({
       setPurchaseDiscountType('percentage');
       setDeliveryFee(0);
       setSearchTerm('');
+      setPurchaseDate(formatLocalDate());
       setPurchaseSuccess(false);
       setActiveSubTab('history');
     }, 1500);
@@ -1234,10 +1442,10 @@ export default function DashboardPurchases({
                               <div className="relative inline-block">
                                 <button
                                   onClick={() => setOpenMenuId(openMenuId === pc.id ? null : pc.id)}
-                                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors"
+                                  aria-label="Purchase actions"
+                                  className="flex items-center justify-center w-8 h-8 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors"
                                 >
-                                  <MoreVertical className="w-3.5 h-3.5" />
-                                  <span>Actions</span>
+                                  <MoreVertical className="w-4 h-4" />
                                 </button>
                                 {openMenuId === pc.id && (
                                   <>
@@ -1558,7 +1766,23 @@ export default function DashboardPurchases({
 
             {/* Right panel: Cart & Order Metadata — full width on mobile */}
             <div ref={purchasesCartColRef} className="bg-white border border-slate-200 rounded-3xl p-4 sm:p-6 space-y-5 shadow-xs purchases-tablet-cart-col">
-              
+
+              {/* Purchase Entry Date / backdate — same pattern as DashboardPOS.tsx's
+                  Sale Entry Date picker, so a purchase can be recorded against the
+                  day it actually happened instead of always "now". */}
+              <div className="rounded-xl bg-amber-50/50 border border-amber-100 p-3 flex items-center justify-between text-xs gap-3 font-sans">
+                <div className="flex items-center space-x-1.5 text-amber-800 font-medium">
+                  <Calendar className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                  <span className="font-bold text-slate-705">Purchase Entry Date:</span>
+                </div>
+                <input
+                  type="date"
+                  value={purchaseDate}
+                  onChange={(e) => setPurchaseDate(e.target.value)}
+                  className="px-2 py-1 bg-white border border-slate-200 rounded-lg outline-none text-xs font-bold font-mono text-slate-800 focus:ring-1 focus:ring-emerald-500 cursor-pointer"
+                />
+              </div>
+
               {/* Supplier & Destination */}
               <div className="space-y-3 border-b border-slate-200 pb-4">
                 <h5 className="font-extrabold text-slate-800 text-sm">Supplier & Destination</h5>
@@ -1944,6 +2168,11 @@ export default function DashboardPurchases({
         <EditPurchaseModal
           pc={editPurchase}
           currency={currency}
+          products={products}
+          editDate={editDate}
+          setEditDate={setEditDate}
+          editItems={editItems}
+          setEditItems={setEditItems}
           editAmountPaid={editAmountPaid}
           setEditAmountPaid={setEditAmountPaid}
           editDeliveryStatus={editDeliveryStatus}

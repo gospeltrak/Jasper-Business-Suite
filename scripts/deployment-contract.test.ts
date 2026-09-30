@@ -709,7 +709,7 @@ test('purchase edit and delete actions call tenant-scoped persistence callbacks'
   const purchaseSource = await read('src/modules/purchases/DashboardPurchases.tsx');
   const dashboardSource = await read('src/components/Dashboard.tsx');
   assert.doesNotMatch(purchaseSource, /In a real app: call onDeletePurchase/);
-  assert.match(purchaseSource, /onUpdatePurchases\(purchases\.map/);
+  assert.match(purchaseSource, /onUpdatePurchases\(\s*purchases\.map/);
   assert.match(purchaseSource, /onDeletePurchase\(id\)/);
   assert.match(dashboardSource, /const handleUpdatePurchases/);
   assert.match(dashboardSource, /const handleDeletePurchase/);

@@ -3098,7 +3098,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     return true;
   };
 
-  const handleUpdatePurchases = async (nextPurchases: Purchase[]): Promise<boolean> => {
+  const handleUpdatePurchases = async (nextPurchases: Purchase[], updatedProducts?: Product[]): Promise<boolean> => {
     if (blockOfflineBusinessWrite('purchase update')) return false;
     localWorkspaceChangedAtRef.current = Date.now();
     cloudWorkspaceLoadedRef.current = true;
@@ -3107,10 +3107,58 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       nextPurchases,
       activeBranchSelection,
     );
-    // Narrow save: only the `purchases` key changes here.
-    const saved = await saveTenantPurchasesOnly(activeTenant.id, tenantPurchases);
+    const tenantProducts = productsMap[activeTenant.id] || [];
+    const nextProducts = updatedProducts ? mergeScopedProducts(tenantProducts, updatedProducts) : tenantProducts;
+    // updatedProducts is only passed when editing a purchase's items changed
+    // stock (see EditPurchaseModal) -- mirrors handleAddPurchase's own
+    // branchStocks recompute exactly, so an item edit keeps per-branch stock
+    // rows in sync the same way receiving a new purchase already does.
+    const nextBranchStocks = activeBranchSelection.activeScope === 'branch' && activeBranchSelection.activeBranchId && updatedProducts
+      ? (() => {
+        const now = new Date().toISOString();
+        const currentStocks = branchStocksMap[activeTenant.id] || [];
+        const updates = new Map(updatedProducts.map(product => [product.id, product]));
+        const retained = currentStocks.filter(stock => (
+          stock.branchId !== activeBranchSelection.activeBranchId || !updates.has(stock.productId)
+        ));
+        return [...retained, ...updatedProducts.map(product => {
+          const existing = currentStocks.find(stock => (
+            stock.branchId === activeBranchSelection.activeBranchId && stock.productId === product.id
+          ));
+          return {
+            id: existing?.id || `branch-stock-${activeBranchSelection.activeBranchId}-${product.id}`,
+            tenantId: activeTenant.id,
+            branchId: activeBranchSelection.activeBranchId!,
+            productId: product.id,
+            quantity: Number(product.stockQty || 0),
+            shopStockQty: Number(product.shopStockQty || 0),
+            storeStockQty: Number(product.storeStockQty || 0),
+            buyingPrice: product.costPrice,
+            sellingPrice: product.sellingPrice,
+            lowStockAlert: product.alertQty,
+            createdAt: existing?.createdAt || now,
+            updatedAt: now,
+          } satisfies BranchStock;
+        })];
+      })()
+      : (branchStocksMap[activeTenant.id] || []);
+
+    // Narrow save: purchases always changes; products/branchStocks only
+    // travel when this edit actually adjusted stock (item quantities changed).
+    const saved = await saveTenantPurchasesOnly(
+      activeTenant.id,
+      tenantPurchases,
+      updatedProducts ? nextProducts : undefined,
+      (activeBranchSelection.activeScope === 'branch' && activeBranchSelection.activeBranchId && updatedProducts)
+        ? nextBranchStocks
+        : undefined,
+    );
     if (!saved) return false;
     setPurchasesMap(prev => ({ ...prev, [activeTenant.id]: tenantPurchases }));
+    if (updatedProducts) {
+      setProductsMap(prev => ({ ...prev, [activeTenant.id]: nextProducts }));
+      setBranchStocksMap(prev => ({ ...prev, [activeTenant.id]: nextBranchStocks }));
+    }
     return true;
   };
 
