@@ -951,6 +951,30 @@ body.rtl { font-family: 'Cairo', "Plus Jakarta Sans", "Inter", system-ui, sans-s
   }
 }
 
+/* Same fixed-height-vs-content mismatch as the tablet block above, but for
+   true desktop (>=1280px): the product card's xl:h-[13rem] fixed height
+   (DashboardPOS.tsx) can leave a gap between the product name and the
+   price/Add button once fewer lines of text are present than the height
+   allows for. Let the card size to its own content here too. */
+@media (min-width: 1280px) {
+  #dashboard-scaffold [data-pos-product-card] {
+    height: auto !important;
+    min-height: 0 !important;
+  }
+}
+
+/* Phone-only: shrink the product IMAGE CONTAINER (not the photo itself --
+   it stays object-contain, so it simply renders smaller within a shorter
+   box) from a full aspect-square down to a fixed shorter height. On a
+   narrow 2-up phone column, aspect-square made the image tall enough to
+   make the whole card feel oversized. */
+@media (max-width: 767px) {
+  #dashboard-scaffold .pos-tablet-product-image {
+    aspect-ratio: auto !important;
+    height: 6rem !important;
+  }
+}
+
 /* Purchases "Add Purchase" product catalog + supplier/payment panel split.
    Fully custom-class driven, no Tailwind grid-cols/col-span utilities here
    at all -- two separate "safety net" rules elsewhere in this file
