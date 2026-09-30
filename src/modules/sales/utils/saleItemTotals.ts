@@ -23,3 +23,24 @@ export const getSaleItemLineTotal = (item: SaleItem): number => {
     ? Math.max(0, gross - (discount * Math.max(0, safeNumber(item.qty))))
     : gross * (1 - Math.min(100, discount) / 100)).toFixed(2));
 };
+
+/**
+ * Cost of one unit of this item at the time it was actually sold. Always
+ * prefers the item's own costPriceAtSale snapshot, recorded at checkout --
+ * NEVER a product's current cost price, since a cost-price change since
+ * that sale would retroactively misstate that historical sale's margin
+ * (found live in two places this way: Reports' Product Audit table showed
+ * a strongly profitable product as a large loss, and Home's profit figure
+ * was understated tenant-wide, both traced to using product.costPrice
+ * directly instead of this field). Falls back to the product's current
+ * cost only for legacy records saved before costPriceAtSale existed, and
+ * to a flat 30%-of-price estimate when the product can no longer be found
+ * (e.g. deleted since the sale).
+ */
+export const getSaleItemUnitCost = (item: SaleItem, product?: { costPrice: number } | null): number => {
+  if (item.costPriceAtSale !== undefined && Number.isFinite(Number(item.costPriceAtSale))) {
+    return Number(item.costPriceAtSale);
+  }
+  if (product) return safeNumber(product.costPrice);
+  return safeNumber(item.price) * 0.70;
+};
