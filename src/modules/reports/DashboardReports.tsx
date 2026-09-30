@@ -407,27 +407,15 @@ export default function DashboardReports({
         break;
       }
       case 'product-monitoring': {
+        // Reuses productAuditRows (the same data the Overview table renders)
+        // instead of recomputing from raw `sales` with today's current cost
+        // price applied to historical units -- the export used to disagree
+        // with what the screen itself showed, for the same reason the
+        // Overview table's profit was wrong before this session's fix.
         csv = headerPrefix;
         csv += "Rank,Product Name,Item Code,Cost Buy,Retail Pricing,Profit Margin,Units Sold,Gross Revenue,Margin Earned\\r\\n";
-        const prodPerfMap: Record<string, any> = {};
-        products.forEach(p => {
-          const s = sales.filter(sl => (sl.items || []).some(item => item.productId === p.id));
-          const rev = s.reduce((sum, sl) => {
-            const item = (sl.items || []).find(i => i.productId === p.id);
-            return sum + (item ? item.lineTotal : 0);
-          }, 0);
-          const qty = s.reduce((sum, sl) => {
-            const item = (sl.items || []).find(i => i.productId === p.id);
-            return sum + (item ? item.qty : 0);
-          }, 0);
-          const cost = qty * p.costPrice;
-          const profit = rev - cost;
-          const margin = rev > 0 ? (profit / rev) * 100 : 0;
-          prodPerfMap[p.id] = { name: p.name, sku: p.sku, cost: p.costPrice, price: p.sellingPrice, qty: qty, rev: rev, profit: profit, margin: margin };
-        });
-        const list = Object.values(prodPerfMap).sort((a, b) => b.profit - a.profit);
-        list.forEach((item, idx) => {
-          csv += `"${item.name}","${item.sku}","${item.cost.toFixed(2)}","${item.price.toFixed(2)}","${item.margin.toFixed(1)}%",${item.qty},${item.rev.toFixed(2)},${item.profit.toFixed(2)}\\r\\n`;
+        productAuditRows.forEach((row, idx) => {
+          csv += `"${row.product.name}","${row.product.sku}","${(row.product.costPrice || 0).toFixed(2)}","${(row.product.sellingPrice || 0).toFixed(2)}","${row.margin.toFixed(1)}%",${row.qty},${row.revenue.toFixed(2)},${row.profit.toFixed(2)}\\r\\n`;
         });
         break;
       }
@@ -598,7 +586,11 @@ export default function DashboardReports({
         const matchingProd = products.find(p => p.id === item.productId);
         const existing = perfById.get(item.productId) || { qty: 0, revenue: 0, cost: 0 };
         existing.qty += item.qty;
-        existing.revenue += item.lineTotal ?? 0;
+        // getSaleItemLineTotal (not the raw item.lineTotal field, which is
+        // absent on some real sale records) derives the line's real value
+        // from price/qty/discount when no snapshot was persisted -- a raw
+        // "?? 0" fallback showed real revenue as zero for those records.
+        existing.revenue += getSaleItemLineTotal(item);
         existing.cost += (item.costPriceAtSale ?? matchingProd?.costPrice ?? 0) * item.qty;
         perfById.set(item.productId, existing);
       });
@@ -637,7 +629,7 @@ export default function DashboardReports({
       (s.items || []).forEach(item => {
         if (!isAll && item.productId !== selectedMonitoredProductId) return;
         const matchingProd = products.find(p => p.id === item.productId);
-        const lineRevenue = item.lineTotal ?? 0;
+        const lineRevenue = getSaleItemLineTotal(item);
         qty += item.qty;
         revenue += lineRevenue;
         cogs += (item.costPriceAtSale ?? matchingProd?.costPrice ?? 0) * item.qty;
@@ -804,17 +796,73 @@ export default function DashboardReports({
     return [{ value: 'All', label: 'All Categories' }, ...unique.map(c => ({ value: c, label: c }))];
   }, [expenses]);
 
+  // Sales report's Payment Mode filter keeps its 5 underlying buckets
+  // (Cash/CardAndOnline/MobileMoney/BankTransfer/Credit) -- filteredSales'
+  // own matching logic, shared with every other tab on this screen, is
+  // untouched -- but each label is enriched with the tenant's own
+  // registered payment channel name(s) for that bucket, instead of only
+  // ever showing the generic category name regardless of what the tenant
+  // actually uses.
+  const salesPaymentModeOptions = useMemo(() => {
+    const base = [
+      { value: 'All', label: 'All' },
+      { value: 'Cash', label: 'Cash' },
+      { value: 'CardAndOnline', label: 'Card' },
+      { value: 'MobileMoney', label: 'Mobile Money' },
+      { value: 'BankTransfer', label: 'Bank' },
+      { value: 'Credit', label: 'Credit' },
+    ];
+    const configuredChannels: any[] = systemSettings?.paymentChannels || [];
+    if (configuredChannels.length === 0) return base;
+    const namesByBucket = new Map<string, string[]>();
+    configuredChannels
+      .filter((ch: any) => (ch.status || 'active') === 'active')
+      .forEach((ch: any) => {
+        const bucket = classifyPaymentMethod(ch.name || ch.provider || '');
+        const list = namesByBucket.get(bucket) || [];
+        if (ch.name && !list.includes(ch.name)) list.push(ch.name);
+        namesByBucket.set(bucket, list);
+      });
+    return base.map(opt => {
+      if (opt.value === 'All') return opt;
+      const names = namesByBucket.get(opt.value);
+      return names && names.length > 0 ? { ...opt, label: `${opt.label} (${names.join(', ')})` } : opt;
+    });
+  }, [systemSettings]);
+
   const salesTotals = useMemo(() => {
     const totalRevenue = filteredSales.reduce((sum, s) => sum + saleProductRevenue(s), 0);
     const count = filteredSales.length;
-    return { totalRevenue, count, avg: count > 0 ? totalRevenue / count : 0 };
-  }, [filteredSales]);
+    let cost = 0;
+    filteredSales.forEach(s => {
+      (s.items || []).forEach(item => {
+        const matchingProd = products.find(p => p.id === item.productId);
+        cost += (item.costPriceAtSale ?? matchingProd?.costPrice ?? 0) * item.qty;
+      });
+    });
+    return { totalRevenue, count, avg: count > 0 ? totalRevenue / count : 0, profit: totalRevenue - cost };
+  }, [filteredSales, products]);
 
   const expenseTotals = useMemo(() => {
     const total = filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
     const count = filteredExpenses.length;
     return { total, count, avg: count > 0 ? total / count : 0 };
   }, [filteredExpenses]);
+
+  // Which category dominates spending, using the tenant's own recorded
+  // category names (never a hardcoded list) so a tenant sees where their
+  // actual money went and can decide whether to cut back or not.
+  const expenseCategoryBreakdown = useMemo(() => {
+    const byCategory = new Map<string, number>();
+    filteredExpenses.forEach(e => {
+      const cat = e.category || 'Uncategorized';
+      byCategory.set(cat, (byCategory.get(cat) || 0) + e.amount);
+    });
+    const total = expenseTotals.total;
+    return Array.from(byCategory.entries())
+      .map(([category, amount]) => ({ category, amount, percent: total > 0 ? (amount / total) * 100 : 0 }))
+      .sort((a, b) => b.amount - a.amount);
+  }, [filteredExpenses, expenseTotals.total]);
 
   const { totalSalesRevenue, totalCOGS, grossProfit, netProfit, totalExpensesCharged } = pnlStats;
 
@@ -1129,14 +1177,7 @@ export default function DashboardReports({
                   <ModernSelect
                     title="Payment Mode"
                     value={selectedPaymentMode}
-                    options={[
-                      { value: 'All', label: 'All' },
-                      { value: 'Cash', label: 'Cash' },
-                      { value: 'CardAndOnline', label: 'Card' },
-                      { value: 'MobileMoney', label: 'Mobile Money' },
-                      { value: 'BankTransfer', label: 'Bank' },
-                      { value: 'Credit', label: 'Credit' },
-                    ]}
+                    options={salesPaymentModeOptions}
                     onChange={setSelectedPaymentMode}
                   />
                   <button
@@ -1153,7 +1194,7 @@ export default function DashboardReports({
                 {[
                   { label: 'Total Revenue', value: `${currency}${Math.round(salesTotals.totalRevenue).toLocaleString()}`, icon: DollarSign, color: 'text-slate-900' },
                   { label: 'Transactions', value: salesTotals.count.toLocaleString(), icon: ShoppingBag, color: 'text-slate-900' },
-                  { label: 'Average Ticket', value: `${currency}${Math.round(salesTotals.avg).toLocaleString()}`, icon: TrendingUp, color: 'text-slate-900' },
+                  { label: 'Profit', value: `${currency}${Math.round(salesTotals.profit).toLocaleString()}`, icon: TrendingUp, color: salesTotals.profit >= 0 ? 'text-emerald-700' : 'text-rose-600' },
                 ].map((metric, i) => (
                   <div key={i} className="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -1251,30 +1292,31 @@ export default function DashboardReports({
 
               <div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Store vs Shop</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="reports-split-grid gap-2 sm:gap-3">
                   {[
                     { key: 'shop' as const, label: 'In Shop', icon: ShoppingBag, data: inventoryLocationTotals.shop },
                     { key: 'store' as const, label: 'In Store', icon: Package, data: inventoryLocationTotals.store },
                   ].map(loc => (
-                    <div key={loc.key} className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 shrink-0">
-                          <loc.icon className="w-4 h-4" />
+                    <div key={loc.key} className="relative bg-slate-50 rounded-2xl border border-slate-200 pl-4 pr-2 py-3 sm:p-4 space-y-2 sm:space-y-3 overflow-hidden">
+                      <span className="absolute left-0 top-0 bottom-0 w-1 bg-emerald-500" />
+                      <div className="flex items-center gap-1.5 sm:gap-2">
+                        <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 shrink-0">
+                          <loc.icon className="w-3 h-3 sm:w-4 sm:h-4" />
                         </div>
-                        <h6 className="text-sm font-bold text-slate-900">{loc.label}</h6>
+                        <h6 className="text-xs sm:text-sm font-bold text-slate-900 truncate">{loc.label}</h6>
                       </div>
-                      <div className="grid grid-cols-3 gap-2">
-                        <div>
-                          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Units</p>
-                          <p className="text-sm font-black text-slate-900 font-mono">{loc.data.units.toLocaleString()}</p>
+                      <div className="grid grid-cols-3 gap-1 sm:gap-2">
+                        <div className="min-w-0">
+                          <p className="text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase tracking-wider truncate">Units</p>
+                          <p className="text-xs sm:text-sm font-black text-slate-900 font-mono truncate">{loc.data.units.toLocaleString()}</p>
                         </div>
-                        <div>
-                          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">If Sold</p>
-                          <p className="text-sm font-black text-slate-900 font-mono">{currency}{Math.round(loc.data.potentialRevenue).toLocaleString()}</p>
+                        <div className="min-w-0">
+                          <p className="text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase tracking-wider truncate">If Sold</p>
+                          <p className="text-xs sm:text-sm font-black text-slate-900 font-mono truncate">{currency}{Math.round(loc.data.potentialRevenue).toLocaleString()}</p>
                         </div>
-                        <div>
-                          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Profit</p>
-                          <p className={`text-sm font-black font-mono ${loc.data.potentialProfit >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>{currency}{Math.round(loc.data.potentialProfit).toLocaleString()}</p>
+                        <div className="min-w-0">
+                          <p className="text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase tracking-wider truncate">Profit</p>
+                          <p className={`text-xs sm:text-sm font-black font-mono truncate ${loc.data.potentialProfit >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>{currency}{Math.round(loc.data.potentialProfit).toLocaleString()}</p>
                         </div>
                       </div>
                     </div>
@@ -1374,27 +1416,46 @@ export default function DashboardReports({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="reports-split-grid gap-2 sm:gap-3">
                 {[
                   { label: 'Total Charged', value: `${currency}${Math.round(expenseTotals.total).toLocaleString()}`, icon: Receipt, color: 'text-rose-600' },
                   { label: 'Entries Logged', value: expenseTotals.count.toLocaleString(), icon: FileText, color: 'text-slate-900' },
-                  { label: 'Average Entry', value: `${currency}${Math.round(expenseTotals.avg).toLocaleString()}`, icon: DollarSign, color: 'text-slate-900' },
                 ].map((metric, i) => (
-                  <div key={i} className="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 shadow-sm">
-                        <metric.icon className="w-5 h-5" />
+                  <div key={i} className="bg-slate-50 p-3 sm:p-4 rounded-2xl border border-slate-200 flex items-center justify-between gap-2 overflow-hidden">
+                    <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 shadow-sm shrink-0">
+                        <metric.icon className="w-4 h-4 sm:w-5 sm:h-5" />
                       </div>
-                      <div className="text-left">
-                        <h6 className="text-sm font-bold text-slate-900">{metric.label}</h6>
-                        <p className="text-xs text-slate-500">Calculated over period</p>
+                      <div className="text-left min-w-0">
+                        <h6 className="text-xs sm:text-sm font-bold text-slate-900 truncate">{metric.label}</h6>
+                        <p className="text-[10px] sm:text-xs text-slate-500 truncate">Calculated over period</p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className={`text-sm font-black ${metric.color}`}>{metric.value}</p>
+                    <div className="text-right shrink-0">
+                      <p className={`text-xs sm:text-sm font-black ${metric.color} truncate`}>{metric.value}</p>
                     </div>
                   </div>
                 ))}
+              </div>
+
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Spending by Category</p>
+                <div className="space-y-2">
+                  {expenseCategoryBreakdown.map(row => (
+                    <div key={row.category} className="bg-slate-50 rounded-xl border border-slate-200 p-3">
+                      <div className="flex items-center justify-between text-xs mb-1.5 gap-2">
+                        <span className="font-bold text-slate-700 truncate">{row.category}</span>
+                        <span className="font-mono font-black text-slate-900 shrink-0">{currency}{Math.round(row.amount).toLocaleString()} · {row.percent.toFixed(0)}%</span>
+                      </div>
+                      <div className="h-1.5 rounded-full bg-slate-200 overflow-hidden">
+                        <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${Math.min(100, row.percent)}%` }} />
+                      </div>
+                    </div>
+                  ))}
+                  {expenseCategoryBreakdown.length === 0 && (
+                    <p className="text-xs text-slate-400 text-center py-4">No expenses to break down for this period.</p>
+                  )}
+                </div>
               </div>
 
               <div className="overflow-x-auto">
@@ -1660,25 +1721,25 @@ export default function DashboardReports({
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="reports-split-grid gap-2 sm:gap-3">
                 {[
                   { label: 'Fulfillments', value: deliveryReportStats.validDeliveries.length.toLocaleString(), icon: Truck, color: 'text-slate-900' },
                   { label: 'Logistics Revenue', value: `${currency}${Math.round(deliveryReportStats.deliveryIncome).toLocaleString()}`, icon: DollarSign, color: 'text-slate-900' },
                   { label: 'Fleet Outflow', value: `${currency}${Math.round(deliveryReportStats.totalDeliveryExpenses).toLocaleString()}`, icon: Receipt, color: 'text-rose-600' },
                   { label: 'Net Margin', value: `${deliveryReportStats.netDeliveryProfit >= 0 ? '+' : '-'}${currency}${Math.abs(Math.round(deliveryReportStats.netDeliveryProfit)).toLocaleString()}`, icon: TrendingUp, color: deliveryReportStats.netDeliveryProfit >= 0 ? 'text-emerald-700' : 'text-rose-600' },
                 ].map((metric, i) => (
-                  <div key={i} className="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex items-center justify-between">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 shadow-sm shrink-0">
-                        <metric.icon className="w-5 h-5" />
+                  <div key={i} className="bg-slate-50 p-3 sm:p-4 rounded-2xl border border-slate-200 flex items-center justify-between gap-2 overflow-hidden">
+                    <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 shadow-sm shrink-0">
+                        <metric.icon className="w-4 h-4 sm:w-5 sm:h-5" />
                       </div>
                       <div className="text-left min-w-0">
-                        <h6 className="text-sm font-bold text-slate-900">{metric.label}</h6>
-                        <p className="text-xs text-slate-500">All-time total</p>
+                        <h6 className="text-xs sm:text-sm font-bold text-slate-900 truncate">{metric.label}</h6>
+                        <p className="text-[10px] sm:text-xs text-slate-500 truncate">All-time total</p>
                       </div>
                     </div>
                     <div className="text-right shrink-0">
-                      <p className={`text-sm font-black ${metric.color}`}>{metric.value}</p>
+                      <p className={`text-xs sm:text-sm font-black ${metric.color} truncate`}>{metric.value}</p>
                     </div>
                   </div>
                 ))}

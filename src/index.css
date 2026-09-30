@@ -2339,3 +2339,12 @@ button:active:not(:disabled),
     justify-content: flex-end;
   }
 }
+
+/* Reports: always-2-column stat pairs (Inventory's Shop/Store cards,
+   Deliveries' 4 KPI tiles) -- kept side by side at every width, including
+   phone, to avoid wasting vertical space on a single column. Same
+   grid-cols-* trap as .reports-tab-grid above, same fix. */
+#dashboard-scaffold .reports-split-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
