@@ -134,12 +134,17 @@ export default function DashboardOverview({
     return filteredSales.reduce((sum, s) => sum + saleProductRevenue(s), 0);
   }, [filteredSales]);
 
-  // Calculate cost of items sold, gross profit
+  // Calculate cost of items sold, gross profit. Uses each item's own
+  // costPriceAtSale (the price actually paid for that unit) when recorded,
+  // falling back to the product's current cost price only when no
+  // historical snapshot exists -- applying today's current cost to every
+  // unit ever sold overstates COGS (and understates profit) for any
+  // product whose cost price has since risen.
   const totalCost = useMemo(() => {
     return filteredSales.reduce((sum, s) => {
       return sum + (s.items || []).reduce((itemSum, item) => {
         const prod = products.find(p => p.id === item.productId);
-        const cost = prod ? prod.costPrice : item.price * 0.70; // fallback to 30% margin
+        const cost = item.costPriceAtSale ?? (prod ? prod.costPrice : item.price * 0.70); // fallback to 30% margin
         return itemSum + (cost * item.qty);
       }, 0);
     }, 0);
@@ -346,7 +351,7 @@ export default function DashboardOverview({
         const actualCost = segSales.reduce((sum, s) => {
           return sum + (s.items || []).reduce((itemSum, item) => {
             const prod = products.find(p => p.id === item.productId);
-            const cost = prod ? prod.costPrice : item.price * 0.70;
+            const cost = item.costPriceAtSale ?? (prod ? prod.costPrice : item.price * 0.70);
             return itemSum + (cost * item.qty);
           }, 0);
         }, 0);
@@ -393,7 +398,7 @@ export default function DashboardOverview({
         const actualCost = daySales.reduce((sum, s) => {
           return sum + (s.items || []).reduce((itemSum, item) => {
             const prod = products.find(p => p.id === item.productId);
-            const cost = prod ? prod.costPrice : item.price * 0.70;
+            const cost = item.costPriceAtSale ?? (prod ? prod.costPrice : item.price * 0.70);
             return itemSum + (cost * item.qty);
           }, 0);
         }, 0);
@@ -430,7 +435,7 @@ export default function DashboardOverview({
         const actualCost = wkSales.reduce((sum, s) => {
           return sum + (s.items || []).reduce((itemSum, item) => {
             const prod = products.find(p => p.id === item.productId);
-            const cost = prod ? prod.costPrice : item.price * 0.70;
+            const cost = item.costPriceAtSale ?? (prod ? prod.costPrice : item.price * 0.70);
             return itemSum + (cost * item.qty);
           }, 0);
         }, 0);
@@ -472,7 +477,7 @@ export default function DashboardOverview({
       const actualCost = monthSales.reduce((sum, s) => {
         return sum + (s.items || []).reduce((itemSum, item) => {
           const prod = products.find(p => p.id === item.productId);
-          const cost = prod ? prod.costPrice : item.price * 0.70;
+          const cost = item.costPriceAtSale ?? (prod ? prod.costPrice : item.price * 0.70);
           return itemSum + (cost * item.qty);
         }, 0);
       }, 0);
