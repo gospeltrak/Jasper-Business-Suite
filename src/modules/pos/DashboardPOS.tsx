@@ -1552,7 +1552,7 @@ export default function DashboardPOS({
                           <span className="w-full min-h-7 lg:min-h-9 xl:min-h-7 bg-emerald-600 hover:bg-emerald-700 group-hover:bg-emerald-700 text-white text-[9px] lg:text-[10px] xl:text-[9px] font-black px-1.5 lg:px-3 py-1.5 lg:py-2 xl:py-1 rounded-lg lg:rounded-xl uppercase tracking-wider transition-all shadow-xs lg:shadow-md lg:shadow-emerald-600/20 inline-flex items-center justify-center gap-1">
                             <Plus className="hidden lg:block h-3.5 w-3.5" strokeWidth={3} />
                             <span className="lg:hidden">+ Add</span>
-                            <span className="hidden lg:inline">Add</span>
+                            <span className="hidden lg:flex">Add</span>
                           </span>
                         </div>
                       ) : (
