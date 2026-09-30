@@ -1330,8 +1330,8 @@ export default function DashboardPOS({
             </div>
 
           {/* Selling Channel Selector and Warnings */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 xl:gap-2 pt-2 xl:pt-1.5 bg-slate-50 p-3 xl:p-2 rounded-2xl border border-slate-100">
-            <div className="flex items-center space-x-1 bg-slate-100 p-1 rounded-2xl border border-slate-200 shadow-inner w-fit">
+          <div className="flex items-center justify-between gap-3 xl:gap-2 pt-2 xl:pt-1.5 bg-slate-50 p-3 xl:p-2 rounded-2xl border border-slate-100">
+            <div className="flex items-center space-x-1 bg-slate-100 p-1 rounded-2xl border border-slate-200 shadow-inner w-fit shrink-0">
               <button
                 type="button"
                 onClick={() => {
@@ -1362,14 +1362,38 @@ export default function DashboardPOS({
               </button>
             </div>
 
-            <div className="text-right flex items-center space-x-2">
+            {/* Phone-only Categories Dropdown -- sits inline with the channel
+                toggle on phone (pos-category-dropdown is display:none at
+                768px+ via index.css, so this is invisible and inert on
+                tablet/desktop, exactly like before this moved here). */}
+            <div className="pos-category-dropdown flex-1 min-w-0">
+              <div className="relative">
+                <select
+                  value={selectedCategory || 'All'}
+                  onChange={(e) => setSelectedCategory(e.target.value === 'All' ? null : e.target.value)}
+                  className="w-full bg-white border border-emerald-200 rounded-xl pl-4 pr-10 py-2 text-[13px] font-medium text-slate-800 appearance-none focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm"
+                >
+                  {categories.map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-emerald-600">
+                  <ChevronDown className="w-4 h-4" />
+                </div>
+              </div>
+            </div>
+
+            {/* Active-channel badge: kept for tablet/desktop only -- on
+                phone the highlighted toggle button above already makes the
+                active channel clear, and the dropdown now takes this row's
+                remaining space instead. */}
+            <div className="hidden md:flex text-right items-center space-x-2 shrink-0">
               <span className={`px-2.5 xl:px-2 py-1 xl:py-0.5 text-[9px] xl:text-[8px] font-black tracking-widest uppercase rounded-lg border ${
                 sellingChannel === 'wholesale'
                   ? 'bg-teal-50 text-teal-800 border-teal-200 animate-pulse'
                   : 'bg-emerald-50 text-emerald-800 border-emerald-200'
               }`}>
-                <span className="lg:hidden">{sellingChannel.toUpperCase()}</span>
-                <span className="hidden lg:inline">ACTIVE SELLING CHANNEL: {sellingChannel.toUpperCase()}</span>
+                ACTIVE SELLING CHANNEL: {sellingChannel.toUpperCase()}
               </span>
             </div>
           </div>
@@ -1423,23 +1447,6 @@ export default function DashboardPOS({
             ))}
           </div>
 
-          {/* Phone-only Categories Dropdown */}
-          <div className="pos-category-dropdown px-2 pt-0.5">
-            <div className="relative">
-              <select
-                value={selectedCategory || 'All'}
-                onChange={(e) => setSelectedCategory(e.target.value === 'All' ? null : e.target.value)}
-                className="w-full bg-white border border-emerald-200 rounded-xl px-4 py-2.5 text-sm font-medium text-slate-800 appearance-none focus:outline-none focus:ring-2 focus:ring-emerald-500 shadow-sm"
-              >
-                {categories.map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-              </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-emerald-600">
-                <ChevronDown className="w-5 h-5" />
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Product listing grid */}
