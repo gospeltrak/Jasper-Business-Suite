@@ -1906,11 +1906,9 @@ export default function DashboardPOS({
                   <option value="percent">% Pct</option>
                   <option value="cash">{currency} Cash</option>
                 </select>
-                <input 
+                <input
                   type="text"
                   inputMode="numeric"
-                  min="0"
-                  max={orderDiscountType === 'percent' ? 100 : subtotal}
                   value={orderDiscountDraft}
                   onChange={(e) => {
                     const raw = e.target.value.replace(/[^\d]/g, '');
