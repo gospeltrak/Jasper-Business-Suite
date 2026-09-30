@@ -3964,7 +3964,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
           </header>
 
           {/* 2b. Top Bar Mobile - Exact 60px height sticky glassmorphic header */}
-          <header className="xl:hidden shrink-0 z-50 h-[calc(60px+env(safe-area-inset-top))] bg-white dark:bg-slate-950 border-b border-slate-100 dark:border-slate-800/60 px-4 pt-[env(safe-area-inset-top)] select-none flex items-center justify-between" style={{boxShadow:'0 1px 0 rgba(0,0,0,0.06)', transform:'translateZ(0)', willChange:'transform'}}>
+          <header className="xl:hidden shrink-0 z-50 h-[calc(60px+env(safe-area-inset-top))] bg-white dark:bg-slate-950 border-b border-slate-100 dark:border-slate-800/60 px-4 pt-[env(safe-area-inset-top)] select-none flex items-center justify-between overflow-hidden" style={{boxShadow:'0 1px 0 rgba(0,0,0,0.06)', transform:'translateZ(0)', willChange:'transform'}}>
             {/* Left: business logo or initials avatar on mobile top bar */}
             <div className="flex items-center space-x-3 animate-fade-in">
               <div 
@@ -4037,7 +4037,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
             </div>
 
             {/* Right: Search icon + Dark Mode + Language + Notification bell */}
-            <div className="flex items-center space-x-1">
+            <div className="flex items-center space-x-1 shrink-0">
               <button className="p-2 text-slate-500 dark:text-slate-400 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors active:scale-90 cursor-pointer">
                 <Search className="w-5 h-5" />
               </button>
