@@ -1344,7 +1344,7 @@ export default function DashboardPOS({
                     : 'text-slate-600 hover:text-slate-800'
                 }`}
               >
-                <span>🛒 Retail Channel</span>
+                <span>🛒 Retail</span>
               </button>
               <button
                 type="button"
@@ -1358,7 +1358,7 @@ export default function DashboardPOS({
                     : 'text-slate-600 hover:text-slate-800'
                 }`}
               >
-                <span>📦 Wholesale Channel</span>
+                <span>📦 Wholesale</span>
               </button>
             </div>
 
