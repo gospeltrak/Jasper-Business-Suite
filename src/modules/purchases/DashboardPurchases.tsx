@@ -344,6 +344,11 @@ export default function DashboardPurchases({
   
   const [searchTerm, setSearchTerm] = useState('');
   const [cart, setCart] = useState<Array<{ product: Product; qty: number; costPrice: number | ''; unitLevelId: string; expiryDate?: string }>>([]);
+  // Drives a brief "added to cart" pop/checkmark on a catalog card's + badge
+  // (see handleAddToCart) so clicking a product gives visible confirmation.
+  const [justAddedProductId, setJustAddedProductId] = useState<string | null>(null);
+  const justAddedTimeoutRef = useRef<number>(0);
+  useEffect(() => () => window.clearTimeout(justAddedTimeoutRef.current), []);
 
   // Tablet/desktop split layout: the right panel (supplier/cart/payment) must
   // always show its full content with no internal scroll -- it drives the
@@ -526,14 +531,19 @@ export default function DashboardPurchases({
   const handleAddToCart = (product: Product) => {
     const existing = cart.find(item => item.product.id === product.id);
     if (existing) {
-      setCart(cart.map(item => 
-        item.product.id === product.id 
+      setCart(cart.map(item =>
+        item.product.id === product.id
           ? { ...item, qty: item.qty + 1 }
           : item
       ));
     } else {
       setCart([...cart, { product, qty: 1, costPrice: product.costPrice, unitLevelId: 'base' }]);
     }
+    // Brief "added" confirmation on the card's + badge (see justAddedProductId
+    // below) -- clicking previously gave no feedback that anything happened.
+    setJustAddedProductId(product.id);
+    window.clearTimeout(justAddedTimeoutRef.current);
+    justAddedTimeoutRef.current = window.setTimeout(() => setJustAddedProductId(null), 700);
   };
 
   const handleUpdateQty = (productId: string, val: number) => {
@@ -1476,10 +1486,14 @@ export default function DashboardPurchases({
               {/* Product cards */}
               <div className="gap-3 max-h-[950px] overflow-y-auto pr-1 purchases-product-grid">
                 {filteredProducts.map(prod => (
-                  <div 
+                  <motion.div
                     key={prod.id}
                     onClick={() => handleAddToCart(prod)}
-                    className="border border-slate-200 hover:border-emerald-400 bg-slate-50/50 hover:bg-emerald-50/20 p-4 rounded-2xl xl:h-60 flex flex-col justify-between space-y-3 cursor-pointer transition-all hover:shadow-sm group"
+                    animate={justAddedProductId === prod.id ? { scale: [1, 1.045, 1] } : { scale: 1 }}
+                    transition={{ duration: 0.32, ease: 'easeOut' }}
+                    className={`border bg-slate-50/50 hover:bg-emerald-50/20 p-4 rounded-2xl xl:h-60 flex flex-col justify-between space-y-3 cursor-pointer transition-colors hover:shadow-sm group ${
+                      justAddedProductId === prod.id ? 'border-emerald-400 shadow-sm' : 'border-slate-200 hover:border-emerald-400'
+                    }`}
                   >
                     <div className="h-28 rounded-xl bg-white border border-slate-100 flex items-center justify-center overflow-hidden">
                       {prod.image ? (
@@ -1504,11 +1518,33 @@ export default function DashboardPurchases({
                         <span className="text-slate-400">Cost: </span>
                         <span className="font-bold text-slate-700 font-mono">{currency}{prod.costPrice.toLocaleString()}</span>
                       </div>
-                      <div className="text-emerald-600 bg-emerald-50 font-black p-1 rounded-lg">
-                        <Plus className="w-3.5 h-3.5" />
+                      <div className="relative text-emerald-600 bg-emerald-50 font-black p-1 rounded-lg overflow-hidden">
+                        <AnimatePresence mode="wait" initial={false}>
+                          {justAddedProductId === prod.id ? (
+                            <motion.div
+                              key="added"
+                              initial={{ scale: 0.4, opacity: 0 }}
+                              animate={{ scale: 1, opacity: 1 }}
+                              exit={{ scale: 0.4, opacity: 0 }}
+                              transition={{ duration: 0.22, ease: 'easeOut' }}
+                            >
+                              <CheckCircle className="w-3.5 h-3.5" />
+                            </motion.div>
+                          ) : (
+                            <motion.div
+                              key="plus"
+                              initial={{ scale: 0.4, opacity: 0 }}
+                              animate={{ scale: 1, opacity: 1 }}
+                              exit={{ scale: 0.4, opacity: 0 }}
+                              transition={{ duration: 0.18, ease: 'easeOut' }}
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
                       </div>
                     </div>
-                  </div>
+                  </motion.div>
                 ))}
 
                 {filteredProducts.length === 0 && (
