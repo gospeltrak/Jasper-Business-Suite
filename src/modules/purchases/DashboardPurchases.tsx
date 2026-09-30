@@ -30,7 +30,8 @@ import {
   Eye,
   Pencil,
   X,
-  ChevronDown
+  ChevronDown,
+  ScanBarcode
 } from 'lucide-react';
 
 type PurchaseFundingRow = {
@@ -657,8 +658,13 @@ export default function DashboardPurchases({
       alert("Please select a valid supplier first!");
       return;
     }
-    if (roundedAllocationDifference !== 0) {
-      setPurchaseError(`Funding must equal the purchase total. Remaining: ${currency}${Math.round(Math.abs(totalAmount - allocatedAmount)).toLocaleString()}`);
+    // Only over-allocated funding blocks the purchase -- allocating LESS
+    // than the total is a legitimate "buy now, pay the rest later" credit
+    // purchase (the same way Sales already allows an unpaid/partial sale).
+    // The unpaid remainder is recorded as the purchase's amountDue below,
+    // exactly like the existing "Due" filter in Purchases History expects.
+    if (roundedAllocationDifference < 0) {
+      setPurchaseError(`Funding cannot exceed the purchase total. Over by: ${currency}${Math.round(Math.abs(totalAmount - allocatedAmount)).toLocaleString()}`);
       return;
     }
 
@@ -1581,7 +1587,9 @@ export default function DashboardPurchases({
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
-                  <button type="button" className="text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-1 rounded-lg whitespace-nowrap">📷 Scan</button>
+                  <button type="button" className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-1 rounded-lg whitespace-nowrap">
+                    <ScanBarcode className="w-3.5 h-3.5" /> Scan
+                  </button>
                 </div>
                 {/* On mobile: show inline product search results */}
                 {searchTerm && filteredProducts.length > 0 && (
@@ -1623,13 +1631,13 @@ export default function DashboardPurchases({
                     <p className="text-[10px] text-slate-400 font-sans hidden sm:block">Click products on the left to add them</p>
                   </div>
                 ) : (
-                  <div className="space-y-3 max-h-[320px] sm:max-h-[220px] overflow-y-auto pr-1">
+                  <div className="space-y-2 max-h-[320px] sm:max-h-[220px] overflow-y-auto pr-1">
                     {cart.map(item => (
-                      <div key={item.product.id} className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl space-y-2">
+                      <div key={item.product.id} className="p-2.5 bg-slate-50 border border-slate-200/80 rounded-xl space-y-1.5">
                         <div className="flex justify-between items-start gap-2">
                           <span className="font-bold text-xs text-slate-800 line-clamp-1">{item.product.name}</span>
-                          <button 
-                            type="button" 
+                          <button
+                            type="button"
                             onClick={() => handleUpdateQty(item.product.id, 0)}
                             className="text-slate-400 hover:text-red-500 cursor-pointer"
                           >
@@ -1650,7 +1658,7 @@ export default function DashboardPurchases({
                                   { value: 'base', label: getBaseUnitLabel(item.product) },
                                   ...levels.map(level => ({ value: level.id, label: level.label })),
                                 ]}
-                                buttonClassName="!min-h-[28px] !px-2 !text-[10px] !bg-white"
+                                buttonClassName="!min-h-[24px] !px-2 !text-[10px] !bg-white"
                               />
                             </div>
                           );
@@ -1666,7 +1674,7 @@ export default function DashboardPurchases({
                             />
                           </div>
                         )}
-                        <div className="flex items-center justify-between gap-4 pt-1.5 border-t border-slate-200/60 font-mono text-xs">
+                        <div className="flex items-center justify-between gap-4 pt-1 border-t border-slate-200/60 font-mono text-xs">
                           <div className="flex items-center space-x-1">
                             <span className="text-slate-400 text-[10px] font-black">
                               COST/{item.unitLevelId === 'base' ? getBaseUnitLabel(item.product) : (getPurchaseUnitLevels(item.product).find(level => level.id === item.unitLevelId)?.label || getBaseUnitLabel(item.product))}:
@@ -1771,9 +1779,9 @@ export default function DashboardPurchases({
                       <button
                         type="button"
                         onClick={() => setFundingRows(current => [...current, createPurchaseFundingRow()])}
-                        className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-2.5 py-1 text-[9px] font-black uppercase text-emerald-700 hover:bg-emerald-100"
+                        className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[9px] font-black uppercase text-emerald-700 shadow-sm hover:bg-emerald-100 hover:border-emerald-300 hover:shadow transition-all active:scale-95"
                       >
-                        <Plus className="h-3 w-3" /> Add Payment Source
+                        <Plus className="h-3 w-3" /> Add Source
                       </button>
                     </div>
                     {fundingRows.map((row, index) => (
@@ -1843,12 +1851,15 @@ export default function DashboardPurchases({
                     )}
                   </div>
 
-                  {/* Modern CTA button */}
+                  {/* Modern CTA button. Only blocks on over-allocated funding
+                      or a registered funding row missing its account -- an
+                      outstanding (under-allocated) balance is a valid credit
+                      purchase and must not disable this button. */}
                   <button
                     type="button"
-                    disabled={purchaseSuccess || roundedAllocationDifference !== 0 || fundingRows.some(row => row.amount > 0 && row.fundingType === 'registered' && !row.accountId)}
+                    disabled={purchaseSuccess || roundedAllocationDifference < 0 || fundingRows.some(row => row.amount > 0 && row.fundingType === 'registered' && !row.accountId)}
                     onClick={handleCommitPurchase}
-                    className="w-full relative overflow-hidden bg-gradient-to-br from-slate-800 to-slate-950 hover:from-slate-700 hover:to-slate-900 disabled:from-slate-200 disabled:to-slate-100 text-white font-black py-4 px-4 rounded-2xl text-xs uppercase tracking-wider cursor-pointer flex items-center justify-center gap-2 transition-all shadow-lg active:scale-[0.98]"
+                    className="w-full relative overflow-hidden bg-gradient-to-br from-slate-800 to-slate-950 hover:from-slate-700 hover:to-slate-900 disabled:from-slate-200 disabled:to-slate-100 text-white disabled:text-slate-400 font-black py-4 px-4 rounded-2xl text-xs uppercase tracking-wider cursor-pointer disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all shadow-lg active:scale-[0.98]"
                   >
                     {purchaseSuccess ? (
                       <div className="flex items-center gap-2">
