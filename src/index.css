@@ -2359,6 +2359,12 @@ button:active:not(:disabled),
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
+  /* Flex items default to min-width:auto, which some browsers compute from
+     this row's full unwrapped button content (~900px+) instead of letting
+     overflow-x:auto take over -- so below the 1280px rule further down,
+     the tab row refused to shrink inside its flex-row parent and visually
+     overlapped the "Business Reports" title next to it. */
+  min-width: 0;
 }
 
 #dashboard-scaffold .reports-tab-grid::-webkit-scrollbar {

@@ -457,10 +457,24 @@ export default function DashboardReports({
   };
 
   const classifyPaymentMethod = (method: string) => {
-    const m = method.toLowerCase();
+    const m = (method || '').toLowerCase();
+    // Prefer the tenant's own registered account category (set once, when
+    // the account was created in Cash & Bank) over guessing from the name.
+    // That's what correctly recognizes real provider/bank names like
+    // "CRDB", "NMB" or "Mixx by Yas" that don't contain a generic word
+    // like "bank" or "mobile" -- the keyword guesses below previously
+    // dumped all of those into "Cash" by falling through to the default.
+    const configuredChannels: any[] = systemSettings?.paymentChannels || [];
+    const matchedChannel = configuredChannels.find((ch: any) =>
+      (ch.name || '').toLowerCase() === m || (ch.paymentMethod || '').toLowerCase() === m
+    );
+    if (matchedChannel?.category === 'physical') return 'Cash';
+    if (matchedChannel?.category === 'telco') return 'MobileMoney';
+    if (matchedChannel?.category === 'bank') return 'BankTransfer';
+
     if (m.includes('cash')) return 'Cash';
     if (m.includes('card') || m.includes('online') || m.includes('stripe') || m.includes('paypal')) return 'CardAndOnline';
-    if (m.includes('mobile') || m.includes('mpesa') || m.includes('tigo') || m.includes('airtel')) return 'MobileMoney';
+    if (m.includes('mobile') || m.includes('mpesa') || m.includes('tigo') || m.includes('airtel') || m.includes('mixx') || m.includes('yas') || m.includes('halo')) return 'MobileMoney';
     if (m.includes('bank') || m.includes('transfer')) return 'BankTransfer';
     if (m.includes('credit') || m.includes('deferred')) return 'Credit';
     return 'Cash';
@@ -1311,11 +1325,11 @@ export default function DashboardReports({
                           <p className="text-xs sm:text-sm font-black text-slate-900 font-mono truncate">{loc.data.units.toLocaleString()}</p>
                         </div>
                         <div className="min-w-0">
-                          <p className="text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase tracking-wider truncate">If Sold</p>
-                          <p className="text-xs sm:text-sm font-black text-slate-900 font-mono truncate">{currency}{Math.round(loc.data.potentialRevenue).toLocaleString()}</p>
+                          <p className="text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase tracking-wider truncate">Cost of Goods</p>
+                          <p className="text-xs sm:text-sm font-black text-slate-900 font-mono truncate">{currency}{Math.round(loc.data.valuation).toLocaleString()}</p>
                         </div>
                         <div className="min-w-0">
-                          <p className="text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase tracking-wider truncate">Profit</p>
+                          <p className="text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase tracking-wider truncate">If Sold Profit</p>
                           <p className={`text-xs sm:text-sm font-black font-mono truncate ${loc.data.potentialProfit >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>{currency}{Math.round(loc.data.potentialProfit).toLocaleString()}</p>
                         </div>
                       </div>
