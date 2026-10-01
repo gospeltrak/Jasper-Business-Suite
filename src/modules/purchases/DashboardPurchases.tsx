@@ -382,12 +382,12 @@ function EditPurchaseModal({
                       <span className="text-xs font-bold text-slate-700 shrink-0">×{item.qty}</span>
                     )}
                     {isBaseLevel && (
-                      <div className="flex items-center bg-white border border-slate-200 rounded-lg px-1.5 py-0.5 shrink-0 w-20">
-                        <span className="text-slate-400 text-[9px] font-bold mr-0.5">{currency}</span>
+                      <div className="flex flex-col items-end bg-white border border-slate-200 rounded-lg px-2 py-1 shrink-0 w-[4.75rem]">
+                        <span className="text-slate-400 text-[8px] font-bold uppercase tracking-wide leading-none">{currency}</span>
                         <input
                           type="number" min="0" value={item.costPrice}
                           onChange={(event) => updateItemCost(item.productId, Number(event.target.value) || 0)}
-                          className="w-full bg-transparent text-slate-800 font-bold focus:outline-none text-right text-[11px]"
+                          className="w-full bg-transparent text-slate-800 font-bold focus:outline-none text-right text-xs leading-tight"
                         />
                       </div>
                     )}
