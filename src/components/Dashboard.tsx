@@ -140,7 +140,6 @@ import {
   PieChart,
   TrendingDown,
   CloudLightning,
-  Search,
   ArrowRightLeft,
   MapPin,
   MinusCircle,
@@ -364,6 +363,10 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
   const { getFallbackInitials } = useTenantLogo();
   const { addSaleNotification, addSubscriptionReminderNotification, unreadCount, hydrateTenantModuleSettings, configureInbox } = useJasperNotifications();
   const [showDashLangMenu, setShowDashLangMenu] = useState(false);
+  // Mobile top-bar "quick settings" menu (theme/language/notifications/
+  // online-offline), collapsed behind one animated trigger instead of four
+  // always-visible icons -- see the xl:hidden mobile header below.
+  const [showMobileQuickMenu, setShowMobileQuickMenu] = useState(false);
   const [isNotificationCenterOpen, setIsNotificationCenterOpen] = useState(false);
 
   // Load standard + custom registered tenants dynamically
@@ -4036,76 +4039,105 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
               {renderSubscriptionCountdownBadge()}
             </div>
 
-            {/* Right: Search icon + Dark Mode + Language + Notification bell */}
-            <div className="flex items-center space-x-1 shrink-0">
-              <button className="p-2 text-slate-500 dark:text-slate-400 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors active:scale-90 cursor-pointer">
-                <Search className="w-5 h-5" />
+            {/* Right: collapsible quick-settings menu (online/offline, dark
+                mode, language, notifications) behind one animated trigger --
+                replaces four always-visible icons. Panel stays mounted and
+                uses a CSS transition (not a keyframe) so it animates smoothly
+                both opening and closing. */}
+            <div className="relative shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowMobileQuickMenu(!showMobileQuickMenu)}
+                className="relative p-2 text-slate-500 dark:text-slate-400 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors active:scale-90 cursor-pointer"
+                title="Quick settings"
+                aria-label="Quick settings"
+                aria-expanded={showMobileQuickMenu}
+              >
+                <span className="relative block w-5 h-5">
+                  <Menu className={`absolute inset-0 w-5 h-5 transition-all duration-200 ease-out ${showMobileQuickMenu ? 'opacity-0 rotate-45 scale-75' : 'opacity-100 rotate-0 scale-100'}`} />
+                  <X className={`absolute inset-0 w-5 h-5 transition-all duration-200 ease-out ${showMobileQuickMenu ? 'opacity-100 rotate-0 scale-100' : 'opacity-0 -rotate-45 scale-75'}`} />
+                </span>
+                {!showMobileQuickMenu && (unreadCount > 0 || offlinePendingCount > 0) && (
+                  <div className={`absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-slate-900 ${unreadCount > 0 ? 'bg-rose-500' : 'bg-[#ef4444]'}`} />
+                )}
               </button>
 
-              {/* Dark / Light Mode Toggle */}
-              {onToggleTheme && (
-                <button
-                  type="button"
-                  onClick={onToggleTheme}
-                  className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors active:scale-90 cursor-pointer"
-                  title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-                >
-                  {isDark
-                    ? <Sun className="w-5 h-5 text-amber-400" />
-                    : <Moon className="w-5 h-5 text-slate-500" />
-                  }
-                </button>
+              {showMobileQuickMenu && (
+                <div className="fixed inset-0 z-40" onClick={() => setShowMobileQuickMenu(false)} />
               )}
 
-              {/* Mobile Language Button */}
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setShowDashLangMenu(!showDashLangMenu)}
-                  className="p-2 text-slate-500 dark:text-slate-400 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors active:scale-90 flex items-center justify-center cursor-pointer"
-                  title="Select Language / Badili Lugha"
-                >
-                  <Globe className="w-5 h-5 text-emerald-500" />
-                </button>
+              <div
+                className={`absolute right-0 top-full mt-2 w-52 origin-top-right rounded-2xl border p-1.5 shadow-xl z-50 bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-850 text-slate-800 dark:text-slate-200 transition-all duration-200 ease-out ${
+                  showMobileQuickMenu
+                    ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto'
+                    : 'opacity-0 scale-95 -translate-y-2 pointer-events-none'
+                }`}
+              >
+                {/* Online / Offline status */}
+                <div className="flex items-center space-x-2 px-2.5 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                  <span className={`w-2 h-2 rounded-full ${isOfflineMode ? 'bg-red-500' : 'bg-emerald-500'}`} />
+                  <span>{isOfflineMode ? 'Offline' : 'Online'}</span>
+                </div>
 
-                {showDashLangMenu && (
+                <div className="h-px bg-slate-100 dark:bg-slate-800 my-1" />
+
+                {/* Dark / Light Mode Toggle */}
+                {onToggleTheme && (
+                  <button
+                    type="button"
+                    onClick={onToggleTheme}
+                    className="w-full flex items-center space-x-2 px-2.5 py-2 text-xs font-medium rounded-lg transition-colors cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-900 text-slate-700 dark:text-slate-300"
+                  >
+                    {isDark
+                      ? <Sun className="w-4 h-4 text-amber-400" />
+                      : <Moon className="w-4 h-4 text-slate-500" />
+                    }
+                    <span>{isDark ? 'Light Mode' : 'Dark Mode'}</span>
+                  </button>
+                )}
+
+                {/* Language */}
+                {[
+                  { code: 'en', label: 'English' },
+                  { code: 'sw', label: 'Kiswahili' },
+                ].map((item) => (
+                  <button
+                    key={item.code}
+                    type="button"
+                    onClick={() => setLang(item.code as any)}
+                    className={`w-full text-left px-2.5 py-2 text-xs font-medium rounded-lg transition-colors cursor-pointer flex items-center justify-between ${
+                      lang === item.code
+                        ? 'bg-emerald-500 text-slate-950 font-bold'
+                        : 'hover:bg-slate-100 dark:hover:bg-slate-900 text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    <span className="flex items-center space-x-2">
+                      <Globe className="w-4 h-4 text-emerald-500" />
+                      <span>{item.label}</span>
+                    </span>
+                    {lang === item.code && <span className="text-[9px] font-bold">✓</span>}
+                  </button>
+                ))}
+
+                {canAccessNotificationInbox && (
                   <>
-                    <div className="fixed inset-0 z-40" onClick={() => setShowDashLangMenu(false)} />
-                    <div className="absolute right-0 mt-2 w-32 rounded-xl border p-1 shadow-xl z-50 bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-850 text-slate-800 dark:text-slate-200">
-                      {[
-                        { code: 'en', label: 'English' },
-                        { code: 'sw', label: 'Kiswahili' },
-                      ].map((item) => (
-                        <button
-                          key={item.code}
-                          type="button"
-                          onClick={() => {
-                            setLang(item.code as any);
-                            setShowDashLangMenu(false);
-                          }}
-                          className={`w-full text-left px-2 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer flex items-center justify-between ${
-                            lang === item.code 
-                              ? 'bg-emerald-500 text-slate-950 font-bold' 
-                              : 'hover:bg-slate-100 dark:hover:bg-slate-900 text-slate-700 dark:text-slate-300'
-                          }`}
-                        >
-                          <span>{item.label}</span>
-                          {lang === item.code && <span className="text-[9px] font-bold">✓</span>}
-                        </button>
-                      ))}
-                    </div>
+                    <div className="h-px bg-slate-100 dark:bg-slate-800 my-1" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsNotificationCenterOpen(true);
+                        setShowMobileQuickMenu(false);
+                      }}
+                      className="w-full flex items-center space-x-2 px-2.5 py-2 text-xs font-medium rounded-lg transition-colors cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-900 text-slate-700 dark:text-slate-300"
+                    >
+                      <Bell className="w-4 h-4" />
+                      <span>Notifications</span>
+                      {unreadCount > 0 && <span className="ml-auto w-2 h-2 bg-rose-500 rounded-full shrink-0" />}
+                      {offlinePendingCount > 0 && unreadCount === 0 && <span className="ml-auto w-2 h-2 bg-[#ef4444] rounded-full shrink-0" />}
+                    </button>
                   </>
                 )}
               </div>
-
-              {canAccessNotificationInbox && <div
-                className="relative p-2 text-slate-500 dark:text-slate-400 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors active:scale-90 cursor-pointer"
-                onClick={() => setIsNotificationCenterOpen(true)}
-              >
-                <Bell className="w-5 h-5" />
-                {unreadCount > 0 && <div className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white dark:border-slate-900" />}
-                {offlinePendingCount > 0 && unreadCount === 0 && <div className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-[#ef4444] rounded-full border-2 border-white dark:border-slate-900" />}
-              </div>}
             </div>
           </header>
 
