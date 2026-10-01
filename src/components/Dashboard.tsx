@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import PWAInstallBanner from '../shared/components/PWAInstallBanner';
 import { requestManualInstallPrompt } from '../shared/utils/pwaInstallPrompt';
 import { useTranslation } from '../shared/contexts/LanguageContext';
@@ -365,9 +366,43 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
   const [showDashLangMenu, setShowDashLangMenu] = useState(false);
   // Mobile top-bar "quick settings" menu (theme/language/notifications/
   // online-offline), collapsed behind one animated trigger instead of four
-  // always-visible icons -- see the xl:hidden mobile header below.
+  // always-visible icons -- see the xl:hidden mobile header below. Only
+  // used when the branch switcher is actually taking up the row's space
+  // (see hasBranchSwitcherSurface); otherwise those icons render inline,
+  // same as before this menu existed.
   const [showMobileQuickMenu, setShowMobileQuickMenu] = useState(false);
+  const mobileQuickMenuTriggerRef = useRef<HTMLButtonElement>(null);
+  const [mobileQuickMenuPosition, setMobileQuickMenuPosition] = useState<{ top: number; right: number } | null>(null);
   const [isNotificationCenterOpen, setIsNotificationCenterOpen] = useState(false);
+
+  // The mobile header uses `transform: translateZ(0)` for scroll
+  // performance, which creates a new containing block for any
+  // position:fixed descendant -- so the quick-settings panel, if kept as a
+  // normal DOM child positioned absolute/fixed inside that header, renders
+  // clipped by the header's own overflow-hidden bounds (added separately to
+  // stop the branch switcher from overlapping these same icons) instead of
+  // floating above the page content below it. Same root cause and same fix
+  // GlobalBranchSwitcher already uses for its own dropdown: render the
+  // panel through a portal to document.body, positioned via the trigger
+  // button's measured screen coordinates instead of CSS absolute/top-full.
+  useEffect(() => {
+    if (!showMobileQuickMenu) return;
+    const updatePosition = () => {
+      const rect = mobileQuickMenuTriggerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      setMobileQuickMenuPosition({
+        top: rect.bottom + 8,
+        right: Math.max(8, window.innerWidth - rect.right),
+      });
+    };
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+    };
+  }, [showMobileQuickMenu]);
 
   // Load standard + custom registered tenants dynamically
   const [tenantsList] = useState<Tenant[]>(() => {
@@ -679,6 +714,19 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
   // null for SuperAdmin (no BranchProvider mounted in that tree).
   const branchContextValue = useOptionalBranchContext();
   const branchContextSelectedBranch = branchContextValue?.snapshot?.context.selectedBranch || null;
+  // Mirrors GlobalBranchSwitcher's own `isEligibleSurface` check exactly
+  // (packageId === 'tanzanite' or more than one branch) so the mobile
+  // header only collapses its quick-settings icons behind a hamburger menu
+  // when the branch switcher is actually rendered there and squeezing the
+  // row for space. Tenants without that switcher (or SuperAdmin, who never
+  // gets one) keep seeing the icons directly -- no menu needed. Defaults to
+  // true while branch data is still loading, matching the switcher's own
+  // "render rather than flash to null" choice during that window.
+  const hasBranchSwitcherSurface = user.role !== 'SuperAdmin' && (
+    branchContextValue?.isLoading
+    || branchContextValue?.snapshot?.entitlement?.packageId === 'tanzanite'
+    || (branchContextValue?.snapshot?.directory.branches?.length || 0) > 1
+  );
 
   // Self-healing fallback for activeBranchSelection itself, not just the
   // header's business name above. That state is otherwise only advanced by
@@ -4039,106 +4087,192 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
               {renderSubscriptionCountdownBadge()}
             </div>
 
-            {/* Right: collapsible quick-settings menu (online/offline, dark
-                mode, language, notifications) behind one animated trigger --
-                replaces four always-visible icons. Panel stays mounted and
-                uses a CSS transition (not a keyframe) so it animates smoothly
-                both opening and closing. */}
-            <div className="relative shrink-0">
-              <button
-                type="button"
-                onClick={() => setShowMobileQuickMenu(!showMobileQuickMenu)}
-                className="relative p-2 text-slate-500 dark:text-slate-400 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors active:scale-90 cursor-pointer"
-                title="Quick settings"
-                aria-label="Quick settings"
-                aria-expanded={showMobileQuickMenu}
-              >
-                <span className="relative block w-5 h-5">
-                  <Menu className={`absolute inset-0 w-5 h-5 transition-all duration-200 ease-out ${showMobileQuickMenu ? 'opacity-0 rotate-45 scale-75' : 'opacity-100 rotate-0 scale-100'}`} />
-                  <X className={`absolute inset-0 w-5 h-5 transition-all duration-200 ease-out ${showMobileQuickMenu ? 'opacity-100 rotate-0 scale-100' : 'opacity-0 -rotate-45 scale-75'}`} />
-                </span>
-                {!showMobileQuickMenu && (unreadCount > 0 || offlinePendingCount > 0) && (
-                  <div className={`absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-slate-900 ${unreadCount > 0 ? 'bg-rose-500' : 'bg-[#ef4444]'}`} />
+            {/* Right: online/offline, dark mode, language, notifications.
+                When the branch switcher above is actually rendered (and
+                squeezing this row for space), these collapse behind one
+                animated hamburger trigger. Tenants/roles that never get a
+                branch switcher (hasBranchSwitcherSurface false) have the
+                room to show them directly instead, same as before that
+                menu existed. */}
+            {hasBranchSwitcherSurface ? (
+              <div className="relative shrink-0">
+                <button
+                  ref={mobileQuickMenuTriggerRef}
+                  type="button"
+                  onClick={() => setShowMobileQuickMenu(!showMobileQuickMenu)}
+                  className="relative p-2 text-slate-500 dark:text-slate-400 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors active:scale-90 cursor-pointer"
+                  title="Quick settings"
+                  aria-label="Quick settings"
+                  aria-expanded={showMobileQuickMenu}
+                >
+                  <span className="relative block w-5 h-5">
+                    <Menu className={`absolute inset-0 w-5 h-5 transition-all duration-200 ease-out ${showMobileQuickMenu ? 'opacity-0 rotate-45 scale-75' : 'opacity-100 rotate-0 scale-100'}`} />
+                    <X className={`absolute inset-0 w-5 h-5 transition-all duration-200 ease-out ${showMobileQuickMenu ? 'opacity-100 rotate-0 scale-100' : 'opacity-0 -rotate-45 scale-75'}`} />
+                  </span>
+                  {!showMobileQuickMenu && (unreadCount > 0 || offlinePendingCount > 0) && (
+                    <div className={`absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-slate-900 ${unreadCount > 0 ? 'bg-rose-500' : 'bg-[#ef4444]'}`} />
+                  )}
+                </button>
+
+                {typeof document !== 'undefined' && createPortal(
+                  <>
+                    {showMobileQuickMenu && (
+                      <div className="fixed inset-0 z-[10040]" onClick={() => setShowMobileQuickMenu(false)} />
+                    )}
+                    <div
+                      className={`fixed w-52 origin-top-right rounded-2xl border p-1.5 shadow-xl z-[10050] bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-850 text-slate-800 dark:text-slate-200 transition-all duration-200 ease-out ${
+                        showMobileQuickMenu && mobileQuickMenuPosition
+                          ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto'
+                          : 'opacity-0 scale-95 -translate-y-2 pointer-events-none'
+                      }`}
+                      style={mobileQuickMenuPosition ? { top: mobileQuickMenuPosition.top, right: mobileQuickMenuPosition.right } : { top: 0, right: 0 }}
+                    >
+                      {/* Online / Offline status */}
+                      <div className="flex items-center space-x-2 px-2.5 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300">
+                        <span className={`w-2 h-2 rounded-full ${isOfflineMode ? 'bg-red-500' : 'bg-emerald-500'}`} />
+                        <span>{isOfflineMode ? 'Offline' : 'Online'}</span>
+                      </div>
+
+                      <div className="h-px bg-slate-100 dark:bg-slate-800 my-1" />
+
+                      {/* Dark / Light Mode Toggle */}
+                      {onToggleTheme && (
+                        <button
+                          type="button"
+                          onClick={onToggleTheme}
+                          className="w-full flex items-center space-x-2 px-2.5 py-2 text-xs font-medium rounded-lg transition-colors cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-900 text-slate-700 dark:text-slate-300"
+                        >
+                          {isDark
+                            ? <Sun className="w-4 h-4 text-amber-400" />
+                            : <Moon className="w-4 h-4 text-slate-500" />
+                          }
+                          <span>{isDark ? 'Light Mode' : 'Dark Mode'}</span>
+                        </button>
+                      )}
+
+                      {/* Language */}
+                      {[
+                        { code: 'en', label: 'English' },
+                        { code: 'sw', label: 'Kiswahili' },
+                      ].map((item) => (
+                        <button
+                          key={item.code}
+                          type="button"
+                          onClick={() => setLang(item.code as any)}
+                          className={`w-full text-left px-2.5 py-2 text-xs font-medium rounded-lg transition-colors cursor-pointer flex items-center justify-between ${
+                            lang === item.code
+                              ? 'bg-emerald-500 text-slate-950 font-bold'
+                              : 'hover:bg-slate-100 dark:hover:bg-slate-900 text-slate-700 dark:text-slate-300'
+                          }`}
+                        >
+                          <span className="flex items-center space-x-2">
+                            <Globe className="w-4 h-4 text-emerald-500" />
+                            <span>{item.label}</span>
+                          </span>
+                          {lang === item.code && <span className="text-[9px] font-bold">✓</span>}
+                        </button>
+                      ))}
+
+                      {canAccessNotificationInbox && (
+                        <>
+                          <div className="h-px bg-slate-100 dark:bg-slate-800 my-1" />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsNotificationCenterOpen(true);
+                              setShowMobileQuickMenu(false);
+                            }}
+                            className="w-full flex items-center space-x-2 px-2.5 py-2 text-xs font-medium rounded-lg transition-colors cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-900 text-slate-700 dark:text-slate-300"
+                          >
+                            <Bell className="w-4 h-4" />
+                            <span>Notifications</span>
+                            {unreadCount > 0 && <span className="ml-auto w-2 h-2 bg-rose-500 rounded-full shrink-0" />}
+                            {offlinePendingCount > 0 && unreadCount === 0 && <span className="ml-auto w-2 h-2 bg-[#ef4444] rounded-full shrink-0" />}
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </>,
+                  document.body
                 )}
-              </button>
-
-              {showMobileQuickMenu && (
-                <div className="fixed inset-0 z-40" onClick={() => setShowMobileQuickMenu(false)} />
-              )}
-
-              <div
-                className={`absolute right-0 top-full mt-2 w-52 origin-top-right rounded-2xl border p-1.5 shadow-xl z-50 bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-850 text-slate-800 dark:text-slate-200 transition-all duration-200 ease-out ${
-                  showMobileQuickMenu
-                    ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto'
-                    : 'opacity-0 scale-95 -translate-y-2 pointer-events-none'
-                }`}
-              >
-                {/* Online / Offline status */}
-                <div className="flex items-center space-x-2 px-2.5 py-2 text-xs font-semibold text-slate-600 dark:text-slate-300">
-                  <span className={`w-2 h-2 rounded-full ${isOfflineMode ? 'bg-red-500' : 'bg-emerald-500'}`} />
-                  <span>{isOfflineMode ? 'Offline' : 'Online'}</span>
+              </div>
+            ) : (
+              <div className="flex items-center space-x-1 shrink-0">
+                {/* Online / Offline status dot */}
+                <div
+                  className="flex items-center justify-center p-2"
+                  title={isOfflineMode ? 'Offline' : 'Online'}
+                  aria-label={isOfflineMode ? 'Offline' : 'Online'}
+                >
+                  <span className={`w-2.5 h-2.5 rounded-full ${isOfflineMode ? 'bg-red-500' : 'bg-emerald-500'}`} />
                 </div>
-
-                <div className="h-px bg-slate-100 dark:bg-slate-800 my-1" />
 
                 {/* Dark / Light Mode Toggle */}
                 {onToggleTheme && (
                   <button
                     type="button"
                     onClick={onToggleTheme}
-                    className="w-full flex items-center space-x-2 px-2.5 py-2 text-xs font-medium rounded-lg transition-colors cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-900 text-slate-700 dark:text-slate-300"
+                    className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors active:scale-90 cursor-pointer"
+                    title={isDark ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
                   >
                     {isDark
-                      ? <Sun className="w-4 h-4 text-amber-400" />
-                      : <Moon className="w-4 h-4 text-slate-500" />
+                      ? <Sun className="w-5 h-5 text-amber-400" />
+                      : <Moon className="w-5 h-5 text-slate-500" />
                     }
-                    <span>{isDark ? 'Light Mode' : 'Dark Mode'}</span>
                   </button>
                 )}
 
-                {/* Language */}
-                {[
-                  { code: 'en', label: 'English' },
-                  { code: 'sw', label: 'Kiswahili' },
-                ].map((item) => (
+                {/* Mobile Language Button */}
+                <div className="relative">
                   <button
-                    key={item.code}
                     type="button"
-                    onClick={() => setLang(item.code as any)}
-                    className={`w-full text-left px-2.5 py-2 text-xs font-medium rounded-lg transition-colors cursor-pointer flex items-center justify-between ${
-                      lang === item.code
-                        ? 'bg-emerald-500 text-slate-950 font-bold'
-                        : 'hover:bg-slate-100 dark:hover:bg-slate-900 text-slate-700 dark:text-slate-300'
-                    }`}
+                    onClick={() => setShowDashLangMenu(!showDashLangMenu)}
+                    className="p-2 text-slate-500 dark:text-slate-400 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors active:scale-90 flex items-center justify-center cursor-pointer"
+                    title="Select Language / Badili Lugha"
                   >
-                    <span className="flex items-center space-x-2">
-                      <Globe className="w-4 h-4 text-emerald-500" />
-                      <span>{item.label}</span>
-                    </span>
-                    {lang === item.code && <span className="text-[9px] font-bold">✓</span>}
+                    <Globe className="w-5 h-5 text-emerald-500" />
                   </button>
-                ))}
 
-                {canAccessNotificationInbox && (
-                  <>
-                    <div className="h-px bg-slate-100 dark:bg-slate-800 my-1" />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsNotificationCenterOpen(true);
-                        setShowMobileQuickMenu(false);
-                      }}
-                      className="w-full flex items-center space-x-2 px-2.5 py-2 text-xs font-medium rounded-lg transition-colors cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-900 text-slate-700 dark:text-slate-300"
-                    >
-                      <Bell className="w-4 h-4" />
-                      <span>Notifications</span>
-                      {unreadCount > 0 && <span className="ml-auto w-2 h-2 bg-rose-500 rounded-full shrink-0" />}
-                      {offlinePendingCount > 0 && unreadCount === 0 && <span className="ml-auto w-2 h-2 bg-[#ef4444] rounded-full shrink-0" />}
-                    </button>
-                  </>
-                )}
+                  {showDashLangMenu && (
+                    <>
+                      <div className="fixed inset-0 z-40" onClick={() => setShowDashLangMenu(false)} />
+                      <div className="absolute right-0 mt-2 w-32 rounded-xl border p-1 shadow-xl z-50 bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-850 text-slate-800 dark:text-slate-200">
+                        {[
+                          { code: 'en', label: 'English' },
+                          { code: 'sw', label: 'Kiswahili' },
+                        ].map((item) => (
+                          <button
+                            key={item.code}
+                            type="button"
+                            onClick={() => {
+                              setLang(item.code as any);
+                              setShowDashLangMenu(false);
+                            }}
+                            className={`w-full text-left px-2 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer flex items-center justify-between ${
+                              lang === item.code
+                                ? 'bg-emerald-500 text-slate-950 font-bold'
+                                : 'hover:bg-slate-100 dark:hover:bg-slate-900 text-slate-700 dark:text-slate-300'
+                            }`}
+                          >
+                            <span>{item.label}</span>
+                            {lang === item.code && <span className="text-[9px] font-bold">✓</span>}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {canAccessNotificationInbox && <div
+                  className="relative p-2 text-slate-500 dark:text-slate-400 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors active:scale-90 cursor-pointer"
+                  onClick={() => setIsNotificationCenterOpen(true)}
+                >
+                  <Bell className="w-5 h-5" />
+                  {unreadCount > 0 && <div className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white dark:border-slate-900" />}
+                  {offlinePendingCount > 0 && unreadCount === 0 && <div className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-[#ef4444] rounded-full border-2 border-white dark:border-slate-900" />}
+                </div>}
               </div>
-            </div>
+            )}
           </header>
 
           {/* Core workspace content viewports */}
