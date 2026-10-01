@@ -136,6 +136,21 @@ export default function DashboardSuppliers({
         supplierPurchases.forEach(p => (p.items || []).forEach(i => distinctProducts.add(i.productId)));
         const revenue = revenueBySupplier[supplier.id] || 0;
         const profit = profitBySupplier[supplier.id] || 0;
+
+        // Payment status per purchase -- read straight off amountPaid/
+        // amountDue, same definition the Purchases screen itself uses.
+        const paidCount = supplierPurchases.filter(p => (p.amountDue || 0) <= 0 && (p.amountPaid || 0) > 0).length;
+        const partialPaidCount = supplierPurchases.filter(p => (p.amountPaid || 0) > 0 && (p.amountDue || 0) > 0).length;
+        const creditCount = supplierPurchases.filter(p => (p.amountPaid || 0) <= 0).length;
+
+        // Delivery status per purchase -- read straight off the
+        // deliveryStatus already recorded on the Purchases form (Pending /
+        // Partial / Full order delivered); a "Pending" or "Partial" count
+        // is stock this vendor still owes the tenant.
+        const deliveredCount = supplierPurchases.filter(p => p.deliveryStatus === 'Full order delivered').length;
+        const partialDeliveryCount = supplierPurchases.filter(p => p.deliveryStatus === 'Partial').length;
+        const pendingDeliveryCount = supplierPurchases.filter(p => p.deliveryStatus === 'Pending').length;
+
         return {
           supplier,
           totalSpend,
@@ -143,6 +158,12 @@ export default function DashboardSuppliers({
           purchaseCount: supplierPurchases.length,
           distinctProductCount: distinctProducts.size,
           profitMarginPct: revenue > 0 ? (profit / revenue) * 100 : null,
+          paidCount,
+          partialPaidCount,
+          creditCount,
+          deliveredCount,
+          partialDeliveryCount,
+          pendingDeliveryCount,
         };
       })
       .filter(perf => !searchQuery.trim()
@@ -388,10 +409,39 @@ export default function DashboardSuppliers({
 
                   {perf.outstandingBalance > 0 && (
                     <div className="flex items-center justify-between bg-amber-50 border border-amber-100 rounded-xl px-2.5 py-2">
-                      <span className="text-[9px] font-bold text-amber-700 uppercase tracking-wide">Owed</span>
+                      <span className="text-[9px] font-bold text-amber-700 uppercase tracking-wide">We Owe</span>
                       <span className="text-xs font-black text-amber-700">{activeTenant.currency}{Math.round(perf.outstandingBalance).toLocaleString()}</span>
                     </div>
                   )}
+
+                  {/* Payment status pills -- only non-zero buckets shown, so
+                      a supplier with all-paid orders stays a short card. */}
+                  <div className="flex flex-wrap gap-1">
+                    {perf.paidCount > 0 && (
+                      <span className="text-[9px] font-bold px-2 py-1 rounded-full bg-emerald-50 text-emerald-700">{perf.paidCount} Paid</span>
+                    )}
+                    {perf.partialPaidCount > 0 && (
+                      <span className="text-[9px] font-bold px-2 py-1 rounded-full bg-amber-50 text-amber-700">{perf.partialPaidCount} Partial</span>
+                    )}
+                    {perf.creditCount > 0 && (
+                      <span className="text-[9px] font-bold px-2 py-1 rounded-full bg-rose-50 text-rose-700">{perf.creditCount} Credit</span>
+                    )}
+                  </div>
+
+                  {/* Delivery status pills -- "Pending"/"Partial" is stock
+                      this vendor still owes the tenant, read straight off
+                      deliveryStatus already recorded on the Purchases form. */}
+                  <div className="flex flex-wrap gap-1">
+                    {perf.deliveredCount > 0 && (
+                      <span className="text-[9px] font-bold px-2 py-1 rounded-full bg-slate-100 text-slate-600">{perf.deliveredCount} Delivered</span>
+                    )}
+                    {perf.partialDeliveryCount > 0 && (
+                      <span className="text-[9px] font-bold px-2 py-1 rounded-full bg-amber-50 text-amber-700">{perf.partialDeliveryCount} Partial Delivery</span>
+                    )}
+                    {perf.pendingDeliveryCount > 0 && (
+                      <span className="text-[9px] font-bold px-2 py-1 rounded-full bg-rose-50 text-rose-700">{perf.pendingDeliveryCount} Owes Delivery</span>
+                    )}
+                  </div>
                 </div>
               ))
             ) : (
