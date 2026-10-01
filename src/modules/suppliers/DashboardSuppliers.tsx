@@ -1,5 +1,5 @@
 import { useState, FormEvent } from 'react';
-import { Supplier, Purchase, Sale, Tenant } from '../../types';
+import { Supplier, Purchase, Product, Sale, Tenant } from '../../types';
 import { 
   Phone, 
   Mail, 
@@ -18,14 +18,16 @@ interface DashboardSuppliersProps {
   onAddSupplier: (sup: Supplier) => void | Promise<boolean>;
   purchases: Purchase[];
   sales: Sale[];
+  products: Product[];
   activeTenant: Tenant;
 }
 
-export default function DashboardSuppliers({ 
-  suppliers, 
-  onAddSupplier, 
-  purchases, 
+export default function DashboardSuppliers({
+  suppliers,
+  onAddSupplier,
+  purchases,
   sales,
+  products,
   activeTenant
 }: DashboardSuppliersProps) {
   const [activePartnerTab, setActivePartnerTab] = useState<'suppliers' | 'performance' | 'customers'>('suppliers');
@@ -94,6 +96,61 @@ export default function DashboardSuppliers({
       .sort((a, b) => b.totalSpent - a.totalSpent);
   };
 
+  // Partner Performance Analysis: attributes profit back to the supplier
+  // that originally sold each unit, by tracing Sale -> SaleItem.batchesUsed
+  // -> the matching ProductBatch -> its purchaseId -> that Purchase's
+  // supplierId. Only uses data already recorded on sales/purchases/batches;
+  // nothing here is estimated or guessed.
+  const getSupplierPerformance = () => {
+    const batchSupplierMap = new Map<string, string>();
+    products.forEach(product => {
+      (product.batches || []).forEach(batch => {
+        if (!batch.purchaseId) return;
+        const purchase = purchases.find(p => p.id === batch.purchaseId);
+        if (purchase) batchSupplierMap.set(batch.id, purchase.supplierId);
+      });
+    });
+
+    const revenueBySupplier: Record<string, number> = {};
+    const profitBySupplier: Record<string, number> = {};
+    sales.forEach(sale => {
+      (sale.items || []).forEach(item => {
+        (item.batchesUsed || []).forEach(batchInfo => {
+          const supplierId = batchSupplierMap.get(batchInfo.batchId);
+          if (!supplierId) return;
+          const qty = batchInfo.qty || 0;
+          const revenue = (item.price || 0) * qty;
+          const cost = (batchInfo.buyingPrice || 0) * qty;
+          revenueBySupplier[supplierId] = (revenueBySupplier[supplierId] || 0) + revenue;
+          profitBySupplier[supplierId] = (profitBySupplier[supplierId] || 0) + (revenue - cost);
+        });
+      });
+    });
+
+    return suppliers
+      .map(supplier => {
+        const supplierPurchases = purchases.filter(p => p.supplierId === supplier.id);
+        const totalSpend = supplierPurchases.reduce((sum, p) => sum + (p.totalAmount || 0), 0);
+        const outstandingBalance = supplierPurchases.reduce((sum, p) => sum + (p.amountDue || 0), 0);
+        const distinctProducts = new Set<string>();
+        supplierPurchases.forEach(p => (p.items || []).forEach(i => distinctProducts.add(i.productId)));
+        const revenue = revenueBySupplier[supplier.id] || 0;
+        const profit = profitBySupplier[supplier.id] || 0;
+        return {
+          supplier,
+          totalSpend,
+          outstandingBalance,
+          purchaseCount: supplierPurchases.length,
+          distinctProductCount: distinctProducts.size,
+          profitMarginPct: revenue > 0 ? (profit / revenue) * 100 : null,
+        };
+      })
+      .filter(perf => !searchQuery.trim()
+        || perf.supplier.name.toLowerCase().includes(searchQuery.toLowerCase())
+        || perf.supplier.contactPerson.toLowerCase().includes(searchQuery.toLowerCase()))
+      .sort((a, b) => b.totalSpend - a.totalSpend);
+  };
+
   const filteredSuppliers = suppliers.filter(sup =>
     sup.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     sup.contactPerson.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -101,6 +158,7 @@ export default function DashboardSuppliers({
   );
 
   const customerList = getCustomersList();
+  const supplierPerformance = getSupplierPerformance();
 
   return (
     <div id="partners-view" className="space-y-6 p-2 md:p-0">
@@ -299,16 +357,51 @@ export default function DashboardSuppliers({
         )}
 
         {activePartnerTab === 'performance' && (
-          <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
-            <div className="p-6 bg-amber-50 rounded-full text-amber-600">
-              <Award className="w-12 h-12" />
-            </div>
-            <div className="px-4">
-              <h5 className="text-lg font-black text-slate-900">Partner Performance Analysis</h5>
-              <p className="text-sm text-slate-500 max-w-xs mx-auto">
-                Detailed metrics on vendor lead times, fulfillment rates, and client lifetime value are coming soon.
-              </p>
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {supplierPerformance.length > 0 ? (
+              supplierPerformance.map(perf => (
+                <div key={perf.supplier.id} className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm hover:shadow-md transition-all space-y-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                      <Store className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <h6 className="text-sm font-bold text-slate-900 truncate">{perf.supplier.name}</h6>
+                      <p className="text-[10px] text-slate-400 font-medium">
+                        {perf.purchaseCount} purchase{perf.purchaseCount !== 1 ? 's' : ''} · {perf.distinctProductCount} product{perf.distinctProductCount !== 1 ? 's' : ''}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="bg-slate-50 rounded-xl px-2.5 py-2">
+                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Margin</p>
+                      <p className={`text-sm font-black ${perf.profitMarginPct === null ? 'text-slate-400' : perf.profitMarginPct >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                        {perf.profitMarginPct === null ? '—' : `${perf.profitMarginPct.toFixed(1)}%`}
+                      </p>
+                    </div>
+                    <div className="bg-slate-50 rounded-xl px-2.5 py-2">
+                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wide">Total Spend</p>
+                      <p className="text-sm font-black text-slate-900 truncate">{activeTenant.currency}{Math.round(perf.totalSpend).toLocaleString()}</p>
+                    </div>
+                  </div>
+
+                  {perf.outstandingBalance > 0 && (
+                    <div className="flex items-center justify-between bg-amber-50 border border-amber-100 rounded-xl px-2.5 py-2">
+                      <span className="text-[9px] font-bold text-amber-700 uppercase tracking-wide">Owed</span>
+                      <span className="text-xs font-black text-amber-700">{activeTenant.currency}{Math.round(perf.outstandingBalance).toLocaleString()}</span>
+                    </div>
+                  )}
+                </div>
+              ))
+            ) : (
+              <div className="col-span-full py-20 text-center">
+                <div className="inline-flex p-4 bg-slate-50 rounded-full text-slate-300 mb-4">
+                  <Award className="w-8 h-8" />
+                </div>
+                <p className="text-slate-400 text-sm font-medium">No supplier performance data yet.</p>
+              </div>
+            )}
           </div>
         )}
       </div>

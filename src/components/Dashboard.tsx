@@ -4472,11 +4472,12 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
 
           {/* TAB ROOT: Supplier entities management */}
           {activeTab === 'suppliers' && (
-            <DashboardSuppliers 
+            <DashboardSuppliers
               suppliers={activeSuppliers}
               onAddSupplier={handleCreateSupplier}
               purchases={activePurchases}
               sales={activeSales}
+              products={activeProducts}
               activeTenant={activeTenant}
             />
           )}
