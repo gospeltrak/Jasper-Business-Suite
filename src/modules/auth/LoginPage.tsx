@@ -1973,7 +1973,8 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                     type="checkbox"
                     checked={acceptedTenantLegal}
                     onChange={(e) => setAcceptedTenantLegal(e.target.checked)}
-                    className="mt-0.5 h-4 w-4 shrink-0 accent-emerald-600"
+                    style={{ appearance: 'auto' }}
+                    className="mt-0.5 h-4 w-4 shrink-0 accent-emerald-600 cursor-pointer"
                   />
                   <span>
                     I have read and agree to Orvix's{' '}
@@ -1992,6 +1993,12 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
               <div className="flex justify-center">
                 <TurnstileWidget onVerify={setTurnstileToken} onExpire={() => setTurnstileToken(null)} />
               </div>
+
+              {!acceptedTenantLegal && (
+                <p className="text-center text-[11px] font-bold text-amber-600">
+                  Please tick the box above to accept the Terms & Conditions and Privacy Policy before continuing.
+                </p>
+              )}
 
               <button
                 type="submit"
