@@ -916,14 +916,7 @@ export default function DashboardReports({
   return (
     <div id="reports-view" className="space-y-6 p-2 md:p-0">
       {/* HEADER & TOOLBAR */}
-      <div className="flex flex-col lg:flex-row items-center justify-between gap-4 bg-white border border-slate-200 p-4 md:p-6 rounded-3xl shadow-sm">
-        <div className="text-center lg:text-left space-y-1">
-          <h4 className="text-xl font-black text-slate-900 flex items-center justify-center lg:justify-start gap-2">
-            <BarChart3 className="w-6 h-6 text-emerald-600" />
-            <span className="tracking-tight">Business Reports</span>
-          </h4>
-        </div>
-
+      <div className="flex flex-col lg:flex-row items-center gap-4 bg-white border border-slate-200 p-4 md:p-6 rounded-3xl shadow-sm">
         <div className="relative w-full lg:w-auto">
           <div ref={tabScrollRef} className="reports-tab-grid gap-2 w-full lg:w-auto">
             {[

@@ -937,30 +937,6 @@ body.rtl { font-family: 'Cairo', "Plus Jakarta Sans", "Inter", system-ui, sans-s
   #dashboard-scaffold .pos-tablet-product-image {
     height: 4.5rem !important;
   }
-
-  /* The product card's lg:h-[19rem] fixed height (DashboardPOS.tsx) is a
-     true-desktop sizing that isn't part of the "hidden"/"grid-cols"
-     safety-net class list above, so it leaks into this tablet range too.
-     Combined with flex-col + justify-between and the shorter 4.5rem
-     tablet image above, that left a large empty gap between the product
-     name and the price/Add button. Let the card size to its own content
-     here instead. */
-  #dashboard-scaffold [data-pos-product-card] {
-    height: auto !important;
-    min-height: 0 !important;
-  }
-}
-
-/* Same fixed-height-vs-content mismatch as the tablet block above, but for
-   true desktop (>=1280px): the product card's xl:h-[13rem] fixed height
-   (DashboardPOS.tsx) can leave a gap between the product name and the
-   price/Add button once fewer lines of text are present than the height
-   allows for. Let the card size to its own content here too. */
-@media (min-width: 1280px) {
-  #dashboard-scaffold [data-pos-product-card] {
-    height: auto !important;
-    min-height: 0 !important;
-  }
 }
 
 /* Phone-only: shrink the product IMAGE CONTAINER (not the photo itself --
