@@ -921,7 +921,93 @@ const BUSINESS_DICTIONARY: Record<string, Record<string, string>> = {
     "loading orvix": "Inapakia Orvix",
     "loading your business workspace": "Inapakia mfumo wako wa biashara",
     "orvix website": "Tovuti ya Orvix",
-    "orvix pos and inventory management": "Orvix POS na usimamizi wa bidhaa"
+    "orvix pos and inventory management": "Orvix POS na usimamizi wa bidhaa",
+
+    // Found via a full audit of the dashboard sidebar/menu, the global
+    // branch switcher, and the per-tab search bar -- all were rendering
+    // plain English because the exact phrase was missing from this
+    // dictionary (the auto-translator can only translate a phrase it has
+    // an entry for).
+    "money & bank": "Pesa na Benki",
+    "branches": "Matawi",
+    "branch": "Tawi",
+    "sell": "Uza",
+    "stock": "Stoki",
+    "partners": "Washirika",
+    "money": "Pesa",
+    "planning": "Mipango",
+    "approvals": "Idhini",
+    "placements": "Sehemu za Matangazo",
+    "ads": "Matangazo",
+    "chats": "Mazungumzo",
+    "inbox": "Sanduku la Ujumbe",
+    "activity": "Shughuli",
+    "subscribers": "Wanachama",
+
+    // Global branch switcher (GlobalBranchSwitcher.tsx)
+    "switch branch": "Badilisha Tawi",
+    "main": "Kuu",
+    "main branch": "Tawi Kuu",
+    "search branches": "Tafuta matawi",
+    "manage branches": "Simamia Matawi",
+    "add branch": "Ongeza Tawi",
+    "only branches assigned to your account are shown.": "Matawi yaliyopangiwa akaunti yako pekee ndiyo yanaonekana.",
+    "operational workspace": "Sehemu ya kazi",
+    "location not set": "Mahali hapajawekwa",
+    "currently active branch": "Tawi linalotumika sasa",
+    "branch could not be selected.": "Imeshindwa kuchagua tawi.",
+    "switching to": "Inabadilisha kwenda",
+
+    // Per-tab search bar placeholders (contextualSearch.ts)
+    "search products or scan barcode…": "Tafuta bidhaa au changanua barcode…",
+    "search products, barcode or sku…": "Tafuta bidhaa, barcode au SKU…",
+    "search invoice, customer or receipt…": "Tafuta ankara, mteja au risiti…",
+    "search expenses by title or category…": "Tafuta matumizi kwa jina au kundi…",
+    "search this report…": "Tafuta kwenye ripoti hii…",
+    "search customers or phone number…": "Tafuta wateja au namba ya simu…",
+    "search suppliers…": "Tafuta wasambazaji…",
+    "search purchases…": "Tafuta manunuzi…",
+    "search deliveries…": "Tafuta delivari…",
+    "search transactions…": "Tafuta miamala…",
+    "search dashboard…": "Tafuta dashibodi…",
+
+    // Edit Purchase helper text (DashboardPurchases.tsx)
+    "only your tenant's registered money & bank accounts are listed here.": "Akaunti za Pesa na Benki zilizosajiliwa za biashara yako pekee ndizo zinazoonekana hapa.",
+
+    // Super Admin / platform portal menu (Orvix staff only, not tenant-facing)
+    "status & requests": "Hali na Maombi",
+    "status and request": "Hali na Maombi",
+    "chats / broadcasts": "Mazungumzo / Matangazo",
+    "user inbox": "Sanduku la Ujumbe la Mtumiaji",
+    "security activity": "Shughuli za Usalama",
+    "user activity": "Shughuli za Mtumiaji",
+    "web editor": "Kihariri cha Tovuti",
+    "hw inventory": "Stoki ya Vifaa",
+    "hw stock": "Stoki ya Vifaa",
+    "hw sales": "Mauzo ya Vifaa",
+    "hw pos": "POS ya Vifaa",
+    "subscribers list": "Orodha ya Wanachama",
+    "white-label branding": "Chapa Maalum",
+    "sync safety hub": "Kituo cha Usalama wa Sync",
+    "affiliates": "Washirika wa Rufaa",
+
+    // Pharmacy/retail-specific sidebar labels (Dashboard.tsx nav arrays)
+    "pharma purchases journal": "Daftari la Manunuzi ya Dawa",
+    "drug stock valuations": "Thamani ya Stoki ya Dawa",
+    "suppliers directory": "Orodha ya Wasambazaji",
+    "reports & audits": "Ripoti na Ukaguzi",
+    "purchases journal": "Daftari la Manunuzi",
+    "deliveries menu": "Menyu ya Delivari",
+    "stock valuations": "Thamani ya Stoki",
+    "ai stock forecast": "Utabiri wa Stoki kwa AI",
+    "partners directory": "Orodha ya Washirika",
+    "products catalog": "Orodha ya Bidhaa",
+    "sales summary": "Muhtasari wa Mauzo",
+    "cashier till (pos)": "POS ya Keshia",
+    "pharmacist till (pos)": "POS ya Mfamasia",
+    "prescriptions & sales": "Maagizo na Mauzo",
+    "drugs & products catalog": "Orodha ya Dawa na Bidhaa",
+    "clinical rx intercept": "Ukaguzi wa Maagizo ya Dawa"
   },
 };
 
