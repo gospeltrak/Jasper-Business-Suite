@@ -1008,6 +1008,13 @@ const renderVectorDocumentBody = (
       if (el.tagName === 'TABLE') return true;
       if (el.tagName === 'IMG') return true;
       if (el.querySelector('table')) return false;
+      // A badge/label wrapped in its own <span> or <div> inside a <td>/<th>
+      // (e.g. a payment-mode or channel pill) is already fully captured by
+      // drawTable()'s own cell.textContent extraction -- without this guard
+      // it also matches this generic walker and gets redrawn a second time
+      // as an orphaned standalone line below the table, with no paired
+      // amount next to it since it has no row context here.
+      if (el.closest('td,th')) return false;
       return !!cleanText(collectDirectText(el));
     });
 

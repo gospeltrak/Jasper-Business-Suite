@@ -40,7 +40,6 @@ import {
   UploadCloud,
   Eye,
   ShieldAlert,
-  Download,
   Printer,
   Truck,
   ChevronDown,
@@ -136,12 +135,9 @@ export default function DashboardReports({
         visual: false,
         branding: {
           businessName: getActiveBranchDisplayName(activeTenant, systemSettings, userName, activeBranch),
-          logo: (activeBranch?.isPhysical && activeBranch?.logoLightUrl)
-            || (systemSettings?.business as any)?.businessLogoLight
-            || ((systemSettings?.business as any)?.businessLogo !== (systemSettings?.business as any)?.businessLogoDark
-              ? (systemSettings?.business as any)?.businessLogo
-              : '')
-            || '',
+          // Reports under the Reports menu are internal ledgers for the
+          // owner's own analysis, not customer-facing documents -- unlike
+          // receipts/invoices, they deliberately carry no logo.
           address: getActiveBranchAddress(systemSettings, activeBranch) || activeTenant.city,
           phone: getActiveBranchPhone(systemSettings, activeBranch),
           email: getActiveBranchEmail(systemSettings, activeBranch),
@@ -274,170 +270,6 @@ export default function DashboardReports({
   const [dragActive, setDragActive] = useState(false);
   const [previewReceiptImage, setPreviewReceiptImage] = useState<string | null>(null);
 
-
-  const handleDownloadProductsSpreadsheet = () => {
-    let csv = "A4 Product Catalog Inventory Report\\r\\n";
-    csv += `Scope Period,${startDateStr} to ${endDateStr}\\r\\n`;
-    csv += `Generated On,${new Date().toLocaleString()}\\r\\n`;
-    csv += `Branch,${activeTenant.name} (${activeTenant.city})\\r\\n\\r\\n`;
-    csv += "Product Name,Item Code,Barcode,Category,Cost Price,Retail Selling Price,Shop Floor Qty,Backroom Store Qty,Total Quantity On-Hand,Valuation at Cost,Potential Margin Value\\r\\n";
-    
-    products.forEach(p => {
-      const totalOnHand = p.stockQty || 0;
-      const totalCostVal = totalOnHand * (p.costPrice || 0);
-      const totalRetailVal = totalOnHand * (p.sellingPrice || 0);
-      const potentialMargin = totalRetailVal - totalCostVal;
-      csv += `"${p.name}","${p.sku || ''}","${p.barcode || ''}","${p.category || 'General'}",${p.costPrice.toFixed(2)},${p.sellingPrice.toFixed(2)},${p.shopStockQty || 0},${p.storeStockQty || 0},${totalOnHand},${totalCostVal.toFixed(2)},${potentialMargin.toFixed(2)}\\r\\n`;
-    });
-
-    const encodedUri = encodeURI("data:text/csv;charset=utf-8," + csv);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `A4_Product_Catalog_${startDateStr}_to_${endDateStr}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const handleDownloadExpensesSpreadsheet = () => {
-    let csv = "A4 Operating Expenses Ledger\\r\\n";
-    csv += `Scope Period,${startDateStr} to ${endDateStr}\\r\\n`;
-    csv += `Generated On,${new Date().toLocaleString()}\\r\\n`;
-    csv += `Branch,${activeTenant.name} (${activeTenant.city})\\r\\n\\r\\n`;
-    csv += "Expense ID,Category,Description,Amount,Cashier logged,Timestamp\\r\\n";
-    
-    filteredExpenses.forEach(e => {
-      csv += `"${e.id}","${e.category}","${(e.description || '').replace(/\"/g, '\"\"')}",${e.amount.toFixed(2)},"${e.staffName || 'Admin'}","${new Date(e.timestamp).toLocaleString()}"\\r\\n`;
-    });
-
-    const encodedUri = encodeURI("data:text/csv;charset=utf-8," + csv);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `A4_Operating_Expenses_${startDateStr}_to_${endDateStr}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const handleDownloadPnLSpreadsheet = () => {
-    const totalSalesRev = filteredSales.reduce((sum, s) => sum + saleProductRevenue(s), 0);
-    const totalExp = filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
-    
-    let estimatedCOGS = 0;
-    filteredSales.forEach(s => {
-      (s.items || []).forEach(item => {
-        const matchingProd = products.find(p => p.id === item.productId);
-        if (matchingProd) {
-          estimatedCOGS += ((item.costPriceAtSale ?? matchingProd.costPrice) * item.qty);
-        } else {
-          estimatedCOGS += (getSaleItemGrossTotal(item) * 0.75);
-        }
-      });
-    });
-
-    const grossProfit = totalSalesRev - estimatedCOGS;
-    const netProfit = grossProfit - totalExp;
-
-    let csv = "A4 Consolidated Balance Statement of Profit and Loss\\r\\n";
-    csv += `Scope Period,${startDateStr} to ${endDateStr}\\r\\n`;
-    csv += `Generated On,${new Date().toLocaleString()}\\r\\n`;
-    csv += `Branch,${activeTenant.name} (${activeTenant.city})\\r\\n\\r\\n`;
-    csv += "Financial Line Item,Statement Value,Proportion Ratio\\r\\n";
-    csv += `1. Gross Revenue Receipts,${totalSalesRev.toFixed(2)},100%\\r\\n`;
-    csv += `2. Cost of Goods Sold (COGS),${estimatedCOGS.toFixed(2)},${((estimatedCOGS / Math.max(1, totalSalesRev)) * 100).toFixed(1)}%\\r\\n`;
-    csv += `3. Gross Profit Margin,${grossProfit.toFixed(2)},${((grossProfit / Math.max(1, totalSalesRev)) * 100).toFixed(1)}%\\r\\n`;
-    csv += `4. Operating Expenses Charged,${totalExp.toFixed(2)},${((totalExp / Math.max(1, totalSalesRev)) * 100).toFixed(1)}%\\r\\n`;
-    csv += `5. NET OPERATING PROFIT/LOSS,${netProfit.toFixed(2)},${((netProfit / Math.max(1, totalSalesRev)) * 100).toFixed(1)}%\\r\\n`;
-
-    const encodedUri = encodeURI("data:text/csv;charset=utf-8," + csv);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `A4_Consolidated_PL_${startDateStr}_to_${endDateStr}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const handleDownloadActiveTabCSV = () => {
-    let csv = "";
-    const headerPrefix = `A4 ${reportTab.toUpperCase()} LEDGER REPORT\\r\\n` +
-                         `Scope Period,${startDateStr} to ${endDateStr}\\r\\n` +
-                         `Generated On,${new Date().toLocaleString()}\\r\\n` +
-                         `Branch,${activeTenant.name} (${activeTenant.city})\\r\\n\\r\\n`;
-
-    switch (reportTab) {
-      case 'p&l': {
-        handleDownloadPnLSpreadsheet();
-        return;
-      }
-      case 'expenses': {
-        handleDownloadExpensesSpreadsheet();
-        return;
-      }
-      case 'inventory': {
-        handleDownloadProductsSpreadsheet();
-        return;
-      }
-      case 'payments': {
-        csv = headerPrefix;
-        csv += "Payment Channel,Invoiced Total ($),Approval Count,% Contribution\\r\\n";
-        const sumTotal = Object.values(paymentBreakdown).reduce((a, b) => a + b, 0);
-        csv += `Cash,${paymentBreakdown.Cash.toFixed(2)},${filteredSales.filter(s => classifyPaymentMethod(s.paymentMethod) === 'Cash').length},${sumTotal > 0 ? ((paymentBreakdown.Cash / sumTotal) * 100).toFixed(1) : 0}%\\r\\n`;
-        csv += `Card/Online,${paymentBreakdown.CardAndOnline.toFixed(2)},${filteredSales.filter(s => classifyPaymentMethod(s.paymentMethod) === 'CardAndOnline').length},${sumTotal > 0 ? ((paymentBreakdown.CardAndOnline / sumTotal) * 100).toFixed(1) : 0}%\\r\\n`;
-        csv += `Mobile Money,${paymentBreakdown.MobileMoney.toFixed(2)},${filteredSales.filter(s => classifyPaymentMethod(s.paymentMethod) === 'MobileMoney').length},${sumTotal > 0 ? ((paymentBreakdown.MobileMoney / sumTotal) * 100).toFixed(1) : 0}%\\r\\n`;
-        csv += `Bank Transfer,${paymentBreakdown.BankTransfer.toFixed(2)},${filteredSales.filter(s => classifyPaymentMethod(s.paymentMethod) === 'BankTransfer').length},${sumTotal > 0 ? ((paymentBreakdown.BankTransfer / sumTotal) * 100).toFixed(1) : 0}%\\r\\n`;
-        csv += `Deferred Credit,${paymentBreakdown.Credit.toFixed(2)},${filteredSales.filter(s => classifyPaymentMethod(s.paymentMethod) === 'Credit').length},${sumTotal > 0 ? ((paymentBreakdown.Credit / sumTotal) * 100).toFixed(1) : 0}%\\r\\n`;
-        break;
-      }
-      case 'product-monitoring': {
-        // Reuses productAuditRows (the same data the Overview table renders)
-        // instead of recomputing from raw `sales` with today's current cost
-        // price applied to historical units -- the export used to disagree
-        // with what the screen itself showed, for the same reason the
-        // Overview table's profit was wrong before this session's fix.
-        csv = headerPrefix;
-        csv += "Rank,Product Name,Item Code,Cost Buy,Retail Pricing,Profit Margin,Units Sold,Gross Revenue,Margin Earned\\r\\n";
-        productAuditRows.forEach((row, idx) => {
-          csv += `"${row.product.name}","${row.product.sku}","${(row.product.costPrice || 0).toFixed(2)}","${(row.product.sellingPrice || 0).toFixed(2)}","${row.margin.toFixed(1)}%",${row.qty},${row.revenue.toFixed(2)},${row.profit.toFixed(2)}\\r\\n`;
-        });
-        break;
-      }
-      case 'deliveries': {
-        csv = headerPrefix;
-        csv += "Delivery ID,Customer,Rider/Driver,Destination,Status,Delivery Fee,Logged Timestamp\\r\\n";
-        deliveryReportStats.validDeliveries.forEach(d => {
-          csv += `"${d.id}","${d.customerName}","${d.riderDetails?.name || d.riderId || 'Unassigned'}","${(d.customerAddress || '').replace(/"/g, '""')}","${d.status}",${(Number(d.deliveryCost) || 0).toFixed(2)},"${new Date(d.timestamp).toLocaleString()}"\\r\\n`;
-        });
-        break;
-      }
-      case 'purchases-report': {
-        csv = headerPrefix;
-        csv += "Purchase ID,Supplier,Items Count,Total Amount,Amount Paid,Amount Due,Destination,Delivery Status,Logged Timestamp\\r\\n";
-        purchaseReportStats.sorted.forEach((p: any) => {
-          csv += `"${p.id}","${p.supplierName}",${(p.items || []).length},${(Number(p.totalAmount) || 0).toFixed(2)},${(Number(p.amountPaid) || 0).toFixed(2)},${(Number(p.amountDue) || 0).toFixed(2)},"${p.destination}","${p.deliveryStatus}","${new Date(p.timestamp).toLocaleString()}"\\r\\n`;
-        });
-        break;
-      }
-      case 'stock-adjustment': {
-        csv = headerPrefix;
-        csv += "Adjustment ID,Product,SKU,Type,Qty,Before,After,Reason,Adjusted At\\r\\n";
-        stockAdjustmentRows.forEach((a: any) => {
-          csv += `"${a.id}","${a.productName}","${a.sku || ''}","${a.type}",${a.qty},${a.previousStock},${a.newStock},"${(a.reason || '').replace(/"/g, '""')}","${new Date(a.adjustedAt).toLocaleString()}"\\r\\n`;
-        });
-        break;
-      }
-      default:
-        csv = "Export not supported for this report type.";
-    }
-
-    const encodedUri = encodeURI("data:text/csv;charset=utf-8," + csv);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `A4_Report_${reportTab}_${startDateStr}_to_${endDateStr}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
 
   const classifyPaymentMethod = (method: string) => {
     const m = (method || '').toLowerCase();
@@ -1043,14 +875,20 @@ export default function DashboardReports({
           <div className="space-y-6">
             <div className="flex justify-end">
               <button
-                onClick={handleDownloadActiveTabCSV}
-                className="bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm"
+                onClick={printActiveReportPdf}
+                disabled={!!reportPdfStatus}
+                className="bg-slate-900 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[11px] sm:text-xs font-bold uppercase flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm disabled:opacity-60 disabled:cursor-wait"
               >
-                <Download className="w-3.5 h-3.5" />
-                <span>Export CSV</span>
+                <FileText className="w-3.5 h-3.5" />
+                <span>Export PDF</span>
               </button>
             </div>
-            <div className="md:hidden space-y-4">
+            {/* Only this mobile card list is captured for the PDF (includeHidden
+                bypasses its md:hidden CSS) -- its flex "label ... value" rows are
+                what renderVectorDocumentBody's row detector is built for, unlike
+                the separate, differently-structured desktop block below, which
+                would otherwise duplicate every figure in the exported PDF. */}
+            <div id="reports-a4-pdf-template" className="md:hidden space-y-4">
               <div className="grid grid-cols-1 gap-4">
                 <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex items-center justify-between hover:bg-white hover:shadow-sm transition-all group cursor-pointer">
                   <div className="flex items-center gap-3">
@@ -1201,8 +1039,8 @@ export default function DashboardReports({
           <div className="space-y-6">
             <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <h3 className="font-black text-slate-800 uppercase tracking-wider">Sales Performance Ledger</h3>
-                <div className="flex flex-wrap gap-2">
+                <h3 className="order-2 sm:order-1 font-black text-slate-800 uppercase tracking-wider">Sales Performance Ledger</h3>
+                <div className="order-1 sm:order-2 flex flex-wrap gap-2">
                   <ModernSelect
                     title="Payment Mode"
                     value={selectedPaymentMode}
@@ -1212,7 +1050,7 @@ export default function DashboardReports({
                   <button
                     onClick={printActiveReportPdf}
                     disabled={!!reportPdfStatus}
-                    className="bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm shrink-0 disabled:opacity-60 disabled:cursor-wait"
+                    className="bg-slate-900 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[11px] sm:text-xs font-bold uppercase flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm shrink-0 disabled:opacity-60 disabled:cursor-wait"
                   >
                     <FileText className="w-3.5 h-3.5" />
                     <span>Export PDF</span>
@@ -1342,16 +1180,18 @@ export default function DashboardReports({
           <div className="space-y-6">
             <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <h3 className="font-black text-slate-800 uppercase tracking-wider">Inventory Valuation</h3>
+                <h3 className="order-2 sm:order-1 font-black text-slate-800 uppercase tracking-wider">Inventory Valuation</h3>
                 <button
-                  onClick={handleDownloadActiveTabCSV}
-                  className="bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm shrink-0"
+                  onClick={printActiveReportPdf}
+                  disabled={!!reportPdfStatus}
+                  className="order-1 sm:order-2 bg-slate-900 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[11px] sm:text-xs font-bold uppercase flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm shrink-0 disabled:opacity-60 disabled:cursor-wait"
                 >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>Export CSV</span>
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>Export PDF</span>
                 </button>
               </div>
 
+              <div id="reports-a4-pdf-template" className="space-y-6">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {[
                   { label: 'Units On Hand', value: inventoryTotals.totalUnits.toLocaleString(), icon: Package, color: 'text-slate-900' },
@@ -1475,6 +1315,7 @@ export default function DashboardReports({
                   </tbody>
                 </table>
               </div>
+              </div>
             </div>
           </div>
         )}
@@ -1483,8 +1324,8 @@ export default function DashboardReports({
           <div className="space-y-6">
             <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <h3 className="font-black text-slate-800 uppercase tracking-wider">Operating Expenses</h3>
-                <div className="flex flex-wrap gap-2">
+                <h3 className="order-2 sm:order-1 font-black text-slate-800 uppercase tracking-wider">Operating Expenses</h3>
+                <div className="order-1 sm:order-2 flex flex-wrap gap-2">
                   <ModernSelect
                     title="Expense Category"
                     value={selectedCategory}
@@ -1492,33 +1333,30 @@ export default function DashboardReports({
                     onChange={setSelectedCategory}
                   />
                   <button
-                    onClick={handleDownloadActiveTabCSV}
-                    className="bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm shrink-0"
+                    onClick={printActiveReportPdf}
+                    disabled={!!reportPdfStatus}
+                    className="bg-slate-900 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[11px] sm:text-xs font-bold uppercase flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm shrink-0 disabled:opacity-60 disabled:cursor-wait"
                   >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>Export CSV</span>
+                    <FileText className="w-3.5 h-3.5" />
+                    <span>Export PDF</span>
                   </button>
                 </div>
               </div>
 
+              <div id="reports-a4-pdf-template" className="space-y-6">
               <div className="reports-split-grid gap-2 sm:gap-3">
                 {[
                   { label: 'Total Charged', value: `${currency}${Math.round(expenseTotals.total).toLocaleString()}`, icon: Receipt, color: 'text-rose-600' },
                   { label: 'Entries Logged', value: expenseTotals.count.toLocaleString(), icon: FileText, color: 'text-slate-900' },
                 ].map((metric, i) => (
-                  <div key={i} className="bg-slate-50 p-3 sm:p-4 rounded-2xl border border-slate-200 flex items-center justify-between gap-2 overflow-hidden">
-                    <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                      <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 shadow-sm shrink-0">
-                        <metric.icon className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <div key={i} className="bg-slate-50 p-3 rounded-2xl border border-slate-200 overflow-hidden">
+                    <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+                      <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 shadow-sm shrink-0">
+                        <metric.icon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                       </div>
-                      <div className="text-left min-w-0">
-                        <h6 className="text-xs sm:text-sm font-bold text-slate-900 truncate">{metric.label}</h6>
-                        <p className="text-[10px] sm:text-xs text-slate-500 truncate">Calculated over period</p>
-                      </div>
+                      <h6 className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wide leading-tight min-w-0 flex-1">{metric.label}</h6>
                     </div>
-                    <div className="text-right shrink-0">
-                      <p className={`text-xs sm:text-sm font-black ${metric.color} truncate`}>{metric.value}</p>
-                    </div>
+                    <p className={`text-base sm:text-lg font-black mt-1.5 truncate ${metric.color}`}>{metric.value}</p>
                   </div>
                 ))}
               </div>
@@ -1577,6 +1415,7 @@ export default function DashboardReports({
                   </tbody>
                 </table>
               </div>
+              </div>
             </div>
           </div>
         )}
@@ -1585,13 +1424,14 @@ export default function DashboardReports({
           <div className="space-y-6">
             <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <h3 className="font-black text-slate-800 uppercase tracking-wider">Product Profit Audit</h3>
+                <h3 className="order-2 sm:order-1 font-black text-slate-800 uppercase tracking-wider">Product Profit Audit</h3>
                 <button
-                  onClick={handleDownloadActiveTabCSV}
-                  className="bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm shrink-0"
+                  onClick={printActiveReportPdf}
+                  disabled={!!reportPdfStatus}
+                  className="order-1 sm:order-2 bg-slate-900 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[11px] sm:text-xs font-bold uppercase flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm shrink-0 disabled:opacity-60 disabled:cursor-wait"
                 >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>Export CSV</span>
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>Export PDF</span>
                 </button>
               </div>
 
@@ -1613,6 +1453,7 @@ export default function DashboardReports({
                 ))}
               </div>
 
+              <div id="reports-a4-pdf-template">
               {auditView === 'overview' && (
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs">
@@ -1785,6 +1626,7 @@ export default function DashboardReports({
                   </div>
                 </div>
               )}
+              </div>
             </div>
           </div>
         )}
@@ -1793,19 +1635,21 @@ export default function DashboardReports({
           <div className="space-y-6">
             <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
+                <div className="order-2 sm:order-1">
                   <h3 className="font-black text-slate-800 uppercase tracking-wider">Delivery Operations</h3>
                   <p className="text-xs text-slate-500 mt-1">Full delivery history (not limited by the Date range above).</p>
                 </div>
                 <button
-                  onClick={handleDownloadActiveTabCSV}
-                  className="bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm shrink-0"
+                  onClick={printActiveReportPdf}
+                  disabled={!!reportPdfStatus}
+                  className="order-1 sm:order-2 bg-slate-900 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[11px] sm:text-xs font-bold uppercase flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm shrink-0 disabled:opacity-60 disabled:cursor-wait"
                 >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>Export CSV</span>
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>Export PDF</span>
                 </button>
               </div>
 
+              <div id="reports-a4-pdf-template" className="space-y-6">
               <div className="reports-split-grid gap-2 sm:gap-3">
                 {[
                   { label: 'Fulfillments', value: deliveryReportStats.validDeliveries.length.toLocaleString(), icon: Truck, color: 'text-slate-900' },
@@ -1813,19 +1657,14 @@ export default function DashboardReports({
                   { label: 'Fleet Outflow', value: `${currency}${Math.round(deliveryReportStats.totalDeliveryExpenses).toLocaleString()}`, icon: Receipt, color: 'text-rose-600' },
                   { label: 'Net Margin', value: `${deliveryReportStats.netDeliveryProfit >= 0 ? '+' : '-'}${currency}${Math.abs(Math.round(deliveryReportStats.netDeliveryProfit)).toLocaleString()}`, icon: TrendingUp, color: deliveryReportStats.netDeliveryProfit >= 0 ? 'text-emerald-700' : 'text-rose-600' },
                 ].map((metric, i) => (
-                  <div key={i} className="bg-slate-50 p-3 sm:p-4 rounded-2xl border border-slate-200 flex items-center justify-between gap-2 overflow-hidden">
-                    <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                      <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 shadow-sm shrink-0">
-                        <metric.icon className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <div key={i} className="bg-slate-50 p-3 rounded-2xl border border-slate-200 overflow-hidden">
+                    <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+                      <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 shadow-sm shrink-0">
+                        <metric.icon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                       </div>
-                      <div className="text-left min-w-0">
-                        <h6 className="text-xs sm:text-sm font-bold text-slate-900 truncate">{metric.label}</h6>
-                        <p className="text-[10px] sm:text-xs text-slate-500 truncate">All-time total</p>
-                      </div>
+                      <h6 className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wide leading-tight min-w-0 flex-1">{metric.label}</h6>
                     </div>
-                    <div className="text-right shrink-0">
-                      <p className={`text-xs sm:text-sm font-black ${metric.color} truncate`}>{metric.value}</p>
-                    </div>
+                    <p className={`text-base sm:text-lg font-black mt-1.5 truncate ${metric.color}`}>{metric.value}</p>
                   </div>
                 ))}
               </div>
@@ -1872,6 +1711,7 @@ export default function DashboardReports({
                   </tbody>
                 </table>
               </div>
+              </div>
             </div>
           </div>
         )}
@@ -1880,16 +1720,18 @@ export default function DashboardReports({
           <div className="space-y-6">
             <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <h3 className="font-black text-slate-800 uppercase tracking-wider">Purchases Ledger</h3>
+                <h3 className="order-2 sm:order-1 font-black text-slate-800 uppercase tracking-wider">Purchases Ledger</h3>
                 <button
-                  onClick={handleDownloadActiveTabCSV}
-                  className="bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm shrink-0"
+                  onClick={printActiveReportPdf}
+                  disabled={!!reportPdfStatus}
+                  className="order-1 sm:order-2 bg-slate-900 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[11px] sm:text-xs font-bold uppercase flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm shrink-0 disabled:opacity-60 disabled:cursor-wait"
                 >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>Export CSV</span>
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>Export PDF</span>
                 </button>
               </div>
 
+              <div id="reports-a4-pdf-template" className="space-y-6">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {[
                   { label: 'Total Purchased', value: `${currency}${Math.round(purchaseReportStats.totalPurchased).toLocaleString()}`, icon: ShoppingCart, color: 'text-slate-900' },
@@ -1959,6 +1801,7 @@ export default function DashboardReports({
                   </tbody>
                 </table>
               </div>
+              </div>
             </div>
           </div>
         )}
@@ -1967,19 +1810,21 @@ export default function DashboardReports({
           <div className="space-y-6">
             <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
+                <div className="order-2 sm:order-1">
                   <h3 className="font-black text-slate-800 uppercase tracking-wider">Stock Adjustment Log</h3>
                   <p className="text-xs text-slate-500 mt-1">Manual stock additions and deductions from Products → Adjust Stock.</p>
                 </div>
                 <button
-                  onClick={handleDownloadActiveTabCSV}
-                  className="bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm shrink-0"
+                  onClick={printActiveReportPdf}
+                  disabled={!!reportPdfStatus}
+                  className="order-1 sm:order-2 bg-slate-900 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[11px] sm:text-xs font-bold uppercase flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm shrink-0 disabled:opacity-60 disabled:cursor-wait"
                 >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>Export CSV</span>
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>Export PDF</span>
                 </button>
               </div>
 
+              <div id="reports-a4-pdf-template" className="space-y-6">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {[
                   { label: 'Total Events', value: stockAdjustmentRows.length.toLocaleString(), icon: ArrowUpDown, color: 'text-slate-900' },
@@ -2048,6 +1893,7 @@ export default function DashboardReports({
                     )}
                   </tbody>
                 </table>
+              </div>
               </div>
             </div>
           </div>
