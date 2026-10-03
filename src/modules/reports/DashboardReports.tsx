@@ -231,6 +231,7 @@ export default function DashboardReports({
   };
 
   const [selectedPaymentMode, setSelectedPaymentMode] = useState<string>('All');
+  const [selectedSalesChannel, setSelectedSalesChannel] = useState<'all' | 'retail' | 'wholesale'>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [velocitySortOrder, setVelocitySortOrder] = useState<'desc' | 'asc'>('desc');
   const [searchTerm, setSearchTerm] = useState('');
@@ -268,15 +269,17 @@ export default function DashboardReports({
     csv += `Scope Period,${startDateStr} to ${endDateStr}\\r\\n`;
     csv += `Generated On,${new Date().toLocaleString()}\\r\\n`;
     csv += `Branch,${activeTenant.name} (${activeTenant.city})\\r\\n\\r\\n`;
-    csv += "Receipt ID,Customer,Items Count,Voucher Total,VAT/Sales Tax,Discount Amnt,Grand Amount Paid,Remaining Due,Mode,Logged Timestamp\\r\\n";
-    
-    filteredSales.forEach(s => {
+    const includeChannel = hasAnyWholesaleProduct;
+    csv += `Receipt ID,Customer,Items Count,Voucher Total,VAT/Sales Tax,Discount Amnt,Grand Amount Paid,Remaining Due,Mode${includeChannel ? ',Channel' : ''},Logged Timestamp\\r\\n`;
+
+    salesReportSales.forEach(s => {
       const itemsCount = (s.items || []).length;
       const originalSub = (s.items || []).reduce((sum, item) => sum + getSaleItemGrossTotal(item), 0);
       const discountVal = s.discountType === 'percent' ? (originalSub * (s.discount || 0)) / 100 : (s.discount || 0);
       const totalPaid = saleProductRevenue(s);
       const unpaidDue = s.amountDue || 0;
-      csv += `"${s.id}","${s.customerName || 'Walk-in customer'}",${itemsCount},${originalSub.toFixed(2)},${s.tax.toFixed(2)},${discountVal.toFixed(2)},${totalPaid.toFixed(2)},${unpaidDue.toFixed(2)},"${s.paymentMethod}","${new Date(s.timestamp).toLocaleString()}"\\r\\n`;
+      const channelCell = includeChannel ? `,"${(s.channel || 'retail') === 'wholesale' ? 'Wholesale' : 'Retail'}"` : '';
+      csv += `"${s.id}","${s.customerName || 'Walk-in customer'}",${itemsCount},${originalSub.toFixed(2)},${s.tax.toFixed(2)},${discountVal.toFixed(2)},${totalPaid.toFixed(2)},${unpaidDue.toFixed(2)},"${s.paymentMethod}"${channelCell},"${new Date(s.timestamp).toLocaleString()}"\\r\\n`;
     });
 
     const encodedUri = encodeURI("data:text/csv;charset=utf-8," + csv);
@@ -480,6 +483,11 @@ export default function DashboardReports({
     return 'Cash';
   };
 
+  // Mirrors POS's own visibility rule (DashboardPOS.tsx hasAnyWholesaleProduct)
+  // -- only show the Retail/Wholesale report filter for tenants who actually
+  // sell wholesale, instead of cluttering the report for everyone else.
+  const hasAnyWholesaleProduct = useMemo(() => products.some(p => p.sellInWholesale === true), [products]);
+
   const filteredSales = useMemo(() => {
     return sales.filter(s => {
       const date = new Date(s.timestamp);
@@ -492,6 +500,17 @@ export default function DashboardReports({
       return dateMatch && searchMatch && paymentMatch;
     });
   }, [sales, startDateStr, endDateStr, searchTerm, selectedPaymentMode]);
+
+  // Scoped to the Sales Report tab only -- filteredSales above is shared by
+  // P&L, Product Monitoring, Velocity and the Payments breakdown, none of
+  // which have a Retail/Wholesale control of their own, so the channel
+  // filter must not leak into them. Sales recorded before the channel field
+  // existed have no s.channel at all -- they were always retail, so a
+  // missing value defaults to 'retail' rather than being excluded entirely.
+  const salesReportSales = useMemo(() => {
+    if (selectedSalesChannel === 'all') return filteredSales;
+    return filteredSales.filter(s => (s.channel || 'retail') === selectedSalesChannel);
+  }, [filteredSales, selectedSalesChannel]);
 
   const filteredExpenses = useMemo(() => {
     return expenses.filter(e => {
@@ -844,6 +863,9 @@ export default function DashboardReports({
     });
   }, [systemSettings]);
 
+  // Always the combined (all-channel) figure -- a shop owner closing out
+  // the day wants their true total first, not a number silently narrowed by
+  // whichever channel segment happens to be selected below.
   const salesTotals = useMemo(() => {
     const totalRevenue = filteredSales.reduce((sum, s) => sum + saleProductRevenue(s), 0);
     const count = filteredSales.length;
@@ -856,6 +878,20 @@ export default function DashboardReports({
     });
     return { totalRevenue, count, avg: count > 0 ? totalRevenue / count : 0, profit: totalRevenue - cost };
   }, [filteredSales, products]);
+
+  // Per-channel revenue/order-count split, always computed across the full
+  // (channel-unfiltered) period -- feeds the Retail/Wholesale segment
+  // control below the combined totals so a tenant sees the split at a
+  // glance before deciding whether to filter the transaction list.
+  const channelSalesBreakdown = useMemo(() => {
+    const breakdown = { retail: { revenue: 0, count: 0 }, wholesale: { revenue: 0, count: 0 } };
+    filteredSales.forEach(s => {
+      const bucket = (s.channel || 'retail') === 'wholesale' ? 'wholesale' : 'retail';
+      breakdown[bucket].revenue += saleProductRevenue(s);
+      breakdown[bucket].count += 1;
+    });
+    return breakdown;
+  }, [filteredSales]);
 
   const expenseTotals = useMemo(() => {
     const total = filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
@@ -1220,6 +1256,43 @@ export default function DashboardReports({
                 ))}
               </div>
 
+              {hasAnyWholesaleProduct && (
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">View by Channel</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    {([
+                      { id: 'all' as const, icon: '🧾', label: 'All Sales', revenue: salesTotals.totalRevenue, count: salesTotals.count, activeClass: 'bg-slate-900' },
+                      { id: 'retail' as const, icon: '🛒', label: 'Retail', revenue: channelSalesBreakdown.retail.revenue, count: channelSalesBreakdown.retail.count, activeClass: 'bg-emerald-600' },
+                      { id: 'wholesale' as const, icon: '📦', label: 'Wholesale', revenue: channelSalesBreakdown.wholesale.revenue, count: channelSalesBreakdown.wholesale.count, activeClass: 'bg-teal-650' },
+                    ]).map(seg => {
+                      const isActive = selectedSalesChannel === seg.id;
+                      return (
+                        <button
+                          key={seg.id}
+                          type="button"
+                          onClick={() => setSelectedSalesChannel(seg.id)}
+                          className={`text-left p-3.5 rounded-2xl border transition-all cursor-pointer ${
+                            isActive
+                              ? `${seg.activeClass} border-transparent shadow-sm`
+                              : 'bg-white border-slate-200 hover:border-slate-300'
+                          }`}
+                        >
+                          <p className={`text-[9px] font-black uppercase tracking-widest ${isActive ? 'text-white/70' : 'text-slate-400'}`}>
+                            {seg.icon} {seg.label}
+                          </p>
+                          <p className={`text-sm font-black mt-1 ${isActive ? 'text-white' : 'text-slate-900'}`}>
+                            {currency}{Math.round(seg.revenue).toLocaleString()}
+                          </p>
+                          <p className={`text-[10px] font-semibold mt-0.5 ${isActive ? 'text-white/70' : 'text-slate-400'}`}>
+                            {seg.count.toLocaleString()} order{seg.count === 1 ? '' : 's'}
+                          </p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-50 border-b border-slate-200">
@@ -1229,10 +1302,13 @@ export default function DashboardReports({
                       <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Customer</th>
                       <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Total Paid</th>
                       <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-center">Mode</th>
+                      {hasAnyWholesaleProduct && (
+                        <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-center">Channel</th>
+                      )}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {filteredSales.map(s => (
+                    {salesReportSales.map(s => (
                       <tr key={s.id} className="hover:bg-slate-50 cursor-pointer transition-colors" onClick={() => setSelectedInspectSale(s)}>
                         <td className="p-3 text-slate-500 whitespace-nowrap">{formatLocalDate(new Date(s.timestamp))}</td>
                         <td className="p-3 font-mono font-bold text-slate-600">{s.id}</td>
@@ -1241,11 +1317,20 @@ export default function DashboardReports({
                         <td className="p-3 text-center">
                           <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10px] font-bold uppercase">{s.paymentMethod}</span>
                         </td>
+                        {hasAnyWholesaleProduct && (
+                          <td className="p-3 text-center">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                              (s.channel || 'retail') === 'wholesale' ? 'bg-teal-50 text-teal-700' : 'bg-emerald-50 text-emerald-700'
+                            }`}>
+                              {(s.channel || 'retail') === 'wholesale' ? '📦 Wholesale' : '🛒 Retail'}
+                            </span>
+                          </td>
+                        )}
                       </tr>
                     ))}
-                    {filteredSales.length === 0 && (
+                    {salesReportSales.length === 0 && (
                       <tr>
-                        <td colSpan={5} className="p-10 text-center text-slate-400">
+                        <td colSpan={hasAnyWholesaleProduct ? 6 : 5} className="p-10 text-center text-slate-400">
                           <div className="flex flex-col items-center gap-2">
                             <ShoppingBag className="w-8 h-8 text-slate-200" />
                             <span>No sales recorded for this period.</span>

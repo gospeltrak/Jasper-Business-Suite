@@ -789,8 +789,26 @@ export default function DashboardPOS({
     setCart(prev => prev.filter(i => i.product.id !== id));
   };
 
-  const getBatchAwareChannelPrice = useCallback((product: Product) => {
-    const fallbackPrice = sellingChannel === 'wholesale'
+  // Retail and Wholesale must never mix inside one sale -- prices are
+  // computed live from the currently-selected channel (not locked per item
+  // when it was added), so switching channel mid-cart would silently
+  // re-price items already sitting in the basket. Block the switch while
+  // the cart has items; the cashier must finish or clear the current sale
+  // first, then start a fresh one in the other channel.
+  const handleChannelSwitch = (channel: 'retail' | 'wholesale') => {
+    if (channel === sellingChannel) return;
+    if (cart.length > 0) {
+      setPosWarning(`Please complete or clear the current ${sellingChannel === 'retail' ? 'Retail' : 'Wholesale'} sale before switching to ${channel === 'retail' ? 'Retail' : 'Wholesale'}.`);
+      return;
+    }
+    setSellingChannel(channel);
+    setPosWarning(channel === 'wholesale'
+      ? 'Selling channel switched to WHOLESALE. wholesale prices & min-qty check active.'
+      : 'Selling channel switched to RETAIL. Standard checkout prices applied.');
+  };
+
+  const getBatchAwareChannelPrice = useCallback((product: Product, channel: 'retail' | 'wholesale') => {
+    const fallbackPrice = channel === 'wholesale'
       ? (product.wholesalePrice ?? product.sellingPrice)
       : product.sellingPrice;
 
@@ -799,47 +817,65 @@ export default function DashboardPOS({
     }
 
     return getPosSellingPriceForCostingMethod(product, fallbackPrice);
-  }, [sellingChannel, activeTenant.businessType, getRetailPackageConfig]);
+  }, [activeTenant.businessType, getRetailPackageConfig]);
 
-  // Price cache keyed by product id + batch count + selling price
+  // Price cache keyed by product id + batch count + selling price — holds
+  // BOTH the retail and wholesale price per product (not keyed by the
+  // current sellingChannel) so getCartUnitPrice below can always compare
+  // against the retail price even while the Wholesale channel is active,
+  // to enforce each product's own minWholesaleQty.
   // Avoids re-running getPosSellingPriceForCostingMethod (which does array spread/filter/sort)
   // on every render for products whose batches/price haven't changed
   const batchPriceCache = useMemo(() => {
-    const cache = new Map<string, number>();
+    const cache = new Map<string, { retail: number; wholesale: number }>();
     const allProducts = [...(products || [])];
     allProducts.forEach(p => {
-      const cacheKey = `${p.id}:${(p.batches || []).length}:${p.sellingPrice}:${sellingChannel}`;
+      const cacheKey = `${p.id}:${(p.batches || []).length}:${p.sellingPrice}`;
       if (!cache.has(cacheKey)) {
-        const fallbackPrice = sellingChannel === 'wholesale'
-          ? (p.wholesalePrice ?? p.sellingPrice)
-          : p.sellingPrice;
-        if (activeTenant.businessType !== 'pharmacy' && p.isBulkProduct) {
-          cache.set(cacheKey, getRetailPackageConfig(p).pricePerBaseUnit || fallbackPrice);
-        } else {
-          cache.set(cacheKey, getPosSellingPriceForCostingMethod(p, fallbackPrice));
-        }
+        cache.set(cacheKey, {
+          retail: getBatchAwareChannelPrice(p, 'retail'),
+          wholesale: getBatchAwareChannelPrice(p, 'wholesale'),
+        });
       }
     });
     return cache;
-  }, [products, sellingChannel, activeTenant.businessType]);
+  }, [products, getBatchAwareChannelPrice]);
 
   // Fast price lookup — uses batchPriceCache, falls back to direct calculation
-  const getChannelPrice = useCallback((product: Product): number => {
-    const cacheKey = `${product.id}:${(product.batches || []).length}:${product.sellingPrice}:${sellingChannel}`;
+  const getChannelPrices = useCallback((product: Product): { retail: number; wholesale: number } => {
+    const cacheKey = `${product.id}:${(product.batches || []).length}:${product.sellingPrice}`;
     const cached = batchPriceCache.get(cacheKey);
     if (cached !== undefined) return cached;
-    return getBatchAwareChannelPrice(product);
-  }, [batchPriceCache, getBatchAwareChannelPrice, sellingChannel]);
+    return {
+      retail: getBatchAwareChannelPrice(product, 'retail'),
+      wholesale: getBatchAwareChannelPrice(product, 'wholesale'),
+    };
+  }, [batchPriceCache, getBatchAwareChannelPrice]);
+
+  const getChannelPrice = useCallback((product: Product): number => {
+    const prices = getChannelPrices(product);
+    return sellingChannel === 'wholesale' ? prices.wholesale : prices.retail;
+  }, [getChannelPrices, sellingChannel]);
 
   const getCartUnitPrice = useCallback((item: {
     product: Product;
+    qty?: number;
     bulkSellMode?: 'scale' | 'pcs' | 'standard';
     dosageType?: 'packet' | 'full' | 'half' | 'tabs' | 'strip' | 'dose' | 'unit';
     tabsSelected?: number;
     fractionSaleLevel?: FractionSaleLevel;
   }) => {
     const isMedicine = usesPharmacyHierarchy(item.product);
-    const channelBasePrice = getChannelPrice(item.product); // uses batchPriceCache — instant
+    const prices = getChannelPrices(item.product); // uses batchPriceCache — instant
+    // Wholesale pricing is a whole-unit-sale concept only, and only once the
+    // cart quantity for this product meets its own minWholesaleQty (default
+    // 10, matching the Products settings default) — below that, the sale
+    // still goes through, just at the normal retail price. Bulk/fraction/
+    // pharmacy-dose sales below never consult wholesalePrice at all; they
+    // stay retail-only by design regardless of the selected channel.
+    const meetsWholesaleMinimum = sellingChannel === 'wholesale'
+      && (item.qty ?? 1) >= (item.product.minWholesaleQty ?? 10);
+    const channelBasePrice = meetsWholesaleMinimum ? prices.wholesale : prices.retail;
     let unitPrice = channelBasePrice;
 
     if (supportsFractionSale(item.product)) {
@@ -848,7 +884,7 @@ export default function DashboardPOS({
     } else if (item.product.isBulkProduct) {
       const bMode = item.bulkSellMode || (item.product.sellingMode === 'hybrid' ? 'scale' : item.product.sellingMode);
       if (bMode === 'scale' || bMode === 'pcs') {
-        unitPrice = getRetailPackageConfig(item.product).pricePerBaseUnit || channelBasePrice;
+        unitPrice = getRetailPackageConfig(item.product).pricePerBaseUnit || prices.retail;
       }
     }
 
@@ -862,7 +898,7 @@ export default function DashboardPOS({
     }
 
     return unitPrice;
-  }, [activeTenant.businessType, getChannelPrice, getRetailPackageConfig, supportsFractionSale, usesPharmacyHierarchy]);
+  }, [activeTenant.businessType, sellingChannel, getChannelPrices, getRetailPackageConfig, supportsFractionSale, usesPharmacyHierarchy]);
 
   // Pre-compute prices for ALL filtered products once — not per card per render
   const productPriceMap = useMemo(() => {
@@ -1023,7 +1059,13 @@ export default function DashboardPOS({
         : null;
       const dType = i.dosageType || 'packet';
       
-      const channelBasePrice = getChannelPrice(i.product); // cached — no repeated batch sort
+      const channelPrices = getChannelPrices(i.product); // cached — no repeated batch sort
+      // Same wholesale-minimum-quantity gate as getCartUnitPrice above: this
+      // is the actual sale-record price, so it must apply the gate itself
+      // rather than trusting the cart's displayed price stayed in sync.
+      const meetsWholesaleMinimum = sellingChannel === 'wholesale'
+        && i.qty >= (i.product.minWholesaleQty ?? 10);
+      const channelBasePrice = meetsWholesaleMinimum ? channelPrices.wholesale : channelPrices.retail;
 
       const isBulk = i.product.isBulkProduct;
       const bMode = i.bulkSellMode || (isBulk ? (i.product.sellingMode === 'hybrid' ? 'scale' : i.product.sellingMode) : 'standard');
@@ -1036,7 +1078,7 @@ export default function DashboardPOS({
         ratioScaling = fractionLine.unitsPerSelectedLevel;
       } else if (isBulk) {
         if (bMode === 'scale' || bMode === 'pcs') {
-           unitPrice = getRetailPackageConfig(i.product).pricePerBaseUnit || channelBasePrice;
+           unitPrice = getRetailPackageConfig(i.product).pricePerBaseUnit || channelPrices.retail;
         }
       }
 
@@ -1334,10 +1376,7 @@ export default function DashboardPOS({
             <div className="flex items-center space-x-1 bg-slate-100 p-1 rounded-2xl border border-slate-200 shadow-inner w-fit shrink-0">
               <button
                 type="button"
-                onClick={() => {
-                  setSellingChannel('retail');
-                  setPosWarning('Selling channel switched to RETAIL. Standard checkout prices applied.');
-                }}
+                onClick={() => handleChannelSwitch('retail')}
                 className={`flex items-center space-x-2 px-4 xl:px-3 py-1.5 xl:py-1 rounded-xl text-[11px] xl:text-[10px] font-bold transition-all cursor-pointer ${
                   sellingChannel === 'retail'
                     ? 'bg-emerald-600 text-white shadow-sm'
@@ -1348,10 +1387,7 @@ export default function DashboardPOS({
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setSellingChannel('wholesale');
-                  setPosWarning('Selling channel switched to WHOLESALE. wholesale prices & min-qty check active.');
-                }}
+                onClick={() => handleChannelSwitch('wholesale')}
                 className={`flex items-center space-x-2 px-4 xl:px-3 py-1.5 xl:py-1 rounded-xl text-[11px] xl:text-[10px] font-bold transition-all cursor-pointer ${
                   sellingChannel === 'wholesale'
                     ? 'bg-teal-650 text-white shadow-sm'
@@ -1625,10 +1661,7 @@ export default function DashboardPOS({
             <div className="flex items-center bg-white p-0.5 rounded-xl border border-slate-200 shadow-inner w-full sm:w-auto">
               <button
                 type="button"
-                onClick={() => {
-                  setSellingChannel('retail');
-                  setPosWarning('Selling channel switched to RETAIL. Standard checkout prices applied.');
-                }}
+                onClick={() => handleChannelSwitch('retail')}
                 className={`flex-1 sm:flex-initial flex items-center justify-center space-x-1 px-3 py-1.5 rounded-lg text-[10.5px] font-bold transition-all cursor-pointer ${
                   sellingChannel === 'retail'
                     ? 'bg-emerald-600 text-white shadow-sm font-black'
@@ -1639,10 +1672,7 @@ export default function DashboardPOS({
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setSellingChannel('wholesale');
-                  setPosWarning('Selling channel switched to WHOLESALE. wholesale prices & min-qty check active.');
-                }}
+                onClick={() => handleChannelSwitch('wholesale')}
                 className={`flex-1 sm:flex-initial flex items-center justify-center space-x-1 px-3 py-1.5 rounded-lg text-[10.5px] font-bold transition-all cursor-pointer ${
                   sellingChannel === 'wholesale'
                     ? 'bg-teal-650 text-white shadow-sm font-black'
