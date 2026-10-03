@@ -476,21 +476,28 @@ export default function DashboardReports({
       end.setHours(23, 59, 59, 999);
       const dateMatch = date >= start && date <= end;
       const searchMatch = !searchTerm || s.customerName?.toLowerCase().includes(searchTerm.toLowerCase()) || s.id.toLowerCase().includes(searchTerm.toLowerCase());
-      const paymentMatch = selectedPaymentMode === 'All' || classifyPaymentMethod(s.paymentMethod) === selectedPaymentMode;
-      return dateMatch && searchMatch && paymentMatch;
+      return dateMatch && searchMatch;
     });
-  }, [sales, startDateStr, endDateStr, searchTerm, selectedPaymentMode]);
+  }, [sales, startDateStr, endDateStr, searchTerm]);
 
   // Scoped to the Sales Report tab only -- filteredSales above is shared by
   // P&L, Product Monitoring, Velocity and the Payments breakdown, none of
-  // which have a Retail/Wholesale control of their own, so the channel
-  // filter must not leak into them. Sales recorded before the channel field
-  // existed have no s.channel at all -- they were always retail, so a
+  // which have a Retail/Wholesale or Payment Mode control of their own, so
+  // neither filter must leak into them. Sales recorded before the channel
+  // field existed have no s.channel at all -- they were always retail, so a
   // missing value defaults to 'retail' rather than being excluded entirely.
+  // Payment Mode matches the sale's exact registered payment method name
+  // (e.g. "M-Pesa", "CRDB"), not a generic bucket -- see salesPaymentModeOptions.
   const salesReportSales = useMemo(() => {
-    if (selectedSalesChannel === 'all') return filteredSales;
-    return filteredSales.filter(s => (s.channel || 'retail') === selectedSalesChannel);
-  }, [filteredSales, selectedSalesChannel]);
+    let rows = filteredSales;
+    if (selectedSalesChannel !== 'all') {
+      rows = rows.filter(s => (s.channel || 'retail') === selectedSalesChannel);
+    }
+    if (selectedPaymentMode !== 'All') {
+      rows = rows.filter(s => (s.paymentMethod || '') === selectedPaymentMode);
+    }
+    return rows;
+  }, [filteredSales, selectedSalesChannel, selectedPaymentMode]);
 
   const filteredExpenses = useMemo(() => {
     return expenses.filter(e => {
@@ -809,39 +816,33 @@ export default function DashboardReports({
     return [{ value: 'All', label: 'All Categories' }, ...unique.map(c => ({ value: c, label: c }))];
   }, [expenses]);
 
-  // Sales report's Payment Mode filter keeps its 5 underlying buckets
-  // (Cash/CardAndOnline/MobileMoney/BankTransfer/Credit) -- filteredSales'
-  // own matching logic, shared with every other tab on this screen, is
-  // untouched -- but each label is enriched with the tenant's own
-  // registered payment channel name(s) for that bucket, instead of only
-  // ever showing the generic category name regardless of what the tenant
-  // actually uses.
+  // Sales report's Payment Mode filter lists each payment mode exactly as
+  // the tenant registered it (e.g. "M-Pesa", "CRDB"), not grouped into
+  // generic buckets -- matching is an exact comparison against the sale's
+  // own s.paymentMethod (see salesReportSales), not the Cash/Card/Mobile
+  // Money/Bank/Credit classification classifyPaymentMethod() still uses
+  // for the separate Payments tab breakdown.
   const salesPaymentModeOptions = useMemo(() => {
-    const base = [
-      { value: 'All', label: 'All' },
-      { value: 'Cash', label: 'Cash' },
-      { value: 'CardAndOnline', label: 'Card' },
-      { value: 'MobileMoney', label: 'Mobile Money' },
-      { value: 'BankTransfer', label: 'Bank' },
-      { value: 'Credit', label: 'Credit' },
-    ];
     const configuredChannels: any[] = systemSettings?.paymentChannels || [];
-    if (configuredChannels.length === 0) return base;
-    const namesByBucket = new Map<string, string[]>();
+    const seen = new Map<string, string>();
     configuredChannels
       .filter((ch: any) => (ch.status || 'active') === 'active')
       .forEach((ch: any) => {
-        const bucket = classifyPaymentMethod(ch.name || ch.provider || '');
-        const list = namesByBucket.get(bucket) || [];
-        if (ch.name && !list.includes(ch.name)) list.push(ch.name);
-        namesByBucket.set(bucket, list);
+        const value = String(ch.paymentMethod || ch.name || '').trim();
+        if (!value || seen.has(value)) return;
+        seen.set(value, String(ch.name || value).trim());
       });
-    return base.map(opt => {
-      if (opt.value === 'All') return opt;
-      const names = namesByBucket.get(opt.value);
-      return names && names.length > 0 ? { ...opt, label: `${opt.label} (${names.join(', ')})` } : opt;
-    });
-  }, [systemSettings]);
+    if (seen.size === 0) {
+      // No registered payment channels yet -- fall back to whichever
+      // payment method names already appear on recorded sales, so the
+      // filter still has real options instead of staying empty.
+      sales.forEach(s => {
+        const value = String(s.paymentMethod || '').trim();
+        if (value && !seen.has(value)) seen.set(value, value);
+      });
+    }
+    return [{ value: 'All', label: 'All' }, ...Array.from(seen, ([value, label]) => ({ value, label }))];
+  }, [systemSettings, sales]);
 
   // Always the combined (all-channel) figure -- a shop owner closing out
   // the day wants their true total first, not a number silently narrowed by
