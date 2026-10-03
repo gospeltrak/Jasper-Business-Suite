@@ -562,6 +562,28 @@ const collectDirectText = (el: Element) => {
   return parts.join(' ');
 };
 
+// Like collectDirectText, but walks the whole subtree -- used for a
+// "label/value" row cell that itself contains multiple stacked lines (e.g.
+// a title plus a subtitle, each its own element). Raw `Element.textContent`
+// concatenates every descendant text node with nothing between them, which
+// silently runs separate lines together ("Total RevenueCalculated over
+// period"); this instead treats each text node as its own word/phrase and
+// joins them with a single space, the same way collectDirectText already
+// does for a single level.
+const collectAllText = (el: Element) => {
+  const parts: string[] = [];
+  const walk = (node: Node) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const text = cleanText(node.textContent || '');
+      if (text) parts.push(text);
+      return;
+    }
+    node.childNodes.forEach(walk);
+  };
+  walk(el);
+  return parts.join(' ');
+};
+
 const appendWrappedText = (
   pdf: jsPDF,
   textValue: string,
@@ -1021,8 +1043,8 @@ const renderVectorDocumentBody = (
 
     if (rowLayoutElements.has(el)) {
       const children = Array.from(el.children).filter((child) => includeHidden || isElementVisible(child));
-      const left = cleanText(children[0]?.textContent || '');
-      const right = cleanText(children[children.length - 1]?.textContent || '');
+      const left = children[0] ? cleanText(collectAllText(children[0])) : '';
+      const right = children.length > 1 ? cleanText(collectAllText(children[children.length - 1])) : '';
       const rowKey = `row:${left}|${right}`;
       if ((left || right) && `${left}|${right}` !== '' && rowKey !== lastDrawnKey) {
         lastDrawnKey = rowKey;

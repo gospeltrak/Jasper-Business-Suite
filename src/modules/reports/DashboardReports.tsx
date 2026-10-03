@@ -124,28 +124,38 @@ export default function DashboardReports({
   _contractGuard();
 
   const currency = activeTenant.currency;
+  const [reportPdfStatus, setReportPdfStatus] = useState<string | null>(null);
   const printActiveReportPdf = async () => {
-    await downloadPdfFromElement({
-      elementId: 'reports-a4-pdf-template',
-      fileName: `${(REPORT_DOCUMENT_TITLES[reportTab] || 'Business-Report').replace(/\\s+/g, '-')}-${startDateStr}-${endDateStr}.pdf`,
-      format: 'a4',
-      includeHidden: true,
-      visual: false,
-      branding: {
-        businessName: getActiveBranchDisplayName(activeTenant, systemSettings, userName, activeBranch),
-        logo: (activeBranch?.isPhysical && activeBranch?.logoLightUrl)
-          || (systemSettings?.business as any)?.businessLogoLight
-          || ((systemSettings?.business as any)?.businessLogo !== (systemSettings?.business as any)?.businessLogoDark
-            ? (systemSettings?.business as any)?.businessLogo
-            : '')
-          || '',
-        address: getActiveBranchAddress(systemSettings, activeBranch) || activeTenant.city,
-        phone: getActiveBranchPhone(systemSettings, activeBranch),
-        email: getActiveBranchEmail(systemSettings, activeBranch),
-        documentTitle: REPORT_DOCUMENT_TITLES[reportTab] || 'Business Report',
-        dateRange: `${startDateStr} to ${endDateStr}`,
-      }
-    });
+    setReportPdfStatus('📄 Generating PDF...');
+    try {
+      await downloadPdfFromElement({
+        elementId: 'reports-a4-pdf-template',
+        fileName: `${(REPORT_DOCUMENT_TITLES[reportTab] || 'Business-Report').replace(/\\s+/g, '-')}-${startDateStr}-${endDateStr}.pdf`,
+        format: 'a4',
+        includeHidden: true,
+        visual: false,
+        branding: {
+          businessName: getActiveBranchDisplayName(activeTenant, systemSettings, userName, activeBranch),
+          logo: (activeBranch?.isPhysical && activeBranch?.logoLightUrl)
+            || (systemSettings?.business as any)?.businessLogoLight
+            || ((systemSettings?.business as any)?.businessLogo !== (systemSettings?.business as any)?.businessLogoDark
+              ? (systemSettings?.business as any)?.businessLogo
+              : '')
+            || '',
+          address: getActiveBranchAddress(systemSettings, activeBranch) || activeTenant.city,
+          phone: getActiveBranchPhone(systemSettings, activeBranch),
+          email: getActiveBranchEmail(systemSettings, activeBranch),
+          documentTitle: REPORT_DOCUMENT_TITLES[reportTab] || 'Business Report',
+          dateRange: `${startDateStr} to ${endDateStr}`,
+        }
+      });
+      setReportPdfStatus('✅ Report downloaded.');
+    } catch (err: any) {
+      console.error('Report PDF export failed', err);
+      setReportPdfStatus(err?.message || 'Could not generate the PDF report. Please try again.');
+    } finally {
+      setTimeout(() => setReportPdfStatus(null), 4000);
+    }
   };
   
   const [reportTab, setReportTab] = useState<'p&l' | 'sales-report' | 'payments' | 'inventory' | 'velocity' | 'users' | 'expenses' | 'product-monitoring' | 'dual-channel' | 'deliveries' | 'bulk-products' | 'stock-adjustment' | 'purchases-report'>(
@@ -264,32 +274,6 @@ export default function DashboardReports({
   const [dragActive, setDragActive] = useState(false);
   const [previewReceiptImage, setPreviewReceiptImage] = useState<string | null>(null);
 
-  const handleDownloadSalesSpreadsheet = () => {
-    let csv = "A4 Sales Ledger Report\\r\\n";
-    csv += `Scope Period,${startDateStr} to ${endDateStr}\\r\\n`;
-    csv += `Generated On,${new Date().toLocaleString()}\\r\\n`;
-    csv += `Branch,${activeTenant.name} (${activeTenant.city})\\r\\n\\r\\n`;
-    const includeChannel = hasAnyWholesaleProduct;
-    csv += `Receipt ID,Customer,Items Count,Voucher Total,VAT/Sales Tax,Discount Amnt,Grand Amount Paid,Remaining Due,Mode${includeChannel ? ',Channel' : ''},Logged Timestamp\\r\\n`;
-
-    salesReportSales.forEach(s => {
-      const itemsCount = (s.items || []).length;
-      const originalSub = (s.items || []).reduce((sum, item) => sum + getSaleItemGrossTotal(item), 0);
-      const discountVal = s.discountType === 'percent' ? (originalSub * (s.discount || 0)) / 100 : (s.discount || 0);
-      const totalPaid = saleProductRevenue(s);
-      const unpaidDue = s.amountDue || 0;
-      const channelCell = includeChannel ? `,"${(s.channel || 'retail') === 'wholesale' ? 'Wholesale' : 'Retail'}"` : '';
-      csv += `"${s.id}","${s.customerName || 'Walk-in customer'}",${itemsCount},${originalSub.toFixed(2)},${s.tax.toFixed(2)},${discountVal.toFixed(2)},${totalPaid.toFixed(2)},${unpaidDue.toFixed(2)},"${s.paymentMethod}"${channelCell},"${new Date(s.timestamp).toLocaleString()}"\\r\\n`;
-    });
-
-    const encodedUri = encodeURI("data:text/csv;charset=utf-8," + csv);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `A4_Sales_Ledger_${startDateStr}_to_${endDateStr}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
 
   const handleDownloadProductsSpreadsheet = () => {
     let csv = "A4 Product Catalog Inventory Report\\r\\n";
@@ -384,10 +368,6 @@ export default function DashboardReports({
     switch (reportTab) {
       case 'p&l': {
         handleDownloadPnLSpreadsheet();
-        return;
-      }
-      case 'sales-report': {
-        handleDownloadSalesSpreadsheet();
         return;
       }
       case 'expenses': {
@@ -951,6 +931,11 @@ export default function DashboardReports({
 
   return (
     <div id="reports-view" className="space-y-6 p-2 md:p-0">
+      {reportPdfStatus && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] bg-slate-900 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-lg border border-slate-700 whitespace-nowrap">
+          {reportPdfStatus}
+        </div>
+      )}
       {/* HEADER & TOOLBAR */}
       <div className="flex flex-col lg:flex-row items-center gap-4 bg-white border border-slate-200 p-4 md:p-6 rounded-3xl shadow-sm">
         <div className="relative w-full lg:w-auto">
@@ -1224,15 +1209,17 @@ export default function DashboardReports({
                     onChange={setSelectedPaymentMode}
                   />
                   <button
-                    onClick={handleDownloadActiveTabCSV}
-                    className="bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm shrink-0"
+                    onClick={printActiveReportPdf}
+                    disabled={!!reportPdfStatus}
+                    className="bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm shrink-0 disabled:opacity-60 disabled:cursor-wait"
                   >
-                    <Download className="w-3.5 h-3.5" />
-                    <span>Export CSV</span>
+                    <FileText className="w-3.5 h-3.5" />
+                    <span>Export PDF</span>
                   </button>
                 </div>
               </div>
 
+              <div id="reports-a4-pdf-template" className="space-y-6">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {[
                   { label: 'Total Revenue', value: `${currency}${Math.round(salesTotals.totalRevenue).toLocaleString()}`, icon: DollarSign, color: 'text-slate-900' },
@@ -1267,9 +1254,13 @@ export default function DashboardReports({
                     ]).map(seg => {
                       const isActive = selectedSalesChannel === seg.id;
                       return (
-                        <button
+                        // A plain clickable div, not a <button> -- the A4 PDF
+                        // renderer (pdfShare.ts) deliberately skips real
+                        // buttons/inputs so interactive chrome never ends up
+                        // printed, which would otherwise silently drop this
+                        // card's revenue/order numbers from the exported report.
+                        <div
                           key={seg.id}
-                          type="button"
                           onClick={() => setSelectedSalesChannel(seg.id)}
                           className={`text-left p-3.5 rounded-2xl border transition-all cursor-pointer ${
                             isActive
@@ -1286,7 +1277,7 @@ export default function DashboardReports({
                           <p className={`text-[10px] font-semibold mt-0.5 ${isActive ? 'text-white/70' : 'text-slate-400'}`}>
                             {seg.count.toLocaleString()} order{seg.count === 1 ? '' : 's'}
                           </p>
-                        </button>
+                        </div>
                       );
                     })}
                   </div>
@@ -1340,6 +1331,7 @@ export default function DashboardReports({
                     )}
                   </tbody>
                 </table>
+              </div>
               </div>
             </div>
           </div>
