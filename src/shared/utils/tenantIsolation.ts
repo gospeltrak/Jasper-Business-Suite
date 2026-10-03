@@ -23,7 +23,6 @@ export const createCleanTenantSettings = (tenant: Tenant): SystemSettings => ({
     vat: '',
     currency: tenant.currency,
     timezone: '',
-    logo: '',
     themeMode: 'light'
   },
   business: {

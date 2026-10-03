@@ -232,8 +232,9 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   const [onboardingCity, setOnboardingCity] = useState('Dar es Salaam');
   const [onboardingPhone, setOnboardingPhone] = useState('');
 
-  const [loginScreenLogoUrl, setLoginScreenLogoUrl] = useState<string | null>(null);
-  const tenantLogoFromContext = (resolvedTenant?.company_settings as any)?.logo_url || (resolvedTenant?.company_settings as any)?.logoUrl || null;
+  const [loginScreenLogoLight, setLoginScreenLogoLight] = useState<string | null>(null);
+  const [loginScreenLogoDark, setLoginScreenLogoDark] = useState<string | null>(null);
+  const loginScreenLogoUrl = isDark ? (loginScreenLogoDark || loginScreenLogoLight) : (loginScreenLogoLight || loginScreenLogoDark);
   const tenantLoginTitle = resolvedTenant?.name || (domainMode === 'tenant' ? 'Business Login' : 'Orvix');
   const isTenantDomainLogin = domainMode === 'tenant' && !!resolvedTenant?.id;
   const tenantGoogleOnlySignIn = !isSaasAdminPortal;
@@ -257,24 +258,24 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   });
 
   useEffect(() => {
-    if (tenantLogoFromContext) {
-      setLoginScreenLogoUrl(tenantLogoFromContext);
-    } else {
-      // Fetch tenant logo by domain on load
-      const domain = window.location.hostname;
-      fetch(`/api/tenant/logo-by-domain?domain=${encodeURIComponent(domain)}`, { cache: 'default' })
-        .then(res => {
-          const contentType = res.headers.get('content-type') || '';
-          if (!res.ok || !contentType.includes('application/json')) return null;
-          return res.json();
-        })
-        .then(data => {
-          if (data && data.logoUrl) {
-            setLoginScreenLogoUrl(data.logoUrl);
-          }
-        })
-        .catch(() => undefined);
-    }
+    // Business Settings' light/dark logo pair is the single source of truth
+    // for every tenant logo in the app, including here on the public
+    // subdomain login page -- always fetched fresh rather than trusting a
+    // cached value on resolvedTenant, so a tenant's own logo (not a generic
+    // fallback) shows up for their own subdomain.
+    const domain = window.location.hostname;
+    fetch(`/api/tenant/logo-by-domain?domain=${encodeURIComponent(domain)}`, { cache: 'default' })
+      .then(res => {
+        const contentType = res.headers.get('content-type') || '';
+        if (!res.ok || !contentType.includes('application/json')) return null;
+        return res.json();
+      })
+      .then(data => {
+        if (!data) return;
+        setLoginScreenLogoLight(data.logoUrlLight || null);
+        setLoginScreenLogoDark(data.logoUrlDark || null);
+      })
+      .catch(() => undefined);
 
     const handleUpdate = () => {
       const raw = onlineStorage.getItem('saas_launched_niches');
@@ -295,7 +296,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     }
 
     return () => window.removeEventListener('saas_niches_updated', handleUpdate);
-  }, [tenantLogoFromContext, isTenantDomainLogin]);
+  }, [isTenantDomainLogin]);
 
   useEffect(() => {
     let subscription: { unsubscribe: () => void } | null = null;

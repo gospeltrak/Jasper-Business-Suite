@@ -25,9 +25,10 @@ test('tenant screens never fall back to privileged platform record APIs', () => 
 test('logo requests are tenant-keyed, deduplicated and never scan other tenants', () => {
   assert.match(logoContext, /logoRequests = new Map/);
   assert.match(logoContext, /logoCache = new Map/);
-  const logoRoute = server.slice(server.indexOf("app.get('/api/tenant/logo-by-domain'"), server.indexOf("app.post('/api/tenant/logo'"));
+  const logoRoute = server.slice(server.indexOf("app.get('/api/tenant/logo-by-domain'"), server.indexOf('// Bulk Sales Synchronization Endpoint'));
   assert.doesNotMatch(logoRoute, /\.from\('tenants'/);
   assert.match(logoRoute, /resolveTenantDomainCached/);
+  assert.match(logoRoute, /adminTable\('tenant_workspaces'\)/);
 });
 
 test('login page is split out of the initial application bundle', () => {

@@ -2,24 +2,35 @@ import { createContext, useContext, useState, useCallback, ReactNode } from 'rea
 import { loadTenantWorkspaceCore } from '../utils/tenantWorkspace';
 
 interface TenantLogoContextType {
-  logoUrl: string | null;
+  /** The light-theme logo, falling back to whichever variant the tenant has set. */
+  logoUrlLight: string | null;
+  /** The dark-theme logo, falling back to whichever variant the tenant has set. */
+  logoUrlDark: string | null;
   businessName: string | null;
-  setLogoUrl: (url: string | null) => void;
-  fetchLogoUrl: (tenantId: string) => Promise<string | null>;
+  /** Resolves the right variant for the given theme in one call. */
+  getLogoUrl: (isDark: boolean) => string | null;
+  setLogoUrls: (urls: { light?: string | null; dark?: string | null }) => void;
+  fetchLogoUrl: (tenantId: string) => Promise<{ light: string | null; dark: string | null }>;
   getFallbackInitials: (name: string) => string;
 }
 
 const TenantLogoContext = createContext<TenantLogoContextType | undefined>(undefined);
-const logoRequests = new Map<string, Promise<{ logoUrl: string | null; businessName: string | null }>>();
-const logoCache = new Map<string, { logoUrl: string | null; businessName: string | null; cachedAt: number }>();
+const logoRequests = new Map<string, Promise<{ light: string | null; dark: string | null; businessName: string | null }>>();
+const logoCache = new Map<string, { light: string | null; dark: string | null; businessName: string | null; cachedAt: number }>();
 const LOGO_CACHE_MS = 5 * 60 * 1000;
 
 export function TenantLogoProvider({ children }: { children: ReactNode }) {
-  const [logoUrl, setLogoState] = useState<string | null>(null);
+  const [logoUrlLight, setLogoUrlLight] = useState<string | null>(null);
+  const [logoUrlDark, setLogoUrlDark] = useState<string | null>(null);
   const [businessName, setBusinessName] = useState<string | null>(null);
 
-  const setLogoUrl = useCallback((url: string | null) => {
-    setLogoState(url);
+  const getLogoUrl = useCallback((isDark: boolean): string | null => {
+    return isDark ? (logoUrlDark || logoUrlLight) : (logoUrlLight || logoUrlDark);
+  }, [logoUrlLight, logoUrlDark]);
+
+  const setLogoUrls = useCallback((urls: { light?: string | null; dark?: string | null }) => {
+    if (urls.light !== undefined) setLogoUrlLight(urls.light);
+    if (urls.dark !== undefined) setLogoUrlDark(urls.dark);
   }, []);
 
   const getFallbackInitials = useCallback((name: string): string => {
@@ -32,60 +43,60 @@ export function TenantLogoProvider({ children }: { children: ReactNode }) {
     return cleanName.substring(0, 2).toUpperCase();
   }, []);
 
-  const fetchLogoUrl = useCallback(async (tenantId: string): Promise<string | null> => {
-    if (!tenantId) return null;
+  const fetchLogoUrl = useCallback(async (tenantId: string): Promise<{ light: string | null; dark: string | null }> => {
+    if (!tenantId) return { light: null, dark: null };
 
     const cached = logoCache.get(tenantId);
     if (cached && Date.now() - cached.cachedAt < LOGO_CACHE_MS) {
       setBusinessName(cached.businessName);
-      setLogoState(cached.logoUrl);
-      return cached.logoUrl;
+      setLogoUrlLight(cached.light);
+      setLogoUrlDark(cached.dark);
+      return { light: cached.light, dark: cached.dark };
     }
 
     try {
       let request = logoRequests.get(tenantId);
       if (!request) request = (async () => {
-      // Business branding comes directly from the tenant's online workspace.
-      // Do not use company name, tenant name, admin name or local browser storage.
-      // Reuses loadTenantWorkspaceCore's fast, deduped request -- Dashboard's
-      // own initial load calls the same function for the same tenant, so this
-      // shares that request instead of racing it with a separate, slower
-      // query. Previously that separate query meant the tenant's real logo
-      // often hadn't arrived yet by the time the loading screen (which reads
-      // this fetch's result) was replaced by the dashboard, leaving the
-      // generic Orvix fallback icon showing instead.
+      // Business Settings is the single source of truth for the tenant's
+      // logo (both light- and dark-theme variants) -- do not use company
+      // name, tenant name, admin name, local browser storage, or any other
+      // settings field. Reuses loadTenantWorkspaceCore's fast, deduped
+      // request -- Dashboard's own initial load calls the same function for
+      // the same tenant, so this shares that request instead of racing it
+      // with a separate, slower query. Previously that separate query meant
+      // the tenant's real logo often hadn't arrived yet by the time the
+      // loading screen (which reads this fetch's result) was replaced by
+      // the dashboard, leaving the generic Orvix fallback icon showing
+      // instead.
       const core = await loadTenantWorkspaceCore(tenantId);
-      const business = core?.settings?.business;
+      const business = core?.settings?.business as any;
       const cloudBusinessName = String(business?.businessName || '').trim();
-      const cloudBusinessLogo = business?.businessLogoLight || business?.businessLogoDark || business?.businessLogo || null;
-      if (cloudBusinessLogo) {
-        return { logoUrl: cloudBusinessLogo, businessName: cloudBusinessName || null };
-      }
-
-      const response = await fetch(`/api/tenant/logo-by-id?tenantId=${encodeURIComponent(tenantId)}`, { cache: 'default' });
-      const contentType = response.headers.get('content-type') || '';
-      if (!response.ok || !contentType.includes('application/json')) {
-        return { logoUrl: null, businessName: cloudBusinessName || null };
-      }
-      const data = await response.json();
-      return { logoUrl: data?.logoUrl || null, businessName: String(data?.businessName || cloudBusinessName || '').trim() || null };
+      // A tenant who has only ever set one variant should still see it in
+      // both themes rather than a blank logo -- each falls back to
+      // whichever other variant exists before falling back to the oldest
+      // (pre-light/dark) `businessLogo` field.
+      const light = business?.businessLogoLight || business?.businessLogo || business?.businessLogoDark || null;
+      const dark = business?.businessLogoDark || business?.businessLogoLight || business?.businessLogo || null;
+      return { light, dark, businessName: cloudBusinessName || null };
       })().finally(() => logoRequests.delete(tenantId));
       logoRequests.set(tenantId, request);
       const result = await request;
       logoCache.set(tenantId, { ...result, cachedAt: Date.now() });
       setBusinessName(result.businessName);
-      setLogoState(result.logoUrl);
-      return result.logoUrl;
+      setLogoUrlLight(result.light);
+      setLogoUrlDark(result.dark);
+      return { light: result.light, dark: result.dark };
     } catch (err: any) {
       // Keep the default initials/icon when the deployment has no logo API available.
     }
-    
-    setLogoState(null);
-    return null;
+
+    setLogoUrlLight(null);
+    setLogoUrlDark(null);
+    return { light: null, dark: null };
   }, []);
 
   return (
-    <TenantLogoContext.Provider value={{ logoUrl, businessName, setLogoUrl, fetchLogoUrl, getFallbackInitials }}>
+    <TenantLogoContext.Provider value={{ logoUrlLight, logoUrlDark, businessName, getLogoUrl, setLogoUrls, fetchLogoUrl, getFallbackInitials }}>
       {children}
     </TenantLogoContext.Provider>
   );

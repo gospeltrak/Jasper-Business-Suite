@@ -99,7 +99,7 @@ export default function App() {
   const [tenantDomainContext, setTenantDomainContext] = useState<TenantDomainContext>({ kind: 'loading' });
   
   const { isDark, toggleTheme } = useTheme();
-  const { fetchLogoUrl, logoUrl } = useTenantLogo();
+  const { fetchLogoUrl, getLogoUrl } = useTenantLogo();
 
   // The new Orvix reveal is the only loader shown across public entry,
   // public auth navigation, and the first authenticated workspace entry.
@@ -552,7 +552,7 @@ export default function App() {
       // logo image (same asset used on the login screen) rather than no
       // image at all, so the workspace-entry reveal always shows a real
       // logo — tenant's if present, Orvix's if not.
-      logoSrc: logoUrl || '/jb-logo.png',
+      logoSrc: getLogoUrl(isDark) || '/jb-logo.png',
       showTagline: false,
     });
     // Route immediately underneath the two-second tenant-branded reveal.

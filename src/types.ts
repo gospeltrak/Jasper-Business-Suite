@@ -590,7 +590,6 @@ export interface CompanySettings {
   vat: string;
   currency: string;
   timezone: string;
-  logo: string; // base64 or placeholder URL
   themeMode: 'light' | 'dark';
 }
 

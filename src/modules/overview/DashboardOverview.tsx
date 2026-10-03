@@ -1,5 +1,4 @@
 import { useState, useMemo, useEffect, Fragment } from 'react';
-import { useTenantLogo } from '../../shared/contexts/TenantLogoContext';
 import { useTheme } from '../../shared/contexts/ThemeContext';
 import { useTranslation } from '../../shared/contexts/LanguageContext';
 import { Tenant, Product, Sale } from '../../types';
@@ -78,7 +77,6 @@ export default function DashboardOverview({
   offlinePendingCount = 0,
   onToggleOffline
 }: DashboardOverviewProps) {
-  const { logoUrl } = useTenantLogo();
   const { isDark } = useTheme();
   const { t, lang } = useTranslation();
   const adSettings = useGlobalAdSettings();

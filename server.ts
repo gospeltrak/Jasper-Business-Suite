@@ -4820,202 +4820,37 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     }
   });
 
-  // API Route: Fetch tenant logo by specific tenantId dynamically on app load
-  app.get('/api/tenant/logo-by-id', async (req, res) => {
-    res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=300, stale-while-revalidate=3600');
-    const tenantId = req.query.tenantId as string;
-    try {
-      if (!supabaseAdmin || !tenantId || !isUuid(tenantId)) {
-        return res.json({ logoUrl: null });
-      }
-
-      const { data: tenant, error } = await supabaseAdmin
-        .from('tenants' as any)
-        .select('company_settings')
-        .eq('id', tenantId)
-        .single();
-
-      if (error || !tenant) {
-        return res.json({ logoUrl: null });
-      }
-
-      const companySettings = typeof (tenant as any).company_settings === 'string'
-        ? JSON.parse((tenant as any).company_settings)
-        : (tenant as any).company_settings;
-
-      return res.json({ logoUrl: companySettings?.logo_url || null });
-    } catch (err) {
-      console.error('[Logo Check ID] Error fetching:', err);
-      return res.json({ logoUrl: null });
-    }
-  });
-
-  // API Route: Fetch tenant logo by domain or subdomain dynamically on login screen load
+  // API Route: Fetch tenant logo by domain or subdomain dynamically on login screen load.
+  // Business Settings is the single source of truth for the tenant's logo (both
+  // light- and dark-theme variants) -- the tenants table's company_settings.logo_url
+  // is a legacy, separate field that is never read here.
   app.get('/api/tenant/logo-by-domain', async (req, res) => {
     res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=300, stale-while-revalidate=3600');
     const domain = normalizeHost(req.query.domain);
     try {
       if (!supabaseAdmin) {
-        return res.json({ logoUrl: null });
+        return res.json({ logoUrlLight: null, logoUrlDark: null });
       }
 
       const resolved = await resolveTenantDomainCached(domain || req.headers.host);
       const resolvedTenant = (resolved as any)?.tenant;
-      const resolvedCompanySettings = typeof resolvedTenant?.company_settings === 'string'
-        ? JSON.parse(resolvedTenant.company_settings)
-        : resolvedTenant?.company_settings;
-      if (resolvedCompanySettings?.logo_url || resolvedCompanySettings?.logoUrl) {
-        return res.json({ logoUrl: resolvedCompanySettings.logo_url || resolvedCompanySettings.logoUrl, tenantName: resolvedTenant?.name || null });
+      if (!resolvedTenant?.id) {
+        // Never scan or fall back to another tenant's branding. The domain
+        // resolver above is the only tenant-scoped source for this public route.
+        return res.json({ logoUrlLight: null, logoUrlDark: null });
       }
 
-      // Never scan or fall back to another tenant's branding. The domain
-      // resolver above is the only tenant-scoped source for this public route.
-      return res.json({ logoUrl: null });
+      const { data: workspace } = await adminTable('tenant_workspaces')
+        .select('business:payload->settings->business')
+        .eq('tenant_id', resolvedTenant.id)
+        .maybeSingle();
+      const business = (workspace as any)?.business || {};
+      const logoUrlLight = business.businessLogoLight || business.businessLogo || business.businessLogoDark || null;
+      const logoUrlDark = business.businessLogoDark || business.businessLogoLight || business.businessLogo || null;
+      return res.json({ logoUrlLight, logoUrlDark, tenantName: resolvedTenant?.name || null });
     } catch (err) {
       console.error('[Logo Fetch] Error fetching logo by domain:', err);
-      return res.json({ logoUrl: null });
-    }
-  });
-
-  // API Route: Upload and persist company logo to Supabase storage + tenants table JSONB field
-  const LOGO_IMAGE_TYPES: Record<string, { ext: string; magic: (buf: Buffer) => boolean }> = {
-    'image/png': { ext: 'png', magic: (b) => b.length >= 8 && b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47 },
-    'image/jpeg': { ext: 'jpg', magic: (b) => b.length >= 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff },
-    'image/webp': { ext: 'webp', magic: (b) => b.length >= 12 && b.toString('ascii', 0, 4) === 'RIFF' && b.toString('ascii', 8, 12) === 'WEBP' },
-    'image/gif': { ext: 'gif', magic: (b) => b.length >= 6 && (b.toString('ascii', 0, 6) === 'GIF87a' || b.toString('ascii', 0, 6) === 'GIF89a') },
-  };
-
-  app.post('/api/tenant/logo', async (req, res) => {
-    // Ensure response is always JSON — never HTML error pages
-    res.setHeader('Content-Type', 'application/json');
-    if (!req.is('application/json')) {
-      return res.status(415).json({ error: 'Content-Type application/json is required.' });
-    }
-    const { tenantId, logoBase64 } = req.body;
-
-    if (!tenantId || !logoBase64 || !isUuid(tenantId)) {
-      return res.status(400).json({ error: 'tenantId and logoBase64 are required.' });
-    }
-    if (typeof logoBase64 !== 'string' || !logoBase64.startsWith('data:image/')) {
-      return res.status(400).json({ error: 'Only image data URLs are accepted for logos.' });
-    }
-    if (logoBase64.length > 4_500_000) {
-      return res.status(413).json({ error: 'Logo file is too large. Please upload an image below 3 MB.' });
-    }
-
-    try {
-      if (!supabaseAdmin) {
-        return res.status(503).json({ error: 'Supabase backend client is not configured' });
-      }
-      await requireTenantUser(req, String(tenantId));
-
-      // Parse the base64 string
-      let base64Data = logoBase64;
-      let mimeType = 'image/png';
-
-      if (logoBase64.includes(';base64,')) {
-        const parts = logoBase64.split(';base64,');
-        const mimePart = parts[0]; // e.g. "data:image/jpeg"
-        base64Data = parts[1];
-        if (mimePart.includes(':')) {
-          mimeType = mimePart.split(':')[1];
-        }
-      }
-      const allowedLogo = LOGO_IMAGE_TYPES[mimeType];
-      if (!allowedLogo) {
-        return res.status(400).json({ error: 'Unsupported logo image type.' });
-      }
-      if (!/^[A-Za-z0-9+/=]+$/.test(base64Data)) {
-        return res.status(400).json({ error: 'Invalid logo image data.' });
-      }
-
-      // Convert base64 to Buffer
-      const buffer = Buffer.from(base64Data, 'base64');
-      if (buffer.length > 3_000_000) {
-        return res.status(413).json({ error: 'Logo file is too large. Please upload an image below 3 MB.' });
-      }
-      if (!allowedLogo.magic(buffer)) {
-        return res.status(400).json({ error: 'Logo content does not match the declared image type.' });
-      }
-      const fileName = `${tenantId}/logo.${allowedLogo.ext}`;
-
-      // Ensure the "logos" bucket exists
-      try {
-        const { data: buckets, error: getBucketsError } = await supabaseAdmin.storage.listBuckets();
-        if (!getBucketsError) {
-          const hasLogos = buckets.some((b: any) => b.name === 'tenant-logos');
-          if (!hasLogos) {
-            await supabaseAdmin.storage.createBucket('tenant-logos', { public: true });
-          }
-        }
-      } catch (bucketErr) {
-        console.error('[Server] Failed to list or create buckets:', bucketErr);
-      }
-
-      // Upload file to storage
-      const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
-        .from('tenant-logos')
-        .upload(fileName, buffer, {
-          contentType: mimeType,
-          upsert: true
-        });
-
-      if (uploadError) {
-        throw uploadError;
-      }
-
-      // Get public URL
-      const { data: publicUrlData } = supabaseAdmin.storage
-        .from('tenant-logos')
-        .getPublicUrl(fileName);
-
-      const publicUrl = publicUrlData?.publicUrl || '';
-
-      if (!publicUrl) {
-        throw new Error('Failed to retrieve uploaded logo public URL');
-      }
-
-      // Fetch current tenants record to get existing company_settings
-      const { data: tenant, error: fetchError } = await supabaseAdmin
-        .from('tenants' as any)
-        .select('company_settings')
-        .eq('id', tenantId)
-        .single();
-
-      let companySettings: any = {};
-      if (!fetchError && tenant && (tenant as any).company_settings) {
-        companySettings = typeof (tenant as any).company_settings === 'string' 
-          ? JSON.parse((tenant as any).company_settings) 
-          : (tenant as any).company_settings;
-      }
-
-      // Store in company_settings under key logo_url
-      companySettings.logo_url = publicUrl;
-
-      // Update tenant
-      const { error: updateError } = await (supabaseAdmin
-        .from('tenants' as any) as any)
-        .update({ company_settings: companySettings })
-        .eq('id', tenantId);
-
-      if (updateError) {
-        throw updateError;
-      }
-
-      return res.json({
-        success: true,
-        message: 'Logo successfully uploaded and persisted to Supabase database!',
-        logoUrl: publicUrl
-      });
-
-    } catch (err: any) {
-      console.error('[Logo Persistence] Error:', err);
-      // err.status is only set by our own controlled throws (e.g. requireTenantUser),
-      // whose message is safe to show; anything else (raw Supabase/Postgres errors)
-      // gets a generic message so internal schema/constraint details aren't leaked.
-      return res.status(Number(err?.status || 500)).json({
-        error: err?.status ? (err?.message || 'Logo could not be saved securely.') : 'Logo could not be saved securely.'
-      });
+      return res.json({ logoUrlLight: null, logoUrlDark: null });
     }
   });
 

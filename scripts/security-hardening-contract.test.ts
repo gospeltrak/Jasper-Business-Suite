@@ -117,19 +117,11 @@ test('tenant login offers both Google sign-in and email + password sign-in', () 
 });
 
 test('tenant image uploads require JSON, tenant authorization, and verified file signatures', () => {
-  const logoRoute = server.slice(
-    server.indexOf("app.post('/api/tenant/logo'"),
-    server.indexOf('// Bulk Sales Synchronization Endpoint'),
-  );
   const productRoute = server.slice(
     server.indexOf("app.post('/api/images/migrate-product'"),
     server.indexOf("app.post('/api/sales/sync'"),
   );
 
-  assert.match(logoRoute, /req\.is\('application\/json'\)/);
-  assert.match(logoRoute, /await requireTenantUser\(req, String\(tenantId\)\)/);
-  assert.match(logoRoute, /allowedLogo\.magic\(buffer\)/);
-  assert.match(logoRoute, /allowedLogo\.ext/);
   assert.match(productRoute, /req\.is\('application\/json'\)/);
   assert.match(productRoute, /await requireTenantUser\(req, String\(tenantId\)\)/);
   assert.match(productRoute, /allowed\.magic\(buffer\)/);

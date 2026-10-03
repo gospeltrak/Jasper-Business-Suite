@@ -4,6 +4,7 @@ import PWAInstallBanner from '../shared/components/PWAInstallBanner';
 import { requestManualInstallPrompt } from '../shared/utils/pwaInstallPrompt';
 import { useTranslation } from '../shared/contexts/LanguageContext';
 import { useTenantLogo } from '../shared/contexts/TenantLogoContext';
+import { useTheme } from '../shared/contexts/ThemeContext';
 import { useJasperNotifications } from '../shared/contexts/JasperNotificationContext';
 import { Branch, BranchStaffAssignment, BranchStock, User, Tenant, Product, Sale, SyncLog, Supplier, Expense, Purchase, PurchasePaymentAllocation, Delivery, DeliveryRider, SystemSettings, CustomRole, SaleItem } from '../types';
 import { 
@@ -231,7 +232,6 @@ const getInitialSystemSettings = (tenant: Tenant): SystemSettings => {
       vat: 'VAT-492040-B',
       currency: tenant.currency,
       timezone: tenant.currencyCode === 'KES' ? 'EAT' : 'WAT',
-      logo: '',
       themeMode: 'light'
     },
     business: {
@@ -361,7 +361,7 @@ function SubscriptionCheckoutStateBridge({
 
 function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggleTheme, initialTab }: DashboardProps) {
   const { t, lang, setLang } = useTranslation();
-  const { getFallbackInitials } = useTenantLogo();
+  const { getFallbackInitials, getLogoUrl } = useTenantLogo();
   const { addSaleNotification, addSubscriptionReminderNotification, unreadCount, hydrateTenantModuleSettings, configureInbox } = useJasperNotifications();
   const [showDashLangMenu, setShowDashLangMenu] = useState(false);
   // Mobile top-bar "quick settings" menu (theme/language/notifications/
@@ -3683,8 +3683,8 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
               <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center shrink-0 shadow-md overflow-hidden">
                 {user.profileImage ? (
                   <img src={user.profileImage} alt={user.name} className="w-full h-full object-cover" />
-                ) : systemSettings?.company?.logo ? (
-                  <img src={systemSettings.company.logo} alt={user.name} className="w-full h-full object-cover" />
+                ) : getLogoUrl(isDark) ? (
+                  <img src={getLogoUrl(isDark) || ''} alt={user.name} className="w-full h-full object-cover" />
                 ) : (
                   <span className="text-[#1a1f2e] font-bold text-lg uppercase tracking-wider">
                     {getFallbackInitials(user.name)}
@@ -4707,25 +4707,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
               systemSettings={systemSettings}
               onSaveSettings={(updated) => {
                 if (blockOfflineBusinessWrite('settings save')) return;
-                const { settings: syncedSettings } = persistSystemSettingsNow(updated);
-                let logoToSave = '';
-                if (syncedSettings.company?.logo) {
-                  logoToSave = syncedSettings.company.logo;
-                } else if (syncedSettings.business?.businessLogoLight) {
-                  logoToSave = syncedSettings.business.businessLogoLight;
-                } else if (syncedSettings.business?.businessLogo) {
-                  logoToSave = syncedSettings.business.businessLogo;
-                }
-                if (logoToSave) {
-                  onlineStorage.setItem(`jasper_tenant_logo_${activeTenant.id}`, logoToSave);
-                  setActiveTenant(prev => ({
-                    ...prev,
-                    company_settings: {
-                      ...(prev.company_settings || {}),
-                      logo_url: logoToSave
-                    }
-                  }));
-                }
+                persistSystemSettingsNow(updated);
               }}
               subscriptionStatus={subStatus}
               onTriggerUpgrade={(type) => {
@@ -5350,13 +5332,14 @@ export default function Dashboard(props: DashboardProps) {
 }
 
 function WorkspaceBootstrapScreen() {
-  const { logoUrl } = useTenantLogo();
+  const { getLogoUrl } = useTenantLogo();
+  const { isDark } = useTheme();
 
   return (
     <div className="flex min-h-[100dvh] w-full items-center justify-center bg-slate-50 px-6 dark:bg-slate-950">
       <div role="status" aria-label="Loading business" className="flex flex-col items-center">
         <img
-          src={logoUrl || '/icon-512.png'}
+          src={getLogoUrl(isDark) || '/icon-512.png'}
           alt=""
           className="max-h-28 w-auto max-w-[min(70vw,18rem)] animate-pulse object-contain"
         />

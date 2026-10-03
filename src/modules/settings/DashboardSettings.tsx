@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { CompanySettings, BusinessSettings, ProductStoreSettings, StaffSettings, SystemSettings, Tenant, CustomRole, RolePermission, InvoiceSettings, Sale, Expense, Delivery } from '../../types';
 import { useTheme } from '../../shared/contexts/ThemeContext';
-import { useTenantLogo } from '../../shared/contexts/TenantLogoContext';
 import { DEFAULT_TENANTS } from '../../data';
 import { getPaymentModeName } from '../../shared/utils/paymentAccounts';
 import { 
@@ -133,7 +132,6 @@ export default function DashboardSettings({
   deliveries = []
 }: DashboardSettingsProps) {
   const { isDark, toggleTheme } = useTheme();
-  const { setLogoUrl } = useTenantLogo();
   const incomingSettingsSyncRef = useRef(false);
   const settingsDraftTouchedAtRef = useRef(0);
   // Navigation tabs for Settings
@@ -217,61 +215,6 @@ export default function DashboardSettings({
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
   const [slugSaveStatus, setSlugSaveStatus] = useState<{ type: 'success' | 'error' | 'info'; msg: string } | null>(null);
   const [isSlugSaving, setIsSlugSaving] = useState(false);
-
-  // Logo upload and server persistence state
-  const [isLogoSaving, setIsLogoSaving] = useState(false);
-  const [logoSaveStatus, setLogoSaveStatus] = useState<{ type: 'success' | 'error', msg: string } | null>(null);
-  const [hasNewLogoToSave, setHasNewLogoToSave] = useState(false);
-
-  const handlePersistLogoToDb = async () => {
-    if (!companyForm.logo) return;
-    setIsLogoSaving(true);
-    setLogoSaveStatus(null);
-    try {
-      const client: any = await getSecureDataBridgeClient();
-      const { data: { session } } = await client.auth.getSession();
-      if (!session?.access_token) {
-        throw new Error('Please sign in again before saving the logo.');
-      }
-      const response = await fetch(`/api/tenant/logo`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`
-        },
-        body: JSON.stringify({
-          tenantId: activeTenant.id,
-          logoBase64: companyForm.logo
-        })
-      });
-
-      const resData = await response.json();
-      if (!response.ok || !resData.success) {
-        throw new Error(resData?.error || resData?.message || 'Failed to save logo');
-      }
-
-      const savedLogoUrl = resData.logoUrl;
-      setCompanyForm(prev => ({ ...prev, logo: savedLogoUrl }));
-      setHasNewLogoToSave(false);
-      setLogoSaveStatus({ type: 'success', msg: 'Nembo imehifadhiwa kikamilifu! / Logo saved successfully!' });
-      
-      // Update local storage in real-time
-      onlineStorage.setItem(`jasper_tenant_logo_${activeTenant.id}`, savedLogoUrl);
-      setLogoUrl(savedLogoUrl);
-      
-      // Also save general settings
-      const fullyUpdatedSettings = buildSettingsSnapshot({
-        company: { ...companyForm, logo: savedLogoUrl },
-      });
-      onSaveSettings(fullyUpdatedSettings);
-
-    } catch (err: any) {
-      console.error('Error saving logo:', err);
-      setLogoSaveStatus({ type: 'error', msg: 'Imeshindwa kuhifadhi nembo. / Failed to save logo. ' + (err?.message || '') });
-    } finally {
-      setIsLogoSaving(false);
-    }
-  };
 
   // Dynamic Roles & Permissions States
   const [selectedRoleId, setSelectedRoleId] = useState<string>('role-seller');
@@ -512,11 +455,6 @@ export default function DashboardSettings({
     }));
   };
 
-  const persistCompanySettings = (nextCompanyForm: CompanySettings) => {
-    markSettingsDraftChanged();
-    onSaveSettings(buildSettingsSnapshot({ company: nextCompanyForm }));
-  };
-
   const persistBusinessSettings = (nextBusinessForm: BusinessSettings) => {
     markSettingsDraftChanged();
     onSaveSettings(buildSettingsSnapshot({
@@ -530,7 +468,7 @@ export default function DashboardSettings({
   };
 
   // Drag and drop logo processors
-  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>, target: 'company' | 'business' | 'business_light' | 'business_dark') => {
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>, target: 'business_light' | 'business_dark') => {
     const file = e.target.files?.[0];
     if (file) {
       try {
@@ -540,14 +478,7 @@ export default function DashboardSettings({
         // that replaces the base64 string everywhere once upload completes.
         const applyLogoUrl = (url: string) => {
           const urlToUse = url || base64String;
-          if (target === 'company') {
-            const nextCompanyForm = { ...companyForm, logo: urlToUse };
-            setCompanyForm(nextCompanyForm);
-            setHasNewLogoToSave(true);
-            onlineStorage.setItem(`jasper_tenant_logo_${activeTenant.id}`, urlToUse);
-            setLogoUrl(urlToUse);
-            persistCompanySettings(nextCompanyForm);
-          } else if (target === 'business_light') {
+          if (target === 'business_light') {
             const nextBusinessForm = {
               ...businessForm,
               businessLogoLight: urlToUse,
@@ -555,9 +486,9 @@ export default function DashboardSettings({
             };
             setBusinessForm(nextBusinessForm);
             persistBusinessSettings(nextBusinessForm);
-          } else if (target === 'business_dark') {
+          } else {
             // Deliberately does NOT fall back into the general `businessLogo`
-            // field the way the light-logo branch below does. `businessLogo`
+            // field the way the light-logo branch above does. `businessLogo`
             // is the "safe on a white background" fallback used by Reports
             // and the Light Theme preview card — leaking a dark-theme logo
             // (which can carry a baked-in dark/black background) into it
@@ -568,10 +499,6 @@ export default function DashboardSettings({
               ...businessForm,
               businessLogoDark: urlToUse
             };
-            setBusinessForm(nextBusinessForm);
-            persistBusinessSettings(nextBusinessForm);
-          } else {
-            const nextBusinessForm = { ...businessForm, businessLogo: urlToUse };
             setBusinessForm(nextBusinessForm);
             persistBusinessSettings(nextBusinessForm);
           }
@@ -1230,80 +1157,6 @@ export default function DashboardSettings({
                     <option value="SAST">South Africa Standard Time (UTC+2)</option>
                     <option value="EST">Eastern Standard Time (UTC-5)</option>
                   </select>
-                </div>
-              </div>
-
-              {/* Logo Drag/Upload Section */}
-              <div className="space-y-3">
-                <span className="block text-[10px] uppercase font-bold text-slate-500 font-mono">Company Branding Logo</span>
-                
-                <div className="flex flex-col sm:flex-row sm:items-center gap-5 bg-slate-50 border border-dashed border-slate-200 rounded-2xl p-4">
-                  {companyForm.logo ? (
-                    <div className={`rounded-xl bg-white flex items-center justify-center p-1.5 overflow-hidden shadow-xs flex-shrink-0 ${
-                      hasNewLogoToSave ? 'border-2 border-emerald-500 w-[120px] h-[120px]' : 'border border-slate-200 w-20 h-20'
-                    }`}>
-                      <img 
-                        src={companyForm.logo} 
-                        alt="Company Logo" 
-                        className="w-full h-full object-contain" 
-                        style={{ maxWidth: '120px', maxHeight: '120px' }}
-                        referrerPolicy="no-referrer" 
-                      />
-                    </div>
-                  ) : (
-                    <div className="w-20 h-20 rounded-2xl border border-slate-200 bg-slate-100 flex items-center justify-center text-slate-400 text-xs font-mono font-bold flex-shrink-0">
-                      NO LOGO
-                    </div>
-                  )}
-
-                  <div className="space-y-2 flex-grow">
-                    <div className="relative cursor-pointer transition-all inline-block">
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => handleLogoUpload(e, 'company')}
-                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
-                      />
-                      <button type="button" className="px-3.5 py-2 bg-white hover:bg-slate-100 border border-slate-220 rounded-xl text-xs font-bold text-slate-700 flex items-center space-x-1.5 shadow-xs">
-                        <Upload className="w-3.5 h-3.5" />
-                        <span>Upload Custom Logo</span>
-                      </button>
-                    </div>
-                    <p className="text-[10px] text-slate-400">Supported formats: JPG, PNG, WEBP. Maximum file size: 2MB.</p>
-
-                    {hasNewLogoToSave && (
-                      <div className="pt-2">
-                        <button
-                          type="button"
-                          onClick={handlePersistLogoToDb}
-                          disabled={isLogoSaving}
-                          className="w-full sm:w-auto px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-400 text-white font-semibold text-xs rounded-xl flex items-center justify-center gap-2 shadow-md transition-all uppercase tracking-wider"
-                        >
-                          {isLogoSaving ? (
-                            <>
-                              <svg className="animate-spin h-4 w-4 text-white animate-infinite" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                              </svg>
-                              <span>Inapakia...</span>
-                            </>
-                          ) : (
-                            <span>Hifadhi Nembo / Save Logo</span>
-                          )}
-                        </button>
-                      </div>
-                    )}
-
-                    {logoSaveStatus && (
-                      <div className={`mt-2 p-2.5 rounded-xl text-[11px] font-mono leading-relaxed ${
-                        logoSaveStatus.type === 'success' 
-                          ? 'bg-emerald-50 border border-emerald-200 text-emerald-800' 
-                          : 'bg-red-50 border border-red-200 text-red-800'
-                      }`}>
-                        {logoSaveStatus.msg}
-                      </div>
-                    )}
-                  </div>
                 </div>
               </div>
 

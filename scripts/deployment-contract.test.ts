@@ -102,8 +102,8 @@ test('a large-but-not-total branch ledger shrink is logged, not silently accepte
 
 test('tenant login bootstrap displays only the tenant logo without restoration copy', async () => {
   const dashboardSource = await read('src/components/Dashboard.tsx');
-  assert.match(dashboardSource, /function WorkspaceBootstrapScreen\(\)[\s\S]{0,260}const \{ logoUrl \} = useTenantLogo\(\)/);
-  assert.match(dashboardSource, /src=\{logoUrl \|\| '\/icon-512\.png'\}/);
+  assert.match(dashboardSource, /function WorkspaceBootstrapScreen\(\)[\s\S]{0,260}const \{ getLogoUrl \} = useTenantLogo\(\)/);
+  assert.match(dashboardSource, /src=\{getLogoUrl\(isDark\) \|\| '\/icon-512\.png'\}/);
   assert.doesNotMatch(dashboardSource, /Restoring your menus, roles, products and business records/);
   assert.doesNotMatch(dashboardSource, /Restoring your branch, menus and permissions/);
 });
