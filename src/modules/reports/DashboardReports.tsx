@@ -826,7 +826,7 @@ export default function DashboardReports({
           />
         </div>
 
-        <div className="flex items-start gap-2">
+        <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => setShowDateRangePicker(v => !v)}
@@ -838,19 +838,23 @@ export default function DashboardReports({
             <Calendar className="w-4 h-4" />
             <ChevronDown className={`w-3 h-3 transition-transform ${showDateRangePicker ? 'rotate-180' : ''}`} />
           </button>
-          {/* 2x2 on phone so all four presets are always visible at once --
-              a single scrollable row left some permanently hidden off-screen
-              on narrow widths. Tablet/desktop have the room for one row. */}
-          <div className="grid grid-cols-2 sm:flex gap-1 sm:gap-0 bg-slate-100 p-1 rounded-xl border border-slate-200 flex-1">
-            {['today', 'this-week', 'this-month', 'all-time'].map(preset => (
+          {/* Short labels (Today/Week/Month/All Time) keep all four in one
+              row at every width instead of wrapping or clipping. */}
+          <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 flex-1">
+            {([
+              { id: 'today', label: 'Today' },
+              { id: 'this-week', label: 'Week' },
+              { id: 'this-month', label: 'Month' },
+              { id: 'all-time', label: 'All Time' },
+            ] as const).map(preset => (
               <button
-                key={preset}
-                onClick={() => setPresetDateRange(preset as any)}
-                className={`flex-1 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase whitespace-nowrap transition-all ${
-                  activePreset === preset ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:bg-white hover:text-slate-900'
+                key={preset.id}
+                onClick={() => setPresetDateRange(preset.id as any)}
+                className={`flex-1 px-1 py-1.5 rounded-lg text-[10px] font-bold uppercase whitespace-nowrap transition-all ${
+                  activePreset === preset.id ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-500 hover:bg-white hover:text-slate-900'
                 }`}
               >
-                {preset.replace('-', ' ')}
+                {preset.label}
               </button>
             ))}
           </div>
