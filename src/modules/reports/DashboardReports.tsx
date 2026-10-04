@@ -123,36 +123,6 @@ export default function DashboardReports({
   _contractGuard();
 
   const currency = activeTenant.currency;
-  const [reportPdfStatus, setReportPdfStatus] = useState<string | null>(null);
-  const printActiveReportPdf = async () => {
-    setReportPdfStatus('📄 Generating PDF...');
-    try {
-      await downloadPdfFromElement({
-        elementId: 'reports-a4-pdf-template',
-        fileName: `${(REPORT_DOCUMENT_TITLES[reportTab] || 'Business-Report').replace(/\\s+/g, '-')}-${startDateStr}-${endDateStr}.pdf`,
-        format: 'a4',
-        includeHidden: true,
-        visual: false,
-        branding: {
-          businessName: getActiveBranchDisplayName(activeTenant, systemSettings, userName, activeBranch),
-          // Reports under the Reports menu are internal ledgers for the
-          // owner's own analysis, not customer-facing documents -- unlike
-          // receipts/invoices, they deliberately carry no logo.
-          address: getActiveBranchAddress(systemSettings, activeBranch) || activeTenant.city,
-          phone: getActiveBranchPhone(systemSettings, activeBranch),
-          email: getActiveBranchEmail(systemSettings, activeBranch),
-          documentTitle: REPORT_DOCUMENT_TITLES[reportTab] || 'Business Report',
-          dateRange: `${startDateStr} to ${endDateStr}`,
-        }
-      });
-      setReportPdfStatus('✅ Report downloaded.');
-    } catch (err: any) {
-      console.error('Report PDF export failed', err);
-      setReportPdfStatus(err?.message || 'Could not generate the PDF report. Please try again.');
-    } finally {
-      setTimeout(() => setReportPdfStatus(null), 4000);
-    }
-  };
 
   const [reportTab, setReportTab] = useState<'p&l' | 'sales-report' | 'payments' | 'inventory' | 'velocity' | 'users' | 'expenses' | 'product-monitoring' | 'dual-channel' | 'deliveries' | 'bulk-products' | 'stock-adjustment' | 'purchases-report'>(
     (defaultTab as any) || (rolePermissions?.reportsProfitCogs?.read !== false ? 'p&l' : 'sales-report')
@@ -174,7 +144,54 @@ export default function DashboardReports({
   const [endDateStr, setEndDateStr] = useState(() => {
     return formatLocalDate();
   });
-  
+
+  // Export status/progress is scoped to whichever tab started it -- without
+  // this, switching to a different report mid-generation left the old
+  // "Generating..." message (and its disabled export button) stuck on the
+  // new tab, and the eventual success/error toast for the OLD report popped
+  // up confusingly while the person was already looking at a different one.
+  const [reportPdfStatus, setReportPdfStatus] = useState<string | null>(null);
+  const reportTabRef = useRef(reportTab);
+  useEffect(() => {
+    reportTabRef.current = reportTab;
+    setReportPdfStatus(null);
+  }, [reportTab]);
+
+  const printActiveReportPdf = async () => {
+    const tabAtStart = reportTab;
+    setReportPdfStatus('📄 Generating PDF...');
+    try {
+      await downloadPdfFromElement({
+        elementId: 'reports-a4-pdf-template',
+        fileName: `${(REPORT_DOCUMENT_TITLES[reportTab] || 'Business-Report').replace(/\\s+/g, '-')}-${startDateStr}-${endDateStr}.pdf`,
+        format: 'a4',
+        includeHidden: true,
+        visual: false,
+        branding: {
+          businessName: getActiveBranchDisplayName(activeTenant, systemSettings, userName, activeBranch),
+          // Reports under the Reports menu are internal ledgers for the
+          // owner's own analysis, not customer-facing documents -- unlike
+          // receipts/invoices, they deliberately carry no logo.
+          address: getActiveBranchAddress(systemSettings, activeBranch) || activeTenant.city,
+          phone: getActiveBranchPhone(systemSettings, activeBranch),
+          email: getActiveBranchEmail(systemSettings, activeBranch),
+          documentTitle: REPORT_DOCUMENT_TITLES[reportTab] || 'Business Report',
+          dateRange: `${startDateStr} to ${endDateStr}`,
+        }
+      });
+      if (reportTabRef.current === tabAtStart) {
+        setReportPdfStatus('✅ Report downloaded.');
+        setTimeout(() => setReportPdfStatus(null), 4000);
+      }
+    } catch (err: any) {
+      console.error('Report PDF export failed', err);
+      if (reportTabRef.current === tabAtStart) {
+        setReportPdfStatus(err?.message || 'Could not generate the PDF report. Please try again.');
+        setTimeout(() => setReportPdfStatus(null), 4000);
+      }
+    }
+  };
+
   const [selectedMonitoredProductId, setSelectedMonitoredProductId] = useState<string>('all');
   const [productSearchQuery, setProductSearchQuery] = useState<string>('');
   const [productSortBy, setProductSortBy] = useState<'qtySold' | 'revenue' | 'profit' | 'margin' | 'totOnHand' | 'name' | 'sku'>('qtySold');
