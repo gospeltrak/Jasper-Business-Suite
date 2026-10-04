@@ -133,6 +133,10 @@ export default function DashboardReports({
         format: 'a4',
         includeHidden: true,
         visual: false,
+        // Reports (unlike a receipt) can have many rows and take long enough
+        // to generate that mobile Chrome no longer trusts a download/share
+        // triggered afterward -- see downloadPdfFromElement.
+        preOpenTab: true,
         branding: {
           businessName: getActiveBranchDisplayName(activeTenant, systemSettings, userName, activeBranch),
           // Reports under the Reports menu are internal ledgers for the
