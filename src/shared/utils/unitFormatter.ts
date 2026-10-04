@@ -20,7 +20,12 @@ export const getProductUnitName = (product?: Pick<Product, 'baseUnit' | 'unit' |
 };
 
 export const getSaleItemUnitName = (item: Pick<SaleItem, 'unit' | 'baseUnit' | 'sellUnit'>, product?: Product) => (
-  normalizeUnit(item.unit || item.baseUnit || item.sellUnit || (product ? getProductUnitName(product) : 'pcs'))
+  // sellUnit is the label for what was actually sold (e.g. "Packet", "Half
+  // Dose", a bulk product's packet unit) -- unit/baseUnit are the product's
+  // base unit (e.g. "Tablet"), which is only the right label when nothing
+  // more specific was recorded, including for sale records from before
+  // sellUnit existed.
+  normalizeUnit(item.sellUnit || item.unit || item.baseUnit || (product ? getProductUnitName(product) : 'pcs'))
 );
 
 export const formatQuantity = (quantity: number, unit?: string) => {

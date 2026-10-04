@@ -464,6 +464,10 @@ export default function DashboardProducts({
         const editPacketPrice = Number(editForm.packetPrice) || (editTabPrice * editTabsPerPacket);
         const editFullDosePrice = Number(editForm.fullDosePrice || (Number(editDoseLevel?.quantityToBaseUnit || editTabsPerDose) * editTabPrice));
         const editHalfDosePrice = Number(editForm.halfDosePrice || editFullDosePrice / 2);
+        const editStripLevel = editPharmacy.hierarchy.levels.find(level => level.id === 'strip');
+        const editStripPrice = editStripLevel
+          ? Number(editForm.stripPrice || (editStripLevel.quantityToBaseUnit * editTabPrice))
+          : undefined;
         const editUsesPharmacyHierarchy = activeTenant.businessType === 'pharmacy' && editForm.productType === 'medicine';
         const editFractionEligible = editForm.productType !== 'medicine' && (activeTenant.businessType === 'pharmacy' || !!editForm.isBulkProduct);
         const editFractionEnabled = editFractionEligible && (activeTenant.businessType === 'pharmacy'
@@ -499,6 +503,7 @@ export default function DashboardProducts({
             pharmacyUnitLevels: editPharmacy.hierarchy.levels,
             allowsDosageDividing: true,
             packetPrice: editPacketPrice,
+            stripPrice: editStripPrice,
             fullDosePrice: editFullDosePrice,
             halfDosePrice: editHalfDosePrice,
             tabPrice: editTabPrice,
@@ -520,6 +525,7 @@ export default function DashboardProducts({
             pharmacyUnitLevels: p.pharmacyUnitLevels,
             allowsDosageDividing: p.allowsDosageDividing,
             packetPrice: p.packetPrice,
+            stripPrice: p.stripPrice,
             fullDosePrice: p.fullDosePrice,
             halfDosePrice: p.halfDosePrice,
             tabPrice: p.tabPrice,
@@ -885,6 +891,7 @@ export default function DashboardProducts({
   const [tabsPerDose, setTabsPerDose] = useState<number | ''>('');
   const [fullDosePrice, setFullDosePrice] = useState<number | ''>(0);
   const [halfDosePrice, setHalfDosePrice] = useState<number | ''>(0);
+  const [stripPrice, setStripPrice] = useState<number | ''>(0);
   const [packetPriceOverride, setPacketPriceOverride] = useState<number | ''>('');
   const [pharmacyProductType, setPharmacyProductType] = useState<'pharmaceutical' | 'non_pharmaceutical'>('pharmaceutical');
   const [pharmacyHierarchyStart, setPharmacyHierarchyStart] = useState<'box' | 'packet' | 'master_box' | 'carton'>('packet');
@@ -1278,6 +1285,10 @@ export default function DashboardProducts({
     const pharmacyPacketPrice = Number(packetPriceOverride) || (pharmacyTabPrice * pharmacyTabsPerPacket);
     const pharmacyFullDosePrice = Number(fullDosePrice) || (pharmacyTabPrice * (hierarchy.levels.find(level => level.id === 'dose')?.quantityToBaseUnit || pharmacyTabsPerDose));
     const pharmacyHalfDosePrice = Number(halfDosePrice) || (pharmacyFullDosePrice / 2);
+    const pharmacyStripLevel = hierarchy.levels.find(level => level.id === 'strip');
+    const pharmacyStripPrice = pharmacyStripLevel
+      ? (Number(stripPrice) || (pharmacyTabPrice * pharmacyStripLevel.quantityToBaseUnit))
+      : undefined;
     // Cost Buy Price is entered per the top hierarchy unit (e.g. per Box), the
     // same way Retail Price already is for pharmacyPacketPrice above -- it must
     // divide down to a per-base-unit cost the same way, or COGS/profit come out
@@ -1369,6 +1380,7 @@ export default function DashboardProducts({
       tabsPerPack: isPharmacyLike ? pharmacyTabsPerPacket : undefined,
       allowsDosageDividing: isPharmacyLike ? true : undefined,
       packetPrice: isPharmacyLike ? pharmacyPacketPrice : undefined,
+      stripPrice: isPharmacyLike ? pharmacyStripPrice : undefined,
       fullDosePrice: isPharmacyLike ? pharmacyFullDosePrice : undefined,
       halfDosePrice: isPharmacyLike ? pharmacyHalfDosePrice : undefined,
       tabPrice: isPharmacyLike ? pharmacyTabPrice : undefined,
@@ -2654,6 +2666,12 @@ export default function DashboardProducts({
               <label className="block min-h-6 text-[8px] sm:text-[9px] leading-tight font-bold text-slate-500 uppercase">Dose / middle price</label>
               <input type="number" value={fullDosePrice} onChange={e => setFullDosePrice(e.target.value === '' ? '' : Number(e.target.value))} placeholder="Auto" className="w-full min-w-0 bg-white border border-slate-200 text-[10px] px-2 py-2 rounded-xl" />
             </div>
+            {pharmacyHierarchyStart === 'box' && (
+              <div className="space-y-1 min-w-0">
+                <label className="block min-h-6 text-[8px] sm:text-[9px] leading-tight font-bold text-slate-500 uppercase">Strip price</label>
+                <input type="number" value={stripPrice} onChange={e => setStripPrice(e.target.value === '' ? '' : Number(e.target.value))} placeholder="Auto" className="w-full min-w-0 bg-white border border-slate-200 text-[10px] px-2 py-2 rounded-xl" />
+              </div>
+            )}
             <div className="space-y-1 min-w-0">
               <label className="block min-h-6 text-[8px] sm:text-[9px] leading-tight font-bold text-slate-500 uppercase">Price per {pharmacyFormHierarchy.baseUnit}</label>
               <input type="number" readOnly value={sellingPrice || ''} title="Set from Selling Price above" className="w-full min-w-0 bg-slate-100 border border-slate-200 text-[10px] px-2 py-2 rounded-xl text-slate-500 cursor-not-allowed" />
@@ -2669,6 +2687,12 @@ export default function DashboardProducts({
               <label className="text-[9px] font-bold text-slate-500 uppercase">Dose / middle price</label>
               <input type="number" value={fullDosePrice} onChange={e => setFullDosePrice(e.target.value === '' ? '' : Number(e.target.value))} placeholder="Auto if empty" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
             </div>
+            {pharmacyHierarchyStart === 'box' && (
+              <div className="space-y-1">
+                <label className="text-[9px] font-bold text-slate-500 uppercase">Strip price</label>
+                <input type="number" value={stripPrice} onChange={e => setStripPrice(e.target.value === '' ? '' : Number(e.target.value))} placeholder="Auto if empty" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+              </div>
+            )}
             <div className="space-y-1">
               <label className="text-[9px] font-bold text-slate-500 uppercase">Price per {pharmacyFormHierarchy.baseUnit}</label>
               <input type="number" readOnly value={sellingPrice || ''} title="Set from Selling Price above" className="w-full bg-slate-100 border border-slate-200 text-xs px-3 py-2 rounded-xl text-slate-500 cursor-not-allowed" />

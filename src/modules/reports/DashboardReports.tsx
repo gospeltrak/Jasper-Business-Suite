@@ -437,7 +437,12 @@ export default function DashboardReports({
       (s.items || []).forEach(item => {
         const matchingProd = products.find(p => p.id === item.productId);
         const existing = perfById.get(item.productId) || { qty: 0, revenue: 0, cost: 0 };
-        existing.qty += item.qty;
+        // item.qty counts the selected dosage/package LEVEL sold (e.g. "3
+        // packets"), not base units -- baseQuantityDeducted is the real
+        // number of base units (tablets, pieces) that left stock, which is
+        // what a unit-count report must sum so mixed-level sales of the same
+        // product (a packet here, a loose tab there) add up meaningfully.
+        existing.qty += (item.baseQuantityDeducted ?? item.qty);
         // getSaleItemLineTotal (not the raw item.lineTotal field, which is
         // absent on some real sale records) derives the line's real value
         // from price/qty/discount when no snapshot was persisted -- a raw
@@ -482,10 +487,11 @@ export default function DashboardReports({
         if (!isAll && item.productId !== selectedMonitoredProductId) return;
         const matchingProd = products.find(p => p.id === item.productId);
         const lineRevenue = getSaleItemLineTotal(item);
-        qty += item.qty;
+        const baseQty = item.baseQuantityDeducted ?? item.qty;
+        qty += baseQty;
         revenue += lineRevenue;
         cogs += (item.costPriceAtSale ?? matchingProd?.costPrice ?? 0) * item.qty;
-        dayQty += item.qty;
+        dayQty += baseQty;
         dayRevenue += lineRevenue;
       });
       if (dayQty > 0 || dayRevenue > 0) {
@@ -508,7 +514,7 @@ export default function DashboardReports({
     const qtyById = new Map<string, number>();
     filteredSales.forEach(s => {
       (s.items || []).forEach(item => {
-        qtyById.set(item.productId, (qtyById.get(item.productId) || 0) + item.qty);
+        qtyById.set(item.productId, (qtyById.get(item.productId) || 0) + (item.baseQuantityDeducted ?? item.qty));
       });
     });
     const start = parseLocalDate(startDateStr);

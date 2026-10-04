@@ -227,6 +227,10 @@ export interface Product {
   dosesPerPacket?: number;
   tabsPerDose?: number;
   packetPrice?: number;
+  // Only meaningful for a 4-tier Box hierarchy (pharmacyHierarchyStart === 'box'),
+  // where "Strip" sits between the Box and Dose levels -- undefined falls back to
+  // tabPrice * the strip's tablet count, same as every other unpriced level.
+  stripPrice?: number;
   fullDosePrice?: number;
   halfDosePrice?: number;
   tabPrice?: number;

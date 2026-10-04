@@ -8,6 +8,7 @@ export interface PharmacyDoseConfig {
   tabsPerPacket: number;
   halfDoseTabs: number;
   packetPrice: number;
+  stripPrice: number | null;
   fullDosePrice: number;
   halfDosePrice: number;
   tabPrice: number;
@@ -46,12 +47,17 @@ export const getPharmacyDoseConfig = (product: Product): PharmacyDoseConfig => {
     const fullDosePrice = positive(product.fullDosePrice, tabPrice * tabsPerDose);
     const halfDoseTabs = Math.max(1, Math.ceil(tabsPerDose / 2));
     const halfDosePrice = positive(product.halfDosePrice, tabPrice * halfDoseTabs);
+    const stripLevel = hierarchyLevels.find(level => level.id === 'strip');
+    const stripPrice = stripLevel
+      ? positive(product.stripPrice, tabPrice * positive(stripLevel.quantityToBaseUnit, 1))
+      : null;
     return {
       dosesPerPacket: tabsPerPacket,
       tabsPerDose,
       tabsPerPacket,
       halfDoseTabs,
       packetPrice,
+      stripPrice,
       fullDosePrice,
       halfDosePrice,
       tabPrice,
@@ -74,6 +80,7 @@ export const getPharmacyDoseConfig = (product: Product): PharmacyDoseConfig => {
     tabsPerPacket,
     halfDoseTabs,
     packetPrice,
+    stripPrice: null,
     fullDosePrice,
     halfDosePrice,
     tabPrice,
@@ -122,6 +129,14 @@ export const resolvePharmacyPosLine = ({
       ? positive(hierarchyLevel.quantityToBaseUnit, config.tabsPerDose)
       : config.tabsPerDose;
     selectedUnitPrice = config.fullDosePrice;
+  } else if (selectedLevel === 'strip') {
+    unitsPerSelectedLevel = hierarchyLevel
+      ? positive(hierarchyLevel.quantityToBaseUnit, 1)
+      : 1;
+    // config.stripPrice is only set (non-null) when the product's hierarchy
+    // actually has a 'strip' level -- otherwise this falls back to the same
+    // tabPrice * count every other unpriced level uses.
+    selectedUnitPrice = config.stripPrice ?? (config.tabPrice * unitsPerSelectedLevel);
   } else {
     unitsPerSelectedLevel = hierarchyLevel
       ? positive(hierarchyLevel.quantityToBaseUnit, 1)
