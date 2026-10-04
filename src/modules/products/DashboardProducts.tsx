@@ -896,6 +896,16 @@ export default function DashboardProducts({
   const [pharmacyProductType, setPharmacyProductType] = useState<'pharmaceutical' | 'non_pharmaceutical'>('pharmaceutical');
   const [pharmacyHierarchyStart, setPharmacyHierarchyStart] = useState<'box' | 'packet' | 'master_box' | 'carton'>('packet');
   const [pharmacyBaseUnit, setPharmacyBaseUnit] = useState('Tablet');
+  // The "Lowest Unit" chosen here is the one true base unit for a pharmacy
+  // product -- it drives cost/retail/wholesale pricing and stock labels too,
+  // so every place that sets it keeps the generic unit/baseUnit fields (read
+  // by those non-pharmacy-aware labels) in sync instead of letting them
+  // silently diverge from the hierarchy's actual base unit.
+  const handlePharmacyBaseUnitChange = (nextUnit: string) => {
+    setPharmacyBaseUnit(nextUnit);
+    setUnit(nextUnit);
+    setBaseUnit(nextUnit);
+  };
   const [pharmacyTopContains, setPharmacyTopContains] = useState<number | ''>(10);
   const [pharmacyMiddleContains, setPharmacyMiddleContains] = useState<number | ''>(10);
   const [pharmacyDoseContains, setPharmacyDoseContains] = useState<number | ''>(1);
@@ -2553,7 +2563,7 @@ export default function DashboardProducts({
                 const next = nextValue as 'pharmaceutical' | 'non_pharmaceutical';
                 setPharmacyProductType(next);
                 setPharmacyHierarchyStart(next === 'pharmaceutical' ? 'packet' : 'carton');
-                setPharmacyBaseUnit(next === 'pharmaceutical' ? 'Tablet' : 'Piece');
+                handlePharmacyBaseUnitChange(next === 'pharmaceutical' ? 'Tablet' : 'Piece');
               }} title="Choose product type" />
             </div>
             <div className="space-y-1 min-w-0">
@@ -2569,8 +2579,8 @@ export default function DashboardProducts({
             </div>
             {pharmacyProductType === 'pharmaceutical' && (
               <div className="space-y-1 min-w-0">
-                <label className="text-[9px] font-bold text-slate-500 uppercase">Lowest Unit</label>
-                <input type="text" value={pharmacyBaseUnit} onChange={e => setPharmacyBaseUnit(e.target.value)} placeholder="e.g. Tablet" className="w-full min-w-0 bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                <label className="text-[9px] font-bold text-slate-500 uppercase">Lowest Unit (Base Unit)</label>
+                <ModernSelect value={pharmacyBaseUnit} options={PHARMACY_BASE_UNIT_OPTIONS} onChange={handlePharmacyBaseUnitChange} title="Choose lowest unit" />
               </div>
             )}
             {pharmacyHierarchyStart === 'box' && (
@@ -2604,7 +2614,7 @@ export default function DashboardProducts({
                 const next = nextValue as 'pharmaceutical' | 'non_pharmaceutical';
                 setPharmacyProductType(next);
                 setPharmacyHierarchyStart(next === 'pharmaceutical' ? 'packet' : 'carton');
-                setPharmacyBaseUnit(next === 'pharmaceutical' ? 'Tablet' : 'Piece');
+                handlePharmacyBaseUnitChange(next === 'pharmaceutical' ? 'Tablet' : 'Piece');
               }} title="Choose product type" />
             </div>
             <div className="space-y-1">
@@ -2620,8 +2630,8 @@ export default function DashboardProducts({
             </div>
             {pharmacyProductType === 'pharmaceutical' && (
           <div className="space-y-1">
-            <label className="text-[9px] font-bold text-slate-500 uppercase">Lowest Unit</label>
-            <ModernSelect value={pharmacyBaseUnit} options={PHARMACY_BASE_UNIT_OPTIONS} onChange={setPharmacyBaseUnit} title="Choose lowest unit" />
+            <label className="text-[9px] font-bold text-slate-500 uppercase">Lowest Unit (Base Unit)</label>
+            <ModernSelect value={pharmacyBaseUnit} options={PHARMACY_BASE_UNIT_OPTIONS} onChange={handlePharmacyBaseUnitChange} title="Choose lowest unit" />
           </div>
         )}
         {pharmacyHierarchyStart === 'box' && (
@@ -3416,7 +3426,7 @@ export default function DashboardProducts({
                   <div className="grid gap-3.5" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.875rem' }}>
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-slate-500 uppercase block">
-                        {isPharmacyLike ? 'Wholesale Price' : `Wholesale Price (${isBulkProduct ? (purchaseUnit || 'Package') : (unit || 'Unit')})`} {!sellInWholesale && <span className="text-red-500 font-mono text-[9px]">(LOCKED)</span>}
+                        {isPharmacyLike ? `${pharmacyFormHierarchy.baseUnit} Wholesale Price` : `Wholesale Price (${isBulkProduct ? (purchaseUnit || 'Package') : (unit || 'Unit')})`} {!sellInWholesale && <span className="text-red-500 font-mono text-[9px]">(LOCKED)</span>}
                       </label>
                       <input
                         type="number"
@@ -3430,7 +3440,7 @@ export default function DashboardProducts({
                     </div>
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-slate-505 uppercase block">
-                        {isPharmacyLike ? 'Min Wholesale Qty' : `Min Wholesale Qty (${baseUnit || unit || 'Unit'})`} {!sellInWholesale && <span className="text-red-500 font-mono text-[9px]">(LOCKED)</span>}
+                        {isPharmacyLike ? `Min Wholesale Qty (${pharmacyFormHierarchy.baseUnit})` : `Min Wholesale Qty (${baseUnit || unit || 'Unit'})`} {!sellInWholesale && <span className="text-red-500 font-mono text-[9px]">(LOCKED)</span>}
                       </label>
                       <input 
                         type="number" 
@@ -5372,7 +5382,7 @@ export default function DashboardProducts({
 
                   <div className="grid gap-3 pb-1 font-mono" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.75rem' }}>
                     <div className="space-y-1">
-                      <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Shop shelf ({activeTenant.businessType !== 'pharmacy' ? (editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.unit || 'units') : 'Units'})</label>
+                      <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Shop shelf ({activeTenant.businessType !== 'pharmacy' ? (editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.unit || 'units') : getEditPharmacyStructure(editForm).base})</label>
                       <input 
                         type="number" 
                         min="0"
@@ -5383,7 +5393,7 @@ export default function DashboardProducts({
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[9.5px] font-bold text-slate-500 uppercase block">store rooms ({activeTenant.businessType !== 'pharmacy' ? (editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.unit || 'units') : 'Units'})</label>
+                      <label className="text-[9.5px] font-bold text-slate-500 uppercase block">store rooms ({activeTenant.businessType !== 'pharmacy' ? (editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.unit || 'units') : getEditPharmacyStructure(editForm).base})</label>
                       <input 
                         type="number" 
                         min="0"
@@ -5489,7 +5499,7 @@ export default function DashboardProducts({
 
                   <div className="grid gap-3 border-b border-dashed border-slate-200 pb-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.75rem' }}>
                     <div className="space-y-1">
-                      <label className="text-[9.5px] font-bold text-slate-500 uppercase block">{activeTenant.businessType === 'pharmacy' ? 'Wholesale price' : `Wholesale price (${editForm.isBulkProduct ? (editForm.purchaseUnit || editForm.inventorySettings?.purchaseUnit || editForm.bulkUnit || 'Package') : (editForm.unit || 'Unit')})`}</label>
+                      <label className="text-[9.5px] font-bold text-slate-500 uppercase block">{activeTenant.businessType === 'pharmacy' ? `Wholesale price (${getEditPharmacyStructure(editForm).base})` : `Wholesale price (${editForm.isBulkProduct ? (editForm.purchaseUnit || editForm.inventorySettings?.purchaseUnit || editForm.bulkUnit || 'Package') : (editForm.unit || 'Unit')})`}</label>
                       <input 
                         type="number" 
                         min="1"
@@ -5503,7 +5513,7 @@ export default function DashboardProducts({
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-[9.5px] font-bold text-slate-500 uppercase block">{activeTenant.businessType === 'pharmacy' ? 'Wholesale Min Qty' : `Wholesale Min Qty (${editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.unit || 'Unit'})`}</label>
+                      <label className="text-[9.5px] font-bold text-slate-500 uppercase block">{activeTenant.businessType === 'pharmacy' ? `Wholesale Min Qty (${getEditPharmacyStructure(editForm).base})` : `Wholesale Min Qty (${editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.unit || 'Unit'})`}</label>
                       <input 
                         type="number" 
                         min="1"
