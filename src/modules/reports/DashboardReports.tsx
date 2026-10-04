@@ -826,7 +826,7 @@ export default function DashboardReports({
           />
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-start gap-2">
           <button
             type="button"
             onClick={() => setShowDateRangePicker(v => !v)}
@@ -838,7 +838,10 @@ export default function DashboardReports({
             <Calendar className="w-4 h-4" />
             <ChevronDown className={`w-3 h-3 transition-transform ${showDateRangePicker ? 'rotate-180' : ''}`} />
           </button>
-          <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 overflow-x-auto no-scrollbar flex-1">
+          {/* 2x2 on phone so all four presets are always visible at once --
+              a single scrollable row left some permanently hidden off-screen
+              on narrow widths. Tablet/desktop have the room for one row. */}
+          <div className="grid grid-cols-2 sm:flex gap-1 sm:gap-0 bg-slate-100 p-1 rounded-xl border border-slate-200 flex-1">
             {['today', 'this-week', 'this-month', 'all-time'].map(preset => (
               <button
                 key={preset}

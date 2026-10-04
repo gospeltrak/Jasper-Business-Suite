@@ -1169,6 +1169,31 @@ export async function createPdfFromElement({
 
 export async function downloadPdfFromElement(options: Omit<PdfShareOptions, 'phone' | 'message'>): Promise<File> {
   const pdfFile = await createPdfFromElement(options);
+  // createPdfFromElement is async (fonts, images) and finishes well after the
+  // click that triggered it -- by then many mobile browsers no longer treat
+  // this as a user-initiated action and silently ignore the <a download>
+  // click below, so the app reports success while nothing actually saves.
+  // The native share sheet (already proven reliable here for WhatsApp
+  // sharing) survives that delay and lets the person save/send the file
+  // themselves, so it's tried first wherever the browser supports it.
+  const files = [pdfFile];
+  const canShareFile =
+    typeof navigator !== 'undefined' &&
+    typeof navigator.share === 'function' &&
+    typeof navigator.canShare === 'function' &&
+    navigator.canShare({ files });
+  if (canShareFile) {
+    try {
+      await navigator.share({ files, title: pdfFile.name });
+      return pdfFile;
+    } catch (e: any) {
+      // The person dismissing the share sheet is not a failure -- the PDF
+      // was generated and handed to them, what they did with that sheet is
+      // their call.
+      if (e?.name === 'AbortError') return pdfFile;
+      console.warn('[pdfShare] Native share failed, falling back to direct download:', e);
+    }
+  }
   downloadBlob(pdfFile, pdfFile.name);
   return pdfFile;
 }
