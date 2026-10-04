@@ -933,6 +933,14 @@ export default function DashboardPOS({
       const fractionConfig = supportsFractionSale(item.product)
         ? resolveFractionSaleConfig(item.product, activeTenant.businessType)
         : null;
+      // Non-pharmacy retail-package products are always "fraction sale
+      // eligible" too (isFractionSaleEnabled hard-codes that for any
+      // isBulkProduct, regardless of the merchant's chosen selling mode),
+      // which would otherwise always shadow the Scale/Pcs selling-mode UI
+      // below with the older piece/packet toggle. Pharmacy's own fraction
+      // sale (loose tablets out of a packet) is unaffected -- it's the only
+      // tenant type where that toggle is still the right control.
+      const usesPacketPieceUi = activeTenant.businessType === 'pharmacy' && supportsFractionSale(item.product);
       const dosageType = item.dosageType || 'packet';
       const doseCfg = getPharmacyDoseConfig(item.product);
       const tabsSelected = item.tabsSelected || 1;
@@ -956,7 +964,7 @@ export default function DashboardPOS({
         : supportsMeasuredRetail(item.product)
           ? formatRetailPackageRemaining((item.product.shopStockQty || 0) - item.qty, item.product)
           : '';
-      return { item, dosageType, doseCfg, tabsSelected, basePrice, discountPrice, dosageLabel, projectedRemaining, isPharmacy };
+      return { item, dosageType, doseCfg, tabsSelected, basePrice, discountPrice, dosageLabel, projectedRemaining, isPharmacy, usesPacketPieceUi };
     });
   }, [cart, activeTenant.businessType, getCartUnitPrice, supportsFractionSale, usesPharmacyHierarchy]);
 
@@ -1699,7 +1707,7 @@ export default function DashboardPOS({
               <ShoppingCart className="w-8 h-8 text-slate-300 stroke-[1.25]" />
             </div>
           ) : (
-            cartDisplayData.map(({ item, dosageType, doseCfg, tabsSelected, basePrice, discountPrice, dosageLabel, projectedRemaining, isPharmacy }) => {
+            cartDisplayData.map(({ item, dosageType, doseCfg, tabsSelected, basePrice, discountPrice, dosageLabel, projectedRemaining, isPharmacy, usesPacketPieceUi }) => {
               const tabsPerPack = doseCfg.tabsPerPacket;
 
               return (
@@ -1739,7 +1747,7 @@ export default function DashboardPOS({
                           {dosageLabel}
                         </div>
                       )}
-                      {!isPharmacy && supportsFractionSale(item.product) && (
+                      {!isPharmacy && usesPacketPieceUi && (
                         <div className="text-[10px] text-emerald-750 font-bold bg-emerald-50 py-0.5 px-1.5 mt-0.5 rounded truncate w-max">
                           {(item.fractionSaleLevel || 'piece') === 'packet'
                             ? resolveFractionSaleConfig(item.product, activeTenant.businessType).packetUnit
@@ -1750,7 +1758,7 @@ export default function DashboardPOS({
 
                     {/* Right: Quantity increment/decrement box + delete button */}
                     <div className="flex items-center space-x-2 shrink-0">
-                      {supportsFractionSale(item.product) ? (
+                      {usesPacketPieceUi ? (
                         <div className="flex flex-col items-end space-y-1">
                           <div className="flex bg-slate-100 rounded p-0.5 border border-slate-200 text-[9px] font-bold">
                             {(['piece', 'packet'] as FractionSaleLevel[]).map(level => {
@@ -1893,7 +1901,7 @@ export default function DashboardPOS({
                       </div>
                     </div>
                   )}
-                  {!isPharmacy && supportsFractionSale(item.product) && (
+                  {!isPharmacy && usesPacketPieceUi && (
                     <div className="pt-1.5 border-t border-dashed border-slate-200/50 flex flex-wrap gap-1.5 justify-start items-center text-[9px] font-mono text-slate-400">
                       {(() => {
                         const config = resolveFractionSaleConfig(item.product, activeTenant.businessType);
@@ -1905,7 +1913,7 @@ export default function DashboardPOS({
                       <span>Remain: {projectedRemaining}</span>
                     </div>
                   )}
-                  {!isPharmacy && !supportsFractionSale(item.product) && supportsMeasuredRetail(item.product) && (
+                  {!isPharmacy && !usesPacketPieceUi && supportsMeasuredRetail(item.product) && (
                     <div className="pt-1.5 border-t border-dashed border-slate-200/50 flex flex-wrap gap-1.5 justify-start items-center text-[9px] font-mono text-slate-400">
                       <span>
                         {formatProductQuantity(item.qty, { ...item.product, unit: getRetailPackageConfig(item.product).baseUnit } as Product)} x {currency}{Math.round(getRetailPackageConfig(item.product).pricePerBaseUnit).toLocaleString()}
