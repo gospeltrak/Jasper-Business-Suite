@@ -576,6 +576,13 @@ export default function DashboardPOS({
     const cfg = getRetailPackageConfig(product);
     if (!product.isBulkProduct) return `${formatProductQuantity(baseQty, product)} left`;
     const safeQty = Math.max(0, Number(baseQty || 0));
+    // The unbroken-package breakdown (e.g. "2 Ndoo") only matters once whole
+    // packages are being sold, which is a Wholesale-channel concept here —
+    // Retail always sells in the base unit (Lita, Kg, m...), so showing the
+    // package count there just mixes two units the cashier never deals with.
+    if (sellingChannel !== 'wholesale') {
+      return `${formatProductQuantity(safeQty, { ...product, unit: cfg.baseUnit } as Product)} left`;
+    }
     const wholePackages = Math.floor(safeQty / cfg.conversionToBaseUnit);
     const remainingBase = Number((safeQty - (wholePackages * cfg.conversionToBaseUnit)).toFixed(3));
     return `${formatProductQuantity(safeQty, { ...product, unit: cfg.baseUnit } as Product)} left (${wholePackages} ${cfg.purchaseUnit}, ${formatProductQuantity(remainingBase, { ...product, unit: cfg.baseUnit } as Product)})`;
@@ -1780,12 +1787,12 @@ export default function DashboardPOS({
                               {(() => {
                                 const baseUnit = getRetailPackageConfig(item.product).baseUnit;
                                 return [
-                                  { label: `1/4 ${baseUnit}`, val: 0.25 },
-                                  { label: `1/2 ${baseUnit}`, val: 0.5 },
-                                  { label: `3/4 ${baseUnit}`, val: 0.75 },
-                                  { label: `1 ${baseUnit}`, val: 1 },
+                                  { label: `+1/4 ${baseUnit}`, val: 0.25 },
+                                  { label: `+1/2 ${baseUnit}`, val: 0.5 },
+                                  { label: `+3/4 ${baseUnit}`, val: 0.75 },
+                                  { label: `+1 ${baseUnit}`, val: 1 },
                                 ].map(f => (
-                                  <button type="button" key={f.label} onClick={() => updateCartQtyDirect(item.product.id, f.val)} className="px-1.5 py-0.5 bg-white border border-slate-200 rounded text-[9px] font-bold text-slate-700 hover:bg-slate-50">{f.label}</button>
+                                  <button type="button" key={f.label} onClick={() => updateCartQty(item.product.id, f.val)} className="px-1.5 py-0.5 bg-white border border-slate-200 rounded text-[9px] font-bold text-slate-700 hover:bg-slate-50">{f.label}</button>
                                 ));
                               })()}
                             </div>
