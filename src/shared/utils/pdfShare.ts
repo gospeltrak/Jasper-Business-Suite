@@ -524,14 +524,6 @@ type PdfShareOptions = {
   format?: 'a4' | 'receipt';
   includeHidden?: boolean;
   /**
-   * Opens a blank tab synchronously, before any async PDF generation, and
-   * navigates it to the finished PDF once ready -- see downloadPdfFromElement.
-   * Only needed for documents slow enough to generate (large tables) that
-   * the browser no longer trusts the original click by the time a download
-   * or share would normally fire.
-   */
-  preOpenTab?: boolean;
-  /**
    * Visual A4 capture uses html-to-image. Set false for report-style documents
    * so modern CSS color functions cannot break export; the fallback produces
    * a searchable, table-aware jsPDF document instead.
@@ -1176,31 +1168,7 @@ export async function createPdfFromElement({
 }
 
 export async function downloadPdfFromElement(options: Omit<PdfShareOptions, 'phone' | 'message'>): Promise<File> {
-  // Must happen synchronously, before the first await below, so it is still
-  // inside the original click's call stack -- a blank tab opened right now
-  // is trusted by the browser regardless of how long PDF generation (fonts,
-  // images, large tables) then takes, unlike a download or share triggered
-  // afterward. This is what a big report (many rows -> slow generation)
-  // needs; a small, fast document like a receipt doesn't and skips the
-  // extra blank-tab flash.
-  const preOpenedTab = options.preOpenTab && typeof window !== 'undefined'
-    ? window.open('', '_blank')
-    : null;
-
-  let pdfFile: File;
-  try {
-    pdfFile = await createPdfFromElement(options);
-  } catch (err) {
-    preOpenedTab?.close();
-    throw err;
-  }
-
-  if (preOpenedTab && !preOpenedTab.closed) {
-    const url = URL.createObjectURL(pdfFile);
-    preOpenedTab.location.href = url;
-    setTimeout(() => URL.revokeObjectURL(url), 60000);
-    return pdfFile;
-  }
+  const pdfFile = await createPdfFromElement(options);
 
   // createPdfFromElement is async (fonts, images) and finishes well after the
   // click that triggered it -- by then many mobile browsers no longer treat

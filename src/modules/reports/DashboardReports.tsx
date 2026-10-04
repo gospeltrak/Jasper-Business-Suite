@@ -133,10 +133,6 @@ export default function DashboardReports({
         format: 'a4',
         includeHidden: true,
         visual: false,
-        // Reports (unlike a receipt) can have many rows and take long enough
-        // to generate that mobile Chrome no longer trusts a download/share
-        // triggered afterward -- see downloadPdfFromElement.
-        preOpenTab: true,
         branding: {
           businessName: getActiveBranchDisplayName(activeTenant, systemSettings, userName, activeBranch),
           // Reports under the Reports menu are internal ledgers for the
@@ -157,7 +153,7 @@ export default function DashboardReports({
       setTimeout(() => setReportPdfStatus(null), 4000);
     }
   };
-  
+
   const [reportTab, setReportTab] = useState<'p&l' | 'sales-report' | 'payments' | 'inventory' | 'velocity' | 'users' | 'expenses' | 'product-monitoring' | 'dual-channel' | 'deliveries' | 'bulk-products' | 'stock-adjustment' | 'purchases-report'>(
     (defaultTab as any) || (rolePermissions?.reportsProfitCogs?.read !== false ? 'p&l' : 'sales-report')
   );
