@@ -3830,6 +3830,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
 
     const {
       name,
+      email,
       phone,
       password,
       payoutMethod,
@@ -3857,11 +3858,17 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     if (googleRegistration && (!googleUser?.id || !googleUser.email)) {
       return res.status(401).json({ error: 'Verified Google session is required.' });
     }
-    if (!googleRegistration && !isStrongPassword(password)) {
-      return res.status(400).json({ error: 'Password must be 10+ characters and include letters and numbers.' });
+    const normalizedRegEmail = normalizeEmail(email);
+    if (!googleRegistration) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedRegEmail)) {
+        return res.status(400).json({ error: 'A valid email address is required.' });
+      }
+      if (!isStrongPassword(password)) {
+        return res.status(400).json({ error: 'Password must be 10+ characters and include letters and numbers.' });
+      }
     }
 
-    const authEmail = googleUser?.email ? normalizeEmail(googleUser.email) : `affiliate-${normalizedPhone}@jasper.local`;
+    const authEmail = googleUser?.email ? normalizeEmail(googleUser.email) : normalizedRegEmail;
     try {
       const [{ data: existingAffiliateCode }, { data: existingPartnerCode }] = await Promise.all([
         adminTable('affiliates').select('id').or(`referral_code.eq.${normalizedCode},promo_code.eq.${normalizedCode}`).maybeSingle(),
