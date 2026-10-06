@@ -65,6 +65,7 @@ import { getSaleItemLineTotal } from './utils/saleItemTotals';
 import {
   createStandardCommercialDocument,
   createCrossBranchCommercialDocument,
+  updateCrossBranchCommercialDocument,
   convertCrossBranchCommercialDocument,
   loadCommercialDocuments,
   loadCrossBranchDocumentSources,
@@ -680,6 +681,11 @@ export default function DashboardSalesList({
   // Non-null while the wizard below is editing an existing pending document
   // (opened via openEditDocument) instead of creating a new one.
   const [editingDocumentId, setEditingDocumentId] = useState<string | null>(null);
+  // True when the document being edited is a cross-branch document (has an
+  // issuingBranchId) -- its save must go through the cross-branch update API
+  // instead of updateStandardCommercialDocument, and its branding branch is
+  // immutable once created.
+  const [editingDocumentIsCrossBranch, setEditingDocumentIsCrossBranch] = useState(false);
 
   // States for wizard: document creator
   const [newDocType, setNewDocType] = useState<'price quote' | 'proforma invoice'>('price quote');
@@ -765,6 +771,16 @@ export default function DashboardSalesList({
         void loadCrossBranchDocumentSources()
           .then(sources => {
             setCrossBranchSources(sources);
+            // Editing a cross-branch document: its branding branch is
+            // immutable (openEditDocument already set it from the saved
+            // document) -- only default the "add more items from" branch,
+            // don't overwrite the issuing branch selection.
+            if (editingDocumentIsCrossBranch) {
+              setDocWizardSourceBranchId(newDocIssuingBranchId || activeBranchId || sources.branches[0]?.id || '');
+              setDocWizardSelectedProductId('');
+              setDocWizardProductSearchQuery('');
+              return;
+            }
             // Default to the branch the user is actually operating from, not
             // the tenant's designated default branch — otherwise a staff
             // member working from a secondary branch opens the wizard
@@ -787,7 +803,7 @@ export default function DashboardSalesList({
           .finally(() => setCrossBranchSourcesLoading(false));
       }
     }
-  }, [showNewDocModal, canUseCrossBranchDocuments, documentPaymentMethods, getDocumentPaymentAccount, activeBranchId, editingDocumentId]); // reset only when opening
+  }, [showNewDocModal, canUseCrossBranchDocuments, documentPaymentMethods, getDocumentPaymentAccount, activeBranchId, editingDocumentId, editingDocumentIsCrossBranch]); // reset only when opening
 
   useEffect(() => {
     if (!documentPaymentMethods.includes(newDocPaymentMethod)) {
@@ -1294,19 +1310,19 @@ export default function DashboardSalesList({
     setNewDocCustomerAddress('');
     setNewDocDiscountValue(0);
     setEditingDocumentId(null);
+    setEditingDocumentIsCrossBranch(false);
     setShowNewDocModal(false);
   };
 
-  // Only pending, single-branch documents are editable -- a converted
-  // document is already tied to a real Sale and deducted stock (changing its
-  // items afterward would desync both), and cross-branch documents don't yet
-  // have an update API to reuse (createCrossBranchCommercialDocument has no
-  // update counterpart, unlike updateStandardCommercialDocument).
-  const isDocumentEditable = (doc: SalesDocument) => doc.status === 'pending' && !doc.issuingBranchId;
+  // A converted document is already tied to a real Sale and deducted stock --
+  // changing its items afterward would desync both, so only pending documents
+  // (standard or cross-branch) are editable.
+  const isDocumentEditable = (doc: SalesDocument) => doc.status === 'pending';
 
   const openEditDocument = (doc: SalesDocument) => {
     if (!isDocumentEditable(doc)) return;
     setEditingDocumentId(doc.id);
+    setEditingDocumentIsCrossBranch(!!doc.issuingBranchId);
     setNewDocType(doc.type === 'proforma invoice' ? 'proforma invoice' : 'price quote');
     setNewDocCustomerName(doc.customerName || '');
     setNewDocCustomerPhone(doc.customerPhone || '');
@@ -1320,6 +1336,7 @@ export default function DashboardSalesList({
     setNewDocPaymentAccountNumber(doc.paymentAccountNumber || '');
     setNewDocPaymentAccountName(doc.paymentAccountName || '');
     setNewDocHasVat(!!doc.hasVat);
+    setNewDocIssuingBranchId(doc.issuingBranchId || '');
     setShowNewDocModal(true);
   };
 
@@ -1332,6 +1349,53 @@ export default function DashboardSalesList({
     // time the app reloaded. Refuse up front instead of silently failing.
     if (!canUseCrossBranchDocuments && !canWriteBusinessDataOnline()) {
       alert('You appear to be offline. Reconnect and try again — this document was not saved.');
+      return;
+    }
+
+    if (editingDocumentId && editingDocumentIsCrossBranch) {
+      if (newDocItems.some(item => !item.sourceBranchId)) {
+        alert('Select a source branch for every product.');
+        return;
+      }
+      setDocumentMutationPending(true);
+      try {
+        const editedId = editingDocumentId;
+        const editedTimestamp = localDateToIso(newDocDate || formatLocalDate(), new Date(), 12);
+        const updated = await updateCrossBranchCommercialDocument(editedId, {
+          customerName: newDocCustomerName || 'Customer',
+          customerPhone: newDocCustomerPhone || '',
+          customerAddress: newDocCustomerAddress || '',
+          issueDate: newDocDate || formatLocalDate(),
+          discountAmount: newDocDiscountAmount,
+          taxAmount: newDocTaxAmount,
+          deliveryAmount: Number(newDocDeliveryCost) || 0,
+          items: newDocItems.map(item => ({
+            sourceBranchId: item.sourceBranchId!,
+            productId: String(item.productId),
+            productName: item.productName,
+            unit: item.unit,
+            quantity: toNumber(item.qty),
+            unitPrice: toNumber(item.price),
+          })),
+        });
+        setDocuments(prev => prev.map(d => d.id === editedId ? normalizeDocumentDiscount({
+          ...d,
+          customerName: newDocCustomerName || 'Customer',
+          customerPhone: newDocCustomerPhone || '',
+          customerAddress: newDocCustomerAddress || '',
+          items: newDocItems.map(item => ({ ...item, discount: 0, discountType: 'percent' as const })),
+          total: updated.total,
+          discountAmount: newDocDiscountAmount,
+          tax: newDocTaxAmount,
+          deliveryCost: Number(newDocDeliveryCost) || 0,
+          timestamp: editedTimestamp,
+        }) : d));
+        resetNewDocumentForm();
+      } catch (error) {
+        alert(error instanceof Error ? error.message : 'The document could not be updated.');
+      } finally {
+        setDocumentMutationPending(false);
+      }
       return;
     }
 
@@ -5168,11 +5232,15 @@ export default function DashboardSalesList({
                       <div>
                         <label className="text-[10px] font-bold text-slate-500 block mb-1">Document branding branch</label>
                         <select value={newDocIssuingBranchId} onChange={e => setNewDocIssuingBranchId(e.target.value)}
-                          className="w-full bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 dark:text-slate-100">
+                          disabled={editingDocumentIsCrossBranch}
+                          className="w-full bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 dark:text-slate-100 disabled:opacity-60">
                           {(crossBranchSources?.branches || []).map(branch => (
                             <option key={branch.id} value={branch.id}>{branch.businessName || branch.branchName}</option>
                           ))}
                         </select>
+                        {editingDocumentIsCrossBranch && (
+                          <p className="text-[10px] text-slate-400 mt-1">The branding branch cannot be changed after creation.</p>
+                        )}
                       </div>
                       <div>
                         <label className="text-[10px] font-bold text-slate-500 block mb-1">Product source branch</label>
@@ -5457,7 +5525,7 @@ export default function DashboardSalesList({
                 Cancel
               </button>
               <button type="button"
-                disabled={newDocItems.length === 0 || documentMutationPending || (!editingDocumentId && canUseCrossBranchDocuments && (!newDocIssuingBranchId || crossBranchSourcesLoading || !!crossBranchSourcesError))}
+                disabled={newDocItems.length === 0 || documentMutationPending || ((!editingDocumentId || editingDocumentIsCrossBranch) && canUseCrossBranchDocuments && (!newDocIssuingBranchId || crossBranchSourcesLoading || !!crossBranchSourcesError))}
                 onClick={() => void handleCreateCommercialDocument()}
                 className="flex-[2] py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 disabled:cursor-not-allowed text-white font-black text-sm cursor-pointer transition-colors border-none">
                 {documentMutationPending ? 'Saving…' : editingDocumentId ? 'Save Changes' : `Create ${getDocumentLabel(newDocType)}`}

@@ -2154,6 +2154,34 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     return res.status(201).json({ document: data });
   });
 
+  app.patch('/api/branches/commercial-documents/:documentId', async (req, res) => {
+    const branchClient = await requireBranchRpcClient(req, res);
+    if (!branchClient) return;
+    if (!requireMultiBranchFeature(res)) return;
+
+    const documentId = String(req.params.documentId || '');
+    if (!isUuid(documentId)) return res.status(400).json({ error: 'A valid document ID is required.' });
+
+    const documentPayload = req.body?.document;
+    if (!documentPayload || typeof documentPayload !== 'object' || Array.isArray(documentPayload)) {
+      return res.status(400).json({ error: 'A commercial document payload is required.' });
+    }
+    if (!Array.isArray(documentPayload.items) || documentPayload.items.length < 1 || documentPayload.items.length > 500) {
+      return res.status(400).json({ error: 'A document requires between 1 and 500 items.' });
+    }
+    const serializedBytes = Buffer.byteLength(JSON.stringify(documentPayload), 'utf8');
+    if (serializedBytes > 512_000) {
+      return res.status(413).json({ error: 'Commercial document payload is too large.' });
+    }
+
+    const { data, error } = await branchClient.rpc('update_cross_branch_commercial_document', {
+      p_document_id: documentId,
+      p_document: documentPayload,
+    });
+    if (error) return sendBranchRpcError(res, error);
+    return res.json({ document: data });
+  });
+
   app.post('/api/branches/commercial-documents/:documentId/convert', async (req, res) => {
     const branchClient = await requireBranchRpcClient(req, res);
     if (!branchClient) return;

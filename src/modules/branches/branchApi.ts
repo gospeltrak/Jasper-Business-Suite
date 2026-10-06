@@ -280,6 +280,44 @@ export const createCrossBranchCommercialDocument = async (
   return response.document;
 };
 
+export interface CrossBranchCommercialDocumentUpdateInput {
+  customerName: string;
+  customerPhone?: string;
+  customerAddress?: string;
+  issueDate: string;
+  discountAmount: number;
+  taxAmount: number;
+  deliveryAmount: number;
+  notes?: string;
+  items: Array<{
+    sourceBranchId: string;
+    productId: string;
+    productName: string;
+    unit?: string;
+    quantity: number;
+    unitPrice: number;
+  }>;
+}
+
+export const updateCrossBranchCommercialDocument = async (
+  documentId: string,
+  document: CrossBranchCommercialDocumentUpdateInput,
+) => {
+  const token = await getAccessToken();
+  const response = await requestBranchApi<{
+    document: {
+      documentId: string;
+      subtotal: number;
+      total: number;
+      itemCount: number;
+    };
+  }>(`/api/branches/commercial-documents/${encodeURIComponent(documentId)}`, token, {
+    method: 'PATCH',
+    body: JSON.stringify({ document }),
+  });
+  return response.document;
+};
+
 export const convertCrossBranchCommercialDocument = async (
   documentId: string,
   idempotencyKey: string,
