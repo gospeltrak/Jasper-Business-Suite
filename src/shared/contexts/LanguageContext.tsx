@@ -229,6 +229,45 @@ const BUSINESS_DICTIONARY: Record<string, Record<string, string>> = {
     "quick action": "Haraka",
     "open sell screen": "Fungua Kuuza",
     "tap to start selling now": "Bonyeza uanze kuuza sasa",
+    "available balance": "Salio Lililopo",
+    "accounts": "Akaunti",
+    "cash drawers": "Taslimu",
+    "physical cash points": "Fedha Mkononi",
+    "mobile wallets": "Pochi za Simu",
+    "bank accounts": "Akaunti za Benki",
+    "formal bank channels": "Benki Rasmi",
+    "accounts & wallets": "Akaunti na Pochi",
+    "see all": "Ona Zote",
+    "treasury": "Hazina",
+    "net movement": "Mzunguko wa Fedha",
+    "transfer": "Hamisha",
+    "history": "Historia",
+    "directory": "Orodha",
+    "register": "Sajili",
+    "no staff registered.": "Hakuna wafanyakazi waliosajiliwa.",
+    "register staff to see their session and performance reports here.": "Sajili wafanyakazi ili kuona taarifa za vikao na utendaji wao hapa.",
+    "product list": "Orodha ya Bidhaa",
+    "view all products": "Ona Bidhaa Zote",
+    "browse by type": "Chagua kwa Aina",
+    "browse by brand": "Chagua kwa Chapa",
+    "barcode & labels": "Msimbo na Lebo",
+    "print station": "Sehemu ya Kuchapisha",
+    "brands": "Chapa",
+    "csv or backup": "CSV au Nakala",
+    "full restore backup": "Rudisha Nakala Kamili",
+    "template": "Fomu",
+    "cost": "Gharama",
+    "shopping cart": "Kikapu cha Ununuzi",
+    "sale entry date": "Tarehe ya Mauzo",
+    "till subtotal": "Jumla Ndogo",
+    "order discount": "Punguzo",
+    "tax type": "Aina ya Kodi",
+    "customer vat status": "Hali ya VAT ya Mteja",
+    "delivery charges": "Gharama za Usafirishaji",
+    "order total": "Jumla",
+    "cart total": "Jumla",
+    "void": "Futa",
+    "proceed to payment": "Endelea na Malipo",
     "view sale": "Angalia Uuzaji",
     "add payment": "Ongeza Malipo",
     "edit sale": "Hariri Uuzaji",
@@ -1072,6 +1111,13 @@ function translateString(text: string, lang: LanguageType): string {
   const trimmed = text.trim();
   if (!trimmed) return text;
 
+  // A translated text node must keep its original surrounding whitespace --
+  // adjacent sibling text nodes (e.g. a React `{count} items` expression
+  // rendering as separate "{count}" and " items" nodes) rely on it, and
+  // losing it merges them into run-together text like "2items".
+  const leading = text.slice(0, text.length - text.trimStart().length);
+  const trailing = text.slice(text.trimEnd().length);
+
   const dict = BUSINESS_DICTIONARY[lang];
   if (!dict) return text;
 
@@ -1083,20 +1129,20 @@ function translateString(text: string, lang: LanguageType): string {
 
   // 1. Direct match on full string
   if (dict[lText]) {
-    return matchCasing(trimmed, dict[lText]);
+    return leading + matchCasing(trimmed, dict[lText]) + trailing;
   }
 
   // 2. Direct match on normalized string
   const normalizedText = lText.replace(/\s+/g, ' ');
   if (dict[normalizedText]) {
-    return matchCasing(trimmed, dict[normalizedText]);
+    return leading + matchCasing(trimmed, dict[normalizedText]) + trailing;
   }
 
   // 3. Match on stripped base
   if (dict[normalizedKey]) {
     const translatedBase = matchCasing(trimmed.replace(/[:!?]$/, ''), dict[normalizedKey]);
     const trailingPunctuation = trimmed.slice(trimmed.length - (trimmed.length - keyBase.length));
-    return translatedBase + trailingPunctuation;
+    return leading + translatedBase + trailingPunctuation + trailing;
   }
 
   // 4. Fallback: Parse common tokens and phrases recursively (sorted by length desc)
@@ -1129,7 +1175,7 @@ function translateString(text: string, lang: LanguageType): string {
     }
   }
 
-  return parsed;
+  return leading + parsed + trailing;
 }
 
 function matchCasing(original: string, translation: string): string {
