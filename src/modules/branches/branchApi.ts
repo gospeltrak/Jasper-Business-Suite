@@ -171,6 +171,10 @@ export interface CrossBranchDocumentSourceBranch {
 export interface CrossBranchDocumentSourceProduct {
   branchId: string;
   productId: string;
+  productName?: string;
+  unit?: string;
+  barcode?: string;
+  sku?: string;
   quantity: number;
   sellingPrice: number | null;
   wholesalePrice: number | null;

@@ -823,24 +823,37 @@ export default function DashboardSalesList({
   const [docWizardSelectedProductId, setDocWizardSelectedProductId] = useState('');
   const [docWizardSelectedQty, setDocWizardSelectedQty] = useState(1);
   const [docWizardProductSearchQuery, setDocWizardProductSearchQuery] = useState('');
-  const branchSourceProductIds = React.useMemo(() => new Set(
-    (crossBranchSources?.products || [])
-      .filter(product => product.branchId === docWizardSourceBranchId && product.quantity > 0)
-      .map(product => product.productId)
-  ), [crossBranchSources, docWizardSourceBranchId]);
   const documentPickerProducts = React.useMemo(() => {
     if (!canUseCrossBranchDocuments || !crossBranchSources) return products;
     // Sourcing from your own current branch always searches the full,
     // authoritative dashboard catalogue -- branch_stock only tracks products
     // that have gone through an explicit branch-scoped purchase, so a newer
     // or not-yet-allocated product would otherwise silently vanish from
-    // invoicing even though it's right there in Products. branch_stock-based
-    // filtering is reserved for the deliberate cross-branch case: sourcing
-    // items from a *different* branch than the one you're working from.
+    // invoicing even though it's right there in Products.
     if (docWizardSourceBranchId === activeBranchId) return products;
-    const tenantCatalogue = allTenantProducts && allTenantProducts.length ? allTenantProducts : products;
-    return tenantCatalogue.filter(product => branchSourceProductIds.has(product.id));
-  }, [activeBranchId, allTenantProducts, branchSourceProductIds, canUseCrossBranchDocuments, crossBranchSources, docWizardSourceBranchId, products]);
+    // Sourcing from a *different* branch is built entirely from the server's
+    // own branch-scoped response (it includes name/unit/barcode/sku) rather
+    // than cross-referenced against the browser's local product cache --
+    // that cache only ever holds products from branches this browser has
+    // actually been active on, so a branch the user hasn't switched to
+    // recently would otherwise show zero products regardless of real stock.
+    return (crossBranchSources.products || [])
+      .filter(product => product.branchId === docWizardSourceBranchId && product.quantity > 0)
+      .map(product => ({
+        id: product.productId,
+        name: product.productName || 'Item',
+        sku: product.sku || '',
+        barcode: product.barcode || '',
+        category: '',
+        unit: product.unit || 'pcs',
+        costPrice: 0,
+        sellingPrice: product.sellingPrice ?? 0,
+        stockQty: product.quantity,
+        shopStockQty: product.quantity,
+        storeStockQty: 0,
+        alertQty: 0,
+      } as Product));
+  }, [activeBranchId, canUseCrossBranchDocuments, crossBranchSources, docWizardSourceBranchId, products]);
   const newDocSubtotal = React.useMemo(
     () => newDocItems.reduce((sum, item) => sum + (toNumber(item.qty) * toNumber(item.price)), 0),
     [newDocItems]
