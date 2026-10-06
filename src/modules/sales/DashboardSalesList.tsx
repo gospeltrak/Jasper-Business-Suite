@@ -1775,7 +1775,7 @@ export default function DashboardSalesList({
                   className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold relative"
                   style={{background:active?tab.color:'transparent',color:active?'#ffffff':'#64748b',boxShadow:active?`0 2px 8px ${tab.color}30`:'none'}}>
                   {tab.icon}<span>{tab.label}</span>
-                  {tab.badge && tab.badge > 0 && (
+                  {!!tab.badge && tab.badge > 0 && (
                     <span className="w-4 h-4 rounded-full bg-rose-500 text-white text-[9px] font-black flex items-center justify-center">{tab.badge > 9 ? '9+' : tab.badge}</span>
                   )}
                 </button>
@@ -1803,7 +1803,7 @@ export default function DashboardSalesList({
               >
                 <span style={{ color: active ? '#ffffff' : '#64748b' }}>{tab.icon}</span>
                 <span className="text-[10px] font-bold mt-1" style={{ color: active ? '#ffffff' : '#64748b' }}>{tab.label}</span>
-                {tab.badge && tab.badge > 0 && (
+                {!!tab.badge && tab.badge > 0 && (
                   <span className="absolute top-1.5 right-2 w-2 h-2 rounded-full bg-rose-500 border border-white dark:border-slate-800" />
                 )}
               </button>
