@@ -436,7 +436,12 @@ export default function DashboardSalesList({
   };
   const getInvoiceFooter = (doc?: SalesDocument) => {
     const snapshot = (doc?.brandingSnapshot || {}) as Record<string, any>;
-    const businessName = snapshot.businessName || snapshot.branchName || getActiveBranchDisplayName(activeTenant, systemSettings, undefined, activeBranch);
+    // A cross-branch document is explicitly branded to its issuing branch at
+    // creation time (brandingSnapshot) and must never silently pick up
+    // whichever branch happens to be active when it's viewed later -- fall
+    // back to the tenant-wide defaults for those, not the active branch.
+    const fallbackBranch = doc?.issuingBranchId ? null : activeBranch;
+    const businessName = snapshot.businessName || snapshot.branchName || getActiveBranchDisplayName(activeTenant, systemSettings, undefined, fallbackBranch);
     const mainMessage = doc?.tagline || systemSettings?.invoiceSettings?.footerNote || 'Thank you for shopping with us.';
     // Fixed brand line — a configured business website is a different concept
     // from "Powered by Orvix" attribution and must not replace it here.
@@ -445,13 +450,14 @@ export default function DashboardSalesList({
   };
   const getDocumentBranding = (doc: SalesDocument) => {
     const snapshot = (doc.brandingSnapshot || {}) as Record<string, any>;
+    const fallbackBranch = doc.issuingBranchId ? null : activeBranch;
     return {
-      name: snapshot.businessName || snapshot.branchName || getActiveBranchDisplayName(activeTenant, systemSettings, undefined, activeBranch),
+      name: snapshot.businessName || snapshot.branchName || getActiveBranchDisplayName(activeTenant, systemSettings, undefined, fallbackBranch),
       city: snapshot.city || activeTenant.city || '',
-      address: snapshot.address || getActiveBranchAddress(systemSettings, activeBranch),
-      phone: snapshot.phone || getActiveBranchPhone(systemSettings, activeBranch),
-      email: snapshot.email || getActiveBranchEmail(systemSettings, activeBranch),
-      logo: snapshot.logo || getActiveBranchLogo(systemSettings, activeBranch) || '',
+      address: snapshot.address || getActiveBranchAddress(systemSettings, fallbackBranch),
+      phone: snapshot.phone || getActiveBranchPhone(systemSettings, fallbackBranch),
+      email: snapshot.email || getActiveBranchEmail(systemSettings, fallbackBranch),
+      logo: snapshot.logoLightUrl || snapshot.logoDarkUrl || getActiveBranchLogo(systemSettings, fallbackBranch) || '',
     };
   };
 
@@ -824,13 +830,16 @@ export default function DashboardSalesList({
   ), [crossBranchSources, docWizardSourceBranchId]);
   const documentPickerProducts = React.useMemo(() => {
     if (!canUseCrossBranchDocuments || !crossBranchSources) return products;
+    // Sourcing from your own current branch always searches the full,
+    // authoritative dashboard catalogue -- branch_stock only tracks products
+    // that have gone through an explicit branch-scoped purchase, so a newer
+    // or not-yet-allocated product would otherwise silently vanish from
+    // invoicing even though it's right there in Products. branch_stock-based
+    // filtering is reserved for the deliberate cross-branch case: sourcing
+    // items from a *different* branch than the one you're working from.
+    if (docWizardSourceBranchId === activeBranchId) return products;
     const tenantCatalogue = allTenantProducts && allTenantProducts.length ? allTenantProducts : products;
-    const sourcedProducts = tenantCatalogue.filter(product => branchSourceProductIds.has(product.id));
-    // During legacy branch-stock normalization the server source can briefly
-    // be empty. The already branch-scoped dashboard catalogue is authoritative
-    // for the active branch and prevents its invoice search becoming blank.
-    if (sourcedProducts.length === 0 && docWizardSourceBranchId === activeBranchId) return products;
-    return sourcedProducts;
+    return tenantCatalogue.filter(product => branchSourceProductIds.has(product.id));
   }, [activeBranchId, allTenantProducts, branchSourceProductIds, canUseCrossBranchDocuments, crossBranchSources, docWizardSourceBranchId, products]);
   const newDocSubtotal = React.useMemo(
     () => newDocItems.reduce((sum, item) => sum + (toNumber(item.qty) * toNumber(item.price)), 0),
