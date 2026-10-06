@@ -184,13 +184,6 @@ interface DashboardSalesListProps {
   onDeleteSale?: (sale: Sale) => Promise<boolean> | boolean;
   rolePermissions?: any;
   products?: Product[];
-  /**
-   * Full tenant-wide product catalog, unscoped by the dashboard's active
-   * branch selection. Used only by the cross-branch document wizard, which
-   * must be able to resolve product names/details for whichever branch the
-   * user picks there, not just the branch currently active on the dashboard.
-   */
-  allTenantProducts?: Product[];
   /** The branch the user is currently operating the dashboard from. */
   activeBranchId?: string | null;
   activeBranch?: BranchSummary | null;
@@ -257,7 +250,6 @@ export default function DashboardSalesList({
   onDeleteSale,
   rolePermissions,
   products = [],
-  allTenantProducts,
   activeBranchId,
   activeBranch,
   systemSettings,

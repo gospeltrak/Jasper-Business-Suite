@@ -4581,7 +4581,6 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
               onDeleteSale={handleDeleteSale}
               rolePermissions={currentPermissions}
               products={activeProducts}
-              allTenantProducts={productsMap[activeTenant.id] || []}
               activeBranchId={activeBranchSelection.activeBranchId}
               activeBranch={branchContextSelectedBranch}
               systemSettings={systemSettings}
