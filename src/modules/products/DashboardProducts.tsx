@@ -1056,6 +1056,12 @@ export default function DashboardProducts({
   const markup = effectiveCostPrice > 0 ? (profit / effectiveCostPrice) * 100 : 0;
   const margin = effectiveSellingPrice > 0 ? (profit / effectiveSellingPrice) * 100 : 0;
 
+  // Wholesale is sold and priced independently of retail (no bulk-unit
+  // conversion applied), so it needs its own markup/margin against cost.
+  const wholesaleProfit = wholesalePrice - effectiveCostPrice;
+  const wholesaleMarkup = effectiveCostPrice > 0 ? (wholesaleProfit / effectiveCostPrice) * 100 : 0;
+  const wholesaleMargin = wholesalePrice > 0 ? (wholesaleProfit / wholesalePrice) * 100 : 0;
+
   // Filter products matching print label query
   const labelSearchResults = useMemo(() => {
     if (!labelSearchQuery.trim()) return [];
@@ -3463,7 +3469,7 @@ export default function DashboardProducts({
 
                   <div className="bg-slate-50 font-mono text-[11px] p-4 rounded-2xl border border-slate-200 space-y-1.5 text-slate-500">
                     <div className="flex justify-between items-center text-xs border-b border-slate-200 pb-1 mb-1 text-slate-700 font-sans font-bold">
-                      <span>Margin:</span>
+                      <span>{sellInWholesale ? 'Retail Margin:' : 'Margin:'}</span>
                       <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
                     </div>
                     <div className="flex justify-between font-mono">
@@ -3479,6 +3485,27 @@ export default function DashboardProducts({
                       <span>{currency}{Math.round(profit).toLocaleString()}</span>
                     </div>
                   </div>
+
+                  {sellInWholesale && wholesalePrice > 0 && (
+                    <div className="bg-slate-50 font-mono text-[11px] p-4 rounded-2xl border border-slate-200 space-y-1.5 text-slate-500">
+                      <div className="flex justify-between items-center text-xs border-b border-slate-200 pb-1 mb-1 text-slate-700 font-sans font-bold">
+                        <span>Wholesale Margin:</span>
+                        <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
+                      </div>
+                      <div className="flex justify-between font-mono">
+                        <span>Product Markup:</span>
+                        <span className="text-slate-800 font-bold">{wholesaleMarkup.toFixed(1)}%</span>
+                      </div>
+                      <div className="flex justify-between font-mono">
+                        <span>Profit Margin:</span>
+                        <span className="text-emerald-600 font-bold">{wholesaleMargin.toFixed(1)}%</span>
+                      </div>
+                      <div className="flex justify-between font-sans font-bold text-slate-800 pt-1 mt-0.5 border-t border-slate-200">
+                        <span>Margin Gain per Unit:</span>
+                        <span>{currency}{Math.round(wholesaleProfit).toLocaleString()}</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
               </div>
@@ -5140,24 +5167,48 @@ export default function DashboardProducts({
                     </div>
                   </div>
 
-                  {/* Profit calculations */}
+                  {/* Profit calculations -- shown per active selling channel (retail
+                      and/or wholesale) since a product can be sold both ways at
+                      different prices, each with its own margin against cost. */}
                   {viewingProduct.sellInRetail !== false && viewingProduct.sellingPrice > 0 && (
                     <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl space-y-1.5 text-slate-500">
+                      <div className="text-[9.5px] font-bold text-slate-400 uppercase tracking-widest pb-1">Retail Margin</div>
                       <div className="flex justify-between">
                         <span>Markup Factor:</span>
                         <span className="text-slate-800 font-bold">
-                          {(((viewingProduct.sellingPrice - viewingProduct.costPrice) / (viewingProduct.costPrice || 1)) * 105).toFixed(1)}%
+                          {(((viewingProduct.sellingPrice - viewingProduct.costPrice) / (viewingProduct.costPrice || 1)) * 100).toFixed(1)}%
                         </span>
                       </div>
                       <div className="flex justify-between">
                         <span>Earned Profit Margin:</span>
                         <span className="text-emerald-600 font-bold">
-                          {(((viewingProduct.sellingPrice - viewingProduct.costPrice) / (viewingProduct.sellingPrice || 1)) * 105).toFixed(1)}%
+                          {(((viewingProduct.sellingPrice - viewingProduct.costPrice) / (viewingProduct.sellingPrice || 1)) * 100).toFixed(1)}%
                         </span>
                       </div>
                       <div className="flex justify-between font-sans font-bold text-slate-800 pt-1 border-t border-slate-200">
                         <span>Margin Gain / Unit:</span>
                         <span className="text-emerald-700">{currency}{(viewingProduct.sellingPrice - viewingProduct.costPrice).toLocaleString()}</span>
+                      </div>
+                    </div>
+                  )}
+                  {viewingProduct.sellInWholesale && (viewingProduct.wholesalePrice ?? 0) > 0 && (
+                    <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl space-y-1.5 text-slate-500">
+                      <div className="text-[9.5px] font-bold text-slate-400 uppercase tracking-widest pb-1">Wholesale Margin</div>
+                      <div className="flex justify-between">
+                        <span>Markup Factor:</span>
+                        <span className="text-slate-800 font-bold">
+                          {((((viewingProduct.wholesalePrice ?? 0) - viewingProduct.costPrice) / (viewingProduct.costPrice || 1)) * 100).toFixed(1)}%
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Earned Profit Margin:</span>
+                        <span className="text-emerald-600 font-bold">
+                          {((((viewingProduct.wholesalePrice ?? 0) - viewingProduct.costPrice) / ((viewingProduct.wholesalePrice ?? 0) || 1)) * 100).toFixed(1)}%
+                        </span>
+                      </div>
+                      <div className="flex justify-between font-sans font-bold text-slate-800 pt-1 border-t border-slate-200">
+                        <span>Margin Gain / Unit:</span>
+                        <span className="text-emerald-700">{currency}{((viewingProduct.wholesalePrice ?? 0) - viewingProduct.costPrice).toLocaleString()}</span>
                       </div>
                     </div>
                   )}
