@@ -254,7 +254,6 @@ export default function DashboardReports({
   };
 
   const [selectedPaymentMode, setSelectedPaymentMode] = useState<string>('All');
-  const [selectedSalesChannel, setSelectedSalesChannel] = useState<'all' | 'retail' | 'wholesale'>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [velocitySortOrder, setVelocitySortOrder] = useState<'desc' | 'asc'>('desc');
   const [searchTerm, setSearchTerm] = useState('');
@@ -331,22 +330,48 @@ export default function DashboardReports({
 
   // Scoped to the Sales Report tab only -- filteredSales above is shared by
   // P&L, Product Monitoring, Velocity and the Payments breakdown, none of
-  // which have a Retail/Wholesale or Payment Mode control of their own, so
-  // neither filter must leak into them. Sales recorded before the channel
-  // field existed have no s.channel at all -- they were always retail, so a
-  // missing value defaults to 'retail' rather than being excluded entirely.
-  // Payment Mode matches the sale's exact registered payment method name
-  // (e.g. "M-Pesa", "CRDB"), not a generic bucket -- see salesPaymentModeOptions.
+  // which have a Payment Mode control of their own, so this filter must not
+  // leak into them. Payment Mode matches the sale's exact registered payment
+  // method name (e.g. "M-Pesa", "CRDB"), not a generic bucket -- see
+  // salesPaymentModeOptions. The Retail/Wholesale split itself is not a
+  // filter here -- retailReportRows/wholesaleReportRows below each read from
+  // this same payment-filtered base and render as two separate report
+  // sections instead of one list the tenant has to flip a toggle to see.
   const salesReportSales = useMemo(() => {
     let rows = filteredSales;
-    if (selectedSalesChannel !== 'all') {
-      rows = rows.filter(s => (s.channel || 'retail') === selectedSalesChannel);
-    }
     if (selectedPaymentMode !== 'All') {
       rows = rows.filter(s => (s.paymentMethod || '') === selectedPaymentMode);
     }
     return rows;
-  }, [filteredSales, selectedSalesChannel, selectedPaymentMode]);
+  }, [filteredSales, selectedPaymentMode]);
+
+  // Sales recorded before the channel field existed have no s.channel at all
+  // -- they were always retail, so a missing value defaults to 'retail'
+  // rather than being excluded from the Retail report.
+  const retailReportRows = useMemo(
+    () => salesReportSales.filter(s => (s.channel || 'retail') !== 'wholesale'),
+    [salesReportSales]
+  );
+  const wholesaleReportRows = useMemo(
+    () => salesReportSales.filter(s => (s.channel || 'retail') === 'wholesale'),
+    [salesReportSales]
+  );
+
+  const computeChannelSalesStats = (rows: Sale[]) => {
+    const totalRevenue = rows.reduce((sum, s) => sum + saleProductRevenue(s), 0);
+    const count = rows.length;
+    let cost = 0;
+    rows.forEach(s => {
+      (s.items || []).forEach(item => {
+        const matchingProd = products.find(p => p.id === item.productId);
+        cost += (item.costPriceAtSale ?? matchingProd?.costPrice ?? 0) * item.qty;
+      });
+    });
+    return { totalRevenue, count, avg: count > 0 ? totalRevenue / count : 0, profit: totalRevenue - cost };
+  };
+
+  const retailSalesStats = useMemo(() => computeChannelSalesStats(retailReportRows), [retailReportRows, products]);
+  const wholesaleSalesStats = useMemo(() => computeChannelSalesStats(wholesaleReportRows), [wholesaleReportRows, products]);
 
   const filteredExpenses = useMemo(() => {
     return expenses.filter(e => {
@@ -386,6 +411,26 @@ export default function DashboardReports({
     const netProfit = grossProfit - totalExpensesCharged;
     return { totalSalesRevenue, totalCOGS, grossProfit, netProfit, totalExpensesCharged };
   }, [filteredSales, filteredExpenses, products]);
+
+  // Revenue/COGS/gross-profit split by channel -- Operating Expenses aren't
+  // recorded per sale, so they (and therefore Net Profit) can't be
+  // meaningfully split and stay combined-only, same as pnlStats above.
+  const pnlChannelBreakdown = useMemo(() => {
+    const compute = (channel: 'retail' | 'wholesale') => {
+      let revenue = 0;
+      let cogs = 0;
+      filteredSales.forEach(s => {
+        if ((s.channel || 'retail') !== channel) return;
+        revenue += saleProductRevenue(s);
+        (s.items || []).forEach(item => {
+          const matchingProd = products.find(p => p.id === item.productId);
+          cogs += (matchingProd ? (item.costPriceAtSale ?? matchingProd.costPrice) : (getSaleItemGrossTotal(item) * 0.75)) * item.qty;
+        });
+      });
+      return { revenue, cogs, grossProfit: revenue - cogs };
+    };
+    return { retail: compute('retail'), wholesale: compute('wholesale') };
+  }, [filteredSales, products]);
 
   // Daily P&L trend for the chart at the bottom of the P&L tab. Capped at
   // 100 day-buckets so this can never iterate unboundedly -- relevant now
@@ -655,6 +700,21 @@ export default function DashboardReports({
     return { shop: compute('shopStockQty'), store: compute('storeStockQty') };
   }, [filteredInventoryProducts]);
 
+  // Same physical stock as inventoryTotals/inventoryLocationTotals above --
+  // not a separate stock pool -- valued at wholesale price instead of retail
+  // for whichever products are actually sold wholesale, so a tenant can see
+  // what that stock is worth if moved through the wholesale channel instead.
+  const inventoryWholesaleTotals = useMemo(() => {
+    const totals = filteredInventoryProducts.reduce((acc, p) => {
+      if (!p.sellInWholesale) return acc;
+      const onHand = (p.shopStockQty || 0) + (p.storeStockQty || 0);
+      acc.valuation += onHand * (p.costPrice || 0);
+      acc.potentialRevenue += onHand * (p.wholesalePrice || 0);
+      return acc;
+    }, { valuation: 0, potentialRevenue: 0 });
+    return { ...totals, potentialProfit: totals.potentialRevenue - totals.valuation };
+  }, [filteredInventoryProducts]);
+
   const inventoryDisplayRows = useMemo(() => {
     return filteredInventoryProducts
       .map(p => {
@@ -698,36 +758,6 @@ export default function DashboardReports({
     }
     return [{ value: 'All', label: 'All' }, ...Array.from(seen, ([value, label]) => ({ value, label }))];
   }, [systemSettings, sales]);
-
-  // Always the combined (all-channel) figure -- a shop owner closing out
-  // the day wants their true total first, not a number silently narrowed by
-  // whichever channel segment happens to be selected below.
-  const salesTotals = useMemo(() => {
-    const totalRevenue = filteredSales.reduce((sum, s) => sum + saleProductRevenue(s), 0);
-    const count = filteredSales.length;
-    let cost = 0;
-    filteredSales.forEach(s => {
-      (s.items || []).forEach(item => {
-        const matchingProd = products.find(p => p.id === item.productId);
-        cost += (item.costPriceAtSale ?? matchingProd?.costPrice ?? 0) * item.qty;
-      });
-    });
-    return { totalRevenue, count, avg: count > 0 ? totalRevenue / count : 0, profit: totalRevenue - cost };
-  }, [filteredSales, products]);
-
-  // Per-channel revenue/order-count split, always computed across the full
-  // (channel-unfiltered) period -- feeds the Retail/Wholesale segment
-  // control below the combined totals so a tenant sees the split at a
-  // glance before deciding whether to filter the transaction list.
-  const channelSalesBreakdown = useMemo(() => {
-    const breakdown = { retail: { revenue: 0, count: 0 }, wholesale: { revenue: 0, count: 0 } };
-    filteredSales.forEach(s => {
-      const bucket = (s.channel || 'retail') === 'wholesale' ? 'wholesale' : 'retail';
-      breakdown[bucket].revenue += saleProductRevenue(s);
-      breakdown[bucket].count += 1;
-    });
-    return breakdown;
-  }, [filteredSales]);
 
   const expenseTotals = useMemo(() => {
     const total = filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
@@ -784,6 +814,74 @@ export default function DashboardReports({
       window.removeEventListener('resize', updateHint);
     };
   }, []);
+
+  // Shared by the Sales Report tab's Retail and Wholesale sections (and the
+  // single combined section shown instead for tenants with no wholesale
+  // products) -- same metric-tile-grid + table shape, scoped to whichever
+  // row set/stats are passed in.
+  const renderSalesLedgerSection = (stats: { totalRevenue: number; count: number; profit: number }, rows: Sale[]) => (
+    <>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {[
+          { label: 'Total Revenue', value: `${currency}${Math.round(stats.totalRevenue).toLocaleString()}`, icon: DollarSign, color: 'text-slate-900' },
+          { label: 'Transactions', value: stats.count.toLocaleString(), icon: ShoppingBag, color: 'text-slate-900' },
+          { label: 'Profit', value: `${currency}${Math.round(stats.profit).toLocaleString()}`, icon: TrendingUp, color: stats.profit >= 0 ? 'text-emerald-700' : 'text-rose-600' },
+        ].map((metric, i) => (
+          <div key={i} className="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 shadow-sm">
+                <metric.icon className="w-5 h-5" />
+              </div>
+              <div className="text-left">
+                <h6 className="text-sm font-bold text-slate-900">{metric.label}</h6>
+                <p className="text-xs text-slate-500">Calculated over period</p>
+              </div>
+            </div>
+            <div className="text-right">
+              <p className={`text-sm font-black ${metric.color}`}>{metric.value}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-xs">
+          <thead className="bg-slate-50 border-b border-slate-200">
+            <tr>
+              <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Date</th>
+              <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Receipt</th>
+              <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Customer</th>
+              <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Total Paid</th>
+              <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-center">Mode</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {rows.map(s => (
+              <tr key={s.id} className="hover:bg-slate-50 cursor-pointer transition-colors" onClick={() => setSelectedInspectSale(s)}>
+                <td className="p-3 text-slate-500 whitespace-nowrap">{formatLocalDate(new Date(s.timestamp))}</td>
+                <td className="p-3 font-mono font-bold text-slate-600">{s.id}</td>
+                <td className="p-3 font-medium text-slate-800">{s.customerName || 'Walk-in'}</td>
+                <td className="p-3 text-right font-black text-slate-900">{currency}{saleProductRevenue(s).toLocaleString()}</td>
+                <td className="p-3 text-center">
+                  <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10px] font-bold uppercase">{s.paymentMethod}</span>
+                </td>
+              </tr>
+            ))}
+            {rows.length === 0 && (
+              <tr>
+                <td colSpan={5} className="p-10 text-center text-slate-400">
+                  <div className="flex flex-col items-center gap-2">
+                    <ShoppingBag className="w-8 h-8 text-slate-200" />
+                    <span>No sales recorded for this period.</span>
+                  </div>
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
 
   return (
     <div id="reports-view" className="space-y-6 p-2 md:p-0">
@@ -943,6 +1041,12 @@ export default function DashboardReports({
                   { label: 'COGS Cost', value: totalCOGS, icon: Package, color: 'text-amber-600' },
                   { label: 'Op. Expenses', value: totalExpensesCharged, icon: Receipt, color: 'text-rose-600' },
                   { label: 'Gross Profit', value: grossProfit, icon: BarChart3, color: 'text-emerald-600' },
+                  ...(hasAnyWholesaleProduct ? [
+                    { label: 'Retail Revenue', value: pnlChannelBreakdown.retail.revenue, icon: TrendingUp, color: 'text-emerald-600' },
+                    { label: 'Retail Gross Profit', value: pnlChannelBreakdown.retail.grossProfit, icon: BarChart3, color: 'text-emerald-600' },
+                    { label: 'Wholesale Revenue', value: pnlChannelBreakdown.wholesale.revenue, icon: TrendingUp, color: 'text-teal-650' },
+                    { label: 'Wholesale Gross Profit', value: pnlChannelBreakdown.wholesale.grossProfit, icon: BarChart3, color: 'text-teal-650' },
+                  ] : []),
                 ].map((metric, i) => (
                   <div key={i} className="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -1033,6 +1137,40 @@ export default function DashboardReports({
                </div>
             </div>
 
+            {hasAnyWholesaleProduct && (
+              <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
+                <div>
+                  <h3 className="font-black text-slate-800 uppercase tracking-wider text-sm">Revenue & Profit by Channel</h3>
+                  <p className="text-xs text-slate-500 mt-1">Operating Expenses aren't recorded per channel, so Net Profit stays combined above.</p>
+                </div>
+                <div className="reports-split-grid gap-2 sm:gap-3">
+                  {[
+                    { key: 'retail' as const, label: '🛒 Retail', data: pnlChannelBreakdown.retail },
+                    { key: 'wholesale' as const, label: '📦 Wholesale', data: pnlChannelBreakdown.wholesale },
+                  ].map(ch => (
+                    <div key={ch.key} className="relative bg-slate-50 rounded-2xl border border-slate-200 pl-4 pr-2 py-3 sm:p-4 space-y-2 sm:space-y-3 overflow-hidden">
+                      <span className="absolute left-0 top-0 bottom-0 w-1 bg-emerald-500" />
+                      <h6 className="text-xs sm:text-sm font-bold text-slate-900 truncate">{ch.label}</h6>
+                      <div className="grid grid-cols-3 gap-1 sm:gap-2">
+                        <div className="min-w-0">
+                          <p className="text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase tracking-wider truncate">Revenue</p>
+                          <p className="text-xs sm:text-sm font-black text-slate-900 font-mono truncate">{currency}{Math.round(ch.data.revenue).toLocaleString()}</p>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase tracking-wider truncate">COGS</p>
+                          <p className="text-xs sm:text-sm font-black text-slate-900 font-mono truncate">{currency}{Math.round(ch.data.cogs).toLocaleString()}</p>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase tracking-wider truncate">Gross Profit</p>
+                          <p className={`text-xs sm:text-sm font-black font-mono truncate ${ch.data.grossProfit >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>{currency}{Math.round(ch.data.grossProfit).toLocaleString()}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
               <div>
                 <h3 className="font-black text-slate-800 uppercase tracking-wider text-sm">Daily Performance Trend</h3>
@@ -1089,118 +1227,20 @@ export default function DashboardReports({
               </div>
 
               <div id="reports-a4-pdf-template" className="space-y-6">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {[
-                  { label: 'Total Revenue', value: `${currency}${Math.round(salesTotals.totalRevenue).toLocaleString()}`, icon: DollarSign, color: 'text-slate-900' },
-                  { label: 'Transactions', value: salesTotals.count.toLocaleString(), icon: ShoppingBag, color: 'text-slate-900' },
-                  { label: 'Profit', value: `${currency}${Math.round(salesTotals.profit).toLocaleString()}`, icon: TrendingUp, color: salesTotals.profit >= 0 ? 'text-emerald-700' : 'text-rose-600' },
-                ].map((metric, i) => (
-                  <div key={i} className="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 shadow-sm">
-                        <metric.icon className="w-5 h-5" />
-                      </div>
-                      <div className="text-left">
-                        <h6 className="text-sm font-bold text-slate-900">{metric.label}</h6>
-                        <p className="text-xs text-slate-500">Calculated over period</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className={`text-sm font-black ${metric.color}`}>{metric.value}</p>
-                    </div>
+              {hasAnyWholesaleProduct ? (
+                <>
+                  <div className="space-y-3">
+                    <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">🛒 Retail Report</p>
+                    {renderSalesLedgerSection(retailSalesStats, retailReportRows)}
                   </div>
-                ))}
-              </div>
-
-              {hasAnyWholesaleProduct && (
-                <div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">View by Channel</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    {([
-                      { id: 'all' as const, icon: '🧾', label: 'All Sales', revenue: salesTotals.totalRevenue, count: salesTotals.count, activeClass: 'bg-slate-900' },
-                      { id: 'retail' as const, icon: '🛒', label: 'Retail', revenue: channelSalesBreakdown.retail.revenue, count: channelSalesBreakdown.retail.count, activeClass: 'bg-emerald-600' },
-                      { id: 'wholesale' as const, icon: '📦', label: 'Wholesale', revenue: channelSalesBreakdown.wholesale.revenue, count: channelSalesBreakdown.wholesale.count, activeClass: 'bg-teal-650' },
-                    ]).map(seg => {
-                      const isActive = selectedSalesChannel === seg.id;
-                      return (
-                        // A plain clickable div, not a <button> -- the A4 PDF
-                        // renderer (pdfShare.ts) deliberately skips real
-                        // buttons/inputs so interactive chrome never ends up
-                        // printed, which would otherwise silently drop this
-                        // card's revenue/order numbers from the exported report.
-                        <div
-                          key={seg.id}
-                          onClick={() => setSelectedSalesChannel(seg.id)}
-                          className={`text-left p-3.5 rounded-2xl border transition-all cursor-pointer ${
-                            isActive
-                              ? `${seg.activeClass} border-transparent shadow-sm`
-                              : 'bg-white border-slate-200 hover:border-slate-300'
-                          }`}
-                        >
-                          <p className={`text-[9px] font-black uppercase tracking-widest ${isActive ? 'text-white/70' : 'text-slate-400'}`}>
-                            {seg.icon} {seg.label}
-                          </p>
-                          <p className={`text-sm font-black mt-1 ${isActive ? 'text-white' : 'text-slate-900'}`}>
-                            {currency}{Math.round(seg.revenue).toLocaleString()}
-                          </p>
-                          <p className={`text-[10px] font-semibold mt-0.5 ${isActive ? 'text-white/70' : 'text-slate-400'}`}>
-                            {seg.count.toLocaleString()} order{seg.count === 1 ? '' : 's'}
-                          </p>
-                        </div>
-                      );
-                    })}
+                  <div className="space-y-3 pt-4 border-t border-slate-100">
+                    <p className="text-[10px] font-bold text-teal-650 uppercase tracking-widest">📦 Wholesale Report</p>
+                    {renderSalesLedgerSection(wholesaleSalesStats, wholesaleReportRows)}
                   </div>
-                </div>
+                </>
+              ) : (
+                renderSalesLedgerSection(retailSalesStats, retailReportRows)
               )}
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 border-b border-slate-200">
-                    <tr>
-                      <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Date</th>
-                      <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Receipt</th>
-                      <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Customer</th>
-                      <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Total Paid</th>
-                      <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-center">Mode</th>
-                      {hasAnyWholesaleProduct && (
-                        <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-center">Channel</th>
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {salesReportSales.map(s => (
-                      <tr key={s.id} className="hover:bg-slate-50 cursor-pointer transition-colors" onClick={() => setSelectedInspectSale(s)}>
-                        <td className="p-3 text-slate-500 whitespace-nowrap">{formatLocalDate(new Date(s.timestamp))}</td>
-                        <td className="p-3 font-mono font-bold text-slate-600">{s.id}</td>
-                        <td className="p-3 font-medium text-slate-800">{s.customerName || 'Walk-in'}</td>
-                        <td className="p-3 text-right font-black text-slate-900">{currency}{saleProductRevenue(s).toLocaleString()}</td>
-                        <td className="p-3 text-center">
-                          <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10px] font-bold uppercase">{s.paymentMethod}</span>
-                        </td>
-                        {hasAnyWholesaleProduct && (
-                          <td className="p-3 text-center">
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                              (s.channel || 'retail') === 'wholesale' ? 'bg-teal-50 text-teal-700' : 'bg-emerald-50 text-emerald-700'
-                            }`}>
-                              {(s.channel || 'retail') === 'wholesale' ? '📦 Wholesale' : '🛒 Retail'}
-                            </span>
-                          </td>
-                        )}
-                      </tr>
-                    ))}
-                    {salesReportSales.length === 0 && (
-                      <tr>
-                        <td colSpan={hasAnyWholesaleProduct ? 6 : 5} className="p-10 text-center text-slate-400">
-                          <div className="flex flex-col items-center gap-2">
-                            <ShoppingBag className="w-8 h-8 text-slate-200" />
-                            <span>No sales recorded for this period.</span>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
               </div>
             </div>
           </div>
@@ -1279,6 +1319,42 @@ export default function DashboardReports({
                 </div>
               </div>
 
+              {hasAnyWholesaleProduct && (
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Wholesale Valuation (if sold wholesale)</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 shadow-sm">
+                          <DollarSign className="w-5 h-5" />
+                        </div>
+                        <div className="text-left">
+                          <h6 className="text-sm font-bold text-slate-900">Potential Wholesale Revenue</h6>
+                          <p className="text-xs text-slate-500">Stock on hand, wholesale-eligible products only</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-black text-slate-900">{currency}{Math.round(inventoryWholesaleTotals.potentialRevenue).toLocaleString()}</p>
+                      </div>
+                    </div>
+                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 shadow-sm">
+                          <TrendingUp className="w-5 h-5" />
+                        </div>
+                        <div className="text-left">
+                          <h6 className="text-sm font-bold text-slate-900">Potential Wholesale Profit</h6>
+                          <p className="text-xs text-slate-500">Stock on hand, wholesale-eligible products only</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className={`text-sm font-black ${inventoryWholesaleTotals.potentialProfit >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>{currency}{Math.round(inventoryWholesaleTotals.potentialProfit).toLocaleString()}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 w-full sm:w-auto sm:inline-flex">
                 {([
                   { id: 'all', label: 'All' },
@@ -1308,6 +1384,9 @@ export default function DashboardReports({
                       </th>
                       <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Cost Price</th>
                       <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Selling Price</th>
+                      {hasAnyWholesaleProduct && (
+                        <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Wholesale Price</th>
+                      )}
                       <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Valuation</th>
                     </tr>
                   </thead>
@@ -1328,13 +1407,16 @@ export default function DashboardReports({
                           </td>
                           <td className="p-3 text-right font-mono text-slate-600">{currency}{Math.round(p.costPrice || 0).toLocaleString()}</td>
                           <td className="p-3 text-right font-mono text-slate-600">{currency}{Math.round(p.sellingPrice || 0).toLocaleString()}</td>
+                          {hasAnyWholesaleProduct && (
+                            <td className="p-3 text-right font-mono text-slate-600">{p.sellInWholesale ? `${currency}${Math.round(p.wholesalePrice || 0).toLocaleString()}` : '—'}</td>
+                          )}
                           <td className="p-3 text-right font-mono font-black text-slate-900">{currency}{Math.round(onHand * (p.costPrice || 0)).toLocaleString()}</td>
                         </tr>
                       );
                     })}
                     {inventoryDisplayRows.length === 0 && (
                       <tr>
-                        <td colSpan={6} className="p-10 text-center text-slate-400">
+                        <td colSpan={hasAnyWholesaleProduct ? 7 : 6} className="p-10 text-center text-slate-400">
                           <div className="flex flex-col items-center gap-2">
                             <Package className="w-8 h-8 text-slate-200" />
                             <span>{inventoryLocationFilter === 'all' ? 'No products matched.' : `No stock in ${inventoryLocationFilter} for these products.`}</span>
