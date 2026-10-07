@@ -4691,23 +4691,23 @@ export default function DashboardSalesList({
                 </p>
                 <div className="grid gap-3 text-xs" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
                   <div>
-                    <label className="block text-[9px] uppercase font-mono text-slate-500 font-bold mb-1 flex items-center gap-1"><User className="w-2.5 h-2.5" /> Client Name</label>
+                    <label className="block text-[9px] uppercase font-mono text-slate-500 font-bold mb-1">Client Name</label>
                     <input
                       type="text"
                       value={editFormFields.customerName}
                       onChange={(e) => setEditFormFields({ ...editFormFields, customerName: e.target.value })}
                       placeholder="Customer"
-                      className="w-full bg-slate-50 border border-slate-240 rounded-xl px-3 py-2 text-slate-800 text-xs font-semibold focus:outline-none focus:border-slate-800 focus:bg-white"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 text-xs font-semibold focus:outline-none focus:border-slate-800 focus:bg-white"
                     />
                   </div>
                   <div>
-                    <label className="block text-[9px] uppercase font-mono text-slate-500 font-bold mb-1 flex items-center gap-1"><Phone className="w-2.5 h-2.5" /> Client Phone</label>
+                    <label className="block text-[9px] uppercase font-mono text-slate-500 font-bold mb-1">Client Phone</label>
                     <input
                       type="text"
                       value={editFormFields.customerPhone}
                       onChange={(e) => setEditFormFields({ ...editFormFields, customerPhone: e.target.value })}
                       placeholder="Phone number"
-                      className="w-full bg-slate-50 border border-slate-240 rounded-xl px-3 py-2 text-slate-800 text-xs font-semibold focus:outline-none focus:border-slate-800 focus:bg-white"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 text-xs font-semibold focus:outline-none focus:border-slate-800 focus:bg-white"
                     />
                   </div>
                 </div>
@@ -4720,20 +4720,20 @@ export default function DashboardSalesList({
                 </p>
                 <div className="grid gap-3 text-xs" style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
                   <div>
-                    <label className="block text-[9px] uppercase font-mono text-slate-500 font-bold mb-1 flex items-center gap-1"><Calendar className="w-2.5 h-2.5" /> Sale Date</label>
+                    <label className="block text-[9px] uppercase font-mono text-slate-500 font-bold mb-1">Sale Date</label>
                     <input
                       type="date"
                       value={editFormFields.saleDate}
                       onChange={(e) => setEditFormFields({ ...editFormFields, saleDate: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-240 rounded-xl px-3 py-2 text-slate-800 text-xs font-mono font-bold focus:outline-none focus:border-slate-800 focus:bg-white cursor-pointer"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 text-xs font-mono font-bold focus:outline-none focus:border-slate-800 focus:bg-white cursor-pointer"
                     />
                   </div>
                   <div>
-                    <label className="block text-[9px] uppercase font-mono text-slate-500 font-bold mb-1 flex items-center gap-1"><CreditCard className="w-2.5 h-2.5" /> Payment Method</label>
+                    <label className="block text-[9px] uppercase font-mono text-slate-500 font-bold mb-1">Payment Method</label>
                     <select
                       value={editFormFields.paymentMethod}
                       onChange={(e: any) => setEditFormFields({ ...editFormFields, paymentMethod: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-240 rounded-xl px-2.5 py-2 text-xs font-bold font-sans cursor-pointer focus:outline-none focus:border-slate-800 focus:bg-white"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 text-xs font-bold font-sans cursor-pointer focus:outline-none focus:border-slate-800 focus:bg-white"
                     >
                       {editPaymentMethods.map(method => (
                         <option key={method} value={method}>{method}</option>
@@ -4742,12 +4742,12 @@ export default function DashboardSalesList({
                   </div>
                 </div>
                 <div>
-                  <label className="block text-[9px] uppercase font-mono text-slate-500 font-bold mb-1 flex items-center gap-1"><Coins className="w-2.5 h-2.5" /> Adjust Amount Paid Initially</label>
+                  <label className="block text-[9px] uppercase font-mono text-slate-500 font-bold mb-1">Adjust Amount Paid Initially</label>
                   <input
                     type="number"
                     value={editFormFields.amountPaid}
                     onChange={(e) => setEditFormFields({ ...editFormFields, amountPaid: parseFloat(e.target.value) || 0 })}
-                    className="w-full bg-slate-50 border border-slate-240 rounded-xl px-3 py-2 text-xs text-slate-800 font-mono font-bold focus:outline-none focus:border-slate-800 focus:bg-white"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 font-mono font-bold focus:outline-none focus:border-slate-800 focus:bg-white"
                   />
                 </div>
               </div>
