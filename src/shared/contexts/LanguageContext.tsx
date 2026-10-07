@@ -405,6 +405,8 @@ const BUSINESS_DICTIONARY: Record<string, Record<string, string>> = {
     "report": "Ripoti",
     "search deliveries...": "Tafuta delivari...",
     "destination address not provided": "Anwani ya kufikishia haijawekwa",
+    "category name": "Jina la Kundi",
+    "all registered items": "Bidhaa Zote Zilizosajiliwa",
     "view sale": "Angalia Uuzaji",
     "add payment": "Ongeza Malipo",
     "edit sale": "Hariri Uuzaji",
