@@ -404,6 +404,31 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     };
   }, [showMobileQuickMenu]);
 
+  // Same clipping issue as showMobileQuickMenu above, for tenants/roles with
+  // hasBranchSwitcherSurface false, whose mobile header shows the language
+  // button directly instead of folding it into that quick-settings menu.
+  const mobileLangMenuTriggerRef = useRef<HTMLButtonElement>(null);
+  const [mobileLangMenuPosition, setMobileLangMenuPosition] = useState<{ top: number; right: number } | null>(null);
+
+  useEffect(() => {
+    if (!showDashLangMenu) return;
+    const updatePosition = () => {
+      const rect = mobileLangMenuTriggerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      setMobileLangMenuPosition({
+        top: rect.bottom + 8,
+        right: Math.max(8, window.innerWidth - rect.right),
+      });
+    };
+    updatePosition();
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+    };
+  }, [showDashLangMenu]);
+
   // Load standard + custom registered tenants dynamically
   const [tenantsList] = useState<Tenant[]>(() => {
     const cached = onlineStorage.getItem('jasper_custom_tenants');
@@ -4222,9 +4247,13 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                   </button>
                 )}
 
-                {/* Mobile Language Button */}
+                {/* Mobile Language Button -- panel rendered through a portal
+                    (see mobileLangMenuTriggerRef/Position above) since this
+                    button lives in the overflow-hidden mobile header and a
+                    normal absolute-positioned panel gets clipped there. */}
                 <div className="relative">
                   <button
+                    ref={mobileLangMenuTriggerRef}
                     type="button"
                     onClick={() => setShowDashLangMenu(!showDashLangMenu)}
                     className="p-2 text-slate-500 dark:text-slate-400 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors active:scale-90 flex items-center justify-center cursor-pointer"
@@ -4233,33 +4262,41 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                     <Globe className="w-5 h-5 text-emerald-500" />
                   </button>
 
-                  {showDashLangMenu && (
+                  {typeof document !== 'undefined' && createPortal(
                     <>
-                      <div className="fixed inset-0 z-40" onClick={() => setShowDashLangMenu(false)} />
-                      <div className="absolute right-0 mt-2 w-32 rounded-xl border p-1 shadow-xl z-50 bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-850 text-slate-800 dark:text-slate-200">
-                        {[
-                          { code: 'en', label: 'English' },
-                          { code: 'sw', label: 'Kiswahili' },
-                        ].map((item) => (
-                          <button
-                            key={item.code}
-                            type="button"
-                            onClick={() => {
-                              setLang(item.code as any);
-                              setShowDashLangMenu(false);
-                            }}
-                            className={`w-full text-left px-2 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer flex items-center justify-between ${
-                              lang === item.code
-                                ? 'bg-emerald-500 text-slate-950 font-bold'
-                                : 'hover:bg-slate-100 dark:hover:bg-slate-900 text-slate-700 dark:text-slate-300'
-                            }`}
-                          >
-                            <span>{item.label}</span>
-                            {lang === item.code && <span className="text-[9px] font-bold">✓</span>}
-                          </button>
-                        ))}
-                      </div>
-                    </>
+                      {showDashLangMenu && (
+                        <div className="fixed inset-0 z-[10040]" onClick={() => setShowDashLangMenu(false)} />
+                      )}
+                      {showDashLangMenu && mobileLangMenuPosition && (
+                        <div
+                          className="fixed w-32 rounded-xl border p-1 shadow-xl z-[10050] bg-white dark:bg-slate-950 border-slate-200 dark:border-slate-850 text-slate-800 dark:text-slate-200"
+                          style={{ top: mobileLangMenuPosition.top, right: mobileLangMenuPosition.right }}
+                        >
+                          {[
+                            { code: 'en', label: 'English' },
+                            { code: 'sw', label: 'Kiswahili' },
+                          ].map((item) => (
+                            <button
+                              key={item.code}
+                              type="button"
+                              onClick={() => {
+                                setLang(item.code as any);
+                                setShowDashLangMenu(false);
+                              }}
+                              className={`w-full text-left px-2 py-1.5 text-xs font-medium rounded-lg transition-colors cursor-pointer flex items-center justify-between ${
+                                lang === item.code
+                                  ? 'bg-emerald-500 text-slate-950 font-bold'
+                                  : 'hover:bg-slate-100 dark:hover:bg-slate-900 text-slate-700 dark:text-slate-300'
+                              }`}
+                            >
+                              <span>{item.label}</span>
+                              {lang === item.code && <span className="text-[9px] font-bold">✓</span>}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </>,
+                    document.body
                   )}
                 </div>
 
