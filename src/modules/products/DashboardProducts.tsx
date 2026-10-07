@@ -252,9 +252,16 @@ export default function DashboardProducts({
   }, []);
   
   const [brand, setBrand] = useState(''); // New Brand input field for manual product creation
-  const [customCategories, setCustomCategories] = useState<string[]>([]);
+  const [customCategories, setCustomCategories] = useState<string[]>(() => (
+    Array.isArray(systemSettings?.productStore?.categories) ? systemSettings.productStore.categories : []
+  ));
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string | null>(null);
   const [newCategoryName, setNewCategoryName] = useState('');
+
+  useEffect(() => {
+    if (!Array.isArray(systemSettings?.productStore?.categories)) return;
+    setCustomCategories(systemSettings.productStore.categories);
+  }, [systemSettings?.productStore?.categories, activeTenant.id]);
 
   const [customBrands, setCustomBrands] = useState<ProductBrand[]>(() => (
     Array.isArray(systemSettings?.productStore?.brands) && systemSettings.productStore.brands.length > 0
@@ -290,9 +297,9 @@ export default function DashboardProducts({
     });
   };
 
-  // Products are already scoped to the selected branch by Dashboard. Categories
-  // must therefore be derived from this branch-scoped list, never tenant-wide
-  // settings (which would make branch A categories appear in branch B).
+  // Categories are tenant-wide (like brands), not per-branch -- merges
+  // branch-scoped products' categories with the persisted custom category
+  // list so a freshly created, still-empty category shows up immediately.
   const categoriesList = useMemo(() => {
     const set = new Set<string>();
     products.forEach(p => {
