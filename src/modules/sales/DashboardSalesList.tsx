@@ -4909,7 +4909,7 @@ export default function DashboardSalesList({
                   setEditSaveError(null);
                 }}
                 disabled={isSavingEdit}
-                className="px-5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-600 font-bold hover:bg-slate-100 transition-colors cursor-pointer text-xs uppercase select-none"
+                className="flex-1 px-4 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-600 font-bold hover:bg-slate-100 transition-colors cursor-pointer text-xs whitespace-nowrap select-none"
               >
                 Cancel Changes
               </button>
@@ -4998,9 +4998,9 @@ export default function DashboardSalesList({
                   }
                 }}
                 disabled={isSavingEdit}
-                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl border-none transition-colors text-xs uppercase flex items-center gap-1.5 cursor-pointer shadow-sm select-none"
+                className="flex-1 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black rounded-xl border-none transition-colors text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-sm select-none whitespace-nowrap"
               >
-                <Check className="w-4 h-4 text-white" />
+                <Check className="w-4 h-4 text-white shrink-0" />
                 <span>{isSavingEdit ? 'Saving…' : 'Save Changes'}</span>
               </button>
             </div>
