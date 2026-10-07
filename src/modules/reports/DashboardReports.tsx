@@ -1322,33 +1322,22 @@ export default function DashboardReports({
               {hasAnyWholesaleProduct && (
                 <div>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Wholesale Valuation (if sold wholesale)</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
-                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 shadow-sm">
-                          <DollarSign className="w-5 h-5" />
-                        </div>
-                        <div className="text-left">
-                          <h6 className="text-sm font-bold text-slate-900">Potential Wholesale Revenue</h6>
-                          <p className="text-xs text-slate-500">Stock on hand, wholesale-eligible products only</p>
-                        </div>
+                  <div className="relative bg-slate-50 rounded-2xl border border-slate-200 pl-4 pr-2 py-3 sm:p-4 space-y-2 sm:space-y-3 overflow-hidden">
+                    <span className="absolute left-0 top-0 bottom-0 w-1 bg-teal-650" />
+                    <div className="flex items-center gap-1.5 sm:gap-2">
+                      <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 shrink-0">
+                        <Package className="w-3 h-3 sm:w-4 sm:h-4" />
                       </div>
-                      <div className="text-right">
-                        <p className="text-sm font-black text-slate-900">{currency}{Math.round(inventoryWholesaleTotals.potentialRevenue).toLocaleString()}</p>
-                      </div>
+                      <h6 className="text-xs sm:text-sm font-bold text-slate-900 truncate">Wholesale-Eligible Stock</h6>
                     </div>
-                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 shadow-sm">
-                          <TrendingUp className="w-5 h-5" />
-                        </div>
-                        <div className="text-left">
-                          <h6 className="text-sm font-bold text-slate-900">Potential Wholesale Profit</h6>
-                          <p className="text-xs text-slate-500">Stock on hand, wholesale-eligible products only</p>
-                        </div>
+                    <div className="grid grid-cols-2 gap-1 sm:gap-2">
+                      <div className="min-w-0">
+                        <p className="text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase tracking-wider truncate">Potential Revenue</p>
+                        <p className="text-xs sm:text-sm font-black text-slate-900 font-mono truncate">{currency}{Math.round(inventoryWholesaleTotals.potentialRevenue).toLocaleString()}</p>
                       </div>
-                      <div className="text-right">
-                        <p className={`text-sm font-black ${inventoryWholesaleTotals.potentialProfit >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>{currency}{Math.round(inventoryWholesaleTotals.potentialProfit).toLocaleString()}</p>
+                      <div className="min-w-0">
+                        <p className="text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase tracking-wider truncate">Potential Profit</p>
+                        <p className={`text-xs sm:text-sm font-black font-mono truncate ${inventoryWholesaleTotals.potentialProfit >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>{currency}{Math.round(inventoryWholesaleTotals.potentialProfit).toLocaleString()}</p>
                       </div>
                     </div>
                   </div>
