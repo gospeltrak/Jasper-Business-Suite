@@ -544,6 +544,7 @@ const BUSINESS_DICTIONARY: Record<string, Record<string, string>> = {
     "thank you for your business": "Asante kwa biashara yako",
     "we value your partnership": "Tunathamini ushirikiano wako",
     "add expense": "Ongeza Matumizi",
+    "+ add expense": "+ Ongeza",
     "expense category": "Kundi la Matumizi",
     "description": "Maelezo",
     "receipt reference": "Kumbukumbu ya Risiti",
