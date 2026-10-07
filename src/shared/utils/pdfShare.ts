@@ -182,7 +182,7 @@ const RECEIPT_LABELS: Record<ReceiptLabelKey, { en: string; sw: string }> = {
   staff: { en: 'Staff', sw: 'Mfanyakazi' },
   authorizedSignature: { en: 'Authorized Signature', sw: 'Sahihi Iliyoidhinishwa' },
   termsConditions: { en: 'TERMS & CONDITIONS', sw: 'MASHARTI NA VIGEZO' },
-  poweredBy: { en: 'Powered by Orvix', sw: 'Inaendeshwa na Orvix' },
+  poweredBy: { en: 'Powered by Orvix.africa', sw: 'Imeandaliwa na Orvix.africa' },
   payment: { en: 'Payment', sw: 'Malipo' },
   thankYou: { en: 'Thank you for shopping with us.', sw: 'Asante kwa kununua nasi.' },
 };

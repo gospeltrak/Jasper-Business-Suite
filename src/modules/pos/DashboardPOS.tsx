@@ -2596,7 +2596,7 @@ export default function DashboardPOS({
                   {/* Footer */}
                   <div className="text-center space-y-1 pt-1">
                     <p className="text-[10px] font-black text-black">Thank you for shopping with us</p>
-                    <p className="text-[9px] text-slate-400">Powered by Orvix</p>
+                    <p className="text-[9px] text-slate-400">Powered by Orvix.africa</p>
                   </div>
                 </div>
 
