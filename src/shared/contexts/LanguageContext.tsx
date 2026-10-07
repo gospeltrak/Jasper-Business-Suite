@@ -291,6 +291,11 @@ const BUSINESS_DICTIONARY: Record<string, Record<string, string>> = {
     "no expenses found.": "Hakuna matumizi yaliyopatikana.",
     "purchase orders": "Oda za Manunuzi",
     "add purchase": "Ongeza Manunuzi",
+    "due": "zinazodaiwa",
+    "show all": "Onyesha Zote",
+    "search docs or clients...": "Tafuta hati au wateja...",
+    "new quote / invoice": "Ongeza Nukuu / Ankara",
+    "no documents found matching current filter under this tenant branch office.": "Hakuna hati zilizopatikana katika tawi hili.",
     "view sale": "Angalia Uuzaji",
     "add payment": "Ongeza Malipo",
     "edit sale": "Hariri Uuzaji",
@@ -1140,6 +1145,14 @@ function translateString(text: string, lang: LanguageType): string {
   // losing it merges them into run-together text like "2items".
   const leading = text.slice(0, text.length - text.trimStart().length);
   const trailing = text.slice(text.trimEnd().length);
+
+  // A bare "s" text node is the English plural suffix from the common
+  // `{word}{count !== 1 ? 's' : ''}` JSX idiom (e.g. "Sale" + "s" ->
+  // "Mauzo" + "s" = "Mauzos"). Swahili doesn't pluralize this way, so drop
+  // the suffix entirely once the preceding word has already been translated.
+  if (lang === 'sw' && trimmed === 's') {
+    return leading + trailing;
+  }
 
   const dict = BUSINESS_DICTIONARY[lang];
   if (!dict) return text;
