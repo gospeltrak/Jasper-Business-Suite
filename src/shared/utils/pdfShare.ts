@@ -491,11 +491,21 @@ export async function sharePosReceiptPdf(
   const files = [pdfFile];
 
   // MOBILE: Web Share API — opens OS share sheet, user taps WhatsApp
-  const canShareFile =
-    typeof navigator !== 'undefined' &&
-    typeof navigator.share === 'function' &&
-    typeof navigator.canShare === 'function' &&
-    navigator.canShare({ files });
+  // navigator.canShare is assumed shareable when absent or when it itself
+  // throws (seen on some non-conformant mobile browsers/WebViews) -- the
+  // actual navigator.share() call right below is already guarded by its own
+  // try/catch with a download+wa.me fallback, so this only widens which
+  // devices get a chance at the native file-attach share sheet instead of
+  // skipping straight to download-only.
+  const canShareFile = (() => {
+    if (typeof navigator === 'undefined' || typeof navigator.share !== 'function') return false;
+    if (typeof navigator.canShare !== 'function') return true;
+    try {
+      return navigator.canShare({ files });
+    } catch {
+      return true;
+    }
+  })();
 
   if (canShareFile) {
     try {
@@ -1178,11 +1188,21 @@ export async function downloadPdfFromElement(options: Omit<PdfShareOptions, 'pho
   // sharing) survives that delay and lets the person save/send the file
   // themselves, so it's tried first wherever the browser supports it.
   const files = [pdfFile];
-  const canShareFile =
-    typeof navigator !== 'undefined' &&
-    typeof navigator.share === 'function' &&
-    typeof navigator.canShare === 'function' &&
-    navigator.canShare({ files });
+  // navigator.canShare is assumed shareable when absent or when it itself
+  // throws (seen on some non-conformant mobile browsers/WebViews) -- the
+  // actual navigator.share() call right below is already guarded by its own
+  // try/catch with a download+wa.me fallback, so this only widens which
+  // devices get a chance at the native file-attach share sheet instead of
+  // skipping straight to download-only.
+  const canShareFile = (() => {
+    if (typeof navigator === 'undefined' || typeof navigator.share !== 'function') return false;
+    if (typeof navigator.canShare !== 'function') return true;
+    try {
+      return navigator.canShare({ files });
+    } catch {
+      return true;
+    }
+  })();
   if (canShareFile) {
     try {
       await navigator.share({ files, title: pdfFile.name });
@@ -1211,11 +1231,21 @@ export async function shareElementPdfToWhatsApp(options: PdfShareOptions): Promi
   const phone = options.phone?.replace(/[^\d]/g, '') || '';
   const files = [pdfFile];
 
-  const canShareFile =
-    typeof navigator !== 'undefined' &&
-    typeof navigator.share === 'function' &&
-    typeof navigator.canShare === 'function' &&
-    navigator.canShare({ files });
+  // navigator.canShare is assumed shareable when absent or when it itself
+  // throws (seen on some non-conformant mobile browsers/WebViews) -- the
+  // actual navigator.share() call right below is already guarded by its own
+  // try/catch with a download+wa.me fallback, so this only widens which
+  // devices get a chance at the native file-attach share sheet instead of
+  // skipping straight to download-only.
+  const canShareFile = (() => {
+    if (typeof navigator === 'undefined' || typeof navigator.share !== 'function') return false;
+    if (typeof navigator.canShare !== 'function') return true;
+    try {
+      return navigator.canShare({ files });
+    } catch {
+      return true;
+    }
+  })();
 
   if (canShareFile) {
     try {
