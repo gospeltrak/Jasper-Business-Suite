@@ -61,6 +61,7 @@ interface DashboardSettingsProps {
   sales?: Sale[];
   expenses?: Expense[];
   deliveries?: Delivery[];
+  initialSubTab?: 'company' | 'business' | 'product-store' | 'invoice-settings' | 'roles' | 'notifications' | 'branches';
 }
 
 const DEFAULT_BUSINESS_SETTINGS: BusinessSettings = {
@@ -129,13 +130,14 @@ export default function DashboardSettings({
   onTriggerUpgrade,
   sales = [],
   expenses = [],
-  deliveries = []
+  deliveries = [],
+  initialSubTab
 }: DashboardSettingsProps) {
   const { isDark, toggleTheme } = useTheme();
   const incomingSettingsSyncRef = useRef(false);
   const settingsDraftTouchedAtRef = useRef(0);
   // Navigation tabs for Settings
-  const [activeSubTab, setActiveSubTab] = useState<'company' | 'business' | 'product-store' | 'invoice-settings' | 'roles' | 'notifications' | 'branches'>('company');
+  const [activeSubTab, setActiveSubTab] = useState<'company' | 'business' | 'product-store' | 'invoice-settings' | 'roles' | 'notifications' | 'branches'>(initialSubTab || 'company');
   const [isMobileSettingsMenuOpen, setIsMobileSettingsMenuOpen] = useState(true);
   const [settingsSearchTerm, setSettingsSearchTerm] = useState('');
   

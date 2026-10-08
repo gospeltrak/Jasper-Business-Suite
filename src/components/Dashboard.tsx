@@ -794,6 +794,11 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     customerPhone?: string;
     hasVat?: boolean;
   } | null>(null);
+  // Seeds Settings' sub-tab the next time it mounts (it's conditionally
+  // rendered per activeTab, so a fresh useState pickup is enough -- no
+  // live-update effect needed) -- used by POS's "go set up payment modes"
+  // prompt to land the tenant directly on Business Setup.
+  const [settingsInitialSubTab, setSettingsInitialSubTab] = useState<'business' | undefined>(undefined);
   const [workspaceReady, setWorkspaceReady] = useState(false);
   const [workspaceLoadFailed, setWorkspaceLoadFailed] = useState(false);
   const cloudWorkspaceLoadedRef = useRef(false);
@@ -4479,6 +4484,10 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
               activeBranch={branchContextSelectedBranch}
               preloadedCart={preloadedCart}
               onClearPreloadedCart={() => setPreloadedCart(null)}
+              onGoToPaymentSettings={() => {
+                setSettingsInitialSubTab('business');
+                setActiveTab('settings' as any);
+              }}
             />
           )}
 
@@ -4738,9 +4747,10 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
 
           {/* TAB ROOT: System Settings */}
           {activeTab === 'settings' && (
-            <DashboardSettings 
+            <DashboardSettings
               activeTenant={activeTenant}
               systemSettings={systemSettings}
+              initialSubTab={settingsInitialSubTab}
               onSaveSettings={(updated) => {
                 if (blockOfflineBusinessWrite('settings save')) return;
                 persistSystemSettingsNow(updated);

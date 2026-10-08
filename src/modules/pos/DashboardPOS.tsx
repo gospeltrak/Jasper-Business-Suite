@@ -160,6 +160,7 @@ interface DashboardPOSProps {
     hasVat?: boolean;
   } | null;
   onClearPreloadedCart?: () => void;
+  onGoToPaymentSettings?: () => void;
 }
 
 const getProductImage = (prod: Product): string => {
@@ -187,7 +188,8 @@ export default function DashboardPOS({
   systemSettings,
   activeBranch,
   preloadedCart,
-  onClearPreloadedCart
+  onClearPreloadedCart,
+  onGoToPaymentSettings
 }: DashboardPOSProps) {
   const showProductImages = systemSettings?.posSettings?.showProductImages !== false;
   const [searchTerm, setSearchTerm] = useState('');
@@ -311,6 +313,7 @@ export default function DashboardPOS({
   const [paymentStatus, setPaymentStatus] = useState<'idle' | 'completed'>('idle');
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [checkoutNeedsPaymentSetup, setCheckoutNeedsPaymentSetup] = useState(false);
   const [amountPaid, setAmountPaid] = useState<number>(0);
   const [referenceCode, setReferenceCode] = useState('');
   const [paymentNote, setPaymentNote] = useState('');
@@ -1034,6 +1037,7 @@ export default function DashboardPOS({
 
     setPaymentStatus('idle');
     setCheckoutError(null);
+    setCheckoutNeedsPaymentSetup(false);
     setPaymentMethod('');
     const availableDeliveryModes = systemSettings?.business?.deliveryPaymentModes && systemSettings.business.deliveryPaymentModes.length > 0 
       ? systemSettings.business.deliveryPaymentModes 
@@ -1049,6 +1053,7 @@ export default function DashboardPOS({
   const submitPayment = async () => {
     if (isProcessingPayment) return;
     setCheckoutError(null);
+    setCheckoutNeedsPaymentSetup(false);
     setIsProcessingPayment(true);
     try {
       await finalizeSale();
@@ -1198,6 +1203,18 @@ export default function DashboardPOS({
       : paymentMethod === 'Multi-Channel'
       ? Number(multiAllocations.reduce((sum, row) => sum + Math.max(0, Number(row.amount || 0)), 0).toFixed(2))
       : Math.max(0, Number(amountPaid || 0));
+
+    // Any amount actually collected needs a real registered Money & Bank
+    // account to post into (see Dashboard.tsx's handleAddSale) -- a tenant
+    // who has never set one up would otherwise hit that deep, confusing
+    // treasury-posting failure after the sale items are already built.
+    // Catch it here instead, before the sale is even assembled, with a
+    // direct pointer to where to fix it.
+    if (normalizedAmountPaid > 0 && !(systemSettings?.business?.paymentModes || []).map(getPaymentModeName).filter(Boolean).length) {
+      setCheckoutNeedsPaymentSetup(true);
+      throw new Error('Bado hujaweka njia za malipo. Nenda Settings → Business Setup kusanidi njia za malipo kabla ya kulipia.');
+    }
+
     const amountDue = Math.max(0, Number((grandTotal - normalizedAmountPaid).toFixed(2)));
     const manualPaymentStatus: Sale['paymentStatus'] = amountDue <= 0
       ? 'paid'
@@ -2386,7 +2403,18 @@ export default function DashboardPOS({
                 {checkoutError && (
                   <div className="flex items-start gap-2 px-3.5 py-2.5 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 text-xs font-semibold">
                     <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                    <span>{checkoutError}</span>
+                    <div className="flex-1 space-y-1.5">
+                      <span>{checkoutError}</span>
+                      {checkoutNeedsPaymentSetup && onGoToPaymentSettings && (
+                        <button
+                          type="button"
+                          onClick={onGoToPaymentSettings}
+                          className="block text-[11px] font-black text-rose-700 underline underline-offset-2 cursor-pointer"
+                        >
+                          Fungua Settings &rarr; Business Setup
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )}
 
