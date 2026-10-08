@@ -926,14 +926,28 @@ export default function DashboardSalesList({
     return [...new Set(current && !enabled.includes(current) ? [current, ...enabled] : enabled)];
   }, [editingSale?.branchId, editingSale?.paymentMethod, systemSettings?.business?.paymentModes, systemSettings?.paymentChannels]);
 
-  // Local interactive installment recording ledger (Key: Sale ID)
+  // Per-sale installment (Payment-In) log, keyed by Sale ID -- only the
+  // aggregate sale.amountPaid persisted via onUpdateSales before this; the
+  // itemized history (used by the Payments Log timeline) was previously lost
+  // on reload, same persistence pattern as doubleEntryLedgers below.
   const [installmentRecords, setInstallmentRecords] = useState<Record<string, Array<{
     id: string;
     date: string;
     amount: number;
     method: string;
     note?: string;
-  }>>>({});
+  }>>>(() => {
+    const saved = onlineStorage.getItem(`installment_records_${activeTenant.id}`);
+    return saved ? JSON.parse(saved) : {};
+  });
+
+  useEffect(() => {
+    safeSetJsonItem(`installment_records_${activeTenant.id}`, installmentRecords, {
+      tenantId: activeTenant.id,
+      dataKey: 'installment_records',
+      logLabel: `${activeTenant.id}/installment-records`,
+    });
+  }, [installmentRecords, activeTenant.id]);
 
   // -----------------------------------------------------------------
   // Live Cashier Register Math (Daily Expected Collections Today)
@@ -2303,46 +2317,27 @@ export default function DashboardSalesList({
 
         return (
           <div className="space-y-6 animate-fade-in" id="debts-ledger-portal">
-            
-            {/* KPI metrics row */}
 
-            {/* MOBILE/TABLET — compact 2-up + full-width outstanding balance */}
-            <div className="xl:hidden space-y-2.5">
-              <div className="grid grid-cols-2 gap-2.5">
-                <div className="bg-white dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm min-w-0">
-                  <p className="text-[8.5px] font-mono font-bold text-slate-400 uppercase tracking-widest leading-none truncate">Total Credit</p>
-                  <h4 className="text-sm font-black text-slate-800 dark:text-white mt-1.5 truncate">{currency}{Math.round(totalDebtIssued).toLocaleString()}</h4>
+            {/* KPI metrics row -- one clean responsive card set (was two
+                hand-duplicated mobile/desktop blocks, the desktop one using
+                invalid Tailwind classes like bg-emerald-505 that silently
+                applied no background at all). */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {[
+                { label: 'Total Credit Issued', value: totalDebtIssued, icon: Receipt, iconBg: 'bg-slate-100 text-slate-600', valueColor: 'text-slate-900 dark:text-white' },
+                { label: 'Collected', value: totalDebtPaidIn, icon: CheckCircle2, iconBg: 'bg-emerald-50 text-emerald-600', valueColor: 'text-emerald-700 dark:text-emerald-300' },
+                { label: 'Outstanding Balance', value: totalDebtOutstanding, icon: AlertCircle, iconBg: 'bg-amber-50 text-amber-600', valueColor: 'text-amber-700 dark:text-amber-300' },
+              ].map((metric, i) => (
+                <div key={i} className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm p-4 flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${metric.iconBg}`}>
+                    <metric.icon className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider truncate">{metric.label}</p>
+                    <p className={`text-base font-black font-mono mt-0.5 truncate ${metric.valueColor}`}>{currency}{Math.round(metric.value).toLocaleString()}</p>
+                  </div>
                 </div>
-                <div className="bg-emerald-50 dark:bg-emerald-900/20 p-3 border border-emerald-100 dark:border-emerald-900/40 rounded-xl min-w-0">
-                  <p className="text-[8.5px] font-mono font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest leading-none truncate">Collected</p>
-                  <h4 className="text-sm font-black text-emerald-700 dark:text-emerald-300 mt-1.5 truncate">{currency}{Math.round(totalDebtPaidIn).toLocaleString()}</h4>
-                </div>
-              </div>
-              <div className="w-full p-3.5 rounded-xl" style={{background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)'}}>
-                <p className="text-[8.5px] font-mono font-bold text-white/80 uppercase tracking-widest leading-none">Outstanding Balance Receivable</p>
-                <h4 className="text-lg font-black text-white mt-1.5">{currency}{Math.round(totalDebtOutstanding).toLocaleString()}</h4>
-              </div>
-            </div>
-
-            {/* DESKTOP — unchanged original 3-card grid */}
-            <div className="hidden xl:block">
-              <div className="mobile-tablet-kpi-grid gap-4" style={{ ['--desktop-kpi-columns' as any]: 'repeat(3, minmax(0, 1fr))' }}>
-                <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
-                  <p className="text-[10px] font-mono font-bold text-slate-400 dark:text-slate-400 uppercase tracking-widest leading-none">Total Credit Credit-Sales</p>
-                  <h4 className="text-xl font-black text-slate-800 dark:text-white mt-2">{currency}{Math.round(totalDebtIssued).toLocaleString()}</h4>
-                  <p className="text-[10px] text-slate-400 mt-1">Outstanding sales invoices marked as Credit tabs.</p>
-                </div>
-                <div className="bg-emerald-505 p-5 border border-emerald-250 rounded-2xl">
-                  <p className="text-[10px] font-mono font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest leading-none">Total Payment-Ins Collected</p>
-                  <h4 className="text-xl font-black text-emerald-800 dark:text-emerald-300 mt-2">{currency}{Math.round(totalDebtPaidIn).toLocaleString()}</h4>
-                  <p className="text-[10px] text-emerald-600 mt-1">Total credit installments & payments-in received.</p>
-                </div>
-                <div className="bg-amber-505 p-5 border border-amber-250 rounded-2xl">
-                  <p className="text-[10px] font-mono font-bold text-amber-600 dark:text-amber-400 uppercase tracking-widest leading-none">Outstanding Balance Receivable</p>
-                  <h4 className="text-xl font-black text-amber-700 dark:text-amber-300 mt-2">{currency}{Math.round(totalDebtOutstanding).toLocaleString()}</h4>
-                  <p className="text-[10px] text-amber-652 mt-1">Remaining customer dockets debt pending settlement.</p>
-                </div>
-              </div>
+              ))}
             </div>
 
             {/* Debts Search panel */}
@@ -2362,8 +2357,12 @@ export default function DashboardSalesList({
               </div>
             </div>
 
-            {/* Bento Grid checklist of active credit files */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-5">
+            {/* Compact debt list -- click a row (or its View Debt menu item)
+                to open the same View Sale Details modal the Sales tab uses;
+                Add Payment opens the same Payments Log modal that already
+                has a working installment form. Reusing both instead of
+                keeping a second, parallel payment UI only on this tab. */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {filteredDebtSales.map(s => {
                 const totalVal = s.total;
                 const initialPaid = s.amountPaid !== undefined ? s.amountPaid : 0;
@@ -2375,232 +2374,104 @@ export default function DashboardSalesList({
                 const currentPercent = Math.min(100, percentPaid);
                 const isCleared = calculatedDue === 0;
 
-                const paymentInForm = (compact: boolean) => (
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      const form = e.currentTarget;
-                      const payAmt = parseFloat((form.elements.namedItem('pay-amount') as HTMLInputElement).value);
-                      const payMethod = (form.elements.namedItem('pay-method') as HTMLSelectElement).value;
-                      const payDateVal = (form.elements.namedItem('pay-date') as HTMLInputElement).value;
-                      const timestamp = payDateVal ? localDateToIso(payDateVal, new Date(), 12) : new Date().toISOString();
-                      if (payAmt > 0) {
-                        handleAddInstallment(s.id, payAmt, payMethod, timestamp);
-                        form.reset();
-                      }
-                    }}
-                    className="space-y-3"
-                  >
-                    <div className={compact ? 'grid grid-cols-1 sm:grid-cols-3 gap-2.5' : 'grid grid-cols-3 gap-2'}>
-                      <div>
-                        <label className={`block uppercase font-mono text-slate-500 font-bold mb-1 ${compact ? 'text-[9px]' : 'text-[8px]'}`}>Pay-in Amount</label>
-                        <input
-                          type="number"
-                          name="pay-amount"
-                          min="1"
-                          max={calculatedDue}
-                          defaultValue={calculatedDue}
-                          required
-                          className={`w-full bg-white border border-slate-200 rounded-lg font-mono font-bold focus:outline-emerald-500 text-slate-800 ${compact ? 'px-3 py-2.5 text-sm min-h-[42px]' : 'px-2 py-1 text-xs'}`}
-                        />
-                      </div>
-                      <div>
-                        <label className={`block uppercase font-mono text-slate-500 font-bold mb-1 ${compact ? 'text-[9px]' : 'text-[8px]'}`}>Payment Channel</label>
-                        <select
-                          name="pay-method"
-                          className={`w-full bg-white border border-slate-200 rounded-lg cursor-pointer font-sans text-slate-803 outline-none ${compact ? 'px-3 py-2.5 text-xs min-h-[42px]' : 'px-2 py-1 text-[11px] font-bold'}`}
-                        >
-                          <option value="Cash">Cash Drawer</option>
-                          <option value="M-Pesa">M-Pesa Express</option>
-                          <option value="MTN MoMo">MTN MoMo Net</option>
-                          <option value="Card">Visa Debit Card</option>
-                          <option value="Airtel Money">Airtel Money</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className={`block uppercase font-mono text-slate-500 font-bold mb-1 ${compact ? 'text-[9px]' : 'text-[8px]'}`}>Payment Date</label>
-                        <input
-                          type="date"
-                          name="pay-date"
-                          defaultValue={formatLocalDate()}
-                          required
-                          className={`w-full bg-white border border-slate-200 rounded-lg font-sans outline-none text-slate-800 ${compact ? 'px-3 py-2.5 text-xs min-h-[42px]' : 'px-2 py-1 text-xs'}`}
-                        />
-                      </div>
-                    </div>
-                    <button
-                      type="submit"
-                      className={`w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold tracking-wider uppercase rounded-lg border-none transition-all cursor-pointer flex items-center justify-center space-x-1.5 ${compact ? 'py-3 text-[11px] min-h-[44px]' : 'py-1.5 text-[10px]'}`}
-                    >
-                      <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-white" />
-                      <span>Submit Payment-In Reference</span>
-                    </button>
-                  </form>
-                );
-
                 return (
-                  <React.Fragment key={s.id}>
-                    {/* ── MOBILE/TABLET redesigned debt card ────────────────────── */}
-                    <div className="xl:hidden bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden">
-                      {/* Gradient header strip */}
-                      <div className="relative px-4 pt-4 pb-3.5 overflow-hidden" style={{background: isCleared ? 'linear-gradient(135deg, #10b981 0%, #34d399 100%)' : 'linear-gradient(135deg, #047857 0%, #059669 55%, #10b981 100%)'}}>
-                        <div className="absolute -top-6 -right-6 w-20 h-20 rounded-full opacity-25" style={{background: 'rgba(255,255,255,0.4)'}} />
-                        <div className="relative flex items-start justify-between gap-2">
+                  <div
+                    key={s.id}
+                    onClick={() => setViewingSaleDetail(s)}
+                    className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm hover:shadow-md transition-all cursor-pointer overflow-hidden"
+                  >
+                    <div className="p-4 space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex items-center gap-2.5">
+                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isCleared ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
+                            <User className="w-4 h-4" />
+                          </div>
                           <div className="min-w-0">
-                            <span className="text-[9px] font-mono font-bold text-white/70 uppercase tracking-widest">Ref: {getSaleReference(s)}</span>
-                            <h4 className="text-sm font-black text-white mt-1 flex items-center gap-1.5">
-                              <User className="w-3.5 h-3.5 text-white/80 shrink-0" />
-                              <span className="truncate">{s.customerName || 'Customer'}</span>
-                            </h4>
-                            {s.customerPhone && (
-                              <p className="text-[10.5px] text-white/80 flex items-center gap-1.5 mt-0.5 font-mono">
-                                <Phone className="w-3 h-3 text-white/70 shrink-0" />
-                                <span>{s.customerPhone}</span>
-                              </p>
-                            )}
+                            <h4 className="text-sm font-bold text-slate-900 dark:text-white truncate">{s.customerName || 'Customer'}</h4>
+                            <p className="text-[10px] font-mono text-slate-400 truncate">Ref: {getSaleReference(s)}{s.customerPhone ? ` · ${s.customerPhone}` : ''}</p>
                           </div>
-                          <span className={`shrink-0 inline-flex items-center text-[9px] font-bold uppercase px-2.5 py-1 rounded-full ${isCleared ? 'bg-white/25 text-white' : 'bg-white text-emerald-700'}`}>
-                            {isCleared ? 'Cleared' : 'Credit Due'}
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0" onClick={e => e.stopPropagation()}>
+                          <span className={`text-[9px] font-bold uppercase px-2 py-1 rounded-full ${isCleared ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+                            {isCleared ? 'Cleared' : 'Due'}
                           </span>
+                          <button
+                            onClick={(e) => {
+                              if (activeMenuId === s.id) {
+                                setActiveMenuId(null);
+                                setMenuPos(null);
+                              } else {
+                                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                                const estimatedMenuHeight = isCleared ? 150 : 200;
+                                const viewportPadding = 12;
+                                const highestSafeTop = Math.max(viewportPadding, window.innerHeight - estimatedMenuHeight - viewportPadding);
+                                setMenuPos({
+                                  top: Math.min(rect.bottom + 6, highestSafeTop),
+                                  right: Math.max(12, window.innerWidth - rect.right),
+                                });
+                                setActiveMenuId(s.id);
+                              }
+                            }}
+                            className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700 transition-colors border-none bg-transparent cursor-pointer"
+                          >
+                            <MoreVertical className="w-4 h-4" />
+                          </button>
+
+                          {activeMenuId === s.id && menuPos && createPortal(
+                            <>
+                              <div className="fixed z-[999] inset-0" onClick={() => { setActiveMenuId(null); setMenuPos(null); }} />
+                              <div
+                                className="fixed w-48 bg-white border border-slate-100 rounded-2xl shadow-xl z-[1000] py-1.5"
+                                style={{ top: menuPos.top, right: menuPos.right, boxShadow: '0 8px 32px rgba(0,0,0,0.14), 0 0 0 1px rgba(0,0,0,0.04)' }}
+                              >
+                                <button onClick={() => { setViewingSaleDetail(s); setActiveMenuId(null); setMenuPos(null); }}
+                                  className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
+                                  <Eye className="w-3.5 h-3.5 text-slate-400 shrink-0" /> View Debt
+                                </button>
+                                {!isCleared && (
+                                  <button onClick={() => { setSelectedSale(s); setPayInInputVal(calculatedDue.toString()); setViewPaymentsOpen(true); setActiveMenuId(null); setMenuPos(null); }}
+                                    className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-bold text-emerald-700 hover:bg-emerald-50">
+                                    <Coins className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> Add Payment
+                                  </button>
+                                )}
+                                {(!rolePermissions || rolePermissions.deleteSale?.write !== false) && (
+                                  <div className="border-t border-slate-100 mt-1 pt-1">
+                                    <button onClick={() => { openDeleteSaleConfirmation(s); setActiveMenuId(null); setMenuPos(null); }}
+                                      className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-bold text-rose-600 hover:bg-rose-50">
+                                      <Trash2 className="w-3.5 h-3.5 shrink-0" /> Delete
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            </>,
+                            document.body
+                          )}
                         </div>
                       </div>
 
-                      <div className="p-4 space-y-3.5">
-                        {/* Stat row: Total / Paid / Balance */}
-                        <div className="grid grid-cols-3 gap-2 text-center">
-                          <div className="bg-slate-50 dark:bg-slate-900/40 rounded-xl py-2 px-1">
-                            <p className="text-[8.5px] font-bold text-slate-400 uppercase tracking-wide">Total</p>
-                            <p className="text-xs font-black text-slate-800 dark:text-white mt-0.5 font-mono truncate">{currency}{Math.round(totalVal).toLocaleString()}</p>
-                          </div>
-                          <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-xl py-2 px-1">
-                            <p className="text-[8.5px] font-bold text-emerald-500 uppercase tracking-wide">Paid</p>
-                            <p className="text-xs font-black text-emerald-700 dark:text-emerald-300 mt-0.5 font-mono truncate">{currency}{Math.round(calculatedPaid).toLocaleString()}</p>
-                          </div>
-                          <div className="bg-rose-50 dark:bg-rose-900/20 rounded-xl py-2 px-1">
-                            <p className="text-[8.5px] font-bold text-rose-400 uppercase tracking-wide">Balance</p>
-                            <p className="text-xs font-black text-rose-600 dark:text-rose-300 mt-0.5 font-mono truncate">{currency}{Math.round(calculatedDue).toLocaleString()}</p>
-                          </div>
+                      <div className="grid grid-cols-3 gap-2 text-center">
+                        <div className="bg-slate-50 dark:bg-slate-900/40 rounded-xl py-2 px-1">
+                          <p className="text-[8.5px] font-bold text-slate-400 uppercase tracking-wide">Total</p>
+                          <p className="text-xs font-black text-slate-800 dark:text-white mt-0.5 font-mono truncate">{currency}{Math.round(totalVal).toLocaleString()}</p>
                         </div>
-
-                        {/* Progress bar */}
-                        <div className="space-y-1">
-                          <div className="flex justify-between text-[9.5px] font-bold text-slate-400 uppercase tracking-wide">
-                            <span>Reconciliation</span>
-                            <span className="text-emerald-600 dark:text-emerald-400">{currentPercent}%</span>
-                          </div>
-                          <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-2 overflow-hidden">
-                            <div
-                              className="h-full rounded-full transition-all duration-300"
-                              style={{ width: `${currentPercent}%`, background: 'linear-gradient(90deg, #059669 0%, #34d399 100%)' }}
-                            />
-                          </div>
+                        <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-xl py-2 px-1">
+                          <p className="text-[8.5px] font-bold text-emerald-500 uppercase tracking-wide">Paid</p>
+                          <p className="text-xs font-black text-emerald-700 dark:text-emerald-300 mt-0.5 font-mono truncate">{currency}{Math.round(calculatedPaid).toLocaleString()}</p>
                         </div>
-
-                        {/* Items summary */}
-                        <div className="bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-700 rounded-xl p-3 text-[11px] space-y-1">
-                          <span className="block text-[8px] font-mono font-bold uppercase tracking-widest text-slate-400">Items summary</span>
-                          <div className="max-h-[70px] overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
-                            {(s.items || []).map((item, idx) => (
-                              <div key={idx} className="flex justify-between py-1 font-sans text-slate-600 dark:text-slate-300 text-[11px]">
-                                <span className="truncate pr-2">{formatSaleItemQuantity(item, products.find(product => product.id === item.productId))} × {item.productName}</span>
-                                <span className="font-mono shrink-0">{currency}{item.price.toLocaleString()}</span>
-                              </div>
-                            ))}
-                          </div>
+                        <div className="bg-rose-50 dark:bg-rose-900/20 rounded-xl py-2 px-1">
+                          <p className="text-[8.5px] font-bold text-rose-400 uppercase tracking-wide">Balance</p>
+                          <p className="text-xs font-black text-rose-600 dark:text-rose-300 mt-0.5 font-mono truncate">{currency}{Math.round(calculatedDue).toLocaleString()}</p>
                         </div>
+                      </div>
 
-                        {/* Payment-in form or cleared state */}
-                        {!isCleared ? (
-                          <div className="bg-emerald-50/60 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/30 rounded-2xl p-3.5 space-y-3">
-                            <span className="block text-[9px] font-mono font-black text-emerald-800 dark:text-emerald-300 uppercase tracking-widest">Settle Outstanding Payment-In</span>
-                            {paymentInForm(true)}
-                          </div>
-                        ) : (
-                          <div className="bg-emerald-100/50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-900/40 p-3 rounded-xl flex items-center space-x-2 text-emerald-800 dark:text-emerald-300 font-bold text-[11px] font-sans">
-                            <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                            <span>Cleared Account: Consolidated to tills ledger successfully!</span>
-                          </div>
-                        )}
+                      <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-emerald-500 transition-all duration-300"
+                          style={{ width: `${currentPercent}%` }}
+                        />
                       </div>
                     </div>
-
-                    {/* ── DESKTOP — unchanged original card ─────────────────────── */}
-                    <div className={`hidden xl:flex bg-white border rounded-2xl p-5 shadow-sm transition-all hover:shadow-md flex-col justify-between ${isCleared ? 'border-emerald-250 bg-emerald-50/20' : 'border-slate-200'}`}>
-                      <div className="space-y-4">
-
-                        {/* Customer core card row */}
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <span className="text-[9px] font-mono font-black py-0.5 px-2 bg-slate-100 border border-slate-204 rounded text-slate-500 uppercase tracking-widest">
-                              Ref: {getSaleReference(s)}
-                            </span>
-                            <h4 className="text-sm font-bold text-slate-808 mt-2 flex items-center space-x-1.5 font-sans">
-                              <User className="w-3.5 h-3.5 text-slate-400" />
-                              <span>{s.customerName || 'Customer'}</span>
-                            </h4>
-                            {s.customerPhone && (
-                              <p className="text-[10px] text-slate-500 flex items-center space-x-1.5 mt-0.5 font-mono">
-                                <Phone className="w-3 h-3 text-slate-400" />
-                                <span>{s.customerPhone}</span>
-                              </p>
-                            )}
-                          </div>
-
-                          <div className="text-right font-sans">
-                            <span className={`inline-flex items-center text-[9px] font-mono font-bold uppercase px-2 py-0.5 rounded-full ${isCleared ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800 animate-pulse'}`}>
-                              {isCleared ? 'Cleared' : 'Credit Due'}
-                            </span>
-                            <p className="text-xs font-mono font-black text-slate-900 mt-1">{currency}{totalVal.toLocaleString()}</p>
-                          </div>
-                        </div>
-
-                        {/* Purchased products list summary */}
-                        <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 text-[11px] space-y-1">
-                          <span className="block text-[8px] font-mono font-bold uppercase tracking-widest text-slate-400">Items summary</span>
-                          <div className="max-h-[70px] overflow-y-auto divide-y divide-slate-100">
-                            {(s.items || []).map((item, idx) => (
-                              <div key={idx} className="flex justify-between py-1 font-sans text-slate-600 text-[11px]">
-                                <span>{formatSaleItemQuantity(item, products.find(product => product.id === item.productId))} × {item.productName}</span>
-                                <span className="font-mono">{currency}{item.price.toLocaleString()}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Collapsible Ledger Payment-In Remittance form (If not fully paid) */}
-                        {!isCleared ? (
-                          <div className="bg-emerald-50/50 border border-emerald-100 rounded-xl p-4 space-y-3">
-                            <span className="block text-[9px] font-mono font-black text-emerald-800 uppercase tracking-widest">Settle Outstanding Payment-In</span>
-                            {paymentInForm(false)}
-                          </div>
-                        ) : (
-                          <div className="bg-emerald-100/50 border border-emerald-200 p-3 rounded-xl flex items-center space-x-2 text-emerald-800 font-bold text-[11px] font-sans">
-                            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                            <span>Cleared Account: Consolidated to tills ledger successfully!</span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Progress indicator */}
-                      <div className="mt-4 space-y-1.5 font-sans">
-                        <div className="flex justify-between font-mono text-[10px] font-bold text-slate-500 uppercase leading-none">
-                          <span>Reconciliation</span>
-                          <span>{currentPercent}% Reconciled</span>
-                        </div>
-                        <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden border border-slate-200">
-                          <div
-                            className="bg-emerald-600 h-full rounded-full transition-all duration-300"
-                            style={{ width: `${currentPercent}%` }}
-                          />
-                        </div>
-                        <div className="flex justify-between font-mono text-[10px] font-bold text-slate-600 bg-slate-50 border border-slate-200 p-2 rounded-lg mt-1.5">
-                          <span className="text-slate-500">Paid: {currency}{Math.round(calculatedPaid).toLocaleString()}</span>
-                          <span className="text-rose-600">Bal: {currency}{Math.round(calculatedDue).toLocaleString()}</span>
-                        </div>
-                      </div>
-
-                    </div>
-                  </React.Fragment>
+                  </div>
                 );
               })}
 
@@ -3779,7 +3650,10 @@ export default function DashboardSalesList({
                       {(() => {
                         const paid = selectedSale.amountPaid !== undefined ? selectedSale.amountPaid : (selectedSale.paymentMethod === 'Credit' ? 0 : selectedSale.total);
                         const isPaid = paid >= selectedSale.total;
-                        return <span className={`inline-flex items-center gap-1 mt-1 px-3 py-1 rounded-full text-[10px] font-black uppercase ${isPaid ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>● {isPaid ? 'Paid' : 'Unpaid'}</span>;
+                        const isPartial = !isPaid && paid > 0;
+                        const label = isPaid ? 'Paid' : isPartial ? 'Partially Paid' : 'Unpaid';
+                        const pillClass = isPaid ? 'bg-emerald-50 text-emerald-700' : isPartial ? 'bg-amber-50 text-amber-700' : 'bg-rose-50 text-rose-700';
+                        return <span className={`inline-flex items-center gap-1 mt-1 px-3 py-1 rounded-full text-[10px] font-black uppercase ${pillClass}`}>● {label}</span>;
                       })()}
                     </div>
                   </div>
