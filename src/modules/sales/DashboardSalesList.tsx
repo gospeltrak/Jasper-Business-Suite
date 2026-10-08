@@ -17,8 +17,9 @@ import {
   CheckCircle2, 
   Clock, 
   DollarSign, 
-  User, 
-  Phone, 
+  User,
+  Users,
+  Phone,
   ArrowRight,
   TrendingUp,
   X,
@@ -2318,15 +2319,15 @@ export default function DashboardSalesList({
         return (
           <div className="space-y-6 animate-fade-in" id="debts-ledger-portal">
 
-            {/* KPI metrics row -- one clean responsive card set (was two
-                hand-duplicated mobile/desktop blocks, the desktop one using
-                invalid Tailwind classes like bg-emerald-505 that silently
-                applied no background at all). */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {/* KPI metrics row -- exactly two cards, side by side: how many
+                debtors, and how much is owed right now in total. Not Total
+                Issued / Collected / Outstanding (three figures was too much
+                for a quick glance -- what matters here is who owes and how
+                much, today). */}
+            <div className="grid grid-cols-2 gap-3">
               {[
-                { label: 'Total Credit Issued', value: totalDebtIssued, icon: Receipt, iconBg: 'bg-slate-100 text-slate-600', valueColor: 'text-slate-900 dark:text-white' },
-                { label: 'Collected', value: totalDebtPaidIn, icon: CheckCircle2, iconBg: 'bg-emerald-50 text-emerald-600', valueColor: 'text-emerald-700 dark:text-emerald-300' },
-                { label: 'Outstanding Balance', value: totalDebtOutstanding, icon: AlertCircle, iconBg: 'bg-amber-50 text-amber-600', valueColor: 'text-amber-700 dark:text-amber-300' },
+                { label: 'Waliokopa', value: debtSales.length, icon: Users, iconBg: 'bg-slate-100 text-slate-600', valueColor: 'text-slate-900 dark:text-white', isCount: true },
+                { label: 'Jumla Wanayodaiwa', value: totalDebtOutstanding, icon: AlertCircle, iconBg: 'bg-rose-50 text-rose-600', valueColor: 'text-rose-700 dark:text-rose-300', isCount: false },
               ].map((metric, i) => (
                 <div key={i} className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm p-4 flex items-center gap-3">
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${metric.iconBg}`}>
@@ -2334,7 +2335,7 @@ export default function DashboardSalesList({
                   </div>
                   <div className="min-w-0">
                     <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider truncate">{metric.label}</p>
-                    <p className={`text-base font-black font-mono mt-0.5 truncate ${metric.valueColor}`}>{currency}{Math.round(metric.value).toLocaleString()}</p>
+                    <p className={`text-base font-black font-mono mt-0.5 truncate ${metric.valueColor}`}>{metric.isCount ? metric.value.toLocaleString() : `${currency}${Math.round(metric.value).toLocaleString()}`}</p>
                   </div>
                 </div>
               ))}
@@ -2357,12 +2358,17 @@ export default function DashboardSalesList({
               </div>
             </div>
 
-            {/* Compact debt list -- click a row (or its View Debt menu item)
-                to open the same View Sale Details modal the Sales tab uses;
-                Add Payment opens the same Payments Log modal that already
-                has a working installment form. Reusing both instead of
-                keeping a second, parallel payment UI only on this tab. */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {/* Debt row -- same card shape as the Sales tab's own mobile
+                row (white card, thin left accent bar, name/ref left,
+                amount right, date+status footer) but the accent bar is
+                always red since every row here is, by definition, a debt
+                -- not a per-row status color like the Sales list uses.
+                Clicking (or its View Debt menu item) opens the same View
+                Sale Details modal the Sales tab uses; Add Payment opens the
+                same Payments Log modal that already has a working
+                installment form -- reusing both instead of a second,
+                parallel payment UI only on this tab. */}
+            <div className="flex flex-col space-y-3">
               {filteredDebtSales.map(s => {
                 const totalVal = s.total;
                 const initialPaid = s.amountPaid !== undefined ? s.amountPaid : 0;
@@ -2370,105 +2376,101 @@ export default function DashboardSalesList({
                 const extraPaid = installments.reduce((sum, inst) => sum + inst.amount, 0);
                 const calculatedPaid = Math.min(totalVal, initialPaid + extraPaid);
                 const calculatedDue = Math.max(0, totalVal - calculatedPaid);
-                const percentPaid = Math.round((calculatedPaid / totalVal) * 100) || 0;
-                const currentPercent = Math.min(100, percentPaid);
                 const isCleared = calculatedDue === 0;
 
                 return (
                   <div
                     key={s.id}
                     onClick={() => setViewingSaleDetail(s)}
-                    className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm hover:shadow-md transition-all cursor-pointer overflow-hidden"
+                    className="relative overflow-hidden rounded-2xl cursor-pointer"
+                    style={{ background: '#ffffff', border: '1px solid #f1f5f9', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}
                   >
-                    <div className="p-4 space-y-3">
+                    {/* Accent left bar -- always red, this whole tab is debts */}
+                    <div className="absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl bg-rose-500" />
+
+                    <div className="pl-4 pr-3 py-3.5">
                       <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0 flex items-center gap-2.5">
-                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isCleared ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
-                            <User className="w-4 h-4" />
-                          </div>
-                          <div className="min-w-0">
-                            <h4 className="text-sm font-bold text-slate-900 dark:text-white truncate">{s.customerName || 'Customer'}</h4>
-                            <p className="text-[10px] font-mono text-slate-400 truncate">Ref: {getSaleReference(s)}{s.customerPhone ? ` · ${s.customerPhone}` : ''}</p>
-                          </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-extrabold text-slate-900 dark:text-white text-[14px] leading-tight truncate">
+                            {s.customerName || 'Customer'}
+                          </p>
+                          <p className="text-[10px] text-slate-400 font-mono mt-0.5 truncate">
+                            #{getSaleReference(s)}{s.customerPhone ? ` · ${s.customerPhone}` : ''}
+                          </p>
                         </div>
-                        <div className="flex items-center gap-1.5 shrink-0" onClick={e => e.stopPropagation()}>
-                          <span className={`text-[9px] font-bold uppercase px-2 py-1 rounded-full ${isCleared ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
-                            {isCleared ? 'Cleared' : 'Due'}
-                          </span>
-                          <button
-                            onClick={(e) => {
-                              if (activeMenuId === s.id) {
-                                setActiveMenuId(null);
-                                setMenuPos(null);
-                              } else {
-                                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                                const estimatedMenuHeight = isCleared ? 150 : 200;
-                                const viewportPadding = 12;
-                                const highestSafeTop = Math.max(viewportPadding, window.innerHeight - estimatedMenuHeight - viewportPadding);
-                                setMenuPos({
-                                  top: Math.min(rect.bottom + 6, highestSafeTop),
-                                  right: Math.max(12, window.innerWidth - rect.right),
-                                });
-                                setActiveMenuId(s.id);
-                              }
-                            }}
-                            className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700 transition-colors border-none bg-transparent cursor-pointer"
-                          >
-                            <MoreVertical className="w-4 h-4" />
-                          </button>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <div className="text-right">
+                            <p className="font-black text-[15px] leading-tight text-rose-600">
+                              {currency}{Math.round(calculatedDue).toLocaleString()}
+                            </p>
+                            <p className="text-[9.5px] font-bold text-slate-400 leading-tight uppercase">owed now</p>
+                          </div>
+                          <div onClick={e => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                if (activeMenuId === s.id) {
+                                  setActiveMenuId(null);
+                                  setMenuPos(null);
+                                } else {
+                                  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                                  const estimatedMenuHeight = isCleared ? 150 : 200;
+                                  const viewportPadding = 12;
+                                  const highestSafeTop = Math.max(viewportPadding, window.innerHeight - estimatedMenuHeight - viewportPadding);
+                                  setMenuPos({
+                                    top: Math.min(rect.bottom + 6, highestSafeTop),
+                                    right: Math.max(12, window.innerWidth - rect.right),
+                                  });
+                                  setActiveMenuId(s.id);
+                                }
+                              }}
+                              className="w-8 h-8 flex items-center justify-center rounded-xl active:bg-slate-100 border-none bg-transparent cursor-pointer"
+                              aria-label="Debt actions"
+                            >
+                              <MoreVertical className="w-4 h-4 text-slate-400" />
+                            </button>
 
-                          {activeMenuId === s.id && menuPos && createPortal(
-                            <>
-                              <div className="fixed z-[999] inset-0" onClick={() => { setActiveMenuId(null); setMenuPos(null); }} />
-                              <div
-                                className="fixed w-48 bg-white border border-slate-100 rounded-2xl shadow-xl z-[1000] py-1.5"
-                                style={{ top: menuPos.top, right: menuPos.right, boxShadow: '0 8px 32px rgba(0,0,0,0.14), 0 0 0 1px rgba(0,0,0,0.04)' }}
-                              >
-                                <button onClick={() => { setViewingSaleDetail(s); setActiveMenuId(null); setMenuPos(null); }}
-                                  className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
-                                  <Eye className="w-3.5 h-3.5 text-slate-400 shrink-0" /> View Debt
-                                </button>
-                                {!isCleared && (
-                                  <button onClick={() => { setSelectedSale(s); setPayInInputVal(calculatedDue.toString()); setViewPaymentsOpen(true); setActiveMenuId(null); setMenuPos(null); }}
-                                    className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-bold text-emerald-700 hover:bg-emerald-50">
-                                    <Coins className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> Add Payment
+                            {activeMenuId === s.id && menuPos && createPortal(
+                              <>
+                                <div className="fixed z-[999] inset-0" onClick={() => { setActiveMenuId(null); setMenuPos(null); }} />
+                                <div
+                                  className="fixed w-48 bg-white border border-slate-100 rounded-2xl shadow-xl z-[1000] py-1.5"
+                                  style={{ top: menuPos.top, right: menuPos.right, boxShadow: '0 8px 32px rgba(0,0,0,0.14), 0 0 0 1px rgba(0,0,0,0.04)' }}
+                                >
+                                  <button onClick={() => { setViewingSaleDetail(s); setActiveMenuId(null); setMenuPos(null); }}
+                                    className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
+                                    <Eye className="w-3.5 h-3.5 text-slate-400 shrink-0" /> View Debt
                                   </button>
-                                )}
-                                {(!rolePermissions || rolePermissions.deleteSale?.write !== false) && (
-                                  <div className="border-t border-slate-100 mt-1 pt-1">
-                                    <button onClick={() => { openDeleteSaleConfirmation(s); setActiveMenuId(null); setMenuPos(null); }}
-                                      className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-bold text-rose-600 hover:bg-rose-50">
-                                      <Trash2 className="w-3.5 h-3.5 shrink-0" /> Delete
+                                  {!isCleared && (
+                                    <button onClick={() => { setSelectedSale(s); setPayInInputVal(calculatedDue.toString()); setViewPaymentsOpen(true); setActiveMenuId(null); setMenuPos(null); }}
+                                      className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-bold text-emerald-700 hover:bg-emerald-50">
+                                      <Coins className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> Add Payment
                                     </button>
-                                  </div>
-                                )}
-                              </div>
-                            </>,
-                            document.body
-                          )}
+                                  )}
+                                  {(!rolePermissions || rolePermissions.deleteSale?.write !== false) && (
+                                    <div className="border-t border-slate-100 mt-1 pt-1">
+                                      <button onClick={() => { openDeleteSaleConfirmation(s); setActiveMenuId(null); setMenuPos(null); }}
+                                        className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-bold text-rose-600 hover:bg-rose-50">
+                                        <Trash2 className="w-3.5 h-3.5 shrink-0" /> Delete
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              </>,
+                              document.body
+                            )}
+                          </div>
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-3 gap-2 text-center">
-                        <div className="bg-slate-50 dark:bg-slate-900/40 rounded-xl py-2 px-1">
-                          <p className="text-[8.5px] font-bold text-slate-400 uppercase tracking-wide">Total</p>
-                          <p className="text-xs font-black text-slate-800 dark:text-white mt-0.5 font-mono truncate">{currency}{Math.round(totalVal).toLocaleString()}</p>
-                        </div>
-                        <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-xl py-2 px-1">
-                          <p className="text-[8.5px] font-bold text-emerald-500 uppercase tracking-wide">Paid</p>
-                          <p className="text-xs font-black text-emerald-700 dark:text-emerald-300 mt-0.5 font-mono truncate">{currency}{Math.round(calculatedPaid).toLocaleString()}</p>
-                        </div>
-                        <div className="bg-rose-50 dark:bg-rose-900/20 rounded-xl py-2 px-1">
-                          <p className="text-[8.5px] font-bold text-rose-400 uppercase tracking-wide">Balance</p>
-                          <p className="text-xs font-black text-rose-600 dark:text-rose-300 mt-0.5 font-mono truncate">{currency}{Math.round(calculatedDue).toLocaleString()}</p>
-                        </div>
-                      </div>
-
-                      <div className="w-full bg-slate-100 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-emerald-500 transition-all duration-300"
-                          style={{ width: `${currentPercent}%` }}
-                        />
+                      <div className="flex items-center justify-between mt-2.5 pt-2.5 border-t border-slate-50 dark:border-slate-700">
+                        <p className="text-[10px] text-slate-400 font-mono">
+                          {new Date(s.timestamp).toLocaleDateString([], {month:'short',day:'numeric',year:'numeric'})}
+                        </p>
+                        <span className={`flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md ${isCleared ? 'text-emerald-600 bg-emerald-50' : 'text-rose-600 bg-rose-50'}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isCleared ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                          {isCleared ? 'Cleared' : 'Due'}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -2476,7 +2478,7 @@ export default function DashboardSalesList({
               })}
 
               {filteredDebtSales.length === 0 && (
-                <div className="col-span-full py-12 text-center bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 rounded-2xl text-slate-500 dark:text-slate-400 font-sans">
+                <div className="py-12 text-center bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 rounded-2xl text-slate-500 dark:text-slate-400 font-sans">
                   No outstanding credit accounts match search keyword or custom criteria.
                 </div>
               )}
