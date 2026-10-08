@@ -1285,62 +1285,69 @@ export default function DashboardReports({
                 ))}
               </div>
 
-              <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2.5">Store vs Shop</p>
-                <div className="reports-split-grid gap-3 sm:gap-4">
-                  {[
-                    { key: 'shop' as const, label: 'In Shop', icon: ShoppingBag, iconBg: 'bg-emerald-50 text-emerald-600', data: inventoryLocationTotals.shop },
-                    { key: 'store' as const, label: 'In Store', icon: Package, iconBg: 'bg-sky-50 text-sky-600', data: inventoryLocationTotals.store },
-                  ].map(loc => (
-                    <div key={loc.key} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 sm:p-5 space-y-3">
-                      <div className="flex items-center gap-2.5">
-                        <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center shrink-0 ${loc.iconBg}`}>
-                          <loc.icon className="w-4 h-4 sm:w-5 sm:h-5" />
-                        </div>
-                        <h6 className="text-sm font-bold text-slate-900 truncate">{loc.label}</h6>
-                      </div>
-                      <div className="grid grid-cols-3 gap-2 sm:gap-3 pt-1">
-                        <div className="min-w-0">
-                          <p className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider truncate">Units</p>
-                          <p className="text-sm sm:text-base font-black text-slate-900 font-mono truncate mt-0.5">{loc.data.units.toLocaleString()}</p>
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider truncate">Cost of Goods</p>
-                          <p className="text-sm sm:text-base font-black text-slate-900 font-mono truncate mt-0.5">{currency}{Math.round(loc.data.valuation).toLocaleString()}</p>
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider truncate">If Sold Profit</p>
-                          <p className={`text-sm sm:text-base font-black font-mono truncate mt-0.5 ${loc.data.potentialProfit >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>{currency}{Math.round(loc.data.potentialProfit).toLocaleString()}</p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <div className="relative overflow-hidden rounded-[28px] p-5 sm:p-6 shadow-xl shadow-emerald-900/30 bg-gradient-to-br from-teal-600 via-emerald-600 to-emerald-800">
+                <div className="absolute -top-16 -right-10 w-44 h-44 rounded-full bg-white/15 blur-3xl pointer-events-none" />
+                <div className="absolute -bottom-16 -left-12 w-48 h-48 rounded-full bg-teal-400/30 blur-3xl pointer-events-none" />
 
-              {hasAnyWholesaleProduct && (
-                <div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2.5">Wholesale Valuation (if sold wholesale)</p>
-                  <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 sm:p-5 space-y-3">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-teal-50 text-teal-650 flex items-center justify-center shrink-0">
-                        <Package className="w-4 h-4 sm:w-5 sm:h-5" />
-                      </div>
-                      <h6 className="text-sm font-bold text-slate-900 truncate">Wholesale-Eligible Stock</h6>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 sm:gap-3 pt-1">
-                      <div className="min-w-0">
-                        <p className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider truncate">Potential Revenue</p>
-                        <p className="text-sm sm:text-base font-black text-slate-900 font-mono truncate mt-0.5">{currency}{Math.round(inventoryWholesaleTotals.potentialRevenue).toLocaleString()}</p>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider truncate">Potential Profit</p>
-                        <p className={`text-sm sm:text-base font-black font-mono truncate mt-0.5 ${inventoryWholesaleTotals.potentialProfit >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>{currency}{Math.round(inventoryWholesaleTotals.potentialProfit).toLocaleString()}</p>
-                      </div>
+                <div className="relative z-10 space-y-5">
+                  <div>
+                    <p className="text-[10px] font-extrabold text-white/70 uppercase tracking-widest mb-2.5">Store vs Shop</p>
+                    <div className="reports-split-grid gap-3">
+                      {[
+                        { key: 'shop' as const, label: 'In Shop', icon: ShoppingBag, data: inventoryLocationTotals.shop },
+                        { key: 'store' as const, label: 'In Store', icon: Package, data: inventoryLocationTotals.store },
+                      ].map(loc => (
+                        <div key={loc.key} className="bg-white/15 backdrop-blur-md border border-white/25 rounded-2xl p-4">
+                          <div className="flex items-center gap-2.5 mb-3">
+                            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-white/20 flex items-center justify-center shrink-0 text-white">
+                              <loc.icon className="w-4 h-4" />
+                            </div>
+                            <h6 className="text-sm font-extrabold text-white truncate">{loc.label}</h6>
+                          </div>
+                          <div className="space-y-2.5">
+                            <div>
+                              <p className="text-[8.5px] font-bold text-white/60 uppercase tracking-wider">Units</p>
+                              <p className="text-sm sm:text-base font-black text-white font-mono mt-0.5">{loc.data.units.toLocaleString()}</p>
+                            </div>
+                            <div>
+                              <p className="text-[8.5px] font-bold text-white/60 uppercase tracking-wider">Cost of Goods</p>
+                              <p className="text-sm sm:text-base font-black text-white font-mono mt-0.5">{currency}{Math.round(loc.data.valuation).toLocaleString()}</p>
+                            </div>
+                            <div className="border-t border-white/20 pt-2.5">
+                              <p className="text-[8.5px] font-bold text-white/60 uppercase tracking-wider">If Sold Profit</p>
+                              <p className={`text-sm sm:text-base font-black font-mono mt-0.5 ${loc.data.potentialProfit >= 0 ? 'text-lime-200' : 'text-rose-300'}`}>{currency}{Math.round(loc.data.potentialProfit).toLocaleString()}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
+
+                  {hasAnyWholesaleProduct && (
+                    <div>
+                      <p className="text-[10px] font-extrabold text-white/70 uppercase tracking-widest mb-2.5">Wholesale Valuation</p>
+                      <div className="bg-white/15 backdrop-blur-md border border-white/25 rounded-2xl p-4 sm:p-5">
+                        <div className="flex items-center gap-2.5 mb-3.5">
+                          <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center shrink-0 text-white">
+                            <Package className="w-4 h-4" />
+                          </div>
+                          <h6 className="text-sm font-extrabold text-white truncate">Wholesale-Eligible Stock</h6>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-[8.5px] font-bold text-white/60 uppercase tracking-wider">Potential Revenue</p>
+                            <p className="text-sm sm:text-base font-black text-white font-mono mt-0.5">{currency}{Math.round(inventoryWholesaleTotals.potentialRevenue).toLocaleString()}</p>
+                          </div>
+                          <div>
+                            <p className="text-[8.5px] font-bold text-white/60 uppercase tracking-wider">Potential Profit</p>
+                            <p className={`text-sm sm:text-base font-black font-mono mt-0.5 ${inventoryWholesaleTotals.potentialProfit >= 0 ? 'text-lime-200' : 'text-rose-300'}`}>{currency}{Math.round(inventoryWholesaleTotals.potentialProfit).toLocaleString()}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
 
               <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 w-full sm:w-auto sm:inline-flex">
                 {([
