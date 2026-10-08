@@ -1286,32 +1286,31 @@ export default function DashboardReports({
               </div>
 
               <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Store vs Shop</p>
-                <div className="reports-split-grid gap-2 sm:gap-3">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2.5">Store vs Shop</p>
+                <div className="reports-split-grid gap-3 sm:gap-4">
                   {[
-                    { key: 'shop' as const, label: 'In Shop', icon: ShoppingBag, data: inventoryLocationTotals.shop },
-                    { key: 'store' as const, label: 'In Store', icon: Package, data: inventoryLocationTotals.store },
+                    { key: 'shop' as const, label: 'In Shop', icon: ShoppingBag, iconBg: 'bg-emerald-50 text-emerald-600', data: inventoryLocationTotals.shop },
+                    { key: 'store' as const, label: 'In Store', icon: Package, iconBg: 'bg-sky-50 text-sky-600', data: inventoryLocationTotals.store },
                   ].map(loc => (
-                    <div key={loc.key} className="relative bg-slate-50 rounded-2xl border border-slate-200 pl-4 pr-2 py-3 sm:p-4 space-y-2 sm:space-y-3 overflow-hidden">
-                      <span className="absolute left-0 top-0 bottom-0 w-1 bg-emerald-500" />
-                      <div className="flex items-center gap-1.5 sm:gap-2">
-                        <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 shrink-0">
-                          <loc.icon className="w-3 h-3 sm:w-4 sm:h-4" />
+                    <div key={loc.key} className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 sm:p-5 space-y-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center shrink-0 ${loc.iconBg}`}>
+                          <loc.icon className="w-4 h-4 sm:w-5 sm:h-5" />
                         </div>
-                        <h6 className="text-xs sm:text-sm font-bold text-slate-900 truncate">{loc.label}</h6>
+                        <h6 className="text-sm font-bold text-slate-900 truncate">{loc.label}</h6>
                       </div>
-                      <div className="grid grid-cols-3 gap-1 sm:gap-2">
+                      <div className="grid grid-cols-3 gap-2 sm:gap-3 pt-1">
                         <div className="min-w-0">
-                          <p className="text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase tracking-wider truncate">Units</p>
-                          <p className="text-xs sm:text-sm font-black text-slate-900 font-mono truncate">{loc.data.units.toLocaleString()}</p>
+                          <p className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider truncate">Units</p>
+                          <p className="text-sm sm:text-base font-black text-slate-900 font-mono truncate mt-0.5">{loc.data.units.toLocaleString()}</p>
                         </div>
                         <div className="min-w-0">
-                          <p className="text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase tracking-wider truncate">Cost of Goods</p>
-                          <p className="text-xs sm:text-sm font-black text-slate-900 font-mono truncate">{currency}{Math.round(loc.data.valuation).toLocaleString()}</p>
+                          <p className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider truncate">Cost of Goods</p>
+                          <p className="text-sm sm:text-base font-black text-slate-900 font-mono truncate mt-0.5">{currency}{Math.round(loc.data.valuation).toLocaleString()}</p>
                         </div>
                         <div className="min-w-0">
-                          <p className="text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase tracking-wider truncate">If Sold Profit</p>
-                          <p className={`text-xs sm:text-sm font-black font-mono truncate ${loc.data.potentialProfit >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>{currency}{Math.round(loc.data.potentialProfit).toLocaleString()}</p>
+                          <p className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider truncate">If Sold Profit</p>
+                          <p className={`text-sm sm:text-base font-black font-mono truncate mt-0.5 ${loc.data.potentialProfit >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>{currency}{Math.round(loc.data.potentialProfit).toLocaleString()}</p>
                         </div>
                       </div>
                     </div>
@@ -1321,23 +1320,22 @@ export default function DashboardReports({
 
               {hasAnyWholesaleProduct && (
                 <div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Wholesale Valuation (if sold wholesale)</p>
-                  <div className="relative bg-slate-50 rounded-2xl border border-slate-200 pl-4 pr-2 py-3 sm:p-4 space-y-2 sm:space-y-3 overflow-hidden">
-                    <span className="absolute left-0 top-0 bottom-0 w-1 bg-teal-650" />
-                    <div className="flex items-center gap-1.5 sm:gap-2">
-                      <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 shrink-0">
-                        <Package className="w-3 h-3 sm:w-4 sm:h-4" />
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2.5">Wholesale Valuation (if sold wholesale)</p>
+                  <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 sm:p-5 space-y-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-teal-50 text-teal-650 flex items-center justify-center shrink-0">
+                        <Package className="w-4 h-4 sm:w-5 sm:h-5" />
                       </div>
-                      <h6 className="text-xs sm:text-sm font-bold text-slate-900 truncate">Wholesale-Eligible Stock</h6>
+                      <h6 className="text-sm font-bold text-slate-900 truncate">Wholesale-Eligible Stock</h6>
                     </div>
-                    <div className="grid grid-cols-2 gap-1 sm:gap-2">
+                    <div className="grid grid-cols-2 gap-2 sm:gap-3 pt-1">
                       <div className="min-w-0">
-                        <p className="text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase tracking-wider truncate">Potential Revenue</p>
-                        <p className="text-xs sm:text-sm font-black text-slate-900 font-mono truncate">{currency}{Math.round(inventoryWholesaleTotals.potentialRevenue).toLocaleString()}</p>
+                        <p className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider truncate">Potential Revenue</p>
+                        <p className="text-sm sm:text-base font-black text-slate-900 font-mono truncate mt-0.5">{currency}{Math.round(inventoryWholesaleTotals.potentialRevenue).toLocaleString()}</p>
                       </div>
                       <div className="min-w-0">
-                        <p className="text-[8px] sm:text-[9px] font-bold text-slate-400 uppercase tracking-wider truncate">Potential Profit</p>
-                        <p className={`text-xs sm:text-sm font-black font-mono truncate ${inventoryWholesaleTotals.potentialProfit >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>{currency}{Math.round(inventoryWholesaleTotals.potentialProfit).toLocaleString()}</p>
+                        <p className="text-[9px] font-semibold text-slate-400 uppercase tracking-wider truncate">Potential Profit</p>
+                        <p className={`text-sm sm:text-base font-black font-mono truncate mt-0.5 ${inventoryWholesaleTotals.potentialProfit >= 0 ? 'text-emerald-700' : 'text-rose-600'}`}>{currency}{Math.round(inventoryWholesaleTotals.potentialProfit).toLocaleString()}</p>
                       </div>
                     </div>
                   </div>
