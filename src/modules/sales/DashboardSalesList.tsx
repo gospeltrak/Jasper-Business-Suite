@@ -2323,8 +2323,12 @@ export default function DashboardSalesList({
                 debtors, and how much is owed right now in total. Not Total
                 Issued / Collected / Outstanding (three figures was too much
                 for a quick glance -- what matters here is who owes and how
-                much, today). */}
-            <div className="grid grid-cols-2 gap-3">
+                much, today). Plain Tailwind grid-cols-2 gets silently
+                neutered on phone by this app's global CSS safety net (see
+                .reports-split-grid's own comment in index.css) -- reusing
+                that same dedicated class instead keeps this a real 2-up row
+                at every width, including phone. */}
+            <div className="reports-split-grid gap-3">
               {[
                 { label: 'Waliokopa', value: debtSales.length, icon: Users, iconBg: 'bg-slate-100 text-slate-600', valueColor: 'text-slate-900 dark:text-white', isCount: true },
                 { label: 'Jumla Wanayodaiwa', value: totalDebtOutstanding, icon: AlertCircle, iconBg: 'bg-rose-50 text-rose-600', valueColor: 'text-rose-700 dark:text-rose-300', isCount: false },
