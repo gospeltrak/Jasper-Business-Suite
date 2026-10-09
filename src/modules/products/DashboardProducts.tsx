@@ -889,7 +889,7 @@ export default function DashboardProducts({
   const [stockTrackingMode, setStockTrackingMode] = useState<'quantity' | 'open-ended'>('quantity');
   const [bulkUnit, setBulkUnit] = useState('KG');
   const [bulkPurchaseQty, setBulkPurchaseQty] = useState<number | ''>('');
-  const [sellUnit, setSellUnit] = useState('kg');
+  const [sellUnit, setSellUnit] = useState(() => unit);
   const [sellUnitQty, setSellUnitQty] = useState<number | ''>('');
   const [sellUnitPrice, setSellUnitPrice] = useState<number | ''>('');
   // Mirrors sellUnitPrice but for cost: lets the tenant enter what one base
@@ -913,6 +913,13 @@ export default function DashboardProducts({
   // reflects whatever unit the tenant actually registered -- weight, volume,
   // length, or count -- instead of assuming weight ("Kg").
   const [baseUnit, setBaseUnit] = useState(unit);
+  // In Fraction Sale ('scale') mode, the sell unit is always the same as
+  // the product's base Unit (you sell by the kg/litre/etc. you chose) --
+  // kept in sync here so Break Even stays correct even if the tenant never
+  // touches the Quick Sale Portions buttons that also set this.
+  useEffect(() => {
+    if (sellingMode === 'scale') setSellUnit(baseUnit);
+  }, [baseUnit, sellingMode]);
   const [conversionToBaseUnit, setConversionToBaseUnit] = useState<number | ''>('');
   const [allowCustomQuantity, setAllowCustomQuantity] = useState(true);
   const [dosesPerPacket, setDosesPerPacket] = useState<number | ''>('');
