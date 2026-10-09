@@ -2330,8 +2330,8 @@ export default function DashboardSalesList({
                 at every width, including phone. */}
             <div className="reports-split-grid gap-3" style={{ gridTemplateColumns: '0.8fr 1.2fr' }}>
               {[
-                { label: 'Waliokopa', value: debtSales.length, icon: Users, iconBg: 'bg-slate-100 text-slate-600', valueColor: 'text-slate-900 dark:text-white', isCount: true },
-                { label: 'Jumla Wanayodaiwa', value: totalDebtOutstanding, icon: AlertCircle, iconBg: 'bg-rose-50 text-rose-600', valueColor: 'text-rose-700 dark:text-rose-300', isCount: false },
+                { label: 'Debtors', value: debtSales.length, icon: Users, iconBg: 'bg-slate-100 text-slate-600', valueColor: 'text-slate-900 dark:text-white', isCount: true },
+                { label: 'Total Owed', value: totalDebtOutstanding, icon: AlertCircle, iconBg: 'bg-rose-50 text-rose-600', valueColor: 'text-rose-700 dark:text-rose-300', isCount: false },
               ].map((metric, i) => (
                 <div key={i} className="min-w-0 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm p-4 flex items-center gap-3">
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${metric.iconBg}`}>

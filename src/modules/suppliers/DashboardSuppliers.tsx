@@ -359,11 +359,11 @@ export default function DashboardSuppliers({
                         <td className="px-6 py-4 text-right">
                           {cust.totalDue > 0 ? (
                             <span className="inline-flex items-center text-[10px] font-bold uppercase px-2.5 py-1 rounded-full bg-rose-50 text-rose-700">
-                              Ana Deni: {activeTenant.currency}{Math.round(cust.totalDue).toLocaleString()}
+                              Owes: {activeTenant.currency}{Math.round(cust.totalDue).toLocaleString()}
                             </span>
                           ) : (
                             <span className="inline-flex items-center text-[10px] font-bold uppercase px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700">
-                              Amelipa
+                              Paid
                             </span>
                           )}
                         </td>
@@ -391,11 +391,11 @@ export default function DashboardSuppliers({
                         <p className="text-xs text-slate-500 truncate">{cust.phone}</p>
                         {cust.totalDue > 0 ? (
                           <span className="inline-flex items-center mt-1 text-[9px] font-bold uppercase px-2 py-0.5 rounded-full bg-rose-50 text-rose-700">
-                            Ana Deni: {activeTenant.currency}{Math.round(cust.totalDue).toLocaleString()}
+                            Owes: {activeTenant.currency}{Math.round(cust.totalDue).toLocaleString()}
                           </span>
                         ) : (
                           <span className="inline-flex items-center mt-1 text-[9px] font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">
-                            Amelipa
+                            Paid
                           </span>
                         )}
                       </div>
@@ -518,19 +518,19 @@ export default function DashboardSuppliers({
                 otherwise silently collapse this to one column on phone. */}
             <div className="px-5 py-3.5 border-b border-slate-100 reports-split-grid gap-3">
               <div className="bg-slate-50 rounded-2xl p-3">
-                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Jumla Alizotumia</p>
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Total Spent</p>
                 <p className="text-sm font-black text-slate-900 mt-0.5">{activeTenant.currency}{viewingCustomer.totalSpent.toLocaleString()}</p>
               </div>
               <div className={`rounded-2xl p-3 ${viewingCustomer.totalDue > 0 ? 'bg-rose-50' : 'bg-emerald-50'}`}>
-                <p className={`text-[9px] font-bold uppercase tracking-wider ${viewingCustomer.totalDue > 0 ? 'text-rose-500' : 'text-emerald-600'}`}>Deni</p>
+                <p className={`text-[9px] font-bold uppercase tracking-wider ${viewingCustomer.totalDue > 0 ? 'text-rose-500' : 'text-emerald-600'}`}>Debt</p>
                 <p className={`text-sm font-black mt-0.5 ${viewingCustomer.totalDue > 0 ? 'text-rose-700' : 'text-emerald-700'}`}>
-                  {viewingCustomer.totalDue > 0 ? `${activeTenant.currency}${Math.round(viewingCustomer.totalDue).toLocaleString()}` : 'Amelipa'}
+                  {viewingCustomer.totalDue > 0 ? `${activeTenant.currency}${Math.round(viewingCustomer.totalDue).toLocaleString()}` : 'Paid'}
                 </p>
               </div>
             </div>
 
             <div className="overflow-y-auto flex-1 px-5 py-4 space-y-2">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Historia ya Manunuzi</p>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Purchase History</p>
               {[...viewingCustomer.sales]
                 .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
                 .map(sale => {

@@ -1212,7 +1212,7 @@ export default function DashboardPOS({
     // direct pointer to where to fix it.
     if (normalizedAmountPaid > 0 && !(systemSettings?.business?.paymentModes || []).map(getPaymentModeName).filter(Boolean).length) {
       setCheckoutNeedsPaymentSetup(true);
-      throw new Error('Bado hujaweka njia za malipo. Nenda Settings → Business Setup kusanidi njia za malipo kabla ya kulipia.');
+      throw new Error("You haven't set up payment modes yet. Go to Settings → Business Setup to set up your payment modes before you can check out.");
     }
 
     const amountDue = Math.max(0, Number((grandTotal - normalizedAmountPaid).toFixed(2)));
@@ -2454,7 +2454,7 @@ export default function DashboardPOS({
                           onClick={onGoToPaymentSettings}
                           className="block text-[11px] font-black text-rose-700 underline underline-offset-2 cursor-pointer"
                         >
-                          Fungua Settings &rarr; Business Setup
+                          Open Settings &rarr; Business Setup
                         </button>
                       )}
                     </div>

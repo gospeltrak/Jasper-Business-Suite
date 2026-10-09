@@ -163,6 +163,17 @@ const DOSAGE_FORM_OPTIONS: ModernSelectOption[] = [
   { value: 'other', label: 'Other' },
 ];
 
+// Guesses a sensible default "Package Name" (what the bulk container is
+// called) from the tenant's chosen base Unit, so a liters-based product
+// isn't stuck with a weight-only term like "Sack". Returns '' for units
+// with no obvious container name, leaving the field blank rather than wrong.
+function guessPackageNameForUnit(unitName: string): string {
+  const normalized = (unitName || '').trim().toLowerCase();
+  if (['kg', 'kgs', 'kilo', 'kilos', 'kilogram', 'kilograms'].includes(normalized)) return 'Sack';
+  if (['ltr', 'ltrs', 'litre', 'litres', 'liter', 'liters', 'l'].includes(normalized)) return 'Bucket';
+  return '';
+}
+
 export default function DashboardProducts({ 
   activeTenant, 
   products,
@@ -892,7 +903,10 @@ export default function DashboardProducts({
   const [allowPosMethodOverride, setAllowPosMethodOverride] = useState(false);
   const [allowScaleSelling, setAllowScaleSelling] = useState(false);
   const [fractionPacketPriceOverride, setFractionPacketPriceOverride] = useState<number | ''>('');
-  const [purchaseUnit, setPurchaseUnit] = useState('Sack');
+  const [purchaseUnit, setPurchaseUnit] = useState(() => guessPackageNameForUnit(unit));
+  // Tracks whether the tenant manually typed a custom Package Name, so the
+  // Units-change sync below never overwrites a deliberate edit.
+  const purchaseUnitTouchedRef = useRef(false);
   // Kept in sync with the tenant's own "Units" selection (unit) rather than a
   // hardcoded default, so every unit label in the Retail Package / Smart
   // Batch Costing section (Sell/Count Unit, Portion Qty, Price per unit)
@@ -1547,7 +1561,8 @@ export default function DashboardProducts({
       setCostingMethod('fifo');
       setAllowPosMethodOverride(false);
       setAllowScaleSelling(false);
-      setPurchaseUnit('Sack');
+      setPurchaseUnit(guessPackageNameForUnit(unit));
+      purchaseUnitTouchedRef.current = false;
       setBaseUnit(unit);
       setConversionToBaseUnit('');
       setAllowCustomQuantity(true);
@@ -2322,7 +2337,7 @@ export default function DashboardProducts({
         <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '0.75rem', alignItems: 'end' }}>
           <div className="space-y-1">
             <label className="text-[9px] font-bold text-slate-500 uppercase">Package Name</label>
-            <input value={purchaseUnit} onChange={(e) => setPurchaseUnit(e.target.value)} placeholder="e.g. Sack" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+            <input value={purchaseUnit} onChange={(e) => { purchaseUnitTouchedRef.current = true; setPurchaseUnit(e.target.value); }} placeholder="e.g. Sack, Bucket" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
           </div>
           <div className="space-y-1 min-w-0">
             <label className="text-[9px] font-bold text-slate-500 uppercase">Contains Quantity</label>
@@ -2359,7 +2374,7 @@ export default function DashboardProducts({
         <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 space-y-3">
           <div className="space-y-1">
             <label className="text-[9px] font-bold text-slate-500 uppercase">Package Name</label>
-            <input value={purchaseUnit} onChange={(e) => setPurchaseUnit(e.target.value)} placeholder="e.g. Sack" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+            <input value={purchaseUnit} onChange={(e) => { purchaseUnitTouchedRef.current = true; setPurchaseUnit(e.target.value); }} placeholder="e.g. Sack, Bucket" className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.5rem' }}>
             <div className="space-y-1 min-w-0">
@@ -3112,6 +3127,7 @@ export default function DashboardProducts({
                           onChange={(nextUnit) => {
                             setUnit(nextUnit);
                             setBaseUnit(nextUnit);
+                            if (!purchaseUnitTouchedRef.current) setPurchaseUnit(guessPackageNameForUnit(nextUnit));
                           }}
                           title="Choose unit"
                           placeholder="Select unit"
