@@ -1807,21 +1807,64 @@ export default function DashboardPOS({
                               <button type="button" onClick={() => updateCartBulkMode(item.product.id, 'pcs')} className={`px-1.5 py-0.5 rounded ${item.bulkSellMode === 'pcs' ? 'bg-white shadow text-emerald-600' : 'text-slate-500'}`}>Pcs</button>
                             </div>
                           )}
-                          {(!item.product.isBulkProduct || (item.bulkSellMode || (item.product.sellingMode === 'hybrid' ? 'scale' : item.product.sellingMode)) === 'scale') ? (
-                            <div className="flex flex-wrap justify-end gap-1 max-w-[190px]">
-                              {(() => {
-                                const baseUnit = getRetailPackageConfig(item.product).baseUnit;
-                                return [
-                                  { label: `+1/4 ${baseUnit}`, val: 0.25 },
-                                  { label: `+1/2 ${baseUnit}`, val: 0.5 },
-                                  { label: `+3/4 ${baseUnit}`, val: 0.75 },
-                                  { label: `+1 ${baseUnit}`, val: 1 },
-                                ].map(f => (
-                                  <button type="button" key={f.label} onClick={() => updateCartQty(item.product.id, f.val)} className="px-1.5 py-0.5 bg-white border border-slate-200 rounded text-[9px] font-bold text-slate-700 hover:bg-slate-50">{f.label}</button>
-                                ));
-                              })()}
-                            </div>
-                          ) : (
+                          {(!item.product.isBulkProduct || (item.bulkSellMode || (item.product.sellingMode === 'hybrid' ? 'scale' : item.product.sellingMode)) === 'scale') ? (() => {
+                            const baseUnit = getRetailPackageConfig(item.product).baseUnit;
+                            return (
+                              // Same compact stepper shape as every other cart row (Minus /
+                              // qty / Plus), so a fraction-scale item reads like any other
+                              // product instead of a row of four standalone quick-add
+                              // buttons. Both the Minus and Plus slots are a native <select>
+                              // (quarter-unit portions, either direction) laid invisibly over
+                              // a styled icon button -- same "transparent input over a styled
+                              // button" trick already used for file-upload buttons elsewhere
+                              // in this codebase -- so each still looks like a plain icon
+                              // button but opens a dropdown. Both route through the same
+                              // updateCartQty used everywhere else in the cart, so stock
+                              // checks, line totals and inventory deduction at checkout all
+                              // stay the single source of truth -- nothing new to keep in sync.
+                              <div className="flex items-center bg-white border border-slate-200 rounded-lg p-0.5 shadow-xs">
+                                <div className="relative">
+                                  <select
+                                    value=""
+                                    onChange={(e) => {
+                                      const val = parseFloat(e.target.value);
+                                      if (val) updateCartQty(item.product.id, val);
+                                      e.target.value = '';
+                                    }}
+                                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                                    aria-label={`Remove ${baseUnit}`}
+                                  >
+                                    <option value="" disabled>-</option>
+                                    <option value="-0.25">-1/4 {baseUnit}</option>
+                                    <option value="-0.5">-1/2 {baseUnit}</option>
+                                    <option value="-0.75">-3/4 {baseUnit}</option>
+                                    <option value="-1">-1 {baseUnit}</option>
+                                  </select>
+                                  <button type="button" tabIndex={-1} className="p-1 hover:bg-slate-100 rounded text-slate-500 pointer-events-none"><Minus className="w-2.5 h-2.5" /></button>
+                                </div>
+                                <span className="w-12 text-center font-black font-mono text-slate-800 text-[10.5px]">{formatProductQuantity(item.qty, item.product)}</span>
+                                <div className="relative">
+                                  <select
+                                    value=""
+                                    onChange={(e) => {
+                                      const val = parseFloat(e.target.value);
+                                      if (val > 0) updateCartQty(item.product.id, val);
+                                      e.target.value = '';
+                                    }}
+                                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+                                    aria-label={`Add ${baseUnit}`}
+                                  >
+                                    <option value="" disabled>+</option>
+                                    <option value="0.25">+1/4 {baseUnit}</option>
+                                    <option value="0.5">+1/2 {baseUnit}</option>
+                                    <option value="0.75">+3/4 {baseUnit}</option>
+                                    <option value="1">+1 {baseUnit}</option>
+                                  </select>
+                                  <button type="button" tabIndex={-1} className="p-1 hover:bg-slate-100 rounded text-slate-500 pointer-events-none"><Plus className="w-2.5 h-2.5" /></button>
+                                </div>
+                              </div>
+                            );
+                          })() : (
                             <div className="flex items-center bg-white border border-slate-200 rounded-lg p-0.5 shadow-xs">
                               <button type="button" onClick={() => updateCartQty(item.product.id, -1)} className="p-1 hover:bg-slate-100 rounded text-slate-500 hover:text-slate-800 cursor-pointer transition-colors"><Minus className="w-2.5 h-2.5" /></button>
                               <input type="number" min="1" value={item.qty} onChange={(e) => updateCartQtyDirect(item.product.id, parseInt(e.target.value) || 1)} className="w-8 text-center font-black font-mono text-slate-800 bg-transparent py-0 text-[10.5px] focus:outline-none border-none" />
