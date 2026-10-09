@@ -2269,7 +2269,7 @@ export default function DashboardProducts({
   // earlier -- interleaved between the columns -- on phone width, where the
   // columns stack and a deliberate top-to-bottom reading order was requested
   // (Medicine Details -> Pharmacy Unit Hierarchy -> Barcode Controls & Stock
-  // -> Smart Batch Costing -> Channel Rules & Costs -> Add Product).
+  // -> Channel Rules & Costs -> Smart Batch Costing -> Add Product).
   const smartBatchCostingSection = (
     <div className="space-y-4 pt-2 border-t border-slate-200">
       <div className="flex items-center justify-between">
@@ -3347,8 +3347,6 @@ export default function DashboardProducts({
                   </div>
                 </div>
 
-                {!isTabletWidthOrWider && smartBatchCostingSection}
-
                 {/* Column 3: Pricing & Margins */}
                 <div className={isDesktopAddProductLayout ? "space-y-4" : "bg-gradient-to-br from-blue-50/60 via-white to-white dark:from-slate-800 dark:via-slate-800 dark:to-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl p-4 space-y-4"}>
                   {isDesktopAddProductLayout ? (
@@ -3509,6 +3507,12 @@ export default function DashboardProducts({
                 </div>
 
               </div>
+
+              {/* Smart Batch Costing on phone reads right after Channel Rules
+                  & Costs (column 3), not between Barcode Controls & Stock and
+                  Channel Rules & Costs -- see the ordering comment above
+                  smartBatchCostingSection's own definition. */}
+              {!isTabletWidthOrWider && smartBatchCostingSection}
 
               {/* Smart Batch Costing and Pharmacy Unit Hierarchy render full-width
                   below the 3-column grid on tablet/desktop instead of being
