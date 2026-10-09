@@ -881,6 +881,13 @@ export default function DashboardProducts({
   const [sellUnit, setSellUnit] = useState('kg');
   const [sellUnitQty, setSellUnitQty] = useState<number | ''>('');
   const [sellUnitPrice, setSellUnitPrice] = useState<number | ''>('');
+  // Mirrors sellUnitPrice but for cost: lets the tenant enter what one base
+  // unit (e.g. 1 kg) actually cost them, instead of forcing "Cost Buy Price"
+  // to double as a whole-package cost that then gets divided back down --
+  // that mismatch (selling price taken per-unit, cost price taken per-package)
+  // was producing wildly wrong margins for Retail Package / Fraction Sale
+  // products whenever a tenant naturally entered cost per unit, same as price.
+  const [costPerBaseUnit, setCostPerBaseUnit] = useState<number | ''>('');
   const [costingMethod, setCostingMethod] = useState<'fifo' | 'average_price' | 'batch_price'>('fifo');
   const [allowPosMethodOverride, setAllowPosMethodOverride] = useState(false);
   const [allowScaleSelling, setAllowScaleSelling] = useState(false);
@@ -1047,7 +1054,7 @@ export default function DashboardProducts({
 
   // Profit/Telemetry calculations
   const effectiveCostPrice = isBulkProduct && !isPharmacyLike
-    ? costPrice / Math.max(0.001, Number(conversionToBaseUnit) || Number(bulkPurchaseQty) || 1)
+    ? Number(costPerBaseUnit) || (costPrice / Math.max(0.001, Number(conversionToBaseUnit) || Number(bulkPurchaseQty) || 1))
     : costPrice;
   const effectiveSellingPrice = isBulkProduct && !isPharmacyLike
     ? Number(sellUnitPrice) || sellingPrice
@@ -1341,7 +1348,7 @@ export default function DashboardProducts({
     const ledgerCostPrice = isPharmacyLike
       ? pharmacyCostPrice
       : isBulkProduct
-        ? retailPackageBuyingCost / retailConversionToBaseUnit
+        ? Number(costPerBaseUnit) || (retailPackageBuyingCost / retailConversionToBaseUnit)
         : costPrice;
     // sellingPrice must be expressed in the same unit as costPrice/stockQty
     // (the base unit) for reports/valuations that multiply price by stock
@@ -2508,6 +2515,12 @@ export default function DashboardProducts({
           </div>
 
           <div className="space-y-1">
+            <label className="text-[10px] font-bold text-slate-500 uppercase">Cost per 1 {baseUnit || 'unit'}</label>
+            <input type="number" value={costPerBaseUnit} onChange={e => setCostPerBaseUnit(e.target.value === '' ? '' : Number(e.target.value))} placeholder={`e.g. what 1 ${baseUnit || 'unit'} cost you`} className="w-full bg-white border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl font-bold" />
+            <p className="text-[9px] text-slate-400">Used for margin instead of Cost Buy Price above, which is the whole package's cost.</p>
+          </div>
+
+          <div className="space-y-1">
             <label className="text-[10px] font-bold text-slate-500 uppercase">Package Price</label>
             <input
               type="number"
@@ -2524,31 +2537,42 @@ export default function DashboardProducts({
             )}
           </div>
 
-          {/* Auto-calculation display */}
-          {stockTrackingMode !== 'open-ended' && (
-            <div className="bg-emerald-600 text-white rounded-2xl p-4 space-y-2 text-xs font-mono shadow-md shadow-emerald-600/20">
-              <div className="flex justify-between font-bold">
-                <span>{t('totalUnitsFromPurchase')}</span>
-                <span>1 {purchaseUnit || 'package'} = {formatProductQuantity(Number(conversionToBaseUnit) || 0, { unit: baseUnit } as Product)}</span>
+          {/* Auto-calculation display -- "Cost of purchase" here means the
+              whole package's cost either way: derived from Cost per 1 unit
+              (x package qty) when the tenant filled that in, else falling
+              back to Cost Buy Price taken as-is (its original, whole-package
+              meaning), so this stays consistent with effectiveCostPrice /
+              ledgerCostPrice above instead of silently disagreeing with them. */}
+          {stockTrackingMode !== 'open-ended' && (() => {
+            const packageQty = Number(conversionToBaseUnit) || 0;
+            const unitPrice = Number(sellUnitPrice) || 0;
+            const wholePackageSaleValue = packageQty * unitPrice;
+            const wholePackageCost = Number(costPerBaseUnit) > 0 ? Number(costPerBaseUnit) * packageQty : costPrice;
+            return (
+              <div className="bg-emerald-600 text-white rounded-2xl p-4 space-y-2 text-xs font-mono shadow-md shadow-emerald-600/20">
+                <div className="flex justify-between font-bold">
+                  <span>{t('totalUnitsFromPurchase')}</span>
+                  <span>1 {purchaseUnit || 'package'} = {formatProductQuantity(packageQty, { unit: baseUnit } as Product)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Whole package sale value</span>
+                  <span>{currency}{wholePackageSaleValue.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Cost of purchase:</span>
+                  <span>{currency}{wholePackageCost.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between font-bold border-t border-emerald-500 pt-2 text-emerald-100">
+                  <span>{t('grossProfit')}:</span>
+                  <span>{currency}{(wholePackageSaleValue - wholePackageCost).toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between font-bold text-emerald-100">
+                  <span>{t('breakevenUnits')}:</span>
+                  <span>{formatProductQuantity(Math.ceil(wholePackageCost / (unitPrice || 1)), { unit: sellUnit || baseUnit } as Product)}</span>
+                </div>
               </div>
-              <div className="flex justify-between">
-                <span>Whole package sale value</span>
-                <span>{currency}{((Number(conversionToBaseUnit) || 0) * (Number(sellUnitPrice) || 0)).toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Cost of purchase:</span>
-                <span>{currency}{costPrice.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between font-bold border-t border-emerald-500 pt-2 text-emerald-100">
-                <span>{t('grossProfit')}:</span>
-                <span>{currency}{(((Number(conversionToBaseUnit) || 0) * (Number(sellUnitPrice) || 0)) - costPrice).toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between font-bold text-emerald-100">
-                <span>{t('breakevenUnits')}:</span>
-                <span>{formatProductQuantity(Math.ceil(costPrice / (Number(sellUnitPrice) || 1)), { unit: sellUnit || baseUnit } as Product)}</span>
-              </div>
-            </div>
-          )}
+            );
+          })()}
         </div>
       )}
     </div>
