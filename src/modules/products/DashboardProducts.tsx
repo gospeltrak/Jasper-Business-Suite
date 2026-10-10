@@ -3332,26 +3332,27 @@ export default function DashboardProducts({
                   )}
                   
                   <div className="space-y-1.5">
-                    <div className="flex justify-between items-center text-[10px] text-slate-500 uppercase block font-bold">
-                      <label>Product Code (Acts as SKU / Item Code)</label>
-                      <div className="flex items-center space-x-1.5 normal-case">
-                        <button type="button" onClick={generateManualBarcodeValue} className="px-2 py-1 rounded-lg border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-[9px] font-bold text-emerald-700 transition-colors">
-                          Generate
+                    <label className="text-[10px] text-slate-500 uppercase block font-bold">Product Code (Acts as SKU / Item Code)</label>
+
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <input
+                        type="text"
+                        placeholder="e.g. 615010291402 or Generate"
+                        value={barcode}
+                        onChange={(e) => setBarcode(e.target.value)}
+                        className="min-w-0 flex-1 bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-800 font-mono tracking-wide transition-all outline-none"
+                      />
+                      <div className="flex gap-2">
+                        <button type="button" onClick={generateManualBarcodeValue} className="flex flex-1 shrink-0 items-center justify-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-[10px] font-black text-emerald-700 transition-colors hover:border-emerald-300 hover:bg-emerald-100 active:bg-emerald-200 sm:flex-initial">
+                          <RefreshCw className="h-3.5 w-3.5" />
+                          <span>Generate</span>
                         </button>
-                        <button type="button" onClick={() => setIsFormScannerOpen(true)} className="flex items-center space-x-1 px-2 py-1 rounded-lg border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-[9px] font-bold text-emerald-700 transition-colors">
-                          <Camera className="w-2.5 h-2.5" />
+                        <button type="button" onClick={() => setIsFormScannerOpen(true)} className="flex flex-1 shrink-0 items-center justify-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-[10px] font-black text-emerald-700 transition-colors hover:border-emerald-300 hover:bg-emerald-100 active:bg-emerald-200 sm:flex-initial">
+                          <Camera className="h-3.5 w-3.5" />
                           <span>Scan</span>
                         </button>
                       </div>
                     </div>
-
-                    <input 
-                      type="text" 
-                      placeholder="e.g. 615010291402 or Click Generate"
-                      value={barcode}
-                      onChange={(e) => setBarcode(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-800 font-mono tracking-wide transition-all outline-none"
-                    />
                     <p className="text-[9px] text-slate-400">Leave empty to auto-create.</p>
                   </div>
 
