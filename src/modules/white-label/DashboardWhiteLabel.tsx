@@ -29,13 +29,9 @@ export default function DashboardWhiteLabel({ activeTenant }: DashboardWhiteLabe
   // Brand customizations state
   const [customBrandName, setCustomBrandName] = useState(activeTenant.name);
   const [customSlogan, setCustomSlogan] = useState(
-    activeTenant.businessType === 'pharmacy' 
-      ? 'Clinical Pharmacy Dispensary Integrated Suite' 
-      : activeTenant.businessType === 'restaurant'
-        ? 'Digital Restaurant Dining & Kitchen ERP'
-        : activeTenant.businessType === 'hotel'
-          ? 'Hotel PMS & Guest Management Suite'
-          : 'Unified Merchant Retail Administration'
+    activeTenant.businessType === 'pharmacy'
+      ? 'Clinical Pharmacy Dispensary Integrated Suite'
+      : 'Unified Merchant Retail Administration'
   );
   const [primaryColor, setPrimaryColor] = useState('#6366f1'); // Default Indigo
   const [themeMode, setThemeMode] = useState<'light' | 'dark' | 'glass'>('light');
@@ -212,13 +208,9 @@ export default function DashboardWhiteLabel({ activeTenant }: DashboardWhiteLabe
                     onClick={() => {
                       setEmbedScope('entire-niche');
                       setCustomSlogan(
-                        activeTenant.businessType === 'pharmacy' 
-                          ? 'Clinical Pharmacy Dispensary Integrated Suite' 
-                          : activeTenant.businessType === 'restaurant'
-                            ? 'Digital Restaurant Dining & Kitchen ERP'
-                            : activeTenant.businessType === 'hotel'
-                              ? 'Hotel PMS & Guest Management Suite'
-                              : 'Unified Merchant Retail Administration'
+                        activeTenant.businessType === 'pharmacy'
+                          ? 'Clinical Pharmacy Dispensary Integrated Suite'
+                          : 'Unified Merchant Retail Administration'
                       );
                     }}
                     className={`py-2 px-1 rounded-xl text-[11px] font-black uppercase font-mono cursor-pointer border transition-all truncate text-center ${

@@ -192,26 +192,14 @@ export default function DashboardSettings({
   const [posSettingsForm, setPosSettingsForm] = useState(() => ({
     showProductImages: systemSettings?.posSettings?.showProductImages !== false
   }));
-  const [staffsList, setStaffsList] = useState<StaffSettings[]>(() => {
-    const original = systemSettings?.staffs || [];
-    if (activeTenant.businessType === 'restaurant') {
-      return original.map(s => s.role === 'Seller' ? { ...s, role: 'Waiter' as any } : s);
-    }
-    return original;
-  });
+  const [staffsList, setStaffsList] = useState<StaffSettings[]>(() => systemSettings?.staffs || []);
 
   const [viewingStaffReport, setViewingStaffReport] = useState<StaffSettings | null>(null);
   // A brand-new tenant starts with zero roles — they build their own from
   // scratch (see "Create New Role" below) rather than the system silently
   // seeding a fixed preset list. A tenant that already has real, saved
   // roles (customRoles.length > 0) is completely unaffected by this.
-  const [customRolesList, setCustomRolesList] = useState<CustomRole[]>(() => {
-    const roles = systemSettings?.customRoles || [];
-    if (activeTenant.businessType === 'restaurant') {
-      return roles.map(r => r.name === 'Seller' ? { ...r, name: 'Waiter' } : r);
-    }
-    return roles;
-  });
+  const [customRolesList, setCustomRolesList] = useState<CustomRole[]>(() => systemSettings?.customRoles || []);
 
   // Success alert message states
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
@@ -2051,7 +2039,7 @@ export default function DashboardSettings({
               <div className="border-b border-slate-100 pb-4">
                 <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider font-mono">🛡️ System Security Roles & Permissions</h3>
                 <p className="text-xs text-slate-455 mt-1 font-sans">
-                  Construct fine-grain security roles for your floor {activeTenant.businessType === 'restaurant' ? 'waiters' : 'sellers'}, cashiers, and managers. Assign permissions checkmark-by-checkmark to restrict access to secret revenues, cost of goods (Cost of Goods), or system setup.
+                  Construct fine-grain security roles for your floor sellers, cashiers, and managers. Assign permissions checkmark-by-checkmark to restrict access to secret revenues, cost of goods (Cost of Goods), or system setup.
                 </p>
               </div>
               <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/50 p-8 text-center space-y-4">
@@ -2129,7 +2117,7 @@ export default function DashboardSettings({
                 <div className="border-b border-slate-100 pb-4">
                   <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider font-mono">🛡️ System Security Roles & Permissions</h3>
                   <p className="text-xs text-slate-455 mt-1 font-sans">
-                    Construct fine-grain security roles for your floor {activeTenant.businessType === 'restaurant' ? 'waiters' : 'sellers'}, cashiers, and managers. Assign permissions checkmark-by-checkmark to restrict access to secret revenues, cost of goods (Cost of Goods), or system setup.
+                    Construct fine-grain security roles for your floor sellers, cashiers, and managers. Assign permissions checkmark-by-checkmark to restrict access to secret revenues, cost of goods (Cost of Goods), or system setup.
                   </p>
                 </div>
 

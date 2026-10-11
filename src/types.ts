@@ -32,7 +32,7 @@ export interface Tenant {
   currencyCode: 'NGN' | 'KES' | 'GHS' | 'ZAR' | 'TZS';
   taxRate: number; // e.g. 0.075 for Nigeria, 0.16 for Kenya
   mobileMoneyProviders: string[];
-  businessType?: 'retail' | 'pharmacy' | 'restaurant' | 'hotel';
+  businessType?: 'retail' | 'pharmacy';
   selectedPackageId?: 'ruby' | 'diamond' | 'tanzanite';
   activePackageId?: 'ruby' | 'diamond' | 'tanzanite';
   subscriptionStatus?: 'trial' | 'pending' | 'active' | 'expired' | 'suspended';
