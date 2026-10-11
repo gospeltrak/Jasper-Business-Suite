@@ -2290,22 +2290,26 @@ export default function DashboardSalesList({
 
       {/* SECTION B: ACCOUNTS RECEIVABLE / DEBTS COLLECTOR PORTAL & PAYMENT-IN */}
       {activeSubTab === 'debts' && (() => {
-        // Calculate dynamic figures
-        const debtSales = sales.filter(s => s.paymentMethod === 'Credit' || (s.total - (s.amountPaid !== undefined ? s.amountPaid : s.total)) > 0);
+        // Calculate dynamic figures. A sale only counts as a debt while it
+        // still has a balance left after installments -- once installment
+        // payments fully cover it, it must disappear from this list entirely
+        // (it still shows as paid under the Sales tab), not linger here
+        // showing a owed-now of 0.
+        const debtSales = sales.filter(s => {
+          const initialPaid = s.amountPaid !== undefined ? s.amountPaid : (s.paymentMethod === 'Credit' ? 0 : s.total);
+          const installmentsVal = (installmentRecords[s.id] || []).reduce((sum, i) => sum + i.amount, 0);
+          const calculatedPaid = Math.min(s.total, initialPaid + installmentsVal);
+          return (s.total - calculatedPaid) > 0;
+        });
         const totalDebtIssued = debtSales.reduce((sum, s) => sum + s.total, 0);
-        
+
         const totalDebtPaidIn = debtSales.reduce((sum, s) => {
           const initialPaid = s.amountPaid !== undefined ? s.amountPaid : 0;
           const installmentsVal = (installmentRecords[s.id] || []).reduce((instTot, i) => instTot + i.amount, 0);
           return sum + Math.min(s.total, initialPaid + installmentsVal);
         }, 0);
-        
+
         const totalDebtOutstanding = Math.max(0, totalDebtIssued - totalDebtPaidIn);
-        const clearedDebtsCount = debtSales.filter(s => {
-          const initialPaid = s.amountPaid !== undefined ? s.amountPaid : 0;
-          const installmentsVal = (installmentRecords[s.id] || []).reduce((instTot, i) => instTot + i.amount, 0);
-          return (initialPaid + installmentsVal) >= s.total;
-        }).length;
 
         // Filter debt contracts by keyword query
         const filteredDebtSales = debtSales.filter(s => {
@@ -2358,7 +2362,7 @@ export default function DashboardSalesList({
                 />
               </div>
               <div className="text-xs text-slate-500 font-mono">
-                Showing {filteredDebtSales.length} Credit Dockets ({clearedDebtsCount} Cleared)
+                Showing {filteredDebtSales.length} Credit Dockets
               </div>
             </div>
 
@@ -4295,17 +4299,18 @@ export default function DashboardSalesList({
                              </div>
                              <div>
                                <label className="block text-[9px] uppercase font-mono text-slate-500 font-bold mb-1">Payment Mode</label>
-                               <select 
+                               <select
                                  name="channel"
                                  className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-bold font-sans cursor-pointer focus:outline-none"
                                >
-                                 <option value="Cash">Cash Channel</option>
-                                 <option value="Card">Visa/Card Till</option>
-                                 <option value="M-Pesa">M-Pesa Express</option>
-                                 <option value="MTN MoMo">MTN MoMo API</option>
-                                 <option value="Paystack">Direct Paystack</option><option value="Airtel Money">Airtel Money</option></select></div><div><label className="block text-[9px] uppercase font-mono text-slate-500 font-bold mb-1">Payment Date</label><input type="date" name="paymentDate" defaultValue={formatLocalDate()} required className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-bold font-sans cursor-pointer focus:outline-none text-slate-800" /></div></div><div className="hidden"><div><select>
-                                 <option value="Airtel Money">Airtel Money</option>
+                                 {documentPaymentMethods.map(method => (
+                                   <option key={method} value={method}>{method}</option>
+                                 ))}
                                </select>
+                             </div>
+                             <div>
+                               <label className="block text-[9px] uppercase font-mono text-slate-500 font-bold mb-1">Payment Date</label>
+                               <input type="date" name="paymentDate" defaultValue={formatLocalDate()} required className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-bold font-sans cursor-pointer focus:outline-none text-slate-800" />
                              </div>
                            </div>
 
