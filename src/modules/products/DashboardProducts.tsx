@@ -4823,32 +4823,74 @@ export default function DashboardProducts({
                 .map(prod => {
                   const shopQty = prod.shopStockQty ?? 0;
                   const storeQty = prod.storeStockQty ?? 0;
+                  const totalQty = getTotalStockQty(shopQty, storeQty);
+                  const isOutOfStock = totalQty <= 0;
+                  const isLow = !isOutOfStock && shopQty <= (prod.alertQty || 5);
+                  const isCritical = isLow && shopQty <= Math.floor((prod.alertQty || 5) / 2);
+                  const shopPct = Math.min(100, Math.round((shopQty / Math.max(1, (prod.alertQty || 5) * 4)) * 100));
+                  const storePct = Math.min(100, Math.round((storeQty / Math.max(1, (prod.alertQty || 5) * 4)) * 100));
+                  const avatarBg = isOutOfStock ? '#f1f5f9' : isCritical ? '#fff1f2' : isLow ? '#fff7ed' : '#f0fdf4';
+                  const avatarColor = isOutOfStock ? '#94a3b8' : isCritical ? '#e11d48' : isLow ? '#ea580c' : '#16a34a';
+                  const barColor = isOutOfStock ? '#e2e8f0' : isCritical ? '#f43f5e' : isLow ? '#f97316' : '#22c55e';
+                  const statusBg = isOutOfStock ? '#f8fafc' : isCritical ? '#fff1f2' : isLow ? '#fff7ed' : '#f0fdf4';
+                  const statusColor = isOutOfStock ? '#64748b' : isCritical ? '#e11d48' : isLow ? '#c2410c' : '#15803d';
+                  const statusText = isOutOfStock ? 'Out of Stock' : isCritical ? 'Critical Low' : isLow ? 'Low Stock' : 'In Stock';
+                  const statusDot = isOutOfStock ? '#94a3b8' : isCritical ? '#f43f5e' : isLow ? '#f97316' : '#22c55e';
+
                   return (
-                    <div key={prod.id} className="bg-slate-50/50 hover:bg-slate-50 border border-slate-200 rounded-2xl p-4 flex items-start space-x-3 transition-all relative">
-                      {prod.image ? (
-                        <div className="w-12 h-12 bg-white border border-slate-200 rounded-xl overflow-hidden flex-shrink-0 p-0.5 flex items-center justify-center">
-                          <CachedImage src={prod.image} alt={prod.name} className="max-w-full max-h-full object-contain" referrerPolicy="no-referrer" />
+                    <div key={prod.id} className="bg-white border border-slate-100 rounded-2xl overflow-hidden transition-shadow hover:shadow-md" style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.05), 0 0 0 1px rgba(0,0,0,0.03)' }}>
+                      <div className="flex items-center gap-3 px-3.5 pt-3.5 pb-3">
+                        <div
+                          className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 font-black text-sm overflow-hidden border border-slate-100"
+                          style={{ background: prod.image ? '#ffffff' : avatarBg, color: avatarColor }}
+                        >
+                          {prod.image
+                            ? <CachedImage src={prod.image} alt={prod.name} className="w-full h-full object-contain p-1" referrerPolicy="no-referrer" />
+                            : prod.name.charAt(0).toUpperCase()
+                          }
                         </div>
-                      ) : (
-                        <div className="w-12 h-12 bg-slate-100 border border-slate-200 text-slate-400 font-mono text-[7px] font-black rounded-xl flex items-center justify-center uppercase leading-none text-center flex-shrink-0">
-                          No img
+                        <div className="min-w-0 flex-1">
+                          <p className="font-bold text-slate-800 text-[12.5px] leading-snug truncate">{prod.name}</p>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            {prod.brand && <span className="text-[10px] font-semibold text-slate-400 truncate max-w-[90px]">{prod.brand}</span>}
+                            {prod.unit && <><span className="text-slate-200">·</span><span className="text-[10px] font-mono font-semibold text-slate-400">{prod.unit}</span></>}
+                          </div>
                         </div>
-                      )}
-                      
-                      <div className="space-y-1 min-w-0 flex-grow">
-                        <h5 className="font-bold text-slate-800 text-[12.5px] truncate leading-snug">{prod.name}</h5>
-                        <p className="text-[10px] text-slate-400 font-mono tracking-wider">Barcode: <span className="font-semibold text-slate-700">{prod.barcode}</span></p>
-                        <p className="text-[10px] text-slate-400 font-semibold">Brand: <span className="text-slate-700">{prod.brand || '—'}</span></p>
-                        <div className="flex items-center space-x-3 pt-1.5 font-mono text-[10.5px]">
-                          <span className="text-emerald-700 font-bold font-mono">Cost: {currency}{prod.costPrice}</span>
-                          <span className="text-slate-400">|</span>
-                          <span className="text-slate-800 font-mono font-extrabold">Price: {currency}{prod.sellingPrice}</span>
+                        <div className="text-right shrink-0">
+                          <p className="font-black text-[12.5px]" style={{ color: '#16a34a' }}>{currency}{Math.round(prod.sellingPrice).toLocaleString()}</p>
+                          <p className="text-[9px] text-slate-400 font-mono leading-tight">cost {currency}{Math.round(prod.costPrice).toLocaleString()}</p>
                         </div>
-                        <div className="pt-2">
-                          <span className="inline-block bg-white border border-slate-200 text-slate-600 px-2 py-0.5 rounded-md font-mono text-[9.5px]">
-                            Shop: {formatProductQuantity(shopQty, prod)} / Store: {formatProductQuantity(storeQty, prod)}
+                      </div>
+
+                      <div className="px-3.5 pb-2.5 space-y-1.5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[8.5px] font-bold text-slate-400 uppercase tracking-wide w-9 shrink-0">Shop</span>
+                          <div className="flex-1 h-1.5 rounded-full overflow-hidden bg-slate-100">
+                            <div className="h-full rounded-full transition-all duration-500" style={{ width: `${shopPct}%`, background: barColor }} />
+                          </div>
+                          <span className="text-[10px] font-black w-10 text-right shrink-0" style={{ color: isOutOfStock ? '#94a3b8' : avatarColor }}>
+                            {formatProductQuantity(shopQty, prod)}
                           </span>
                         </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[8.5px] font-bold text-slate-400 uppercase tracking-wide w-9 shrink-0">Store</span>
+                          <div className="flex-1 h-1.5 rounded-full overflow-hidden bg-slate-100">
+                            <div className="h-full rounded-full transition-all duration-500" style={{ width: `${storePct}%`, background: '#94a3b8' }} />
+                          </div>
+                          <span className="text-[10px] font-black w-10 text-right shrink-0 text-slate-500">
+                            {formatProductQuantity(storeQty, prod)}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between px-3.5 py-2 border-t border-slate-100" style={{ background: '#fafafa' }}>
+                        <div className="flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: statusDot }} />
+                          <span className="text-[9.5px] font-bold" style={{ color: statusColor, background: statusBg, padding: '2px 7px', borderRadius: '20px' }}>
+                            {statusText}
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-black text-slate-700 font-mono">{formatProductQuantity(totalQty, prod)} total</span>
                       </div>
                     </div>
                   );
@@ -5045,35 +5087,74 @@ export default function DashboardProducts({
                 .map(prod => {
                   const shopQty = prod.shopStockQty ?? 0;
                   const storeQty = prod.storeStockQty ?? 0;
+                  const totalQty = getTotalStockQty(shopQty, storeQty);
+                  const isOutOfStock = totalQty <= 0;
+                  const isLow = !isOutOfStock && shopQty <= (prod.alertQty || 5);
+                  const isCritical = isLow && shopQty <= Math.floor((prod.alertQty || 5) / 2);
+                  const shopPct = Math.min(100, Math.round((shopQty / Math.max(1, (prod.alertQty || 5) * 4)) * 100));
+                  const storePct = Math.min(100, Math.round((storeQty / Math.max(1, (prod.alertQty || 5) * 4)) * 100));
+                  const avatarBg = isOutOfStock ? '#f1f5f9' : isCritical ? '#fff1f2' : isLow ? '#fff7ed' : '#f0fdf4';
+                  const avatarColor = isOutOfStock ? '#94a3b8' : isCritical ? '#e11d48' : isLow ? '#ea580c' : '#16a34a';
+                  const barColor = isOutOfStock ? '#e2e8f0' : isCritical ? '#f43f5e' : isLow ? '#f97316' : '#22c55e';
+                  const statusBg = isOutOfStock ? '#f8fafc' : isCritical ? '#fff1f2' : isLow ? '#fff7ed' : '#f0fdf4';
+                  const statusColor = isOutOfStock ? '#64748b' : isCritical ? '#e11d48' : isLow ? '#c2410c' : '#15803d';
+                  const statusText = isOutOfStock ? 'Out of Stock' : isCritical ? 'Critical Low' : isLow ? 'Low Stock' : 'In Stock';
+                  const statusDot = isOutOfStock ? '#94a3b8' : isCritical ? '#f43f5e' : isLow ? '#f97316' : '#22c55e';
+
                   return (
-                    <div key={prod.id} className="bg-slate-50/50 hover:bg-slate-50 border border-slate-200 rounded-2xl p-4 flex items-start space-x-3 transition-all">
-                      {prod.image ? (
-                        <div className="w-12 h-12 bg-white border border-slate-200 rounded-xl overflow-hidden flex-shrink-0 p-0.5 flex items-center justify-center">
-                          <CachedImage src={prod.image} alt={prod.name} className="max-w-full max-h-full object-contain" referrerPolicy="no-referrer" />
+                    <div key={prod.id} className="bg-white border border-slate-100 rounded-2xl overflow-hidden transition-shadow hover:shadow-md" style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.05), 0 0 0 1px rgba(0,0,0,0.03)' }}>
+                      <div className="flex items-center gap-3 px-3.5 pt-3.5 pb-3">
+                        <div
+                          className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 font-black text-sm overflow-hidden border border-slate-100"
+                          style={{ background: prod.image ? '#ffffff' : avatarBg, color: avatarColor }}
+                        >
+                          {prod.image
+                            ? <CachedImage src={prod.image} alt={prod.name} className="w-full h-full object-contain p-1" referrerPolicy="no-referrer" />
+                            : prod.name.charAt(0).toUpperCase()
+                          }
                         </div>
-                      ) : (
-                        <div className="w-12 h-12 bg-slate-100 border border-slate-200 text-slate-400 font-mono text-[7px] font-black rounded-xl flex items-center justify-center uppercase leading-none text-center flex-shrink-0">
-                          No img
+                        <div className="min-w-0 flex-1">
+                          <p className="font-bold text-slate-800 text-[12.5px] leading-snug truncate">{prod.name}</p>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            {prod.category && <span className="text-[10px] font-semibold text-slate-400 truncate max-w-[90px]">{prod.category}</span>}
+                            {prod.unit && <><span className="text-slate-200">·</span><span className="text-[10px] font-mono font-semibold text-slate-400">{prod.unit}</span></>}
+                          </div>
                         </div>
-                      )}
-                      
-                      <div className="space-y-1 min-w-0 flex-grow">
-                        <h5 className="font-bold text-slate-800 text-[12.5px] truncate leading-snug">{prod.name}</h5>
-                        <p className="text-[10px] text-slate-400 font-mono tracking-wider">Barcode: <span className="font-semibold text-slate-700">{prod.barcode}</span></p>
-                        <p className="text-[10px] text-slate-400 font-semibold">
-                          Category: <span className="text-slate-700">{prod.category}</span>
-                          {prod.unit && <span className="ml-2 font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded leading-none">Unit: {prod.unit}</span>}
-                        </p>
-                        <div className="flex items-center space-x-3 pt-1.5 font-mono text-[10.5px]">
-                          <span className="text-emerald-700 font-bold font-mono">Cost: {currency}{prod.costPrice}</span>
-                          <span className="text-slate-400">|</span>
-                          <span className="text-slate-800 font-mono font-extrabold">Price: {currency}{prod.sellingPrice}</span>
+                        <div className="text-right shrink-0">
+                          <p className="font-black text-[12.5px]" style={{ color: '#16a34a' }}>{currency}{Math.round(prod.sellingPrice).toLocaleString()}</p>
+                          <p className="text-[9px] text-slate-400 font-mono leading-tight">cost {currency}{Math.round(prod.costPrice).toLocaleString()}</p>
                         </div>
-                        <div className="pt-2">
-                          <span className="inline-block bg-white border border-slate-200 text-slate-600 px-2 py-0.5 rounded-md font-mono text-[9.5px]">
-                            Shop: {formatProductQuantity(shopQty, prod)} / Store: {formatProductQuantity(storeQty, prod)}
+                      </div>
+
+                      <div className="px-3.5 pb-2.5 space-y-1.5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[8.5px] font-bold text-slate-400 uppercase tracking-wide w-9 shrink-0">Shop</span>
+                          <div className="flex-1 h-1.5 rounded-full overflow-hidden bg-slate-100">
+                            <div className="h-full rounded-full transition-all duration-500" style={{ width: `${shopPct}%`, background: barColor }} />
+                          </div>
+                          <span className="text-[10px] font-black w-10 text-right shrink-0" style={{ color: isOutOfStock ? '#94a3b8' : avatarColor }}>
+                            {formatProductQuantity(shopQty, prod)}
                           </span>
                         </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[8.5px] font-bold text-slate-400 uppercase tracking-wide w-9 shrink-0">Store</span>
+                          <div className="flex-1 h-1.5 rounded-full overflow-hidden bg-slate-100">
+                            <div className="h-full rounded-full transition-all duration-500" style={{ width: `${storePct}%`, background: '#94a3b8' }} />
+                          </div>
+                          <span className="text-[10px] font-black w-10 text-right shrink-0 text-slate-500">
+                            {formatProductQuantity(storeQty, prod)}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between px-3.5 py-2 border-t border-slate-100" style={{ background: '#fafafa' }}>
+                        <div className="flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: statusDot }} />
+                          <span className="text-[9.5px] font-bold" style={{ color: statusColor, background: statusBg, padding: '2px 7px', borderRadius: '20px' }}>
+                            {statusText}
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-black text-slate-700 font-mono">{formatProductQuantity(totalQty, prod)} total</span>
                       </div>
                     </div>
                   );
