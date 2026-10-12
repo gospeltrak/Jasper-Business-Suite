@@ -816,7 +816,13 @@ export default function DashboardSalesList({
     const paymentAccount = getDocumentPaymentAccount(newDocPaymentMethod);
     setNewDocPaymentAccountNumber(paymentAccount.accountNumber);
     setNewDocPaymentAccountName(paymentAccount.accountName);
-  }, [getDocumentPaymentAccount, newDocPaymentMethod]);
+    // Only auto-fill when the tenant actually changes the Payment Mode
+    // selection -- depending on getDocumentPaymentAccount itself re-ran this
+    // on every keystroke in the Account Number/Name fields below (its
+    // identity changes on re-render even though nothing semantic changed),
+    // wiping out whatever the tenant had just typed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [newDocPaymentMethod]);
 
   useEffect(() => {
     if (viewingDocument) {

@@ -62,6 +62,32 @@ export const onlineStorage: Storage = {
   },
 };
 
+// The debounce above means a write made just before the tenant backgrounds
+// the app, closes the tab, or loses connectivity can be silently lost --
+// nothing else ever flushes it to the database, so the next load reads the
+// last-persisted (older) snapshot and whatever was just created or edited
+// appears to have vanished. Firing an immediate (non-debounced) persist as
+// soon as the page is hidden closes that window -- it can't guarantee the
+// async save finishes before an outright tab kill, but 'visibilitychange'
+// fires while the page is still alive (unlike 'beforeunload'/'pagehide',
+// which iOS Safari and backgrounded mobile browsers can skip entirely),
+// giving the request a real chance to complete.
+const flushPendingPersist = () => {
+  if (saveTimer === null) return;
+  window.clearTimeout(saveTimer);
+  saveTimer = null;
+  saveChain = saveChain.then(persist).catch((error) => {
+    console.warn('[onlineStorage] database save failed:', error?.message || error);
+  });
+};
+
+if (typeof window !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') flushPendingPersist();
+  });
+  window.addEventListener('pagehide', flushPendingPersist);
+}
+
 export async function configureOnlineStorage(nextTenantId: string): Promise<void> {
   if (!nextTenantId) return;
   if (tenantId === nextTenantId && hydrated) return;
