@@ -573,6 +573,8 @@ const BUSINESS_DICTIONARY: Record<string, Record<string, string>> = {
     "order delivery state": "Hali ya Uwasilishaji wa Oda",
     "total records": "Jumla ya Rekodi",
     "destination": "Unapokwenda",
+    "buying as:": "Nunua kama:",
+    "buying as": "Nunua kama",
     "all destinations": "Unapokwenda Kote",
     "status link": "Hali ya Muunganisho",
     "active link": "Imeunganishwa",
