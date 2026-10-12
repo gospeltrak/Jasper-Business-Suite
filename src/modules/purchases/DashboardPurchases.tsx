@@ -2067,7 +2067,7 @@ export default function DashboardPurchases({
                         onClick={() => setFundingRows(current => [...current, createPurchaseFundingRow()])}
                         className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[9px] font-black uppercase text-emerald-700 shadow-sm hover:bg-emerald-100 hover:border-emerald-300 hover:shadow transition-all active:scale-95"
                       >
-                        <Plus className="h-3 w-3" /> Add Source
+                        <Plus className="h-3 w-3" /> Add Payment Method
                       </button>
                     </div>
                     {fundingRows.map((row, index) => (
