@@ -4702,7 +4702,7 @@ export default function DashboardProducts({
                     const trimmed = newCategoryName.trim();
                     if (!trimmed) return;
                     if (categoriesList.map(c => c.toLowerCase()).includes(trimmed.toLowerCase())) {
-                      alert('This category is already registered!');
+                      alert(t('This category is already registered!'));
                       return;
                     }
                     const updatedSettings: SystemSettings = {
@@ -4773,10 +4773,10 @@ export default function DashboardProducts({
                           e.stopPropagation();
                           const productCount = products.filter(product => product.category === cat).length;
                           if (productCount > 0) {
-                            alert(`"${cat}" is used by ${productCount} product${productCount === 1 ? '' : 's'}. Reassign those products before deleting this category.`);
+                            alert(t(`"${cat}" is used by ${productCount} product${productCount === 1 ? '' : 's'}. Reassign those products before deleting this category.`));
                             return;
                           }
-                          if (!window.confirm(`Delete category "${cat}"? This cannot be undone.`)) return;
+                          if (!window.confirm(t(`Delete category "${cat}"? This cannot be undone.`))) return;
 
                           setCustomCategories(prev => prev.filter(c => c !== cat));
                           onUpdateSettings({
@@ -4966,7 +4966,7 @@ export default function DashboardProducts({
                     const trimmed = newBrandName.trim();
                     if (!trimmed) return;
                     if (brandsList.map(b => b.name.toLowerCase()).includes(trimmed.toLowerCase())) {
-                      alert('This brand name is already registered!');
+                      alert(t('This brand name is already registered!'));
                       return;
                     }
                     const nextBrand = {
@@ -5047,7 +5047,7 @@ export default function DashboardProducts({
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (window.confirm(`Delete brand "${b.name}"? Products using it will be unlinked.`)) {
+                          if (window.confirm(t(`Delete brand "${b.name}"? Products using it will be unlinked.`))) {
                             persistCustomBrands(customBrands.filter(br => br.name !== b.name));
                             if (selectedBrandFilter === b.name) setSelectedBrandFilter(null);
                           }
