@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import jsPDF from 'jspdf';
+import { useTranslation } from '../../shared/contexts/LanguageContext';
 import { StaffSettings, StaffAllowance, SystemSettings, Sale, Expense, Delivery, Tenant } from '../../types';
 import {
   Users,
@@ -259,6 +260,7 @@ export default function DashboardStaff({
   payrollEnabled: boolean;
   canPayPayroll: boolean;
 }) {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'list' | 'register' | 'reports'>('list');
   const [staffList, setStaffList] = useState<StaffSettings[]>(systemSettings.staffs || []);
   const [staffStatuses, setStaffStatuses] = useState<Record<string, boolean>>({});
@@ -1036,9 +1038,6 @@ export default function DashboardStaff({
             </div>
           )}
         </div>
-        <div className="mt-2 min-h-[44px] rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800 flex items-center">
-          Authentication is protected by Supabase Auth. Passwords are never saved in workspace data.
-        </div>
         <div className="mt-3 flex gap-2 justify-end">
           <button
             type="button"
@@ -1660,7 +1659,7 @@ export default function DashboardStaff({
                   <option value="other">Other Payment</option>
                 </select>
               </label>
-              <label className="space-y-1.5"><span className="text-xs font-black text-slate-700">Payment Method</span><input value={salaryPaymentMethod} readOnly className="w-full min-h-[48px] rounded-xl border border-slate-200 bg-slate-100 px-3 text-sm font-bold text-slate-600" /></label>
+              <label className="space-y-1.5"><span className="text-xs font-black text-slate-700">Payment Method</span><input value={t(salaryPaymentMethod)} readOnly className="w-full min-h-[48px] rounded-xl border border-slate-200 bg-slate-100 px-3 text-sm font-bold text-slate-600" /></label>
               <label className="space-y-1.5"><span className="text-xs font-black text-slate-700">Money & Bank Account</span><select value={salaryPaymentAccount} onChange={e => { const id = e.target.value; setSalaryPaymentAccount(id); const account = paymentAccounts.find(candidate => candidate.id === id); setSalaryPaymentMethod(account?.paymentMethod || account?.name || ''); }} className="w-full min-h-[48px] rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-bold"><option value="">Select account</option>{paymentAccounts.map(account => <option key={account.id} value={account.id}>{account.name}{getMaskedAccountReference(account) ? ` — ${getMaskedAccountReference(account)}` : ''}</option>)}</select></label>
               <label className="space-y-1.5"><span className="text-xs font-black text-slate-700">Reference</span><input value={salaryPaymentReference} onChange={e => setSalaryPaymentReference(e.target.value)} className="w-full min-h-[48px] rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-mono font-bold" /></label>
               <label className="space-y-1.5"><span className="text-xs font-black text-slate-700">Branch</span><input value={activeBranchContext?.name || 'Primary business workspace'} readOnly className="w-full min-h-[48px] rounded-xl border border-slate-200 bg-slate-100 px-3 text-sm font-bold text-slate-600" /></label>
@@ -1700,16 +1699,6 @@ export default function DashboardStaff({
                   <p className="text-xs font-semibold text-slate-400">No payroll payments recorded for this staff member.</p>
                 )}
               </div>
-            </div>
-            <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-900">
-              This payment will be recorded as <strong>Money Out</strong>, category{' '}
-              <strong>
-                {salaryPaymentType === 'allowance' ? 'Staff Allowance'
-                  : salaryPaymentType === 'bonus' ? 'Staff Bonus'
-                  : salaryPaymentType === 'overtime' ? 'Staff Overtime'
-                  : salaryPaymentType === 'advance_recovery' ? 'Staff Advance Recovery'
-                  : 'Wages & Salary'}
-              </strong>, deducted from the selected Money & Bank account, and will appear automatically in Expenses, Profit & Loss and downloaded reports.
             </div>
           </div>
           <div className="staff-two-column-grid shrink-0 border-t border-slate-100 p-4 md:p-5 grid grid-cols-2 gap-3 bg-white">
@@ -1755,7 +1744,8 @@ export default function DashboardStaff({
 
       {selectedStaff && (
         <div className="fixed inset-0 z-[80] bg-slate-950/70 backdrop-blur-sm flex items-end md:items-center justify-center p-0 md:p-4">
-          <div className="w-full md:max-w-6xl max-h-[calc(100dvh-24px)] md:max-h-[92dvh] overflow-y-auto rounded-t-[2rem] md:rounded-[2rem] bg-white shadow-2xl">
+          <div className="w-full md:max-w-6xl max-h-[calc(100dvh-24px)] md:max-h-[92dvh] rounded-t-[2rem] md:rounded-[2rem] bg-white shadow-2xl flex flex-col overflow-hidden">
+            <div className="overflow-y-auto flex-1">
             <div className="sticky top-0 z-10 bg-white border-b border-slate-100 px-4 md:px-6 py-4 flex items-center justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0">
                 {renderAvatar(selectedStaff, 'w-12 h-12')}
@@ -2010,6 +2000,7 @@ export default function DashboardStaff({
                   </section>
                 );
               })()}
+            </div>
             </div>
           </div>
         </div>
