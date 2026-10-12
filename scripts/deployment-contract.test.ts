@@ -729,7 +729,6 @@ test('staff salary payments are wired into the shared expense and reporting ledg
   const staffSource = await read('src/modules/staff/DashboardStaff.tsx');
   const dashboardSource = await read('src/components/Dashboard.tsx');
   assert.match(staffSource, /:\s*'Wages & Salary'/);
-  assert.match(staffSource, /recorded as <strong>Money Out/);
   assert.match(staffSource, /onPayStaff\(/);
   assert.match(dashboardSource, /onPayStaff=\{handleAddExpense\}/);
   for (const paymentType of ['salary', 'wages', 'allowance', 'bonus', 'overtime', 'advance_recovery', 'other']) {

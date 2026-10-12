@@ -4235,6 +4235,89 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     }
   });
 
+  // Tenant-admin-driven staff login creation: the admin sets the staff
+  // member's email and an initial password directly (no Google invitation,
+  // no email sent) and they can sign in with those credentials right away.
+  // Mirrors the profile/role/branch-access provisioning that
+  // /api/auth/google/accept-staff-invitation performs, since that logic
+  // never otherwise runs for a non-Google-provisioned staff account.
+  app.post('/api/staff/create-credentials', rateLimit({ windowMs: 60_000, max: 20, prefix: 'staff-credentials' }), async (req, res) => {
+    const admin = await getTenantAdminRequestProfile(req);
+    if (!admin) return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 403, 'registration');
+    const staffId = normalizeText(req.body?.staffId, 180);
+    const name = normalizeText(req.body?.name, 160);
+    const email = normalizeEmail(req.body?.email);
+    const phone = normalizeText(req.body?.phone, 40);
+    const role = normalizeText(req.body?.role, 80) || 'Cashier';
+    const password = String(req.body?.password || '');
+    const branchId = isUuid(req.body?.branchId) ? String(req.body.branchId) : null;
+    const accessScope = req.body?.accessScope === 'all_branches' ? 'all_branches' : 'assigned_branches';
+    const permissions = req.body?.permissions && typeof req.body.permissions === 'object' && !Array.isArray(req.body.permissions)
+      ? req.body.permissions : {};
+    if (!staffId || !name || !email || !email.includes('@') || !phone) {
+      return sendExpectedSafeApiError(req, res, 'VALIDATION_ERROR', 400, 'registration');
+    }
+    if (!isStrongPassword(password)) {
+      return sendExpectedSafeApiError(req, res, 'VALIDATION_ERROR', 400, 'registration');
+    }
+    if (!supabaseAdmin) {
+      return sendExpectedSafeApiError(req, res, 'SAVE_ERROR', 503, 'registration');
+    }
+    try {
+      if (branchId) {
+        const { data: branch } = await adminTable('branches').select('id').eq('id', branchId).eq('tenant_id', admin.tenantId).maybeSingle();
+        if (!branch) return sendExpectedSafeApiError(req, res, 'VALIDATION_ERROR', 400, 'registration');
+      }
+      const { data: existing } = await adminTable('users').select('id').eq('email', email).maybeSingle();
+      if (existing) return sendExpectedSafeApiError(req, res, 'DUPLICATE_ERROR', 409, 'registration');
+
+      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+        email, password, email_confirm: true,
+      });
+      if (authError || !authData?.user) throw authError || new Error('Staff login could not be created.');
+      const authUserId = authData.user.id;
+
+      try {
+        const roleLower = role.toLowerCase();
+        const databaseRole = ['admin', 'manager', 'cashier'].includes(roleLower)
+          ? `${roleLower.charAt(0).toUpperCase()}${roleLower.slice(1)}` : 'Cashier';
+        const profile = {
+          id: authUserId, email, name, phone,
+          tenant_id: admin.tenantId, active_tenant: admin.tenantId, role: databaseRole,
+          account_type: 'business_staff', role_key: role,
+          role_permissions: resolveRolePermissionsForResponse(permissions) || null,
+          is_active: true, is_saas_staff: false,
+        };
+        const { error: profileError } = await adminTable('users').upsert(profile, { onConflict: 'id' });
+        if (profileError) throw profileError;
+
+        if (branchId) {
+          const { error: assignmentError } = await adminTable('branch_staff_assignments').upsert({
+            tenant_id: admin.tenantId, branch_id: branchId, staff_id: authUserId,
+            role, permissions, status: 'active',
+          }, { onConflict: 'tenant_id,branch_id,staff_id' });
+          if (assignmentError) throw assignmentError;
+        }
+        await syncStaffBranchAccessScope({
+          tenantId: String(admin.tenantId), staffAuthId: authUserId,
+          accessScope, permissions, homeBranchId: branchId, grantedBy: admin.authUser.id,
+        });
+        await purgeLegacyWorkspaceStaffPassword({
+          tenantId: String(admin.tenantId), staffId, phone, authUserId, authEmail: email,
+        });
+      } catch (provisionError) {
+        // The Auth user already exists at this point -- never leave a staff
+        // login stranded with no tenant/role profile behind it.
+        await supabaseAdmin.auth.admin.deleteUser(authUserId);
+        throw provisionError;
+      }
+
+      return res.status(201).json({ status: 'created', user: { id: authUserId, email, name, role } });
+    } catch (error) {
+      return sendUnexpectedSafeApiError(req, res, error, { fallbackCode: 'SAVE_ERROR', context: 'registration', operation: 'staff_credentials_create' });
+    }
+  });
+
   app.get('/api/auth/staff-invitation', rateLimit({ windowMs: 60_000, max: 40, prefix: 'staff-invite-read' }), async (req, res) => {
     const rawToken = String(req.query?.token || '');
     if (rawToken.length < 32) return sendExpectedSafeApiError(req, res, 'VALIDATION_ERROR', 400, 'sign_in');
