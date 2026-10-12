@@ -983,6 +983,13 @@ body.rtl { font-family: 'Cairo', "Plus Jakarta Sans", "Inter", system-ui, sans-s
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+/* Supplier Discount / Transport Fee row: same grid-cols-2 trap, same fix --
+   these two fields must stay side by side on phone and tablet, not stack. */
+#dashboard-scaffold .purchases-discount-delivery-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 @media (min-width: 768px) {
   #dashboard-scaffold .purchases-tablet-split-grid {
     grid-template-columns: minmax(0, 1.6fr) minmax(260px, 1fr);
