@@ -1241,7 +1241,7 @@ export default function DashboardPurchases({
                 <div className="relative">
                   <select value={historyDestination} onChange={e => setHistoryDestination(e.target.value as any)}
                     className="appearance-none bg-slate-50 border border-slate-200 rounded-xl text-xs px-3 py-2 pr-7 text-slate-700 font-semibold focus:outline-none focus:border-emerald-400 cursor-pointer">
-                    <option value="all">All Targets</option>
+                    <option value="all">All Destinations</option>
                     <option value="shop">Shop</option>
                     <option value="store">Store</option>
                   </select>
@@ -1294,11 +1294,11 @@ export default function DashboardPurchases({
                 </div>
                 <div className="flex flex-row flex-nowrap items-stretch gap-1.5 [&>*]:flex-1 [&>*]:basis-0 [&>*]:min-w-0">
                   <ModernSelect
-                    title="Target"
+                    title="Destination"
                     value={historyDestination}
                     onChange={value => setHistoryDestination(value as any)}
                     options={[
-                      { value: 'all', label: 'All Targets' },
+                      { value: 'all', label: 'All Destinations' },
                       { value: 'shop', label: 'Shop' },
                       { value: 'store', label: 'Store' },
                     ]}
@@ -1389,7 +1389,7 @@ export default function DashboardPurchases({
                         <th className="py-3 px-4 text-[10px] font-black text-slate-400 uppercase tracking-wider">Date</th>
                         <th className="py-3 px-4 text-[10px] font-black text-slate-400 uppercase tracking-wider">Supplier</th>
                         <th className="py-3 px-4 text-[10px] font-black text-slate-400 uppercase tracking-wider">Items</th>
-                        <th className="py-3 px-4 text-[10px] font-black text-slate-400 uppercase tracking-wider">Target</th>
+                        <th className="py-3 px-4 text-[10px] font-black text-slate-400 uppercase tracking-wider">Destination</th>
                         <th className="py-3 px-4 text-[10px] font-black text-slate-400 uppercase tracking-wider text-right">Total</th>
                         <th className="py-3 px-4 text-[10px] font-black text-slate-400 uppercase tracking-wider text-right">Paid</th>
                         <th className="py-3 px-4 text-[10px] font-black text-slate-400 uppercase tracking-wider text-right">Due</th>
