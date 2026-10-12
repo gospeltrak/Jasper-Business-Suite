@@ -1737,8 +1737,8 @@ export default function DashboardPurchases({
                       )}
                     </div>
                     <div className="space-y-1">
-                      <div className="flex justify-between items-start gap-2">
-                        <span className="inline-block text-[9px] font-mono tracking-wider font-extrabold bg-slate-200/60 px-2 py-0.5 rounded text-slate-500">
+                      <div className="flex flex-col gap-1">
+                        <span className="inline-block self-start max-w-full truncate text-[9px] font-mono tracking-wider font-extrabold bg-slate-200/60 px-2 py-0.5 rounded text-slate-500">
                           {prod.sku}
                         </span>
                         <span className="text-[9.5px] font-bold text-slate-400 font-mono">
