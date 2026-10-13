@@ -55,12 +55,12 @@ export function buildAutoLedgerEntries({
     });
   });
 
-  const getPaymentChannel = (methodName: string, reference: string) => {
+  const getPaymentChannel = (methodName: string) => {
     const linkedChannel = findPaymentChannel(channels, methodName);
     if (linkedChannel) {
       return {
         targetChannelId: linkedChannel.id,
-        desc: `${methodName} payment received: Receipt ${reference}`,
+        desc: `${methodName} payment`,
       };
     }
     return null;
@@ -75,7 +75,7 @@ export function buildAutoLedgerEntries({
     breakdown.forEach((part, index) => {
       const amount = Math.max(0, Number(part.amount || 0));
       if (amount <= 0) return;
-      const linkedPayment = getPaymentChannel(part.method || sale.paymentMethod || 'Cash', sale.reference);
+      const linkedPayment = getPaymentChannel(part.method || sale.paymentMethod || 'Cash');
       if (!linkedPayment) return;
       const { targetChannelId, desc } = linkedPayment;
 
@@ -88,6 +88,7 @@ export function buildAutoLedgerEntries({
         sourceType: 'POS_CHECKOUT',
         description: desc,
         timestamp: sale.timestamp,
+        referenceId: sale.reference,
       });
     });
   });
