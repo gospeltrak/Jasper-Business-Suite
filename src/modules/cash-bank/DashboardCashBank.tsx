@@ -5,6 +5,7 @@ import { safeSetJsonItem } from '../../shared/utils/dataSafety';
 import { getMaskedAccountReference, getTreasuryPaymentMethods, reconcilePaymentChannels } from '../../shared/utils/paymentAccounts';
 import { postTreasuryEntry, syncTreasuryPaymentAccounts, transferTreasuryFunds } from './utils/treasuryApi';
 import { buildAutoLedgerEntries, readCachedManualSettleEntries } from './utils/ledgerDerivation';
+import { downloadExcelFile } from '../../shared/utils/excelExport';
 import { formatLocalDate } from '../../shared/utils/localDate';
 import { 
   Landmark, 
@@ -670,39 +671,25 @@ export default function DashboardCashBank({
     [activeTenantFilterLedger, channels, channelBalances],
   );
 
-  // Export report to CSV computer file
+  // Export report to an Excel file
   const downloadAuditReportCSV = () => {
-    const csvCell = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`;
-    const headers = 'Date,Reference ID,Type,Where,Account No,Sent To,Sent To Number,Entry Type,Amount,Note\n';
-    const rows = activeTenantFilterLedger
-      .map(entry => {
-        const chan = channels.find(c => c.id === entry.channelId);
-        const counterParty = entry.counterPartyChannelId ? channels.find(c => c.id === entry.counterPartyChannelId) : undefined;
-        return [
-          entry.timestamp,
-          entry.id,
-          entry.sourceType,
-          chan?.name || 'N/A',
-          getMaskedAccountReference(chan),
-          counterParty?.name || '',
-          getMaskedAccountReference(counterParty),
-          entry.entryType,
-          entry.amount,
-          entry.description,
-        ].map(csvCell).join(',');
-      })
-      .join('\n');
-    
-    const blob = new Blob([headers + rows], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `money_report_${activeTenant.id}_${datePreset}.csv`;
-    a.style.display = 'none';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    window.setTimeout(() => window.URL.revokeObjectURL(url), 10000);
+    const rows = activeTenantFilterLedger.map(entry => {
+      const chan = channels.find(c => c.id === entry.channelId);
+      const counterParty = entry.counterPartyChannelId ? channels.find(c => c.id === entry.counterPartyChannelId) : undefined;
+      return {
+        Date: entry.timestamp,
+        'Reference ID': entry.id,
+        Type: entry.sourceType,
+        Where: chan?.name || 'N/A',
+        'Account No': getMaskedAccountReference(chan),
+        'Sent To': counterParty?.name || '',
+        'Sent To Number': getMaskedAccountReference(counterParty),
+        'Entry Type': entry.entryType,
+        Amount: entry.amount,
+        Note: entry.description,
+      };
+    });
+    downloadExcelFile(`money_report_${activeTenant.id}_${datePreset}`, [{ name: 'Money & Bank', rows }]);
   };
 
   // Free text search inside transaction log
@@ -1943,7 +1930,7 @@ export default function DashboardCashBank({
               <option value="EXPENSE_WITHDRAWAL">Cash Expense Money Out</option>
             </select>
 
-            {/* CSV report download button */}
+            {/* Excel report download button */}
             <button
               id="btn-download-csv-report"
               onClick={downloadAuditReportCSV}

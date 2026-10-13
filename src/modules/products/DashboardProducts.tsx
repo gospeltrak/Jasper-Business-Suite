@@ -44,7 +44,8 @@ import {
 } from '../../shared/utils/inventoryCosting';
 import { formatProductQuantity } from '../../shared/utils/unitFormatter';
 import { formatLocalDate } from '../../shared/utils/localDate';
-import { classifyUniversalImportRows, downloadableUniversalTemplate } from './utils/bulkProductImport';
+import { classifyUniversalImportRows, downloadableUniversalTemplate, parseCsvText } from './utils/bulkProductImport';
+import { downloadExcelFileFromRows, readExcelFileAsCsvText } from '../../shared/utils/excelExport';
 import { compressImageFile } from '../../shared/utils/imageCompression';
 import { safeSetJsonItem } from '../../shared/utils/dataSafety';
 import { generateUniqueEan13Barcode } from './barcode';
@@ -1663,31 +1664,23 @@ export default function DashboardProducts({
     }, 1200);
   };
 
-  // 3. GOOGLE FORM TEMPLATE SHEET CSV EXPORTER / IMPORTER
+  // 3. GOOGLE FORM TEMPLATE SHEET EXCEL EXPORTER / IMPORTER
   const downloadCsvTemplate = () => {
-    const csvContent = "data:text/csv;charset=utf-8," 
-      + "Product Name,Barcode,Category,Brand,Cost Price,Selling Price,Shop Stock,Store Stock,Alert Level,Sell Retail,Sell Wholesale,Wholesale Price,Min Wholesale Qty\r\n"
+    const csvContent =
+      "Product Name,Barcode,Category,Brand,Cost Price,Selling Price,Shop Stock,Store Stock,Alert Level,Sell Retail,Sell Wholesale,Wholesale Price,Min Wholesale Qty\r\n"
       + "Premium Rice (5kg),6153094850239,Groceries,Orvix Foods,4500,5500,20,50,5,Yes,No,0,10\r\n"
       + "Spaghetti Bolognese,39185012,Groceries,Orvix Foods,800,1200,15,30,8,Yes,Yes,1100,50\r\n"
       + "Organic Coconut Milk,,Beverages,Nestle,1100,1600,10,25,3,Yes,No,0,10\r\n"; // Empty barcode tested inside
-      
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "jasper_bulk_products_template.csv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+
+    downloadExcelFileFromRows('jasper_bulk_products_template', [
+      { name: 'Products', aoa: parseCsvText(csvContent) },
+    ]);
   };
 
   const downloadUniversalTemplate = () => {
-    const encodedUri = encodeURI('data:text/csv;charset=utf-8,' + downloadableUniversalTemplate());
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', 'jasper_universal_products_template.csv');
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    downloadExcelFileFromRows('jasper_universal_products_template', [
+      { name: 'Products', aoa: parseCsvText(downloadableUniversalTemplate()) },
+    ]);
   };
 
   const registerImportedCategories = (importedItems: Product[]) => {
@@ -1706,17 +1699,15 @@ export default function DashboardProducts({
     }
   };
 
-  const handleUniversalCsvImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUniversalCsvImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setCsvUploadError(null);
     setCsvUploadSuccess(null);
 
-    const reader = new FileReader();
-    reader.onload = (evt) => {
+    const processText = (text: string) => {
       try {
-        const text = evt.target?.result as string;
         const summary = classifyUniversalImportRows(text);
 
         if (summary.results.length === 0) {
@@ -1751,6 +1742,18 @@ export default function DashboardProducts({
         setCsvUploadError(error?.message || 'Failed to parse the selected spreadsheet.');
       }
     };
+
+    if (/\.(xlsx|xls)$/i.test(file.name)) {
+      try {
+        processText(await readExcelFileAsCsvText(file));
+      } catch (err: any) {
+        setCsvUploadError(err?.message || 'Failed to read the selected Excel file.');
+      }
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (evt) => processText(evt.target?.result as string);
     reader.readAsText(file);
   };
 
@@ -1773,17 +1776,15 @@ export default function DashboardProducts({
     setCsvUploadSuccess(`Catalogue backup downloaded successfully (${products.length} products). Keep this file safe for the new account.`);
   };
 
-  const handleCsvImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCsvImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setCsvUploadError(null);
     setCsvUploadSuccess(null);
 
-    const reader = new FileReader();
-    reader.onload = (evt) => {
+    const processText = (text: string) => {
       try {
-        const text = evt.target?.result as string;
         if (file.name.toLowerCase().endsWith('.json')) {
           const backup = parseProductCatalogueBackup(text);
           const importedItems = prepareBackedUpProductsForImport(backup, products);
@@ -1912,9 +1913,21 @@ export default function DashboardProducts({
           csvInputRef.current.value = '';
         }
       } catch (err) {
-        setCsvUploadError('Failed to parse file. Ensure it is a valid CSV spreadsheet formatted according to the Downloadable Template.');
+        setCsvUploadError('Failed to parse file. Ensure it is a valid Excel or CSV spreadsheet formatted according to the Downloadable Template.');
       }
     };
+
+    if (/\.(xlsx|xls)$/i.test(file.name)) {
+      try {
+        processText(await readExcelFileAsCsvText(file));
+      } catch (err: any) {
+        setCsvUploadError(err?.message || 'Failed to read the selected Excel file.');
+      }
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (evt) => processText(evt.target?.result as string);
     reader.readAsText(file);
   };
 
@@ -2886,14 +2899,14 @@ export default function DashboardProducts({
                     </div>
                     <div>
                       <p className="text-[12px] font-bold text-slate-800 dark:text-white leading-tight">Template</p>
-                      <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Download CSV</p>
+                      <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Download Excel</p>
                     </div>
                   </button>
                 )}
 
                 {!isPharmacyLike && (
                   <div className="relative">
-                    <input type="file" accept=".csv,.json,application/json" ref={csvInputRef} onChange={handleCsvImport}
+                    <input type="file" accept=".xlsx,.xls,.csv,.json,application/json" ref={csvInputRef} onChange={handleCsvImport}
                       className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" />
                     <div className="flex items-center gap-2.5 p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-left">
                       <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-900/40 flex items-center justify-center shrink-0">
@@ -2901,7 +2914,7 @@ export default function DashboardProducts({
                       </div>
                       <div>
                         <p className="text-[12px] font-bold text-slate-800 dark:text-white leading-tight">Import</p>
-                        <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">CSV or backup</p>
+                        <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Excel or backup</p>
                       </div>
                     </div>
                   </div>
@@ -2923,7 +2936,7 @@ export default function DashboardProducts({
 
                 {isPharmacyLike && (
                   <div className="relative">
-                    <input type="file" accept=".csv" ref={universalCsvInputRef} onChange={handleUniversalCsvImport}
+                    <input type="file" accept=".xlsx,.xls,.csv" ref={universalCsvInputRef} onChange={handleUniversalCsvImport}
                       className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" />
                     <div className="flex items-center gap-2.5 p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-left">
                       <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-900/40 flex items-center justify-center shrink-0">
@@ -2931,7 +2944,7 @@ export default function DashboardProducts({
                       </div>
                       <div>
                         <p className="text-[12px] font-bold text-slate-800 dark:text-white leading-tight">Medicine Import</p>
-                        <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Header-based CSV</p>
+                        <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Header-based Excel</p>
                       </div>
                     </div>
                   </div>
@@ -2982,7 +2995,7 @@ export default function DashboardProducts({
 
                 {!isPharmacyLike && (
                   <div className="relative h-9">
-                    <input type="file" accept=".csv,.json,application/json" ref={csvInputRef} onChange={handleCsvImport}
+                    <input type="file" accept=".xlsx,.xls,.csv,.json,application/json" ref={csvInputRef} onChange={handleCsvImport}
                       className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" />
                     <button className="h-9 px-3.5 flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 transition-colors">
                       <Upload className="w-3.5 h-3.5 text-blue-600" />
@@ -3001,7 +3014,7 @@ export default function DashboardProducts({
 
                 {isPharmacyLike && (
                   <div className="relative h-9">
-                    <input type="file" accept=".csv" ref={universalCsvInputRef} onChange={handleUniversalCsvImport}
+                    <input type="file" accept=".xlsx,.xls,.csv" ref={universalCsvInputRef} onChange={handleUniversalCsvImport}
                       className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" />
                     <button className="h-9 px-3.5 flex items-center gap-1.5 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-white dark:bg-slate-800 hover:bg-indigo-50 dark:hover:bg-slate-700 text-xs font-bold text-indigo-700 dark:text-indigo-300 transition-colors">
                       <Upload className="w-3.5 h-3.5 text-indigo-600" />

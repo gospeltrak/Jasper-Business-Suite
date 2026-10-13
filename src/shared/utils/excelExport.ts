@@ -22,3 +22,33 @@ export function downloadExcelFile(filename: string, sheets: ExcelSheet[]): void 
   const finalName = filename.toLowerCase().endsWith('.xlsx') ? filename : `${filename}.xlsx`;
   XLSX.writeFile(workbook, finalName);
 }
+
+export interface ExcelAoaSheet {
+  name: string;
+  /** Array-of-arrays: each inner array is one row, first row usually headers. */
+  aoa: unknown[][];
+}
+
+/** Same as downloadExcelFile, but for plain row/column data instead of row objects. */
+export function downloadExcelFileFromRows(filename: string, sheets: ExcelAoaSheet[]): void {
+  const workbook = XLSX.utils.book_new();
+  sheets.forEach(sheet => {
+    const worksheet = XLSX.utils.aoa_to_sheet(sheet.aoa);
+    XLSX.utils.book_append_sheet(workbook, worksheet, sheet.name.slice(0, 31) || 'Sheet1');
+  });
+  const finalName = filename.toLowerCase().endsWith('.xlsx') ? filename : `${filename}.xlsx`;
+  XLSX.writeFile(workbook, finalName);
+}
+
+/**
+ * Reads an uploaded .xlsx/.xls File and converts its first sheet to CSV
+ * text, so existing CSV-parsing import pipelines can accept Excel uploads
+ * unchanged -- only the file-reading step needs to branch on file type.
+ */
+export async function readExcelFileAsCsvText(file: File): Promise<string> {
+  const buffer = await file.arrayBuffer();
+  const workbook = XLSX.read(buffer, { type: 'array' });
+  const firstSheetName = workbook.SheetNames[0];
+  const worksheet = workbook.Sheets[firstSheetName];
+  return XLSX.utils.sheet_to_csv(worksheet);
+}

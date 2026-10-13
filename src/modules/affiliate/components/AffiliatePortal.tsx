@@ -54,6 +54,7 @@ import AffiliateAgentDesk from "./AffiliateAgentDesk";
 // AffiliateWorkspace.tsx) load their own workspace data after an explicit
 // login, so this portal-level component never auto-loads a dashboard.
 import { getSecureDataBridgeClient } from "../../../shared/dataBridge/secureDataBridge";
+import { downloadExcelFileFromRows } from "../../../shared/utils/excelExport";
 import { formatLocalDate } from "../../../shared/utils/localDate";
 import {
   requireOnline,
@@ -2493,25 +2494,17 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                                   superAgentWithholdingTax,
                                 ],
                               ];
-                              const csvContent =
-                                "data:text/csv;charset=utf-8," +
-                                csvRows.map((e) => e.join(",")).join("\n");
-                              const link = document.createElement("a");
-                              link.setAttribute("href", encodeURI(csvContent));
-                              link.setAttribute(
-                                "download",
-                                `Super_Agent_Reconciliation_${activeAffiliate?.name.replace(/ /g, "_")}.csv`,
+                              downloadExcelFileFromRows(
+                                `Super_Agent_Reconciliation_${activeAffiliate?.name.replace(/ /g, "_")}`,
+                                [{ name: "Reconciliation", aoa: csvRows }],
                               );
-                              document.body.appendChild(link);
-                              link.click();
-                              document.body.removeChild(link);
                               alert(
                                 "📥 Reconciliation report exported successfully!",
                               );
                             }}
                             className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-4 py-2 rounded-xl text-xs font-mono font-bold uppercase tracking-wider cursor-pointer inline-flex items-center justify-center gap-2 print:hidden"
                           >
-                            Export CSV Report
+                            Export Excel Report
                           </button>
                         </div>
                       </div>
@@ -5189,26 +5182,17 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                             Math.round((k.revenueGenerated || 0) * 0.15 * 0.1),
                           ]),
                         ];
-                        const csvContent =
-                          "data:text/csv;charset=utf-8," +
-                          csvRows.map((e) => e.join(",")).join("\n");
-                        const encodedUri = encodeURI(csvContent);
-                        const link = document.createElement("a");
-                        link.setAttribute("href", encodedUri);
-                        link.setAttribute(
-                          "download",
-                          `Withholding_Tax_Roster_${activeAffiliate?.promoCode}.csv`,
+                        downloadExcelFileFromRows(
+                          `Withholding_Tax_Roster_${activeAffiliate?.promoCode}`,
+                          [{ name: "Withholding Tax Roster", aoa: csvRows }],
                         );
-                        document.body.appendChild(link);
-                        link.click();
-                        document.body.removeChild(link);
                         alert(
-                          "📥 Exported Withholding_Tax_Roster.csv successfully!",
+                          "📥 Exported Withholding_Tax_Roster.xlsx successfully!",
                         );
                       }}
                       className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-3 py-1.5 rounded-lg text-[10.5px] font-mono font-bold uppercase tracking-wider cursor-pointer"
                     >
-                      Export CSV Roster
+                      Export Excel Roster
                     </button>
                     <button
                       type="button"

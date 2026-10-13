@@ -13,9 +13,9 @@ import {
 } from '../utils/superAffiliateAdmin';
 import { verifySuperAdminPassword } from '../utils/superAdminData';
 import { formatLocalDate } from '../../../shared/utils/localDate';
+import { downloadExcelFileFromRows } from '../../../shared/utils/excelExport';
 
 const money = new Intl.NumberFormat('en-TZ', { style: 'currency', currency: 'TZS', maximumFractionDigits: 0 });
-const csvValue = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`;
 const emptyData: AffiliateMonitoringData = { affiliates: [], organicSubscribers: [], agents: [], subAffiliates: [] };
 
 type AffiliateCenterTab = 'agents' | 'subAffiliates';
@@ -161,13 +161,7 @@ export default function SuperAffiliateControlCenter({ initialTab = 'agents' }: {
   };
 
   const exportCsv = (filename: string, headers: string[], rows: unknown[][]) => {
-    const blob = new Blob([[headers.map(csvValue).join(','), ...rows.map((row) => row.map(csvValue).join(','))].join('\n')], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = `${filename}-${formatLocalDate()}.csv`;
-    anchor.click();
-    URL.revokeObjectURL(url);
+    downloadExcelFileFromRows(`${filename}-${formatLocalDate()}`, [{ name: 'Export', aoa: [headers, ...rows] }]);
   };
 
   const exportAgentPayouts = () => exportCsv('agent-monitoring-payouts', ['Agent Name', 'Agent ID', 'Phone', 'Agent Code', 'Agent Link', 'Sub-affiliates', 'Subscribers', 'Revenue', '20% Pool', 'Agent 5% Cut', 'Sub-affiliate 15% Allocation', '5% WHT on Agent Cut', 'Agent Net', 'Mobile Money Number', 'Provider', 'Status'], agentRows.map((row) => [row.agentName, row.agentId, row.phone, row.agentCode, row.agentLink, row.subAffiliates, row.subscribers, row.revenue, row.poolTotal, row.agentCut, row.subAffiliatePool, row.withholdingTax, row.netPayout, row.mobileMoneyNumber, row.mobileMoneyProvider, row.status]));
