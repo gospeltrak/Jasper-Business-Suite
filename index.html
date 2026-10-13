@@ -310,7 +310,20 @@
         navigator.serviceWorker.addEventListener('controllerchange', function() {
           if (jasperRefreshingForServiceWorker) return;
           jasperRefreshingForServiceWorker = true;
-          window.location.reload();
+          // Reloading the instant a new version activates can land mid-keystroke
+          // on a login/registration form (or any other form) and wipe out an
+          // in-flight request along with it, so wait for the field to be left
+          // before reloading instead of forcing it immediately.
+          var reloadWhenIdle = function() {
+            var active = document.activeElement;
+            var isEditingForm = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA');
+            if (isEditingForm) {
+              window.setTimeout(reloadWhenIdle, 2000);
+              return;
+            }
+            window.location.reload();
+          };
+          reloadWhenIdle();
         });
 
         window.addEventListener('load', () => {
