@@ -671,6 +671,34 @@ export default function DashboardCashBank({
     [activeTenantFilterLedger, channels, channelBalances],
   );
 
+  // In/out flow for one channel. allTime=true ignores the date preset and
+  // sums the channel's whole history, used once a specific channel (not
+  // "All Accounts") is selected so its totals don't silently depend on
+  // whatever date range happens to be active.
+  const computeChannelFlow = (channelId: string, allTime: boolean) => {
+    const source = allTime ? ledgerEntries.filter(entry => entry.tenantId === activeTenant.id) : activeTenantFilterLedger;
+    let moneyIn = 0, moneyOut = 0, countIn = 0, countOut = 0;
+    source.forEach(entry => {
+      if (entry.channelId !== channelId) return;
+      if (entry.amount >= 0) { moneyIn += entry.amount; countIn++; }
+      else { moneyOut += Math.abs(entry.amount); countOut++; }
+    });
+    return { moneyIn, moneyOut, countIn, countOut, net: moneyIn - moneyOut };
+  };
+
+  const heroFlow = useMemo(() => {
+    if (selectedChannelId === 'all') {
+      return {
+        moneyIn: combinedStats.totalMoneyIn,
+        moneyOut: combinedStats.totalMoneyOut,
+        net: combinedStats.netChange,
+        count: combinedStats.countMoneyIn + combinedStats.countMoneyOut,
+      };
+    }
+    const flow = computeChannelFlow(selectedChannelId, true);
+    return { moneyIn: flow.moneyIn, moneyOut: flow.moneyOut, net: flow.net, count: flow.countIn + flow.countOut };
+  }, [selectedChannelId, combinedStats, ledgerEntries, activeTenant.id]);
+
   // Export report to an Excel file
   const downloadAuditReportCSV = () => {
     const rows = activeTenantFilterLedger.map(entry => {
@@ -733,35 +761,37 @@ export default function DashboardCashBank({
                 <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest">Treasury</p>
                 <h1 className="text-white font-black text-[22px] leading-tight mt-0.5">Money & Bank</h1>
                 <p className="text-white/50 text-[10px] mt-0.5">
-                  {datePreset === 'today' ? 'Today' : datePreset === '1week' ? 'Last 7 days' : datePreset === '1month' ? 'Last 30 days' : datePreset === 'alltime' ? 'All time' : `${startDateStr} → ${endDateStr}`}
+                  {selectedChannelId !== 'all'
+                    ? `${channels.find(c => c.id === selectedChannelId)?.name || ''} · All time`
+                    : (datePreset === 'today' ? 'Today' : datePreset === '1week' ? 'Last 7 days' : datePreset === '1month' ? 'Last 30 days' : datePreset === 'alltime' ? 'All time' : `${startDateStr} → ${endDateStr}`)}
                 </p>
               </div>
               <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0" style={{background:'rgba(255,255,255,0.08)'}}>
-                <Landmark className="w-6 h-6 text-emerald-400"/>
+                <Landmark className="w-6 h-6 text-white/70"/>
               </div>
             </div>
 
             {/* Big net figure */}
             <div className="mb-4">
               <p className="text-white/50 text-[10px] font-bold uppercase tracking-widest mb-0.5">Net Movement</p>
-              <p className={`font-black text-[28px] leading-none ${combinedStats.netChange >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                {combinedStats.netChange >= 0 ? '+' : ''}{formatCurrency(combinedStats.netChange)}
+              <p className="font-black text-[28px] leading-none text-white">
+                {heroFlow.net >= 0 ? '+' : ''}{formatCurrency(heroFlow.net)}
               </p>
             </div>
 
             {/* 3 KPI pills */}
             <div className="cashbank-row-grid-3 gap-2">
               <div className="rounded-2xl px-3 py-2.5" style={{background:'rgba(255,255,255,0.07)'}}>
-                <p className="text-emerald-400 text-[9px] font-bold uppercase tracking-wider">Money In</p>
-                <p className="text-white font-black text-[13px] mt-0.5">+{formatCurrency(combinedStats.totalMoneyIn)}</p>
+                <p className="text-white/50 text-[9px] font-bold uppercase tracking-wider">Money In</p>
+                <p className="text-white font-black text-[13px] mt-0.5">+{formatCurrency(heroFlow.moneyIn)}</p>
               </div>
               <div className="rounded-2xl px-3 py-2.5" style={{background:'rgba(255,255,255,0.07)'}}>
-                <p className="text-rose-400 text-[9px] font-bold uppercase tracking-wider">Money Out</p>
-                <p className="text-white font-black text-[13px] mt-0.5">-{formatCurrency(combinedStats.totalMoneyOut)}</p>
+                <p className="text-white/50 text-[9px] font-bold uppercase tracking-wider">Money Out</p>
+                <p className="text-white font-black text-[13px] mt-0.5">-{formatCurrency(heroFlow.moneyOut)}</p>
               </div>
               <div className="rounded-2xl px-3 py-2.5" style={{background:'rgba(255,255,255,0.07)'}}>
-                <p className="text-blue-400 text-[9px] font-bold uppercase tracking-wider">Transactions</p>
-                <p className="text-white font-black text-[13px] mt-0.5">{combinedStats.countMoneyIn + combinedStats.countMoneyOut}</p>
+                <p className="text-white/50 text-[9px] font-bold uppercase tracking-wider">Transactions</p>
+                <p className="text-white font-black text-[13px] mt-0.5">{heroFlow.count}</p>
               </div>
             </div>
           </div>
@@ -867,10 +897,9 @@ export default function DashboardCashBank({
             <div className="space-y-3">
               {channels.filter(c => c.category !== 'person' && (selectedChannelId === 'all' || selectedChannelId === c.id)).map(chan => {
                 const bal = channelBalances[chan.id]?.current || 0;
-                let periodIn = 0, periodOut = 0;
-                activeTenantFilterLedger.forEach(e => {
-                  if (e.channelId === chan.id) { if (e.amount >= 0) periodIn += e.amount; else periodOut += Math.abs(e.amount); }
-                });
+                const isSingleChannelView = selectedChannelId !== 'all';
+                const chanFlow = computeChannelFlow(chan.id, isSingleChannelView);
+                const periodIn = chanFlow.moneyIn, periodOut = chanFlow.moneyOut;
                 const icon = chan.category === 'bank' ? <Landmark className="w-5 h-5"/> : chan.category === 'telco' ? <Wallet className="w-5 h-5"/> : <Coins className="w-5 h-5"/>;
                 const grad = chan.category === 'bank' ? 'linear-gradient(135deg,#2563eb,#1d4ed8)' : chan.category === 'telco' ? 'linear-gradient(135deg,#7c3aed,#6d28d9)' : 'linear-gradient(135deg,#059669,#047857)';
                 return (
@@ -890,11 +919,11 @@ export default function DashboardCashBank({
                     {/* Flow row */}
                     <div className="grid grid-cols-2 gap-0 border-t border-slate-50">
                       <div className="px-4 py-3 border-r border-slate-50">
-                        <p className="text-[9px] text-emerald-600 font-bold uppercase tracking-wider">IN</p>
+                        <p className="text-[9px] text-emerald-600 font-bold uppercase tracking-wider">IN{isSingleChannelView ? ' · All time' : ''}</p>
                         <p className="text-[13px] font-black text-emerald-700 font-mono mt-0.5">+{formatCurrency(periodIn)}</p>
                       </div>
                       <div className="px-4 py-3">
-                        <p className="text-[9px] text-rose-500 font-bold uppercase tracking-wider">OUT</p>
+                        <p className="text-[9px] text-rose-500 font-bold uppercase tracking-wider">OUT{isSingleChannelView ? ' · All time' : ''}</p>
                         <p className="text-[13px] font-black text-rose-600 font-mono mt-0.5">-{formatCurrency(periodOut)}</p>
                       </div>
                     </div>
@@ -1334,21 +1363,21 @@ export default function DashboardCashBank({
                 <span className="text-[10px] font-mono text-slate-500 block mt-0.5">{startDateStr} to {endDateStr}</span>
               </div>
 
-              <div className="bg-emerald-950/20 p-4 rounded-2xl border border-emerald-900/60 text-white animate-fadeIn">
-                <span className="text-[10px] font-bold text-emerald-400 block uppercase font-mono tracking-wide">Total Payment In (Money Ins)</span>
-                <span className="text-lg font-black text-emerald-300 block mt-0.5 font-sans">+{formatCurrency(combinedStats.totalMoneyIn)}</span>
+              <div className="bg-slate-800/40 p-4 rounded-2xl border border-slate-800 text-white animate-fadeIn">
+                <span className="text-[10px] font-bold text-slate-400 block uppercase font-mono tracking-wide">Total Payment In (Money Ins)</span>
+                <span className="text-lg font-black text-white block mt-0.5 font-sans">+{formatCurrency(combinedStats.totalMoneyIn)}</span>
                 <span className="text-[9.5px] font-medium text-slate-400 block mt-0.5">{combinedStats.countMoneyIn} credit movements</span>
               </div>
 
-              <div className="bg-rose-950/20 p-4 rounded-2xl border border-rose-900/40 text-white animate-fadeIn">
-                <span className="text-[10px] font-bold text-rose-400 block uppercase font-mono tracking-wide">Total Payment Out (Money Outs)</span>
-                <span className="text-lg font-black text-rose-300 block mt-0.5 font-sans">-{formatCurrency(combinedStats.totalMoneyOut)}</span>
+              <div className="bg-slate-800/40 p-4 rounded-2xl border border-slate-800 text-white animate-fadeIn">
+                <span className="text-[10px] font-bold text-slate-400 block uppercase font-mono tracking-wide">Total Payment Out (Money Outs)</span>
+                <span className="text-lg font-black text-white block mt-0.5 font-sans">-{formatCurrency(combinedStats.totalMoneyOut)}</span>
                 <span className="text-[9.5px] font-medium text-slate-400 block mt-0.5">{combinedStats.countMoneyOut} debit movements</span>
               </div>
 
-              <div className={`p-4 rounded-2xl border ${combinedStats.netChange >= 0 ? 'bg-emerald-950/30 border-emerald-800 text-emerald-300' : 'bg-rose-950/30 border-rose-800 text-rose-300'} animate-fadeIn`}>
-                <span className="text-[10px] font-bold block uppercase font-mono tracking-wide">Remaining Net Income</span>
-                <span className="text-lg font-black block mt-0.5 font-sans">{combinedStats.netChange >= 0 ? '+' : ''}{formatCurrency(combinedStats.netChange)}</span>
+              <div className="bg-slate-800/40 p-4 rounded-2xl border border-slate-800 text-white animate-fadeIn">
+                <span className="text-[10px] font-bold text-slate-400 block uppercase font-mono tracking-wide">Remaining Net Income</span>
+                <span className="text-lg font-black text-white block mt-0.5 font-sans">{combinedStats.netChange >= 0 ? '+' : ''}{formatCurrency(combinedStats.netChange)}</span>
                 <span className="text-[9.5px] font-mono block mt-0.5 text-slate-400">Net outcome in selected range</span>
               </div>
             </div>
@@ -1757,24 +1786,12 @@ export default function DashboardCashBank({
           const chan = channels.find(c => c.id === selectedChannelId)!;
           const sums = channelBalances[chan.id] || { current: 0 };
           
-          let periodMoneyIn = 0;
-          let periodMoneyOut = 0;
-          let countMoneyIn = 0;
-          let countMoneyOut = 0;
-          
-          activeTenantFilterLedger.forEach(entry => {
-            if (entry.channelId === chan.id) {
-              if (entry.amount >= 0) {
-                periodMoneyIn += entry.amount;
-                countMoneyIn++;
-              } else {
-                periodMoneyOut += Math.abs(entry.amount);
-                countMoneyOut++;
-              }
-            }
-          });
-
-          const periodNet = periodMoneyIn - periodMoneyOut;
+          const channelFlow = computeChannelFlow(chan.id, true);
+          const periodMoneyIn = channelFlow.moneyIn;
+          const periodMoneyOut = channelFlow.moneyOut;
+          const countMoneyIn = channelFlow.countIn;
+          const countMoneyOut = channelFlow.countOut;
+          const periodNet = channelFlow.net;
 
           return (
             <div className="space-y-6 animate-fadeIn">
@@ -1828,15 +1845,9 @@ export default function DashboardCashBank({
                 {/* Date Filters statistics grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 mt-6 sm:mt-8 pt-6 border-t border-slate-200">
                   <div className="bg-slate-50/50 p-4 rounded-2xl border border-slate-200/60">
-                    <span className="text-[10px] font-bold text-slate-400 block uppercase font-mono tracking-wide">Selected Date preset</span>
-                    <span className="text-xs font-bold text-slate-700 block mt-1 select-none">
-                      {datePreset === 'today' ? 'Today Only' :
-                       datePreset === '1week' ? 'Past 7 Days' :
-                       datePreset === '1month' ? 'Past 30 Days' :
-                       datePreset === 'alltime' ? 'All Time' :
-                       'Custom Interval'}
-                    </span>
-                    <span className="text-[10px] font-mono text-slate-400 block mt-0.5">{startDateStr} to {endDateStr}</span>
+                    <span className="text-[10px] font-bold text-slate-400 block uppercase font-mono tracking-wide">Showing</span>
+                    <span className="text-xs font-bold text-slate-700 block mt-1 select-none">All Time</span>
+                    <span className="text-[10px] font-mono text-slate-400 block mt-0.5">This account's full history</span>
                   </div>
 
                   <div className="bg-emerald-50/20 p-4 rounded-2xl border border-emerald-100">
@@ -1854,7 +1865,7 @@ export default function DashboardCashBank({
                   <div className={`p-4 rounded-2xl border ${periodNet >= 0 ? 'bg-emerald-50/15 border-emerald-150 text-emerald-800' : 'bg-rose-50/15 border-rose-150 text-rose-800'}`}>
                     <span className="text-[10px] font-bold block uppercase font-mono tracking-wide">Net Income</span>
                     <span className="text-lg font-black block mt-0.5 font-sans">{periodNet >= 0 ? '+' : ''}{formatCurrency(periodNet)}</span>
-                    <span className="text-[9.5px] font-mono block mt-0.5 text-slate-500">Sum outcome inside date range</span>
+                    <span className="text-[9.5px] font-mono block mt-0.5 text-slate-500">All-time net for this account</span>
                   </div>
                 </div>
               </div>

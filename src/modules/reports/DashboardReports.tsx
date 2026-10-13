@@ -436,6 +436,137 @@ export default function DashboardReports({
   const getMoneyBankChannelName = (channelId?: string) =>
     (channelId && moneyBankChannels.find(c => c.id === channelId)?.name) || channelId || 'Unknown account';
 
+  const [moneyBankSubTab, setMoneyBankSubTab] = useState<'summary' | 'in' | 'out' | 'transfer' | 'debts'>('summary');
+
+  const moneyBankInEntries = useMemo(
+    () => filteredMoneyBankLedger.filter(entry => entry.amount >= 0),
+    [filteredMoneyBankLedger],
+  );
+  const moneyBankOutEntries = useMemo(
+    () => filteredMoneyBankLedger.filter(entry => entry.amount < 0),
+    [filteredMoneyBankLedger],
+  );
+  const moneyBankTransferEntries = useMemo(
+    () => filteredMoneyBankLedger.filter(entry => entry.sourceType === 'SETTLE_TILL_DEPOSIT'),
+    [filteredMoneyBankLedger],
+  );
+
+  const moneyBankReceivables = useMemo(() => {
+    const start = new Date(startDateStr);
+    const end = new Date(endDateStr);
+    end.setHours(23, 59, 59, 999);
+    const byCustomer = new Map<string, { name: string; phone: string; amountDue: number; count: number }>();
+    sales.forEach(sale => {
+      if (sale.tenantId !== activeTenant.id) return;
+      const due = sale.amountDue || 0;
+      if (due <= 0) return;
+      const date = new Date(sale.timestamp);
+      if (date < start || date > end) return;
+      const key = `${sale.customerName || 'Unknown'}__${sale.customerPhone || ''}`;
+      const existing = byCustomer.get(key) || { name: sale.customerName || 'Unknown Customer', phone: sale.customerPhone || '', amountDue: 0, count: 0 };
+      existing.amountDue += due;
+      existing.count += 1;
+      byCustomer.set(key, existing);
+    });
+    return Array.from(byCustomer.values()).sort((a, b) => b.amountDue - a.amountDue);
+  }, [sales, startDateStr, endDateStr, activeTenant.id]);
+
+  const moneyBankPayables = useMemo(() => {
+    const start = new Date(startDateStr);
+    const end = new Date(endDateStr);
+    end.setHours(23, 59, 59, 999);
+    const bySupplier = new Map<string, { name: string; amountDue: number; count: number }>();
+    purchases.forEach(purchase => {
+      if (purchase.tenantId !== activeTenant.id) return;
+      const due = purchase.amountDue || 0;
+      if (due <= 0) return;
+      const date = new Date(purchase.timestamp);
+      if (date < start || date > end) return;
+      const key = purchase.supplierId || purchase.supplierName;
+      const existing = bySupplier.get(key) || { name: purchase.supplierName || 'Unknown Supplier', amountDue: 0, count: 0 };
+      existing.amountDue += due;
+      existing.count += 1;
+      bySupplier.set(key, existing);
+    });
+    return Array.from(bySupplier.values()).sort((a, b) => b.amountDue - a.amountDue);
+  }, [purchases, startDateStr, endDateStr, activeTenant.id]);
+
+  const moneyBankDebtTotals = useMemo(() => ({
+    totalReceivable: moneyBankReceivables.reduce((sum, r) => sum + r.amountDue, 0),
+    totalPayable: moneyBankPayables.reduce((sum, p) => sum + p.amountDue, 0),
+  }), [moneyBankReceivables, moneyBankPayables]);
+
+  const renderMoneyBankEntryList = (entries: LedgerEntry[], emptyText: string) => (
+    <>
+      <div className="hidden md:block overflow-x-auto">
+        <table className="w-full text-left text-xs">
+          <thead className="bg-slate-50 border-b border-slate-200">
+            <tr>
+              <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Date</th>
+              <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Account</th>
+              <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Reason</th>
+              <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Amount</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {entries.map(entry => (
+              <tr key={entry.id} className="hover:bg-slate-50 transition-colors">
+                <td className="p-3 text-slate-500 whitespace-nowrap">{formatLocalDate(new Date(entry.timestamp))}</td>
+                <td className="p-3 font-medium text-slate-800">{getMoneyBankChannelName(entry.channelId)}</td>
+                <td className="p-3 text-slate-600">
+                  {entry.description}
+                  {entry.counterPartyChannelId && (
+                    <span className="text-slate-400"> · {entry.amount >= 0 ? 'from' : 'to'} {getMoneyBankChannelName(entry.counterPartyChannelId)}</span>
+                  )}
+                </td>
+                <td className={`p-3 text-right font-mono font-black ${entry.amount >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                  {entry.amount >= 0 ? '+' : '-'}{currency}{Math.round(Math.abs(entry.amount)).toLocaleString()}
+                </td>
+              </tr>
+            ))}
+            {entries.length === 0 && (
+              <tr>
+                <td colSpan={4} className="p-10 text-center text-slate-400">
+                  <div className="flex flex-col items-center gap-2">
+                    <Landmark className="w-8 h-8 text-slate-200" />
+                    <span>{emptyText}</span>
+                  </div>
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="md:hidden space-y-2.5">
+        {entries.map(entry => (
+          <div key={entry.id} className="bg-white border border-slate-200 rounded-2xl p-3.5 shadow-xs flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${entry.amount >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+              {entry.amount >= 0 ? <ArrowDownRight className="w-5 h-5" /> : <ArrowUpRight className="w-5 h-5" />}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-bold text-slate-800 truncate">{entry.description}</p>
+              <p className="text-[10px] text-slate-400 mt-0.5">
+                {getMoneyBankChannelName(entry.channelId)}
+                {entry.counterPartyChannelId ? ` · ${entry.amount >= 0 ? 'from' : 'to'} ${getMoneyBankChannelName(entry.counterPartyChannelId)}` : ''}
+                {' · '}{formatLocalDate(new Date(entry.timestamp))}
+              </p>
+            </div>
+            <p className={`text-xs font-mono font-black shrink-0 ${entry.amount >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+              {entry.amount >= 0 ? '+' : '-'}{currency}{Math.round(Math.abs(entry.amount)).toLocaleString()}
+            </p>
+          </div>
+        ))}
+        {entries.length === 0 && (
+          <div className="py-10 text-center text-slate-400 flex flex-col items-center gap-2">
+            <Landmark className="w-8 h-8 text-slate-200" />
+            <span className="text-xs">{emptyText}</span>
+          </div>
+        )}
+      </div>
+    </>
+  );
+
   const downloadMoneyBankExcel = () => {
     const rows = filteredMoneyBankLedger.map(entry => ({
       Date: formatLocalDate(new Date(entry.timestamp)),
@@ -1626,94 +1757,195 @@ export default function DashboardReports({
                 </div>
               </div>
 
+              {/* Money & Bank sub-sections */}
+              <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 text-[11px] font-bold w-full sm:w-auto sm:inline-flex overflow-x-auto no-scrollbar gap-1">
+                {([
+                  { id: 'summary', label: 'Summary' },
+                  { id: 'in', label: 'Pesa Iliyoingia' },
+                  { id: 'out', label: 'Iliyotoka' },
+                  { id: 'transfer', label: 'Iliyotumwa' },
+                  { id: 'debts', label: 'Madeni' },
+                ] as const).map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setMoneyBankSubTab(tab.id)}
+                    className={`flex-1 sm:flex-none px-4 py-2 rounded-lg transition-colors whitespace-nowrap ${
+                      moneyBankSubTab === tab.id ? 'bg-white text-emerald-700 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
               <div id="reports-a4-pdf-template" className="space-y-6">
-                <div className="reports-split-grid gap-2 sm:gap-3">
-                  <div className="bg-emerald-50 p-3 rounded-2xl border border-emerald-200 overflow-hidden">
-                    <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-                      <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-white border border-emerald-200 flex items-center justify-center text-emerald-600 shadow-sm shrink-0">
-                        <ArrowDownRight className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                {moneyBankSubTab === 'summary' && (
+                  <>
+                    <div className="reports-split-grid gap-2 sm:gap-3">
+                      <div className="bg-emerald-50 p-3 rounded-2xl border border-emerald-200 overflow-hidden">
+                        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+                          <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-white border border-emerald-200 flex items-center justify-center text-emerald-600 shadow-sm shrink-0">
+                            <ArrowDownRight className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                          </div>
+                          <h6 className="text-[10px] sm:text-xs font-bold text-emerald-700 uppercase tracking-wide leading-tight min-w-0 flex-1">Money In</h6>
+                        </div>
+                        <p className="text-base sm:text-lg font-black mt-1.5 truncate text-emerald-700">{currency}{Math.round(moneyBankTotals.moneyIn).toLocaleString()}</p>
                       </div>
-                      <h6 className="text-[10px] sm:text-xs font-bold text-emerald-700 uppercase tracking-wide leading-tight min-w-0 flex-1">Money In</h6>
-                    </div>
-                    <p className="text-base sm:text-lg font-black mt-1.5 truncate text-emerald-700">{currency}{Math.round(moneyBankTotals.moneyIn).toLocaleString()}</p>
-                  </div>
-                  <div className="bg-rose-50 p-3 rounded-2xl border border-rose-200 overflow-hidden">
-                    <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
-                      <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-white border border-rose-200 flex items-center justify-center text-rose-600 shadow-sm shrink-0">
-                        <ArrowUpRight className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                      <div className="bg-rose-50 p-3 rounded-2xl border border-rose-200 overflow-hidden">
+                        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+                          <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-white border border-rose-200 flex items-center justify-center text-rose-600 shadow-sm shrink-0">
+                            <ArrowUpRight className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                          </div>
+                          <h6 className="text-[10px] sm:text-xs font-bold text-rose-700 uppercase tracking-wide leading-tight min-w-0 flex-1">Money Out</h6>
+                        </div>
+                        <p className="text-base sm:text-lg font-black mt-1.5 truncate text-rose-700">{currency}{Math.round(moneyBankTotals.moneyOut).toLocaleString()}</p>
                       </div>
-                      <h6 className="text-[10px] sm:text-xs font-bold text-rose-700 uppercase tracking-wide leading-tight min-w-0 flex-1">Money Out</h6>
                     </div>
-                    <p className="text-base sm:text-lg font-black mt-1.5 truncate text-rose-700">{currency}{Math.round(moneyBankTotals.moneyOut).toLocaleString()}</p>
-                  </div>
-                </div>
 
-                <div className="flex items-center justify-between bg-slate-900 rounded-2xl px-4 py-3">
-                  <span className="text-[10px] sm:text-xs font-bold text-white/60 uppercase tracking-wide">Net Movement · {moneyBankTotals.count} transactions</span>
-                  <span className={`text-sm sm:text-base font-black ${moneyBankTotals.net >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                    {moneyBankTotals.net >= 0 ? '+' : ''}{currency}{Math.round(moneyBankTotals.net).toLocaleString()}
-                  </span>
-                </div>
+                    <div className="flex items-center justify-between bg-slate-900 rounded-2xl px-4 py-3">
+                      <span className="text-[10px] sm:text-xs font-bold text-white/60 uppercase tracking-wide">Net Movement · {moneyBankTotals.count} transactions</span>
+                      <span className={`text-sm sm:text-base font-black ${moneyBankTotals.net >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        {moneyBankTotals.net >= 0 ? '+' : ''}{currency}{Math.round(moneyBankTotals.net).toLocaleString()}
+                      </span>
+                    </div>
 
-                {/* Desktop/tablet table */}
-                <div className="hidden md:block overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50 border-b border-slate-200">
-                      <tr>
-                        <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Date</th>
-                        <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Account</th>
-                        <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Reason</th>
-                        <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Amount</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {filteredMoneyBankLedger.map(entry => (
-                        <tr key={entry.id} className="hover:bg-slate-50 transition-colors">
-                          <td className="p-3 text-slate-500 whitespace-nowrap">{formatLocalDate(new Date(entry.timestamp))}</td>
-                          <td className="p-3 font-medium text-slate-800">{getMoneyBankChannelName(entry.channelId)}</td>
-                          <td className="p-3 text-slate-600">{entry.description}</td>
-                          <td className={`p-3 text-right font-mono font-black ${entry.amount >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                            {entry.amount >= 0 ? '+' : '-'}{currency}{Math.round(Math.abs(entry.amount)).toLocaleString()}
-                          </td>
-                        </tr>
-                      ))}
-                      {filteredMoneyBankLedger.length === 0 && (
-                        <tr>
-                          <td colSpan={4} className="p-10 text-center text-slate-400">
-                            <div className="flex flex-col items-center gap-2">
-                              <Landmark className="w-8 h-8 text-slate-200" />
-                              <span>No transactions matched.</span>
+                    {renderMoneyBankEntryList(filteredMoneyBankLedger, 'No transactions matched.')}
+                  </>
+                )}
+
+                {moneyBankSubTab === 'in' && (
+                  <>
+                    <div className="bg-emerald-50 p-3 rounded-2xl border border-emerald-200 overflow-hidden max-w-xs">
+                      <h6 className="text-[10px] sm:text-xs font-bold text-emerald-700 uppercase tracking-wide">Pesa Iliyoingia</h6>
+                      <p className="text-base sm:text-lg font-black mt-1.5 text-emerald-700">{currency}{Math.round(moneyBankTotals.moneyIn).toLocaleString()}</p>
+                      <p className="text-[10px] text-emerald-600 mt-0.5">{moneyBankInEntries.length} transactions</p>
+                    </div>
+                    {renderMoneyBankEntryList(moneyBankInEntries, 'No money-in transactions matched.')}
+                  </>
+                )}
+
+                {moneyBankSubTab === 'out' && (
+                  <>
+                    <div className="bg-rose-50 p-3 rounded-2xl border border-rose-200 overflow-hidden max-w-xs">
+                      <h6 className="text-[10px] sm:text-xs font-bold text-rose-700 uppercase tracking-wide">Iliyotoka</h6>
+                      <p className="text-base sm:text-lg font-black mt-1.5 text-rose-700">{currency}{Math.round(moneyBankTotals.moneyOut).toLocaleString()}</p>
+                      <p className="text-[10px] text-rose-600 mt-0.5">{moneyBankOutEntries.length} transactions</p>
+                    </div>
+                    {renderMoneyBankEntryList(moneyBankOutEntries, 'No money-out transactions matched.')}
+                  </>
+                )}
+
+                {moneyBankSubTab === 'transfer' && (
+                  <>
+                    <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 overflow-hidden max-w-xs">
+                      <h6 className="text-[10px] sm:text-xs font-bold text-slate-700 uppercase tracking-wide">Iliyotumwa (Transfers)</h6>
+                      <p className="text-base sm:text-lg font-black mt-1.5 text-slate-800">{moneyBankTransferEntries.length}</p>
+                      <p className="text-[10px] text-slate-500 mt-0.5">transfers between accounts/people</p>
+                    </div>
+                    {renderMoneyBankEntryList(moneyBankTransferEntries, 'No transfers matched.')}
+                  </>
+                )}
+
+                {moneyBankSubTab === 'debts' && (
+                  <>
+                    <div className="reports-split-grid gap-2 sm:gap-3">
+                      <div className="bg-emerald-50 p-3 rounded-2xl border border-emerald-200 overflow-hidden">
+                        <h6 className="text-[10px] sm:text-xs font-bold text-emerald-700 uppercase tracking-wide">Unaodai (Wateja)</h6>
+                        <p className="text-base sm:text-lg font-black mt-1.5 text-emerald-700">{currency}{Math.round(moneyBankDebtTotals.totalReceivable).toLocaleString()}</p>
+                        <p className="text-[10px] text-emerald-600 mt-0.5">{moneyBankReceivables.length} wateja wenye madeni</p>
+                      </div>
+                      <div className="bg-rose-50 p-3 rounded-2xl border border-rose-200 overflow-hidden">
+                        <h6 className="text-[10px] sm:text-xs font-bold text-rose-700 uppercase tracking-wide">Unadaiwa (Wasambazaji)</h6>
+                        <p className="text-base sm:text-lg font-black mt-1.5 text-rose-700">{currency}{Math.round(moneyBankDebtTotals.totalPayable).toLocaleString()}</p>
+                        <p className="text-[10px] text-rose-600 mt-0.5">{moneyBankPayables.length} wasambazaji wenye madeni</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <h4 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Wateja wanaodaiwa (Receivables)</h4>
+                      <div className="hidden md:block overflow-x-auto">
+                        <table className="w-full text-left text-xs">
+                          <thead className="bg-slate-50 border-b border-slate-200">
+                            <tr>
+                              <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Customer</th>
+                              <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Phone</th>
+                              <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Unpaid Sales</th>
+                              <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Amount Due</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {moneyBankReceivables.map(r => (
+                              <tr key={`${r.name}-${r.phone}`} className="hover:bg-slate-50 transition-colors">
+                                <td className="p-3 font-medium text-slate-800">{r.name}</td>
+                                <td className="p-3 text-slate-500 font-mono">{r.phone || '—'}</td>
+                                <td className="p-3 text-right text-slate-600">{r.count}</td>
+                                <td className="p-3 text-right font-mono font-black text-emerald-700">{currency}{Math.round(r.amountDue).toLocaleString()}</td>
+                              </tr>
+                            ))}
+                            {moneyBankReceivables.length === 0 && (
+                              <tr><td colSpan={4} className="p-8 text-center text-slate-400">No outstanding customer debts in this period.</td></tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                      <div className="md:hidden space-y-2.5">
+                        {moneyBankReceivables.map(r => (
+                          <div key={`${r.name}-${r.phone}`} className="bg-white border border-slate-200 rounded-2xl p-3.5 shadow-xs flex items-center gap-3">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-bold text-slate-800 truncate">{r.name}</p>
+                              <p className="text-[10px] text-slate-400 mt-0.5">{r.phone || '—'} · {r.count} unpaid sales</p>
                             </div>
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                            <p className="text-xs font-mono font-black shrink-0 text-emerald-700">{currency}{Math.round(r.amountDue).toLocaleString()}</p>
+                          </div>
+                        ))}
+                        {moneyBankReceivables.length === 0 && (
+                          <div className="py-8 text-center text-slate-400 text-xs">No outstanding customer debts in this period.</div>
+                        )}
+                      </div>
+                    </div>
 
-                {/* Phone: native-app style card list */}
-                <div className="md:hidden space-y-2.5">
-                  {filteredMoneyBankLedger.map(entry => (
-                    <div key={entry.id} className="bg-white border border-slate-200 rounded-2xl p-3.5 shadow-xs flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${entry.amount >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
-                        {entry.amount >= 0 ? <ArrowDownRight className="w-5 h-5" /> : <ArrowUpRight className="w-5 h-5" />}
+                    <div className="space-y-2">
+                      <h4 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Wasambazaji tunaowadai (Payables)</h4>
+                      <div className="hidden md:block overflow-x-auto">
+                        <table className="w-full text-left text-xs">
+                          <thead className="bg-slate-50 border-b border-slate-200">
+                            <tr>
+                              <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Supplier</th>
+                              <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Unpaid Purchases</th>
+                              <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Amount Due</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {moneyBankPayables.map(p => (
+                              <tr key={p.name} className="hover:bg-slate-50 transition-colors">
+                                <td className="p-3 font-medium text-slate-800">{p.name}</td>
+                                <td className="p-3 text-right text-slate-600">{p.count}</td>
+                                <td className="p-3 text-right font-mono font-black text-rose-600">{currency}{Math.round(p.amountDue).toLocaleString()}</td>
+                              </tr>
+                            ))}
+                            {moneyBankPayables.length === 0 && (
+                              <tr><td colSpan={3} className="p-8 text-center text-slate-400">No outstanding supplier debts in this period.</td></tr>
+                            )}
+                          </tbody>
+                        </table>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-slate-800 truncate">{entry.description}</p>
-                        <p className="text-[10px] text-slate-400 mt-0.5">{getMoneyBankChannelName(entry.channelId)} · {formatLocalDate(new Date(entry.timestamp))}</p>
+                      <div className="md:hidden space-y-2.5">
+                        {moneyBankPayables.map(p => (
+                          <div key={p.name} className="bg-white border border-slate-200 rounded-2xl p-3.5 shadow-xs flex items-center gap-3">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-bold text-slate-800 truncate">{p.name}</p>
+                              <p className="text-[10px] text-slate-400 mt-0.5">{p.count} unpaid purchases</p>
+                            </div>
+                            <p className="text-xs font-mono font-black shrink-0 text-rose-600">{currency}{Math.round(p.amountDue).toLocaleString()}</p>
+                          </div>
+                        ))}
+                        {moneyBankPayables.length === 0 && (
+                          <div className="py-8 text-center text-slate-400 text-xs">No outstanding supplier debts in this period.</div>
+                        )}
                       </div>
-                      <p className={`text-xs font-mono font-black shrink-0 ${entry.amount >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                        {entry.amount >= 0 ? '+' : '-'}{currency}{Math.round(Math.abs(entry.amount)).toLocaleString()}
-                      </p>
                     </div>
-                  ))}
-                  {filteredMoneyBankLedger.length === 0 && (
-                    <div className="py-10 text-center text-slate-400 flex flex-col items-center gap-2">
-                      <Landmark className="w-8 h-8 text-slate-200" />
-                      <span className="text-xs">No transactions matched.</span>
-                    </div>
-                  )}
-                </div>
+                  </>
+                )}
               </div>
             </div>
           </div>
