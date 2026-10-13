@@ -264,13 +264,19 @@ const formatDosageFormLabel = (form?: DosageForm) =>
 
 const yesNo = (value?: boolean) => (value ? 'Yes' : 'No');
 
+// Retail tenants set wholesale pricing through the simple Sell
+// Retail/Wholesale fields (not through the pharmacy-style package levels
+// above), so the full catalogue export needs its own trailing columns for
+// them -- the Universal bulk-import template/parser is left untouched.
+const CATALOGUE_EXTRA_HEADERS = ['Sell Retail', 'Sell Wholesale', 'Wholesale Price', 'Min Wholesale Qty'] as const;
+
 /**
- * Converts the tenant's real products into rows matching UNIVERSAL_IMPORT_HEADERS,
- * the mirror of parseUniversalImportRow -- so a downloaded catalogue can be
- * re-uploaded through the same Universal bulk-import path unchanged.
+ * Converts the tenant's real products into rows matching UNIVERSAL_IMPORT_HEADERS
+ * (the mirror of parseUniversalImportRow, so re-uploading through the Universal
+ * bulk-import path still works) plus trailing wholesale-pricing columns.
  */
 export function exportProductsToUniversalRows(products: Product[]): string[][] {
-  const rows: string[][] = [[...UNIVERSAL_IMPORT_HEADERS]];
+  const rows: string[][] = [[...UNIVERSAL_IMPORT_HEADERS, ...CATALOGUE_EXTRA_HEADERS]];
   products.forEach(product => {
     const levels = product.packageLevels || [];
     const level1 = levels[0];
@@ -304,6 +310,10 @@ export function exportProductsToUniversalRows(products: Product[]): string[][] {
       yesNo(product.prescriptionRequired),
       yesNo(product.trackBatch),
       yesNo(product.trackExpiry),
+      yesNo(product.sellInRetail),
+      yesNo(product.sellInWholesale),
+      product.wholesalePrice != null ? String(product.wholesalePrice) : '',
+      product.minWholesaleQty != null ? String(product.minWholesaleQty) : '',
     ]);
   });
   return rows;
