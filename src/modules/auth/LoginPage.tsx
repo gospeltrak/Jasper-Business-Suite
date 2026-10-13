@@ -237,7 +237,6 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   const loginScreenLogoUrl = isDark ? (loginScreenLogoDark || loginScreenLogoLight) : (loginScreenLogoLight || loginScreenLogoDark);
   const tenantLoginTitle = resolvedTenant?.name || (domainMode === 'tenant' ? 'Business Login' : 'Orvix');
   const isTenantDomainLogin = domainMode === 'tenant' && !!resolvedTenant?.id;
-  const tenantGoogleOnlySignIn = !isSaasAdminPortal;
   const handleBackToLandingHub = () => {
     if (landingUrl) {
       const targetUrl = new URL(landingUrl, window.location.origin);
