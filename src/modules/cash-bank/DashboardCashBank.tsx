@@ -2,8 +2,9 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Tenant, Sale, Expense, PaymentChannel, LedgerEntry, User as AppUser, SystemSettings, Purchase } from '../../types';
 import { isDemoTenant } from '../../shared/utils/tenantIsolation';
 import { safeSetJsonItem } from '../../shared/utils/dataSafety';
-import { findPaymentChannel, getMaskedAccountReference, getTreasuryPaymentMethods, reconcilePaymentChannels } from '../../shared/utils/paymentAccounts';
+import { getMaskedAccountReference, getTreasuryPaymentMethods, reconcilePaymentChannels } from '../../shared/utils/paymentAccounts';
 import { postTreasuryEntry, syncTreasuryPaymentAccounts, transferTreasuryFunds } from './utils/treasuryApi';
+import { buildAutoLedgerEntries, readCachedManualSettleEntries } from './utils/ledgerDerivation';
 import { formatLocalDate } from '../../shared/utils/localDate';
 import { 
   Landmark, 
@@ -259,190 +260,29 @@ export default function DashboardCashBank({
   // Read transactions, seeded balances, and link them to accounts
   useEffect(() => {
     const storageKey = `jasper_cash_bank_matrix_${activeTenant.id}`;
-    const cached = onlineStorage.getItem(storageKey);
-    const generated: LedgerEntry[] = [];
-
-    // Base funds in each account at startup
-    const seedBalances = [
-      { id: 'initial-mpesa', channelId: 'mpesa-till', amount: 1500000, desc: 'Starting balance in wallet' },
-      { id: 'initial-crdb', channelId: 'crdb-corporate', amount: 8000000, desc: 'Starting balance in main bank account' },
-      { id: 'initial-nmb', channelId: 'nmb-checking', amount: 4500000, desc: 'Starting balance in secondary checking account' },
-      { id: 'initial-drawer1', channelId: 'counter-01', amount: 350000, desc: 'Starting cash float for till 01' },
-      { id: 'initial-safe', channelId: 'office-safe', amount: 2500000, desc: 'Starting reserve cash inside lock safe' }
-    ];
-
-    (hasDemoSeedData ? seedBalances : []).forEach(seed => {
-      generated.push({
-        id: seed.id,
-        tenantId: activeTenant.id,
-        channelId: seed.channelId,
-        amount: seed.amount,
-        entryType: 'credit',
-        sourceType: 'INITIAL_BALANCE',
-        description: seed.desc,
-        timestamp: new Date(Date.now() - 15 * 24 * 3600 * 1000).toISOString()
-      });
-    });
-
-    const getPaymentChannel = (methodName: string, reference: string) => {
-      const linkedChannel = findPaymentChannel(channels, methodName);
-      if (linkedChannel) {
-        return {
-          targetChannelId: linkedChannel.id,
-          desc: `${methodName} payment received: Receipt ${reference}`,
-        };
-      }
-      return null;
-    };
-
-    // Link incoming sales to correct payment methods automatically
-    sales.forEach(sale => {
-      const saleAmount = Math.max(0, sale.total - (sale.deliveryCost || 0));
-      const breakdown = Array.isArray(sale.paymentBreakdown) && sale.paymentBreakdown.length > 0
-        ? sale.paymentBreakdown
-        : [{ method: sale.paymentMethod || 'Cash', amount: saleAmount }];
-
-      breakdown.forEach((part, index) => {
-        const amount = Math.max(0, Number(part.amount || 0));
-        if (amount <= 0) return;
-        const linkedPayment = getPaymentChannel(part.method || sale.paymentMethod || 'Cash', sale.reference);
-        if (!linkedPayment) return;
-        const { targetChannelId, desc } = linkedPayment;
-
-        generated.push({
-          id: `POS-RECON-${sale.id}-${index}`,
-          tenantId: activeTenant.id,
-          channelId: targetChannelId,
-          amount,
-          entryType: 'credit',
-          sourceType: 'POS_CHECKOUT',
-          description: desc,
-          timestamp: sale.timestamp
-        });
-      });
-    });
-
-    // Track loose counter payments for business expenses
-    expenses.forEach(exp => {
-      const accountId = exp.paidFromAccountId && channels.some(channel => channel.id === exp.paidFromAccountId)
-        ? exp.paidFromAccountId
-        : null;
-      if (!accountId) return;
-      generated.push({
-        id: `EXP-WITHDR-${exp.id}`,
-        tenantId: activeTenant.id,
-        channelId: accountId,
-        amount: -exp.amount,
-        entryType: 'debit',
-        sourceType: 'EXPENSE_WITHDRAWAL',
-        description: `Expense payment: ${exp.description} (${exp.category})`,
-        timestamp: exp.timestamp || new Date().toISOString()
-      });
-    });
-
-    // Track delivery incomes
-    deliveries.forEach(del => {
-      const isCollected = del.deliveryPaymentStatus === 'collected'
-        || (!del.deliveryPaymentStatus && del.status === 'Delivered');
-      if (!isCollected || del.status === 'Cancelled') return;
-      if (!del.fee && !del.deliveryCost) return;
-      const amt = (del.fee || del.deliveryCost || 0);
-      if (amt <= 0) return;
-
-      const linkedChannel = channels.find(channel => channel.id === del.deliveryPaymentAccountId)
-        || findPaymentChannel(channels, del.deliveryPaymentMethod || 'Cash');
-      if (!linkedChannel) return;
-      const targetChannelId = linkedChannel.id;
-      const desc = `${del.deliveryPaymentMethod || linkedChannel.name} delivery payment collected: Ref ${del.id}`;
-
-      generated.push({
-        id: `DELIVERY-INC-${del.id}`,
-        tenantId: activeTenant.id,
-        channelId: targetChannelId,
-        amount: amt,
-        entryType: 'credit',
-        sourceType: 'DELIVERY_COLLECTION',
-        description: desc,
-        timestamp: del.paymentCollectedAt || del.deliveredAt || del.timestamp || new Date().toISOString(),
-        referenceId: del.id,
-      });
-    });
-
-    purchases.forEach(purchase => {
-      const allocations = Array.isArray(purchase.paymentAllocations)
-        ? purchase.paymentAllocations.filter((allocation: any) => allocation?.fundingType === 'registered')
-        : [];
-      const paymentLines = allocations.length > 0
-        ? allocations.map((allocation: any) => ({
-            accountId: allocation.accountId || allocation.sourceKey,
-            amount: Math.max(0, Number(allocation.amount || 0)),
-          }))
-        : [{
-            accountId: purchase.paidFromAccountId,
-            amount: Math.max(0, Number(purchase.amountPaid || 0)),
-          }];
-      paymentLines.forEach(({ accountId, amount }: { accountId?: string; amount: number }, index: number) => {
-        if (amount <= 0 || !accountId || !channels.some(channel => channel.id === accountId)) return;
-        generated.push({
-          id: `PURCHASE-PAYMENT-${purchase.id}-${index}`,
-          tenantId: activeTenant.id,
-          channelId: accountId,
-          amount: -amount,
-          entryType: 'debit',
-          sourceType: 'PURCHASE_PAYMENT',
-          description: `Purchase payment to ${purchase.supplierName}: ${purchase.id}`,
-          timestamp: purchase.timestamp,
-          referenceId: purchase.id,
-        });
-      });
-    });
-
-    if (cached) {
-      try {
-        const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed)) {
-          const manualSettles = parsed.filter((entry: LedgerEntry) => entry.sourceType === 'SETTLE_TILL_DEPOSIT');
-          const merged = [...generated, ...manualSettles];
-          setLedgerEntries(merged);
-          return;
-        }
-      } catch (err) {
-        console.error('Failed to parse cache:', err);
-      }
-    }
-
-    const defaultSettleDrops: LedgerEntry[] = [
-      {
-        id: 'SETTLE-INIT-01',
-        tenantId: activeTenant.id,
-        channelId: 'counter-01',
-        amount: -300000,
-        entryType: 'debit',
-        sourceType: 'SETTLE_TILL_DEPOSIT',
-        description: 'Deposited drawer cash to CRDB Bank account',
-        timestamp: new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString(),
-        counterPartyChannelId: 'crdb-corporate'
-      },
-      {
-        id: 'SETTLE-INIT-02',
-        tenantId: activeTenant.id,
-        channelId: 'crdb-corporate',
-        amount: 300000,
-        entryType: 'credit',
-        sourceType: 'SETTLE_TILL_DEPOSIT',
-        description: 'Received drawer cash deposit from Counter Drawer 01',
-        timestamp: new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString(),
-        counterPartyChannelId: 'counter-01'
-      }
-    ];
-
-    const finalInitial = [...generated, ...(hasDemoSeedData ? defaultSettleDrops : [])];
-    setLedgerEntries(finalInitial);
-    safeSetJsonItem(storageKey, finalInitial, {
+    const wasCached = Boolean(onlineStorage.getItem(storageKey));
+    const generated = buildAutoLedgerEntries({
       tenantId: activeTenant.id,
-      dataKey: 'cash_bank_matrix',
-      logLabel: `${activeTenant.id}/cash-bank-matrix`,
+      channels,
+      sales,
+      expenses,
+      deliveries,
+      purchases,
+      hasDemoSeedData,
     });
+    const manualSettles = readCachedManualSettleEntries(activeTenant.id, hasDemoSeedData);
+    const finalInitial = [...generated, ...manualSettles];
+    setLedgerEntries(finalInitial);
+    // Only persist on cold start (no prior cache) -- once a snapshot exists,
+    // other flows (e.g. the Transfer screen adding a manual settle entry)
+    // own writing to it; regenerating here must not overwrite their work.
+    if (!wasCached) {
+      safeSetJsonItem(storageKey, finalInitial, {
+        tenantId: activeTenant.id,
+        dataKey: 'cash_bank_matrix',
+        logLabel: `${activeTenant.id}/cash-bank-matrix`,
+      });
+    }
   }, [activeTenant.id, sales, expenses, deliveries, purchases, channels, hasDemoSeedData]);
 
   useEffect(() => {
