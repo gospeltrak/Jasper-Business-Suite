@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Product, Sale, Tenant, Expense, CustomRole, Supplier } from '../../types';
+import { Product, Sale, Tenant, Expense, CustomRole, Supplier, LedgerEntry, PaymentChannel } from '../../types';
 import { 
   ResponsiveContainer, 
   LineChart, 
@@ -49,7 +49,10 @@ import {
   ShoppingCart,
   ArrowLeft,
   ArrowRight,
-  Scale
+  Scale,
+  Landmark,
+  Wallet,
+  Download
 } from 'lucide-react';
 import { formatProductQuantity, formatSaleItemQuantity, getProductUnitName } from '../../shared/utils/unitFormatter';
 import { getDisplayStockBreakdown, resolvePackageLevels } from '../../shared/utils/universalUnits';
@@ -61,6 +64,9 @@ import type { BranchSummary } from '../branches/branchTypes';
 import { formatLocalDate, parseLocalDate, timestampToLocalDate } from '../../shared/utils/localDate';
 import { getSaleItemGrossTotal, getSaleItemLineTotal } from '../sales/utils/saleItemTotals';
 import { onlineStorage } from '../../shared/utils/onlineStorage';
+import { deriveLedgerEntries } from '../cash-bank/utils/ledgerDerivation';
+import { downloadExcelFile } from '../../shared/utils/excelExport';
+import { isDemoTenant } from '../../shared/utils/tenantIsolation';
 
 const saleProductRevenue = (s: any): number =>
   s.productTotal !== undefined ? s.productTotal : (s.total - (s.deliveryCost || 0));
@@ -72,7 +78,7 @@ interface DashboardReportsProps {
   expenses: Expense[];
   onAddExpense: (expense: Expense) => void;
   userName: string;
-  defaultTab?: 'p&l' | 'sales-report' | 'payments' | 'inventory' | 'velocity' | 'users' | 'expenses' | 'product-monitoring' | 'deliveries' | 'purchases-report';
+  defaultTab?: 'p&l' | 'sales-report' | 'payments' | 'inventory' | 'velocity' | 'users' | 'expenses' | 'product-monitoring' | 'deliveries' | 'purchases-report' | 'money-bank';
   rolePermissions?: CustomRole['permissions'];
   suppliers?: Supplier[];
   purchases?: any[];
@@ -96,6 +102,7 @@ const REPORT_DOCUMENT_TITLES: Record<string, string> = {
   'bulk-products': 'Bulk Products Report',
   'stock-adjustment': 'Stock Adjustment Report',
   'purchases-report': 'Purchases Ledger Report',
+  'money-bank': 'Money & Bank Report',
 };
 
 export default function DashboardReports({
@@ -124,7 +131,7 @@ export default function DashboardReports({
 
   const currency = activeTenant.currency;
 
-  const [reportTab, setReportTab] = useState<'p&l' | 'sales-report' | 'payments' | 'inventory' | 'velocity' | 'users' | 'expenses' | 'product-monitoring' | 'dual-channel' | 'deliveries' | 'bulk-products' | 'stock-adjustment' | 'purchases-report'>(
+  const [reportTab, setReportTab] = useState<'p&l' | 'sales-report' | 'payments' | 'inventory' | 'velocity' | 'users' | 'expenses' | 'product-monitoring' | 'dual-channel' | 'deliveries' | 'bulk-products' | 'stock-adjustment' | 'purchases-report' | 'money-bank'>(
     (defaultTab as any) || (rolePermissions?.reportsProfitCogs?.read !== false ? 'p&l' : 'sales-report')
   );
 
@@ -385,6 +392,65 @@ export default function DashboardReports({
       return dateMatch && searchMatch && categoryMatch;
     });
   }, [expenses, startDateStr, endDateStr, searchTerm, selectedCategory]);
+
+  // ── Money & Bank report ──
+  const [selectedMoneyBankAccountId, setSelectedMoneyBankAccountId] = useState<string>('all');
+  const moneyBankChannels = useMemo<PaymentChannel[]>(
+    () => (systemSettings?.paymentChannels || []) as PaymentChannel[],
+    [systemSettings],
+  );
+  const moneyBankLedger = useMemo<LedgerEntry[]>(() => deriveLedgerEntries({
+    tenantId: activeTenant.id,
+    channels: moneyBankChannels,
+    sales,
+    expenses,
+    deliveries,
+    purchases,
+    hasDemoSeedData: isDemoTenant(activeTenant.id),
+  }), [activeTenant.id, moneyBankChannels, sales, expenses, deliveries, purchases]);
+
+  const filteredMoneyBankLedger = useMemo(() => {
+    const start = new Date(startDateStr);
+    const end = new Date(endDateStr);
+    end.setHours(23, 59, 59, 999);
+    return moneyBankLedger
+      .filter(entry => {
+        const date = new Date(entry.timestamp);
+        const dateMatch = date >= start && date <= end;
+        const accountMatch = selectedMoneyBankAccountId === 'all' || entry.channelId === selectedMoneyBankAccountId;
+        return dateMatch && accountMatch;
+      })
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  }, [moneyBankLedger, startDateStr, endDateStr, selectedMoneyBankAccountId]);
+
+  const moneyBankTotals = useMemo(() => {
+    let moneyIn = 0;
+    let moneyOut = 0;
+    filteredMoneyBankLedger.forEach(entry => {
+      if (entry.amount >= 0) moneyIn += entry.amount;
+      else moneyOut += Math.abs(entry.amount);
+    });
+    return { moneyIn, moneyOut, net: moneyIn - moneyOut, count: filteredMoneyBankLedger.length };
+  }, [filteredMoneyBankLedger]);
+
+  const getMoneyBankChannelName = (channelId?: string) =>
+    (channelId && moneyBankChannels.find(c => c.id === channelId)?.name) || channelId || 'Unknown account';
+
+  const downloadMoneyBankExcel = () => {
+    const rows = filteredMoneyBankLedger.map(entry => ({
+      Date: formatLocalDate(new Date(entry.timestamp)),
+      Account: getMoneyBankChannelName(entry.channelId),
+      Direction: entry.amount >= 0 ? 'Money In' : 'Money Out',
+      Type: entry.sourceType,
+      'Sent/Received From': entry.counterPartyChannelId ? getMoneyBankChannelName(entry.counterPartyChannelId) : '',
+      Amount: Math.abs(entry.amount),
+      Reason: entry.description,
+    }));
+    downloadExcelFile(
+      `Money-Bank-Report-${startDateStr}-to-${endDateStr}`,
+      [{ name: 'Money & Bank', rows }],
+    );
+  };
 
   const paymentBreakdown = useMemo(() => {
     const breakdown = { Cash: 0, CardAndOnline: 0, MobileMoney: 0, BankTransfer: 0, Credit: 0 };
@@ -899,6 +965,7 @@ export default function DashboardReports({
               { id: 'sales-report', label: 'Sales', icon: ShoppingBag },
               { id: 'inventory', label: 'Inventory', icon: Package },
               { id: 'expenses', label: 'Expenses', icon: Receipt },
+              { id: 'money-bank', label: 'Money & Bank', icon: Landmark },
               { id: 'product-monitoring', label: 'Product Audit', icon: Tag },
               { id: 'deliveries', label: 'Deliveries', icon: Truck },
               { id: 'purchases-report', label: 'Purchases', icon: ShoppingCart },
@@ -1526,6 +1593,132 @@ export default function DashboardReports({
           </div>
         )}
 
+        {reportTab === 'money-bank' && (
+          <div className="space-y-6">
+            <div className="bg-white border border-slate-200 rounded-3xl p-4 sm:p-6 shadow-sm space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <h3 className="order-2 sm:order-1 font-black text-slate-800 uppercase tracking-wider">Money & Bank</h3>
+                <div className="order-1 sm:order-2 flex flex-wrap gap-2">
+                  <ModernSelect
+                    title="Account"
+                    value={selectedMoneyBankAccountId}
+                    options={[
+                      { value: 'all', label: 'All Accounts' },
+                      ...moneyBankChannels.map(chan => ({ value: chan.id, label: chan.name })),
+                    ]}
+                    onChange={setSelectedMoneyBankAccountId}
+                  />
+                  <button
+                    onClick={downloadMoneyBankExcel}
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[11px] sm:text-xs font-bold uppercase flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm shrink-0"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Excel</span>
+                  </button>
+                  <button
+                    onClick={printActiveReportPdf}
+                    disabled={!!reportPdfStatus}
+                    className="bg-slate-900 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[11px] sm:text-xs font-bold uppercase flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm shrink-0 disabled:opacity-60 disabled:cursor-wait"
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    <span>PDF</span>
+                  </button>
+                </div>
+              </div>
+
+              <div id="reports-a4-pdf-template" className="space-y-6">
+                <div className="reports-split-grid gap-2 sm:gap-3">
+                  <div className="bg-emerald-50 p-3 rounded-2xl border border-emerald-200 overflow-hidden">
+                    <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+                      <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-white border border-emerald-200 flex items-center justify-center text-emerald-600 shadow-sm shrink-0">
+                        <ArrowDownRight className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                      </div>
+                      <h6 className="text-[10px] sm:text-xs font-bold text-emerald-700 uppercase tracking-wide leading-tight min-w-0 flex-1">Money In</h6>
+                    </div>
+                    <p className="text-base sm:text-lg font-black mt-1.5 truncate text-emerald-700">{currency}{Math.round(moneyBankTotals.moneyIn).toLocaleString()}</p>
+                  </div>
+                  <div className="bg-rose-50 p-3 rounded-2xl border border-rose-200 overflow-hidden">
+                    <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+                      <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-full bg-white border border-rose-200 flex items-center justify-center text-rose-600 shadow-sm shrink-0">
+                        <ArrowUpRight className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                      </div>
+                      <h6 className="text-[10px] sm:text-xs font-bold text-rose-700 uppercase tracking-wide leading-tight min-w-0 flex-1">Money Out</h6>
+                    </div>
+                    <p className="text-base sm:text-lg font-black mt-1.5 truncate text-rose-700">{currency}{Math.round(moneyBankTotals.moneyOut).toLocaleString()}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between bg-slate-900 rounded-2xl px-4 py-3">
+                  <span className="text-[10px] sm:text-xs font-bold text-white/60 uppercase tracking-wide">Net Movement · {moneyBankTotals.count} transactions</span>
+                  <span className={`text-sm sm:text-base font-black ${moneyBankTotals.net >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {moneyBankTotals.net >= 0 ? '+' : ''}{currency}{Math.round(moneyBankTotals.net).toLocaleString()}
+                  </span>
+                </div>
+
+                {/* Desktop/tablet table */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50 border-b border-slate-200">
+                      <tr>
+                        <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Date</th>
+                        <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Account</th>
+                        <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Reason</th>
+                        <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {filteredMoneyBankLedger.map(entry => (
+                        <tr key={entry.id} className="hover:bg-slate-50 transition-colors">
+                          <td className="p-3 text-slate-500 whitespace-nowrap">{formatLocalDate(new Date(entry.timestamp))}</td>
+                          <td className="p-3 font-medium text-slate-800">{getMoneyBankChannelName(entry.channelId)}</td>
+                          <td className="p-3 text-slate-600">{entry.description}</td>
+                          <td className={`p-3 text-right font-mono font-black ${entry.amount >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                            {entry.amount >= 0 ? '+' : '-'}{currency}{Math.round(Math.abs(entry.amount)).toLocaleString()}
+                          </td>
+                        </tr>
+                      ))}
+                      {filteredMoneyBankLedger.length === 0 && (
+                        <tr>
+                          <td colSpan={4} className="p-10 text-center text-slate-400">
+                            <div className="flex flex-col items-center gap-2">
+                              <Landmark className="w-8 h-8 text-slate-200" />
+                              <span>No transactions matched.</span>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Phone: native-app style card list */}
+                <div className="md:hidden space-y-2.5">
+                  {filteredMoneyBankLedger.map(entry => (
+                    <div key={entry.id} className="bg-white border border-slate-200 rounded-2xl p-3.5 shadow-xs flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${entry.amount >= 0 ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'}`}>
+                        {entry.amount >= 0 ? <ArrowDownRight className="w-5 h-5" /> : <ArrowUpRight className="w-5 h-5" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-slate-800 truncate">{entry.description}</p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">{getMoneyBankChannelName(entry.channelId)} · {formatLocalDate(new Date(entry.timestamp))}</p>
+                      </div>
+                      <p className={`text-xs font-mono font-black shrink-0 ${entry.amount >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                        {entry.amount >= 0 ? '+' : '-'}{currency}{Math.round(Math.abs(entry.amount)).toLocaleString()}
+                      </p>
+                    </div>
+                  ))}
+                  {filteredMoneyBankLedger.length === 0 && (
+                    <div className="py-10 text-center text-slate-400 flex flex-col items-center gap-2">
+                      <Landmark className="w-8 h-8 text-slate-200" />
+                      <span className="text-xs">No transactions matched.</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {reportTab === 'product-monitoring' && (
           <div className="space-y-6">
             <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
@@ -2005,7 +2198,7 @@ export default function DashboardReports({
           </div>
         )}
 
-        {reportTab !== 'p&l' && reportTab !== 'sales-report' && reportTab !== 'inventory' && reportTab !== 'expenses' && reportTab !== 'product-monitoring' && reportTab !== 'payments' && reportTab !== 'deliveries' && reportTab !== 'purchases-report' && reportTab !== 'stock-adjustment' && (
+        {reportTab !== 'p&l' && reportTab !== 'sales-report' && reportTab !== 'inventory' && reportTab !== 'expenses' && reportTab !== 'money-bank' && reportTab !== 'product-monitoring' && reportTab !== 'payments' && reportTab !== 'deliveries' && reportTab !== 'purchases-report' && reportTab !== 'stock-adjustment' && (
           <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
             <div className="p-6 bg-slate-50 rounded-full text-slate-300">
               <FileText className="w-12 h-12" />
