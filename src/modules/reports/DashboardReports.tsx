@@ -1748,7 +1748,7 @@ export default function DashboardReports({
               <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 text-[11px] font-bold w-full sm:w-auto sm:inline-flex overflow-x-auto no-scrollbar gap-1">
                 {([
                   { id: 'summary', label: 'Zote' },
-                  { id: 'in', label: 'Pesa Iliyoingia' },
+                  { id: 'in', label: 'Iliyoingia' },
                   { id: 'out', label: 'Iliyotoka' },
                   { id: 'debts', label: 'Madeni' },
                 ] as const).map(tab => (
@@ -1819,7 +1819,7 @@ export default function DashboardReports({
                   <>
                     <div className="reports-split-grid gap-2 sm:gap-3">
                       {[
-                        { label: 'Pesa Iliyoingia', value: `${currency}${Math.round(moneyBankTotals.moneyIn).toLocaleString()}`, icon: ArrowDownRight, color: 'text-emerald-700' },
+                        { label: 'Iliyoingia', value: `${currency}${Math.round(moneyBankTotals.moneyIn).toLocaleString()}`, icon: ArrowDownRight, color: 'text-emerald-700' },
                         { label: 'Miamala', value: moneyBankInEntries.length.toLocaleString(), icon: FileText, color: 'text-slate-900' },
                       ].map((metric, i) => (
                         <div key={i} className="bg-slate-50 p-3 rounded-2xl border border-slate-200 overflow-hidden">
