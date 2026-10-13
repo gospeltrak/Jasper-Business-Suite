@@ -322,7 +322,9 @@ export default function DashboardStaff({
   });
   const [payrollPeriod, setPayrollPeriod] = useState<PayrollPeriod>(() => getPeriodFromPreset('month'));
   const [successMessage, setSuccessMessage] = useState('');
-  const [invitationLink, setInvitationLink] = useState('');
+  const [registerPassword, setRegisterPassword] = useState('');
+  const [profilePassword, setProfilePassword] = useState('');
+  const [isSavingStaffCredentials, setIsSavingStaffCredentials] = useState(false);
   const [isRegisteringStaff, setIsRegisteringStaff] = useState(false);
   const [viewingStaffReport, setViewingStaffReport] = useState<StaffSettings | null>(null);
   const [openStaffActionId, setOpenStaffActionId] = useState<string | null>(null);
@@ -530,29 +532,32 @@ export default function DashboardStaff({
     return Boolean(response.ok && result.updated);
   };
 
-  const createGoogleInvitation = async (
+  const isStaffPasswordStrong = (value: string) => value.length >= 10 && /[A-Za-z]/.test(value) && /\d/.test(value);
+
+  const createStaffCredentials = async (
     staff: StaffSettings,
+    password: string,
     accessScope: 'assigned_branches' | 'all_branches' = 'assigned_branches',
   ) => {
-    if (!staff.email) throw new Error('Add the staff Gmail first.');
+    if (!staff.email) throw new Error('Add the staff email first.');
+    if (!isStaffPasswordStrong(password)) throw new Error('Password must be at least 10 characters and include a letter and a number.');
     const client: any = await getSecureDataBridgeClient();
     const { data } = await client.auth.getSession();
     const accessToken = data?.session?.access_token;
     if (!accessToken) throw new Error('Admin session is required.');
-    const response = await fetch('/api/staff/google-invitations', {
+    const response = await fetch('/api/staff/create-credentials', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
       body: JSON.stringify({
         staffId: staff.id, name: staff.name, email: staff.email, phone: staff.phone,
         role: staff.role, branchId: staff.branchId || activeBranchId || activeBranchContext?.id,
-        accessScope,
+        accessScope, password,
         permissions: customRoles.find(item => item.name.toLowerCase() === staff.role.toLowerCase())?.permissions || {},
       }),
     });
     const result = await response.json().catch(() => ({}));
-    if (!response.ok || !result.invitationUrl) throw new Error(result.error || 'Invitation link could not be created.');
-    setInvitationLink(result.invitationUrl);
-    return result.invitationUrl as string;
+    if (!response.ok) throw new Error(result.error || 'Staff login could not be created.');
+    return result;
   };
 
   const saveStaffBranchAccess = async (staff: StaffSettings) => {
@@ -578,7 +583,7 @@ export default function DashboardStaff({
         setStaffAccessScopes(prev => ({ ...prev, [staff.email!.trim().toLowerCase()]: profileAccessScope }));
         setSuccessMessage('Branch access updated.');
       } else {
-        setSuccessMessage('This staff has not accepted their Google invitation yet. Create/replace the invitation below to apply this access when they join.');
+        setSuccessMessage('This staff has no login yet. Create their login below to apply this access when they sign in.');
       }
     } catch (error) {
       setSuccessMessage(error instanceof Error ? error.message : 'Branch access could not be saved.');
@@ -590,7 +595,12 @@ export default function DashboardStaff({
 
   const handleRegisterStaff = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fullName || !phone || !email) return;
+    if (!fullName || !phone || !email || !registerPassword) return;
+    if (!isStaffPasswordStrong(registerPassword)) {
+      setSuccessMessage('Password must be at least 10 characters and include a letter and a number.');
+      setTimeout(() => setSuccessMessage(''), 6000);
+      return;
+    }
     if (roleType === 'standard' && !selectedRole) {
       setSuccessMessage('Create a role in Settings → Roles & Permissions before registering staff.');
       setTimeout(() => setSuccessMessage(''), 6000);
@@ -638,14 +648,17 @@ export default function DashboardStaff({
     }
 
     try {
-      await createGoogleInvitation(newStaff, regAccessScope);
-      setSuccessMessage(`Staff member "${fullName}" saved. Share the secure Google invitation link below.`);
-    } catch {
-      setSuccessMessage(`Staff member "${fullName}" saved, but the Google invitation was not created. Open the staff profile and try again.`);
+      await createStaffCredentials(newStaff, registerPassword, regAccessScope);
+      setSuccessMessage(`Staff member "${fullName}" saved. They can sign in now with the email and password you set.`);
+    } catch (error) {
+      setSuccessMessage(error instanceof Error
+        ? `Staff member "${fullName}" saved, but their login could not be created: ${error.message}`
+        : `Staff member "${fullName}" saved, but their login could not be created. Open the staff profile and try again.`);
     }
     setFullName('');
     setEmail('');
     setPhone('');
+    setRegisterPassword('');
     setProfilePic('');
     setVehicleColor('');
     setLicensePlate('');
@@ -795,25 +808,20 @@ export default function DashboardStaff({
 
     if (roleChanged) {
       // Try updating their real permissions directly first -- if they
-      // already have an account, this applies from their next sign-in with
-      // no new invitation link needed, and never touches their current,
-      // already-open session. Only falls back to the invitation flow below
-      // when they have no account yet (nothing to update directly).
+      // already have a login, this applies from their next sign-in with no
+      // further action needed. If they have no login yet, direct the admin
+      // to the staff profile's Login & Access section to create one.
       void updateStaffRoleDirectly(updatedStaff).then(applied => {
-        if (applied) {
-          setSuccessMessage('Login and role saved. The new role takes effect next time they sign in -- no new invitation link needed.');
-          return;
-        }
-        void createGoogleInvitation(updatedStaff)
-          .then(() => setSuccessMessage('Login and role saved. Share the invitation link so they can sign in for the first time.'))
-          .catch(error => setSuccessMessage(error instanceof Error ? error.message : 'Changes saved, but the invitation could not be created.'));
+        setSuccessMessage(applied
+          ? 'Login and role saved. The new role takes effect next time they sign in.'
+          : 'Role saved. This staff has no login yet -- open their profile to create one.');
+        setTimeout(() => setSuccessMessage(''), 6000);
       });
       return;
     }
 
-    void createGoogleInvitation(updatedStaff)
-      .then(() => setSuccessMessage('Login ID saved and a secure Google invitation was created.'))
-      .catch(error => setSuccessMessage(error instanceof Error ? error.message : 'Changes saved, but the invitation could not be created.'));
+    setSuccessMessage('Login ID saved.');
+    setTimeout(() => setSuccessMessage(''), 6000);
   };
 
   const updateStaff = (staffId: string, updater: (staff: StaffSettings) => StaffSettings) => {
@@ -1316,12 +1324,14 @@ export default function DashboardStaff({
                     <input type="tel" required value={phone} onChange={e => setPhone(e.target.value)} placeholder="e.g. 0712345678" className="w-full min-h-[48px] rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-indigo-500" />
                   </label>
                   <label className="space-y-1.5 md:col-span-2">
-                    <span className="text-xs font-black text-slate-700">Gmail for Google invitation</span>
-                    <input type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="staff@gmail.com" className="w-full min-h-[48px] rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-indigo-500" />
+                    <span className="text-xs font-black text-slate-700">Staff Email</span>
+                    <input type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="staff@example.com" className="w-full min-h-[48px] rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-indigo-500" />
                   </label>
-                  <div className="md:col-span-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-bold text-emerald-800">
-                    Login credentials are created through the secure Google invitation and are never stored in workspace data.
-                  </div>
+                  <label className="space-y-1.5 md:col-span-2">
+                    <span className="text-xs font-black text-slate-700">Staff Password</span>
+                    <input type="password" required minLength={10} value={registerPassword} onChange={e => setRegisterPassword(e.target.value)} placeholder="At least 10 characters, with a letter and a number" className="w-full min-h-[48px] rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-indigo-500" />
+                    <span className="block text-[10.5px] text-slate-500">They will sign in with this email and password.</span>
+                  </label>
                   {availableBranches.length > 1 && (
                     <>
                       <label className="space-y-1.5 md:col-span-2">
@@ -1461,15 +1471,6 @@ export default function DashboardStaff({
               </button>
             </div>
           </form>
-          {invitationLink && (
-            <div className="mt-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4">
-              <p className="text-xs font-black text-emerald-900">Google staff invitation (expires in 24 hours)</p>
-              <div className="mt-2 flex flex-col sm:flex-row gap-2">
-                <input readOnly value={invitationLink} className="min-h-[44px] flex-1 rounded-xl border border-emerald-200 bg-white px-3 text-xs font-semibold" />
-                <button type="button" onClick={() => void navigator.clipboard.writeText(invitationLink)} className="min-h-[44px] rounded-xl bg-emerald-700 px-4 text-xs font-black text-white">Copy link</button>
-              </div>
-            </div>
-          )}
         </section>
       )}
 
@@ -1794,8 +1795,8 @@ export default function DashboardStaff({
                       <input value={selectedStaff.phone} onChange={e => handleProfileFieldChange(selectedStaff.id, { phone: e.target.value })} className="w-full min-h-[46px] rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none" />
                     </label>
                     <label className="space-y-1.5 md:col-span-2">
-                      <span className="text-xs font-black text-slate-700">Gmail for Google login</span>
-                      <input type="email" value={selectedStaff.email || ''} onChange={e => handleProfileFieldChange(selectedStaff.id, { email: e.target.value.toLowerCase() })} placeholder="staff@gmail.com" className="w-full min-h-[46px] rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none" />
+                      <span className="text-xs font-black text-slate-700">Login Email</span>
+                      <input type="email" value={selectedStaff.email || ''} onChange={e => handleProfileFieldChange(selectedStaff.id, { email: e.target.value.toLowerCase() })} placeholder="staff@example.com" className="w-full min-h-[46px] rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none" />
                     </label>
                     <label className="space-y-1.5">
                       <span className="text-xs font-black text-slate-700">Role / Position</span>
@@ -1846,8 +1847,8 @@ export default function DashboardStaff({
                     </div>
                     <div className="rounded-2xl bg-white border border-slate-200 p-3">
                       <Clock className="w-4 h-4 text-amber-600 mb-2" />
-                      <span className="block text-[10px] font-black uppercase text-slate-400">Invitation status</span>
-                      <strong className="mt-1 block text-sm text-slate-900">{selectedStaff.email ? 'Ready for secure invitation' : 'Gmail required'}</strong>
+                      <span className="block text-[10px] font-black uppercase text-slate-400">Login email</span>
+                      <strong className="mt-1 block text-sm text-slate-900">{selectedStaff.email ? 'Email on file' : 'Email required'}</strong>
                     </div>
                   </div>
                   {availableBranches.length > 1 && (
@@ -1872,26 +1873,28 @@ export default function DashboardStaff({
                       >
                         {isSavingBranchAccess ? 'Saving…' : 'Save Branch Access'}
                       </button>
-                      <p className="text-[11px] text-slate-500">Applies immediately if this staff already signed in. Otherwise it takes effect on their next invitation below.</p>
+                      <p className="text-[11px] text-slate-500">Applies immediately if this staff already has a login. Otherwise create their login below first.</p>
                     </div>
                   )}
+                  <label className="mt-4 space-y-1.5 block">
+                    <span className="text-xs font-black text-slate-700">New Password</span>
+                    <input type="password" minLength={10} value={profilePassword} onChange={e => setProfilePassword(e.target.value)} placeholder="At least 10 characters, with a letter and a number" className="w-full min-h-[46px] rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold outline-none" />
+                  </label>
                   <button
                     type="button"
-                    disabled={!selectedStaff.email}
-                    onClick={() => void createGoogleInvitation(selectedStaff, profileAccessScope)
-                      .then(() => setSuccessMessage('New Google invitation created. Copy and share the link below.'))
-                      .catch(error => setSuccessMessage(error instanceof Error ? error.message : 'Invitation could not be created.'))}
-                    className="mt-4 w-full min-h-[46px] rounded-2xl bg-emerald-700 disabled:bg-slate-300 text-white text-xs font-black inline-flex items-center justify-center gap-2"
+                    disabled={!selectedStaff.email || !profilePassword || isSavingStaffCredentials}
+                    onClick={() => {
+                      setIsSavingStaffCredentials(true);
+                      void createStaffCredentials(selectedStaff, profilePassword, profileAccessScope)
+                        .then(() => { setSuccessMessage('Staff login created. They can sign in now with their email and this password.'); setProfilePassword(''); })
+                        .catch(error => setSuccessMessage(error instanceof Error ? error.message : 'Staff login could not be created.'))
+                        .finally(() => { setIsSavingStaffCredentials(false); setTimeout(() => setSuccessMessage(''), 6000); });
+                    }}
+                    className="mt-3 w-full min-h-[46px] rounded-2xl bg-emerald-700 disabled:bg-slate-300 text-white text-xs font-black inline-flex items-center justify-center gap-2"
                   >
                     <Shield className="w-4 h-4" />
-                    Create / Replace Google Invitation
+                    {isSavingStaffCredentials ? 'Creating…' : 'Create / Reset Staff Login'}
                   </button>
-                  {invitationLink && (
-                    <div className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-3">
-                      <span className="block text-[10px] font-black uppercase text-emerald-700">Secure invitation link</span>
-                      <button type="button" onClick={() => void navigator.clipboard.writeText(invitationLink)} className="mt-2 min-h-[40px] w-full rounded-xl bg-emerald-700 px-3 text-xs font-black text-white">Copy link</button>
-                    </div>
-                  )}
                 </section>
               </div>
 

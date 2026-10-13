@@ -35,8 +35,8 @@ test('staff role, permissions, and branch survive registration and reload', () =
   assert.match(dashboard, /mergeSettingsForSync\(updated, systemSettings\)/);
 });
 
-test('staff form collects Gmail and callback preserves invitation token', () => {
-  assert.match(staff, /Gmail for Google invitation/);
+test('staff form collects an email and password for the admin-set login', () => {
+  assert.match(staff, /Staff Password/);
   assert.match(staff, /type="email" required/);
   assert.match(login, /accept-staff-invitation/);
   assert.match(login, /callback\.searchParams\.set\('staffInvite', staffInvite\)/);
@@ -71,7 +71,7 @@ test('a staff member can be granted All Branches access with matching write perm
   // (profile), instead of silently defaulting to whichever branch the admin
   // happened to be viewing.
   assert.match(staff, /const \[availableBranches, setAvailableBranches\]/);
-  assert.match(staff, /createGoogleInvitation\(newStaff, regAccessScope\)/);
-  assert.match(staff, /createGoogleInvitation\(selectedStaff, profileAccessScope\)/);
+  assert.match(staff, /createStaffCredentials\(newStaff, registerPassword, regAccessScope\)/);
+  assert.match(staff, /createStaffCredentials\(selectedStaff, profilePassword, profileAccessScope\)/);
   assert.match(staff, /const saveStaffBranchAccess = async/);
 });
