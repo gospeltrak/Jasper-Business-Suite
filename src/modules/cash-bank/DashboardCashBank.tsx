@@ -919,7 +919,7 @@ export default function DashboardCashBank({
             </div>
 
             {/* 3 KPI pills */}
-            <div className="grid grid-cols-3 gap-2">
+            <div className="cashbank-row-grid-3 gap-2">
               <div className="rounded-2xl px-3 py-2.5" style={{background:'rgba(255,255,255,0.07)'}}>
                 <p className="text-emerald-400 text-[9px] font-bold uppercase tracking-wider">Money In</p>
                 <p className="text-white font-black text-[13px] mt-0.5">+{formatCurrency(combinedStats.totalMoneyIn)}</p>
@@ -1049,7 +1049,7 @@ export default function DashboardCashBank({
                       <div className="w-11 h-11 rounded-xl flex items-center justify-center text-white shrink-0" style={{background:grad}}>{icon}</div>
                       <div className="flex-1 min-w-0">
                         <p className="text-[13px] font-extrabold text-slate-900 truncate">{chan.name}</p>
-                        <p className="text-[10px] text-slate-400 capitalize">{chan.category} · {chan.provider || 'Account'}</p>
+                        <p className="text-[10px] text-slate-400">{chan.category === 'bank' ? 'Bank' : chan.category === 'telco' ? 'Mobile' : 'Cash'} · {chan.provider || 'Account'}</p>
                       </div>
                       <div className="text-right shrink-0">
                         <p className={`text-[16px] font-black font-mono ${bal >= 0 ? 'text-slate-900' : 'text-rose-600'}`}>{formatCurrency(bal)}</p>
@@ -1100,7 +1100,7 @@ export default function DashboardCashBank({
                   </button>
                 </div>
                 {addAccountSuccess && <p className="text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2">{addAccountSuccess}</p>}
-                <div className="grid grid-cols-3 gap-2">
+                <div className="cashbank-row-grid-3 gap-2">
                   {(['bank','telco','person'] as const).map(t => (
                     <button key={t} type="button" onClick={() => setNewAccType(t)}
                       className="py-2.5 rounded-xl text-[11px] font-bold capitalize transition-all"
@@ -1215,11 +1215,11 @@ export default function DashboardCashBank({
             {/* Add account quick shortcut */}
             <div className="bg-white rounded-2xl p-4 space-y-3" style={{border:'1px solid #e2e8f0'}}>
               <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Add Recipient / New Account</p>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="cashbank-row-grid-3 gap-2">
                 {(['bank','telco','person'] as const).map(t => (
                   <button key={t} type="button" onClick={() => { setNewAccType(t); setMobileSectionTab('accounts'); setExpandedBank(true); }}
-                    className="py-3 rounded-xl flex flex-col items-center gap-1.5 bg-slate-50 border border-slate-100 active:bg-slate-100">
-                    {t === 'bank' ? <Landmark className="w-4 h-4 text-blue-500"/> : t === 'telco' ? <Wallet className="w-4 h-4 text-purple-500"/> : <User className="w-4 h-4 text-emerald-500"/>}
+                    className="py-2 rounded-xl flex flex-col items-center gap-1 bg-slate-50 border border-slate-100 active:bg-slate-100">
+                    {t === 'bank' ? <Landmark className="w-3.5 h-3.5 text-blue-500"/> : t === 'telco' ? <Wallet className="w-3.5 h-3.5 text-purple-500"/> : <User className="w-3.5 h-3.5 text-emerald-500"/>}
                     <span className="text-[9px] font-bold text-slate-500">{t === 'telco' ? 'Mobile' : t === 'person' ? 'Person' : 'Bank'}</span>
                   </button>
                 ))}
@@ -1353,7 +1353,7 @@ export default function DashboardCashBank({
         {/* Date presets with direct always-visible calendar ranges */}
         <div className="border-t border-slate-200 bg-slate-50 p-3 sm:p-4">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-            <div className="grid grid-cols-3 gap-2 bg-white border border-slate-200 rounded-2xl p-1">
+            <div className="cashbank-row-grid-3 gap-2 bg-white border border-slate-200 rounded-2xl p-1">
               {(['today', '1week', '1month'] as const).map((preset) => (
                 <button
                   key={preset}
