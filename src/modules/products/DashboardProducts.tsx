@@ -44,7 +44,7 @@ import {
 } from '../../shared/utils/inventoryCosting';
 import { formatProductQuantity } from '../../shared/utils/unitFormatter';
 import { formatLocalDate } from '../../shared/utils/localDate';
-import { classifyUniversalImportRows, downloadableUniversalTemplate, parseCsvText } from './utils/bulkProductImport';
+import { classifyUniversalImportRows, downloadableUniversalTemplate, exportProductsToUniversalRows, parseCsvText } from './utils/bulkProductImport';
 import { downloadExcelFileFromRows, readExcelFileAsCsvText } from '../../shared/utils/excelExport';
 import { compressImageFile } from '../../shared/utils/imageCompression';
 import { safeSetJsonItem } from '../../shared/utils/dataSafety';
@@ -55,8 +55,6 @@ import DashboardBarcodeScanner from '../../shared/components/DashboardBarcodeSca
 import { loadBranchWorkspace, transferStockBetweenBranches } from '../branches/branchApi';
 import type { BranchSummary } from '../branches/branchTypes';
 import {
-  createProductCatalogueBackup,
-  getProductCatalogueBackupFileName,
   parseProductCatalogueBackup,
   prepareBackedUpProductsForImport,
 } from './utils/productCatalogueBackup';
@@ -1758,22 +1756,12 @@ export default function DashboardProducts({
   };
 
   const downloadProductCatalogue = () => {
-    const backup = createProductCatalogueBackup(products, {
-      id: activeTenant.id,
-      name: activeTenant.name,
-      businessType: activeTenant.businessType || 'retail',
-      currency: activeTenant.currency || 'TZS',
-    });
-    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json;charset=utf-8' });
-    const objectUrl = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = objectUrl;
-    link.download = getProductCatalogueBackupFileName(activeTenant.name, backup.exportedAt);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(objectUrl);
-    setCsvUploadSuccess(`Catalogue backup downloaded successfully (${products.length} products). Keep this file safe for the new account.`);
+    const tenantPart = (activeTenant.name || 'tenant').trim().toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'tenant';
+    downloadExcelFileFromRows(`orvix-product-catalogue-${tenantPart}-${new Date().toISOString().slice(0, 10)}`, [
+      { name: 'Products', aoa: exportProductsToUniversalRows(products) },
+    ]);
+    setCsvUploadSuccess(`Catalogue downloaded successfully (${products.length} products).`);
   };
 
   const handleCsvImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -2958,7 +2946,7 @@ export default function DashboardProducts({
                   <Database className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" />
                   <div>
                     <p className="text-[12px] font-bold text-emerald-900 dark:text-emerald-100 leading-tight">Download Product Catalogue</p>
-                    <p className="product-catalogue-subtitle text-[10px] text-emerald-700/70 dark:text-emerald-400 mt-0.5">Full restore backup · {products.length} products</p>
+                    <p className="product-catalogue-subtitle text-[10px] text-emerald-700/70 dark:text-emerald-400 mt-0.5">Excel · {products.length} products</p>
                   </div>
                 </button>
               </div>

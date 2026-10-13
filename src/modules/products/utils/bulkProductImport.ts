@@ -247,6 +247,68 @@ export interface UniversalImportSummary {
   error: number;
 }
 
+const PRODUCT_TYPE_VALUE_TO_LABEL: Record<ProductType, string> = {
+  general_retail: 'General Retail',
+  medicine: 'Medicine',
+  medical_supply: 'Medical Supply',
+  personal_care: 'Personal Care',
+  cosmetics_beauty: 'Cosmetics & Beauty',
+  baby_care: 'Baby Care',
+  hygiene: 'Hygiene',
+  supplements: 'Supplements',
+  food_drinks: 'Food & Drinks',
+};
+
+const formatDosageFormLabel = (form?: DosageForm) =>
+  form ? form.replace(/_/g, ' ').replace(/\b\w/g, char => char.toUpperCase()) : '';
+
+const yesNo = (value?: boolean) => (value ? 'Yes' : 'No');
+
+/**
+ * Converts the tenant's real products into rows matching UNIVERSAL_IMPORT_HEADERS,
+ * the mirror of parseUniversalImportRow -- so a downloaded catalogue can be
+ * re-uploaded through the same Universal bulk-import path unchanged.
+ */
+export function exportProductsToUniversalRows(products: Product[]): string[][] {
+  const rows: string[][] = [[...UNIVERSAL_IMPORT_HEADERS]];
+  products.forEach(product => {
+    const levels = product.packageLevels || [];
+    const level1 = levels[0];
+    const level2 = levels[1];
+    const priceForLevel = (levelId?: string) =>
+      levelId ? product.sellingUnits?.find(su => su.packageLevelId === levelId)?.price : undefined;
+
+    rows.push([
+      product.name || '',
+      product.barcode || '',
+      PRODUCT_TYPE_VALUE_TO_LABEL[product.productType || 'general_retail'] || 'General Retail',
+      product.category || '',
+      product.brand || '',
+      product.genericName || '',
+      product.manufacturer || '',
+      formatDosageFormLabel(product.dosageForm),
+      product.strengthValue != null ? String(product.strengthValue) : '',
+      product.strengthUnit || '',
+      product.unit || '',
+      level1?.label || '',
+      level1 ? String(level1.quantityInBaseUnit) : '',
+      level1 ? String(priceForLevel(level1.id) ?? '') : '',
+      level2?.label || '',
+      level2 ? String(level2.quantityInBaseUnit) : '',
+      level2 ? String(priceForLevel(level2.id) ?? '') : '',
+      product.sellingPrice != null ? String(product.sellingPrice) : '',
+      product.costPrice != null ? String(product.costPrice) : '',
+      product.shopStockQty != null ? String(product.shopStockQty) : '',
+      product.storeStockQty != null ? String(product.storeStockQty) : '',
+      product.alertQty != null ? String(product.alertQty) : '',
+      yesNo(product.prescriptionRequired),
+      yesNo(product.trackBatch),
+      yesNo(product.trackExpiry),
+    ]);
+  });
+  return rows;
+}
+
 export function classifyUniversalImportRows(text: string): UniversalImportSummary {
   const rows = parseCsvText(text);
   if (rows.length === 0) {
