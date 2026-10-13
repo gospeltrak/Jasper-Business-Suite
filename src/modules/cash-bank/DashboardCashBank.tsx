@@ -61,7 +61,8 @@ export default function DashboardCashBank({
 }: DashboardCashBankProps) {
   const hasDemoSeedData = isDemoTenant(activeTenant.id);
   // Date interval settings state with user-friendly names
-  const [datePreset, setDatePreset] = useState<'today' | '1week' | '1month' | 'custom'>('1month');
+  const [datePreset, setDatePreset] = useState<'today' | '1week' | '1month' | 'alltime' | 'custom'>('1month');
+  const ALL_TIME_START = '2000-01-01';
   // Mobile-only section tabs
   const [mobileSectionTab, setMobileSectionTab] = useState<'overview' | 'accounts' | 'transfer' | 'audit'>('overview');
 
@@ -240,12 +241,15 @@ export default function DashboardCashBank({
 
   // Sync date selection presets
   useEffect(() => {
-    if (datePreset !== 'custom') {
+    if (datePreset === 'alltime') {
+      setStartDateStr(ALL_TIME_START);
+      setEndDateStr(getTodayRange().end.slice(0, 10));
+    } else if (datePreset !== 'custom') {
       let relativeDays = 30;
       if (datePreset === 'today') relativeDays = 0;
       else if (datePreset === '1week') relativeDays = 6;
       else if (datePreset === '1month') relativeDays = 29;
-      
+
       const range = getRelativeRange(relativeDays);
       setStartDateStr(range.start.slice(0, 10));
       setEndDateStr(range.end.slice(0, 10));
@@ -902,7 +906,7 @@ export default function DashboardCashBank({
                 <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest">Treasury</p>
                 <h1 className="text-white font-black text-[22px] leading-tight mt-0.5">Money & Bank</h1>
                 <p className="text-white/50 text-[10px] mt-0.5">
-                  {datePreset === 'today' ? 'Today' : datePreset === '1week' ? 'Last 7 days' : datePreset === '1month' ? 'Last 30 days' : `${startDateStr} → ${endDateStr}`}
+                  {datePreset === 'today' ? 'Today' : datePreset === '1week' ? 'Last 7 days' : datePreset === '1month' ? 'Last 30 days' : datePreset === 'alltime' ? 'All time' : `${startDateStr} → ${endDateStr}`}
                 </p>
               </div>
               <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0" style={{background:'rgba(255,255,255,0.08)'}}>
@@ -937,11 +941,11 @@ export default function DashboardCashBank({
 
           {/* Date preset chips */}
           <div className="flex gap-1.5 px-5 pb-4">
-            {(['today','1week','1month'] as const).map(p => (
+            {(['today','1week','1month','alltime'] as const).map(p => (
               <button key={p} type="button" onClick={() => setDatePreset(p)}
                 className="flex-1 py-1.5 rounded-xl text-[10px] font-bold"
                 style={{background:datePreset===p?'rgba(255,255,255,0.18)':'rgba(255,255,255,0.07)',color:datePreset===p?'#fff':'rgba(255,255,255,0.5)'}}>
-                {p==='today'?'Today':p==='1week'?'7 Days':'30 Days'}
+                {p==='today'?'Today':p==='1week'?'7 Days':p==='1month'?'30 Days':'All Time'}
               </button>
             ))}
           </div>
@@ -1353,8 +1357,8 @@ export default function DashboardCashBank({
         {/* Date presets with direct always-visible calendar ranges */}
         <div className="border-t border-slate-200 bg-slate-50 p-3 sm:p-4">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-            <div className="cashbank-row-grid-3 gap-2 bg-white border border-slate-200 rounded-2xl p-1">
-              {(['today', '1week', '1month'] as const).map((preset) => (
+            <div className="cashbank-row-grid-4 gap-2 bg-white border border-slate-200 rounded-2xl p-1">
+              {(['today', '1week', '1month', 'alltime'] as const).map((preset) => (
                 <button
                   key={preset}
                   id={`preset-${preset}`}
@@ -1368,7 +1372,7 @@ export default function DashboardCashBank({
                 >
                   {preset === 'today' ? 'Today' :
                    preset === '1week' ? '7 Days' :
-                   preset === '1month' ? '30 Days' : ''}
+                   preset === '1month' ? '30 Days' : 'All Time'}
                 </button>
               ))}
             </div>
@@ -1495,9 +1499,10 @@ export default function DashboardCashBank({
               <div className="bg-slate-800/40 p-4 rounded-2xl border border-slate-800">
                 <span className="text-[10px] font-bold text-slate-400 block uppercase font-mono tracking-wide">Selected Date Preset</span>
                 <span className="text-xs font-bold text-white block mt-1">
-                  {datePreset === 'today' ? 'Today Only' : 
-                   datePreset === '1week' ? 'Past 7 Days' : 
-                   datePreset === '1month' ? 'Past 30 Days' : 'Custom Interval'}
+                  {datePreset === 'today' ? 'Today Only' :
+                   datePreset === '1week' ? 'Past 7 Days' :
+                   datePreset === '1month' ? 'Past 30 Days' :
+                   datePreset === 'alltime' ? 'All Time' : 'Custom Interval'}
                 </span>
                 <span className="text-[10px] font-mono text-slate-500 block mt-0.5">{startDateStr} to {endDateStr}</span>
               </div>
@@ -1998,9 +2003,10 @@ export default function DashboardCashBank({
                   <div className="bg-slate-50/50 p-4 rounded-2xl border border-slate-200/60">
                     <span className="text-[10px] font-bold text-slate-400 block uppercase font-mono tracking-wide">Selected Date preset</span>
                     <span className="text-xs font-bold text-slate-700 block mt-1 select-none">
-                      {datePreset === 'today' ? 'Today Only' : 
-                       datePreset === '1week' ? 'Past 7 Days' : 
-                       datePreset === '1month' ? 'Past 30 Days' : 
+                      {datePreset === 'today' ? 'Today Only' :
+                       datePreset === '1week' ? 'Past 7 Days' :
+                       datePreset === '1month' ? 'Past 30 Days' :
+                       datePreset === 'alltime' ? 'All Time' :
                        'Custom Interval'}
                     </span>
                     <span className="text-[10px] font-mono text-slate-400 block mt-0.5">{startDateStr} to {endDateStr}</span>

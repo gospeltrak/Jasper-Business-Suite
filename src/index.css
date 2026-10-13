@@ -998,6 +998,11 @@ body.rtl { font-family: 'Cairo', "Plus Jakarta Sans", "Inter", system-ui, sans-s
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+#dashboard-scaffold .cashbank-row-grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 @media (min-width: 768px) {
   #dashboard-scaffold .purchases-tablet-split-grid {
     grid-template-columns: minmax(0, 1.6fr) minmax(260px, 1fr);
