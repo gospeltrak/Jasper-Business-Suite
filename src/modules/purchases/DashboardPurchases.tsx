@@ -694,7 +694,7 @@ export default function DashboardPurchases({
       updatedProducts,
     );
     if (!saved) {
-      setEditPurchaseError('Purchase changes could not be saved. Nothing was changed in the database.');
+      setEditPurchaseError('Purchase changes could not be saved. Nothing was changed.');
       return;
     }
     setEditPurchase(null);

@@ -1,5 +1,5 @@
 export const ONLINE_ONLY_WRITE_MESSAGE =
-  'Internet is required to save changes. Reconnect before editing products, sales, stock, purchases, settings, or tenant data.';
+  'Internet is required to save changes. Reconnect before editing products, sales, stock, purchases, or settings.';
 
 export class OfflineWriteBlockedError extends Error {
   constructor(context?: string) {

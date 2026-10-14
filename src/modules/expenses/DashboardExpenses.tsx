@@ -1484,7 +1484,7 @@ export default function DashboardExpenses({
                     const nextTimestamp = editForm.date ? localDateToIso(editForm.date, new Date(editingExpense.timestamp), 12) : editingExpense.timestamp;
                     const saved = await onUpdateExpense?.({...editingExpense, description: editForm.description, amount: parseFloat(editForm.amount) || 0, category: editForm.category, note: editForm.note, paidFromAccountId: account?.id || editingExpense.paidFromAccountId, paymentMethod: account?.paymentMethod || account?.name || editingExpense.paymentMethod, timestamp: nextTimestamp});
                     if (saved === false) {
-                      setEditExpenseError('Expense changes could not be saved. Nothing was changed in the database.');
+                      setEditExpenseError('Expense changes could not be saved. Nothing was changed.');
                       return;
                     }
                     setEditingExpense(null);

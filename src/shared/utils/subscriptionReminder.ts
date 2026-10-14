@@ -20,7 +20,7 @@ export const getSubscriptionReminder = (
       return {
         level: 'expired',
         title: 'Free trial expired',
-        message: 'Your free trial has ended. Upgrade to keep using Orvix -- your account and business data remain safely preserved.',
+        message: 'Your free trial has ended. Pay to keep using Orvix -- your account and business data remain safely preserved.',
         daysRemaining: 0,
       };
     }
@@ -28,8 +28,8 @@ export const getSubscriptionReminder = (
       level: 'trial',
       title: `${daysRemaining} ${daysRemaining === 1 ? 'day' : 'days'} left in trial`,
       message: daysRemaining === 1
-        ? 'Your free trial ends tomorrow. Upgrade now to keep your business running without interruption.'
-        : `Your free trial ends in ${daysRemaining} days. Upgrade any time to keep full access.`,
+        ? 'Your free trial ends tomorrow. Pay now to keep your business running without interruption.'
+        : `Your free trial ends in ${daysRemaining} days. Pay any time to keep full access.`,
       daysRemaining,
     };
   }
@@ -41,16 +41,16 @@ export const getSubscriptionReminder = (
     return {
       level: 'expired',
       title: `${planName} package expired`,
-      message: 'Renew to restore full access. Your account and business data remain safely preserved.',
+      message: 'Pay to restore full access. Your account and business data remain safely preserved.',
       daysRemaining: 0,
     };
   }
   if (daysRemaining > 3) return null;
   const message = daysRemaining === 1
-    ? `Your ${planName} package expires tomorrow. Renew now to avoid interruption.`
+    ? `Your ${planName} package expires tomorrow. Pay now to avoid interruption.`
     : daysRemaining === 2
-      ? `Your ${planName} package expires in 2 days. Renew now to keep your workspace active.`
-      : `Your ${planName} package expires in 3 days. Renew now to continue without interruption.`;
+      ? `Your ${planName} package expires in 2 days. Pay now to keep your workspace active.`
+      : `Your ${planName} package expires in 3 days. Pay now to continue without interruption.`;
   return {
     level: 'expiring',
     title: `${daysRemaining} ${daysRemaining === 1 ? 'day' : 'days'} remaining`,

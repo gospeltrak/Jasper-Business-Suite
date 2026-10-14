@@ -1340,7 +1340,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
           id: 'l-' + Math.random().toString(36).substr(2, 9),
           type: 'inventory_audit',
           status: 'warning',
-          message: 'Network connectivity restored. Offline queue replay remains disabled to protect tenant data.',
+          message: 'Internet connection restored.',
           timestamp: new Date().toISOString()
         };
         setLogs(prev => [newLog, ...prev]);
@@ -1916,7 +1916,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
           onClick={() => {
           setSubModal({
             show: true,
-            title: subscriptionReminder.level === 'trial' ? 'Upgrade Now' : 'Renew Subscription',
+            title: subscriptionReminder.level === 'trial' ? 'Pay Now' : 'Renew Subscription',
             limitType: 'expired',
             description: subscriptionReminder.message,
           });
@@ -2314,7 +2314,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       id: 'l-' + Math.random().toString(36).substr(2, 9),
       type: 'sale',
       status: 'success',
-      message: `Updated and re-synchronized active sales ledger for branch: ${activeTenant.name}`,
+      message: `Sales updated for branch: ${activeTenant.name}`,
       timestamp: new Date().toISOString()
     };
     setLogs(prev => [newLog, ...prev]);
@@ -2370,7 +2370,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
 
     if (!saved) {
       writeLocalSaleTombstones(tenantId, previousSaleTombstones);
-      addToast('Sale could not be deleted from the database. Nothing was removed.', 'error');
+      addToast('Sale could not be deleted from the system. Nothing was removed.', 'error');
       return false;
     }
 
@@ -2633,7 +2633,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       type: 'sale',
       status: sale.syncStatus === 'pending' ? 'warning' : 'success',
       message: sale.syncStatus === 'pending'
-        ? `Sale (Ref: ${sale.id}) needs online confirmation. Offline queue replay is disabled.`
+        ? `Sale (Ref: ${sale.id}) needs internet to confirm.`
         : `Sale (Ref: ${sale.id}) saved as a manual ${sale.paymentMethod || 'payment'} record.`,
       timestamp: new Date().toISOString()
     };
@@ -2865,7 +2865,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     // Narrow save: only the `deliveries` key changes here.
     const saved = await saveTenantDeliveriesOnly(tenantId, nextDeliveries);
     if (!saved) {
-      addToast('Delivery could not be deleted from the database. Nothing was removed.', 'error');
+      addToast('Delivery could not be deleted from the system. Nothing was removed.', 'error');
       return false;
     }
 
@@ -3332,7 +3332,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       id: 'ONLINE-ONLY-SYNC-' + Math.random().toString(36).slice(2, 8),
       type: 'sale',
       status: 'warning',
-      message: 'Offline queue replay is disabled to protect tenant data. Existing pending records were not deleted.',
+      message: 'Old saved records were kept but not sent automatically.',
       timestamp: new Date().toISOString()
     };
 
@@ -3349,7 +3349,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       id: 'RECONNECT-' + Math.random().toString(36).substring(3, 8),
       type: 'auth_sync',
       status: 'success',
-      message: `Network connectivity re-established. Legacy queue replay remains disabled.`,
+      message: `Internet connection restored.`,
       timestamp: new Date().toISOString()
     };
     setLogs(prev => [reconnectLog, ...prev]);
@@ -3366,7 +3366,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       const pendingCount = currentList.filter(s => s.syncStatus === 'pending').length;
       if (pendingCount > 0) {
         // Preserve pending records for manual review.
-        const logMsg = `Network connected. ${pendingCount} legacy pending receipt(s) preserved; replay disabled.`;
+        const logMsg = `Internet connected. ${pendingCount} old saved receipt(s) kept for review.`;
         setLogs(prev => [{
           id: 'AUTO-SYNC-' + Math.random().toString(36).substring(3, 8),
           type: 'system_action',
@@ -3829,7 +3829,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
           </div>
           
           <div
-            title={isOfflineMode ? "Offline - saving disabled" : "Cloud Network Connected"}
+            title={isOfflineMode ? "Offline - saving disabled" : "Network Connected"}
             className={`p-1.5 rounded-lg text-slate-500 transition-all cursor-default ${sidebarCollapsed ? '' : 'hidden xl:flex'} items-center justify-center`}
           >
             <Globe className={`w-4 h-4 ${isOfflineMode ? 'text-amber-500 animate-pulse' : 'text-emerald-400'}`} />
@@ -4337,12 +4337,12 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                         </div>
                         <div className="space-y-2">
                           <h2 className="text-3xl font-black tracking-tight md:text-4xl">
-                            {isTrialAccount ? 'Your Diamond free trial has ended' : `Your ${expiredPlan.name} package has expired`}
+                            {isTrialAccount ? 'Your free trial has ended' : `Your ${expiredPlan.name} package has expired`}
                           </h2>
                           <p className="max-w-2xl text-sm leading-6 text-slate-300">
                             {isTrialAccount
-                              ? `During your free trial you were using the Diamond package experience for ${trialDurationDays} days. Your business data is still preserved. Choose Ruby, Diamond, or Tanzanite below, submit payment proof, and continue with the package limits you select.`
-                              : `Your business data is still preserved. Renew ${expiredPlan.name}${expiredOnLabel ? ` (expired ${expiredOnLabel})` : ''} to continue exactly as before, or choose a different package below, submit payment proof, and continue with the package limits you select.`}
+                              ? `You used the Diamond package free for ${trialDurationDays} days. Your business data is still safe. Choose Ruby, Diamond, or Tanzanite below, pay, and send your payment proof to continue.`
+                              : `Your business data is still safe. Pay for ${expiredPlan.name}${expiredOnLabel ? ` (expired ${expiredOnLabel})` : ''} to continue as before, or choose a different package below, pay, and send your payment proof.`}
                           </p>
                         </div>
                         <div className="subscription-stat-grid grid gap-3 sm:grid-cols-3">

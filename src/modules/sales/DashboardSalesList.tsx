@@ -4883,7 +4883,7 @@ export default function DashboardSalesList({
                     setEditFormFields(null);
                     setEditCartEmptyWarning(null);
                   } catch {
-                    setEditSaveError('Sale was not saved. Nothing was changed in the database.');
+                    setEditSaveError('Sale was not saved. Nothing was changed.');
                   } finally {
                     setIsSavingEdit(false);
                   }

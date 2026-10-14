@@ -1028,7 +1028,6 @@ export default function DashboardReports({
               </div>
               <div className="text-left">
                 <h6 className="text-sm font-bold text-slate-900">{metric.label}</h6>
-                <p className="text-xs text-slate-500">Calculated over period</p>
               </div>
             </div>
             <div className="text-right">
@@ -1250,7 +1249,6 @@ export default function DashboardReports({
                       </div>
                       <div className="text-left">
                         <h6 className="text-sm font-bold text-slate-900">{metric.label}</h6>
-                        <p className="text-xs text-slate-500">Calculated over period</p>
                       </div>
                     </div>
                     <div className="text-right">
@@ -1470,7 +1468,6 @@ export default function DashboardReports({
                       </div>
                       <div className="text-left">
                         <h6 className="text-sm font-bold text-slate-900">{metric.label}</h6>
-                        <p className="text-xs text-slate-500">Calculated over period</p>
                       </div>
                     </div>
                     <div className="text-right">
@@ -2297,7 +2294,6 @@ export default function DashboardReports({
                       </div>
                       <div className="text-left">
                         <h6 className="text-sm font-bold text-slate-900">{metric.label}</h6>
-                        <p className="text-xs text-slate-500">Calculated over period</p>
                       </div>
                     </div>
                     <div className="text-right">
@@ -2390,7 +2386,6 @@ export default function DashboardReports({
                       </div>
                       <div className="text-left">
                         <h6 className="text-sm font-bold text-slate-900">{metric.label}</h6>
-                        <p className="text-xs text-slate-500">Calculated over period</p>
                       </div>
                     </div>
                     <div className="text-right">

@@ -53,16 +53,16 @@ export default function DashboardLogsAndSync({
     setIsSyncing(true);
     setSyncProgress(10);
 	    setSyncStatusLines([
-	      'Opening preserved local queue in read-only mode...',
-	      `Detected ${offlinePendingSales.length} legacy pending receipt(s).`
+	      'Checking saved records...',
+	      `Found ${offlinePendingSales.length} old receipt(s).`
 	    ]);
 
 	    setTimeout(() => {
 	      setSyncProgress(40);
 	      setSyncStatusLines(prev => [
 	        ...prev,
-	        'Automatic replay is disabled to protect tenant cloud data.',
-	        `Preserved receipt ID: ${offlinePendingSales[0].id}.`
+	        'These will not be sent automatically.',
+	        `Kept receipt: ${offlinePendingSales[0].id}.`
 	      ]);
     }, 800);
 
@@ -71,12 +71,12 @@ export default function DashboardLogsAndSync({
       if (offlinePendingSales.length > 1) {
         setSyncStatusLines(prev => [
           ...prev,
-	          `Preserved receipt ID: ${offlinePendingSales[1].id}.`,
+	          `Kept receipt: ${offlinePendingSales[1].id}.`,
         ]);
       }
       setSyncStatusLines(prev => [
         ...prev,
-	        'No upload or delete was performed. Manual review is required.',
+	        'Nothing was sent or deleted. Please check these yourself.',
       ]);
     }, 1600);
 
@@ -84,7 +84,7 @@ export default function DashboardLogsAndSync({
       setSyncProgress(100);
       setSyncStatusLines(prev => [
         ...prev,
-	        'Review complete. Queue is preserved for manual recovery.'
+	        'Done checking. Records are still kept.'
       ]);
       
 	      onSyncOfflineQueue(() => {
@@ -107,7 +107,7 @@ export default function DashboardLogsAndSync({
           </div>
 
           <p className="text-xs text-slate-500 leading-relaxed font-medium">
-	            Orvix saves business changes online. This screen shows any legacy local records that were preserved for manual audit; they are not replayed automatically.
+	            Orvix saves your business changes automatically when you are online. This screen shows old records kept on this device for your own review; they are not sent automatically.
           </p>
 
           {/* Interactive Switch Container */}
@@ -129,10 +129,10 @@ export default function DashboardLogsAndSync({
                 )}
                 <div>
                   <p className="text-xs font-bold text-slate-800">
-	                    {isOfflineMode ? 'OFFLINE - SAVING DISABLED' : 'ONLINE - CLOUD READY'}
+	                    {isOfflineMode ? 'OFFLINE - SAVING DISABLED' : 'ONLINE - READY TO SAVE'}
                   </p>
                   <p className="text-[10px] font-mono text-slate-450 font-bold uppercase tracking-wide">
-	                    {isOfflineMode ? 'Reconnect before saving changes' : 'Encrypted database channel ready'}
+	                    {isOfflineMode ? 'Reconnect before saving changes' : 'Ready to save your changes'}
                   </p>
                 </div>
               </div>
@@ -145,9 +145,9 @@ export default function DashboardLogsAndSync({
               <div className="flex items-start space-x-2 text-xs text-amber-800">
                 <AlertTriangle className="w-4.5 h-4.5 shrink-0 animate-bounce mt-0.5 text-amber-600" />
                 <div className="space-y-0.5 font-sans">
-	                  <p className="font-bold">Legacy Pending Records Preserved</p>
+	                  <p className="font-bold">Old Records Kept on This Device</p>
                   <p className="text-[10.5px] leading-relaxed text-slate-600 font-medium">
-	                    You have <span className="font-bold text-amber-750 underline">{offlinePendingSales.length} receipt job(s)</span> saved locally from older offline behavior. They will not upload automatically.
+	                    You have <span className="font-bold text-amber-750 underline">{offlinePendingSales.length} receipt(s)</span> kept on this device. They will not upload automatically.
                   </p>
                 </div>
               </div>
@@ -159,7 +159,7 @@ export default function DashboardLogsAndSync({
                   className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center space-x-1.5 transition-all active:scale-95 cursor-pointer shadow-sm shadow-emerald-505/10"
                 >
 	                  <AlertTriangle className="w-4 h-4" />
-	                  <span>Review Preserved Queue ({offlinePendingSales.length})</span>
+	                  <span>Review Old Records ({offlinePendingSales.length})</span>
                 </button>
               )}
             </div>
@@ -168,8 +168,8 @@ export default function DashboardLogsAndSync({
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
             <div className="flex items-center justify-between gap-3">
               <div>
-	                <p className="text-xs font-black uppercase tracking-wider text-slate-800">Preserved Local Jobs</p>
-	                <p className="mt-0.5 text-[10px] font-medium text-slate-500">Review local work kept for manual recovery only.</p>
+	                <p className="text-xs font-black uppercase tracking-wider text-slate-800">Records Kept on This Device</p>
+	                <p className="mt-0.5 text-[10px] font-medium text-slate-500">Check these yourself if needed.</p>
               </div>
               <span className={`rounded-full px-2.5 py-1 text-[10px] font-black ${offlinePendingSales.length + queuedSystemJobs.length > 0 ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
                 {offlinePendingSales.length + queuedSystemJobs.length} pending
@@ -196,7 +196,7 @@ export default function DashboardLogsAndSync({
               ))}
               {offlinePendingSales.length === 0 && queuedSystemJobs.length === 0 && (
                 <div className="rounded-xl border border-emerald-100 bg-white px-3 py-4 text-center text-[11px] font-semibold text-emerald-700">
-	                  No legacy pending jobs found. Business changes now require internet.
+	                  No old records waiting. Business changes now need internet to save.
                 </div>
               )}
             </div>
@@ -219,7 +219,7 @@ export default function DashboardLogsAndSync({
             <div className="bg-slate-900 border border-slate-800 p-3.5 rounded-xl font-mono text-[10px] text-slate-350 space-y-1.5 max-h-[100px] overflow-y-auto">
               <div className="flex items-center space-x-1 text-slate-500 border-b border-slate-850 pb-1.5 mb-1 font-bold">
                 <Terminal className="w-3.5 h-3.5 text-slate-400" />
-	                <span>Queue Safety Shell</span>
+	                <span>Checking Records</span>
               </div>
               {syncStatusLines.map((line, idx) => (
                 <p key={idx} className="leading-tight animate-fade-in text-slate-350 font-medium">
@@ -240,7 +240,7 @@ export default function DashboardLogsAndSync({
               <h4 className="font-bold text-sm text-slate-800 uppercase tracking-wider">Consolidated Store Log Ledger</h4>
             </div>
             <span className="text-[10px] font-mono font-bold bg-slate-50 border border-slate-200 px-2 py-0.5 rounded text-slate-500">
-              Standard Server Sync Status OK
+              All Good
             </span>
           </div>
 
@@ -267,10 +267,6 @@ export default function DashboardLogsAndSync({
               </div>
             ))}
           </div>
-        </div>
-
-        <div className="pt-4 border-t border-slate-100 text-center text-[10px] font-mono font-bold text-slate-400">
-          LOGS DEPLOYED ON DISTRIBUTED PRIVATE CORES • TILL DESKS ACTIVE
         </div>
       </div>
     </div>

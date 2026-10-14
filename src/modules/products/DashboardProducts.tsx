@@ -1498,7 +1498,7 @@ export default function DashboardProducts({
 
     if (productImage && productImage.startsWith('data:image')) {
       try {
-        setProcessingStatus('Uploading image to cloud storage...');
+        setProcessingStatus('Uploading image to the system...');
         const migrateToken = await getProductImageUploadToken();
         const migrateResp = await fetch('/api/images/migrate-product', {
           method: 'POST',

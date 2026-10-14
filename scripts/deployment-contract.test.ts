@@ -453,7 +453,7 @@ test('sale deletion remains tenant-scoped and updates canonical related data', a
   assert.match(dashboardSource, /reverseSaleInventory\(persistedSale,\s*currentProducts/);
   assert.match(dashboardSource, /filter\(delivery => delivery\.saleId !== sale\.id\)/);
   assert.match(dashboardSource, /saveTenantSalesOnly\(\s*tenantId,\s*nextSales,\s*nextSaleTombstones,\s*restoredProducts,\s*nextDeliveries,?\s*\)/);
-  assert.match(dashboardSource, /Sale could not be deleted from the database\. Nothing was removed\./);
+  assert.match(dashboardSource, /Sale could not be deleted from the system\. Nothing was removed\./);
   assert.match(salesSource, /await onDeleteSale\(saleToDelete\)/);
   assert.match(salesSource, /setIsDeletingSale\(true\)/);
   assert.match(salesSource, /Receipt could not be cancelled safely\. Nothing was changed\./);
