@@ -975,6 +975,12 @@ const BUSINESS_DICTIONARY: Record<string, Record<string, string>> = {
     "subscription": "Usajili",
     "ledger analytics": "Uchambuzi wa Daftari",
 
+    // "More" menu item descriptions
+    "manage your business settings": "Simamia mipangilio ya biashara yako",
+    "pay online or upload an offline receipt": "Lipa mtandaoni au pakia risiti bila mtandao",
+    "add this app to your home screen": "Ongeza programu hii kwenye skrini ya nyumbani",
+    "add super admin to your home screen": "Ongeza programu hii kwenye skrini ya nyumbani",
+
     // Settings page labels
     "system & branch configurations": "Mipangilio ya Mfumo na Tawi",
     "invoice & branding customization": "Ankara na Muonekano wa Chapa",

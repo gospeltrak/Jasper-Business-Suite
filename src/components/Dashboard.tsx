@@ -5026,7 +5026,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 leading-tight">{t(item.label)}</p>
-                        <p className="text-xs text-slate-400 dark:text-slate-500 leading-tight mt-0.5">{item.desc}</p>
+                        <p className="text-xs text-slate-400 dark:text-slate-500 leading-tight mt-0.5">{t(item.desc)}</p>
                       </div>
                       <ChevronRight className="w-4 h-4 text-slate-300 dark:text-slate-600 shrink-0" />
                     </button>
