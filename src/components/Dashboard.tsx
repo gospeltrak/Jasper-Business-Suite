@@ -10,8 +10,7 @@ import { Branch, BranchStaffAssignment, BranchStock, User, Tenant, Product, Sale
 import { 
   DEFAULT_TENANTS, 
   DEFAULT_PRODUCTS, 
-  DEFAULT_SUPPLIERS, 
-  RECENT_SYNC_LOGS, 
+  DEFAULT_SUPPLIERS,
   MOCK_SALES_HISTORY,
   MOCK_EXPENSES_HISTORY
 } from '../data';
@@ -676,7 +675,11 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     ]
   }));
   const [suppliers, setSuppliers] = useState<Supplier[]>(() => DEFAULT_SUPPLIERS);
-  const [logs, setLogs] = useState<SyncLog[]>(() => RECENT_SYNC_LOGS);
+  // Starts empty, not RECENT_SYNC_LOGS -- that was fabricated placeholder
+  // content (fixed May 2026 timestamps) that every real tenant saw as if it
+  // were a live event, both on the Logs & Sync page and as the toast banner
+  // the effect below fires for logs[0] on mount.
+  const [logs, setLogs] = useState<SyncLog[]>(() => []);
 
   // Modern Toast notification array state and dispatcher
   const [toasts, setToasts] = useState<UI_Toast[]>([]);

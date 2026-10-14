@@ -1,5 +1,6 @@
 import React from 'react';
 import { useJasperNotifications } from '../contexts/JasperNotificationContext';
+import { useTranslation } from '../contexts/LanguageContext';
 import { Bell, Check, X, Clock, FileText, ShoppingCart, AlertTriangle, AlertCircle } from 'lucide-react';
 
 interface Props {
@@ -11,6 +12,16 @@ interface Props {
 
 export const NotificationCenterModal: React.FC<Props> = ({ isOpen, onClose, onNavigateToReports, audienceLabel = 'Tenant Admin' }) => {
   const { notifications, unreadCount, markAsRead, markAllAsRead } = useJasperNotifications();
+  // Written out per-language directly (not left to the app's automatic
+  // word-by-word translator) -- that translator can swap a short common
+  // word mid-sentence and produce mixed-language nonsense like "Tenant
+  // Msimamizi" or "Mark Zote as Soma". Same fix pattern as
+  // subscriptionReminder.ts.
+  const { lang } = useTranslation();
+  const isSw = lang === 'sw';
+  const audienceLabelText = isSw
+    ? (audienceLabel === 'Super Admin' ? 'Msimamizi Mkuu' : 'Msimamizi wa Biashara')
+    : audienceLabel;
 
   if (!isOpen) return null;
 
@@ -25,12 +36,12 @@ export const NotificationCenterModal: React.FC<Props> = ({ isOpen, onClose, onNa
           <div className="flex items-center space-x-2">
             <Bell className="w-5 h-5 text-slate-700" />
             <div>
-              <h3 className="font-bold text-slate-800 dark:text-white tracking-tight">Notification Center</h3>
-              <p className="text-[10px] font-semibold text-slate-500">{audienceLabel} · In-app only</p>
+              <h3 className="font-bold text-slate-800 dark:text-white tracking-tight">{isSw ? 'Arifa' : 'Notification Center'}</h3>
+              <p className="text-[10px] font-semibold text-slate-500">{audienceLabelText} · {isSw ? 'Ndani ya programu tu' : 'In-app only'}</p>
             </div>
             {unreadCount > 0 && (
               <span className="bg-rose-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full">
-                {unreadCount} NEW
+                {unreadCount} {isSw ? 'MPYA' : 'NEW'}
               </span>
             )}
           </div>
@@ -47,14 +58,14 @@ export const NotificationCenterModal: React.FC<Props> = ({ isOpen, onClose, onNa
               className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 transition-colors flex items-center space-x-1"
             >
               <FileText className="w-3.5 h-3.5" />
-              <span>History</span>
+              <span>{isSw ? 'Historia' : 'History'}</span>
             </button>
             {unreadCount > 0 && (
-               <button 
-                 onClick={markAllAsRead} 
+               <button
+                 onClick={markAllAsRead}
                  className="text-[11px] font-bold text-slate-500 hover:text-slate-800 transition-colors flex items-center bg-slate-100 px-2 py-1 rounded-lg"
                >
-                 <Check className="w-3 h-3 mr-1" /> Mark all as read
+                 <Check className="w-3 h-3 mr-1" /> {isSw ? 'Weka zote kama zimesomwa' : 'Mark all as read'}
                </button>
             )}
           </div>
@@ -65,8 +76,8 @@ export const NotificationCenterModal: React.FC<Props> = ({ isOpen, onClose, onNa
           {notifications.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-slate-400 space-y-3 p-6 text-center">
                <Bell className="w-10 h-10 opacity-20" />
-               <p className="text-sm font-medium">You're all caught up!</p>
-               <p className="text-xs opacity-70">New automated reports and alerts will appear here.</p>
+               <p className="text-sm font-medium">{isSw ? 'Umemaliza yote!' : "You're all caught up!"}</p>
+               <p className="text-xs opacity-70">{isSw ? 'Arifa na ripoti mpya zitaonekana hapa.' : 'New automated reports and alerts will appear here.'}</p>
             </div>
           ) : (
             notifications.map(n => (
@@ -105,7 +116,7 @@ export const NotificationCenterModal: React.FC<Props> = ({ isOpen, onClose, onNa
                         </p>
                         {!n.isRead && (
                            <div className="mt-2 text-[10px] font-bold text-emerald-600 tracking-wider">
-                              NEW
+                              {isSw ? 'MPYA' : 'NEW'}
                            </div>
                         )}
                      </div>

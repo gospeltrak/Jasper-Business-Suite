@@ -290,6 +290,13 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
   // state each time, not a persisted record.
   const addSubscriptionReminderNotification = (payload: { tenantId: string; title: string; message: string }) => {
     if (!inboxScope || inboxScope.role !== 'Admin' || inboxScope.tenantId !== payload.tenantId) return;
+    // Belt-and-braces guard alongside the sessionStorage check at the call
+    // site (Dashboard.tsx): that guard is keyed by day-count/plan, so it can
+    // still fire twice for the exact same reminder if the key computation
+    // races. Refuse an exact title+message duplicate that's already in the
+    // list rather than relying on timing alone.
+    const alreadyShown = notifications.some(n => n.tenantId === payload.tenantId && n.title === payload.title && n.message === payload.message);
+    if (alreadyShown) return;
     const newNotif: JasperNotification = {
       id: Math.random().toString(36).substr(2, 9),
       tenantId: payload.tenantId,

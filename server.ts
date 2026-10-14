@@ -1378,23 +1378,31 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         .limit(100);
       if (error) throw error;
 
-      const notifications = (data || []).map((recipient: any) => {
-        const event = Array.isArray(recipient.branch_notification_events)
-          ? recipient.branch_notification_events[0]
-          : recipient.branch_notification_events;
-        return {
-          id: recipient.id,
-          tenantId: recipient.tenant_id,
-          moduleName: event?.module_name || 'system',
-          title: event?.title || 'System notification',
-          message: event?.message || '',
-          notificationType: event?.event_type || 'system_alert',
-          deliveryChannel: 'in_app',
-          status: recipient.delivery_status === 'delivered' ? 'sent' : 'pending',
-          isRead: Boolean(recipient.read_at),
-          createdAt: event?.created_at || recipient.created_at,
-        };
-      });
+      const notifications = (data || [])
+        .map((recipient: any) => {
+          const event = Array.isArray(recipient.branch_notification_events)
+            ? recipient.branch_notification_events[0]
+            : recipient.branch_notification_events;
+          return {
+            id: recipient.id,
+            tenantId: recipient.tenant_id,
+            moduleName: event?.module_name || 'system',
+            title: event?.title || 'System notification',
+            message: event?.message || '',
+            notificationType: event?.event_type || 'system_alert',
+            deliveryChannel: 'in_app',
+            status: recipient.delivery_status === 'delivered' ? 'sent' : 'pending',
+            isRead: Boolean(recipient.read_at),
+            createdAt: event?.created_at || recipient.created_at,
+          };
+        })
+        // "Primary Branch ready" was retired (20261014090000): it only ever
+        // mirrored a single-branch tenant's own existing setup and confused
+        // more than it informed. A handful of tenants already had this event
+        // enqueued before the fix landed -- filter those stale rows out here
+        // rather than relying on a DB cleanup, which needs approval this
+        // environment keeps blocking.
+        .filter((n) => n.title !== 'Primary Branch ready');
       return res.json({ scope: 'tenant_admin', notifications });
     } catch (error: any) {
       const status = Number(error?.status || 500);
