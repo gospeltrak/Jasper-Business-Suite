@@ -796,8 +796,8 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
   // Seeds Settings' sub-tab the next time it mounts (it's conditionally
   // rendered per activeTab, so a fresh useState pickup is enough -- no
   // live-update effect needed) -- used by POS's "go set up payment modes"
-  // prompt to land the tenant directly on Business Setup.
-  const [settingsInitialSubTab, setSettingsInitialSubTab] = useState<'business' | undefined>(undefined);
+  // prompt to land the tenant directly on Account Settings.
+  const [settingsInitialSubTab, setSettingsInitialSubTab] = useState<'account' | undefined>(undefined);
   const [workspaceReady, setWorkspaceReady] = useState(false);
   const [workspaceLoadFailed, setWorkspaceLoadFailed] = useState(false);
   const cloudWorkspaceLoadedRef = useRef(false);
@@ -4488,7 +4488,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
               preloadedCart={preloadedCart}
               onClearPreloadedCart={() => setPreloadedCart(null)}
               onGoToPaymentSettings={() => {
-                setSettingsInitialSubTab('business');
+                setSettingsInitialSubTab('account');
                 setActiveTab('settings' as any);
               }}
             />

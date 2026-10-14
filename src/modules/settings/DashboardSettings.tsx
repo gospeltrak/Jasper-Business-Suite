@@ -7,8 +7,7 @@ import {
   Settings as SettingsIcon, 
   Building, 
   Building2,
-  Briefcase, 
-  Package, 
+  Package,
   Users, 
   Check, 
   Trash2, 
@@ -61,7 +60,7 @@ interface DashboardSettingsProps {
   sales?: Sale[];
   expenses?: Expense[];
   deliveries?: Delivery[];
-  initialSubTab?: 'company' | 'business' | 'product-store' | 'invoice-settings' | 'roles' | 'notifications' | 'branches';
+  initialSubTab?: 'account' | 'product-store' | 'invoice-settings' | 'roles' | 'notifications' | 'branches';
 }
 
 const DEFAULT_BUSINESS_SETTINGS: BusinessSettings = {
@@ -91,9 +90,22 @@ const DEFAULT_PRODUCT_STORE_SETTINGS: ProductStoreSettings = {
   brands: []
 } as unknown as ProductStoreSettings;
 
-const normalizeBusinessSettings = (settings?: Partial<BusinessSettings>): BusinessSettings => ({
+// Email/Phone/Address used to have two separate editable copies -- one on the
+// old "Company Account" tab (CompanySettings.email/phone/address) and one on
+// "Business Setup" (BusinessSettings.businessEmail/businessPhone/businessAddress)
+// -- now merged into a single field per concept on the "Account Settings" tab,
+// backed by the Business* fields (the ones actually used on receipts/invoices).
+// Existing tenants who only ever filled in the Company-side copy fall back to
+// it here so nothing they already typed appears to vanish.
+const normalizeBusinessSettings = (
+  settings?: Partial<BusinessSettings>,
+  companySettings?: Partial<CompanySettings>,
+): BusinessSettings => ({
   ...DEFAULT_BUSINESS_SETTINGS,
   ...(settings || {}),
+  businessEmail: settings?.businessEmail || companySettings?.email || '',
+  businessPhone: settings?.businessPhone || companySettings?.phone || '',
+  businessAddress: settings?.businessAddress || companySettings?.address || '',
   paymentModes: Array.isArray(settings?.paymentModes) ? settings.paymentModes : [],
   deliveryPaymentModes: Array.isArray(settings?.deliveryPaymentModes) ? settings.deliveryPaymentModes : [],
   registeredStores: Array.isArray(settings?.registeredStores) ? settings.registeredStores : []
@@ -137,7 +149,7 @@ export default function DashboardSettings({
   const incomingSettingsSyncRef = useRef(false);
   const settingsDraftTouchedAtRef = useRef(0);
   // Navigation tabs for Settings
-  const [activeSubTab, setActiveSubTab] = useState<'company' | 'business' | 'product-store' | 'invoice-settings' | 'roles' | 'notifications' | 'branches'>(initialSubTab || 'company');
+  const [activeSubTab, setActiveSubTab] = useState<'account' | 'product-store' | 'invoice-settings' | 'roles' | 'notifications' | 'branches'>(initialSubTab || 'account');
   const [isMobileSettingsMenuOpen, setIsMobileSettingsMenuOpen] = useState(true);
   const [settingsSearchTerm, setSettingsSearchTerm] = useState('');
   
@@ -150,7 +162,7 @@ export default function DashboardSettings({
     // Sync themeMode with the actual current theme so saving doesn't reset it
     return { ...base, themeMode: (base as any).themeMode || (isDark ? 'dark' : 'light') };
   });
-  const [businessForm, setBusinessForm] = useState<BusinessSettings>(() => normalizeBusinessSettings(systemSettings?.business));
+  const [businessForm, setBusinessForm] = useState<BusinessSettings>(() => normalizeBusinessSettings(systemSettings?.business, systemSettings?.company));
   // The tenant's subdomain/business-name slug is assigned server-side at registration
   // (and is immutable after that) and lives on the `tenants` table row, not inside
   // systemSettings.business -- so it's fetched separately here rather than relying on
@@ -747,8 +759,7 @@ export default function DashboardSettings({
     icon: React.ElementType;
     premium?: boolean;
   }> = [
-    { id: 'company', label: 'Company Account', shortLabel: 'Company', description: 'Legal profile, tax, currency, theme', icon: Building },
-    { id: 'business', label: 'Business Setup', shortLabel: 'Business', description: 'Brand, payment modes, stores', icon: Briefcase },
+    { id: 'account', label: 'Account Settings', shortLabel: 'Account', description: 'Business details, tax, branding, payments', icon: Building },
     { id: 'product-store', label: 'Product & Store Units', shortLabel: 'Stores', description: 'Units, product behavior, inventory bins', icon: Package },
     { id: 'invoice-settings', label: 'Invoice Settings', shortLabel: 'Invoice', description: 'Receipt branding and invoice fields', icon: FileText },
     { id: 'roles', label: 'Staff Roles & Access', shortLabel: 'Access', description: 'Permissions and private role presets', icon: ShieldCheck },
@@ -764,8 +775,8 @@ export default function DashboardSettings({
   const activeSettingsTab = settingsTabs.find(tab => tab.id === activeSubTab) || settingsTabs[0];
   const completedProfileCount = [
     companyForm.companyName,
-    companyForm.email,
-    companyForm.phone,
+    businessForm.businessEmail,
+    businessForm.businessPhone,
     companyForm.tin,
     businessForm.businessName,
     businessForm.paymentModes?.length ? 'payments' : '',
@@ -1025,17 +1036,17 @@ export default function DashboardSettings({
         <div className={`${isMobileSettingsMenuOpen ? 'hidden md:block' : 'block'} settings-content-panel min-w-0 space-y-5 md:col-start-2 xl:col-span-3 xl:col-start-auto xl:space-y-6`}>
           
           {/* TAB 1: COMPANY SETTINGS */}
-          {activeSubTab === 'company' && (
+          {activeSubTab === 'account' && (
             <div className="bg-white rounded-2xl md:rounded-3xl border border-slate-200 p-4 sm:p-6 space-y-6 shadow-sm">
               <div className="border-b border-slate-100 pb-4">
-                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider font-mono">🏢 Company Level Settings</h3>
+                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider font-mono">🏢 Account Settings</h3>
                 <p className="text-xs text-slate-500 mt-1 font-sans">
-                  Configure core business metadata, localized compliance TIN/VAT numbers, legal currency markers, and system color mode preferences.
+                  Your business details, tax numbers, currency, branding, and payment methods.
                 </p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs font-sans">
-                
+
                 <div className="space-y-1.5">
                   <label className="block text-[10px] uppercase font-bold text-slate-500 font-mono">Company Legal Name</label>
                   <input
@@ -1044,6 +1055,17 @@ export default function DashboardSettings({
                     onChange={(e) => handleCompanyNameChange(e.target.value)}
                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-700 outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500"
                     placeholder="Enter company legal registry name..."
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block text-[10px] uppercase font-bold text-slate-500 font-mono">Business Brand Name</label>
+                  <input
+                    type="text"
+                    value={businessForm.businessName}
+                    onChange={(e) => setBusinessForm(prev => ({ ...prev, businessName: e.target.value }))}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-700 outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500"
+                    placeholder="Enter business brand name..."
                   />
                 </div>
 
@@ -1066,30 +1088,30 @@ export default function DashboardSettings({
                   <label className="block text-[10px] uppercase font-bold text-slate-500 font-mono">Email Address</label>
                   <input
                     type="email"
-                    value={companyForm.email}
-                    onChange={(e) => setCompanyForm(prev => ({ ...prev, email: e.target.value }))}
+                    value={businessForm.businessEmail || ''}
+                    onChange={(e) => setBusinessForm(prev => ({ ...prev, businessEmail: e.target.value }))}
                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-700 outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500"
                     placeholder="email@company.com"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="block text-[10px] uppercase font-bold text-slate-500 font-mono">Direct Phone Line</label>
+                  <label className="block text-[10px] uppercase font-bold text-slate-500 font-mono">Phone Number</label>
                   <input
                     type="text"
-                    value={companyForm.phone}
-                    onChange={(e) => setCompanyForm(prev => ({ ...prev, phone: e.target.value }))}
+                    value={businessForm.businessPhone}
+                    onChange={(e) => setBusinessForm(prev => ({ ...prev, businessPhone: e.target.value }))}
                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-700 outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500"
                     placeholder="+234 or +254..."
                   />
                 </div>
 
                 <div className="space-y-1.5 md:col-span-2">
-                  <label className="block text-[10px] uppercase font-bold text-slate-500 font-mono">Company Address</label>
+                  <label className="block text-[10px] uppercase font-bold text-slate-500 font-mono">Business Address</label>
                   <input
                     type="text"
-                    value={companyForm.address}
-                    onChange={(e) => setCompanyForm(prev => ({ ...prev, address: e.target.value }))}
+                    value={businessForm.businessAddress}
+                    onChange={(e) => setBusinessForm(prev => ({ ...prev, businessAddress: e.target.value }))}
                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-700 outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500"
                     placeholder="Legal street, Plot No, City, Country"
                   />
@@ -1148,6 +1170,57 @@ export default function DashboardSettings({
                     <option value="EST">Eastern Standard Time (UTC-5)</option>
                   </select>
                 </div>
+
+                <div className="space-y-1.5">
+                  <label className="block text-[10px] uppercase font-bold text-slate-455 font-mono">Business Name Slug</label>
+                  <div className="flex overflow-hidden rounded-xl border border-slate-200 bg-slate-50 focus-within:ring-1 focus-within:ring-emerald-500">
+                    <input
+                      type="text"
+                      value={currentBusinessSlug}
+                      disabled={isBusinessSlugLocked || isSlugSaving}
+                      onChange={(e) => {
+                        const slug = cleanBusinessSlug(e.target.value);
+                        setBusinessForm(prev => ({
+                          ...prev,
+                          businessNameSlug: slug,
+                          subdomainSlug: slug,
+                          primaryDomain: slug ? `${slug}.${baseDomain}` : '',
+                          domainStatus: 'draft'
+                        }));
+                        setSlugSaveStatus(null);
+                      }}
+                      className={`min-w-0 flex-1 px-4 py-2.5 bg-transparent font-semibold text-slate-700 outline-none ${isBusinessSlugLocked ? 'cursor-not-allowed text-slate-400' : ''}`}
+                      placeholder="lim"
+                    />
+                    <span className="shrink-0 border-l border-slate-200 px-3 py-2.5 text-[11px] font-black text-slate-400">.{baseDomain}</span>
+                  </div>
+                  <p className="text-[10px] font-medium leading-relaxed text-slate-500">
+                    This will be your domain name. Example: <span className="font-black text-slate-700">yourname.{baseDomain}</span>. Once saved, it cannot be changed.
+                  </p>
+                  {currentBusinessDomain && (
+                    <p className="text-[10px] font-black text-emerald-600">
+                      {isBusinessSlugLocked ? 'Locked domain' : 'Pending save'}: {currentBusinessDomain}
+                    </p>
+                  )}
+                  {slugSaveStatus && (
+                    <p className={`text-[10px] font-bold ${
+                      slugSaveStatus.type === 'error' ? 'text-red-600' : slugSaveStatus.type === 'success' ? 'text-emerald-600' : 'text-slate-500'
+                    }`}>
+                      {slugSaveStatus.msg}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-1.5 md:col-span-2">
+                  <label className="block text-[10px] uppercase font-bold text-slate-455 font-mono">Invoice Footer Tagline</label>
+                  <textarea
+                    value={businessForm.tagline || ''}
+                    onChange={(e) => setBusinessForm(prev => ({ ...prev, tagline: e.target.value }))}
+                    rows={2}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-700 outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500"
+                    placeholder="Payment note..."
+                  />
+                </div>
               </div>
 
               {/* Visual System Themes toggle slider */}
@@ -1191,116 +1264,6 @@ export default function DashboardSettings({
                     <Moon className={`w-5 h-5 ${companyForm.themeMode === 'dark' ? 'text-indigo-400' : 'text-slate-400'}`} />
                     <span className={`text-xs font-extrabold ${companyForm.themeMode === 'dark' ? 'text-slate-100' : 'text-slate-800'}`}>Slate Dark Presets</span>
                   </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 2: CORPORATE BUSINESS SETUP */}
-          {activeSubTab === 'business' && (
-            <div className="bg-white rounded-2xl md:rounded-3xl border border-slate-200 p-4 sm:p-6 space-y-6 shadow-sm">
-              <div className="border-b border-slate-100 pb-4">
-                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider font-mono">💼 Corporate Business Setup</h3>
-                <p className="text-xs text-slate-500 mt-1 font-sans">
-                  Configure your business identity details, branding logos for light/daymode and darkmode, customized physical warehouses, and cashier till payment modes. This setup personalizes the entire Orvix, dashboard views, receipts, and invoices.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs font-sans">
-                
-                <div className="space-y-1.5">
-                  <label className="block text-[10px] uppercase font-bold text-slate-455 font-mono">Business Brand Name</label>
-                  <input
-                    type="text"
-                    value={businessForm.businessName}
-                    onChange={(e) => setBusinessForm(prev => ({ ...prev, businessName: e.target.value }))}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-700 outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500"
-                    placeholder="Enter business brand name..."
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="block text-[10px] uppercase font-bold text-slate-455 font-mono">Business Name Slug</label>
-                  <div className="flex overflow-hidden rounded-xl border border-slate-200 bg-slate-50 focus-within:ring-1 focus-within:ring-emerald-500">
-                    <input
-                      type="text"
-                      value={currentBusinessSlug}
-                      disabled={isBusinessSlugLocked || isSlugSaving}
-                      onChange={(e) => {
-                        const slug = cleanBusinessSlug(e.target.value);
-                        setBusinessForm(prev => ({
-                          ...prev,
-                          businessNameSlug: slug,
-                          subdomainSlug: slug,
-                          primaryDomain: slug ? `${slug}.${baseDomain}` : '',
-                          domainStatus: 'draft'
-                        }));
-                        setSlugSaveStatus(null);
-                      }}
-                      className={`min-w-0 flex-1 px-4 py-2.5 bg-transparent font-semibold text-slate-700 outline-none ${isBusinessSlugLocked ? 'cursor-not-allowed text-slate-400' : ''}`}
-                      placeholder="lim"
-                    />
-                    <span className="shrink-0 border-l border-slate-200 px-3 py-2.5 text-[11px] font-black text-slate-400">.{baseDomain}</span>
-                  </div>
-                  <p className="text-[10px] font-medium leading-relaxed text-slate-500">
-                    This will be your domain name. Example: <span className="font-black text-slate-700">yourname.{baseDomain}</span>. Once saved, it cannot be changed.
-                  </p>
-                  {currentBusinessDomain && (
-                    <p className="text-[10px] font-black text-emerald-600">
-                      {isBusinessSlugLocked ? 'Locked domain' : 'Pending save'}: {currentBusinessDomain}
-                    </p>
-                  )}
-                  {slugSaveStatus && (
-                    <p className={`text-[10px] font-bold ${
-                      slugSaveStatus.type === 'error' ? 'text-red-600' : slugSaveStatus.type === 'success' ? 'text-emerald-600' : 'text-slate-500'
-                    }`}>
-                      {slugSaveStatus.msg}
-                    </p>
-                  )}
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="block text-[10px] uppercase font-bold text-slate-455 font-mono">Phone Number.</label>
-                  <input
-                    type="text"
-                    value={businessForm.businessPhone}
-                    onChange={(e) => setBusinessForm(prev => ({ ...prev, businessPhone: e.target.value }))}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-700 outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500"
-                    placeholder="Shown on receipts and invoices..."
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="block text-[10px] uppercase font-bold text-slate-455 font-mono">Operating Floor Address</label>
-                  <input
-                    type="text"
-                    value={businessForm.businessAddress}
-                    onChange={(e) => setBusinessForm(prev => ({ ...prev, businessAddress: e.target.value }))}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-700 outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500"
-                    placeholder="Branch address..."
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="block text-[10px] uppercase font-bold text-slate-455 font-mono">Business Email Address</label>
-                  <input
-                    type="email"
-                    value={businessForm.businessEmail || ''}
-                    onChange={(e) => setBusinessForm(prev => ({ ...prev, businessEmail: e.target.value }))}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-700 outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500"
-                    placeholder="E.g. contact@business.com..."
-                  />
-                </div>
-
-                <div className="space-y-1.5 md:col-span-2">
-                  <label className="block text-[10px] uppercase font-bold text-slate-455 font-mono">Invoice Footer Tagline</label>
-                  <textarea
-                    value={businessForm.tagline || ''}
-                    onChange={(e) => setBusinessForm(prev => ({ ...prev, tagline: e.target.value }))}
-                    rows={2}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-700 outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500"
-                    placeholder="Payment note..."
-                  />
                 </div>
               </div>
 
