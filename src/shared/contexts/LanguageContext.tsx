@@ -813,17 +813,12 @@ const BUSINESS_DICTIONARY: Record<string, Record<string, string>> = {
     "the buyer is responsible for all delivery costs.": "Mnunuzi ndiye anayehusika na gharama zote za usafirishaji.",
     "this role is assigned to": "Jukumu hili limepangiwa",
     "reassign them to a different role before deleting it.": "Wapangie jukumu lingine kabla ya kulifuta.",
-    "select the fallback visual representation of the admin framework, point-of-sale menus, and operating dashboards.": "Chagua muonekano wa dharura wa mfumo wa usimamizi, menyu za mauzo (POS), na dashibodi za uendeshaji.",
-    "choose how products appear on the sales screen.": "Chagua jinsi bidhaa zinavyoonekana kwenye screen ya mauzo.",
     "turn off to show a clean product list without images.": "Zima ili kuonyesha orodha safi ya bidhaa bila picha.",
     "add payment methods.": "Ongeza njia za malipo.",
     "add delivery payment methods.": "Ongeza njia za malipo za usafirishaji.",
     "each branch can have its own logo on invoices, delivery notes, and receipts.": "Kila tawi linaweza kuwa na nembo yake kwenye ankara, hati za usafirishaji, na risiti.",
     "add categories and units.": "Ongeza makundi na vipimo.",
     "define tags to organize drugs, foodstuffs, or retail units inside catalog browsers.": "Weka lebo za kupanga dawa, vyakula, au bidhaa ndani ya orodha ya katalogi.",
-    "customize colors, compliance credentials, bank details, and terms displayed on quotes and quotes to align with your brand guidelines.": "Badilisha rangi, taarifa za kisheria, maelezo ya benki, na masharti yanayoonekana kwenye Quotes ili kuendana na chapa yako.",
-    "include value added tax (vat 18%) by default on every new quote or quote": "Jumuisha Kodi ya Ongezeko la Thamani (VAT 18%) kiotomatiki kwenye kila Quote mpya",
-    "define policies, warrant declarations or client legal rules printed on the bottom of price quotes & price quote invoices.": "Weka sera, matangazo ya udhamini, au masharti ya kisheria yanayochapishwa chini ya price quotes na ankara za price quote.",
     "construct fine-grain security roles for your floor": "Tengeneza majukumu ya kina ya usalama kwa wafanyakazi wako wa",
     ", cashiers, and managers. assign permissions checkmark-by-checkmark to restrict access to secret revenues, cost of goods (cost of goods), or system setup.": ", makarani, na wasimamizi. Weka ruhusa moja baada ya nyingine kuzuia ufikiaji wa mapato ya siri, gharama za bidhaa, au mipangilio ya mfumo.",
     "access all branches": "Fikia matawi yote",
@@ -1937,6 +1932,12 @@ function translateNode(node: Node, language: LanguageType) {
     const el = node as HTMLElement;
     // Skip interactive editor code areas
     if (el.tagName === 'SCRIPT' || el.tagName === 'STYLE' || el.tagName === 'TEXTAREA' && el.className?.includes('monaco')) return;
+    // Skip anything explicitly opted out via the standard translate="no"
+    // attribute -- used for dynamic/technical values (domain names, slugs,
+    // reference numbers) where the word-substitution fallback below could
+    // otherwise silently rewrite real data (e.g. a slug containing "shop"
+    // being displayed back as "...-Duka...").
+    if (el.getAttribute('translate') === 'no') return;
 
     ['title', 'aria-label'].forEach((attr) => {
       const originalAttr = (el as any)[`__original_${attr}`] !== undefined

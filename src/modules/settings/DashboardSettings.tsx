@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { CompanySettings, BusinessSettings, ProductStoreSettings, StaffSettings, SystemSettings, Tenant, CustomRole, RolePermission, InvoiceSettings, Sale, Expense, Delivery } from '../../types';
 import { useTheme } from '../../shared/contexts/ThemeContext';
+import { useTranslation } from '../../shared/contexts/LanguageContext';
 import { DEFAULT_TENANTS } from '../../data';
 import { getPaymentModeName } from '../../shared/utils/paymentAccounts';
 import { 
@@ -146,6 +147,13 @@ export default function DashboardSettings({
   initialSubTab
 }: DashboardSettingsProps) {
   const { isDark, toggleTheme } = useTheme();
+  // Written out per-language directly (not left to the app's automatic
+  // word-by-word translator), same fix pattern as subscriptionReminder.ts
+  // and NotificationCenterModal.tsx -- that translator can swap a short
+  // common word mid-sentence (e.g. "fallback" -> "dharura", which actually
+  // means "emergency") and produce wrong or mixed-language text.
+  const { lang } = useTranslation();
+  const isSw = lang === 'sw';
   const incomingSettingsSyncRef = useRef(false);
   const settingsDraftTouchedAtRef = useRef(0);
   // Navigation tabs for Settings
@@ -1039,53 +1047,59 @@ export default function DashboardSettings({
           {activeSubTab === 'account' && (
             <div className="bg-white rounded-2xl md:rounded-3xl border border-slate-200 p-4 sm:p-6 space-y-6 shadow-sm">
               <div className="border-b border-slate-100 pb-4">
-                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider font-mono">🏢 Account Settings</h3>
+                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider font-mono">🏢 {isSw ? 'Mipangilio ya Akaunti' : 'Account Settings'}</h3>
                 <p className="text-xs text-slate-500 mt-1 font-sans">
-                  Your business details, tax numbers, currency, branding, and payment methods.
+                  {isSw
+                    ? 'Taarifa za biashara yako, namba za kodi, sarafu, nembo, na njia za malipo.'
+                    : 'Your business details, tax numbers, currency, branding, and payment methods.'}
                 </p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs font-sans">
 
                 <div className="space-y-1.5">
-                  <label className="block text-[10px] uppercase font-bold text-slate-500 font-mono">Company Legal Name</label>
+                  <label className="block text-[10px] uppercase font-bold text-slate-500 font-mono">{isSw ? 'Jina Rasmi la Kampuni' : 'Company Legal Name'}</label>
                   <input
                     type="text"
                     value={companyForm.companyName}
                     onChange={(e) => handleCompanyNameChange(e.target.value)}
                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-700 outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500"
-                    placeholder="Enter company legal registry name..."
+                    placeholder={isSw ? 'Andika jina rasmi la kampuni...' : 'Enter company legal registry name...'}
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="block text-[10px] uppercase font-bold text-slate-500 font-mono">Business Brand Name</label>
+                  <label className="block text-[10px] uppercase font-bold text-slate-500 font-mono">{isSw ? 'Jina la Biashara (Brand Name)' : 'Business Brand Name'}</label>
                   <input
                     type="text"
                     value={businessForm.businessName}
                     onChange={(e) => setBusinessForm(prev => ({ ...prev, businessName: e.target.value }))}
                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-700 outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500"
-                    placeholder="Enter business brand name..."
+                    placeholder={isSw ? 'Andika jina la biashara yako...' : 'Enter business brand name...'}
                   />
+                  <span className="text-[10px] text-slate-400 font-medium block">
+                    {isSw ? 'Hili ndilo jina litakaloonekana kwenye bidhaa, risiti, na ankara zako.' : 'This is the name shown on products, receipts, and invoices.'}
+                  </span>
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="block text-[10px] uppercase font-bold text-slate-500 font-mono">Company Code</label>
+                  <label className="block text-[10px] uppercase font-bold text-slate-500 font-mono">{isSw ? 'Namba ya Kampuni' : 'Company Code'}</label>
                   <div className="flex bg-slate-100 border border-slate-200 rounded-xl overflow-hidden font-mono font-bold text-slate-600">
                     <span className="px-3.5 py-2.5 bg-slate-200 text-slate-500 select-none text-[11px]">@</span>
                     <input
                       type="text"
                       readOnly
+                      translate="no"
                       value={companyForm.usernameKey}
                       className="w-full px-3 py-2.5 bg-transparent outline-none cursor-not-allowed text-[11px]"
                       placeholder="auto-generated-key"
                     />
                   </div>
-                  <span className="text-[10px] text-slate-400 font-medium block">Auto-created from your company name.</span>
+                  <span className="text-[10px] text-slate-400 font-medium block">{isSw ? 'Imetengenezwa yenyewe kutoka jina la kampuni yako.' : 'Auto-created from your company name.'}</span>
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="block text-[10px] uppercase font-bold text-slate-500 font-mono">Email Address</label>
+                  <label className="block text-[10px] uppercase font-bold text-slate-500 font-mono">{isSw ? 'Barua Pepe' : 'Email Address'}</label>
                   <input
                     type="email"
                     value={businessForm.businessEmail || ''}
@@ -1096,7 +1110,7 @@ export default function DashboardSettings({
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="block text-[10px] uppercase font-bold text-slate-500 font-mono">Phone Number</label>
+                  <label className="block text-[10px] uppercase font-bold text-slate-500 font-mono">{isSw ? 'Namba ya Simu' : 'Phone Number'}</label>
                   <input
                     type="text"
                     value={businessForm.businessPhone}
@@ -1107,18 +1121,18 @@ export default function DashboardSettings({
                 </div>
 
                 <div className="space-y-1.5 md:col-span-2">
-                  <label className="block text-[10px] uppercase font-bold text-slate-500 font-mono">Business Address</label>
+                  <label className="block text-[10px] uppercase font-bold text-slate-500 font-mono">{isSw ? 'Anwani ya Biashara' : 'Business Address'}</label>
                   <input
                     type="text"
                     value={businessForm.businessAddress}
                     onChange={(e) => setBusinessForm(prev => ({ ...prev, businessAddress: e.target.value }))}
                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-700 outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500"
-                    placeholder="Legal street, Plot No, City, Country"
+                    placeholder={isSw ? 'Mtaa, Jiji, Nchi' : 'Legal street, Plot No, City, Country'}
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="block text-[10px] uppercase font-bold text-slate-500 font-mono">Tax ID Number (TIN)</label>
+                  <label className="block text-[10px] uppercase font-bold text-slate-500 font-mono">{isSw ? 'Namba ya TIN' : 'Tax ID Number (TIN)'}</label>
                   <input
                     type="text"
                     value={companyForm.tin}
@@ -1129,7 +1143,7 @@ export default function DashboardSettings({
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="block text-[10px] uppercase font-bold text-slate-500 font-mono">VAT Number</label>
+                  <label className="block text-[10px] uppercase font-bold text-slate-500 font-mono">{isSw ? 'Namba ya VAT' : 'VAT Number'}</label>
                   <input
                     type="text"
                     value={companyForm.vat}
@@ -1140,7 +1154,7 @@ export default function DashboardSettings({
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="block text-[10px] uppercase font-bold text-slate-500 font-mono">Currency</label>
+                  <label className="block text-[10px] uppercase font-bold text-slate-500 font-mono">{isSw ? 'Sarafu' : 'Currency'}</label>
                   <select
                     value={companyForm.currency}
                     onChange={(e) => setCompanyForm(prev => ({ ...prev, currency: e.target.value }))}
@@ -1157,7 +1171,7 @@ export default function DashboardSettings({
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="block text-[10px] uppercase font-bold text-slate-500 font-mono">Operating Time Zone</label>
+                  <label className="block text-[10px] uppercase font-bold text-slate-500 font-mono">{isSw ? 'Saa za Eneo' : 'Operating Time Zone'}</label>
                   <select
                     value={companyForm.timezone}
                     onChange={(e) => setCompanyForm(prev => ({ ...prev, timezone: e.target.value }))}
@@ -1172,10 +1186,11 @@ export default function DashboardSettings({
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="block text-[10px] uppercase font-bold text-slate-455 font-mono">Business Name Slug</label>
+                  <label className="block text-[10px] uppercase font-bold text-slate-455 font-mono">{isSw ? 'Jina la Tovuti (Domain)' : 'Business Name Slug'}</label>
                   <div className="flex overflow-hidden rounded-xl border border-slate-200 bg-slate-50 focus-within:ring-1 focus-within:ring-emerald-500">
                     <input
                       type="text"
+                      translate="no"
                       value={currentBusinessSlug}
                       disabled={isBusinessSlugLocked || isSlugSaving}
                       onChange={(e) => {
@@ -1195,11 +1210,15 @@ export default function DashboardSettings({
                     <span className="shrink-0 border-l border-slate-200 px-3 py-2.5 text-[11px] font-black text-slate-400">.{baseDomain}</span>
                   </div>
                   <p className="text-[10px] font-medium leading-relaxed text-slate-500">
-                    This will be your domain name. Example: <span className="font-black text-slate-700">yourname.{baseDomain}</span>. Once saved, it cannot be changed.
+                    {isSw ? (
+                      <>Hii itakuwa anwani ya tovuti yako. Mfano: <span translate="no" className="font-black text-slate-700">jina-lako.{baseDomain}</span>. Ukishahifadhi, haiwezi kubadilishwa.</>
+                    ) : (
+                      <>This will be your domain name. Example: <span translate="no" className="font-black text-slate-700">yourname.{baseDomain}</span>. Once saved, it cannot be changed.</>
+                    )}
                   </p>
                   {currentBusinessDomain && (
                     <p className="text-[10px] font-black text-emerald-600">
-                      {isBusinessSlugLocked ? 'Locked domain' : 'Pending save'}: {currentBusinessDomain}
+                      {isSw ? (isBusinessSlugLocked ? 'Tovuti imewekwa' : 'Inasubiri kuhifadhiwa') : (isBusinessSlugLocked ? 'Locked domain' : 'Pending save')}: <span translate="no">{currentBusinessDomain}</span>
                     </p>
                   )}
                   {slugSaveStatus && (
@@ -1212,13 +1231,13 @@ export default function DashboardSettings({
                 </div>
 
                 <div className="space-y-1.5 md:col-span-2">
-                  <label className="block text-[10px] uppercase font-bold text-slate-455 font-mono">Invoice Footer Tagline</label>
+                  <label className="block text-[10px] uppercase font-bold text-slate-455 font-mono">{isSw ? 'Ujumbe Chini ya Ankara' : 'Invoice Footer Tagline'}</label>
                   <textarea
                     value={businessForm.tagline || ''}
                     onChange={(e) => setBusinessForm(prev => ({ ...prev, tagline: e.target.value }))}
                     rows={2}
                     className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold text-slate-700 outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500"
-                    placeholder="Payment note..."
+                    placeholder={isSw ? 'Mfano: Bidhaa zikishauzwa hazirudishwi' : 'Payment note...'}
                   />
                 </div>
               </div>
@@ -1226,9 +1245,9 @@ export default function DashboardSettings({
               {/* Visual System Themes toggle slider */}
               <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4">
                 <div>
-                  <h4 className="text-xs font-bold uppercase text-slate-700 font-mono">System Visual Theme Mode</h4>
+                  <h4 className="text-xs font-bold uppercase text-slate-700 font-mono">{isSw ? 'Mwonekano wa Programu' : 'App Appearance'}</h4>
                   <p className="text-[10.5px] text-slate-500 leading-relaxed font-sans mt-0.5">
-                    Select the fallback visual representation of the admin framework, point-of-sale menus, and operating dashboards.
+                    {isSw ? 'Chagua rangi ya programu: nyeupe (mchana) au nyeusi (usiku).' : 'Choose light or dark mode for the app.'}
                   </p>
                 </div>
 
@@ -1246,7 +1265,7 @@ export default function DashboardSettings({
                     }`}
                   >
                     <Sun className={`w-5 h-5 ${companyForm.themeMode === 'light' ? 'text-emerald-500 font-bold' : 'text-slate-400'}`} />
-                    <span className="text-xs font-extrabold text-slate-800">Clear Light Presets</span>
+                    <span className="text-xs font-extrabold text-slate-800">{isSw ? 'Mwanga' : 'Light'}</span>
                   </button>
 
                   <button
@@ -1262,7 +1281,7 @@ export default function DashboardSettings({
                     }`}
                   >
                     <Moon className={`w-5 h-5 ${companyForm.themeMode === 'dark' ? 'text-indigo-400' : 'text-slate-400'}`} />
-                    <span className={`text-xs font-extrabold ${companyForm.themeMode === 'dark' ? 'text-slate-100' : 'text-slate-800'}`}>Slate Dark Presets</span>
+                    <span className={`text-xs font-extrabold ${companyForm.themeMode === 'dark' ? 'text-slate-100' : 'text-slate-800'}`}>{isSw ? 'Giza' : 'Dark'}</span>
                   </button>
                 </div>
               </div>
@@ -1270,33 +1289,33 @@ export default function DashboardSettings({
               {/* Daymode & Darkmode Logo uploads split */}
               <div className="border-t border-slate-100 pt-5 space-y-4">
                 <div>
-                  <h4 className="text-xs font-bold uppercase text-slate-700 font-mono tracking-wider">🎨 Custom System Branding Logos</h4>
+                  <h4 className="text-xs font-bold uppercase text-slate-700 font-mono tracking-wider">🎨 {isSw ? 'Nembo ya Biashara' : 'Business Logo'}</h4>
                   <p className="text-[10.5px] text-slate-500 mt-0.5 font-sans leading-relaxed">
-                    Upload light and dark logos.
+                    {isSw ? 'Pakia nembo yako kwa mandhari nyeupe na nyeusi.' : 'Upload a logo for light and dark mode.'}
                   </p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  
+
                   {/* Sun (Day mode) Logo Card */}
                   <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
                     <span className="text-[10px] font-mono font-black uppercase text-slate-500 flex items-center space-x-1.5">
                       <Sun className="w-3.5 h-3.5 text-amber-500 select-none shrink-0" />
-                      <span>Light Theme Logo</span>
+                      <span>{isSw ? 'Nembo ya Mwanga' : 'Light Logo'}</span>
                     </span>
 
                     <div className="flex items-center gap-4">
                       {businessForm.businessLogoLight ? (
                         <div className="w-16 h-16 rounded-xl overflow-hidden bg-white border border-slate-220 flex-shrink-0 flex items-center justify-center p-1 shadow-sm">
-                          <img src={businessForm.businessLogoLight} alt="Daymode Logo" className="max-w-full max-h-full object-contain" referrerPolicy="no-referrer" />
+                          <img src={businessForm.businessLogoLight} alt="Light logo" className="max-w-full max-h-full object-contain" referrerPolicy="no-referrer" />
                         </div>
                       ) : businessForm.businessLogo ? (
                         <div className="w-16 h-16 rounded-xl overflow-hidden bg-white border border-slate-220 flex-shrink-0 flex items-center justify-center p-1 shadow-sm">
-                          <img src={businessForm.businessLogo} alt="Daymode Fallback" className="max-w-full max-h-full object-contain" referrerPolicy="no-referrer" />
+                          <img src={businessForm.businessLogo} alt="Light logo" className="max-w-full max-h-full object-contain" referrerPolicy="no-referrer" />
                         </div>
                       ) : (
-                        <div className="w-16 h-16 rounded-xl border border-slate-200 bg-slate-100 flex items-center justify-center text-slate-400 text-[10px] font-mono font-bold flex-shrink-0">
-                          GENERIC
+                        <div className="w-16 h-16 rounded-xl border border-slate-200 bg-slate-100 flex items-center justify-center text-slate-400 text-[9px] font-mono font-bold flex-shrink-0 text-center px-1">
+                          {isSw ? 'Hamna Nembo' : 'No Logo'}
                         </div>
                       )}
 
@@ -1310,10 +1329,9 @@ export default function DashboardSettings({
                           />
                           <button type="button" className="px-3.5 py-1.5 bg-white hover:bg-slate-100 border border-slate-220 rounded-xl text-xs font-bold text-slate-700 flex items-center space-x-1.5 shadow-xs cursor-pointer">
                             <Upload className="w-3.5 h-3.5 text-slate-500" />
-                            <span>Upload Day Logo</span>
+                            <span>{isSw ? 'Pakia Nembo ya Mwanga' : 'Upload Light Logo'}</span>
                           </button>
                         </div>
-                        <p className="text-[9.5px] text-slate-400">Light logo.</p>
                       </div>
                     </div>
                   </div>
@@ -1322,17 +1340,17 @@ export default function DashboardSettings({
                   <div className="p-4 bg-slate-900 text-slate-200 border border-slate-800 rounded-2xl space-y-3">
                     <span className="text-[10px] font-mono font-black uppercase text-slate-400 flex items-center space-x-1.5">
                       <Moon className="w-3.5 h-3.5 text-indigo-400 select-none shrink-0" />
-                      <span>Dark Theme Logo</span>
+                      <span>{isSw ? 'Nembo ya Giza' : 'Dark Logo'}</span>
                     </span>
 
                     <div className="flex items-center gap-4">
                       {businessForm.businessLogoDark ? (
                         <div className="w-16 h-16 rounded-xl overflow-hidden bg-slate-950 border border-slate-850 flex-shrink-0 flex items-center justify-center p-1 shadow-sm">
-                          <img src={businessForm.businessLogoDark} alt="Darkmode Logo" className="max-w-full max-h-full object-contain" referrerPolicy="no-referrer" />
+                          <img src={businessForm.businessLogoDark} alt="Dark logo" className="max-w-full max-h-full object-contain" referrerPolicy="no-referrer" />
                         </div>
                       ) : (
-                        <div className="w-16 h-16 rounded-xl border border-slate-800 bg-slate-950 flex items-center justify-center text-slate-500 text-[10px] font-mono font-bold flex-shrink-0">
-                          GENERIC
+                        <div className="w-16 h-16 rounded-xl border border-slate-800 bg-slate-950 flex items-center justify-center text-slate-500 text-[9px] font-mono font-bold flex-shrink-0 text-center px-1">
+                          {isSw ? 'Hamna Nembo' : 'No Logo'}
                         </div>
                       )}
 
@@ -1346,10 +1364,9 @@ export default function DashboardSettings({
                           />
                           <button type="button" className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-750 border border-slate-705 rounded-xl text-xs font-bold text-slate-200 flex items-center space-x-1.5 shadow-xs cursor-pointer">
                             <Upload className="w-3.5 h-3.5 text-slate-400" />
-                            <span>Upload Dark Logo</span>
+                            <span>{isSw ? 'Pakia Nembo ya Giza' : 'Upload Dark Logo'}</span>
                           </button>
                         </div>
-                        <p className="text-[9.5px] text-slate-500">Dark logo.</p>
                       </div>
                     </div>
                   </div>
@@ -1362,18 +1379,18 @@ export default function DashboardSettings({
                 <div>
                   <h4 className="text-xs font-bold uppercase text-slate-700 font-mono flex items-center space-x-2">
                     <Sliders className="w-4 h-4 text-slate-500" />
-                    <span>POS Settings</span>
+                    <span>{isSw ? 'Mipangilio ya Mauzo' : 'Sales Screen Settings'}</span>
                   </h4>
                   <p className="text-[10.5px] text-slate-500 leading-relaxed font-sans mt-0.5">
-                    Choose how products appear on the sales screen.
+                    {isSw ? 'Chagua jinsi bidhaa zinavyoonekana kwenye skrini ya mauzo.' : 'Choose how products appear on the sales screen.'}
                   </p>
                 </div>
 
                 <div className="flex items-center justify-between gap-4 bg-white border border-slate-220 rounded-2xl p-4">
                   <div className="min-w-0">
-                    <span className="block text-xs font-black text-slate-800 uppercase tracking-wide">Show product pictures in POS</span>
+                    <span className="block text-xs font-black text-slate-800 uppercase tracking-wide">{isSw ? 'Onyesha picha za bidhaa' : 'Show product pictures in POS'}</span>
                     <span className="block text-[10.5px] text-slate-500 mt-0.5">
-                      Turn off to show a clean product list without images.
+                      {isSw ? 'Zima ili kuonyesha orodha safi ya bidhaa bila picha.' : 'Turn off to show a clean product list without images.'}
                     </span>
                   </div>
                   <button
@@ -1405,10 +1422,10 @@ export default function DashboardSettings({
                 <div>
                   <h4 className="text-xs font-bold uppercase text-slate-700 font-mono flex items-center space-x-2">
                     <CreditCard className="w-4 h-4 text-slate-500" />
-                    <span>Payment Methods</span>
+                    <span>{isSw ? 'Njia za Malipo' : 'Payment Methods'}</span>
                   </h4>
                   <p className="text-[10.5px] text-slate-500 leading-relaxed font-sans mt-0.5">
-                    Add payment methods.
+                    {isSw ? 'Ongeza njia za malipo.' : 'Add payment methods.'}
                   </p>
                 </div>
 
@@ -1417,16 +1434,16 @@ export default function DashboardSettings({
                     {(businessForm.paymentModes || []).map(mode => {
                       const modeName = getPaymentModeName(mode);
                       return (
-                      <span 
-                        key={modeName} 
+                      <span
+                        key={modeName}
                         className="inline-flex items-center space-x-1 px-3 py-1.5 bg-white border border-slate-220 rounded-xl text-xs font-bold text-slate-700 select-none shadow-xs"
                       >
-                        <span>{modeName}</span>
-                        <button 
-                          type="button" 
+                        <span translate="no">{modeName}</span>
+                        <button
+                          type="button"
                           onClick={() => handleRemovePaymentMode(modeName)}
                           className="hover:text-rose-600 cursor-pointer p-0.5"
-                          title="Click to remove"
+                          title={isSw ? 'Bonyeza kuondoa' : 'Click to remove'}
                         >
                           <Trash2 className="w-3 h-3 text-slate-400 hover:text-rose-600" />
                         </button>
@@ -1441,7 +1458,7 @@ export default function DashboardSettings({
                       value={newPaymentMode}
                       onChange={(e) => setNewPaymentMode(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && handleAddPaymentMode()}
-                      placeholder="Add custom method (e.g., Yas, Paypal)..."
+                      placeholder={isSw ? 'Ongeza njia nyingine (mfano Yas, Paypal)...' : 'Add custom method (e.g., Yas, Paypal)...'}
                       className="flex-1 px-3.5 py-1.5 text-xs outline-none bg-transparent"
                     />
                     <button
@@ -1449,7 +1466,7 @@ export default function DashboardSettings({
                       onClick={handleAddPaymentMode}
                       className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase cursor-pointer"
                     >
-                      Add
+                      {isSw ? 'Ongeza' : 'Add'}
                     </button>
                   </div>
                 </div>
@@ -1458,51 +1475,53 @@ export default function DashboardSettings({
                   <div className="mb-4">
                     <h4 className="font-extrabold text-xs text-slate-700 tracking-tight flex items-center space-x-1.5 uppercase font-mono">
                       <Truck className="w-4 h-4 text-slate-500" />
-                      <span>Delivery Payment Methods</span>
+                      <span>{isSw ? 'Njia za Malipo kwa Delivery' : 'Delivery Payment Methods'}</span>
                     </h4>
                     <p className="text-[10.5px] text-slate-500 leading-relaxed font-sans mt-0.5">
-                      Add delivery payment methods.
+                      {isSw ? 'Ongeza njia za malipo kwa delivery.' : 'Add delivery payment methods.'}
                     </p>
                   </div>
 
                   <div className="space-y-3 font-sans">
                     <div className="flex flex-wrap gap-2">
                       {(businessForm.deliveryPaymentModes || []).map(mode => (
-                        <span 
-                          key={mode} 
+                        <span
+                          key={mode}
                           className="inline-flex items-center space-x-1 px-3 py-1.5 bg-white border border-slate-220 rounded-xl text-xs font-bold text-slate-700 select-none shadow-xs"
                         >
-                          <span>{mode}</span>
-                          <button 
-                            type="button" 
+                          <span translate="no">{mode}</span>
+                          <button
+                            type="button"
                             onClick={() => handleRemoveDeliveryPaymentMode(mode)}
                             className="hover:text-rose-600 cursor-pointer p-0.5"
-                            title="Click to remove"
+                            title={isSw ? 'Bonyeza kuondoa' : 'Click to remove'}
                           >
                             <Trash2 className="w-3 h-3 text-slate-400 hover:text-rose-600" />
                           </button>
                         </span>
                       ))}
                       {(businessForm.deliveryPaymentModes || []).length === 0 && (
-                        <span className="text-[10px] text-slate-400 font-mono italic">No delivery payment methods. Pos default will be applied.</span>
+                        <span className="text-[10px] text-slate-400 font-mono italic">
+                          {isSw ? 'Bado hamna njia za malipo kwa delivery. Njia za malipo za kawaida zitatumika.' : 'No delivery payment methods yet. The regular payment methods will be used.'}
+                        </span>
                       )}
                     </div>
                     {true && (
                       <div className="flex bg-white border border-slate-200 rounded-xl overflow-hidden max-w-sm mt-3">
-                        <input 
-                          type="text" 
+                        <input
+                          type="text"
                           value={newDeliveryPaymentMode}
                           onChange={(e) => setNewDeliveryPaymentMode(e.target.value)}
                           onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddDeliveryPaymentMode())}
-                          placeholder="e.g. Cash, Bank Transfer, Mobile Money" 
+                          placeholder={isSw ? 'mfano Cash, Bank Transfer, Mobile Money' : 'e.g. Cash, Bank Transfer, Mobile Money'}
                           className="flex-1 px-3.5 py-1.5 text-xs outline-none bg-transparent"
                         />
-                        <button 
-                          type="button" 
+                        <button
+                          type="button"
                           onClick={handleAddDeliveryPaymentMode}
                           className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs uppercase cursor-pointer"
                         >
-                          Add
+                          {isSw ? 'Ongeza' : 'Add'}
                         </button>
                       </div>
                     )}
@@ -1665,9 +1684,9 @@ export default function DashboardSettings({
           {activeSubTab === 'product-store' && (
             <div className="bg-white rounded-2xl md:rounded-3xl border border-slate-200 p-4 sm:p-6 space-y-6 shadow-sm">
               <div className="border-b border-slate-100 pb-4">
-                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider font-mono">📦 Product Catalog & Measurements</h3>
+                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider font-mono">📦 {isSw ? 'Bidhaa na Vipimo' : 'Products and Units'}</h3>
                 <p className="text-xs text-slate-500 mt-1 font-sans">
-                  Add categories and units.
+                  {isSw ? 'Ongeza makundi na vipimo vya bidhaa.' : 'Add product categories and units.'}
                 </p>
               </div>
 
@@ -1676,26 +1695,26 @@ export default function DashboardSettings({
                 <div>
                   <h4 className="text-xs font-bold uppercase text-slate-700 font-mono flex items-center space-x-2">
                     <Tag className="w-4 h-4 text-slate-500" />
-                    <span>Active Product Categories</span>
+                    <span>{isSw ? 'Makundi ya Bidhaa' : 'Product Categories'}</span>
                   </h4>
                   <p className="text-[10.5px] text-slate-500 leading-relaxed font-sans mt-0.5">
-                    Define tags to organize drugs, foodstuffs, or retail units inside catalog browsers.
+                    {isSw ? 'Ongeza aina za bidhaa, mfano Dawa, Vyakula, Vipodozi.' : 'Add product categories, e.g. Medicine, Food, Cosmetics.'}
                   </p>
                 </div>
 
                 <div className="space-y-3 font-sans">
                   <div className="flex flex-wrap gap-2">
                     {productForm.categories.map(cat => (
-                      <span 
-                        key={cat} 
+                      <span
+                        key={cat}
                         className="inline-flex items-center space-x-1 px-3 py-1.5 bg-white border border-slate-220 rounded-xl text-xs font-bold text-slate-700 select-none shadow-xs"
                       >
-                        <span>{cat}</span>
-                        <button 
-                          type="button" 
+                        <span translate="no">{cat}</span>
+                        <button
+                          type="button"
                           onClick={() => handleRemoveCategory(cat)}
                           className="hover:text-rose-600 cursor-pointer p-0.5"
-                          title="Delete category"
+                          title={isSw ? 'Futa kundi' : 'Delete category'}
                         >
                           <Trash2 className="w-3 h-3 text-slate-400 hover:text-rose-600" />
                         </button>
@@ -1709,7 +1728,7 @@ export default function DashboardSettings({
                       value={newCategory}
                       onChange={(e) => setNewCategory(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && handleAddCategory()}
-                      placeholder="Add category (e.g. Cosmetics, Bakery)..."
+                      placeholder={isSw ? 'Ongeza kundi (mfano Vipodozi, Mikate)...' : 'Add category (e.g. Cosmetics, Bakery)...'}
                       className="flex-1 px-3.5 py-1.5 text-xs outline-none bg-transparent"
                     />
                     <button
@@ -1717,7 +1736,7 @@ export default function DashboardSettings({
                       onClick={handleAddCategory}
                       className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase cursor-pointer"
                     >
-                      Add
+                      {isSw ? 'Ongeza' : 'Add'}
                     </button>
                   </div>
                 </div>
@@ -1728,26 +1747,26 @@ export default function DashboardSettings({
                 <div>
                   <h4 className="text-xs font-bold uppercase text-slate-700 font-mono flex items-center space-x-2">
                     <Package className="w-4 h-4 text-slate-500" />
-                    <span>Units of Measure</span>
+                    <span>{isSw ? 'Vipimo vya Bidhaa' : 'Units of Measure'}</span>
                   </h4>
                   <p className="text-[10.5px] text-slate-500 leading-relaxed font-sans mt-0.5">
-                    Define authorized weighing or counting metrics by which checkout lines and stock takes operate.
+                    {isSw ? 'Ongeza vipimo vya bidhaa, mfano kilo, kipande, lita.' : 'Add measurement units, e.g. kg, piece, litre.'}
                   </p>
                 </div>
 
                 <div className="space-y-3 font-sans">
                   <div className="flex flex-wrap gap-2">
                     {productForm.units.map(unit => (
-                      <span 
-                        key={unit} 
+                      <span
+                        key={unit}
                         className="inline-flex items-center space-x-1 px-2.5 py-1 bg-white border border-slate-225 rounded-lg text-xs font-mono font-bold text-slate-700 select-none shadow-xs uppercase"
                       >
-                        <span>{unit}</span>
-                        <button 
-                          type="button" 
+                        <span translate="no">{unit}</span>
+                        <button
+                          type="button"
                           onClick={() => handleRemoveUnit(unit)}
                           className="hover:text-rose-600 cursor-pointer p-0.5 ml-1"
-                          title="Delete unit measurement"
+                          title={isSw ? 'Futa kipimo' : 'Delete unit measurement'}
                         >
                           <Trash2 className="w-2.5 h-2.5 text-slate-400 hover:text-rose-600" />
                         </button>
@@ -1761,7 +1780,7 @@ export default function DashboardSettings({
                       value={newUnit}
                       onChange={(e) => setNewUnit(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && handleAddUnit()}
-                      placeholder="Add UOM (e.g. kg, litres, pcs, box)..."
+                      placeholder={isSw ? 'Ongeza kipimo (mfano kg, lita, vipande, boksi)...' : 'Add a unit (e.g. kg, litres, pcs, box)...'}
                       className="flex-1 px-3.5 py-1.5 text-xs outline-none bg-transparent font-mono"
                     />
                     <button
@@ -1769,7 +1788,7 @@ export default function DashboardSettings({
                       onClick={handleAddUnit}
                       className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase cursor-pointer"
                     >
-                      Add
+                      {isSw ? 'Ongeza' : 'Add'}
                     </button>
                   </div>
                 </div>
@@ -1782,31 +1801,33 @@ export default function DashboardSettings({
           {activeSubTab === 'invoice-settings' && (
             <div className="bg-white rounded-2xl md:rounded-3xl border border-slate-200 p-4 sm:p-6 space-y-6 shadow-sm font-sans text-slate-800">
               <div className="border-b border-slate-100 pb-4">
-                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider font-mono">🎨 Invoice Settings</h3>
+                <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider font-mono">🎨 {isSw ? 'Mipangilio ya Ankara' : 'Invoice Settings'}</h3>
                 <p className="text-xs text-slate-500 mt-1 font-sans">
-                  Customize colors, compliance credentials, bank details, and terms displayed on Quotes and Quotes to align with your brand guidelines.
+                  {isSw
+                    ? 'Badilisha rangi, taarifa za kodi, taarifa za benki, na masharti yanayoonekana kwenye ankara na nukuu za bei.'
+                    : 'Change the colors, tax details, bank details, and terms shown on your invoices and quotes.'}
                 </p>
               </div>
 
               {/* Brand color selector */}
               <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4">
                 <div>
-                  <h4 className="text-xs font-bold uppercase text-slate-700 font-mono">1. Brand Highlights Color</h4>
+                  <h4 className="text-xs font-bold uppercase text-slate-700 font-mono">1. {isSw ? 'Rangi Kuu ya Ankara' : 'Brand Color'}</h4>
                   <p className="text-[11px] text-slate-500 leading-relaxed font-sans mt-0.5">
-                    Select the dominant theme color that will styled the borders, table headers, and visual emphasis of your printed documents.
+                    {isSw ? 'Chagua rangi kuu itakayoonekana kwenye ankara zako zilizochapishwa.' : 'Choose the main color for your printed invoices.'}
                   </p>
                 </div>
 
                 <div className="flex flex-wrap gap-3 items-center">
                   {[
-                    { name: 'Sky Blue', hex: '#0284c7' },
-                    { name: 'Indigo Blue', hex: '#1e3a8a' },
-                    { name: 'Teal Green', hex: '#0d9488' },
-                    { name: 'Emerald', hex: '#16a34a' },
-                    { name: 'Royal Purple', hex: '#6d28d9' },
-                    { name: 'Crimson', hex: '#dc2626' },
-                    { name: 'Slate Gray', hex: '#334155' },
-                    { name: 'Charcoal Black', hex: '#0f172a' }
+                    { name: 'Sky Blue', nameSw: 'Bluu ya Anga', hex: '#0284c7' },
+                    { name: 'Indigo Blue', nameSw: 'Bluu Nzito', hex: '#1e3a8a' },
+                    { name: 'Teal Green', nameSw: 'Kijani cha Bahari', hex: '#0d9488' },
+                    { name: 'Emerald', nameSw: 'Kijani', hex: '#16a34a' },
+                    { name: 'Royal Purple', nameSw: 'Zambarau', hex: '#6d28d9' },
+                    { name: 'Crimson', nameSw: 'Nyekundu', hex: '#dc2626' },
+                    { name: 'Slate Gray', nameSw: 'Kijivu', hex: '#334155' },
+                    { name: 'Charcoal Black', nameSw: 'Nyeusi', hex: '#0f172a' }
                   ].map(color => (
                     <button
                       key={color.hex}
@@ -1822,14 +1843,14 @@ export default function DashboardSettings({
                         className="w-4 h-4 rounded-full border border-black/10 shrink-0"
                         style={{ backgroundColor: color.hex }}
                       />
-                      <span>{color.name}</span>
+                      <span>{isSw ? color.nameSw : color.name}</span>
                     </button>
                   ))}
                 </div>
 
                 {/* Custom HEX code input */}
                 <div className="max-w-xs space-y-1">
-                  <span className="block text-[10px] uppercase font-bold text-slate-400 font-mono">Custom Color Hex Code</span>
+                  <span className="block text-[10px] uppercase font-bold text-slate-400 font-mono">{isSw ? 'Chagua Rangi Yako' : 'Pick Your Own Color'}</span>
                   <div className="flex items-center space-x-2">
                     <div
                       className="w-8 h-8 rounded-xl border border-slate-200"
@@ -1848,11 +1869,11 @@ export default function DashboardSettings({
 
               {/* Tax & Banking Compliance Credentials */}
               <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4">
-                <h4 className="text-xs font-bold uppercase text-slate-700 font-mono">2. Bank Details & Compliance Credentials</h4>
-                
+                <h4 className="text-xs font-bold uppercase text-slate-700 font-mono">2. {isSw ? 'Taarifa za Benki na Kodi' : 'Bank and Tax Details'}</h4>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
                   <div>
-                    <label className="block text-[10px] uppercase font-bold text-slate-455 font-mono mb-1">Tax ID (TIN)</label>
+                    <label className="block text-[10px] uppercase font-bold text-slate-455 font-mono mb-1">{isSw ? 'Namba ya TIN' : 'Tax ID (TIN)'}</label>
                     <input
                       type="text"
                       placeholder="e.g. 140-763-403"
@@ -1863,7 +1884,7 @@ export default function DashboardSettings({
                   </div>
 
                   <div>
-                    <label className="block text-[10px] uppercase font-bold text-slate-455 font-mono mb-1">Authorized Person Name</label>
+                    <label className="block text-[10px] uppercase font-bold text-slate-455 font-mono mb-1">{isSw ? 'Jina la Mwenye Ruhusa' : 'Authorized Person Name'}</label>
                     <input
                       type="text"
                       placeholder="e.g. Jane Doe"
@@ -1874,7 +1895,7 @@ export default function DashboardSettings({
                   </div>
 
                   <div>
-                    <label className="block text-[10px] uppercase font-bold text-slate-455 font-mono mb-1">Corporate Bank Name</label>
+                    <label className="block text-[10px] uppercase font-bold text-slate-455 font-mono mb-1">{isSw ? 'Jina la Benki' : 'Bank Name'}</label>
                     <input
                       type="text"
                       placeholder="e.g. NMB Bank or CRDB Bank"
@@ -1885,7 +1906,7 @@ export default function DashboardSettings({
                   </div>
 
                   <div>
-                    <label className="block text-[10px] uppercase font-bold text-slate-455 font-mono mb-1">Bank Account Number</label>
+                    <label className="block text-[10px] uppercase font-bold text-slate-455 font-mono mb-1">{isSw ? 'Namba ya Akaunti ya Benki' : 'Bank Account Number'}</label>
                     <input
                       type="text"
                       placeholder="e.g. 23710039969"
@@ -1896,7 +1917,7 @@ export default function DashboardSettings({
                   </div>
 
                   <div className="md:col-span-2">
-                    <label className="block text-[10px] uppercase font-bold text-slate-455 font-mono mb-1">Bank Account Name</label>
+                    <label className="block text-[10px] uppercase font-bold text-slate-455 font-mono mb-1">{isSw ? 'Jina la Akaunti ya Benki' : 'Bank Account Name'}</label>
                     <input
                       type="text"
                       placeholder="e.g. Doe Company"
@@ -1910,7 +1931,7 @@ export default function DashboardSettings({
 
               {/* VAT Default Setting */}
               <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-3">
-                <h4 className="text-xs font-bold uppercase text-slate-700 font-mono">3. VAT Configuration Options</h4>
+                <h4 className="text-xs font-bold uppercase text-slate-700 font-mono">3. {isSw ? 'Mipangilio ya VAT' : 'VAT Settings'}</h4>
                 <div className="flex items-start sm:items-center space-x-3 text-xs">
                   <input
                     type="checkbox"
@@ -1920,7 +1941,7 @@ export default function DashboardSettings({
                     className="w-4 h-4 accent-emerald-600 rounded cursor-pointer"
                   />
                   <label htmlFor="hasVatByDefaultCheck" className="font-semibold text-slate-700 cursor-pointer select-none">
-                    Include Value Added Tax (VAT 18%) by default on every new Quote or Quote
+                    {isSw ? 'Ongeza VAT (18%) kiotomatiki kwenye kila ankara na nukuu mpya' : 'Add VAT (18%) automatically to every new invoice and quote'}
                   </label>
                 </div>
               </div>
@@ -1928,9 +1949,9 @@ export default function DashboardSettings({
               {/* Terms & Conditions List */}
               <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4">
                 <div>
-                  <h4 className="text-xs font-bold uppercase text-slate-700 font-mono">4. Default Legal Terms & Conditions</h4>
+                  <h4 className="text-xs font-bold uppercase text-slate-700 font-mono">4. {isSw ? 'Masharti ya Kawaida' : 'Standard Terms & Conditions'}</h4>
                   <p className="text-[11px] text-slate-500 mt-0.5">
-                    Define policies, warrant declarations or client legal rules printed on the bottom of price quotes & price quote invoices.
+                    {isSw ? 'Ongeza masharti yatakayoonekana chini ya ankara na nukuu za bei.' : 'Add terms that appear at the bottom of your invoices and quotes.'}
                   </p>
                 </div>
 
@@ -1955,7 +1976,7 @@ export default function DashboardSettings({
                   <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2 max-w-xl">
                     <input
                       type="text"
-                      placeholder="Add a new term..."
+                      placeholder={isSw ? 'Ongeza sharti jipya...' : 'Add a new term...'}
                       id="newTermBodyInput"
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
@@ -1987,7 +2008,7 @@ export default function DashboardSettings({
                       }}
                       className="px-4 py-1.5 bg-indigo-650 hover:bg-indigo-700 text-white font-bold text-xs uppercase rounded-xl cursor-pointer"
                     >
-                      Append
+                      {isSw ? 'Ongeza' : 'Add'}
                     </button>
                   </div>
                 </div>
