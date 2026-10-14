@@ -105,7 +105,7 @@ export function buildAutoLedgerEntries({
       amount: -exp.amount,
       entryType: 'debit',
       sourceType: 'EXPENSE_WITHDRAWAL',
-      description: `Expense payment: ${exp.description} (${exp.category})`,
+      description: `Expense: ${exp.description} (${exp.category})`,
       timestamp: exp.timestamp || new Date().toISOString(),
     });
   });

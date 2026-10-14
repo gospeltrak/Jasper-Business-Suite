@@ -451,7 +451,10 @@ export default function DashboardReports({
     const byCustomer = new Map<string, { name: string; phone: string; amountDue: number; count: number }>();
     sales.forEach(sale => {
       if (sale.tenantId !== activeTenant.id) return;
-      const due = sale.amountDue || 0;
+      // sale.amountDue is set once at checkout and never decremented by later
+      // installment payments (only amountPaid is) -- total - amountPaid is
+      // the only figure that reflects what the customer still actually owes.
+      const due = Math.max(0, sale.total - (sale.amountPaid || 0));
       if (due <= 0) return;
       const date = new Date(sale.timestamp);
       if (date < start || date > end) return;
@@ -1880,7 +1883,7 @@ export default function DashboardReports({
                     </div>
 
                     <div className="space-y-2">
-                      <h4 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Wateja wanaodaiwa (Receivables)</h4>
+                      <h4 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Wateja wanaodaiwa</h4>
                       <div className="hidden md:block overflow-x-auto">
                         <table className="w-full text-left text-xs">
                           <thead className="bg-slate-50 border-b border-slate-200">
@@ -1901,7 +1904,7 @@ export default function DashboardReports({
                               </tr>
                             ))}
                             {moneyBankReceivables.length === 0 && (
-                              <tr><td colSpan={4} className="p-8 text-center text-slate-400">No outstanding customer debts in this period.</td></tr>
+                              <tr><td colSpan={4} className="p-8 text-center text-slate-400">Hakuna deni la mteja lililobaki kwa kipindi hiki.</td></tr>
                             )}
                           </tbody>
                         </table>
@@ -1917,13 +1920,13 @@ export default function DashboardReports({
                           </div>
                         ))}
                         {moneyBankReceivables.length === 0 && (
-                          <div className="py-8 text-center text-slate-400 text-xs">No outstanding customer debts in this period.</div>
+                          <div className="py-8 text-center text-slate-400 text-xs">Hakuna deni la mteja lililobaki kwa kipindi hiki.</div>
                         )}
                       </div>
                     </div>
 
                     <div className="space-y-2">
-                      <h4 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Wasambazaji tunaowadai (Payables)</h4>
+                      <h4 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Wasambazaji tunaowadai</h4>
                       <div className="hidden md:block overflow-x-auto">
                         <table className="w-full text-left text-xs">
                           <thead className="bg-slate-50 border-b border-slate-200">
@@ -1942,7 +1945,7 @@ export default function DashboardReports({
                               </tr>
                             ))}
                             {moneyBankPayables.length === 0 && (
-                              <tr><td colSpan={3} className="p-8 text-center text-slate-400">No outstanding supplier debts in this period.</td></tr>
+                              <tr><td colSpan={3} className="p-8 text-center text-slate-400">Hakuna deni la msambazaji lililobaki kwa kipindi hiki.</td></tr>
                             )}
                           </tbody>
                         </table>
@@ -1958,7 +1961,7 @@ export default function DashboardReports({
                           </div>
                         ))}
                         {moneyBankPayables.length === 0 && (
-                          <div className="py-8 text-center text-slate-400 text-xs">No outstanding supplier debts in this period.</div>
+                          <div className="py-8 text-center text-slate-400 text-xs">Hakuna deni la msambazaji lililobaki kwa kipindi hiki.</div>
                         )}
                       </div>
                     </div>

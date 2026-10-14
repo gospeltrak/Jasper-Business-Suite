@@ -767,7 +767,7 @@ export default function DashboardCashBank({
                 </p>
               </div>
               <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0" style={{background:'rgba(255,255,255,0.08)'}}>
-                <Landmark className="w-6 h-6 text-white/70"/>
+                <Landmark className="w-6 h-6 text-emerald-400"/>
               </div>
             </div>
 

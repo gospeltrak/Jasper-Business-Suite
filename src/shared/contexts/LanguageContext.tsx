@@ -128,6 +128,7 @@ const BUSINESS_DICTIONARY: Record<string, Record<string, string>> = {
     "parties": "Washirika",
     "purchases": "Manunuzi",
     "expenses": "Matumizi",
+    "expense": "Matumizi",
     "delivery": "Delivari",
     "delivery riders": "Madereva",
     "customers": "Wateja",
