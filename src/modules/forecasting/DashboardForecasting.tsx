@@ -485,7 +485,7 @@ export default function DashboardForecasting({
 
     if (!response.ok) {
       const errRes = await response.json().catch(() => ({}));
-      throw new Error(errRes.message || `Server error (${response.status}) while calling intelligence endpoint.`);
+      throw new Error(errRes.message || `Forecast could not be generated. Please try again.`);
     }
 
     const data: ForecastingResponse = await response.json();

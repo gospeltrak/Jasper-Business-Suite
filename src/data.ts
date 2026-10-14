@@ -378,28 +378,28 @@ export const RECENT_SYNC_LOGS: SyncLog[] = [
     id: 'l-01',
     type: 'auth_sync',
     status: 'success',
-    message: 'Active registers verified on central ledger Cloud Server',
+    message: 'Registers verified and active.',
     timestamp: '2026-05-20T12:05:00Z',
   },
   {
     id: 'l-02',
     type: 'product_update',
     status: 'success',
-    message: 'Synced 14 catalog item updates from Lagos Warehouse',
+    message: '14 product updates received from Lagos Warehouse.',
     timestamp: '2026-05-20T12:10:00Z',
   },
   {
     id: 'l-03',
     type: 'sale',
     status: 'success',
-    message: 'Sale ref: JSP-312-NGN-001 pushed with Cashier Sign-off online',
+    message: 'Sale JSP-312-NGN-001 confirmed by cashier.',
     timestamp: '2026-05-20T12:15:00Z',
   },
   {
     id: 'l-04',
     type: 'inventory_audit',
     status: 'warning',
-    message: 'Offline queue detected 3 items with timestamp anomalies (Auto-resolved)',
+    message: '3 items had date issues while offline (fixed automatically).',
     timestamp: '2026-05-20T12:20:00Z',
   }
 ];

@@ -5,13 +5,22 @@ export interface SubscriptionReminder {
   daysRemaining: number;
 }
 
+// Written out in full for both languages instead of relying on the app's
+// automatic word-by-word DOM translator: that translator can swap a common
+// short word (e.g. "to" -> "Hadi") inside an otherwise-English sentence,
+// producing mixed-language nonsense like "Pay any time Hadi keep full
+// access." These notification strings are shown as-is, so they must already
+// be correct in whichever language is active.
 export const getSubscriptionReminder = (
   planId: string,
   planName: string,
   daysRemaining: number,
   isExpired: boolean,
   isTrial: boolean,
+  language: string = 'en',
 ): SubscriptionReminder | null => {
+  const isSw = language === 'sw';
+
   // Free trial: show a running countdown for the whole trial (not just the
   // last 3 days) -- unlike a paid plan, a trial is short and time-limited by
   // design, so the tenant should always know how much of it is left.
@@ -19,17 +28,25 @@ export const getSubscriptionReminder = (
     if (isExpired || daysRemaining <= 0) {
       return {
         level: 'expired',
-        title: 'Free trial expired',
-        message: 'Your free trial has ended. Pay to keep using Orvix -- your account and business data remain safely preserved.',
+        title: isSw ? 'Jaribio la bure limeisha' : 'Free trial expired',
+        message: isSw
+          ? 'Muda wako wa jaribio la bure umeisha. Lipia ili uendelee kutumia Orvix -- akaunti yako na taarifa za biashara zimehifadhiwa salama.'
+          : 'Your free trial has ended. Pay to keep using Orvix -- your account and business data remain safely preserved.',
         daysRemaining: 0,
       };
     }
     return {
       level: 'trial',
-      title: `${daysRemaining} ${daysRemaining === 1 ? 'day' : 'days'} left in trial`,
-      message: daysRemaining === 1
-        ? 'Your free trial ends tomorrow. Pay now to keep your business running without interruption.'
-        : `Your free trial ends in ${daysRemaining} days. Pay any time to keep full access.`,
+      title: isSw
+        ? `Siku ${daysRemaining} ${daysRemaining === 1 ? 'imebaki' : 'zimebaki'} kwenye jaribio`
+        : `${daysRemaining} ${daysRemaining === 1 ? 'day' : 'days'} left in trial`,
+      message: isSw
+        ? (daysRemaining === 1
+          ? 'Jaribio lako la bure linaisha kesho. Lipia sasa ili biashara yako iendelee bila kukatizwa.'
+          : `Jaribio lako la bure linaisha baada ya siku ${daysRemaining}. Unaweza kulipia wakati wowote ili kuendelea na huduma kamili.`)
+        : (daysRemaining === 1
+          ? 'Your free trial ends tomorrow. Pay now to keep your business running without interruption.'
+          : `Your free trial ends in ${daysRemaining} days. Pay any time to keep full access.`),
       daysRemaining,
     };
   }
@@ -40,20 +57,28 @@ export const getSubscriptionReminder = (
   if (isExpired || daysRemaining <= 0) {
     return {
       level: 'expired',
-      title: `${planName} package expired`,
-      message: 'Pay to restore full access. Your account and business data remain safely preserved.',
+      title: isSw ? `Kifurushi cha ${planName} kimeisha muda` : `${planName} package expired`,
+      message: isSw
+        ? 'Lipia ili urejeshe huduma kamili. Akaunti yako na taarifa za biashara zimehifadhiwa salama.'
+        : 'Pay to restore full access. Your account and business data remain safely preserved.',
       daysRemaining: 0,
     };
   }
   if (daysRemaining > 3) return null;
-  const message = daysRemaining === 1
-    ? `Your ${planName} package expires tomorrow. Pay now to avoid interruption.`
-    : daysRemaining === 2
-      ? `Your ${planName} package expires in 2 days. Pay now to keep your workspace active.`
-      : `Your ${planName} package expires in 3 days. Pay now to continue without interruption.`;
+  const message = isSw
+    ? (daysRemaining === 1
+      ? `Kifurushi chako cha ${planName} kinaisha kesho. Lipia sasa ili usikatizwe.`
+      : `Kifurushi chako cha ${planName} kinaisha baada ya siku ${daysRemaining}. Lipia sasa ili kiendelee kufanya kazi.`)
+    : (daysRemaining === 1
+      ? `Your ${planName} package expires tomorrow. Pay now to avoid interruption.`
+      : daysRemaining === 2
+        ? `Your ${planName} package expires in 2 days. Pay now to keep your workspace active.`
+        : `Your ${planName} package expires in 3 days. Pay now to continue without interruption.`);
   return {
     level: 'expiring',
-    title: `${daysRemaining} ${daysRemaining === 1 ? 'day' : 'days'} remaining`,
+    title: isSw
+      ? `Siku ${daysRemaining} ${daysRemaining === 1 ? 'imebaki' : 'zimebaki'}`
+      : `${daysRemaining} ${daysRemaining === 1 ? 'day' : 'days'} remaining`,
     message,
     daysRemaining,
   };

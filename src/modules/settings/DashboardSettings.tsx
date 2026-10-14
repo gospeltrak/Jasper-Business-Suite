@@ -2086,7 +2086,7 @@ export default function DashboardSettings({
               { key: 'products', category: 'Inventory & Buying', name: 'Product Catalog & Inventory Listing', desc: 'Authorize editing base product fields, barcodes, pricing, and viewing current stock items' },
               { key: 'productCategories', category: 'Inventory & Buying', name: 'Classifications, Categories & Brands', desc: 'Authorizes managing item folders, generic grouping tags, brands, and units of measure' },
               { key: 'units', category: 'Inventory & Buying', name: 'Product Units of Measure', desc: 'Authorizes adding and editing units used for stock counting' },
-              { key: 'brands', category: 'Inventory & Buying', name: 'Product Brands Database', desc: 'Manages catalog item brands' },
+              { key: 'brands', category: 'Inventory & Buying', name: 'Product Brands', desc: 'Manages catalog item brands' },
               { key: 'stockAdjustment', category: 'Inventory & Buying', name: 'Inventory Level Audits & Adjustments', desc: 'Grants access to manual stock level overrides, warehouse counts, and shelf transfers' },
               { key: 'stockTransfer', category: 'Inventory & Buying', name: 'Warehouse & Shelf Transfers', desc: 'Transfer physical inventory between virtual branches or backrooms' },
               { key: 'purchases', category: 'Inventory & Buying', name: 'Supplier Purchases & Cost of Goods Ledgers', desc: 'Allows entering wholesale stock purchases, vendor costs (Cost of Goods), and purchase bills' },

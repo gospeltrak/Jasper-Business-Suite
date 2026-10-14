@@ -1869,6 +1869,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     subStatus.daysRemaining,
     subStatus.isExpired,
     isTrialAccount,
+    lang,
   );
   const subscriptionReminderKey = subscriptionReminder
     ? getSubscriptionReminderKey(
@@ -1894,12 +1895,15 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     if (typeof window === 'undefined' || window.innerWidth >= 768) return;
     const notifiedKey = `${subscriptionReminderKey}:notified`;
     if (sessionStorage.getItem(notifiedKey) === 'sent') return;
+    // Set the guard before adding the notification (not after) so a second
+    // effect run with the same key -- e.g. a double-invoked effect -- sees
+    // it already marked sent instead of racing to add a duplicate.
+    sessionStorage.setItem(notifiedKey, 'sent');
     addSubscriptionReminderNotification({
       tenantId: activeTenant.id,
       title: subscriptionReminder.title,
       message: subscriptionReminder.message,
     });
-    sessionStorage.setItem(notifiedKey, 'sent');
   }, [subscriptionReminder, subscriptionReminderKey, activeTenant.id, addSubscriptionReminderNotification]);
 
   // Compact header countdown between search and online status.

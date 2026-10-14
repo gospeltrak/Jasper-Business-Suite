@@ -460,7 +460,7 @@ export default function DashboardSandboxVerticals({ activeTenant, currentUser, o
     };
 
     setDrugs(prev => [newMedObject, ...prev]);
-    addRegLog(`Inventory: Added customized therapeutic molecule "${newMedName}" to apothecary database. Batch: ${newMedObject.batchNo}`);
+    addRegLog(`Inventory: Added new medicine "${newMedName}". Batch: ${newMedObject.batchNo}`);
     
     // reset form fields
     setNewMedName('');
@@ -1357,7 +1357,7 @@ export default function DashboardSandboxVerticals({ activeTenant, currentUser, o
           <div className="bg-white border border-slate-205 rounded-[24px] p-6 lg:col-span-2 space-y-4 flex flex-col h-[400px]">
             <div className="flex justify-between items-center border-b border-slate-100 pb-2">
               <div>
-                <h3 className="text-sm font-black text-slate-805 uppercase font-mono tracking-wider">Clinical Sync Server Feed</h3>
+                <h3 className="text-sm font-black text-slate-805 uppercase font-mono tracking-wider">Activity Feed</h3>
                 <p className="text-[11px] text-slate-400">Live background verification streams synced automatically</p>
               </div>
               <button
@@ -1507,7 +1507,6 @@ export default function DashboardSandboxVerticals({ activeTenant, currentUser, o
 
                 <div className="text-center font-normal text-[8.5px] text-slate-400 pt-2 space-y-0.5">
                   <p>Asante kwa kuchagua MedSoftwares Systems!</p>
-                  <p className="uppercase tracking-wider">Cloud Synchronized Medical Node</p>
                 </div>
               </div>
 
