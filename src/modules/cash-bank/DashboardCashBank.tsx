@@ -782,11 +782,11 @@ export default function DashboardCashBank({
             {/* 3 KPI pills */}
             <div className="cashbank-row-grid-3 gap-2">
               <div className="rounded-2xl px-3 py-2.5" style={{background:'rgba(255,255,255,0.07)'}}>
-                <p className="text-white/50 text-[9px] font-bold uppercase tracking-wider">Money In</p>
+                <p className="text-emerald-400 text-[9px] font-bold uppercase tracking-wider">Money In</p>
                 <p className="text-white font-black text-[13px] mt-0.5">+{formatCurrency(heroFlow.moneyIn)}</p>
               </div>
               <div className="rounded-2xl px-3 py-2.5" style={{background:'rgba(255,255,255,0.07)'}}>
-                <p className="text-white/50 text-[9px] font-bold uppercase tracking-wider">Money Out</p>
+                <p className="text-rose-400 text-[9px] font-bold uppercase tracking-wider">Money Out</p>
                 <p className="text-white font-black text-[13px] mt-0.5">-{formatCurrency(heroFlow.moneyOut)}</p>
               </div>
               <div className="rounded-2xl px-3 py-2.5" style={{background:'rgba(255,255,255,0.07)'}}>
@@ -1363,21 +1363,21 @@ export default function DashboardCashBank({
                 <span className="text-[10px] font-mono text-slate-500 block mt-0.5">{startDateStr} to {endDateStr}</span>
               </div>
 
-              <div className="bg-slate-800/40 p-4 rounded-2xl border border-slate-800 text-white animate-fadeIn">
-                <span className="text-[10px] font-bold text-slate-400 block uppercase font-mono tracking-wide">Total Payment In (Money Ins)</span>
-                <span className="text-lg font-black text-white block mt-0.5 font-sans">+{formatCurrency(combinedStats.totalMoneyIn)}</span>
+              <div className="bg-emerald-950/20 p-4 rounded-2xl border border-emerald-900/60 text-white animate-fadeIn">
+                <span className="text-[10px] font-bold text-emerald-400 block uppercase font-mono tracking-wide">Total Payment In (Money Ins)</span>
+                <span className="text-lg font-black text-emerald-300 block mt-0.5 font-sans">+{formatCurrency(combinedStats.totalMoneyIn)}</span>
                 <span className="text-[9.5px] font-medium text-slate-400 block mt-0.5">{combinedStats.countMoneyIn} credit movements</span>
               </div>
 
-              <div className="bg-slate-800/40 p-4 rounded-2xl border border-slate-800 text-white animate-fadeIn">
-                <span className="text-[10px] font-bold text-slate-400 block uppercase font-mono tracking-wide">Total Payment Out (Money Outs)</span>
-                <span className="text-lg font-black text-white block mt-0.5 font-sans">-{formatCurrency(combinedStats.totalMoneyOut)}</span>
+              <div className="bg-rose-950/20 p-4 rounded-2xl border border-rose-900/40 text-white animate-fadeIn">
+                <span className="text-[10px] font-bold text-rose-400 block uppercase font-mono tracking-wide">Total Payment Out (Money Outs)</span>
+                <span className="text-lg font-black text-rose-300 block mt-0.5 font-sans">-{formatCurrency(combinedStats.totalMoneyOut)}</span>
                 <span className="text-[9.5px] font-medium text-slate-400 block mt-0.5">{combinedStats.countMoneyOut} debit movements</span>
               </div>
 
-              <div className="bg-slate-800/40 p-4 rounded-2xl border border-slate-800 text-white animate-fadeIn">
-                <span className="text-[10px] font-bold text-slate-400 block uppercase font-mono tracking-wide">Remaining Net Income</span>
-                <span className="text-lg font-black text-white block mt-0.5 font-sans">{combinedStats.netChange >= 0 ? '+' : ''}{formatCurrency(combinedStats.netChange)}</span>
+              <div className={`p-4 rounded-2xl border ${combinedStats.netChange >= 0 ? 'bg-emerald-950/30 border-emerald-800 text-emerald-300' : 'bg-rose-950/30 border-rose-800 text-rose-300'} animate-fadeIn`}>
+                <span className="text-[10px] font-bold block uppercase font-mono tracking-wide">Remaining Net Income</span>
+                <span className="text-lg font-black block mt-0.5 font-sans">{combinedStats.netChange >= 0 ? '+' : ''}{formatCurrency(combinedStats.netChange)}</span>
                 <span className="text-[9.5px] font-mono block mt-0.5 text-slate-400">Net outcome in selected range</span>
               </div>
             </div>
