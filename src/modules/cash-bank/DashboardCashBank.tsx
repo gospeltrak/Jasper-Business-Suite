@@ -606,7 +606,7 @@ export default function DashboardCashBank({
           .reduce((sum, chan) => sum + (channelBalances[chan.id]?.current || 0), 0)
       ),
       tone: 'bg-slate-950 text-white border-slate-900',
-      helper: `${channels.filter(chan => chan.category !== 'person').length} active accounts`
+      helper: `${channels.filter(chan => chan.category !== 'person').length} accounts`
     },
     {
       label: 'Cash drawers',
