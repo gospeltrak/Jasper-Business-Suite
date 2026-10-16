@@ -221,7 +221,9 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
     }
   };
 
-  // Star-only Admin Password verification
+  // Gates sensitive admin actions on the current session having 2FA (MFA)
+  // verified (aal2) -- see verifySuperAdminPassword, which checks session
+  // assurance level, not a typed password/key (there is no such input).
   const verifySecureKey = async (): Promise<boolean> => {
     if (isActionLocked) {
       alert(`🔒 Lockout active. Please wait ${lockoutTimeLeft}s before trying again.`);
@@ -249,9 +251,9 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
         onlineStorage.setItem('saas_admin_lockout_until', lockDuration.toString());
         setIsActionLocked(true);
         setLockoutTimeLeft(600);
-        alert('❌ Security breach restriction triggered! Red-alert lockout initiated. All admin change commands locked for 10 minutes.');
+        alert('🔒 Too many attempts. Admin actions are locked for 10 minutes. Log in with 2FA verified, then try again.');
       } else {
-        alert(`❌ Invalid Admin Authorization Key. Attempts remaining: ${3 - nextFail}. Password field is fully masked.`);
+        alert(`🔒 This action requires two-factor authentication (2FA) on your current session. Log out and back in, completing the 2FA step, then try again. (${3 - nextFail} attempt${3 - nextFail === 1 ? '' : 's'} left before a temporary lockout.)`);
       }
       return false;
     }
