@@ -612,6 +612,24 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
                       </button>
                     </div>
                   )}
+                  {isUnlocked && (
+                    <div className="flex items-center gap-2 mt-2">
+                      <input
+                        type="password"
+                        value={newPasswordValue}
+                        onChange={(e) => setNewPasswordValue(e.target.value)}
+                        placeholder="New password (10+ chars, letters + numbers)"
+                        className="px-2.5 py-1.5 rounded-lg text-[10px] font-mono bg-slate-900 border border-slate-800 text-slate-200 placeholder:text-slate-600 outline-none focus:border-indigo-500/50 w-64"
+                      />
+                      <button
+                        onClick={handleResetPassword}
+                        disabled={!newPasswordValue.trim()}
+                        className="px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider border border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 disabled:opacity-50 whitespace-nowrap"
+                      >
+                        Reset Password
+                      </button>
+                    </div>
+                  )}
                   {/* Location + last activity line */}
                   <div className="flex flex-wrap gap-3 mt-1.5 text-[10px] font-mono text-slate-500">
                     {(selectedUser as any).location && (selectedUser as any).location !== 'Location not provided' && (
