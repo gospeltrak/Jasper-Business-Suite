@@ -646,10 +646,23 @@ export default function DashboardPOS({
         }
         return prev.map(i => i.product.id === prod.id ? { ...i, qty: nextQty } : i);
       }
-      return [...prev, { 
-        product: prod, 
-        qty: isFraction ? 1 : supportsMeasuredRetail(prod) ? (prod.sellUnitQty || 1) : 1,
-        discount: 0, 
+      // Wholesale price only kicks in (see getCartUnitPrice) once the cart
+      // quantity reaches the product's own minWholesaleQty -- starting a
+      // wholesale-channel item at qty 1 silently left it priced at retail
+      // until the cashier noticed and bumped the quantity up by hand. Start
+      // it at the minimum instead (capped by what's actually in stock), so
+      // the wholesale price applies immediately.
+      const initialQty = isFraction
+        ? 1
+        : supportsMeasuredRetail(prod)
+          ? (prod.sellUnitQty || 1)
+          : sellingChannel === 'wholesale'
+            ? Math.min(prod.minWholesaleQty || 10, shopQty)
+            : 1;
+      return [...prev, {
+        product: prod,
+        qty: initialQty,
+        discount: 0,
         discountType: 'percent',
         dosageType: initialDosage,
         tabsSelected: initialTabs,
