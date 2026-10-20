@@ -2,11 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { Product } from '../../types';
 import {
   Camera,
-  CheckCircle, 
-  QrCode, 
-  Volume2, 
-  VolumeX, 
-  HelpCircle
+  CheckCircle,
+  X
 } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 
@@ -28,11 +25,9 @@ export default function DashboardBarcodeScanner({
   onScanSuccess,
   inline = false
 }: DashboardBarcodeScannerProps) {
-  const [useBeep, setUseBeep] = useState(true);
-  const [manualCode, setManualCode] = useState('');
+  const [useBeep] = useState(true);
   const [scanSuccessAnim, setScanSuccessAnim] = useState<string | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
-  const [cameraDecoderActive, setCameraDecoderActive] = useState(false);
   
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const scannerContainerRef = useRef<HTMLDivElement>(null);
@@ -75,7 +70,6 @@ export default function DashboardBarcodeScanner({
     setTimeout(() => {
       setScanSuccessAnim(null);
       onScanSuccess(trimmed, foundProduct);
-      setManualCode('');
     }, 450);
   };
 
@@ -116,11 +110,9 @@ export default function DashboardBarcodeScanner({
           // Normal scanning noise, ignore
         }
       );
-      setCameraDecoderActive(true);
     } catch (err: any) {
       console.error('Camera init error:', err);
       setCameraError('Camera scanning unavailable. Please use a hardware scanner or enter code manually.');
-      setCameraDecoderActive(false);
     }
   };
 
@@ -134,7 +126,6 @@ export default function DashboardBarcodeScanner({
       }
     }
     scannerRef.current = null;
-    setCameraDecoderActive(false);
   };
 
   // Hardware Scanner Listener (HID Keyboard Emulation)
@@ -145,9 +136,6 @@ export default function DashboardBarcodeScanner({
     let lastKeyTime = 0;
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      // If user is typing in the manual input, let the input handle it
-      if (document.activeElement === document.getElementById('manual-barcode-input')) return;
-
       const now = Date.now();
       // Hardware scanners enter text extremely fast (< 30ms per char)
       if (now - lastKeyTime > 100) {
@@ -173,40 +161,17 @@ export default function DashboardBarcodeScanner({
 
   const content = (
     <>
-        {/* HEADER */}
-        <div className="bg-slate-900 px-6 py-4 text-white flex items-center justify-between border-b border-slate-800 rounded-t-3xl">
-          <div className="flex items-center space-x-2">
-            <QrCode className="w-5 h-5 text-emerald-400 animate-pulse" />
-            <div>
-              <h3 className="text-sm font-black tracking-tight flex items-center space-x-1.5">
-                <span>Scan Items</span>
-                <span className="bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded text-[9px] font-mono font-bold uppercase tracking-widest">
-                  {cameraDecoderActive ? 'Camera active' : 'Scanner ready'}
-                </span>
-              </h3>
-            </div>
-          </div>
-
-          <div className="flex items-center space-x-3">
-            <button
-              onClick={() => setUseBeep(!useBeep)}
-              className="p-1.5 bg-slate-800 hover:bg-slate-700 hover:text-white rounded-lg text-slate-400 transition-colors cursor-pointer"
-            >
-              {useBeep ? <Volume2 className="w-4 h-4 text-emerald-400" /> : <VolumeX className="w-4 h-4" />}
-            </button>
+        <div className="flex-grow overflow-y-auto p-3 space-y-3">
+          {/* Camera scan target */}
+          <div className="relative w-full h-64 bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden flex flex-col items-center justify-center">
             <button
               onClick={onClose}
-              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg transition-colors cursor-pointer flex items-center space-x-1.5"
+              aria-label="Close scanner"
+              className="absolute top-2 right-2 z-30 p-1.5 bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-white rounded-full transition-colors cursor-pointer"
             >
-              <CheckCircle className="w-3.5 h-3.5" />
-              <span>Done Scanning</span>
+              <X className="w-4 h-4" />
             </button>
-          </div>
-        </div>
 
-        <div className="flex-grow overflow-y-auto p-6 space-y-6">
-          {/* Camera scan target */}
-          <div className="relative w-full h-48 bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden flex flex-col items-center justify-center">
             {scanSuccessAnim && (
               <div className="absolute inset-0 z-20 bg-emerald-500/90 flex flex-col items-center justify-center text-white p-4 text-center animate-fade-in">
                 <CheckCircle className="w-12 h-12 text-white animate-bounce mb-2" />
@@ -237,45 +202,6 @@ export default function DashboardBarcodeScanner({
               </span>
             </div>
           </div>
-
-          {/* Manual / Hardware Input */}
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2">
-            <label className="block text-[10px] uppercase font-mono font-black tracking-wider text-slate-400">
-              USB scanner or manual barcode
-            </label>
-            <form 
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (manualCode) handleItemBarcodeTrigger(manualCode);
-              }}
-              className="flex items-center space-x-2"
-            >
-              <div className="relative flex-grow">
-                <input
-                  id="manual-barcode-input"
-                  type="text"
-                  autoFocus
-                  placeholder="Type barcode or item code..."
-                  value={manualCode}
-                  onChange={(e) => setManualCode(e.target.value)}
-                  className="w-full bg-white border border-slate-200 text-xs px-3 py-2.5 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:border-slate-800 font-mono"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={!manualCode}
-                className="bg-slate-900 hover:bg-slate-800 disabled:opacity-40 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition-all cursor-pointer border-none shadow-xs"
-              >
-                Scan
-              </button>
-            </form>
-          </div>
-
-        </div>
-
-        <div className="bg-slate-50 border-t border-slate-200 px-6 py-4.5 flex items-start space-x-2.5 text-[11px] text-slate-550 shrink-0 select-none leading-relaxed rounded-b-3xl">
-          <HelpCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-          <p>Scanned items are added straight to the cart. Works with Camera, USB, and Bluetooth (paired) scanners.</p>
         </div>
     </>
   );
