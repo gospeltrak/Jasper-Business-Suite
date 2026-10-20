@@ -1389,6 +1389,20 @@ export default function DashboardPOS({
 
         {/* Product selection grid (8/12 scope) */}
         <div className="pos-tablet-products-col lg:col-span-7 xl:col-span-8 min-h-0 flex flex-col space-y-4 md:space-y-6 xl:space-y-3">
+          {isScannerOpen ? (
+            // Scanning replaces the catalog here, in place -- the real cart
+            // panel to the right/below is untouched, so a scanned item shows
+            // up with the exact same cart UI and functions as one added by
+            // tapping it in the catalog grid.
+            <DashboardBarcodeScanner
+              isOpen={true}
+              inline
+              onClose={() => setIsScannerOpen(false)}
+              products={products}
+              onScanSuccess={handleScanSuccess}
+            />
+          ) : (
+          <>
           {/* Search and Categories controls */}
           <div className="pos-tablet-search-shell bg-white px-3 py-2.5 md:border border-slate-200 md:p-6 xl:p-3.5 rounded-none md:rounded-3xl space-y-3 lg:space-y-4 xl:space-y-2.5 shadow-none md:shadow-sm">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-100/70 border border-slate-200 rounded-2xl p-1 lg:p-1.5 xl:p-1 relative md:mx-0">
@@ -1655,6 +1669,8 @@ export default function DashboardPOS({
             })
           )}
         </div>
+          </>
+          )}
       </div>
 
       {/* Cart Summary right panel (4/12 scope) */}
@@ -2748,13 +2764,6 @@ export default function DashboardPOS({
         </div>
       )}
 
-      {/* Integrated Barcode Scanning Dialog desk */}
-      <DashboardBarcodeScanner 
-        isOpen={isScannerOpen}
-        onClose={() => setIsScannerOpen(false)}
-        products={products}
-        onScanSuccess={handleScanSuccess}
-      />
     </div>
     </div>
   );

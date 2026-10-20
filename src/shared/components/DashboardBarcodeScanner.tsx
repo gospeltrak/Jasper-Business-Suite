@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Product } from '../../types';
-import { 
-  X, 
-  Camera, 
+import {
+  Camera,
   CheckCircle, 
   QrCode, 
   Volume2, 
@@ -16,13 +15,18 @@ interface DashboardBarcodeScannerProps {
   onClose: () => void;
   products: Product[];
   onScanSuccess: (scannedText: string, product: Product | null) => void;
+  /** Renders as a plain in-page panel instead of a fixed full-screen modal
+   * overlay -- used by the POS screen so the real cart stays visible right
+   * next to/below the scanner instead of being hidden behind a dialog. */
+  inline?: boolean;
 }
 
 export default function DashboardBarcodeScanner({
   isOpen,
   onClose,
   products,
-  onScanSuccess
+  onScanSuccess,
+  inline = false
 }: DashboardBarcodeScannerProps) {
   const [useBeep, setUseBeep] = useState(true);
   const [manualCode, setManualCode] = useState('');
@@ -167,36 +171,35 @@ export default function DashboardBarcodeScanner({
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-sm animate-fade-in font-sans">
-      <div className="relative bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
-        
+  const content = (
+    <>
         {/* HEADER */}
-        <div className="bg-slate-900 px-6 py-4 text-white flex items-center justify-between border-b border-slate-800">
+        <div className="bg-slate-900 px-6 py-4 text-white flex items-center justify-between border-b border-slate-800 rounded-t-3xl">
           <div className="flex items-center space-x-2">
             <QrCode className="w-5 h-5 text-emerald-400 animate-pulse" />
             <div>
               <h3 className="text-sm font-black tracking-tight flex items-center space-x-1.5">
-                <span>Integrated Barcode Scan Desk</span>
+                <span>Scan Items</span>
                 <span className="bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded text-[9px] font-mono font-bold uppercase tracking-widest">
                   {cameraDecoderActive ? 'Camera active' : 'Scanner ready'}
                 </span>
               </h3>
             </div>
           </div>
-          
+
           <div className="flex items-center space-x-3">
-            <button 
+            <button
               onClick={() => setUseBeep(!useBeep)}
               className="p-1.5 bg-slate-800 hover:bg-slate-700 hover:text-white rounded-lg text-slate-400 transition-colors cursor-pointer"
             >
               {useBeep ? <Volume2 className="w-4 h-4 text-emerald-400" /> : <VolumeX className="w-4 h-4" />}
             </button>
-            <button 
+            <button
               onClick={onClose}
-              className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-lg transition-colors cursor-pointer"
+              className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg transition-colors cursor-pointer flex items-center space-x-1.5"
             >
-              <X className="w-4 h-4" />
+              <CheckCircle className="w-3.5 h-3.5" />
+              <span>Done Scanning</span>
             </button>
           </div>
         </div>
@@ -268,34 +271,27 @@ export default function DashboardBarcodeScanner({
             </form>
           </div>
 
-          <div className="space-y-3">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-              <span className="text-[10.5px] font-bold font-mono text-slate-400 uppercase tracking-widest">
-                Registered product shortcuts ({products.length})
-              </span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
-              {products.map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => handleItemBarcodeTrigger(p.barcode || p.sku)}
-                  className="flex items-center justify-between p-2.5 bg-white border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/20 text-left rounded-xl transition-all group cursor-pointer focus:outline-none"
-                >
-                  <div className="space-y-0.5 max-w-[70%]">
-                    <p className="text-[11px] font-bold text-slate-800 truncate leading-snug group-hover:text-emerald-800">{p.name}</p>
-                    <p className="text-[9.5px] font-mono text-slate-450 truncate">Barcode: {p.barcode || 'N/A'}</p>
-                  </div>
-                  <span className="text-[9.5px] font-mono font-bold text-slate-500 bg-slate-100 border border-slate-200/80 px-1.5 py-0.5 rounded leading-none shrink-0 group-hover:bg-emerald-500 group-hover:text-white transition-all">{p.sku}</span>
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
 
-        <div className="bg-slate-50 border-t border-slate-200 px-6 py-4.5 flex items-start space-x-2.5 text-[11px] text-slate-550 shrink-0 select-none leading-relaxed">
+        <div className="bg-slate-50 border-t border-slate-200 px-6 py-4.5 flex items-start space-x-2.5 text-[11px] text-slate-550 shrink-0 select-none leading-relaxed rounded-b-3xl">
           <HelpCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-          <p>Scanning fills POS barcode search. Supports Camera, USB, and Bluetooth scanners.</p>
+          <p>Scanned items are added straight to the cart. Works with Camera, USB, and Bluetooth (paired) scanners.</p>
         </div>
+    </>
+  );
+
+  if (inline) {
+    return (
+      <div className="relative bg-white border border-slate-200 rounded-3xl shadow-sm w-full overflow-hidden flex flex-col">
+        {content}
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-sm animate-fade-in font-sans">
+      <div className="relative bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+        {content}
       </div>
     </div>
   );
