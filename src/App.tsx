@@ -3,7 +3,7 @@ import JasperSplashScreen from './shared/components/JasperSplashScreen';
 import { User, Tenant } from './types';
 import { useTheme } from './shared/contexts/ThemeContext';
 import { useTenantLogo } from './shared/contexts/TenantLogoContext';
-import { getSecureDataBridgeClient, isPlaceholderSecureDataBridgeClient } from './shared/dataBridge/secureDataBridge';
+import { getSecureDataBridgeClient, isPlaceholderSecureDataBridgeClient, isPasswordRecoverySessionActive } from './shared/dataBridge/secureDataBridge';
 import { endCloudSession, startCloudSession, touchCloudSession } from './shared/utils/sessionControl';
 import { pullFromCloud, pushToCloud } from './shared/utils/dbSync';
 import { configureOnlineStorage, resetOnlineStorage } from './shared/utils/onlineStorage';
@@ -445,6 +445,12 @@ export default function App() {
         const { data: sessionData } = await client.auth.getSession();
         const authUser = sessionData?.session?.user;
         if (!authUser?.id) return;
+
+        // A password-recovery link also establishes a real session, but it
+        // must land the user on the "set a new password" screen, not here --
+        // auto-signing them into the dashboard would skip that screen
+        // entirely and leave their password never actually changed.
+        if (isPasswordRecoverySessionActive()) return;
 
         const { data: userProfile, error: profileError } = await client
           .from('users')

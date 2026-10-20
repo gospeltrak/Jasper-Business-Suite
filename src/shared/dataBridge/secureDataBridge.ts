@@ -98,3 +98,18 @@ export const secureDataBridge = createClient(secureDataUrl, secureDataAnonKey, {
     fetch: isStaticPlaceholder ? (async () => new Response('{}', { status: 200 })) as any : undefined
   }
 });
+
+// A password-recovery link signs the browser in just like a normal login
+// (Supabase has no other way to let the user prove they own the account),
+// so the app's "there is a session, open the dashboard" logic cannot tell
+// the two apart by calling getSession() alone -- it would silently skip
+// straight past the "set a new password" screen. Registered here, at
+// module load, so it is listening before anything else in the app runs
+// and can never miss the PASSWORD_RECOVERY event racing a later screen's
+// own subscription.
+let passwordRecoverySessionActive = false;
+secureDataBridge.auth.onAuthStateChange((event: string) => {
+  if (event === 'PASSWORD_RECOVERY') passwordRecoverySessionActive = true;
+  if (event === 'SIGNED_OUT') passwordRecoverySessionActive = false;
+});
+export const isPasswordRecoverySessionActive = () => passwordRecoverySessionActive;
