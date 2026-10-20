@@ -6,6 +6,9 @@ import {
   X
 } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
+import { useTranslation } from '../contexts/LanguageContext';
+
+type CameraErrorCode = 'permission' | 'not-found' | 'in-use' | 'generic';
 
 interface DashboardBarcodeScannerProps {
   isOpen: boolean;
@@ -25,10 +28,11 @@ export default function DashboardBarcodeScanner({
   onScanSuccess,
   inline = false
 }: DashboardBarcodeScannerProps) {
+  const { lang } = useTranslation();
   const [useBeep] = useState(true);
   const [scanSuccessAnim, setScanSuccessAnim] = useState<string | null>(null);
-  const [cameraError, setCameraError] = useState<string | null>(null);
-  
+  const [cameraErrorCode, setCameraErrorCode] = useState<CameraErrorCode | null>(null);
+
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const scannerContainerRef = useRef<HTMLDivElement>(null);
   const lastScanRef = useRef<{ value: string; at: number }>({ value: '', at: 0 });
@@ -85,19 +89,22 @@ export default function DashboardBarcodeScanner({
 
   const startCamera = async () => {
     try {
-      setCameraError(null);
+      setCameraErrorCode(null);
       const html5QrCode = new Html5Qrcode("reader");
       scannerRef.current = html5QrCode;
 
-      const config = { 
-        fps: 10, 
-        qrbox: { width: 250, height: 150 },
-        aspectRatio: 1.333334 
+      const config = {
+        fps: 10,
+        // Sized to fit the shorter viewfinder box below -- this is the
+        // library's own shaded-overlay scan guide (the open rectangle the
+        // user sees), not a custom one drawn on top of it.
+        qrbox: { width: 230, height: 110 },
+        aspectRatio: 1.333334
       };
 
       await html5QrCode.start(
-        { facingMode: "environment" }, 
-        config, 
+        { facingMode: "environment" },
+        config,
         (decodedText) => {
           const now = Date.now();
           // Debounce: Same barcode must wait 1.8s to be scanned again
@@ -112,7 +119,21 @@ export default function DashboardBarcodeScanner({
       );
     } catch (err: any) {
       console.error('Camera init error:', err);
-      setCameraError('Camera scanning unavailable. Please use a hardware scanner or enter code manually.');
+      // html5-qrcode wraps the real DOMException into a plain describing
+      // string ("Error getting userMedia, error = NotAllowedError: ...")
+      // instead of rethrowing it, so the only reliable signal left is that
+      // name appearing inside the stringified error -- there is no .name
+      // property to read directly here.
+      const text = String(err?.message ?? err ?? '');
+      if (/NotAllowedError|PermissionDeniedError|SecurityError/i.test(text)) {
+        setCameraErrorCode('permission');
+      } else if (/NotFoundError|DevicesNotFoundError/i.test(text)) {
+        setCameraErrorCode('not-found');
+      } else if (/NotReadableError|TrackStartError/i.test(text)) {
+        setCameraErrorCode('in-use');
+      } else {
+        setCameraErrorCode('generic');
+      }
     }
   };
 
@@ -159,11 +180,27 @@ export default function DashboardBarcodeScanner({
 
   if (!isOpen) return null;
 
+  const errorCopy = cameraErrorCode ? (lang === 'sw' ? {
+    permission: { title: 'Ruhusa ya kamera imekataliwa', message: 'Ruhusu matumizi ya kamera kwenye mipangilio ya kivinjari chako kisha jaribu tena. Unaweza pia kutumia scanner ya USB au Bluetooth.' },
+    'not-found': { title: 'Hakuna kamera iliyopatikana', message: 'Kifaa hiki hakina kamera inayoweza kutumika kuscan. Tumia scanner ya USB au Bluetooth.' },
+    'in-use': { title: 'Kamera inatumika', message: 'Programu nyingine kwenye kifaa hiki inatumia kamera. Ifunge kisha jaribu tena.' },
+    generic: { title: 'Hakuna connection ya kamera', message: 'Imeshindikana kuunganisha kamera. Jaribu tena, au tumia scanner ya USB au Bluetooth.' },
+  }[cameraErrorCode] : {
+    permission: { title: 'Camera permission denied', message: 'Allow camera access in your browser settings, then try again. You can also use a USB or Bluetooth scanner.' },
+    'not-found': { title: 'No camera found', message: 'This device has no usable camera. Use a USB or Bluetooth scanner instead.' },
+    'in-use': { title: 'Camera already in use', message: 'Another app on this device is using the camera. Close it and try again.' },
+    generic: { title: 'No camera connection', message: 'Could not connect to the camera. Try again, or use a USB or Bluetooth scanner.' },
+  }[cameraErrorCode]) : null;
+
   const content = (
     <>
-        <div className="flex-grow overflow-y-auto p-3 space-y-3">
-          {/* Camera scan target */}
-          <div className="relative w-full h-64 bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden flex flex-col items-center justify-center">
+        <div className="p-2">
+          {/* Camera scan target -- short, wide, like a real barcode-scanner
+             viewport. The open centre rectangle is the library's own
+             shaded-overlay scan guide (see qrbox in startCamera); it stays
+             empty/clear so the live camera feed shows through while it
+             works, and turns into the error panel below only on failure. */}
+          <div className="relative w-full h-40 bg-slate-950 rounded-2xl overflow-hidden flex items-center justify-center">
             <button
               onClick={onClose}
               aria-label="Close scanner"
@@ -174,33 +211,28 @@ export default function DashboardBarcodeScanner({
 
             {scanSuccessAnim && (
               <div className="absolute inset-0 z-20 bg-emerald-500/90 flex flex-col items-center justify-center text-white p-4 text-center animate-fade-in">
-                <CheckCircle className="w-12 h-12 text-white animate-bounce mb-2" />
-                <h4 className="text-white font-bold text-sm tracking-wide">SCANNED SUCCESSFULLY</h4>
+                <CheckCircle className="w-9 h-9 text-white animate-bounce mb-1.5" />
                 <p className="text-[11px] text-emerald-50 tracking-wider font-mono truncate max-w-full">
                   {scanSuccessAnim}
                 </p>
               </div>
             )}
 
-            <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-red-500 shadow-[0_0_12px_rgba(239,68,68,1)] z-10 animate-pulse" />
+            <div
+              id="reader"
+              ref={scannerContainerRef}
+              className="absolute inset-0 w-full h-full [&_video]:absolute [&_video]:inset-0 [&_video]:w-full [&_video]:h-full [&_video]:object-cover"
+            />
 
-            <div id="reader" ref={scannerContainerRef} className="w-full h-full" />
-
-            {cameraError && (
-              <div className="absolute inset-0 bg-slate-950 flex flex-col items-center justify-center p-6 text-center text-slate-400 space-y-3">
-                <Camera className="w-10 h-10 text-slate-600 stroke-[1.25] animate-pulse" />
+            {errorCopy && (
+              <div className="absolute inset-0 z-10 bg-slate-950 flex flex-col items-center justify-center p-4 text-center text-slate-400 space-y-2">
+                <Camera className="w-8 h-8 text-slate-600 stroke-[1.25]" />
                 <div className="space-y-1 max-w-xs">
-                  <p className="text-xs font-bold text-slate-300">Camera decoder unavailable</p>
-                  <p className="text-[10px] text-slate-500 leading-normal">{cameraError}</p>
+                  <p className="text-xs font-bold text-slate-300">{errorCopy.title}</p>
+                  <p className="text-[10px] text-slate-500 leading-normal">{errorCopy.message}</p>
                 </div>
               </div>
             )}
-
-            <div className="absolute inset-x-12 inset-y-8 border-2 border-emerald-500/40 rounded-xl pointer-events-none flex items-center justify-center">
-              <span className="text-[9px] font-mono font-bold text-emerald-400 tracking-widest bg-slate-950/80 px-2 py-0.5 rounded border border-emerald-550/30 uppercase select-none">
-                Align EAN / Code to Laser
-              </span>
-            </div>
           </div>
         </div>
     </>
