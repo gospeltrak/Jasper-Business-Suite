@@ -10,6 +10,23 @@ import { useTranslation } from '../contexts/LanguageContext';
 
 type CameraErrorCode = 'permission' | 'not-found' | 'in-use' | 'generic';
 
+// Serializes every camera start/stop across every mount of this component.
+// Each open/close of the scanner is a real mount/unmount (the parent only
+// renders this component while scanning), and unmount's stopCamera() is
+// fire-and-forget (React does not await cleanup functions) -- so closing
+// and quickly reopening the scanner could previously let a new start()
+// race a still-in-flight stop() for the *same physical camera hardware*,
+// which the device then genuinely refuses with "camera already in use"
+// even though nothing else is really holding it. Routing every start/stop
+// through this single queue, regardless of which mount issued it, makes
+// that impossible.
+let cameraOpQueue: Promise<unknown> = Promise.resolve();
+function queueCameraOp<T>(op: () => Promise<T>): Promise<T> {
+  const run = cameraOpQueue.then(op, op);
+  cameraOpQueue = run.then(() => undefined, () => undefined);
+  return run;
+}
+
 interface DashboardBarcodeScannerProps {
   isOpen: boolean;
   onClose: () => void;
@@ -36,6 +53,10 @@ export default function DashboardBarcodeScanner({
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const scannerContainerRef = useRef<HTMLDivElement>(null);
   const lastScanRef = useRef<{ value: string; at: number }>({ value: '', at: 0 });
+  // Set on unmount so a start() still awaiting the queue (or the camera
+  // permission prompt) releases the camera immediately once it does get a
+  // stream, instead of leaving it open after the user already closed.
+  const closedRef = useRef(false);
 
   // Web Audio BEEP generator
   const playBeep = () => {
@@ -79,15 +100,18 @@ export default function DashboardBarcodeScanner({
 
   // Camera Lifecycle
   useEffect(() => {
+    closedRef.current = false;
     if (isOpen && scannerContainerRef.current) {
       startCamera();
     }
     return () => {
+      closedRef.current = true;
       stopCamera();
     };
   }, [isOpen]);
 
-  const startCamera = async () => {
+  const startCamera = () => queueCameraOp(async () => {
+    if (closedRef.current) return;
     try {
       setCameraErrorCode(null);
       const html5QrCode = new Html5Qrcode("reader");
@@ -117,7 +141,17 @@ export default function DashboardBarcodeScanner({
           // Normal scanning noise, ignore
         }
       );
+
+      // The scanner was closed while we were waiting for the camera
+      // permission prompt / stream to open -- release it right away
+      // instead of leaving it running behind a closed panel.
+      if (closedRef.current) {
+        await html5QrCode.stop().catch(() => {});
+        try { html5QrCode.clear(); } catch { /* already cleared */ }
+        scannerRef.current = null;
+      }
     } catch (err: any) {
+      if (closedRef.current) return;
       console.error('Camera init error:', err);
       // html5-qrcode wraps the real DOMException into a plain describing
       // string ("Error getting userMedia, error = NotAllowedError: ...")
@@ -135,9 +169,9 @@ export default function DashboardBarcodeScanner({
         setCameraErrorCode('generic');
       }
     }
-  };
+  });
 
-  const stopCamera = async () => {
+  const stopCamera = () => queueCameraOp(async () => {
     if (scannerRef.current && scannerRef.current.isScanning) {
       try {
         await scannerRef.current.stop();
@@ -147,7 +181,7 @@ export default function DashboardBarcodeScanner({
       }
     }
     scannerRef.current = null;
-  };
+  });
 
   // Hardware Scanner Listener (HID Keyboard Emulation)
   useEffect(() => {
