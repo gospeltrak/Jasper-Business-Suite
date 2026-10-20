@@ -1,21 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Users, 
-  Smartphone, 
-  Search, 
-  ShieldAlert, 
-  ShieldCheck, 
-  Lock, 
-  Unlock, 
-  Clock, 
-  TrendingUp, 
-  Activity, 
-  FileText, 
-  Database, 
-  ArrowLeft, 
-  UserX, 
-  RefreshCw,
-  AlertTriangle,
+import {
+  Users,
+  Search,
+  Lock,
+  ArrowLeft,
   AppWindow,
   Key
 } from 'lucide-react';
@@ -629,6 +617,12 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
                         className="px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider border border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 disabled:opacity-50 whitespace-nowrap"
                       >
                         Reset Password
+                      </button>
+                      <button
+                        onClick={handleDeleteUser}
+                        className="px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider border border-rose-500/30 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 whitespace-nowrap"
+                      >
+                        Delete User
                       </button>
                     </div>
                   )}

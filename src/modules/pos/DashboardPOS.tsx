@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, memo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Tenant, Product, Sale, SaleItem, SystemSettings } from '../../types';
 import {
   calculateWeightedAverageCost,
@@ -28,16 +28,11 @@ import {
   Printer,
   Download,
   MessageSquare,
-  Pill,
   Coins,
   ShieldAlert,
   Check,
   AlertCircle,
-
-  History,
-  UserCheck,
   Calendar,
-  Settings,
   ChevronDown,
   Package
 } from 'lucide-react';
@@ -111,7 +106,7 @@ const playErrorBeep = () => {
 const playWarningBeep = () => {
   try {
     const ctx = getAudioCtx(); if (!ctx) return;
-    [0, 0.18].forEach((startAt, i) => {
+    [0, 0.18].forEach((startAt) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.connect(gain); gain.connect(ctx.destination);
@@ -266,7 +261,6 @@ export default function DashboardPOS({
 
   // Barcode Scanner integrated states
   const [isScannerOpen, setIsScannerOpen] = useState(false);
-  const [autoInsertOnScan] = useState(true); // always on — supermarket style
   const [barcodeToast, setBarcodeToast] = useState<string | null>(null);
 
   interface ScanToast {
@@ -636,7 +630,6 @@ export default function DashboardPOS({
       const existing = prev.find(i => i.product.id === prod.id);
       if (existing) {
         // limit by stock with weight checks
-        const activeType = existing.dosageType || 'packet';
         const boxWeight = getCartStockWeight(existing);
         
         const nextQty = existing.qty + 1;
@@ -1304,7 +1297,6 @@ export default function DashboardPOS({
             resolveFractionSaleConfig(prod, activeTenant.businessType),
           ).baseQuantityDeducted;
         } else if (prod.isBulkProduct) {
-          const bMode = soldItem.bulkSellMode || (prod.sellingMode === 'hybrid' ? 'scale' : prod.sellingMode);
           deductQty = soldItem.qty;
         } else if (usesPharmacyHierarchy(prod)) {
           const dType = soldItem.dosageType || 'packet';
@@ -1753,7 +1745,7 @@ export default function DashboardPOS({
               <ShoppingCart className="w-8 h-8 text-slate-300 stroke-[1.25]" />
             </div>
           ) : (
-            cartDisplayData.map(({ item, dosageType, doseCfg, tabsSelected, basePrice, discountPrice, dosageLabel, projectedRemaining, isPharmacy, usesPacketPieceUi }) => {
+            cartDisplayData.map(({ item, dosageType, doseCfg, tabsSelected, discountPrice, dosageLabel, projectedRemaining, isPharmacy, usesPacketPieceUi }) => {
               const tabsPerPack = doseCfg.tabsPerPacket;
 
               return (
