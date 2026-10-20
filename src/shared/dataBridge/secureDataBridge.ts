@@ -113,3 +113,20 @@ secureDataBridge.auth.onAuthStateChange((event: string) => {
   if (event === 'SIGNED_OUT') passwordRecoverySessionActive = false;
 });
 export const isPasswordRecoverySessionActive = () => passwordRecoverySessionActive;
+
+// The PASSWORD_RECOVERY event above only fires once Supabase has finished
+// exchanging the link's code for a session -- a real network round trip.
+// A synchronous check like "is there already a cached user, redirect them
+// to the dashboard" can run and complete before that finishes, so it would
+// never see the flag in time and would redirect right past the recovery
+// screen using a stale, unrelated cached profile. Recognising the callback
+// straight from the URL closes that gap: it is true the instant the page
+// loads with a Supabase auth link, before any network call resolves.
+// Supabase strips these params from the URL once the exchange completes,
+// so this naturally turns false again on its own.
+export const hasPendingSupabaseAuthCallback = () => {
+  if (typeof window === 'undefined') return false;
+  const search = window.location.search || '';
+  const hash = window.location.hash || '';
+  return /[?&]code=/.test(search) || /access_token=/.test(hash) || /type=recovery/.test(hash) || /type=recovery/.test(search);
+};

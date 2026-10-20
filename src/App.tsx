@@ -3,7 +3,7 @@ import JasperSplashScreen from './shared/components/JasperSplashScreen';
 import { User, Tenant } from './types';
 import { useTheme } from './shared/contexts/ThemeContext';
 import { useTenantLogo } from './shared/contexts/TenantLogoContext';
-import { getSecureDataBridgeClient, isPlaceholderSecureDataBridgeClient, isPasswordRecoverySessionActive } from './shared/dataBridge/secureDataBridge';
+import { getSecureDataBridgeClient, isPlaceholderSecureDataBridgeClient, isPasswordRecoverySessionActive, hasPendingSupabaseAuthCallback } from './shared/dataBridge/secureDataBridge';
 import { endCloudSession, startCloudSession, touchCloudSession } from './shared/utils/sessionControl';
 import { pullFromCloud, pushToCloud } from './shared/utils/dbSync';
 import { configureOnlineStorage, resetOnlineStorage } from './shared/utils/onlineStorage';
@@ -382,7 +382,16 @@ export default function App() {
 
   // Perform route protection redirects check
   useEffect(() => {
-    if ((currentPath === '/login' || currentPath.startsWith('/login/')) && user) {
+    // A cached profile from a previous normal login can still be sitting in
+    // this browser's localStorage when a password-recovery link is opened.
+    // That makes `user` truthy on the very first render, regardless of the
+    // recovery link -- redirecting away from /login here would bounce the
+    // user to the dashboard before they ever see the "set a new password"
+    // screen, the same bug restoreCloudSession was fixed for, just reached
+    // through the cached-user path instead of a freshly-restored session.
+    // hasPendingSupabaseAuthCallback() covers the brief window on first
+    // load before the PASSWORD_RECOVERY event itself has had time to fire.
+    if ((currentPath === '/login' || currentPath.startsWith('/login/')) && user && !isPasswordRecoverySessionActive() && !hasPendingSupabaseAuthCallback()) {
       const targetPath = getAuthenticatedRoute(user);
       window.history.replaceState({}, '', targetPath);
       setCurrentPath(targetPath);

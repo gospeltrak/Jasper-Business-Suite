@@ -98,6 +98,10 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
   const [isEditingBusinessType, setIsEditingBusinessType] = useState(false);
   const [isSavingBusinessType, setIsSavingBusinessType] = useState(false);
 
+  // Profile field edit panel (name/username/email/phone/plan/payment status)
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+
   // Pager settings for live logs
   useEffect(() => {
     loadUsersData();
@@ -264,6 +268,7 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
       status: editStatus
     };
 
+    setIsSavingProfile(true);
     try {
       await updateSuperAdminUser(selectedUser.id, {
         name: editName,
@@ -274,10 +279,13 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
       const updatedUsersList = users.map(u => u.id === selectedUser.id ? updatedUser : u);
       setUsers(updatedUsersList);
       setSelectedUser(updatedUser);
+      setIsEditingProfile(false);
       handleAuditLog(`Updated profile fields: name, email, plan to ${editPlan}`, selectedUser.name);
       alert('Tenant profile updated in Supabase.');
     } catch (error: any) {
       alert(error?.message || 'Unable to update tenant user.');
+    } finally {
+      setIsSavingProfile(false);
     }
   };
 
@@ -624,7 +632,96 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
                       >
                         Delete User
                       </button>
+                      {selectedUser.status === 'Active' ? (
+                        <button
+                          onClick={() => handleSuspendReactivate('Suspended')}
+                          className="px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider border border-orange-500/30 bg-orange-500/10 text-orange-300 hover:bg-orange-500/20 whitespace-nowrap"
+                        >
+                          Suspend
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleSuspendReactivate('Active')}
+                          className="px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 whitespace-nowrap"
+                        >
+                          Reactivate
+                        </button>
+                      )}
+                      {!isEditingProfile && (
+                        <button
+                          onClick={() => setIsEditingProfile(true)}
+                          className="px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider border border-indigo-500/30 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20 whitespace-nowrap"
+                        >
+                          Edit Profile
+                        </button>
+                      )}
                     </div>
+                  )}
+                  {isUnlocked && isEditingProfile && (
+                    <form onSubmit={handleEditFieldSubmit} className="mt-2 p-3 rounded-lg border border-slate-800 bg-slate-900/60 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        placeholder="Name"
+                        className="px-2.5 py-1.5 rounded-lg text-[10px] font-mono bg-slate-900 border border-slate-800 text-slate-200 placeholder:text-slate-600 outline-none focus:border-indigo-500/50"
+                      />
+                      <input
+                        type="text"
+                        value={editUsername}
+                        onChange={(e) => setEditUsername(e.target.value)}
+                        placeholder="Username"
+                        className="px-2.5 py-1.5 rounded-lg text-[10px] font-mono bg-slate-900 border border-slate-800 text-slate-200 placeholder:text-slate-600 outline-none focus:border-indigo-500/50"
+                      />
+                      <input
+                        type="email"
+                        value={editEmail}
+                        onChange={(e) => setEditEmail(e.target.value)}
+                        placeholder="Email"
+                        className="px-2.5 py-1.5 rounded-lg text-[10px] font-mono bg-slate-900 border border-slate-800 text-slate-200 placeholder:text-slate-600 outline-none focus:border-indigo-500/50"
+                      />
+                      <input
+                        type="text"
+                        value={editPhone}
+                        onChange={(e) => setEditPhone(e.target.value)}
+                        placeholder="Phone"
+                        className="px-2.5 py-1.5 rounded-lg text-[10px] font-mono bg-slate-900 border border-slate-800 text-slate-200 placeholder:text-slate-600 outline-none focus:border-indigo-500/50"
+                      />
+                      <input
+                        type="text"
+                        value={editPlan}
+                        onChange={(e) => setEditPlan(e.target.value)}
+                        placeholder="Subscription plan"
+                        className="px-2.5 py-1.5 rounded-lg text-[10px] font-mono bg-slate-900 border border-slate-800 text-slate-200 placeholder:text-slate-600 outline-none focus:border-indigo-500/50"
+                      />
+                      <select
+                        value={editPaymentStatus}
+                        onChange={(e) => setEditPaymentStatus(e.target.value as UserAccount['paymentStatus'])}
+                        className="px-2.5 py-1.5 rounded-lg text-[10px] font-mono bg-slate-900 border border-slate-800 text-slate-200 outline-none focus:border-indigo-500/50"
+                      >
+                        <option value="Paid">Paid</option>
+                        <option value="Unpaid">Unpaid</option>
+                        <option value="Grace Period">Grace Period</option>
+                        <option value="Overdue">Overdue</option>
+                      </select>
+                      <div className="sm:col-span-2 flex items-center gap-2 mt-1">
+                        <button
+                          type="submit"
+                          disabled={isSavingProfile}
+                          className="px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider border border-indigo-500/30 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20 disabled:opacity-50 whitespace-nowrap"
+                        >
+                          {isSavingProfile ? 'Saving…' : 'Save Profile'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingProfile(false)}
+                          disabled={isSavingProfile}
+                          className="text-[9px] font-mono uppercase tracking-wider text-slate-500 hover:text-slate-300"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </form>
                   )}
                   {/* Location + last activity line */}
                   <div className="flex flex-wrap gap-3 mt-1.5 text-[10px] font-mono text-slate-500">
