@@ -28,7 +28,6 @@ import {
   Wallet,
   Briefcase,
   ClipboardList,
-  Lock,
   FileText,
   ChevronLeft,
   ChevronRight,
@@ -1880,19 +1879,6 @@ export default function DashboardStaff({
 
                 <section className="rounded-3xl border border-slate-200 bg-slate-50 p-4 md:p-5">
                   <h4 className="font-black text-slate-950">Login & Access</h4>
-                  <div className="staff-two-column-grid mt-4 grid grid-cols-2 gap-3">
-                    <div className="rounded-2xl bg-white border border-slate-200 p-3">
-                      <Lock className="w-4 h-4 text-indigo-600 mb-2" />
-                      <span className="block text-[10px] font-black uppercase text-slate-400">Authentication</span>
-                      <strong className="mt-1 block text-sm text-slate-900">Supabase Auth protected</strong>
-                      <p className="mt-1 text-[11px] text-slate-500">No password is stored in workspace data.</p>
-                    </div>
-                    <div className="rounded-2xl bg-white border border-slate-200 p-3">
-                      <Clock className="w-4 h-4 text-amber-600 mb-2" />
-                      <span className="block text-[10px] font-black uppercase text-slate-400">Login email</span>
-                      <strong className="mt-1 block text-sm text-slate-900">{selectedStaff.email ? 'Email on file' : 'Email required'}</strong>
-                    </div>
-                  </div>
                   {availableBranches.length > 1 && (
                     <div className="mt-4 rounded-2xl bg-white border border-slate-200 p-3 space-y-2">
                       <span className="block text-[10px] font-black uppercase text-slate-400">Branch Access</span>
