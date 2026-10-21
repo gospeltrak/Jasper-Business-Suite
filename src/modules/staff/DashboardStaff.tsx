@@ -328,6 +328,8 @@ export default function DashboardStaff({
   const [profilePassword, setProfilePassword] = useState('');
   const [isSavingStaffCredentials, setIsSavingStaffCredentials] = useState(false);
   const [isRegisteringStaff, setIsRegisteringStaff] = useState(false);
+  const [registrationError, setRegistrationError] = useState('');
+  const [registrationErrorField, setRegistrationErrorField] = useState('');
   const [viewingStaffReport, setViewingStaffReport] = useState<StaffSettings | null>(null);
   const [openStaffActionId, setOpenStaffActionId] = useState<string | null>(null);
   const [desktopActionMenuPos, setDesktopActionMenuPos] = useState<{ top: number; right: number } | null>(null);
@@ -600,15 +602,34 @@ export default function DashboardStaff({
 
   const handleRegisterStaff = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fullName || !phone || !email || !registerPassword) return;
+    const form = e.currentTarget as HTMLFormElement;
+    const showRegistrationError = (message: string, field?: HTMLInputElement | HTMLSelectElement | null) => {
+      setRegistrationError(message);
+      setRegistrationErrorField(field?.name || '');
+      field?.focus();
+    };
+    setRegistrationError('');
+    setRegistrationErrorField('');
+    setSuccessMessage('');
+
+    // Handle native constraints here so a blocked submit always has visible feedback.
+    const invalidField = form.querySelector<HTMLInputElement | HTMLSelectElement>('input:invalid, select:invalid');
+    if (invalidField) {
+      const label = invalidField.closest('label')?.querySelector('span')?.textContent || 'Field';
+      showRegistrationError(`${label}: ${invalidField.validationMessage}`, invalidField);
+      return;
+    }
+    if (!fullName.trim() || !phone.trim() || !email.trim() || !registerPassword) {
+      const fieldName = !fullName.trim() ? 'staffFullName' : !phone.trim() ? 'staffPhone' : !email.trim() ? 'staffEmail' : 'staffPassword';
+      showRegistrationError('Enter the staff name, phone number, email and password.', form.elements.namedItem(fieldName) as HTMLInputElement | null);
+      return;
+    }
     if (!isStaffPasswordStrong(registerPassword)) {
-      setSuccessMessage('Password must be at least 10 characters and include a letter and a number.');
-      setTimeout(() => setSuccessMessage(''), 6000);
+      showRegistrationError('Password must be at least 10 characters and include a letter and a number.', form.elements.namedItem('staffPassword') as HTMLInputElement | null);
       return;
     }
     if (roleType === 'standard' && !selectedRole) {
-      setSuccessMessage('Create a role in Settings → Roles & Permissions before registering staff.');
-      setTimeout(() => setSuccessMessage(''), 6000);
+      showRegistrationError('Create a role in Settings → Roles & Permissions before registering staff.', form.elements.namedItem('staffRole') as HTMLSelectElement | null);
       return;
     }
 
@@ -1160,7 +1181,7 @@ export default function DashboardStaff({
         </div>
       </div>
 
-      {successMessage && (
+      {successMessage && activeTab !== 'register' && (
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800 flex items-center gap-2">
           <CheckCircle2 className="w-5 h-5" />
           <span className="min-w-0 flex-1">{successMessage}</span>
@@ -1342,26 +1363,31 @@ export default function DashboardStaff({
             </button>
           </div>
 
-          <form onSubmit={handleRegisterStaff} className="space-y-6">
+          <form
+            noValidate
+            onSubmit={handleRegisterStaff}
+            onChange={() => { setRegistrationError(''); setRegistrationErrorField(''); }}
+            className="space-y-6 [&_[aria-invalid=true]]:border-rose-500 [&_[aria-invalid=true]]:ring-1 [&_[aria-invalid=true]]:ring-rose-500"
+          >
             <div className="grid grid-cols-1 xl:grid-cols-[1.05fr_0.95fr] gap-5">
               <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4 md:p-5 space-y-4">
                 <h4 className="text-xs font-black uppercase tracking-wider text-slate-500">Login and identity</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <label className="space-y-1.5">
                     <span className="text-xs font-black text-slate-700">Full Name</span>
-                    <input type="text" required value={fullName} onChange={e => setFullName(e.target.value)} placeholder="e.g. Omary Juma" className="w-full min-h-[48px] rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-indigo-500" />
+                    <input type="text" required name="staffFullName" aria-invalid={registrationErrorField === 'staffFullName' || undefined} aria-describedby={registrationErrorField === 'staffFullName' ? 'staff-registration-error' : undefined} value={fullName} onChange={e => setFullName(e.target.value)} placeholder="e.g. Omary Juma" className="w-full min-h-[48px] rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-indigo-500" />
                   </label>
                   <label className="space-y-1.5">
                     <span className="text-xs font-black text-slate-700">Phone Number</span>
-                    <input type="tel" required value={phone} onChange={e => setPhone(e.target.value)} placeholder="e.g. 0712345678" className="w-full min-h-[48px] rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-indigo-500" />
+                    <input type="tel" required name="staffPhone" aria-invalid={registrationErrorField === 'staffPhone' || undefined} aria-describedby={registrationErrorField === 'staffPhone' ? 'staff-registration-error' : undefined} value={phone} onChange={e => setPhone(e.target.value)} placeholder="e.g. 0712345678" className="w-full min-h-[48px] rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-indigo-500" />
                   </label>
                   <label className="space-y-1.5 md:col-span-2">
                     <span className="text-xs font-black text-slate-700">Staff Email</span>
-                    <input type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="staff@example.com" className="w-full min-h-[48px] rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-indigo-500" />
+                    <input type="email" required name="staffEmail" aria-invalid={registrationErrorField === 'staffEmail' || undefined} aria-describedby={registrationErrorField === 'staffEmail' ? 'staff-registration-error' : undefined} value={email} onChange={e => setEmail(e.target.value)} placeholder="staff@example.com" className="w-full min-h-[48px] rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-indigo-500" />
                   </label>
                   <label className="space-y-1.5 md:col-span-2">
                     <span className="text-xs font-black text-slate-700">Staff Password</span>
-                    <input type="password" required minLength={10} value={registerPassword} onChange={e => setRegisterPassword(e.target.value)} placeholder="At least 10 characters, with a letter and a number" className="w-full min-h-[48px] rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-indigo-500" />
+                    <input type="password" required minLength={10} name="staffPassword" aria-invalid={registrationErrorField === 'staffPassword' || undefined} aria-describedby={registrationErrorField === 'staffPassword' ? 'staff-registration-error' : undefined} value={registerPassword} onChange={e => setRegisterPassword(e.target.value)} placeholder="At least 10 characters, with a letter and a number" className="w-full min-h-[48px] rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-indigo-500" />
                     <span className="block text-[10.5px] text-slate-500">They will sign in with this email and password.</span>
                   </label>
                   {availableBranches.length > 1 && (
@@ -1411,7 +1437,7 @@ export default function DashboardStaff({
                   </label>
                   <label className="space-y-1.5">
                     <span className="text-xs font-black text-slate-700">Date Joined</span>
-                    <input type="date" value={dateJoined} onChange={e => setDateJoined(e.target.value)} className="w-full min-h-[48px] rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-indigo-500" />
+                    <input type="date" name="staffDateJoined" aria-invalid={registrationErrorField === 'staffDateJoined' || undefined} aria-describedby={registrationErrorField === 'staffDateJoined' ? 'staff-registration-error' : undefined} value={dateJoined} onChange={e => setDateJoined(e.target.value)} className="w-full min-h-[48px] rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold outline-none focus:border-indigo-500" />
                   </label>
                 </div>
               </div>
@@ -1426,7 +1452,7 @@ export default function DashboardStaff({
                   ) : (
                     <label className="space-y-1.5 block">
                       <span className="text-xs font-black text-slate-700">Assign Role</span>
-                      <select value={selectedRole} onChange={e => setSelectedRole(e.target.value)} className="w-full min-h-[48px] rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black outline-none focus:border-indigo-500">
+                      <select name="staffRole" aria-invalid={registrationErrorField === 'staffRole' || undefined} aria-describedby={registrationErrorField === 'staffRole' ? 'staff-registration-error' : undefined} value={selectedRole} onChange={e => setSelectedRole(e.target.value)} className="w-full min-h-[48px] rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black outline-none focus:border-indigo-500">
                         {customRoles.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
                       </select>
                     </label>
@@ -1454,7 +1480,7 @@ export default function DashboardStaff({
                     </label>
                     <label className="space-y-1.5">
                       <span className="text-xs font-black text-slate-700">License Plate</span>
-                      <input type="text" required={roleType === 'delivery'} value={licensePlate} onChange={e => setLicensePlate(e.target.value)} placeholder="e.g. MC12345" className="w-full min-h-[48px] rounded-2xl border border-slate-200 bg-white px-4 text-sm font-mono font-black uppercase outline-none" />
+                      <input type="text" required={roleType === 'delivery'} name="staffLicensePlate" aria-invalid={registrationErrorField === 'staffLicensePlate' || undefined} aria-describedby={registrationErrorField === 'staffLicensePlate' ? 'staff-registration-error' : undefined} value={licensePlate} onChange={e => setLicensePlate(e.target.value)} placeholder="e.g. MC12345" className="w-full min-h-[48px] rounded-2xl border border-slate-200 bg-white px-4 text-sm font-mono font-black uppercase outline-none" />
                     </label>
                   </div>
                 )}
@@ -1467,7 +1493,7 @@ export default function DashboardStaff({
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <label className="space-y-1.5">
                       <span className="text-xs font-black text-slate-700">Basic Salary / Wage</span>
-                      <input type="number" min="0" value={salaryAmount || ''} onChange={e => setSalaryAmount(Number(e.target.value) || 0)} placeholder="0" className="w-full min-h-[46px] rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold outline-none" />
+                      <input type="number" min="0" name="staffSalary" aria-invalid={registrationErrorField === 'staffSalary' || undefined} aria-describedby={registrationErrorField === 'staffSalary' ? 'staff-registration-error' : undefined} value={salaryAmount || ''} onChange={e => setSalaryAmount(Number(e.target.value) || 0)} placeholder="0" className="w-full min-h-[46px] rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold outline-none" />
                     </label>
                     <label className="space-y-1.5">
                       <span className="text-xs font-black text-slate-700">Frequency</span>
@@ -1481,7 +1507,7 @@ export default function DashboardStaff({
                     </label>
                     <label className="space-y-1.5">
                       <span className="text-xs font-black text-slate-700">Salary Start Date</span>
-                      <input type="date" value={salaryStartDate} onChange={e => setSalaryStartDate(e.target.value)} className="w-full min-h-[46px] rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold outline-none" />
+                      <input type="date" name="staffSalaryStartDate" aria-invalid={registrationErrorField === 'staffSalaryStartDate' || undefined} aria-describedby={registrationErrorField === 'staffSalaryStartDate' ? 'staff-registration-error' : undefined} value={salaryStartDate} onChange={e => setSalaryStartDate(e.target.value)} className="w-full min-h-[46px] rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-semibold outline-none" />
                     </label>
                     <label className="space-y-1.5">
                       <span className="text-xs font-black text-slate-700">Salary Notes</span>
@@ -1505,6 +1531,16 @@ export default function DashboardStaff({
               </div>
             </div>
 
+            {registrationError && (
+              <p id="staff-registration-error" role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-bold text-rose-800">
+                {registrationError}
+              </p>
+            )}
+            {successMessage && (
+              <p role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800">
+                {successMessage}
+              </p>
+            )}
             <div className="flex justify-end">
               <button type="submit" disabled={isRegisteringStaff} className="w-full md:w-auto min-h-[52px] rounded-2xl bg-indigo-600 px-8 text-sm font-black text-white hover:bg-indigo-700 active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2">
                 <UserPlus className="w-4 h-4" />
@@ -2167,3 +2203,4 @@ export default function DashboardStaff({
     </div>
   );
 }
+
