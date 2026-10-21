@@ -5,16 +5,25 @@ import {
   Lock,
   ArrowLeft,
   AppWindow,
-  Key
+  Key,
+  MoreVertical,
+  Eye,
+  MapPin,
+  Pencil,
+  Trash2,
+  ChevronRight,
+  X
 } from 'lucide-react';
 import {
   deleteSuperAdminUser,
+  listSuperAdminTenantStaff,
   loadSuperAdminOverview,
   loadSuperAdminTenantWorkspace,
   mapSuperAdminUsers,
   removeSuperAdminTenantStaffLogin,
   resetSuperAdminUserPassword,
   SuperAdminOverview,
+  SuperAdminTenantStaffRow,
   SuperAdminUserRow,
   updateSuperAdminUser,
   verifySuperAdminPassword
@@ -95,11 +104,15 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
   // Custom password reset state
   const [newPasswordValue, setNewPasswordValue] = useState('');
 
-  // Orphaned-staff-login cleanup: see revokeBusinessStaffLogin on the server
-  // for why a staff login can exist with no entry left in the Staff menu to
-  // remove it from.
-  const [removeStaffEmail, setRemoveStaffEmail] = useState('');
-  const [isRemovingStaffLogin, setIsRemovingStaffLogin] = useState(false);
+  // Tenant staff list, shown inside Edit Subscriber. Loaded on demand (not
+  // every row has staff, and Super Admin never saw this list before).
+  const [tenantStaff, setTenantStaff] = useState<SuperAdminTenantStaffRow[]>([]);
+  const [isLoadingTenantStaff, setIsLoadingTenantStaff] = useState(false);
+  const [removingStaffId, setRemovingStaffId] = useState<string | null>(null);
+
+  // Per-card "⋮" actions sheet (write mode only) and the location it can open.
+  const [actionsMenuUser, setActionsMenuUser] = useState<UserAccount | null>(null);
+  const [locationModalUser, setLocationModalUser] = useState<UserAccount | null>(null);
 
   // Business type (retail/pharmacy) correction state
   const [isEditingBusinessType, setIsEditingBusinessType] = useState(false);
@@ -318,40 +331,50 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
     }
   };
 
-  const handleDeleteUser = async () => {
-    if (!selectedUser) return;
-    if (!confirm(`Are you absolutely sure you want to permanently erase ${selectedUser.name} enterprise nodes from our system?`)) return;
+  const handleDeleteUser = async (target: UserAccount | null = selectedUser) => {
+    if (!target) return;
+    if (!confirm(`Are you absolutely sure you want to permanently erase ${target.name} enterprise nodes from our system?`)) return;
 
     if (!(await verifySecureKey())) return;
 
     try {
-      await deleteSuperAdminUser(selectedUser.id);
-      const truncatedUsersList = users.filter(u => u.id !== selectedUser.id);
-      setUsers(truncatedUsersList);
-      handleAuditLog(`Deleted tenant account from nodes`, selectedUser.name);
+      await deleteSuperAdminUser(target.id);
+      setUsers(users.filter(u => u.id !== target.id));
+      handleAuditLog(`Deleted tenant account from nodes`, target.name);
       alert(`Tenant/user deleted from Supabase.`);
-      setSelectedUser(null);
+      if (selectedUser?.id === target.id) setSelectedUser(null);
+      if (actionsMenuUser?.id === target.id) setActionsMenuUser(null);
     } catch (error: any) {
       alert(error?.message || 'Unable to delete this tenant/user.');
     }
   };
 
-  const handleRemoveStaffLogin = async () => {
-    if (!selectedUser?.tenantId || !removeStaffEmail.trim()) return;
+  const loadTenantStaff = async (tenantId: string) => {
+    setIsLoadingTenantStaff(true);
+    try {
+      setTenantStaff(await listSuperAdminTenantStaff(tenantId));
+    } catch (error: any) {
+      alert(error?.message || 'Unable to load this tenant\'s staff.');
+      setTenantStaff([]);
+    } finally {
+      setIsLoadingTenantStaff(false);
+    }
+  };
+
+  const handleRemoveStaffFromList = async (staff: SuperAdminTenantStaffRow) => {
+    if (!selectedUser?.tenantId) return;
+    if (!confirm(`Revoke ${staff.name || staff.email}'s login? They will no longer be able to sign in.`)) return;
     if (!(await verifySecureKey())) return;
 
-    setIsRemovingStaffLogin(true);
+    setRemovingStaffId(staff.id);
     try {
-      const result: any = await removeSuperAdminTenantStaffLogin(selectedUser.tenantId, removeStaffEmail.trim());
-      handleAuditLog(`Removed staff login (${removeStaffEmail.trim()})`, selectedUser.name);
-      alert(result?.status === 'no_login'
-        ? 'That email has no login to remove -- nothing changed.'
-        : `Staff login for ${removeStaffEmail.trim()} has been revoked.`);
-      setRemoveStaffEmail('');
+      await removeSuperAdminTenantStaffLogin(selectedUser.tenantId, staff.email);
+      setTenantStaff(prev => prev.filter(item => item.id !== staff.id));
+      handleAuditLog(`Removed staff login (${staff.email})`, selectedUser.name);
     } catch (error: any) {
       alert(error?.message || 'Unable to remove that staff login.');
     } finally {
-      setIsRemovingStaffLogin(false);
+      setRemovingStaffId(null);
     }
   };
 
@@ -443,138 +466,150 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
       )}
 
       {isLoading && (
-        <div className="rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 text-xs text-slate-400">
+        <div className="rounded-2xl border border-slate-800/80 bg-slate-900 px-4 py-3 text-sm text-slate-400">
           Loading live tenants, users, sessions, and workspace data...
         </div>
       )}
       
       {/* Earnings Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <div className="bg-slate-950 p-4 rounded-xl border border-slate-850">
-          <div className="text-cyan-400 font-mono text-[10px] uppercase font-bold tracking-wider">Direct Users Revenue</div>
-          <div className="text-2xl font-black text-white font-mono mt-1">TSh {totalDirectRevenue.toLocaleString()}</div>
-          <div className="text-[10px] text-slate-500 mt-1">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+        <div className="bg-slate-900 p-3.5 sm:p-4 md:p-5 rounded-2xl border border-slate-800/80 shadow-sm shadow-black/20">
+          <div className="text-slate-400 text-[10px] sm:text-xs font-semibold uppercase tracking-wide">Direct Users Revenue</div>
+          <div className="text-lg sm:text-2xl md:text-3xl font-bold text-white font-mono mt-1.5 sm:mt-2 tracking-tight">TSh {totalDirectRevenue.toLocaleString()}</div>
+          <div className="text-[10px] sm:text-xs text-slate-500 mt-1.5 sm:mt-2">
             {users.filter(u => u.referralSource === 'direct').length} direct platform registrations
           </div>
         </div>
 
-        <div className="bg-slate-950 p-4 rounded-xl border border-slate-850">
-          <div className="text-amber-400 font-mono text-[10px] uppercase font-bold tracking-wider">Sub-Affiliate Users Revenue</div>
-          <div className="text-2xl font-black text-amber-400 font-mono mt-1">TSh {totalAffiliateRevenue.toLocaleString()}</div>
-          <div className="text-[10px] text-slate-500 mt-1">
+        <div className="bg-slate-900 p-3.5 sm:p-4 md:p-5 rounded-2xl border border-slate-800/80 shadow-sm shadow-black/20">
+          <div className="text-amber-400/90 text-[10px] sm:text-xs font-semibold uppercase tracking-wide">Sub-Affiliate Users Revenue</div>
+          <div className="text-lg sm:text-2xl md:text-3xl font-bold text-white font-mono mt-1.5 sm:mt-2 tracking-tight">TSh {totalAffiliateRevenue.toLocaleString()}</div>
+          <div className="text-[10px] sm:text-xs text-slate-500 mt-1.5 sm:mt-2">
             {users.filter(isSubAffiliateSubscriber).length} sub-affiliate promo-code registrations
           </div>
         </div>
 
-        <div className="bg-slate-950 p-4 rounded-xl border border-slate-850 col-span-1 md:col-span-2 lg:col-span-1 flex flex-col justify-center">
-          <div className="text-emerald-400 font-mono text-[10px] uppercase font-bold tracking-wider font-bold">Total Operations Revenue</div>
-          <div className="text-2xl font-black text-emerald-400 font-mono mt-1">TSh {(totalDirectRevenue + totalAffiliateRevenue).toLocaleString()}</div>
-          <div className="text-[10px] text-slate-400 mt-1">Directly live synchronized from SQLite branch pools</div>
+        <div className="bg-slate-900 p-3.5 sm:p-4 md:p-5 rounded-2xl border border-emerald-800/30 shadow-sm shadow-black/20 col-span-2 lg:col-span-1 flex flex-col justify-center">
+          <div className="text-emerald-400 text-[10px] sm:text-xs font-semibold uppercase tracking-wide">Total Operations Revenue</div>
+          <div className="text-lg sm:text-2xl md:text-3xl font-bold text-emerald-400 font-mono mt-1.5 sm:mt-2 tracking-tight">TSh {(totalDirectRevenue + totalAffiliateRevenue).toLocaleString()}</div>
+          <div className="text-[10px] sm:text-xs text-slate-500 mt-1.5 sm:mt-2">Live, synchronized from branch pools</div>
         </div>
       </div>
 
       {/* Main Body Grid */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
-        
-        {/* Users Navigation Sidebar — sticky on desktop only, normal flow on mobile/tablet */}
-        <div className="xl:col-span-4 space-y-4 xl:sticky xl:top-[6.5rem] xl:z-10 xl:self-start">
-          <div className="flex flex-col gap-2.5 bg-slate-950 p-4 rounded-xl border border-slate-850">
-            <h3 className="text-xs font-mono uppercase text-slate-400 font-bold flex items-center gap-1.5">
-              <Users className="w-3.5 h-3.5 text-emerald-400" />
+
+        {/* Users Navigation Sidebar — shown below the Hub on mobile/tablet, left column on desktop */}
+        <div className="order-2 xl:order-none xl:col-span-4 space-y-4 xl:sticky xl:top-[6.5rem] xl:z-10 xl:self-start">
+          <div className="flex flex-col gap-3 bg-slate-900 p-4 rounded-2xl border border-slate-800/80">
+            <h3 className="text-sm font-semibold text-slate-300 flex items-center gap-2">
+              <Users className="w-4 h-4 text-emerald-400" />
               <span>Registered Subscriber Businesses</span>
             </h3>
-            
+
             <div className="relative">
-              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-              <input 
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+              <input
                 type="text"
                 placeholder="Search business, owner, email or phone..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-slate-900 border border-slate-800 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white outline-none focus:border-slate-700"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-sm text-white placeholder:text-slate-600 outline-none focus:border-slate-700"
               />
             </div>
 
-            <div className="flex bg-slate-900 p-1 rounded-lg border border-slate-800 flex-wrap">
-              <button 
+            <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800 flex-wrap gap-1">
+              <button
                 onClick={() => setCategoryFilter('all')}
-                className={`flex-1 min-w-[20%] text-center py-1.5 px-1 text-[9px] font-mono rounded font-bold uppercase ${categoryFilter === 'all' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                className={`flex-1 min-w-[20%] text-center py-1.5 px-2 text-xs rounded-lg font-medium transition-colors ${categoryFilter === 'all' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:text-slate-300'}`}
               >
                 All
               </button>
               <button
                 onClick={() => setCategoryFilter('organic')}
-                className={`flex-1 min-w-[20%] text-center py-1.5 px-1 text-[9px] font-mono rounded font-bold uppercase ${categoryFilter === 'organic' ? 'bg-slate-800 text-emerald-400' : 'text-slate-500 hover:text-slate-300'}`}
+                className={`flex-1 min-w-[20%] text-center py-1.5 px-2 text-xs rounded-lg font-medium transition-colors ${categoryFilter === 'organic' ? 'bg-slate-800 text-emerald-400' : 'text-slate-500 hover:text-slate-300'}`}
               >
-                Organic Subscribers
+                Organic
               </button>
-              <button 
+              <button
                 onClick={() => setCategoryFilter('sub_affiliate')}
-                className={`flex-1 min-w-[20%] text-center py-1.5 px-1 text-[9px] font-mono rounded font-bold uppercase ${categoryFilter === 'sub_affiliate' ? 'bg-slate-800 text-amber-500' : 'text-slate-500 hover:text-slate-300'}`}
+                className={`flex-1 min-w-[20%] text-center py-1.5 px-2 text-xs rounded-lg font-medium transition-colors ${categoryFilter === 'sub_affiliate' ? 'bg-slate-800 text-amber-400' : 'text-slate-500 hover:text-slate-300'}`}
               >
-                Sub Affiliates Subscriber
+                Sub-Affiliates
               </button>
             </div>
           </div>
 
-          <div className="bg-slate-950 border border-slate-850 rounded-xl overflow-hidden max-h-[380px] overflow-y-auto">
-            <div className="p-3 bg-slate-900 border-b border-slate-850 text-[10px] font-mono uppercase text-slate-500 tracking-wider">
-              {filteredUsers.length} matched businesses found
+          <div className="bg-slate-900 border border-slate-800/80 rounded-2xl overflow-hidden shadow-sm shadow-black/20 max-h-[380px] overflow-y-auto">
+            <div className="px-4 py-2.5 bg-slate-900/80 backdrop-blur border-b border-slate-800/80 text-xs text-slate-500 sticky top-0">
+              {filteredUsers.length} matched businesses
             </div>
             {filteredUsers.length === 0 ? (
-              <div className="p-6 text-center text-xs text-slate-500">No users match query.</div>
+              <div className="p-6 text-center text-sm text-slate-500">No users match query.</div>
             ) : (
-              <div className="divide-y divide-slate-900">
+              <div className="divide-y divide-slate-800/60">
                 {filteredUsers.map(u => {
                   const isSelected = selectedUser?.id === u.id;
                   return (
-                    <div 
+                    <div
                       key={u.id}
                       onClick={() => { void selectUser(u); }}
-                      className={`p-3 transition-colors cursor-pointer hover:bg-slate-900/40 text-slate-300 ${isSelected ? 'bg-emerald-500/10 border-transparent text-white font-bold' : ''}`}
+                      className={`p-4 transition-colors cursor-pointer hover:bg-slate-800/30 shadow-sm shadow-black/20 ${isSelected ? 'bg-emerald-500/10' : ''}`}
                     >
-                      <div className="flex justify-between items-start gap-1">
+                      <div className="flex justify-between items-start gap-2">
                         <div className="min-w-0">
-                          <span className="block truncate text-sm font-black text-white">{u.tenantName}</span>
-                          <span className="mt-0.5 block truncate text-[10px] font-semibold text-slate-400">Subscriber: {u.name}</span>
-                          <span className="block truncate text-[9px] font-mono leading-tight text-slate-600">{u.username || u.email}</span>
+                          <span className="block truncate text-base font-semibold text-white">{u.tenantName}</span>
+                          <span className="mt-0.5 block truncate text-xs text-slate-400">{u.name}</span>
+                          <span className="block truncate text-xs text-slate-600">{u.username || u.email}</span>
                         </div>
-                        <div className="flex flex-col items-end gap-1.5">
-                          <span className={`px-1.5 py-0.5 rounded text-[8px] font-mono font-bold uppercase shrink-0 ${u.status === 'Active' ? 'bg-emerald-500/10 text-emerald-400' : u.status === 'Suspended' ? 'bg-red-500/10 text-red-400' : 'bg-amber-500/10 text-amber-400'}`}>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase ${u.status === 'Active' ? 'bg-emerald-500/10 text-emerald-400' : u.status === 'Suspended' ? 'bg-rose-500/10 text-rose-400' : 'bg-amber-500/10 text-amber-400'}`}>
                             {u.status}
                           </span>
-	                        </div>
-	                      </div>
-	                      <div className="mt-2 flex items-center justify-between text-[9px] font-mono text-slate-500">
-	                        <span className="capitalize">{u.referralSource} path</span>
-	                        {isUnlocked ? (
-	                          <button
-	                            type="button"
-	                            onClick={(e) => {
-	                              e.stopPropagation();
-	                              setMirrorTarget(u);
-	                              setShowMirrorModal(true);
-	                              setMirrorPass1('');
-	                              setMirrorPass2('');
-	                              setMirrorError('');
-	                            }}
-	                            title="Open mirror account"
-	                            className="text-indigo-300 hover:text-white underline decoration-indigo-500/40 underline-offset-2 transition-colors"
-	                          >
-	                            {u.dateCreated}
-	                          </button>
-	                        ) : (
-	                          <span>{u.dateCreated}</span>
-	                        )}
-	                      </div>
-                      <div className="mt-1 flex items-center gap-3 text-[9px] font-mono text-slate-600">
-                        {(u as any).lastActivityLabel && (u as any).lastActivityLabel !== 'Never' && (
-                          <span>Active: {(u as any).lastActivityLabel}</span>
-                        )}
-                        {(u as any).location && (u as any).location !== 'Location not provided' && (
-                          <span className="truncate max-w-[140px]">📍 {(u as any).location}</span>
+                          {isUnlocked && (
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setActionsMenuUser(u); }}
+                              title="Subscriber actions"
+                              className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-white hover:bg-slate-800 transition-colors"
+                            >
+                              <MoreVertical className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <div className="mt-2.5 flex items-center justify-between text-xs text-slate-500">
+                        <span className="capitalize">{u.referralSource} path</span>
+                        {isUnlocked ? (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setMirrorTarget(u);
+                              setShowMirrorModal(true);
+                              setMirrorPass1('');
+                              setMirrorPass2('');
+                              setMirrorError('');
+                            }}
+                            title="Open mirror account"
+                            className="text-indigo-300 hover:text-indigo-200 underline decoration-indigo-500/30 underline-offset-2 transition-colors"
+                          >
+                            {u.dateCreated}
+                          </button>
+                        ) : (
+                          <span>{u.dateCreated}</span>
                         )}
                       </div>
+                      {((u as any).lastActivityLabel && (u as any).lastActivityLabel !== 'Never') || ((u as any).location && (u as any).location !== 'Location not provided') ? (
+                        <div className="mt-1.5 flex items-center gap-3 text-xs text-slate-600">
+                          {(u as any).lastActivityLabel && (u as any).lastActivityLabel !== 'Never' && (
+                            <span>Active: {(u as any).lastActivityLabel}</span>
+                          )}
+                          {(u as any).location && (u as any).location !== 'Location not provided' && (
+                            <span className="truncate max-w-[140px]">📍 {(u as any).location}</span>
+                          )}
+                        </div>
+                      ) : null}
                     </div>
                   );
                 })}
@@ -583,8 +618,8 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
           </div>
         </div>
 
-        {/* User Interactive Workspace (Immersive Layout simulation) */}
-        <div className="xl:col-span-8">
+        {/* User Interactive Workspace (Immersive Layout simulation) — Hub shown above the list on mobile/tablet, right column on desktop */}
+        <div className="order-1 xl:order-none xl:col-span-8">
           {selectedUser ? (
             <div className="bg-slate-950 border border-slate-850 rounded-2xl overflow-hidden shadow-xl">
               {isTenantDetailLoading && (
@@ -653,7 +688,7 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
                         Reset Password
                       </button>
                       <button
-                        onClick={handleDeleteUser}
+                        onClick={() => void handleDeleteUser()}
                         className="px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider border border-rose-500/30 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 whitespace-nowrap"
                       >
                         Delete User
@@ -675,30 +710,15 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
                       )}
                       {!isEditingProfile && (
                         <button
-                          onClick={() => setIsEditingProfile(true)}
+                          onClick={() => {
+                            setIsEditingProfile(true);
+                            if (selectedUser.tenantId) void loadTenantStaff(selectedUser.tenantId);
+                          }}
                           className="px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider border border-indigo-500/30 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20 whitespace-nowrap"
                         >
-                          Edit Profile
+                          Edit Subscriber
                         </button>
                       )}
-                    </div>
-                  )}
-                  {isUnlocked && (
-                    <div className="flex items-center gap-2 mt-2">
-                      <input
-                        type="email"
-                        value={removeStaffEmail}
-                        onChange={(e) => setRemoveStaffEmail(e.target.value)}
-                        placeholder="Staff email to remove login for"
-                        className="px-2.5 py-1.5 rounded-lg text-[10px] font-mono bg-slate-900 border border-slate-800 text-slate-200 placeholder:text-slate-600 outline-none focus:border-indigo-500/50 w-64"
-                      />
-                      <button
-                        onClick={handleRemoveStaffLogin}
-                        disabled={!removeStaffEmail.trim() || isRemovingStaffLogin}
-                        className="px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider border border-rose-500/30 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 disabled:opacity-50 whitespace-nowrap"
-                      >
-                        {isRemovingStaffLogin ? 'Removing…' : 'Remove Staff Login'}
-                      </button>
                     </div>
                   )}
                   {isUnlocked && isEditingProfile && (
@@ -766,6 +786,35 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
                         </button>
                       </div>
                     </form>
+                  )}
+                  {isUnlocked && isEditingProfile && (
+                    <div className="mt-2 p-3 rounded-lg border border-slate-800 bg-slate-900/60">
+                      <h4 className="text-[10px] font-mono uppercase tracking-wider text-slate-500 font-bold mb-2">Staff</h4>
+                      {isLoadingTenantStaff ? (
+                        <p className="text-xs text-slate-500">Loading staff…</p>
+                      ) : tenantStaff.length === 0 ? (
+                        <p className="text-xs text-slate-500">No staff logins for this business.</p>
+                      ) : (
+                        <div className="space-y-1.5">
+                          {tenantStaff.map(staff => (
+                            <div key={staff.id} className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-800">
+                              <div className="min-w-0">
+                                <p className="text-xs font-semibold text-slate-200 truncate">{staff.name || 'Unnamed staff'}</p>
+                                <p className="text-[10px] font-mono text-slate-500 truncate">{staff.email} · {staff.role || 'Cashier'}</p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveStaffFromList(staff)}
+                                disabled={removingStaffId === staff.id}
+                                className="shrink-0 px-2 py-1 rounded-md text-[9px] font-mono font-bold uppercase tracking-wider border border-rose-500/30 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 disabled:opacity-50"
+                              >
+                                {removingStaffId === staff.id ? 'Removing…' : 'Remove'}
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   )}
                   {/* Location + last activity line */}
                   <div className="flex flex-wrap gap-3 mt-1.5 text-[10px] font-mono text-slate-500">
@@ -936,31 +985,31 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
 
             </div>
           ) : (
-            <div className="bg-slate-900/50 border border-slate-850 rounded-2xl p-12 overflow-hidden shadow-xl min-h-[460px] flex flex-col items-center justify-center text-center animate-in fade-in fill-mode-forwards duration-300">
-              <div className="w-20 h-20 bg-indigo-500/10 rounded-full flex items-center justify-center mb-6 ring-4 ring-indigo-500/10 flex-shrink-0">
-                <Users className="w-10 h-10 text-indigo-400" />
+            <div className="bg-slate-900/50 border border-slate-800/80 rounded-2xl p-4 sm:p-5 xl:p-12 overflow-hidden min-h-0 xl:min-h-[460px] flex flex-col items-center justify-center text-center shadow-sm shadow-black/20 animate-in fade-in fill-mode-forwards duration-300">
+              <div className="w-10 h-10 xl:w-16 xl:h-16 bg-emerald-500/10 rounded-full flex items-center justify-center mb-2 xl:mb-6 flex-shrink-0">
+                <Users className="w-5 h-5 xl:w-8 xl:h-8 text-emerald-400" />
               </div>
-              <h2 className="text-2xl font-bold font-sans text-white mb-2 tracking-tight">Global Subscriber Hub</h2>
-              <p className="text-slate-400 text-sm max-w-md mx-auto mb-10 leading-relaxed font-sans">
-                Select a subscriber.
+              <h2 className="text-base xl:text-xl font-semibold text-white mb-1 xl:mb-2 tracking-tight">Global Subscriber Hub</h2>
+              <p className="text-slate-400 text-xs xl:text-sm max-w-md mx-auto mb-4 xl:mb-10 leading-relaxed">
+                Select a subscriber to view their workspace.
               </p>
-              
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-8 w-full max-w-3xl border-t border-slate-800/80 pt-10">
-                <div className="flex flex-col gap-2 items-center">
-                  <span className="text-4xl font-mono font-bold text-slate-200">{countLabel(users.length)}</span>
-                  <span className="text-[10px] uppercase text-emerald-500 font-black tracking-widest">Total Subscribers</span>
+
+              <div className="grid grid-cols-4 gap-2 sm:gap-4 xl:gap-8 w-full max-w-3xl border-t border-slate-800/80 pt-3 xl:pt-10">
+                <div className="flex flex-col gap-0.5 xl:gap-1.5 items-center">
+                  <span className="text-base sm:text-lg xl:text-3xl font-mono font-bold text-slate-200">{countLabel(users.length)}</span>
+                  <span className="text-[9px] sm:text-[10px] xl:text-xs text-slate-400">Total Subscribers</span>
                 </div>
-                <div className="flex flex-col gap-2 items-center">
-                  <span className="text-4xl font-mono font-bold text-emerald-400">{countLabel(users.filter(u => u.status === 'Active').length)}</span>
-                  <span className="text-[10px] uppercase text-slate-500 font-black tracking-widest">Active</span>
+                <div className="flex flex-col gap-0.5 xl:gap-1.5 items-center">
+                  <span className="text-base sm:text-lg xl:text-3xl font-mono font-bold text-emerald-400">{countLabel(users.filter(u => u.status === 'Active').length)}</span>
+                  <span className="text-[9px] sm:text-[10px] xl:text-xs text-slate-400">Active</span>
                 </div>
-                <div className="flex flex-col gap-2 items-center">
-                  <span className="text-4xl font-mono font-bold text-rose-400">{countLabel(users.filter(u => u.status === 'Suspended').length)}</span>
-                  <span className="text-[10px] uppercase text-slate-500 font-black tracking-widest">Suspended</span>
+                <div className="flex flex-col gap-0.5 xl:gap-1.5 items-center">
+                  <span className="text-base sm:text-lg xl:text-3xl font-mono font-bold text-rose-400">{countLabel(users.filter(u => u.status === 'Suspended').length)}</span>
+                  <span className="text-[9px] sm:text-[10px] xl:text-xs text-slate-400">Suspended</span>
                 </div>
-                <div className="flex flex-col gap-2 items-center">
-                  <span className="text-4xl font-mono font-bold text-amber-400">{countLabel(users.filter(u => u.paymentStatus === 'Overdue').length)}</span>
-                  <span className="text-[10px] uppercase text-slate-500 font-black tracking-widest">Overdue</span>
+                <div className="flex flex-col gap-0.5 xl:gap-1.5 items-center">
+                  <span className="text-base sm:text-lg xl:text-3xl font-mono font-bold text-amber-400">{countLabel(users.filter(u => u.paymentStatus === 'Overdue').length)}</span>
+                  <span className="text-[9px] sm:text-[10px] xl:text-xs text-slate-400">Overdue</span>
                 </div>
               </div>
             </div>
@@ -968,6 +1017,128 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
         </div>
 
       </div>
+
+      {actionsMenuUser && (
+        <>
+          <div
+            onClick={() => setActionsMenuUser(null)}
+            className="fixed inset-0 z-[150] bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-150"
+          />
+          <div className="fixed left-0 right-0 bottom-0 z-[160] mx-auto w-full max-w-lg rounded-t-3xl border border-slate-800 bg-slate-900 shadow-2xl animate-in slide-in-from-bottom-10 duration-200">
+            <div className="flex justify-center pt-2.5">
+              <div className="h-1 w-10 rounded-full bg-slate-700" />
+            </div>
+            <div className="px-5 pb-1 pt-3">
+              <h3 className="text-sm font-bold text-white truncate">{actionsMenuUser.tenantName}</h3>
+              <p className="text-xs text-slate-500 truncate">{actionsMenuUser.name} · {actionsMenuUser.email}</p>
+            </div>
+            <div className="p-4 space-y-2">
+              <button
+                type="button"
+                onClick={() => { void selectUser(actionsMenuUser); setActionsMenuUser(null); }}
+                className="w-full flex items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-950 px-3.5 py-3 text-left transition-colors hover:bg-slate-800/60"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-400">
+                    <Eye className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="block text-sm font-semibold text-white">View Subscriber</span>
+                    <span className="block text-[10px] text-slate-500">Open their full workspace</span>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-600" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { setLocationModalUser(actionsMenuUser); setActionsMenuUser(null); }}
+                className="w-full flex items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-950 px-3.5 py-3 text-left transition-colors hover:bg-slate-800/60"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-cyan-500/10 text-cyan-400">
+                    <MapPin className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="block text-sm font-semibold text-white">Subscriber Location</span>
+                    <span className="block text-[10px] text-slate-500">Where this business is registered</span>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-600" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const target = actionsMenuUser;
+                  void selectUser(target);
+                  setIsEditingProfile(true);
+                  if (target.tenantId) void loadTenantStaff(target.tenantId);
+                  setActionsMenuUser(null);
+                }}
+                className="w-full flex items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-950 px-3.5 py-3 text-left transition-colors hover:bg-slate-800/60"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-400">
+                    <Pencil className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="block text-sm font-semibold text-white">Edit Subscriber</span>
+                    <span className="block text-[10px] text-slate-500">Niche, profile, and staff logins</span>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-600" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { const target = actionsMenuUser; void handleDeleteUser(target); }}
+                className="w-full flex items-center justify-between gap-3 rounded-2xl border border-rose-900/40 bg-rose-500/5 px-3.5 py-3 text-left transition-colors hover:bg-rose-500/10"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-500/10 text-rose-400">
+                    <Trash2 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="block text-sm font-semibold text-rose-300">Delete Subscriber</span>
+                    <span className="block text-[10px] text-rose-500/70">Permanently erase this business</span>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-rose-700" />
+              </button>
+            </div>
+            <div className="h-[env(safe-area-inset-bottom)]" />
+          </div>
+        </>
+      )}
+
+      {locationModalUser && (
+        <div
+          onClick={() => setLocationModalUser(null)}
+          className="fixed inset-0 z-[150] flex items-center justify-center bg-slate-950/70 backdrop-blur-sm p-4 animate-in fade-in zoom-in duration-150"
+        >
+          <div onClick={e => e.stopPropagation()} className="w-full max-w-sm rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800">
+              <h3 className="text-sm font-bold text-white">Subscriber Location</h3>
+              <button type="button" onClick={() => setLocationModalUser(null)} className="text-slate-500 hover:text-white">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-5 space-y-3">
+              <p className="text-sm text-slate-300">{(locationModalUser as any).location && (locationModalUser as any).location !== 'Location not provided' ? (locationModalUser as any).location : 'No location on record for this business.'}</p>
+              {(locationModalUser as any).gpsLat && (locationModalUser as any).gpsLng && (
+                <a
+                  href={`https://maps.google.com/?q=${(locationModalUser as any).gpsLat},${(locationModalUser as any).gpsLng}`}
+                  target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-400 hover:text-indigo-300"
+                >
+                  <MapPin className="w-3.5 h-3.5" /> Open in Google Maps
+                </a>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {showMirrorModal && mirrorTarget && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[999] flex items-center justify-center p-4 animate-in fade-in zoom-in duration-200">

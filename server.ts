@@ -4223,6 +4223,28 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     }
   });
 
+  // Lets Super Admin see a tenant's staff logins directly (business_staff
+  // account_type only -- the owner is never included, same scoping as
+  // revokeBusinessStaffLogin), so staff can be found and removed by name
+  // instead of having to already know their email.
+  app.get('/api/super-admin/tenants/:tenantId/staff', async (req, res) => {
+    try {
+      await requirePlatformAdmin(req);
+      const tenantId = String(req.params.tenantId || '');
+      if (!isUuid(tenantId)) return res.status(400).json({ error: 'Invalid tenant identifier.' });
+
+      const { data, error } = await adminTable('users')
+        .select('id,name,email,phone,role,role_key,created_at,is_active')
+        .eq('tenant_id', tenantId)
+        .eq('account_type', 'business_staff')
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      return res.json({ staff: data || [] });
+    } catch (error) {
+      return platformAdminError(res, error);
+    }
+  });
+
   // Super Admin counterpart of the above: for cleaning up a staff login that
   // is already orphaned (no HR list entry left to click "remove" from, e.g.
   // after a historical bug left the login behind -- see revokeBusinessStaffLogin's

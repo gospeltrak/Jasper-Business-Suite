@@ -341,6 +341,22 @@ export async function removeSuperAdminTenantStaffLogin(tenantId: string, email: 
   });
 }
 
+export interface SuperAdminTenantStaffRow {
+  id: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  role: string | null;
+  role_key: string | null;
+  created_at: string;
+  is_active: boolean;
+}
+
+export async function listSuperAdminTenantStaff(tenantId: string): Promise<SuperAdminTenantStaffRow[]> {
+  const result = await apiRequest(`/api/super-admin/tenants/${encodeURIComponent(tenantId)}/staff`);
+  return result?.staff || [];
+}
+
 export async function createSuperAdminStaff(payload: Record<string, unknown>) {
   return apiRequest('/api/super-admin/staff', {
     method: 'POST',
