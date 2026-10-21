@@ -86,27 +86,75 @@ export default function JasperSplashScreen({
           reveal (logoSrc set) -- gives a sense of the workspace structure
           loading underneath instead of a blank white screen. */}
       {logoSrc && (
-        <div aria-hidden="true" className="pointer-events-none absolute inset-0 flex flex-col gap-4 p-6 pt-16 sm:p-10 sm:pt-20">
-          <div className="flex items-center gap-3">
-            <div className="jasper-skeleton-block h-9 w-9 shrink-0 rounded-full" />
-            <div className="jasper-skeleton-block h-4 w-32 rounded-md" />
-            <div className="jasper-skeleton-block ml-auto h-8 w-8 rounded-lg" />
-          </div>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <div className="jasper-skeleton-block h-20 rounded-2xl" />
-            <div className="jasper-skeleton-block h-20 rounded-2xl" />
-            <div className="jasper-skeleton-block hidden h-20 rounded-2xl sm:block" />
-          </div>
-          <div className="mt-2 space-y-3">
-            {[0, 1, 2, 3].map(i => (
-              <div key={i} className="flex items-center gap-3">
-                <div className="jasper-skeleton-block h-10 w-10 shrink-0 rounded-xl" />
-                <div className="flex-1 space-y-2">
-                  <div className="jasper-skeleton-block h-3 w-3/5 rounded" />
-                  <div className="jasper-skeleton-block h-3 w-2/5 rounded" />
-                </div>
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden flex flex-col gap-3 p-5 pt-24 opacity-70 sm:p-8 sm:pt-28">
+          {/* 6 KPI stat cards, 2x3 -- mirrors the Home overview's mobile hero grid */}
+          <div className="grid grid-cols-2 gap-2.5">
+            {[0, 1, 2, 3, 4, 5].map(i => (
+              <div key={i} className="rounded-2xl border border-slate-100 p-3.5">
+                <div className="jasper-skeleton-block mb-2 h-2 w-14 rounded" />
+                <div className="jasper-skeleton-block mb-1.5 h-3.5 w-20 rounded" />
+                <div className="jasper-skeleton-block h-2 w-16 rounded" />
               </div>
             ))}
+          </div>
+
+          {/* "Open Sell Screen" quick-action banner */}
+          <div className="jasper-skeleton-block h-[72px] shrink-0 rounded-2xl" />
+
+          {/* Sales & Purchases chart card -- a real grouped bar chart (Sales
+              + Purchases bars per period), so the skeleton pairs two thin
+              bars per group with a gap between groups, not one solid row. */}
+          <div className="shrink-0 rounded-2xl border border-slate-100 p-4">
+            <div className="jasper-skeleton-block mb-1.5 h-3 w-32 rounded" />
+            <div className="jasper-skeleton-block mb-3 h-2 w-24 rounded" />
+            <div className="flex h-16 items-end justify-between gap-3">
+              {[[40, 55], [65, 45], [50, 70], [80, 60], [55, 75]].map(([a, b], i) => (
+                <div key={i} className="flex h-full flex-1 items-end gap-1">
+                  <div className="jasper-skeleton-block flex-1 rounded-t" style={{ height: `${a}%` }} />
+                  <div className="jasper-skeleton-block flex-1 rounded-t" style={{ height: `${b}%` }} />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Top Selling Products donut card -- same ring-of-arcs shape as
+              the real SVG chart (r=38, strokeWidth=14), with its legend
+              rows underneath. */}
+          <div className="shrink-0 rounded-2xl border border-slate-100 p-4">
+            <div className="jasper-skeleton-block mb-3 h-3 w-36 rounded" />
+            <div className="flex justify-center py-1">
+              <svg viewBox="0 0 100 100" className="h-24 w-24 -rotate-90">
+                <circle cx="50" cy="50" r="38" fill="none" stroke="#f1f5f9" strokeWidth="14" />
+                <circle cx="50" cy="50" r="38" fill="none" stroke="#e2e8f0" strokeWidth="14" strokeDasharray="95.5 238.76" strokeDashoffset="0" strokeLinecap="round" />
+                <circle cx="50" cy="50" r="38" fill="none" stroke="#cbd5e1" strokeWidth="14" strokeDasharray="71.6 238.76" strokeDashoffset="-100" strokeLinecap="round" />
+                <circle cx="50" cy="50" r="38" fill="none" stroke="#e2e8f0" strokeWidth="14" strokeDasharray="47.8 238.76" strokeDashoffset="-176" strokeLinecap="round" />
+              </svg>
+            </div>
+            <div className="mt-2 space-y-2">
+              {[0, 1, 2].map(i => (
+                <div key={i} className="flex items-center gap-2">
+                  <div className="jasper-skeleton-block h-2.5 w-2.5 shrink-0 rounded-full" />
+                  <div className="jasper-skeleton-block h-2.5 flex-1 rounded" />
+                  <div className="jasper-skeleton-block h-2.5 w-8 shrink-0 rounded" />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Low Stock Alerts list card */}
+          <div className="rounded-2xl border border-slate-100 p-4">
+            <div className="jasper-skeleton-block mb-3 h-3 w-28 rounded" />
+            <div className="space-y-2.5">
+              {[0, 1, 2].map(i => (
+                <div key={i} className="flex items-center gap-2.5">
+                  <div className="jasper-skeleton-block h-8 w-8 shrink-0 rounded-lg" />
+                  <div className="flex-1 space-y-1.5">
+                    <div className="jasper-skeleton-block h-2.5 w-3/5 rounded" />
+                    <div className="jasper-skeleton-block h-2 w-2/5 rounded" />
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -116,7 +164,7 @@ export default function JasperSplashScreen({
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-0"
-          style={{ background: 'radial-gradient(ellipse at center, rgba(255,255,255,0.97) 0%, rgba(255,255,255,0.75) 32%, rgba(255,255,255,0) 58%)' }}
+          style={{ background: 'radial-gradient(circle at center, rgba(255,255,255,0.9) 0px, rgba(255,255,255,0.4) 30px, rgba(255,255,255,0) 50px)' }}
         />
       )}
 

@@ -71,7 +71,7 @@ test('a staff member can be granted All Branches access with matching write perm
   // (profile), instead of silently defaulting to whichever branch the admin
   // happened to be viewing.
   assert.match(staff, /const \[availableBranches, setAvailableBranches\]/);
-  assert.match(staff, /createStaffCredentials\(newStaff, registerPassword, regAccessScope, regCanViewConsolidated\)/);
-  assert.match(staff, /createStaffCredentials\(selectedStaff, profilePassword, profileAccessScope, profileCanViewConsolidated\)/);
+  assert.match(staff, /createStaffCredentials\(newStaff, registerPassword, regAccessScope\)/);
+  assert.match(staff, /createStaffCredentials\(selectedStaff, profilePassword, profileAccessScope\)/);
   assert.match(staff, /const saveStaffBranchAccess = async/);
 });

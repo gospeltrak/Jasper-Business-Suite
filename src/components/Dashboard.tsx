@@ -1664,17 +1664,33 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     setSubState(getSubscriptionState());
   }, [activeTenant.id]);
 
-  // ── LOAD SUBSCRIPTION FROM DB ON LOGIN ──────────────────────────────────
-  // This is the source of truth — overrides onlineStorage with DB plan
+  // ── LOAD SUBSCRIPTION FROM DB ─────────────────────────────────────────────
+  // This is the source of truth — overrides onlineStorage with the DB plan.
+  // Re-checked on mount, whenever the tab regains focus/visibility, and on a
+  // slow interval -- not just once at login. Otherwise a tenant who pays
+  // while this tab stays open (or whose device simply hasn't reloaded in a
+  // while) keeps seeing a stale cached plan/trial label indefinitely.
   useEffect(() => {
     if (!activeTenant.id) return;
-    loadSubscriptionFromDB(activeTenant.id).then(dbState => {
-      if (dbState) {
-        setSubState(dbState);
-      }
-    }).catch(() => {
-      // Silently fall back to onlineStorage state — system still works offline
-    });
+    const refreshSubscriptionState = () => {
+      loadSubscriptionFromDB(activeTenant.id).then(dbState => {
+        if (dbState) setSubState(dbState);
+      }).catch(() => {
+        // Silently fall back to onlineStorage state — system still works offline
+      });
+    };
+    refreshSubscriptionState();
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') refreshSubscriptionState();
+    };
+    window.addEventListener('focus', refreshSubscriptionState);
+    document.addEventListener('visibilitychange', onVisible);
+    const intervalId = window.setInterval(refreshSubscriptionState, 15 * 60 * 1000);
+    return () => {
+      window.removeEventListener('focus', refreshSubscriptionState);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.clearInterval(intervalId);
+    };
   }, [activeTenant.id]);
 
   const submitManualActivationRequest = async (requestedPlanId: SubscriptionPlanId = manualActivationPackage) => {

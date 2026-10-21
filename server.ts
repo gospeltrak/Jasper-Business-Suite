@@ -4046,7 +4046,9 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     const email = normalizeEmail(req.body?.email);
     const accessScope = req.body?.accessScope === 'all_branches' ? 'all_branches' : 'assigned_branches';
     const homeBranchId = isUuid(req.body?.homeBranchId) ? String(req.body.homeBranchId) : null;
-    const canViewConsolidated = accessScope === 'all_branches' && req.body?.canViewConsolidated === true;
+    // Automatic, not a separate opt-in: any staff granted "all_branches" can
+    // also issue Tanzanite cross-branch (consolidated) invoices.
+    const canViewConsolidated = accessScope === 'all_branches';
     const permissions = req.body?.permissions && typeof req.body.permissions === 'object' && !Array.isArray(req.body.permissions)
       ? req.body.permissions : {};
     if (!email || !email.includes('@')) {
@@ -4124,7 +4126,9 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     const password = String(req.body?.password || '');
     const branchId = isUuid(req.body?.branchId) ? String(req.body.branchId) : null;
     const accessScope = req.body?.accessScope === 'all_branches' ? 'all_branches' : 'assigned_branches';
-    const canViewConsolidated = accessScope === 'all_branches' && req.body?.canViewConsolidated === true;
+    // Automatic, not a separate opt-in: any staff granted "all_branches" can
+    // also issue Tanzanite cross-branch (consolidated) invoices.
+    const canViewConsolidated = accessScope === 'all_branches';
     const permissions = req.body?.permissions && typeof req.body.permissions === 'object' && !Array.isArray(req.body.permissions)
       ? req.body.permissions : {};
     if (!staffId || !name || !email || !email.includes('@') || !phone) {
