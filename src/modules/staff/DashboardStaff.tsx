@@ -685,10 +685,35 @@ export default function DashboardStaff({
     if (target) setStaffToRemove(target);
   };
 
-  const confirmRemoveStaff = () => {
+  const confirmRemoveStaff = async () => {
     if (!staffToRemove) return;
-    persistStaffList(staffList.filter(s => s.id !== staffToRemove.id));
+    const removedStaff = staffToRemove;
     setStaffToRemove(null);
+    persistStaffList(staffList.filter(s => s.id !== removedStaff.id));
+
+    // Leaving the HR list is the low-risk part and always succeeds above.
+    // If this staff member ever had a real login created for them, it must
+    // also be revoked here -- otherwise they keep full access indefinitely,
+    // just invisible from this screen with no way to manage or re-remove it.
+    if (!removedStaff.email) return;
+    try {
+      const client: any = await getSecureDataBridgeClient();
+      const { data } = await client.auth.getSession();
+      const accessToken = data?.session?.access_token;
+      if (!accessToken) throw new Error('Admin session is required.');
+      const response = await fetch('/api/staff/remove', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ email: removedStaff.email }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || 'Staff login could not be revoked.');
+    } catch (error) {
+      setSuccessMessage(error instanceof Error
+        ? `${removedStaff.name} was removed from the list, but their login could not be revoked: ${error.message}. They can still sign in -- contact support.`
+        : `${removedStaff.name} was removed from the list, but their login could not be revoked. They can still sign in -- contact support.`);
+      setTimeout(() => setSuccessMessage(''), 8000);
+    }
   };
 
   const openSalaryPayment = (staff: StaffSettings) => {

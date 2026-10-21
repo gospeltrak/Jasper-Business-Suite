@@ -334,6 +334,13 @@ export async function deleteSuperAdminUser(userId: string) {
   return apiRequest(`/api/super-admin/users/${encodeURIComponent(userId)}`, { method: 'DELETE' });
 }
 
+export async function removeSuperAdminTenantStaffLogin(tenantId: string, email: string) {
+  return apiRequest(`/api/super-admin/tenants/${encodeURIComponent(tenantId)}/staff/remove`, {
+    method: 'POST',
+    body: JSON.stringify({ email })
+  });
+}
+
 export async function createSuperAdminStaff(payload: Record<string, unknown>) {
   return apiRequest('/api/super-admin/staff', {
     method: 'POST',

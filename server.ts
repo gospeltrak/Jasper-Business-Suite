@@ -4179,6 +4179,80 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     }
   });
 
+  // Removing a staff member from the Staff menu's HR list (systemSettings.staffs)
+  // never touched their actual login -- their auth.users/public.users row kept
+  // working indefinitely, just invisible and unmanageable from the UI. This
+  // revokes the login side of that removal: always scoped to a business_staff
+  // account belonging to the given tenant, so it can never reach an owner or a
+  // different tenant, regardless of which of the two routes below calls it.
+  async function revokeBusinessStaffLogin(email: string, tenantId: string): Promise<{ status: 'no_login' | 'removed' }> {
+    if (!supabaseAdmin) throw new Error('Admin client unavailable.');
+    const { data: targetUser, error: targetError } = await adminTable('users')
+      .select('id, tenant_id, account_type')
+      .eq('email', email)
+      .maybeSingle();
+    if (targetError) throw targetError;
+    // No login was ever created for this staff entry (the common case for a
+    // staff member who only exists in the HR list) -- nothing to revoke.
+    if (!targetUser) return { status: 'no_login' };
+    if ((targetUser as any).tenant_id !== tenantId || (targetUser as any).account_type !== 'business_staff') {
+      const scopeError: any = new Error('Target is not a business_staff account of this tenant.');
+      scopeError.isScopeViolation = true;
+      throw scopeError;
+    }
+    const targetId = (targetUser as any).id;
+    const { error: deleteAuthError } = await supabaseAdmin.auth.admin.deleteUser(targetId);
+    if (deleteAuthError) throw deleteAuthError;
+    await adminTable('users').delete().eq('id', targetId);
+    await adminTable('branch_staff_assignments').delete().eq('tenant_id', tenantId).eq('staff_id', targetId);
+    return { status: 'removed' };
+  }
+
+  app.post('/api/staff/remove', rateLimit({ windowMs: 60_000, max: 20, prefix: 'staff-remove' }), async (req, res) => {
+    const admin = await getTenantAdminRequestProfile(req);
+    if (!admin) return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 403, 'registration');
+    const email = normalizeEmail(req.body?.email);
+    if (!email) return sendExpectedSafeApiError(req, res, 'VALIDATION_ERROR', 400, 'registration');
+    if (!supabaseAdmin) return sendExpectedSafeApiError(req, res, 'SAVE_ERROR', 503, 'registration');
+    try {
+      const result = await revokeBusinessStaffLogin(email, admin.tenantId);
+      return res.json(result);
+    } catch (error: any) {
+      if (error?.isScopeViolation) return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 403, 'registration');
+      return sendUnexpectedSafeApiError(req, res, error, { fallbackCode: 'SAVE_ERROR', context: 'registration', operation: 'staff_credentials_remove' });
+    }
+  });
+
+  // Super Admin counterpart of the above: for cleaning up a staff login that
+  // is already orphaned (no HR list entry left to click "remove" from, e.g.
+  // after a historical bug left the login behind -- see revokeBusinessStaffLogin's
+  // comment). Still only ever a business_staff account of the named tenant,
+  // never that tenant's owner, regardless of which account_type the request
+  // happens to name.
+  app.post('/api/super-admin/tenants/:tenantId/staff/remove', async (req, res) => {
+    try {
+      const adminUser = await requirePlatformAdmin(req);
+      const tenantId = String(req.params.tenantId || '');
+      if (!isUuid(tenantId)) return res.status(400).json({ error: 'Invalid tenant identifier.' });
+      const email = normalizeEmail(req.body?.email);
+      if (!email) return res.status(400).json({ error: 'A staff email is required.' });
+      if (!supabaseAdmin) return res.status(503).json({ error: 'Admin client unavailable.' });
+
+      const result = await revokeBusinessStaffLogin(email, tenantId);
+      await adminTable('super_admin_audit_logs').insert({
+        actor_user_id: adminUser.id,
+        target_user_id: null,
+        target_tenant_id: tenantId,
+        action: 'staff_login_removed',
+        metadata: { email, result: result.status }
+      });
+      return res.json(result);
+    } catch (error: any) {
+      if (error?.isScopeViolation) return res.status(403).json({ error: 'That email is not a staff account of this tenant.' });
+      return platformAdminError(res, error);
+    }
+  });
+
   app.get('/api/auth/staff-invitation', rateLimit({ windowMs: 60_000, max: 40, prefix: 'staff-invite-read' }), async (req, res) => {
     const rawToken = String(req.query?.token || '');
     if (rawToken.length < 32) return sendExpectedSafeApiError(req, res, 'VALIDATION_ERROR', 400, 'sign_in');

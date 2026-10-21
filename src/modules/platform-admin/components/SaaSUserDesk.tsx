@@ -12,6 +12,7 @@ import {
   loadSuperAdminOverview,
   loadSuperAdminTenantWorkspace,
   mapSuperAdminUsers,
+  removeSuperAdminTenantStaffLogin,
   resetSuperAdminUserPassword,
   SuperAdminOverview,
   SuperAdminUserRow,
@@ -93,6 +94,12 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
 
   // Custom password reset state
   const [newPasswordValue, setNewPasswordValue] = useState('');
+
+  // Orphaned-staff-login cleanup: see revokeBusinessStaffLogin on the server
+  // for why a staff login can exist with no entry left in the Staff menu to
+  // remove it from.
+  const [removeStaffEmail, setRemoveStaffEmail] = useState('');
+  const [isRemovingStaffLogin, setIsRemovingStaffLogin] = useState(false);
 
   // Business type (retail/pharmacy) correction state
   const [isEditingBusinessType, setIsEditingBusinessType] = useState(false);
@@ -314,7 +321,7 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
   const handleDeleteUser = async () => {
     if (!selectedUser) return;
     if (!confirm(`Are you absolutely sure you want to permanently erase ${selectedUser.name} enterprise nodes from our system?`)) return;
-    
+
     if (!(await verifySecureKey())) return;
 
     try {
@@ -326,6 +333,25 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
       setSelectedUser(null);
     } catch (error: any) {
       alert(error?.message || 'Unable to delete this tenant/user.');
+    }
+  };
+
+  const handleRemoveStaffLogin = async () => {
+    if (!selectedUser?.tenantId || !removeStaffEmail.trim()) return;
+    if (!(await verifySecureKey())) return;
+
+    setIsRemovingStaffLogin(true);
+    try {
+      const result: any = await removeSuperAdminTenantStaffLogin(selectedUser.tenantId, removeStaffEmail.trim());
+      handleAuditLog(`Removed staff login (${removeStaffEmail.trim()})`, selectedUser.name);
+      alert(result?.status === 'no_login'
+        ? 'That email has no login to remove -- nothing changed.'
+        : `Staff login for ${removeStaffEmail.trim()} has been revoked.`);
+      setRemoveStaffEmail('');
+    } catch (error: any) {
+      alert(error?.message || 'Unable to remove that staff login.');
+    } finally {
+      setIsRemovingStaffLogin(false);
     }
   };
 
@@ -655,6 +681,24 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
                           Edit Profile
                         </button>
                       )}
+                    </div>
+                  )}
+                  {isUnlocked && (
+                    <div className="flex items-center gap-2 mt-2">
+                      <input
+                        type="email"
+                        value={removeStaffEmail}
+                        onChange={(e) => setRemoveStaffEmail(e.target.value)}
+                        placeholder="Staff email to remove login for"
+                        className="px-2.5 py-1.5 rounded-lg text-[10px] font-mono bg-slate-900 border border-slate-800 text-slate-200 placeholder:text-slate-600 outline-none focus:border-indigo-500/50 w-64"
+                      />
+                      <button
+                        onClick={handleRemoveStaffLogin}
+                        disabled={!removeStaffEmail.trim() || isRemovingStaffLogin}
+                        className="px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider border border-rose-500/30 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 disabled:opacity-50 whitespace-nowrap"
+                      >
+                        {isRemovingStaffLogin ? 'Removing…' : 'Remove Staff Login'}
+                      </button>
                     </div>
                   )}
                   {isUnlocked && isEditingProfile && (
