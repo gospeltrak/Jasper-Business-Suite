@@ -621,22 +621,19 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
         {/* User Interactive Workspace (Immersive Layout simulation) — Hub shown above the list on mobile/tablet, right column on desktop */}
         <div className="order-1 xl:order-none xl:col-span-8">
           {selectedUser ? (
-            <div className="bg-slate-950 border border-slate-850 rounded-2xl overflow-hidden shadow-xl">
+            <div className="relative overflow-hidden rounded-2xl border border-slate-850 bg-slate-950 shadow-xl">
+              <div className={`absolute inset-y-0 left-0 w-1 ${selectedUser.status === 'Active' ? 'bg-emerald-500' : selectedUser.status === 'Suspended' ? 'bg-rose-500' : 'bg-amber-500'}`} />
               {isTenantDetailLoading && (
                 <div className="border-b border-indigo-500/20 bg-indigo-500/10 px-5 py-2 text-[10px] font-bold uppercase tracking-wider text-indigo-200">
                   Loading selected tenant data…
                 </div>
               )}
-              
-              {/* IMMERSIVE HEADER PANEL (Replicating user workspace feel) */}
-              <div className="bg-gradient-to-r from-slate-950 to-slate-900 p-5 border-b border-slate-850 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div>
-                  <div className="flex items-center space-x-2">
-                    <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                    <span className="text-[9.5px] font-mono text-emerald-400 uppercase tracking-widest font-black">SUPERADMIN IMMERSIVE DASHBOARD INTERCEPT</span>
-                  </div>
-                  <h3 className="text-lg font-black text-white mt-1 tracking-tight">{selectedUser.tenantName}</h3>
-                  <p className="text-xs text-slate-400 mt-0.5">Subscriber: {selectedUser.name}</p>
+
+              {/* Tenant detail header panel */}
+              <div className="flex flex-col gap-2.5 border-b border-slate-850 bg-gradient-to-r from-slate-950 to-slate-900 py-3 pl-4 pr-3.5 md:flex-row md:items-center md:justify-between">
+                <div className="min-w-0">
+                  <p className="truncate text-[14px] font-extrabold leading-tight text-white">{selectedUser.tenantName}</p>
+                  <p className="mt-0.5 font-mono text-[10px] text-slate-500">Subscriber: {selectedUser.name}</p>
                   <div className="flex items-center gap-2 mt-2">
                     <span className={`px-2 py-0.5 rounded text-[9px] font-mono font-bold uppercase tracking-wider ${selectedUser.businessType === 'pharmacy' ? 'bg-indigo-500/10 text-indigo-300' : 'bg-slate-800 text-slate-300'}`}>
                       {selectedUser.businessType === 'pharmacy' ? '💊 Pharmacy' : '🛒 Retail & Wholesale'}
@@ -672,7 +669,7 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
                     </div>
                   )}
                   {isUnlocked && (
-                    <div className="flex items-center gap-2 mt-2">
+                    <div className="flex flex-wrap items-center gap-2 mt-2">
                       <input
                         type="password"
                         value={newPasswordValue}
@@ -817,7 +814,7 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
                     </div>
                   )}
                   {/* Location + last activity line */}
-                  <div className="flex flex-wrap gap-3 mt-1.5 text-[10px] font-mono text-slate-500">
+                  <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2.5 pt-2.5 border-t border-slate-800/60 text-[10px] font-mono text-slate-500">
                     {(selectedUser as any).location && (selectedUser as any).location !== 'Location not provided' && (
                       <span className="flex items-center gap-1 text-slate-400">
                         📍 {(selectedUser as any).location}
@@ -853,12 +850,11 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
                 )}
               </div>
 
-              <div className="border-b border-slate-900 bg-slate-950 px-4 py-3">
+              <div className="border-b border-slate-900 bg-slate-950 px-4 py-2.5">
                 <span className="text-xs font-mono uppercase tracking-tight text-emerald-400 font-black">User Data</span>
               </div>
 
-              {/* DISPATCH IMMERSIVE AREA */}
-              <div className="p-6 bg-slate-950/60 min-h-[380px]">
+              <div className="p-4 bg-slate-950/60">
                 {/* User Business Data Intercept panels */}
                 {immersiveTab === 'business' && (
                   <div className="space-y-5 animate-fade-in text-left">
@@ -880,7 +876,7 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
                       ))}
                     </div>
 
-                    <div className="bg-slate-900 border border-slate-850 p-4 rounded-xl min-h-[220px]">
+                    <div className="bg-slate-900 border border-slate-850 p-4 rounded-xl">
                       {/* SUB-TAB: Message streams */}
                       {bizSubTab === 'messages' && (
                         <div className="space-y-3">
