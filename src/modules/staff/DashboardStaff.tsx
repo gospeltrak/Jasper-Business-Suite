@@ -574,15 +574,31 @@ export default function DashboardStaff({
       const { data } = await client.auth.getSession();
       const accessToken = data?.session?.access_token;
       if (!accessToken) throw new Error('Admin session is required.');
-      const response = await fetch('/api/staff/branch-access', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({
-          email: staff.email, accessScope: profileAccessScope, canViewConsolidated: profileCanViewConsolidated,
-          homeBranchId: profileBranchId || staff.branchId || activeBranchId || activeBranchContext?.id,
-          permissions: customRoles.find(item => item.name.toLowerCase() === staff.role.toLowerCase())?.permissions || {},
-        }),
-      });
+      // Without a timeout, a stalled connection leaves the button stuck on
+      // "Saving…" forever with no feedback -- abort and surface a clear
+      // error instead of hanging indefinitely.
+      const timeoutController = new AbortController();
+      const timeoutId = setTimeout(() => timeoutController.abort(), 20000);
+      let response: Response;
+      try {
+        response = await fetch('/api/staff/branch-access', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+          body: JSON.stringify({
+            email: staff.email, accessScope: profileAccessScope, canViewConsolidated: profileCanViewConsolidated,
+            homeBranchId: profileBranchId || staff.branchId || activeBranchId || activeBranchContext?.id,
+            permissions: customRoles.find(item => item.name.toLowerCase() === staff.role.toLowerCase())?.permissions || {},
+          }),
+          signal: timeoutController.signal,
+        });
+      } catch (fetchError) {
+        if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+          throw new Error('The request timed out. Check your internet connection and try again.');
+        }
+        throw fetchError;
+      } finally {
+        clearTimeout(timeoutId);
+      }
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result?.error || 'Branch access could not be saved.');
       if (result.updated) {
@@ -1412,7 +1428,7 @@ export default function DashboardStaff({
                           <>
                             <p className="text-[11px] text-slate-500">This staff can access and operate any branch, not only the one selected above.</p>
                             <label className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-3 cursor-pointer">
-                              <input type="checkbox" checked={regCanViewConsolidated} onChange={e => setRegCanViewConsolidated(e.target.checked)} className="mt-0.5 w-4 h-4 accent-indigo-600" />
+                              <input type="checkbox" checked={regCanViewConsolidated} onChange={e => setRegCanViewConsolidated(e.target.checked)} className="mt-0.5 w-5 h-5 shrink-0 rounded border-2 border-amber-400 bg-white accent-indigo-600" />
                               <span className="text-xs">
                                 <span className="font-black text-slate-800 block">Allow cross-branch (consolidated) invoices</span>
                                 <span className="text-amber-700 block mt-0.5">This also lets them see pricing and stock from every branch, not only the one they operate from.</span>
@@ -1931,7 +1947,7 @@ export default function DashboardStaff({
                       </div>
                       {profileAccessScope === 'all_branches' && (
                         <label className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-3 cursor-pointer">
-                          <input type="checkbox" checked={profileCanViewConsolidated} onChange={e => setProfileCanViewConsolidated(e.target.checked)} className="mt-0.5 w-4 h-4 accent-indigo-600" />
+                          <input type="checkbox" checked={profileCanViewConsolidated} onChange={e => setProfileCanViewConsolidated(e.target.checked)} className="mt-0.5 w-5 h-5 shrink-0 rounded border-2 border-amber-400 bg-white accent-indigo-600" />
                           <span className="text-xs">
                             <span className="font-black text-slate-800 block">Allow cross-branch (consolidated) invoices</span>
                             <span className="text-amber-700 block mt-0.5">This also lets them see pricing and stock from every branch, not only the one they operate from.</span>
