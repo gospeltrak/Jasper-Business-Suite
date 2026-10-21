@@ -4,6 +4,54 @@ let secureDataBridgeInstance: any = null;
 const PLACEHOLDER_DATA_URL = 'https://placeholder-url.supabase.co';
 const PLACEHOLDER_DATA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dummy';
 
+const PASSWORD_RECOVERY_STORAGE_KEY = 'jasper_password_recovery_active';
+
+function readPasswordRecoveryState(): boolean {
+  if (typeof window === 'undefined') return false;
+  const search = new URLSearchParams(window.location.search);
+  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  if (search.get('type') === 'recovery' || hash.get('type') === 'recovery') return true;
+  try {
+    return window.sessionStorage.getItem(PASSWORD_RECOVERY_STORAGE_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+// A password-recovery link signs the browser in just like a normal login
+// (Supabase has no other way to let the user prove they own the account), so
+// the app's "there is a session, open the dashboard" logic cannot tell the
+// two apart by calling getSession() alone -- it would silently skip straight
+// past the "set a new password" screen.
+//
+// Capture recovery state synchronously from the URL at module load, before
+// Supabase has consumed it and before any lazy-loaded route mounts, and keep
+// it in sessionStorage so it survives a reload while the recovery screen is
+// still open. This is UI routing state, never proof of authorization to
+// update a user -- the actual password change still goes through Supabase's
+// own session/auth checks.
+let passwordRecoverySessionActive = readPasswordRecoveryState();
+const passwordRecoveryListeners = new Set<() => void>();
+export const isPasswordRecoverySessionActive = () => passwordRecoverySessionActive;
+export const subscribeToPasswordRecoverySession = (listener: () => void) => {
+  passwordRecoveryListeners.add(listener);
+  return () => { passwordRecoveryListeners.delete(listener); };
+};
+
+function observePasswordRecovery(client: any): void {
+  if (isPlaceholderSecureDataBridgeClient(client)) return;
+  client.auth.onAuthStateChange((event: string, session: unknown) => {
+    const sessionEnded = event === 'SIGNED_OUT' || (event === 'INITIAL_SESSION' && !session);
+    if (event !== 'PASSWORD_RECOVERY' && !sessionEnded) return;
+    passwordRecoverySessionActive = event === 'PASSWORD_RECOVERY';
+    try {
+      if (passwordRecoverySessionActive) window.sessionStorage.setItem(PASSWORD_RECOVERY_STORAGE_KEY, 'true');
+      else window.sessionStorage.removeItem(PASSWORD_RECOVERY_STORAGE_KEY);
+    } catch { /* In-memory recovery still works when browser storage is denied. */ }
+    for (const listener of passwordRecoveryListeners) listener();
+  });
+}
+
 // Keep authentication outside onlineStorage. Large tenant workspaces can fill
 // onlineStorage; auth must still be able to save its token and complete login.
 // localStorage (not sessionStorage): the session must survive closing the
@@ -76,6 +124,7 @@ export async function getSecureDataBridgeClient() {
     }
   });
   (secureDataBridgeInstance as any).__isPlaceholderSecureDataBridgeClient = isPlaceholder;
+  observePasswordRecovery(secureDataBridgeInstance);
 
   return secureDataBridgeInstance;
 }
@@ -99,34 +148,15 @@ export const secureDataBridge = createClient(secureDataUrl, secureDataAnonKey, {
   }
 });
 
-// A password-recovery link signs the browser in just like a normal login
-// (Supabase has no other way to let the user prove they own the account),
-// so the app's "there is a session, open the dashboard" logic cannot tell
-// the two apart by calling getSession() alone -- it would silently skip
-// straight past the "set a new password" screen. Registered here, at
-// module load, so it is listening before anything else in the app runs
-// and can never miss the PASSWORD_RECOVERY event racing a later screen's
-// own subscription.
-let passwordRecoverySessionActive = false;
-secureDataBridge.auth.onAuthStateChange((event: string) => {
-  if (event === 'PASSWORD_RECOVERY') passwordRecoverySessionActive = true;
-  if (event === 'SIGNED_OUT') passwordRecoverySessionActive = false;
-});
-export const isPasswordRecoverySessionActive = () => passwordRecoverySessionActive;
+// Watch the eager client as well as a client created from /api/auth/config.
+if (!isStaticPlaceholder) observePasswordRecovery(secureDataBridge);
 
-// The PASSWORD_RECOVERY event above only fires once Supabase has finished
-// exchanging the link's code for a session -- a real network round trip.
-// A synchronous check like "is there already a cached user, redirect them
-// to the dashboard" can run and complete before that finishes, so it would
-// never see the flag in time and would redirect right past the recovery
-// screen using a stale, unrelated cached profile. Recognising the callback
-// straight from the URL closes that gap: it is true the instant the page
-// loads with a Supabase auth link, before any network call resolves.
-// Supabase strips these params from the URL once the exchange completes,
-// so this naturally turns false again on its own.
+// A pending OAuth/auth callback that isn't itself a recovery session (used to
+// hold off a stale-cached-user redirect until a fresh sign-in finishes).
 export const hasPendingSupabaseAuthCallback = () => {
   if (typeof window === 'undefined') return false;
-  const search = window.location.search || '';
-  const hash = window.location.hash || '';
-  return /[?&]code=/.test(search) || /access_token=/.test(hash) || /type=recovery/.test(hash) || /type=recovery/.test(search);
+  const search = new URLSearchParams(window.location.search);
+  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  return search.has('code') || hash.has('access_token')
+    || search.get('type') === 'recovery' || hash.get('type') === 'recovery';
 };

@@ -1,9 +1,9 @@
-import { Suspense, useState, useEffect, useRef } from 'react';
+import { Suspense, useState, useEffect, useRef, useSyncExternalStore } from 'react';
 import JasperSplashScreen from './shared/components/JasperSplashScreen';
 import { User, Tenant } from './types';
 import { useTheme } from './shared/contexts/ThemeContext';
 import { useTenantLogo } from './shared/contexts/TenantLogoContext';
-import { getSecureDataBridgeClient, isPlaceholderSecureDataBridgeClient, isPasswordRecoverySessionActive, hasPendingSupabaseAuthCallback } from './shared/dataBridge/secureDataBridge';
+import { getSecureDataBridgeClient, isPlaceholderSecureDataBridgeClient, isPasswordRecoverySessionActive, hasPendingSupabaseAuthCallback, subscribeToPasswordRecoverySession } from './shared/dataBridge/secureDataBridge';
 import { endCloudSession, startCloudSession, touchCloudSession } from './shared/utils/sessionControl';
 import { pullFromCloud, pushToCloud } from './shared/utils/dbSync';
 import { configureOnlineStorage, resetOnlineStorage } from './shared/utils/onlineStorage';
@@ -81,7 +81,10 @@ export default function App() {
   };
 
   const [currentPath, setCurrentPath] = useState<string>(() => normalizePath(window.location.pathname || '/'));
+  const isRecoveringPassword = useSyncExternalStore(subscribeToPasswordRecoverySession, isPasswordRecoverySessionActive);
+
   const [user, setUser] = useState<User | null>(() => {
+    if (isPasswordRecoverySessionActive()) return null;
     try {
       // localStorage (not sessionStorage): stays signed in across closing the
       // tab/app/browser, ending only on an explicit Logout.
@@ -93,6 +96,14 @@ export default function App() {
       return null;
     }
   });
+  useEffect(() => {
+    if (!isRecoveringPassword) return;
+    // A recovery link can belong to another account than the cached profile.
+    // Do not reopen that workspace when the recovery session signs out.
+    setUser(null);
+    try { localStorage.removeItem('jasper_cashier_user'); } catch { /* Cache is optional. */ }
+  }, [isRecoveringPassword]);
+
   const [workspaceStorageReady, setWorkspaceStorageReady] = useState(() => !user);
   const [authenticatedSessionReady, setAuthenticatedSessionReady] = useState(() => !user);
   const [redirectMessage, setRedirectMessage] = useState<string>('');
@@ -124,7 +135,7 @@ export default function App() {
   // state makes every protected branch/workspace request fail and looks like
   // the tenant has lost all menus and data.
   useEffect(() => {
-    if (!user) {
+    if (!user || isRecoveringPassword) {
       setAuthenticatedSessionReady(true);
       return;
     }
@@ -140,6 +151,7 @@ export default function App() {
           return;
         }
         const { data, error } = await client.auth.getSession();
+        if (cancelled || isPasswordRecoverySessionActive()) return;
         const authUserId = data?.session?.user?.id;
         if (error || !authUserId || (user.id && authUserId !== user.id)) {
           if (cancelled) return;
@@ -164,7 +176,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [user?.id]);
+  }, [user?.id, isRecoveringPassword]);
 
   useEffect(() => {
     if (user?.activeTenant) {
@@ -178,7 +190,7 @@ export default function App() {
   useEffect(() => {
     const storageTenantId = user?.activeTenant || user?.tenantId;
 
-    if (!user || !storageTenantId || storageTenantId === 'platform-control') {
+    if (isRecoveringPassword || !user || !storageTenantId || storageTenantId === 'platform-control') {
       setWorkspaceStorageReady(true);
       return;
     }
@@ -205,7 +217,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [user?.id, user?.activeTenant, user?.tenantId]);
+  }, [user?.id, user?.activeTenant, user?.tenantId, isRecoveringPassword]);
 
   useEffect(() => {
     let cancelled = false;
@@ -382,6 +394,7 @@ export default function App() {
 
   // Perform route protection redirects check
   useEffect(() => {
+    if (isPasswordRecoverySessionActive()) return;
     // A cached profile from a previous normal login can still be sitting in
     // this browser's localStorage when a password-recovery link is opened.
     // That makes `user` truthy on the very first render, regardless of the
@@ -391,7 +404,7 @@ export default function App() {
     // through the cached-user path instead of a freshly-restored session.
     // hasPendingSupabaseAuthCallback() covers the brief window on first
     // load before the PASSWORD_RECOVERY event itself has had time to fire.
-    if ((currentPath === '/login' || currentPath.startsWith('/login/')) && user && !isPasswordRecoverySessionActive() && !hasPendingSupabaseAuthCallback()) {
+    if ((currentPath === '/login' || currentPath.startsWith('/login/')) && user && !hasPendingSupabaseAuthCallback()) {
       const targetPath = getAuthenticatedRoute(user);
       window.history.replaceState({}, '', targetPath);
       setCurrentPath(targetPath);
@@ -440,10 +453,10 @@ export default function App() {
         return;
       }
     }
-  }, [currentPath, user, tenantDomainContext]);
+  }, [currentPath, user, tenantDomainContext, isRecoveringPassword]);
 
   useEffect(() => {
-    if (user || logoutInProgressRef.current || tenantDomainContext.kind === 'loading') return;
+    if (user || isRecoveringPassword || logoutInProgressRef.current || tenantDomainContext.kind === 'loading') return;
     let cancelled = false;
 
     const restoreCloudSession = async () => {
@@ -459,7 +472,7 @@ export default function App() {
         // must land the user on the "set a new password" screen, not here --
         // auto-signing them into the dashboard would skip that screen
         // entirely and leave their password never actually changed.
-        if (isPasswordRecoverySessionActive()) return;
+        if (cancelled || isPasswordRecoverySessionActive()) return;
 
         const { data: userProfile, error: profileError } = await client
           .from('users')
@@ -467,7 +480,7 @@ export default function App() {
           .eq('id', authUser.id)
           .maybeSingle();
 
-        if (cancelled || profileError || !userProfile) return;
+        if (cancelled || isPasswordRecoverySessionActive() || profileError || !userProfile) return;
 
         const isPlatformAdmin = userProfile?.account_type === 'super_admin' ||
           ['superadmin', 'super_admin'].includes(String(userProfile?.role_key || userProfile?.role || '').toLowerCase());
@@ -513,7 +526,7 @@ export default function App() {
 
     restoreCloudSession();
     return () => { cancelled = true; };
-  }, [currentPath, tenantDomainContext.kind, user]);
+  }, [currentPath, tenantDomainContext.kind, user, isRecoveringPassword]);
 
   // Supabase auth already succeeded by the time handleLoginSuccess runs its
   // portal checks below, so a rejected login (wrong portal for the account
@@ -632,6 +645,20 @@ export default function App() {
   const renderRoute = () => {
     if (tenantDomainContext.kind === 'loading') {
       return <div className="min-h-[100dvh] bg-white" aria-hidden="true" />;
+    }
+
+    if (isRecoveringPassword) {
+      return (
+        <LoginPage
+          onLogin={handleLoginSuccess}
+          onNavigate={navigateTo}
+          isDark={isDark}
+          onToggleTheme={toggleTheme}
+          resolvedTenant={tenantDomainContext.kind === 'tenant' ? tenantDomainContext.tenant || undefined : undefined}
+          domainMode={tenantDomainContext.kind === 'tenant' ? 'tenant' : 'app'}
+          landingUrl={publicLandingUrl}
+        />
+      );
     }
 
     const rendersAuthenticatedWorkspace = Boolean(user) && (

@@ -1,4 +1,4 @@
-import { useState, FormEvent, useEffect } from 'react';
+import { useState, FormEvent, useEffect, useSyncExternalStore } from 'react';
 import { useTranslation } from '../../shared/contexts/LanguageContext';
 import {
   Store,
@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 import { DEMO_USERS, DEFAULT_TENANTS } from '../../data';
 import { User, Tenant } from '../../types';
-import { getSecureDataBridgeClient, isPlaceholderSecureDataBridgeClient } from '../../shared/dataBridge/secureDataBridge';
+import { getSecureDataBridgeClient, isPlaceholderSecureDataBridgeClient, isPasswordRecoverySessionActive, subscribeToPasswordRecoverySession } from '../../shared/dataBridge/secureDataBridge';
 import { initializeCleanTenantWorkspace } from '../../shared/utils/tenantIsolation';
 import { startCloudSession } from '../../shared/utils/sessionControl';
 import { toUserFacingError } from '../../shared/utils/safeError';
@@ -197,11 +197,11 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   const [loginOtpInput, setLoginOtpInput] = useState('');
   const [loginOtpUser, setLoginOtpUser] = useState<any | null>(null);
   const [loginOtpMessage, setLoginOtpMessage] = useState<string | null>(null);
-  const [showRecovery, setShowRecovery] = useState(false);
+  const [showRecovery, setShowRecovery] = useState(isPasswordRecoverySessionActive);
   const [resetEmail, setResetEmail] = useState('');
   const [resetSent, setResetSent] = useState(false);
   const [recoveryMessage, setRecoveryMessage] = useState<string | null>(null);
-  const [isPasswordRecoverySession, setIsPasswordRecoverySession] = useState(false);
+  const isPasswordRecoverySession = useSyncExternalStore(subscribeToPasswordRecoverySession, isPasswordRecoverySessionActive);
   const [newPassword, setNewPassword] = useState('');
   const [newPasswordConfirm, setNewPasswordConfirm] = useState('');
 
@@ -298,23 +298,8 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   }, [isTenantDomainLogin]);
 
   useEffect(() => {
-    let subscription: { unsubscribe: () => void } | null = null;
-    let cancelled = false;
-    getSecureDataBridgeClient().then((client: any) => {
-      if (cancelled || isPlaceholderSecureDataBridgeClient(client)) return;
-      const { data } = client.auth.onAuthStateChange((event: string) => {
-        if (event === 'PASSWORD_RECOVERY') {
-          setIsPasswordRecoverySession(true);
-          setShowRecovery(true);
-        }
-      });
-      subscription = data?.subscription || null;
-    }).catch(() => undefined);
-    return () => {
-      cancelled = true;
-      subscription?.unsubscribe();
-    };
-  }, []);
+    if (isPasswordRecoverySession) setShowRecovery(true);
+  }, [isPasswordRecoverySession]);
 
   useEffect(() => {
     const clearTransientLoginError = () => {
@@ -483,13 +468,15 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       const client: any = await getSecureDataBridgeClient();
       const { error: updateError } = await client.auth.updateUser({ password: newPassword });
       if (updateError) throw updateError;
-      setIsPasswordRecoverySession(false);
+      // Keep recovery routing locked through updateUser's auth events and
+      // sign-out. Only show normal login once the session has actually closed.
+      const { error: signOutError } = await client.auth.signOut();
+      if (signOutError) throw signOutError;
       setShowRecovery(false);
       setResetSent(false);
       setNewPassword('');
       setNewPasswordConfirm('');
       setSuccessMessage('Password updated. Please sign in with your new password.');
-      await client.auth.signOut();
     } catch (err: any) {
       const safeError = toUserFacingError(err, {
         language: currentLang,
@@ -583,7 +570,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     let cancelled = false;
     const resolveGoogleSession = async () => {
       const params = new URLSearchParams(window.location.search);
-      if (params.get('oauth') !== 'google') return;
+      if (isPasswordRecoverySessionActive() || params.get('oauth') !== 'google') return;
       setIsLoading(true);
       try {
         const client: any = await getSecureDataBridgeClient();
