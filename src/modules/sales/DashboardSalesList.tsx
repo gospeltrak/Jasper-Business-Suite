@@ -383,7 +383,7 @@ export default function DashboardSalesList({
     if (type === 'quotation') return 'price quote';
     return (type as SalesDocument['type']) || 'price quote';
   };
-  const getDocumentLabel = (type: SalesDocument['type'] | string) => normalizeDocType(type) === 'proforma invoice' ? 'Proforma Invoice' : 'Price Quote';
+  const getDocumentLabel = (type: SalesDocument['type'] | string) => normalizeDocType(type) === 'proforma invoice' ? 'Invoice' : 'Price Quote';
   const getDocumentItemName = (item: SaleItem) => {
     const product = products.find(p => p.id === item.productId);
     return (item as any).item_description || (item as any).description || item.productName || (item as any).name || product?.name || 'Item';
@@ -5029,7 +5029,7 @@ export default function DashboardSalesList({
             <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shrink-0">
               <div>
                 <h3 className="text-[15px] font-black text-slate-900 dark:text-white">{editingDocumentId ? 'Edit Document' : 'New Document'}</h3>
-                <p className="text-[10px] text-slate-400 mt-0.5">Quotation or Proforma Invoice</p>
+                <p className="text-[10px] text-slate-400 mt-0.5">Quotation or Invoice</p>
               </div>
               <button type="button" onClick={resetNewDocumentForm}
                 className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:text-slate-800 cursor-pointer border-none transition-colors">
