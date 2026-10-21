@@ -3922,12 +3922,18 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     permissions: Record<string, any> | null | undefined;
     homeBranchId: string | null;
     grantedBy: string;
+    // Tenant-admin-only grant: lets this staff member see pricing/stock
+    // across every branch and issue Tanzanite cross-branch quotes/invoices,
+    // not just operate their own branch's data (access_scope already covers
+    // that). Defaults to false so callers that don't pass it (e.g. the
+    // Google-invitation accept path) keep today's owner-only behavior.
+    canViewConsolidated?: boolean;
   }) => {
-    const { tenantId, staffAuthId, accessScope, permissions, homeBranchId, grantedBy } = options;
+    const { tenantId, staffAuthId, accessScope, permissions, homeBranchId, grantedBy, canViewConsolidated } = options;
     if (accessScope === 'all_branches') {
       const { error: profileError } = await adminTable('branch_staff_access_profiles').upsert({
         tenant_id: tenantId, staff_id: staffAuthId, access_scope: 'all_branches',
-        can_view_consolidated: false, status: 'active', granted_by: grantedBy,
+        can_view_consolidated: Boolean(canViewConsolidated), status: 'active', granted_by: grantedBy,
         home_branch_id: homeBranchId || null,
       }, { onConflict: 'tenant_id,staff_id' });
       if (profileError) throw profileError;
@@ -4006,10 +4012,11 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     if (!admin) return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 403, 'registration');
     try {
       const { data: profiles, error: profilesError } = await adminTable('branch_staff_access_profiles')
-        .select('staff_id,access_scope').eq('tenant_id', admin.tenantId).eq('status', 'active');
+        .select('staff_id,access_scope,can_view_consolidated').eq('tenant_id', admin.tenantId).eq('status', 'active');
       if (profilesError) throw profilesError;
       const staffIds = (profiles || []).map((row: any) => row.staff_id);
       const accessScopes: Record<string, string> = {};
+      const consolidatedAccess: Record<string, boolean> = {};
       if (staffIds.length > 0) {
         const { data: staffUsers, error: staffUsersError } = await adminTable('users')
           .select('id,email').in('id', staffIds);
@@ -4017,10 +4024,13 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         const emailById = new Map((staffUsers || []).map((row: any) => [row.id, normalizeEmail(row.email)]));
         for (const row of profiles || []) {
           const staffEmail = emailById.get(row.staff_id);
-          if (staffEmail) accessScopes[staffEmail] = row.access_scope;
+          if (staffEmail) {
+            accessScopes[staffEmail] = row.access_scope;
+            consolidatedAccess[staffEmail] = Boolean(row.can_view_consolidated);
+          }
         }
       }
-      return res.json({ accessScopes });
+      return res.json({ accessScopes, consolidatedAccess });
     } catch (error) {
       return sendUnexpectedSafeApiError(req, res, error, { fallbackCode: 'LOAD_ERROR', context: 'registration', operation: 'staff_branch_access_read' });
     }
@@ -4036,6 +4046,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     const email = normalizeEmail(req.body?.email);
     const accessScope = req.body?.accessScope === 'all_branches' ? 'all_branches' : 'assigned_branches';
     const homeBranchId = isUuid(req.body?.homeBranchId) ? String(req.body.homeBranchId) : null;
+    const canViewConsolidated = accessScope === 'all_branches' && req.body?.canViewConsolidated === true;
     const permissions = req.body?.permissions && typeof req.body.permissions === 'object' && !Array.isArray(req.body.permissions)
       ? req.body.permissions : {};
     if (!email || !email.includes('@')) {
@@ -4050,7 +4061,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       }
       await syncStaffBranchAccessScope({
         tenantId: admin.tenantId, staffAuthId: String(existing.id), accessScope,
-        permissions, homeBranchId, grantedBy: admin.authUser.id,
+        permissions, homeBranchId, grantedBy: admin.authUser.id, canViewConsolidated,
       });
       return res.json({ updated: true });
     } catch (error) {
@@ -4113,6 +4124,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     const password = String(req.body?.password || '');
     const branchId = isUuid(req.body?.branchId) ? String(req.body.branchId) : null;
     const accessScope = req.body?.accessScope === 'all_branches' ? 'all_branches' : 'assigned_branches';
+    const canViewConsolidated = accessScope === 'all_branches' && req.body?.canViewConsolidated === true;
     const permissions = req.body?.permissions && typeof req.body.permissions === 'object' && !Array.isArray(req.body.permissions)
       ? req.body.permissions : {};
     if (!staffId || !name || !email || !email.includes('@') || !phone) {
@@ -4161,7 +4173,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         }
         await syncStaffBranchAccessScope({
           tenantId: String(admin.tenantId), staffAuthId: authUserId,
-          accessScope, permissions, homeBranchId: branchId, grantedBy: admin.authUser.id,
+          accessScope, permissions, homeBranchId: branchId, grantedBy: admin.authUser.id, canViewConsolidated,
         });
         await purgeLegacyWorkspaceStaffPassword({
           tenantId: String(admin.tenantId), staffId, phone, authUserId, authEmail: email,

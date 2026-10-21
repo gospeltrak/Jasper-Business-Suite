@@ -709,6 +709,14 @@ export default function DashboardSalesList({
   const [crossBranchSources, setCrossBranchSources] = useState<CrossBranchDocumentSources | null>(null);
   const [crossBranchSourcesLoading, setCrossBranchSourcesLoading] = useState(false);
   const [crossBranchSourcesError, setCrossBranchSourcesError] = useState('');
+  // A tenant can be on the Tanzanite plan with multiple branches while this
+  // particular staff member still lacks the (owner-only, not grantable from
+  // any staff role UI) consolidated-branches permission the server checks.
+  // When that happens crossBranchSourcesError gets set and the cross-branch
+  // wizard is unusable -- fall back to a normal single-branch document
+  // instead of leaving the staff member stuck with a permanently disabled
+  // Create button.
+  const effectiveUseCrossBranch = canUseCrossBranchDocuments && !crossBranchSourcesError;
   const [newDocIssuingBranchId, setNewDocIssuingBranchId] = useState('');
   const [docWizardSourceBranchId, setDocWizardSourceBranchId] = useState('');
   const [documentMutationPending, setDocumentMutationPending] = useState(false);
@@ -1368,7 +1376,7 @@ export default function DashboardSalesList({
     // the browser's online flag is momentarily false — the document looked
     // created here but was never actually written, and vanished the next
     // time the app reloaded. Refuse up front instead of silently failing.
-    if (!canUseCrossBranchDocuments && !canWriteBusinessDataOnline()) {
+    if (!effectiveUseCrossBranch && !canWriteBusinessDataOnline()) {
       alert('You appear to be offline. Reconnect and try again — this document was not saved.');
       return;
     }
@@ -1488,7 +1496,7 @@ export default function DashboardSalesList({
       issuingBranchName: issuingBranch?.businessName || issuingBranch?.branchName,
     };
 
-    if (!canUseCrossBranchDocuments) {
+    if (!effectiveUseCrossBranch) {
       setDocumentMutationPending(true);
       try {
         const savedDocument = await createStandardCommercialDocument(localDocument);
@@ -5249,7 +5257,7 @@ export default function DashboardSalesList({
                         );
                         const sourceBranch = crossBranchSources?.branches.find(branch => branch.id === docWizardSourceBranchId);
                         const existingIdx = newDocItems.findIndex(x =>
-                          x.productId === found.id && x.sourceBranchId === (canUseCrossBranchDocuments ? docWizardSourceBranchId : undefined)
+                          x.productId === found.id && x.sourceBranchId === (effectiveUseCrossBranch ? docWizardSourceBranchId : undefined)
                         );
                         if (existingIdx >= 0) {
                           setNewDocItems(prev => prev.map((item, index) => index === existingIdx
@@ -5259,8 +5267,8 @@ export default function DashboardSalesList({
                           setNewDocItems(prev => [...prev, {
                             productId: found.id, productName: found.name,
                             qty: docWizardSelectedQty, price: source?.sellingPrice ?? found.sellingPrice,
-                            sourceBranchId: canUseCrossBranchDocuments ? docWizardSourceBranchId : undefined,
-                            sourceBranchName: canUseCrossBranchDocuments ? sourceBranch?.branchName : undefined,
+                            sourceBranchId: effectiveUseCrossBranch ? docWizardSourceBranchId : undefined,
+                            sourceBranchName: effectiveUseCrossBranch ? sourceBranch?.branchName : undefined,
                             discount: 0, discountType: 'percent' as const
                           }]);
                         }
@@ -5416,7 +5424,17 @@ export default function DashboardSalesList({
                 Cancel
               </button>
               <button type="button"
-                disabled={newDocItems.length === 0 || documentMutationPending || ((!editingDocumentId || editingDocumentIsCrossBranch) && canUseCrossBranchDocuments && (!newDocIssuingBranchId || crossBranchSourcesLoading || !!crossBranchSourcesError))}
+                disabled={newDocItems.length === 0 || documentMutationPending
+                  // Editing an existing cross-branch document always needs its
+                  // branch sources loaded -- there is no single-branch fallback
+                  // for a document that already exists as cross-branch.
+                  || (!!editingDocumentId && editingDocumentIsCrossBranch && (!newDocIssuingBranchId || crossBranchSourcesLoading || !!crossBranchSourcesError))
+                  // Creating a brand-new document: only wait on cross-branch
+                  // sources when they are actually going to be used. If the
+                  // staff member hit crossBranchSourcesError (no consolidated-
+                  // branches permission), effectiveUseCrossBranch is false and
+                  // the document saves as a normal single-branch document.
+                  || (!editingDocumentId && effectiveUseCrossBranch && (!newDocIssuingBranchId || crossBranchSourcesLoading))}
                 onClick={() => void handleCreateCommercialDocument()}
                 className="flex-[2] py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-200 disabled:cursor-not-allowed text-white font-black text-sm cursor-pointer transition-colors border-none">
                 {documentMutationPending ? 'Saving…' : editingDocumentId ? 'Save Changes' : `Create ${getDocumentLabel(newDocType)}`}

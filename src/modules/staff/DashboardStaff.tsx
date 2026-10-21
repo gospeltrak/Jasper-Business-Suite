@@ -307,9 +307,12 @@ export default function DashboardStaff({
   const [availableBranches, setAvailableBranches] = useState<{ id: string; name: string }[]>([]);
   const [regBranchId, setRegBranchId] = useState('');
   const [regAccessScope, setRegAccessScope] = useState<'assigned_branches' | 'all_branches'>('assigned_branches');
+  const [regCanViewConsolidated, setRegCanViewConsolidated] = useState(false);
   const [staffAccessScopes, setStaffAccessScopes] = useState<Record<string, 'assigned_branches' | 'all_branches'>>({});
+  const [staffConsolidatedAccess, setStaffConsolidatedAccess] = useState<Record<string, boolean>>({});
   const [profileBranchId, setProfileBranchId] = useState('');
   const [profileAccessScope, setProfileAccessScope] = useState<'assigned_branches' | 'all_branches'>('assigned_branches');
+  const [profileCanViewConsolidated, setProfileCanViewConsolidated] = useState(false);
   const [isSavingBranchAccess, setIsSavingBranchAccess] = useState(false);
   const [allowanceForm, setAllowanceForm] = useState({
     name: 'Food allowance',
@@ -390,6 +393,7 @@ export default function DashboardStaff({
         if (!response.ok) return;
         const result = await response.json().catch(() => null);
         if (mounted && result?.accessScopes) setStaffAccessScopes(result.accessScopes);
+        if (mounted && result?.consolidatedAccess) setStaffConsolidatedAccess(result.consolidatedAccess);
       } catch { /* branch-access display is best-effort */ }
     };
     void loadAccessScopes();
@@ -538,6 +542,7 @@ export default function DashboardStaff({
     staff: StaffSettings,
     password: string,
     accessScope: 'assigned_branches' | 'all_branches' = 'assigned_branches',
+    canViewConsolidated: boolean = false,
   ) => {
     if (!staff.email) throw new Error('Add the staff email first.');
     if (!isStaffPasswordStrong(password)) throw new Error('Password must be at least 10 characters and include a letter and a number.');
@@ -551,7 +556,7 @@ export default function DashboardStaff({
       body: JSON.stringify({
         staffId: staff.id, name: staff.name, email: staff.email, phone: staff.phone,
         role: staff.role, branchId: staff.branchId || activeBranchId || activeBranchContext?.id,
-        accessScope, password,
+        accessScope, canViewConsolidated, password,
         permissions: customRoles.find(item => item.name.toLowerCase() === staff.role.toLowerCase())?.permissions || {},
       }),
     });
@@ -572,7 +577,7 @@ export default function DashboardStaff({
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
         body: JSON.stringify({
-          email: staff.email, accessScope: profileAccessScope,
+          email: staff.email, accessScope: profileAccessScope, canViewConsolidated: profileCanViewConsolidated,
           homeBranchId: profileBranchId || staff.branchId || activeBranchId || activeBranchContext?.id,
           permissions: customRoles.find(item => item.name.toLowerCase() === staff.role.toLowerCase())?.permissions || {},
         }),
@@ -581,6 +586,7 @@ export default function DashboardStaff({
       if (!response.ok) throw new Error(result?.error || 'Branch access could not be saved.');
       if (result.updated) {
         setStaffAccessScopes(prev => ({ ...prev, [staff.email!.trim().toLowerCase()]: profileAccessScope }));
+        setStaffConsolidatedAccess(prev => ({ ...prev, [staff.email!.trim().toLowerCase()]: profileAccessScope === 'all_branches' && profileCanViewConsolidated }));
         setSuccessMessage('Branch access updated.');
       } else {
         setSuccessMessage('This staff has no login yet. Create their login below to apply this access when they sign in.');
@@ -648,7 +654,7 @@ export default function DashboardStaff({
     }
 
     try {
-      await createStaffCredentials(newStaff, registerPassword, regAccessScope);
+      await createStaffCredentials(newStaff, registerPassword, regAccessScope, regCanViewConsolidated);
       setSuccessMessage(`Staff member "${fullName}" saved. They can sign in now with the email and password you set.`);
     } catch (error) {
       setSuccessMessage(error instanceof Error
@@ -670,6 +676,7 @@ export default function DashboardStaff({
     setSalaryStartDate(todayIsoDate());
     setSalaryNotes('');
     setRegAccessScope('assigned_branches');
+    setRegCanViewConsolidated(false);
 
     setTimeout(() => {
       setSuccessMessage('');
@@ -791,6 +798,7 @@ export default function DashboardStaff({
     setSelectedStaff(staff);
     setProfileBranchId(staff.branchId || activeBranchId || activeBranchContext?.id || '');
     setProfileAccessScope(staffAccessScopes[staff.email?.trim().toLowerCase() || ''] || 'assigned_branches');
+    setProfileCanViewConsolidated(staffConsolidatedAccess[staff.email?.trim().toLowerCase() || ''] || false);
     setAllowanceForm({
       name: 'Food allowance',
       customName: '',
@@ -1376,7 +1384,16 @@ export default function DashboardStaff({
                           </button>
                         </div>
                         {regAccessScope === 'all_branches' && (
-                          <p className="text-[11px] text-slate-500">This staff can access and operate any branch, not only the one selected above.</p>
+                          <>
+                            <p className="text-[11px] text-slate-500">This staff can access and operate any branch, not only the one selected above.</p>
+                            <label className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-3 cursor-pointer">
+                              <input type="checkbox" checked={regCanViewConsolidated} onChange={e => setRegCanViewConsolidated(e.target.checked)} className="mt-0.5 w-4 h-4 accent-indigo-600" />
+                              <span className="text-xs">
+                                <span className="font-black text-slate-800 block">Allow cross-branch (consolidated) invoices</span>
+                                <span className="text-amber-700 block mt-0.5">This also lets them see pricing and stock from every branch, not only the one they operate from.</span>
+                              </span>
+                            </label>
+                          </>
                         )}
                       </div>
                     </>
@@ -1890,6 +1907,15 @@ export default function DashboardStaff({
                           All Branches
                         </button>
                       </div>
+                      {profileAccessScope === 'all_branches' && (
+                        <label className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-3 cursor-pointer">
+                          <input type="checkbox" checked={profileCanViewConsolidated} onChange={e => setProfileCanViewConsolidated(e.target.checked)} className="mt-0.5 w-4 h-4 accent-indigo-600" />
+                          <span className="text-xs">
+                            <span className="font-black text-slate-800 block">Allow cross-branch (consolidated) invoices</span>
+                            <span className="text-amber-700 block mt-0.5">This also lets them see pricing and stock from every branch, not only the one they operate from.</span>
+                          </span>
+                        </label>
+                      )}
                       <button
                         type="button"
                         disabled={isSavingBranchAccess}
@@ -1910,7 +1936,7 @@ export default function DashboardStaff({
                     disabled={!selectedStaff.email || !profilePassword || isSavingStaffCredentials}
                     onClick={() => {
                       setIsSavingStaffCredentials(true);
-                      void createStaffCredentials(selectedStaff, profilePassword, profileAccessScope)
+                      void createStaffCredentials(selectedStaff, profilePassword, profileAccessScope, profileCanViewConsolidated)
                         .then(() => { setSuccessMessage('Staff login created. They can sign in now with their email and this password.'); setProfilePassword(''); })
                         .catch(error => setSuccessMessage(error instanceof Error ? error.message : 'Staff login could not be created.'))
                         .finally(() => { setIsSavingStaffCredentials(false); setTimeout(() => setSuccessMessage(''), 6000); });

@@ -239,7 +239,15 @@ test('expired Tanzanite tenants save quotes through the standard tenant document
     salesSource,
     /const canUseCrossBranchDocuments = activePlanId === 'tanzanite' && !subscriptionStatus\?\.isExpired/,
   );
-  assert.match(salesSource, /if \(!canUseCrossBranchDocuments\) \{[\s\S]*setDocuments/);
+  // effectiveUseCrossBranch additionally falls back to the standard flow
+  // when a staff member lacks the owner-only consolidated-branches
+  // permission (crossBranchSourcesError), not just when the plan itself
+  // doesn't qualify.
+  assert.match(
+    salesSource,
+    /const effectiveUseCrossBranch = canUseCrossBranchDocuments && !crossBranchSourcesError/,
+  );
+  assert.match(salesSource, /if \(!effectiveUseCrossBranch\) \{[\s\S]*setDocuments/);
 });
 
 test('commercial document product search follows the active branch and recognizes location stock', async () => {
