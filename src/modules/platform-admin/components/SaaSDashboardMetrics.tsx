@@ -61,61 +61,12 @@ export default function SaaSDashboardMetrics() {
       )}
 
       {/* Top Value Cards */}
-      <div className="mobile-tablet-kpi-grid gap-4" style={{ ['--desktop-kpi-columns' as any]: 'repeat(5, minmax(0, 1fr))' }}>
-        {/* Subscribers Count */}
-        <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex items-center space-x-4">
-          <div className="p-3 rounded-xl bg-blue-500/10 text-blue-400">
-            <Users className="w-5 h-5" />
-          </div>
-          <div>
-            <span className="text-[10px] text-slate-500 uppercase font-mono tracking-wider font-bold">Subscribers</span>
-            <div className="text-lg font-bold text-white leading-tight">{metrics?.subscribersCount || 0} Users</div>
-          </div>
-        </div>
-
-        {/* Total Revenue */}
-        <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex items-center space-x-4">
-          <div className="p-3 rounded-xl bg-emerald-500/10 text-emerald-400">
-            <DollarSign className="w-5 h-5" />
-          </div>
-          <div>
-            <span className="text-[10px] text-slate-500 uppercase font-mono tracking-wider font-bold">Total Revenue</span>
-            <div className="text-lg font-bold text-white leading-tight">TZS {(metrics?.totalIncome || 0).toLocaleString()}</div>
-          </div>
-        </div>
-
-        {/* Total Affiliate Shares */}
-        <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex items-center space-x-4">
-          <div className="p-3 rounded-xl bg-amber-500/10 text-amber-400">
-            <Share2 className="w-5 h-5" />
-          </div>
-          <div>
-            <span className="text-[10px] text-slate-500 uppercase font-mono tracking-wider font-bold">Total Affiliates Shares</span>
-            <div className="text-lg font-bold text-white leading-tight">TZS {(metrics?.affiliatePayouts || 0).toLocaleString()}</div>
-          </div>
-        </div>
-
-        {/* Expenses */}
-        <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex items-center space-x-4">
-          <div className="p-3 rounded-xl bg-rose-500/10 text-rose-400">
-            <Receipt className="w-5 h-5" />
-          </div>
-          <div>
-            <span className="text-[10px] text-slate-500 uppercase font-mono tracking-wider font-bold">Total Expenses</span>
-            <div className="text-lg font-bold text-white leading-tight">TZS {(metrics?.expenses || 0).toLocaleString()}</div>
-          </div>
-        </div>
-
-        {/* Balance Remaining */}
-        <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex items-center space-x-4">
-          <div className="p-3 rounded-xl bg-indigo-500/10 text-indigo-400">
-            <Landmark className="w-5 h-5" />
-          </div>
-          <div>
-            <span className="text-[10px] text-slate-500 uppercase font-mono tracking-wider font-bold">Net Balance</span>
-            <div className="text-lg font-bold text-white leading-tight">TZS {(metrics?.balance || 0).toLocaleString()}</div>
-          </div>
-        </div>
+      <div className="mobile-tablet-kpi-grid gap-3 sm:gap-4" style={{ ['--desktop-kpi-columns' as any]: 'repeat(5, minmax(0, 1fr))' }}>
+        <KpiCard icon={Users} iconColor="blue" label="Subscribers" value={`${metrics?.subscribersCount || 0}`} />
+        <KpiCard icon={DollarSign} iconColor="emerald" label="Total Revenue" value={`TZS ${(metrics?.totalIncome || 0).toLocaleString()}`} />
+        <KpiCard icon={Share2} iconColor="amber" label="Affiliate Shares" value={`TZS ${(metrics?.affiliatePayouts || 0).toLocaleString()}`} />
+        <KpiCard icon={Receipt} iconColor="rose" label="Total Expenses" value={`TZS ${(metrics?.expenses || 0).toLocaleString()}`} />
+        <KpiCard icon={Landmark} iconColor="indigo" label="Net Balance" value={`TZS ${(metrics?.balance || 0).toLocaleString()}`} />
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
@@ -133,21 +84,21 @@ export default function SaaSDashboardMetrics() {
       </p>
 
       {/* Graphs Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-6">
+
         {/* GRAPH 1: Bar graph: monthly users by package */}
-        <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl">
-          <h3 className="text-xs font-mono font-black text-white uppercase tracking-wider mb-4 flex items-center space-x-2">
-            <BarChart2 className="w-4 h-4 text-emerald-400" />
+        <div className="rounded-2xl border border-slate-800/80 bg-slate-900 p-4 shadow-sm shadow-black/20 sm:p-5">
+          <h3 className="mb-4 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-300">
+            <BarChart2 className="h-4 w-4 text-emerald-400" />
             <span>Monthly Users by Package</span>
           </h3>
-          <div className="h-[250px] w-full">
+          <div className="h-[220px] w-full sm:h-[250px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={monthlyUsersByPackage} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
                 <XAxis dataKey="name" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
                 <YAxis stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
-                <Tooltip 
+                <Tooltip
                   contentStyle={{ backgroundColor: '#020617', borderColor: '#1e293b', borderRadius: '8px', fontSize: '11px' }}
                   itemStyle={{ fontSize: '11px', fontWeight: 'bold' }}
                 />
@@ -161,12 +112,12 @@ export default function SaaSDashboardMetrics() {
         </div>
 
         {/* GRAPH 2: Cycle graph: most subscribed packages */}
-        <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl">
-          <h3 className="text-xs font-mono font-black text-white uppercase tracking-wider mb-4 flex items-center space-x-2">
-            <PieChartIcon className="w-4 h-4 text-indigo-400" />
+        <div className="rounded-2xl border border-slate-800/80 bg-slate-900 p-4 shadow-sm shadow-black/20 sm:p-5">
+          <h3 className="mb-4 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-300">
+            <PieChartIcon className="h-4 w-4 text-indigo-400" />
             <span>Package Subscribe Ratio</span>
           </h3>
-          <div className="h-[250px] w-full flex items-center justify-center">
+          <div className="flex h-[220px] w-full items-center justify-center sm:h-[250px]">
             <ResponsiveContainer width="100%" height="100%">
               <RechartsPieChart>
                 <Pie
@@ -190,18 +141,18 @@ export default function SaaSDashboardMetrics() {
         </div>
 
         {/* GRAPH 3: Line graph: organic subscribers vs promo-code subscribers */}
-        <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl lg:col-span-2">
-          <h3 className="text-xs font-mono font-black text-white uppercase tracking-wider mb-4 flex items-center space-x-2">
-            <TrendingUp className="w-4 h-4 text-amber-400" />
+        <div className="rounded-2xl border border-slate-800/80 bg-slate-900 p-4 shadow-sm shadow-black/20 sm:p-5 lg:col-span-2">
+          <h3 className="mb-4 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-300">
+            <TrendingUp className="h-4 w-4 text-amber-400" />
             <span>Organic vs Sub-Affiliate Subscriber Growth</span>
           </h3>
-          <div className="h-[250px] w-full">
+          <div className="h-[220px] w-full sm:h-[250px]">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={organicVsAffiliate} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
                 <XAxis dataKey="name" stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
                 <YAxis stroke="#64748b" fontSize={10} tickLine={false} axisLine={false} />
-                <Tooltip 
+                <Tooltip
                   contentStyle={{ backgroundColor: '#020617', borderColor: '#1e293b', borderRadius: '8px', fontSize: '11px' }}
                 />
                 <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
@@ -217,12 +168,34 @@ export default function SaaSDashboardMetrics() {
   );
 }
 
+const KPI_ICON_COLORS: Record<string, string> = {
+  blue: 'bg-blue-500/10 text-blue-400',
+  emerald: 'bg-emerald-500/10 text-emerald-400',
+  amber: 'bg-amber-500/10 text-amber-400',
+  rose: 'bg-rose-500/10 text-rose-400',
+  indigo: 'bg-indigo-500/10 text-indigo-400',
+};
+
+function KpiCard({ icon: Icon, iconColor, label, value }: { icon: React.ElementType; iconColor: string; label: string; value: string }) {
+  return (
+    <div className="flex items-center gap-2.5 rounded-2xl border border-slate-800/80 bg-slate-900 p-4 shadow-sm shadow-black/20">
+      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${KPI_ICON_COLORS[iconColor]}`}>
+        <Icon className="h-4.5 w-4.5" />
+      </div>
+      <div className="min-w-0">
+        <p className="truncate text-[10px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+        <p className="break-words text-sm font-bold leading-tight text-white sm:text-base">{value}</p>
+      </div>
+    </div>
+  );
+}
+
 function LiveMetric({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: number }) {
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900 px-3 py-3">
+    <div className="rounded-2xl border border-slate-800/80 bg-slate-900 p-3.5 shadow-sm shadow-black/20">
       <Icon className="mb-2 h-4 w-4 text-emerald-400" />
-      <p className="text-[9px] font-bold uppercase tracking-wide text-slate-500">{label}</p>
-      <p className="mt-1 text-lg font-black text-white">{value.toLocaleString()}</p>
+      <p className="truncate text-[10px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="mt-1 text-base font-bold text-white sm:text-lg">{value.toLocaleString()}</p>
     </div>
   );
 }
