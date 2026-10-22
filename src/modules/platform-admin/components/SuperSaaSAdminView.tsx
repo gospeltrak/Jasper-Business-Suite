@@ -897,6 +897,7 @@ export default function SuperSaaSAdminView({
                     ? 'subAffiliates'
                     : 'agents'
               }
+              isUnlocked={isUnlocked}
             />
           </div>
         )}

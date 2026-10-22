@@ -1694,6 +1694,11 @@ button:active:not(:disabled),
   grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
 }
 
+.affiliate-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+
 .mobile-tablet-kpi-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Download, Eye, LoaderCircle, Pencil, RefreshCw, Search, ShieldCheck, Trash2, X } from 'lucide-react';
+import { ChevronRight, Download, Eye, LoaderCircle, MoreVertical, Pencil, RefreshCw, Search, ShieldCheck, Trash2, X } from 'lucide-react';
 import {
   AffiliateMonitoringData,
   AgentMonitoringRow,
@@ -39,7 +39,7 @@ const openAffiliateMirror = (row: SubAffiliateMonitoringRow) => {
   }));
 };
 
-export default function SuperAffiliateControlCenter({ initialTab = 'agents' }: { initialTab?: AffiliateCenterTab }) {
+export default function SuperAffiliateControlCenter({ initialTab = 'agents', isUnlocked = false }: { initialTab?: AffiliateCenterTab; isUnlocked?: boolean }) {
   const [data, setData] = useState<AffiliateMonitoringData>(emptyData);
   const [activeTab, setActiveTab] = useState<AffiliateCenterTab>(initialTab);
   const [query, setQuery] = useState('');
@@ -190,7 +190,7 @@ export default function SuperAffiliateControlCenter({ initialTab = 'agents' }: {
           <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search this monitoring section" className="w-full rounded-xl border border-slate-800 bg-slate-900 py-2.5 pl-10 pr-3 text-sm text-white placeholder:text-slate-600 outline-none focus:border-slate-700" />
         </label>
-        <div className="grid grid-cols-2 gap-2.5">
+        <div className="affiliate-filter-grid gap-2.5">
           <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3 py-2.5 text-xs font-semibold text-slate-200 outline-none focus:border-slate-700">
             <option value="all">All statuses</option>
             <option value="active">Active</option>
@@ -209,8 +209,8 @@ export default function SuperAffiliateControlCenter({ initialTab = 'agents' }: {
         </div>
       </div>
 
-      {activeTab === 'agents' && <AgentMonitoringSection rows={agentRows} totals={agentTotals} onExport={exportAgentPayouts} onDelete={(row) => setDeleteTarget({ id: row.agentId, name: row.agentName, kind: 'partner' })} />}
-      {activeTab === 'subAffiliates' && <SubAffiliateSection rows={subAffiliateRows} totals={subTotals} onExport={exportSubPayouts} onEdit={openAffiliateEditor} loadingAffiliateId={loadingAffiliateId} onDelete={(row) => setDeleteTarget({ id: row.id, name: row.name, kind: 'subAffiliate' })} />}
+      {activeTab === 'agents' && <AgentMonitoringSection rows={agentRows} totals={agentTotals} onExport={exportAgentPayouts} isUnlocked={isUnlocked} onDelete={(row) => setDeleteTarget({ id: row.agentId, name: row.agentName, kind: 'partner' })} />}
+      {activeTab === 'subAffiliates' && <SubAffiliateSection rows={subAffiliateRows} totals={subTotals} onExport={exportSubPayouts} onEdit={openAffiliateEditor} loadingAffiliateId={loadingAffiliateId} isUnlocked={isUnlocked} onDelete={(row) => setDeleteTarget({ id: row.id, name: row.name, kind: 'subAffiliate' })} />}
 
       {selected && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4">
@@ -295,7 +295,7 @@ export default function SuperAffiliateControlCenter({ initialTab = 'agents' }: {
   );
 }
 
-function AgentMonitoringSection({ rows, totals, onExport, onDelete }: { rows: AgentMonitoringRow[]; totals: { revenue: number; pool: number; agentCut: number; subPool: number }; onExport: () => void; onDelete: (row: AgentMonitoringRow) => void }) {
+function AgentMonitoringSection({ rows, totals, onExport, isUnlocked, onDelete }: { rows: AgentMonitoringRow[]; totals: { revenue: number; pool: number; agentCut: number; subPool: number }; onExport: () => void; isUnlocked: boolean; onDelete: (row: AgentMonitoringRow) => void }) {
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
@@ -329,7 +329,7 @@ function AgentMonitoringSection({ rows, totals, onExport, onDelete }: { rows: Ag
                 <td className="p-3 text-right">{row.subAffiliatePool > 0 ? money.format(row.subAffiliatePool) : '—'}</td>
                 <td className="p-3 text-right font-bold text-emerald-300">{row.netPayout > 0 ? money.format(row.netPayout) : '—'}</td>
                 <td className="p-3">{row.status}</td>
-                <td className="p-3 text-right"><button onClick={() => onDelete(row)} className="rounded-lg p-2 text-rose-500 hover:bg-rose-950" title="Delete partner"><Trash2 className="w-4 h-4" /></button></td>
+                <td className="p-3 text-right">{isUnlocked && <button onClick={() => onDelete(row)} className="rounded-lg p-2 text-rose-500 hover:bg-rose-950" title="Delete partner"><Trash2 className="w-4 h-4" /></button>}</td>
               </tr>
             ))}
             {!rows.length && <tr><td colSpan={11} className="p-8 text-center text-slate-500">No agent accounts found yet.</td></tr>}
@@ -344,7 +344,7 @@ function AgentMonitoringSection({ rows, totals, onExport, onDelete }: { rows: Ag
                 <p className="truncate font-black text-white">{row.agentName}</p>
                 <p className="mt-0.5 truncate text-xs text-slate-500">{row.agentCode || 'No code'} · {row.status}</p>
               </div>
-              <button onClick={() => onDelete(row)} className="shrink-0 rounded-xl bg-slate-800 p-2 text-rose-500 hover:bg-rose-950"><Trash2 className="w-3.5 h-3.5" /></button>
+              {isUnlocked && <button onClick={() => onDelete(row)} className="shrink-0 rounded-xl bg-slate-800 p-2 text-rose-500 hover:bg-rose-950" title="Delete partner"><Trash2 className="w-3.5 h-3.5" /></button>}
             </div>
             <div className="affiliate-card-stat-grid gap-2 text-sm">
               <div><span className="text-xs text-slate-500">Sub-affiliates</span><p className="font-semibold text-white">{row.subAffiliates}</p></div>
@@ -360,7 +360,8 @@ function AgentMonitoringSection({ rows, totals, onExport, onDelete }: { rows: Ag
   );
 }
 
-function SubAffiliateSection({ rows, totals, onExport, onEdit, loadingAffiliateId, onDelete }: { rows: SubAffiliateMonitoringRow[]; totals: { revenue: number; commission: number; tax: number; net: number }; onExport: () => void; onEdit: (row: SubAffiliateMonitoringRow) => void; loadingAffiliateId: string; onDelete: (row: SubAffiliateMonitoringRow) => void }) {
+function SubAffiliateSection({ rows, totals, onExport, onEdit, loadingAffiliateId, isUnlocked, onDelete }: { rows: SubAffiliateMonitoringRow[]; totals: { revenue: number; commission: number; tax: number; net: number }; onExport: () => void; onEdit: (row: SubAffiliateMonitoringRow) => void; loadingAffiliateId: string; isUnlocked: boolean; onDelete: (row: SubAffiliateMonitoringRow) => void }) {
+  const [cardActionsFor, setCardActionsFor] = useState<SubAffiliateMonitoringRow | null>(null);
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
@@ -409,7 +410,7 @@ function SubAffiliateSection({ rows, totals, onExport, onEdit, loadingAffiliateI
                 <td className="p-3 text-right">
                   <button onClick={() => openAffiliateMirror(row)} className="p-2 rounded hover:bg-slate-800" title="Mirror affiliate"><Eye className="w-4 h-4" /></button>
                   <button disabled={loadingAffiliateId === row.id} onClick={() => onEdit(row)} className="p-2 rounded hover:bg-slate-800 disabled:opacity-50" title="Load affiliate details"><Pencil className="w-4 h-4" /></button>
-                  <button onClick={() => onDelete(row)} className="p-2 rounded hover:bg-rose-950 text-rose-500" title="Delete sub-affiliate"><Trash2 className="w-4 h-4" /></button>
+                  {isUnlocked && <button onClick={() => onDelete(row)} className="p-2 rounded hover:bg-rose-950 text-rose-500" title="Delete sub-affiliate"><Trash2 className="w-4 h-4" /></button>}
                 </td>
               </tr>
             ))}
@@ -420,33 +421,101 @@ function SubAffiliateSection({ rows, totals, onExport, onEdit, loadingAffiliateI
       {/* Mobile cards */}
       <div className="lg:hidden space-y-3">
         {rows.map((row) => (
-          <article key={row.id} className="space-y-3 rounded-2xl border border-slate-800/80 bg-slate-900 p-4 shadow-sm shadow-black/20">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <p className="truncate font-black text-white">{row.name}</p>
-                <p className="mt-0.5 truncate text-xs text-slate-500">{row.parentAgentName} · <span className="font-mono text-emerald-400">{row.promoCode}</span></p>
+          <article key={row.id} className="relative overflow-hidden rounded-2xl border border-slate-800/80 bg-slate-900 shadow-sm shadow-black/20">
+            <div className={`absolute inset-y-0 left-0 w-1 ${row.status === 'active' ? 'bg-emerald-500' : row.status === 'suspended' ? 'bg-rose-500' : 'bg-amber-500'}`} />
+            <div className="py-3.5 pl-4 pr-3.5">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[14px] font-extrabold leading-tight text-white">{row.name}</p>
+                  <p className="mt-0.5 truncate font-mono text-[10px] text-slate-500">{row.parentAgentName} · <span className="text-emerald-400">{row.promoCode}</span></p>
+                </div>
+                <div className="flex shrink-0 items-start gap-2">
+                  <div className="text-right">
+                    <p className="text-[15px] font-black leading-tight text-blue-400">{money.format(row.netPayout)}</p>
+                    <p className="text-[9px] text-slate-500">owed</p>
+                  </div>
+                  <button onClick={() => setCardActionsFor(row)} className="rounded-lg bg-slate-800 p-1.5 text-slate-300 hover:bg-slate-700" title="Sub-affiliate actions"><MoreVertical className="w-4 h-4" /></button>
+                </div>
               </div>
-              <div className="flex shrink-0 gap-1">
-                <button onClick={() => openAffiliateMirror(row)} className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-teal-400" title="Mirror affiliate"><Eye className="w-3.5 h-3.5" /></button>
-                <button disabled={loadingAffiliateId === row.id} onClick={() => onEdit(row)} className="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-blue-400 disabled:opacity-50"><Pencil className="w-3.5 h-3.5" /></button>
-                <button onClick={() => onDelete(row)} className="p-2 rounded-xl bg-slate-800 hover:bg-rose-950 text-rose-500"><Trash2 className="w-3.5 h-3.5" /></button>
+              <div className="mt-2.5 flex items-center justify-between border-t border-slate-800/60 pt-2.5 text-[10px] font-mono text-slate-500">
+                <span>{row.subscribers} subscriber{row.subscribers === 1 ? '' : 's'}</span>
+                <span className={row.payoutStatus === 'paid' ? 'text-emerald-400' : 'text-amber-400'}>{row.payoutStatus}</span>
               </div>
             </div>
-            <div className="affiliate-card-stat-grid gap-2">
-              <div className="rounded-xl bg-slate-800 p-3"><p className="text-[10px] font-bold uppercase text-slate-500">Revenue</p><p className="mt-0.5 text-sm font-black text-white">{money.format(row.revenue)}</p></div>
-              <div className="rounded-xl bg-emerald-500/10 p-3"><p className="text-[10px] font-bold uppercase text-emerald-400/70">15% Gross</p><p className="mt-0.5 text-sm font-black text-emerald-400">{money.format(row.commission)}</p></div>
-              <div className="rounded-xl bg-amber-500/10 p-3">
-                <p className="text-[10px] font-bold uppercase text-amber-400/70">5% WHT</p>
-                <p className="mt-0.5 text-sm font-black text-amber-400">{money.format(row.withholdingTax)}</p>
-                <p className="mt-0.5 text-[9px] italic text-slate-600">Not yet active</p>
-              </div>
-              <div className="rounded-xl bg-blue-500/10 p-3"><p className="text-[10px] font-bold uppercase text-blue-400/70">Net Payout</p><p className="mt-0.5 text-sm font-black text-blue-400">{money.format(row.netPayout)}</p></div>
-            </div>
-            <div className="text-[10px] text-slate-500 border-t border-slate-800 pt-2">{row.mobileMoneyProvider || 'No provider'} · {row.mobileMoneyNumber || '—'} · <span className={row.payoutStatus === 'paid' ? 'text-emerald-400' : 'text-amber-400'}>{row.payoutStatus}</span></div>
           </article>
         ))}
         {!rows.length && <EmptyCard text="No sub-affiliates found yet." />}
       </div>
+
+      {cardActionsFor && (
+        <>
+          <div onClick={() => setCardActionsFor(null)} className="fixed inset-0 z-[110] bg-black/60" />
+          <div
+            className="fixed left-0 right-0 z-[120] mx-auto w-full max-w-lg overflow-hidden rounded-t-3xl border border-slate-800 bg-slate-950 shadow-xl"
+            style={{ bottom: 'calc(var(--dashboard-bottom-nav-height, 56px) + env(safe-area-inset-bottom))' }}
+          >
+            <div className="flex justify-center py-2"><div className="h-1 w-12 rounded-full bg-slate-700" /></div>
+            <div className="px-5 pb-1 pt-1 text-left">
+              <h3 className="text-sm font-extrabold leading-tight text-white">{cardActionsFor.name}</h3>
+              <p className="mt-0.5 font-mono text-[11px] text-slate-500">{cardActionsFor.parentAgentName} · <span className="text-emerald-400">{cardActionsFor.promoCode}</span></p>
+            </div>
+            <div className="space-y-2 p-4">
+              <button
+                type="button"
+                onClick={() => { openAffiliateMirror(cardActionsFor); setCardActionsFor(null); }}
+                className="flex w-full items-center justify-between rounded-2xl border border-slate-800 bg-slate-900 px-3.5 py-3 text-left transition-colors hover:bg-slate-800"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-teal-500/10 text-teal-400"><Eye className="h-4 w-4" /></div>
+                  <div>
+                    <span className="block text-sm font-bold text-white">View Sub-Affiliate</span>
+                    <span className="mt-0.5 block text-[11px] text-slate-500">See their full details</span>
+                  </div>
+                </div>
+                <ChevronRight className="h-4 w-4 text-slate-600" />
+              </button>
+              <button
+                type="button"
+                disabled={loadingAffiliateId === cardActionsFor.id}
+                onClick={() => { onEdit(cardActionsFor); setCardActionsFor(null); }}
+                className="flex w-full items-center justify-between rounded-2xl border border-slate-800 bg-slate-900 px-3.5 py-3 text-left transition-colors hover:bg-slate-800 disabled:opacity-50"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-500/10 text-blue-400"><Pencil className="h-4 w-4" /></div>
+                  <div>
+                    <span className="block text-sm font-bold text-white">Edit Sub-Affiliate</span>
+                    <span className="mt-0.5 block text-[11px] text-slate-500">Update their profile details</span>
+                  </div>
+                </div>
+                <ChevronRight className="h-4 w-4 text-slate-600" />
+              </button>
+              {isUnlocked && (
+                <button
+                  type="button"
+                  onClick={() => { onDelete(cardActionsFor); setCardActionsFor(null); }}
+                  className="flex w-full items-center justify-between rounded-2xl border border-rose-900/50 bg-rose-500/5 px-3.5 py-3 text-left transition-colors hover:bg-rose-500/10"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-rose-500/10 text-rose-400"><Trash2 className="h-4 w-4" /></div>
+                    <div>
+                      <span className="block text-sm font-bold text-rose-400">Delete Sub-Affiliate</span>
+                      <span className="mt-0.5 block text-[11px] text-slate-500">Permanently remove this account</span>
+                    </div>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-slate-600" />
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setCardActionsFor(null)}
+                className="w-full rounded-2xl py-2.5 text-center text-sm font-bold text-slate-400 transition-colors hover:text-slate-200"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
