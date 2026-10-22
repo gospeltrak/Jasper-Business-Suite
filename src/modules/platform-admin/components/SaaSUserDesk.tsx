@@ -473,26 +473,26 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
       
       {/* Earnings Overview */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-        <div className="bg-slate-900 p-3.5 sm:p-4 md:p-5 rounded-2xl border border-slate-800/80 shadow-sm shadow-black/20">
+        <div className="bg-slate-900 p-3.5 sm:p-4 rounded-2xl border border-slate-800/80 shadow-sm shadow-black/20">
           <div className="text-slate-400 text-[10px] sm:text-xs font-semibold uppercase tracking-wide">Direct Users Revenue</div>
-          <div className="text-lg sm:text-2xl md:text-3xl font-bold text-white font-mono mt-1.5 sm:mt-2 tracking-tight">TSh {totalDirectRevenue.toLocaleString()}</div>
-          <div className="text-[10px] sm:text-xs text-slate-500 mt-1.5 sm:mt-2">
+          <div className="text-base sm:text-lg md:text-xl font-bold text-white font-mono mt-1 tracking-tight">TSh {totalDirectRevenue.toLocaleString()}</div>
+          <div className="text-[10px] sm:text-xs text-slate-500 mt-1">
             {users.filter(u => u.referralSource === 'direct').length} direct platform registrations
           </div>
         </div>
 
-        <div className="bg-slate-900 p-3.5 sm:p-4 md:p-5 rounded-2xl border border-slate-800/80 shadow-sm shadow-black/20">
+        <div className="bg-slate-900 p-3.5 sm:p-4 rounded-2xl border border-slate-800/80 shadow-sm shadow-black/20">
           <div className="text-amber-400/90 text-[10px] sm:text-xs font-semibold uppercase tracking-wide">Sub-Affiliate Users Revenue</div>
-          <div className="text-lg sm:text-2xl md:text-3xl font-bold text-white font-mono mt-1.5 sm:mt-2 tracking-tight">TSh {totalAffiliateRevenue.toLocaleString()}</div>
-          <div className="text-[10px] sm:text-xs text-slate-500 mt-1.5 sm:mt-2">
+          <div className="text-base sm:text-lg md:text-xl font-bold text-white font-mono mt-1 tracking-tight">TSh {totalAffiliateRevenue.toLocaleString()}</div>
+          <div className="text-[10px] sm:text-xs text-slate-500 mt-1">
             {users.filter(isSubAffiliateSubscriber).length} sub-affiliate promo-code registrations
           </div>
         </div>
 
-        <div className="bg-slate-900 p-3.5 sm:p-4 md:p-5 rounded-2xl border border-emerald-800/30 shadow-sm shadow-black/20 col-span-2 lg:col-span-1 flex flex-col justify-center">
+        <div className="bg-slate-900 p-3.5 sm:p-4 rounded-2xl border border-emerald-800/30 shadow-sm shadow-black/20 col-span-2 lg:col-span-1 flex flex-col justify-center">
           <div className="text-emerald-400 text-[10px] sm:text-xs font-semibold uppercase tracking-wide">Total Operations Revenue</div>
-          <div className="text-lg sm:text-2xl md:text-3xl font-bold text-emerald-400 font-mono mt-1.5 sm:mt-2 tracking-tight">TSh {(totalDirectRevenue + totalAffiliateRevenue).toLocaleString()}</div>
-          <div className="text-[10px] sm:text-xs text-slate-500 mt-1.5 sm:mt-2">Live, synchronized from branch pools</div>
+          <div className="text-base sm:text-lg md:text-xl font-bold text-emerald-400 font-mono mt-1 tracking-tight">TSh {(totalDirectRevenue + totalAffiliateRevenue).toLocaleString()}</div>
+          <div className="text-[10px] sm:text-xs text-slate-500 mt-1">Live, synchronized from branch pools</div>
         </div>
       </div>
 
@@ -985,26 +985,23 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
               <div className="w-10 h-10 xl:w-16 xl:h-16 bg-emerald-500/10 rounded-full flex items-center justify-center mb-2 xl:mb-6 flex-shrink-0">
                 <Users className="w-5 h-5 xl:w-8 xl:h-8 text-emerald-400" />
               </div>
-              <h2 className="text-base xl:text-xl font-semibold text-white mb-1 xl:mb-2 tracking-tight">Global Subscriber Hub</h2>
-              <p className="text-slate-400 text-xs xl:text-sm max-w-md mx-auto mb-4 xl:mb-10 leading-relaxed">
-                Select a subscriber to view their workspace.
-              </p>
+              <h2 className="text-base xl:text-xl font-semibold text-white mb-4 xl:mb-10 tracking-tight">Global Subscriber</h2>
 
-              <div className="grid grid-cols-4 gap-2 sm:gap-4 xl:gap-8 w-full max-w-3xl border-t border-slate-800/80 pt-3 xl:pt-10">
+              <div className="grid grid-cols-4 gap-1.5 sm:gap-4 xl:gap-8 w-full max-w-3xl border-t border-slate-800/80 pt-3 xl:pt-10">
                 <div className="flex flex-col gap-0.5 xl:gap-1.5 items-center">
-                  <span className="text-base sm:text-lg xl:text-3xl font-mono font-bold text-slate-200">{countLabel(users.length)}</span>
+                  <span className="text-sm sm:text-base xl:text-3xl font-mono font-bold text-slate-200">{countLabel(users.length)}</span>
                   <span className="text-[9px] sm:text-[10px] xl:text-xs text-slate-400">Total Subscribers</span>
                 </div>
                 <div className="flex flex-col gap-0.5 xl:gap-1.5 items-center">
-                  <span className="text-base sm:text-lg xl:text-3xl font-mono font-bold text-emerald-400">{countLabel(users.filter(u => u.status === 'Active').length)}</span>
+                  <span className="text-sm sm:text-base xl:text-3xl font-mono font-bold text-emerald-400">{countLabel(users.filter(u => u.status === 'Active').length)}</span>
                   <span className="text-[9px] sm:text-[10px] xl:text-xs text-slate-400">Active</span>
                 </div>
                 <div className="flex flex-col gap-0.5 xl:gap-1.5 items-center">
-                  <span className="text-base sm:text-lg xl:text-3xl font-mono font-bold text-rose-400">{countLabel(users.filter(u => u.status === 'Suspended').length)}</span>
+                  <span className="text-sm sm:text-base xl:text-3xl font-mono font-bold text-rose-400">{countLabel(users.filter(u => u.status === 'Suspended').length)}</span>
                   <span className="text-[9px] sm:text-[10px] xl:text-xs text-slate-400">Suspended</span>
                 </div>
                 <div className="flex flex-col gap-0.5 xl:gap-1.5 items-center">
-                  <span className="text-base sm:text-lg xl:text-3xl font-mono font-bold text-amber-400">{countLabel(users.filter(u => u.paymentStatus === 'Overdue').length)}</span>
+                  <span className="text-sm sm:text-base xl:text-3xl font-mono font-bold text-amber-400">{countLabel(users.filter(u => u.paymentStatus === 'Overdue').length)}</span>
                   <span className="text-[9px] sm:text-[10px] xl:text-xs text-slate-400">Overdue</span>
                 </div>
               </div>
