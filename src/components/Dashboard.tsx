@@ -212,6 +212,12 @@ interface DashboardProps {
   isDark?: boolean;
   onToggleTheme?: () => void;
   initialTab?: string;
+  // Set when a Super Admin is viewing a tenant's workspace from the
+  // mirror screen: hides tenant-facing chrome that is meaningless or
+  // confusing for an admin just reading/editing data (the PWA install
+  // banner, the sticky ad), without touching any data-loading or
+  // save logic -- every feature tab, report, and export stays identical.
+  mirrorMode?: boolean;
 }
 
 import { NotificationCenterModal } from '../shared/components/NotificationCenterModal';
@@ -357,7 +363,7 @@ function SubscriptionCheckoutStateBridge({
   return <>{children({ selectedPlanId, setSelectedPlanId, paymentMode, setPaymentMode })}</>;
 }
 
-function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggleTheme, initialTab }: DashboardProps) {
+function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggleTheme, initialTab, mirrorMode = false }: DashboardProps) {
   const { t, lang, setLang } = useTranslation();
   const { getFallbackInitials, getLogoUrl } = useTenantLogo();
   const { addSaleNotification, addSubscriptionReminderNotification, unreadCount, hydrateTenantModuleSettings, configureInbox } = useJasperNotifications();
@@ -3633,8 +3639,10 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
   return (
     <div id="dashboard-scaffold" className="w-full h-dvh bg-[#f5f6fa] dark:bg-slate-950 flex text-slate-800 dark:text-slate-200 font-sans antialiased overflow-hidden select-none">
 
-      {/* PWA install banner — shows after login, not on login page */}
-      {user.role === 'SuperAdmin' ? (
+      {/* PWA install banner — shows after login, not on login page. Skipped
+          entirely in mirrorMode: a Super Admin peeking into a tenant's
+          workspace should never be prompted to install that tenant's app. */}
+      {mirrorMode ? null : user.role === 'SuperAdmin' ? (
         <PWAInstallBanner
           tenantId="super-admin"
           businessName="Orvix Super Admin"
@@ -5074,7 +5082,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
 
         </div> {/* End of Main scroll-container */}
 
-      {user.role !== 'SuperAdmin' && (
+      {user.role !== 'SuperAdmin' && !mirrorMode && (
         <GlobalStickyAd
           bottomOffsetClass="bottom-[var(--dashboard-sticky-ad-clearance)] xl:bottom-4"
           leftOffsetClass="left-3 xl:left-1/2 xl:-translate-x-1/2"

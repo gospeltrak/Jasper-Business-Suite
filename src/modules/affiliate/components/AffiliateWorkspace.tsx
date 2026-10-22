@@ -1488,11 +1488,13 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
         </div>
       )}
 
-      <GlobalStickyAd
-        bottomOffsetClass="bottom-[calc(4.75rem+env(safe-area-inset-bottom))] lg:bottom-4"
-        leftOffsetClass="left-3 lg:left-1/2 lg:-translate-x-1/2"
-        maxWidthClass="max-w-[640px]"
-      />
+      {!mirrorMode && (
+        <GlobalStickyAd
+          bottomOffsetClass="bottom-[calc(4.75rem+env(safe-area-inset-bottom))] lg:bottom-4"
+          leftOffsetClass="left-3 lg:left-1/2 lg:-translate-x-1/2"
+          maxWidthClass="max-w-[640px]"
+        />
+      )}
 
     </main>
   );

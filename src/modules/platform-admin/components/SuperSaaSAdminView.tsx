@@ -684,12 +684,13 @@ export default function SuperSaaSAdminView({
           </div>
         </div>
         <div className="flex-1 min-h-0 relative [&>div:first-child]:!h-full overflow-hidden">
-          <Dashboard 
-            user={mappedUser} 
+          <Dashboard
+            user={mappedUser}
             onLogout={() => setMirroredAccount(null)}
-            onNavigate={() => {}} 
-            isDark={true} 
+            onNavigate={() => {}}
+            isDark={true}
             onToggleTheme={() => {}}
+            mirrorMode
           />
         </div>
       </div>
