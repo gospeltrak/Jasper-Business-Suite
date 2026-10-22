@@ -109,6 +109,9 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
   const [tenantStaff, setTenantStaff] = useState<SuperAdminTenantStaffRow[]>([]);
   const [isLoadingTenantStaff, setIsLoadingTenantStaff] = useState(false);
   const [removingStaffId, setRemovingStaffId] = useState<string | null>(null);
+  const [resetStaffId, setResetStaffId] = useState<string | null>(null);
+  const [staffPasswordValue, setStaffPasswordValue] = useState('');
+  const [resettingStaffId, setResettingStaffId] = useState<string | null>(null);
 
   // Per-card "⋮" actions sheet (write mode only) and the location it can open.
   const [actionsMenuUser, setActionsMenuUser] = useState<UserAccount | null>(null);
@@ -375,6 +378,27 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
       alert(error?.message || 'Unable to remove that staff login.');
     } finally {
       setRemovingStaffId(null);
+    }
+  };
+
+  const handleResetStaffPassword = async (staff: SuperAdminTenantStaffRow) => {
+    if (!staffPasswordValue.trim()) {
+      alert('Please write a new generic password to bind.');
+      return;
+    }
+    if (!(await verifySecureKey())) return;
+
+    setResettingStaffId(staff.id);
+    try {
+      await resetSuperAdminUserPassword(staff.id, staffPasswordValue);
+      handleAuditLog(`Force reset staff auth password (${staff.email})`, selectedUser?.name || staff.name);
+      alert(`Password reset completed for ${staff.name || staff.email}.`);
+      setResetStaffId(null);
+      setStaffPasswordValue('');
+    } catch (error: any) {
+      alert(error?.message || 'Unable to reset staff password.');
+    } finally {
+      setResettingStaffId(null);
     }
   };
 
@@ -794,19 +818,49 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
                       ) : (
                         <div className="space-y-1.5">
                           {tenantStaff.map(staff => (
-                            <div key={staff.id} className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-800">
-                              <div className="min-w-0">
-                                <p className="text-xs font-semibold text-slate-200 truncate">{staff.name || 'Unnamed staff'}</p>
-                                <p className="text-[10px] font-mono text-slate-500 truncate">{staff.email} · {staff.role || 'Cashier'}</p>
+                            <div key={staff.id} className="px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-800">
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="min-w-0">
+                                  <p className="text-xs font-semibold text-slate-200 truncate">{staff.name || 'Unnamed staff'}</p>
+                                  <p className="text-[10px] font-mono text-slate-500 truncate">{staff.email} · {staff.role || 'Cashier'}</p>
+                                </div>
+                                <div className="flex shrink-0 items-center gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => { setResetStaffId(resetStaffId === staff.id ? null : staff.id); setStaffPasswordValue(''); }}
+                                    className="px-2 py-1 rounded-md text-[9px] font-mono font-bold uppercase tracking-wider border border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20"
+                                  >
+                                    Reset Password
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveStaffFromList(staff)}
+                                    disabled={removingStaffId === staff.id}
+                                    className="px-2 py-1 rounded-md text-[9px] font-mono font-bold uppercase tracking-wider border border-rose-500/30 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 disabled:opacity-50"
+                                  >
+                                    {removingStaffId === staff.id ? 'Removing…' : 'Remove'}
+                                  </button>
+                                </div>
                               </div>
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveStaffFromList(staff)}
-                                disabled={removingStaffId === staff.id}
-                                className="shrink-0 px-2 py-1 rounded-md text-[9px] font-mono font-bold uppercase tracking-wider border border-rose-500/30 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20 disabled:opacity-50"
-                              >
-                                {removingStaffId === staff.id ? 'Removing…' : 'Remove'}
-                              </button>
+                              {resetStaffId === staff.id && (
+                                <div className="mt-2 flex items-center gap-2">
+                                  <input
+                                    type="password"
+                                    value={staffPasswordValue}
+                                    onChange={(e) => setStaffPasswordValue(e.target.value)}
+                                    placeholder="New password (10+ chars, letters + numbers)"
+                                    className="flex-1 px-2.5 py-1.5 rounded-lg text-[10px] font-mono bg-slate-950 border border-slate-800 text-slate-200 placeholder:text-slate-600 outline-none focus:border-indigo-500/50"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => handleResetStaffPassword(staff)}
+                                    disabled={resettingStaffId === staff.id || !staffPasswordValue.trim()}
+                                    className="shrink-0 px-2.5 py-1.5 rounded-lg text-[10px] font-mono font-bold uppercase tracking-wider border border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 disabled:opacity-50 whitespace-nowrap"
+                                  >
+                                    {resettingStaffId === staff.id ? 'Saving…' : 'Save'}
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           ))}
                         </div>

@@ -732,7 +732,25 @@ const getPaymentStatus = (tenant: any, user: any): SuperAdminUserRow['paymentSta
   const status = String(settings?.paymentStatus || user?.payment_status || tenant?.payment_status || '').trim().toLowerCase();
   if (status.includes('overdue')) return 'Overdue';
   if (status.includes('grace')) return 'Grace Period';
-  return isSettledPaymentStatus(status) ? 'Paid' : 'Unpaid';
+  if (isSettledPaymentStatus(status)) return 'Paid';
+
+  // None of the fields above are ever populated in production -- the Super
+  // Admin overview query doesn't select payment_status, and nothing writes
+  // settings.paymentStatus, so every tenant fell through to "Unpaid" even
+  // after a real, approved payment activated their package. Fall back to
+  // the subscription state the activation RPC actually does maintain:
+  // subscription_status only reaches 'active' through a real activation
+  // (trial tenants stay 'trial'), so this never misreports a free trial.
+  const subscriptionStatus = String(tenant?.subscription_status || '').trim().toLowerCase();
+  const endDate = tenant?.subscription_end_date ? new Date(tenant.subscription_end_date) : null;
+  const hasValidEndDate = endDate instanceof Date && !Number.isNaN(endDate.getTime());
+  if (subscriptionStatus === 'active' && hasValidEndDate && endDate.getTime() > Date.now()) return 'Paid';
+  if (hasValidEndDate) {
+    const daysPastDue = (Date.now() - endDate.getTime()) / (24 * 60 * 60 * 1000);
+    if (daysPastDue > 7) return 'Overdue';
+    if (daysPastDue > 0) return 'Grace Period';
+  }
+  return 'Unpaid';
 };
 
 const monthLabel = (value: unknown) => {
