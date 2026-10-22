@@ -5013,8 +5013,6 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
               <div className="bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border border-slate-100 dark:border-slate-800">
                 {(user.role === 'SuperAdmin' ? [
                   { id: 'admin-web-editor', label: 'Web Editor',  icon: Globe,       desc: 'Edit landing page content', color: 'text-blue-600 dark:text-blue-400',   bg: 'bg-blue-50 dark:bg-blue-500/10' },
-                  { id: 'admin-ad-placements', label: 'Ad Placements', icon: MonitorPlay, desc: 'Control dashboard and sticky ads', color: 'text-purple-600 dark:text-purple-400', bg: 'bg-purple-50 dark:bg-purple-500/10' },
-                  { id: 'admin-settings',   label: 'Settings',    icon: SettingsIcon,desc: 'System configuration',      color: 'text-slate-600 dark:text-slate-400', bg: 'bg-slate-100 dark:bg-slate-800' },
                   { id: 'install-orvix-app', label: 'Install Admin App', icon: Download, desc: 'Add Super Admin to your home screen', color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10', alwaysShow: true },
                 ] : [
                   { id: 'settings', label: 'Settings', icon: SettingsIcon, desc: 'Manage your business settings', color: 'text-slate-600 dark:text-slate-400', bg: 'bg-slate-100 dark:bg-slate-800' },
