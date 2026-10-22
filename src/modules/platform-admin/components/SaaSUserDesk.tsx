@@ -472,7 +472,7 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
       )}
       
       {/* Earnings Overview */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+      <div className="revenue-overview-grid gap-3 sm:gap-4">
         <div className="bg-slate-900 p-3.5 sm:p-4 rounded-2xl border border-slate-800/80 shadow-sm shadow-black/20">
           <div className="text-slate-400 text-[10px] sm:text-xs font-semibold uppercase tracking-wide">Direct Users Revenue</div>
           <div className="text-base sm:text-lg md:text-xl font-bold text-white font-mono mt-1 tracking-tight">TSh {totalDirectRevenue.toLocaleString()}</div>
@@ -987,7 +987,7 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
               </div>
               <h2 className="text-base xl:text-xl font-semibold text-white mb-4 xl:mb-10 tracking-tight">Global Subscriber</h2>
 
-              <div className="grid grid-cols-4 gap-1.5 sm:gap-4 xl:gap-8 w-full max-w-3xl border-t border-slate-800/80 pt-3 xl:pt-10">
+              <div className="global-subscriber-stat-grid gap-1.5 sm:gap-4 xl:gap-8 w-full max-w-3xl border-t border-slate-800/80 pt-3 xl:pt-10">
                 <div className="flex flex-col gap-0.5 xl:gap-1.5 items-center">
                   <span className="text-sm sm:text-base xl:text-3xl font-mono font-bold text-slate-200">{countLabel(users.length)}</span>
                   <span className="text-[9px] sm:text-[10px] xl:text-xs text-slate-400">Total Subscribers</span>

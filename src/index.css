@@ -1649,6 +1649,31 @@ button:active:not(:disabled),
   grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
 }
 
+/* Super Admin "Global Subscriber" placeholder stat row: must stay in one
+   horizontal row of 4 at every width, not just grid-cols-4, or the general
+   [class*="grid-cols-4"] mobile collapse safety rule further down in this
+   file silently stacks it to one column on phone/tablet. */
+.global-subscriber-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+}
+
+/* Super Admin Subscribers tab earnings overview: two equal-width, equal-
+   height cards on phone/tablet (three from lg up), not plain grid-cols-2/3
+   -- same [class*="grid-cols-2"] mobile collapse trap as above, which was
+   also silently breaking the equal-column sizing (one card could wrap its
+   label to two lines and grow taller/narrower than its sibling). */
+.revenue-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+
+@media (min-width: 1024px) {
+  .revenue-overview-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+}
+
 .mobile-tablet-kpi-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
