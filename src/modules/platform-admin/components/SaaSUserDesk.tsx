@@ -540,7 +540,7 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
             </div>
           </div>
 
-          <div className="bg-slate-900 border border-slate-800/80 rounded-2xl overflow-hidden shadow-sm shadow-black/20 max-h-[380px] overflow-y-auto">
+          <div className="bg-slate-900 border border-slate-800/80 rounded-2xl overflow-hidden shadow-sm shadow-black/20 max-h-[calc(100dvh-220px)] xl:max-h-[380px] overflow-y-auto">
             <div className="px-4 py-2.5 bg-slate-900/80 backdrop-blur border-b border-slate-800/80 text-xs text-slate-500 sticky top-0">
               {filteredUsers.length} matched businesses
             </div>
