@@ -1674,6 +1674,26 @@ button:active:not(:disabled),
   }
 }
 
+/* Super Admin Affiliates menu: summary metric strips (2-up on phone/tablet,
+   4-up from md) and the per-agent / per-sub-affiliate card stat tiles
+   (always 2x2) -- same [class*="grid-cols-N"] mobile collapse trap as
+   above, escaped the same way. */
+.affiliate-summary-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+
+@media (min-width: 768px) {
+  .affiliate-summary-metrics-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+}
+
+.affiliate-card-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+
 .mobile-tablet-kpi-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

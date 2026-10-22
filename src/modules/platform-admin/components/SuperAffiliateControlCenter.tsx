@@ -176,7 +176,6 @@ export default function SuperAffiliateControlCenter({ initialTab = 'agents' }: {
         <div className="min-w-0">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-400">Live Supabase source tracking</p>
           <h1 className="mt-1 text-lg font-bold text-white sm:text-xl">Super Admin Affiliates Menu</h1>
-          <p className="mt-1 text-xs text-slate-400">Every affiliate is recruited by a Partner. Partner networks and their sub-affiliates are tracked below.</p>
         </div>
         <button onClick={refresh} className="shrink-0 rounded-xl border border-slate-700 bg-slate-900 px-3.5 py-2.5 text-xs font-bold text-slate-200 shadow-sm shadow-black/20 transition-colors hover:bg-slate-800"><RefreshCw className="inline w-4 h-4 mr-2" />Refresh</button>
       </header>
@@ -304,7 +303,7 @@ function AgentMonitoringSection({ rows, totals, onExport, onDelete }: { rows: Ag
           <Download className="inline w-4 h-4 mr-2" />Download payout spreadsheet
         </button>
       </div>
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="affiliate-summary-metrics-grid gap-3">
         <Metric label="Agents" value={rows.length.toLocaleString()} />
         <Metric label="Network revenue" value={totals.revenue > 0 ? money.format(totals.revenue) : 'No earnings yet'} />
         <Metric label="20% pool" value={totals.pool > 0 ? money.format(totals.pool) : '—'} />
@@ -347,7 +346,7 @@ function AgentMonitoringSection({ rows, totals, onExport, onDelete }: { rows: Ag
               </div>
               <button onClick={() => onDelete(row)} className="shrink-0 rounded-xl bg-slate-800 p-2 text-rose-500 hover:bg-rose-950"><Trash2 className="w-3.5 h-3.5" /></button>
             </div>
-            <div className="grid grid-cols-2 gap-2 text-sm">
+            <div className="affiliate-card-stat-grid gap-2 text-sm">
               <div><span className="text-xs text-slate-500">Sub-affiliates</span><p className="font-semibold text-white">{row.subAffiliates}</p></div>
               <div><span className="text-xs text-slate-500">Subscribers</span><p className="font-semibold text-white">{row.subscribers}</p></div>
               <div><span className="text-xs text-slate-500">Revenue</span><p className="font-semibold text-white">{row.revenue > 0 ? money.format(row.revenue) : 'No earnings yet'}</p></div>
@@ -369,7 +368,7 @@ function SubAffiliateSection({ rows, totals, onExport, onEdit, loadingAffiliateI
           <Download className="inline w-4 h-4 mr-2" />Download payout spreadsheet
         </button>
       </div>
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="affiliate-summary-metrics-grid gap-3">
         <Metric label="Sub-affiliates" value={rows.length.toLocaleString()} />
         <Metric label="Revenue" value={money.format(totals.revenue)} />
         <Metric label="15% commission" value={money.format(totals.commission)} />
@@ -433,7 +432,7 @@ function SubAffiliateSection({ rows, totals, onExport, onEdit, loadingAffiliateI
                 <button onClick={() => onDelete(row)} className="p-2 rounded-xl bg-slate-800 hover:bg-rose-950 text-rose-500"><Trash2 className="w-3.5 h-3.5" /></button>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="affiliate-card-stat-grid gap-2">
               <div className="rounded-xl bg-slate-800 p-3"><p className="text-[10px] font-bold uppercase text-slate-500">Revenue</p><p className="mt-0.5 text-sm font-black text-white">{money.format(row.revenue)}</p></div>
               <div className="rounded-xl bg-emerald-500/10 p-3"><p className="text-[10px] font-bold uppercase text-emerald-400/70">15% Gross</p><p className="mt-0.5 text-sm font-black text-emerald-400">{money.format(row.commission)}</p></div>
               <div className="rounded-xl bg-amber-500/10 p-3">
