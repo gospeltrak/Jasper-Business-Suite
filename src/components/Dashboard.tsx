@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { Capacitor } from '@capacitor/core';
 import PWAInstallBanner from '../shared/components/PWAInstallBanner';
 import { requestManualInstallPrompt } from '../shared/utils/pwaInstallPrompt';
 import { useTranslation } from '../shared/contexts/LanguageContext';
@@ -1592,8 +1593,12 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     }
   };
 
-  // Simulated connection states
-  const [isOfflineMode, setIsOfflineMode] = useState(!navigator.onLine);
+  // Offline mode is a native-app-only capability. The web/PWA build always
+  // behaves as online -- even if the browser's own connection drops -- so
+  // it never silently queues a sale a user expects to see synced right
+  // away; only the installed Android/iOS app is allowed to go offline.
+  const [isOfflineMode, setIsOfflineModeState] = useState(() => Capacitor.isNativePlatform() && !navigator.onLine);
+  const setIsOfflineMode = (value: boolean) => setIsOfflineModeState(Capacitor.isNativePlatform() && value);
 
   useEffect(() => {
     const handleOffline = () => setIsOfflineMode(true);
@@ -2500,7 +2505,14 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
   };
 
   const handleAddSale = async (sale: Sale) => {
-    if (blockOfflineBusinessWrite('POS sale')) return false;
+    // Native-APK-only exception: the PWA/web build stays strictly online-only
+    // (blockOfflineBusinessWrite below still applies to it unchanged). On the
+    // native app while genuinely offline, a sale is allowed to proceed down a
+    // separate path further below that only writes to the local device queue
+    // -- no cloud push, no Treasury posting -- both of which happen for real
+    // only when this sale syncs back online.
+    const isNativeOfflineSale = Capacitor.isNativePlatform() && !canWriteBusinessDataOnline();
+    if (!isNativeOfflineSale && blockOfflineBusinessWrite('POS sale')) return false;
 
     localWorkspaceChangedAtRef.current = Date.now();
     cloudWorkspaceLoadedRef.current = true;
@@ -2518,7 +2530,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     const localDemoWithoutTreasury = collectedAmount > 0
       && ['localhost', '127.0.0.1'].includes(window.location.hostname)
       && isPlaceholderSecureDataBridgeClient(await getSecureDataBridgeClient());
-    if (collectedAmount > 0 && !localDemoWithoutTreasury) {
+    if (!isNativeOfflineSale && collectedAmount > 0 && !localDemoWithoutTreasury) {
       // Reconcile against currently configured payment modes rather than reading
       // systemSettings.paymentChannels raw: that array is only seeded/persisted the
       // first time a tenant opens Money & Bank, so a tenant who never opened that
@@ -2582,26 +2594,41 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       saleToStore,
       ...(salesMap[activeTenant.id] || []).filter(existing => existing.id !== saleToStore.id),
     ];
-    // Narrow save: only the `sales` key changes here -- stock is deducted
-    // via a separate onUpdateStocks() call right after this succeeds
-    // (DashboardPOS.tsx), exactly as before this change.
-    const saleSaved = await saveTenantSalesOnly(
-      activeTenant.id,
-      nextTenantSales,
-      readLocalSaleTombstones(activeTenant.id),
-    );
-    if (!saleSaved) {
-      if (postedTreasuryJournalId) {
-        try {
-          await reverseTreasuryEntry(postedTreasuryJournalId, sale.id, 'Sale workspace save failed');
-        } catch (error) {
-          console.error('Failed to reverse treasury entry after sale save failure', error);
-        }
+    if (isNativeOfflineSale) {
+      // Durable local persistence BEFORE confirming anything to the cashier --
+      // an app kill right after this line must never lose the sale. Nothing
+      // is pushed to the cloud here, so there is no stale snapshot for this
+      // device to race against another device or the eventual sync.
+      try {
+        await savePendingSaleOffline(saleToStore);
+      } catch (error) {
+        console.error('Failed to persist offline sale to device storage', error);
+        addToast('Could not save this sale on the device. Please try again.', 'error');
+        return false;
       }
-      addToast('Sale could not be saved. Your cart is still available; please try again.', 'error');
-      return false;
+      setSalesMap(prev => ({ ...prev, [activeTenant.id]: nextTenantSales }));
+    } else {
+      // Narrow save: only the `sales` key changes here -- stock is deducted
+      // via a separate onUpdateStocks() call right after this succeeds
+      // (DashboardPOS.tsx), exactly as before this change.
+      const saleSaved = await saveTenantSalesOnly(
+        activeTenant.id,
+        nextTenantSales,
+        readLocalSaleTombstones(activeTenant.id),
+      );
+      if (!saleSaved) {
+        if (postedTreasuryJournalId) {
+          try {
+            await reverseTreasuryEntry(postedTreasuryJournalId, sale.id, 'Sale workspace save failed');
+          } catch (error) {
+            console.error('Failed to reverse treasury entry after sale save failure', error);
+          }
+        }
+        addToast('Sale could not be saved. Your cart is still available; please try again.', 'error');
+        return false;
+      }
+      setSalesMap(prev => ({ ...prev, [activeTenant.id]: nextTenantSales }));
     }
-    setSalesMap(prev => ({ ...prev, [activeTenant.id]: nextTenantSales }));
 
     // Handle Global Owner Sale Notification
     try {
@@ -2625,10 +2652,6 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
        });
     } catch(e) {
        console.error("Failed to parse sale notification event", e);
-    }
-
-    if (sale.syncStatus === 'pending') {
-      savePendingSaleOffline(saleToStore).catch(() => {});
     }
 
     // Auto trigger delivery dispatch if deliveryCost was paid
@@ -3639,9 +3662,14 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
   return (
     <div id="dashboard-scaffold" className="w-full h-dvh bg-[#f5f6fa] dark:bg-slate-950 flex text-slate-800 dark:text-slate-200 font-sans antialiased overflow-hidden select-none">
 
-      {/* PWA install banner — shows after login, not on login page. Skipped
-          entirely in mirrorMode: a Super Admin peeking into a tenant's
-          workspace should never be prompted to install that tenant's app. */}
+      {/* PWA install prompt — automaticPrompt is always false: the banner
+          never pops itself up unprompted for anyone. It stays mounted
+          (rather than removed) purely so requestManualInstallPrompt() from
+          the "Install Admin App" / "Install Orvix App" menu item still has
+          a live listener to trigger the browser's real install prompt.
+          Skipped entirely in mirrorMode: a Super Admin peeking into a
+          tenant's workspace should never be offered to install that
+          tenant's app. */}
       {mirrorMode ? null : user.role === 'SuperAdmin' ? (
         <PWAInstallBanner
           tenantId="super-admin"
@@ -3657,6 +3685,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
           businessName={businessDisplayName}
           businessLogo={customBrandingLogo || null}
           enabled={workspaceReady && Boolean(onlineBusinessName)}
+          automaticPrompt={false}
         />
       ) : null}
 

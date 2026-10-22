@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Orvix</string>
+    <string name="title_activity_main">Orvix</string>
+    <string name="package_name">africa.orvix.app</string>
+    <string name="custom_url_scheme">africa.orvix.app</string>
+</resources>

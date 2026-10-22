@@ -10,3 +10,18 @@ supabase/.temp/
 .vercel
 src/generated/prisma/
 docs-engine/generated/
+
+# Capacitor: the web build it copies into the native shell is regenerated
+# by `npx cap sync` on every build (CI included) -- never hand-edited, so
+# it shouldn't be committed. Local Android/Gradle machine state is likewise
+# regenerated and often absolute-path-specific to whoever built it.
+android/app/src/main/assets/public/
+android/app/src/main/assets/capacitor.config.json
+android/local.properties
+android/.gradle/
+android/app/build/
+android/build/
+android/captures/
+android/.cxx/
+*.keystore
+*.jks

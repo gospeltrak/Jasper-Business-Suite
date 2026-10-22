@@ -1230,8 +1230,15 @@ export default function DashboardPOS({
     const cleanTransactionReference = referenceCode.trim();
     const cleanPaymentNote = paymentNote.trim();
 
+    // crypto.randomUUID() (available in every modern browser/WebView) makes the
+    // id collision-safe across independent devices generating sales offline at
+    // the same time -- the old Math.random() scheme could theoretically clash
+    // and silently merge two different sales into one on sync.
+    const saleUniqueId = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `${Date.now().toString(36)}-${Math.random().toString(36).substr(2, 9)}`;
     const newSale: Sale = {
-      id: 'sl-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
+      id: 'sl-' + saleUniqueId.toUpperCase(),
       items: saleItems,
       total: grandTotal,
       productTotal: grandTotal - deliveryCost, // revenue excluding delivery fee
