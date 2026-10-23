@@ -62,6 +62,11 @@ import {
   saleHasTenantConflict,
   writeLocalSaleTombstones,
 } from '../modules/sales/utils/saleSync';
+import {
+  markLocalPurchaseTombstone,
+  readLocalPurchaseTombstones,
+  writeLocalPurchaseTombstones,
+} from '../modules/purchases/utils/purchaseSync';
 import { mergeSettingsForSync, stampSettingsForSync } from '../shared/utils/settingsSync';
 import { BranchProvider, useBranchContext, useOptionalBranchContext } from '../modules/branches/BranchContext';
 import GlobalBranchSwitcher from '../modules/branches/components/GlobalBranchSwitcher';
@@ -3233,6 +3238,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       const saved = await saveTenantPurchasesOnly(
         activeTenant.id,
         updatedPurchases,
+        readLocalPurchaseTombstones(activeTenant.id),
         updatedProducts ? nextProducts : undefined,
         (activeBranchSelection.activeScope === 'branch' && activeBranchSelection.activeBranchId && updatedProducts)
           ? nextBranchStocks
@@ -3325,6 +3331,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     const saved = await saveTenantPurchasesOnly(
       activeTenant.id,
       tenantPurchases,
+      readLocalPurchaseTombstones(activeTenant.id),
       updatedProducts ? nextProducts : undefined,
       (activeBranchSelection.activeScope === 'branch' && activeBranchSelection.activeBranchId && updatedProducts)
         ? nextBranchStocks
@@ -3349,6 +3356,8 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     const previousPurchases = purchasesMap[activeTenant.id] || [];
     const previousProducts = productsMap[activeTenant.id] || [];
     const previousBranchStocks = branchStocksMap[activeTenant.id] || [];
+    const previousPurchaseTombstones = readLocalPurchaseTombstones(activeTenant.id);
+    const nextPurchaseTombstones = markLocalPurchaseTombstone(activeTenant.id, purchaseId);
     const nextPurchases = previousPurchases.filter(p => p.id !== purchaseId);
     const nextProducts = reversePurchaseInventory(previousProducts, purchase);
     const nextBranchStocks = previousBranchStocks.map(stock => {
@@ -3365,9 +3374,19 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       };
     });
     // Narrow save: this delete atomically touches purchases + products
-    // (stock reversed) + branchStocks, exactly as before.
-    const saved = await saveTenantPurchasesOnly(activeTenant.id, nextPurchases, nextProducts, nextBranchStocks);
-    if (!saved) return false;
+    // (stock reversed) + branchStocks + purchaseTombstones, exactly as
+    // before -- see saveTenantPurchasesOnly's contract.
+    const saved = await saveTenantPurchasesOnly(
+      activeTenant.id,
+      nextPurchases,
+      nextPurchaseTombstones,
+      nextProducts,
+      nextBranchStocks,
+    );
+    if (!saved) {
+      writeLocalPurchaseTombstones(activeTenant.id, previousPurchaseTombstones);
+      return false;
+    }
 
     if (purchase.treasuryJournalId) {
       try {
@@ -3377,7 +3396,14 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
           `Voided purchase payment: ${purchase.supplierName}`,
         );
       } catch (error: any) {
-        await saveTenantPurchasesOnly(activeTenant.id, previousPurchases, previousProducts, previousBranchStocks);
+        writeLocalPurchaseTombstones(activeTenant.id, previousPurchaseTombstones);
+        await saveTenantPurchasesOnly(
+          activeTenant.id,
+          previousPurchases,
+          previousPurchaseTombstones,
+          previousProducts,
+          previousBranchStocks,
+        );
         addToast(error?.message || 'Money & Bank could not reverse this purchase safely. Nothing was deleted.', 'error');
         return false;
       }

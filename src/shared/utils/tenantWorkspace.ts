@@ -1268,6 +1268,7 @@ export function saveTenantSalesOnly(
 async function saveTenantPurchasesOnlyNow(
   tenantId: string,
   purchases: Purchase[],
+  purchaseTombstones: Record<string, string> = {},
   products?: Product[],
   branchStocks?: BranchStock[],
 ): Promise<boolean> {
@@ -1284,6 +1285,7 @@ async function saveTenantPurchasesOnlyNow(
     if (typeof client.rpc === 'function') {
       const result = await client.rpc('save_current_branch_purchases', {
         p_purchases: purchases,
+        p_purchase_tombstones: purchaseTombstones,
         p_products: products ?? null,
         p_branch_stocks: branchStocks ?? null,
       });
@@ -1322,6 +1324,7 @@ async function saveTenantPurchasesOnlyNow(
 export function saveTenantPurchasesOnly(
   tenantId: string,
   purchases: Purchase[],
+  purchaseTombstones: Record<string, string> = {},
   products?: Product[],
   branchStocks?: BranchStock[],
 ): Promise<boolean> {
@@ -1329,7 +1332,7 @@ export function saveTenantPurchasesOnly(
   const previous = workspaceSaveQueue.get(tenantId) || Promise.resolve(true);
   const next = previous
     .catch(() => false)
-    .then(() => saveTenantPurchasesOnlyNow(tenantId, purchases, products, branchStocks));
+    .then(() => saveTenantPurchasesOnlyNow(tenantId, purchases, purchaseTombstones, products, branchStocks));
   workspaceSaveQueue.set(tenantId, next);
   void next.finally(() => {
     if (workspaceSaveQueue.get(tenantId) === next) workspaceSaveQueue.delete(tenantId);
