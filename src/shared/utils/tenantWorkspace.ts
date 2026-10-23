@@ -35,6 +35,9 @@ export interface TenantWorkspace {
   purchases: Purchase[];
   productTombstones?: Record<string, string>;
   saleTombstones?: SaleTombstones;
+  purchaseTombstones?: Record<string, string>;
+  deliveryTombstones?: Record<string, string>;
+  expenseTombstones?: Record<string, string>;
 }
 
 // ─── Runtime state helpers ──────────────────────────────────────────────────

@@ -1208,6 +1208,10 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       pendingDeliveryNotes: pendingDeliveryNotesMap[activeTenant.id] || [],
       purchases:            purchasesMap[activeTenant.id]            || [],
       productTombstones:    readLocalProductTombstones(activeTenant.id),
+      saleTombstones:       readLocalSaleTombstones(activeTenant.id),
+      purchaseTombstones:   readLocalPurchaseTombstones(activeTenant.id),
+      deliveryTombstones:   readLocalDeliveryTombstones(activeTenant.id),
+      expenseTombstones:    readLocalExpenseTombstones(activeTenant.id),
     };
     if (!cloudWorkspaceLoadedRef.current && !workspaceHasBusinessData(workspace)) {
       return;
