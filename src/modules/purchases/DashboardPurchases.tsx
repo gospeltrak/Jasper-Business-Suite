@@ -576,6 +576,8 @@ export default function DashboardPurchases({
   const [paymentMethod, setPaymentMethod] = useState<string>('Cash');
   const [fundingRows, setFundingRows] = useState<PurchaseFundingRow[]>([createPurchaseFundingRow()]);
   const [purchaseSuccess, setPurchaseSuccess] = useState(false);
+  const [isSavingPurchase, setIsSavingPurchase] = useState(false);
+  const purchaseSaveInFlightRef = useRef(false);
   const [purchaseError, setPurchaseError] = useState('');
 
   // Discount & Delivery Fee states
@@ -895,143 +897,157 @@ export default function DashboardPurchases({
   };
 
   const handleCommitPurchase = async () => {
-    setPurchaseError('');
-    if (cart.length === 0) return;
-    if (!selectedSupplierId) {
-      alert("Please select a valid supplier first!");
-      return;
-    }
-    // Only over-allocated funding blocks the purchase -- allocating LESS
-    // than the total is a legitimate "buy now, pay the rest later" credit
-    // purchase (the same way Sales already allows an unpaid/partial sale).
-    // The unpaid remainder is recorded as the purchase's amountDue below,
-    // exactly like the existing "Due" filter in Purchases History expects.
-    if (roundedAllocationDifference < 0) {
-      setPurchaseError(`Funding cannot exceed the purchase total. Over by: ${currency}${Math.round(Math.abs(totalAmount - allocatedAmount)).toLocaleString()}`);
-      return;
-    }
-
-    const supplier = availableSuppliers.find(s => s.id === selectedSupplierId) || availableSuppliers[0];
-    const firstRegisteredFunding = fundingRows.find(row => row.fundingType === 'registered' && row.accountId);
-    const firstRegisteredAccount = paymentAccounts.find(account => account.id === firstRegisteredFunding?.accountId);
-
-    const purchaseItems: PurchaseItem[] = cart.map(item => {
-      const level = item.unitLevelId !== 'base'
-        ? getPurchaseUnitLevels(item.product).find(candidate => candidate.id === item.unitLevelId)
-        : undefined;
-      const baseQty = getPurchaseBaseQuantity(item.qty, item.unitLevelId, item.product);
-      const isFractionPacket = item.unitLevelId === 'fraction-packet';
-      const fractionLine = isFractionSaleEnabled(item.product, activeTenant.businessType)
-        ? calculateFractionPurchaseLine(
-          isFractionPacket ? 'packet' : 'piece',
-          item.qty,
-          Number(item.costPrice) || 0,
-          resolveFractionSaleConfig(item.product, activeTenant.businessType),
-        )
-        : null;
-      const resolvedCostPrice = Number(item.costPrice) || 0;
-      return {
-        productId: item.product.id,
-        productName: item.product.name,
-        qty: item.qty,
-        costPrice: resolvedCostPrice,
-        packageLevelId: level?.id,
-        packageLevelLabel: level?.label,
-        baseQty,
-        selectedLevel: isFractionPacket ? 'packet' : level ? 'package' : (isFractionSaleEnabled(item.product, activeTenant.businessType) ? 'piece' : 'base'),
-        selectedLevelQuantity: fractionLine?.selectedLevelQuantity ?? item.qty,
-        unitsPerSelectedLevel: fractionLine?.unitsPerSelectedLevel ?? level?.quantityInBaseUnit ?? 1,
-        selectedUnitCost: resolvedCostPrice,
-        lineTotal: Number((resolvedCostPrice * item.qty).toFixed(2)),
-        baseUnit: getBaseUnitLabel(item.product),
-      };
-    });
-
-    const newPurchase: Purchase = {
-      id: 'PC-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
-      supplierId: supplier.id,
-      supplierName: supplier.name,
-      items: purchaseItems,
-      totalAmount,
-      amountPaid,
-      amountDue,
-      paymentMethod: fundingRows.length > 1 || fundingRows.some(row => row.fundingType === 'external')
-        ? 'Multi-Channel'
-        : firstRegisteredAccount?.paymentMethod || firstRegisteredAccount?.name || paymentMethod,
-      paidFromAccountId: firstRegisteredFunding?.accountId,
-      paymentAllocations: fundingRows
-        .filter(row => row.amount > 0)
-        .map(row => {
-          const account = paymentAccounts.find(candidate => candidate.id === row.accountId);
-          return {
-            fundingType: row.fundingType,
-            accountId: row.fundingType === 'registered' ? row.accountId : undefined,
-            accountName: row.fundingType === 'external' ? 'External Account' : (account?.name || row.accountId),
-            sourceKey: row.fundingType === 'registered' ? row.accountId : undefined,
-            amount: row.amount,
-            currency: activeTenant.currencyCode,
-          };
-        }),
-      destination,
-      deliveryStatus,
-      timestamp: localDateToIso(purchaseDate, new Date()),
-      tenantId: activeTenant.id,
-      discount: purchaseDiscount,
-      discountType: purchaseDiscountType,
-      deliveryFee: deliveryFee
-    };
-
-    const updatedProductsList = products.map(prod => {
-      const cartItem = cart.find(item => item.product.id === prod.id);
-      if (cartItem) {
-        // Purchases can happen in a package unit (e.g. 2 Boxes) -- inventory
-        // and batch costing always operate on base units (e.g. 200 Capsules),
-        // never on the raw quantity the tenant typed.
-        const addedQty = getPurchaseBaseQuantity(cartItem.qty, cartItem.unitLevelId, prod);
-        const baseCostPrice = getPurchaseBaseCost(Number(cartItem.costPrice) || 0, cartItem.unitLevelId, prod);
-        let newShopQty = prod.shopStockQty;
-        let newStoreQty = prod.storeStockQty;
-        if (destination === 'shop') {
-          newShopQty += addedQty;
-        } else {
-          newStoreQty += addedQty;
-        }
-        const batch = createInventoryBatch(prod, addedQty, baseCostPrice, {
-          purchaseId: newPurchase.id,
-          destination,
-          supplierName: supplier.name,
-          finalSellingPrice: prod.sellingPrice,
-          purchaseDate: newPurchase.timestamp,
-          expiryDate: prod.trackExpiry ? cartItem.expiryDate : undefined,
-        });
-        const updatedWithBatch = addBatchToProduct(prod, batch, destination);
-        return {
-          ...updatedWithBatch,
-          shopStockQty: Number(newShopQty.toFixed(3)),
-          storeStockQty: Number(newStoreQty.toFixed(3)),
-          stockQty: Number((newShopQty + newStoreQty).toFixed(3))
-        };
+    if (purchaseSaveInFlightRef.current || purchaseSuccess) return;
+    purchaseSaveInFlightRef.current = true;
+    setIsSavingPurchase(true);
+    let completed = false;
+    try {
+      setPurchaseError('');
+      if (cart.length === 0) return;
+      if (!selectedSupplierId) {
+        alert("Please select a valid supplier first!");
+        return;
       }
-      return prod;
-    });
+      // Only over-allocated funding blocks the purchase -- allocating LESS
+      // than the total is a legitimate "buy now, pay the rest later" credit
+      // purchase (the same way Sales already allows an unpaid/partial sale).
+      // The unpaid remainder is recorded as the purchase's amountDue below,
+      // exactly like the existing "Due" filter in Purchases History expects.
+      if (roundedAllocationDifference < 0) {
+        setPurchaseError(`Funding cannot exceed the purchase total. Over by: ${currency}${Math.round(Math.abs(totalAmount - allocatedAmount)).toLocaleString()}`);
+        return;
+      }
 
-    const saved = await onAddPurchase(newPurchase, updatedProductsList);
-    if (saved === false) {
-      setPurchaseError('Purchase payment was not posted. Stock and purchase records were not changed.');
-      return;
+      const supplier = availableSuppliers.find(s => s.id === selectedSupplierId) || availableSuppliers[0];
+      const firstRegisteredFunding = fundingRows.find(row => row.fundingType === 'registered' && row.accountId);
+      const firstRegisteredAccount = paymentAccounts.find(account => account.id === firstRegisteredFunding?.accountId);
+
+      const purchaseItems: PurchaseItem[] = cart.map(item => {
+        const level = item.unitLevelId !== 'base'
+          ? getPurchaseUnitLevels(item.product).find(candidate => candidate.id === item.unitLevelId)
+          : undefined;
+        const baseQty = getPurchaseBaseQuantity(item.qty, item.unitLevelId, item.product);
+        const isFractionPacket = item.unitLevelId === 'fraction-packet';
+        const fractionLine = isFractionSaleEnabled(item.product, activeTenant.businessType)
+          ? calculateFractionPurchaseLine(
+            isFractionPacket ? 'packet' : 'piece',
+            item.qty,
+            Number(item.costPrice) || 0,
+            resolveFractionSaleConfig(item.product, activeTenant.businessType),
+          )
+          : null;
+        const resolvedCostPrice = Number(item.costPrice) || 0;
+        return {
+          productId: item.product.id,
+          productName: item.product.name,
+          qty: item.qty,
+          costPrice: resolvedCostPrice,
+          packageLevelId: level?.id,
+          packageLevelLabel: level?.label,
+          baseQty,
+          selectedLevel: isFractionPacket ? 'packet' : level ? 'package' : (isFractionSaleEnabled(item.product, activeTenant.businessType) ? 'piece' : 'base'),
+          selectedLevelQuantity: fractionLine?.selectedLevelQuantity ?? item.qty,
+          unitsPerSelectedLevel: fractionLine?.unitsPerSelectedLevel ?? level?.quantityInBaseUnit ?? 1,
+          selectedUnitCost: resolvedCostPrice,
+          lineTotal: Number((resolvedCostPrice * item.qty).toFixed(2)),
+          baseUnit: getBaseUnitLabel(item.product),
+        };
+      });
+
+      const newPurchase: Purchase = {
+        id: 'PC-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
+        supplierId: supplier.id,
+        supplierName: supplier.name,
+        items: purchaseItems,
+        totalAmount,
+        amountPaid,
+        amountDue,
+        paymentMethod: fundingRows.length > 1 || fundingRows.some(row => row.fundingType === 'external')
+          ? 'Multi-Channel'
+          : firstRegisteredAccount?.paymentMethod || firstRegisteredAccount?.name || paymentMethod,
+        paidFromAccountId: firstRegisteredFunding?.accountId,
+        paymentAllocations: fundingRows
+          .filter(row => row.amount > 0)
+          .map(row => {
+            const account = paymentAccounts.find(candidate => candidate.id === row.accountId);
+            return {
+              fundingType: row.fundingType,
+              accountId: row.fundingType === 'registered' ? row.accountId : undefined,
+              accountName: row.fundingType === 'external' ? 'External Account' : (account?.name || row.accountId),
+              sourceKey: row.fundingType === 'registered' ? row.accountId : undefined,
+              amount: row.amount,
+              currency: activeTenant.currencyCode,
+            };
+          }),
+        destination,
+        deliveryStatus,
+        timestamp: localDateToIso(purchaseDate, new Date()),
+        tenantId: activeTenant.id,
+        discount: purchaseDiscount,
+        discountType: purchaseDiscountType,
+        deliveryFee: deliveryFee
+      };
+
+      const updatedProductsList = products.map(prod => {
+        const cartItem = cart.find(item => item.product.id === prod.id);
+        if (cartItem) {
+          // Purchases can happen in a package unit (e.g. 2 Boxes) -- inventory
+          // and batch costing always operate on base units (e.g. 200 Capsules),
+          // never on the raw quantity the tenant typed.
+          const addedQty = getPurchaseBaseQuantity(cartItem.qty, cartItem.unitLevelId, prod);
+          const baseCostPrice = getPurchaseBaseCost(Number(cartItem.costPrice) || 0, cartItem.unitLevelId, prod);
+          let newShopQty = prod.shopStockQty;
+          let newStoreQty = prod.storeStockQty;
+          if (destination === 'shop') {
+            newShopQty += addedQty;
+          } else {
+            newStoreQty += addedQty;
+          }
+          const batch = createInventoryBatch(prod, addedQty, baseCostPrice, {
+            purchaseId: newPurchase.id,
+            destination,
+            supplierName: supplier.name,
+            finalSellingPrice: prod.sellingPrice,
+            purchaseDate: newPurchase.timestamp,
+            expiryDate: prod.trackExpiry ? cartItem.expiryDate : undefined,
+          });
+          const updatedWithBatch = addBatchToProduct(prod, batch, destination);
+          return {
+            ...updatedWithBatch,
+            shopStockQty: Number(newShopQty.toFixed(3)),
+            storeStockQty: Number(newStoreQty.toFixed(3)),
+            stockQty: Number((newShopQty + newStoreQty).toFixed(3))
+          };
+        }
+        return prod;
+      });
+
+      const saved = await onAddPurchase(newPurchase, updatedProductsList);
+      if (saved === false) {
+        setPurchaseError('Purchase was not saved. Check the error notification and Money & Bank payment history before retrying.');
+        return;
+      }
+      completed = true;
+      setPurchaseSuccess(true);
+      setTimeout(() => {
+        purchaseSaveInFlightRef.current = false;
+        setCart([]);
+        setFundingRows([createPurchaseFundingRow()]);
+        setPurchaseDiscount(0);
+        setPurchaseDiscountType('percentage');
+        setDeliveryFee(0);
+        setSearchTerm('');
+        setPurchaseDate(formatLocalDate());
+        setPurchaseSuccess(false);
+        setActiveSubTab('history');
+      }, 1500);
+    } catch (error) {
+      console.warn('[DashboardPurchases] Purchase save failed:', error);
+      setPurchaseError('Purchase could not be confirmed. Check Money & Bank payment history before retrying.');
+    } finally {
+      if (!completed) purchaseSaveInFlightRef.current = false;
+      setIsSavingPurchase(false);
     }
-    setPurchaseSuccess(true);
-    setTimeout(() => {
-      setCart([]);
-      setFundingRows([createPurchaseFundingRow()]);
-      setPurchaseDiscount(0);
-      setPurchaseDiscountType('percentage');
-      setDeliveryFee(0);
-      setSearchTerm('');
-      setPurchaseDate(formatLocalDate());
-      setPurchaseSuccess(false);
-      setActiveSubTab('history');
-    }, 1500);
   };
 
   return (
@@ -2146,11 +2162,13 @@ export default function DashboardPurchases({
                       purchase and must not disable this button. */}
                   <button
                     type="button"
-                    disabled={purchaseSuccess || roundedAllocationDifference < 0 || fundingRows.some(row => row.amount > 0 && row.fundingType === 'registered' && !row.accountId)}
+                    disabled={isSavingPurchase || purchaseSuccess || roundedAllocationDifference < 0 || fundingRows.some(row => row.amount > 0 && row.fundingType === 'registered' && !row.accountId)}
                     onClick={handleCommitPurchase}
                     className="w-full relative overflow-hidden bg-gradient-to-br from-slate-800 to-slate-950 hover:from-slate-700 hover:to-slate-900 disabled:from-slate-200 disabled:to-slate-100 text-white disabled:text-slate-400 font-black py-4 px-4 rounded-2xl text-xs uppercase tracking-wider cursor-pointer disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all shadow-lg active:scale-[0.98]"
                   >
-                    {purchaseSuccess ? (
+                    {isSavingPurchase ? (
+                      <span>Saving…</span>
+                    ) : purchaseSuccess ? (
                       <div className="flex items-center gap-2">
                         <CheckCircle className="w-4 h-4 text-emerald-400" />
                         <span className="text-emerald-400 font-bold">Purchase Saved & Restocked!</span>
@@ -2223,3 +2241,4 @@ export default function DashboardPurchases({
     </>
   );
 }
+

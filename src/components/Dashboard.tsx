@@ -3172,6 +3172,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
         : undefined,
     );
     if (!saved) {
+      let accountPaymentReversed = !purchase.treasuryJournalId;
       if (purchase.treasuryJournalId) {
         try {
           await reverseTreasuryEntry(
@@ -3179,11 +3180,14 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
             purchase.id,
             'Purchase workspace save failed',
           );
+          accountPaymentReversed = true;
         } catch (error) {
           console.error('Failed to reverse treasury entry after purchase save failure', error);
         }
       }
-      addToast('Purchase could not be saved. Any account payment was reversed safely.', 'error');
+      addToast(accountPaymentReversed
+        ? 'Purchase could not be saved. Any account payment was reversed safely.'
+        : 'Purchase could not be saved and the account payment could not be reversed. Check Money & Bank payment history before retrying.', 'error');
       return false;
     }
     
@@ -5418,4 +5422,5 @@ function TenantDashboardGate(props: DashboardProps) {
   }
   return <DashboardContent {...props} />;
 }
+
 

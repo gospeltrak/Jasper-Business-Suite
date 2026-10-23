@@ -1284,6 +1284,8 @@ async function saveTenantPurchasesOnlyNow(
     if (typeof client.rpc === 'function') {
       const result = await client.rpc('save_current_branch_purchases', {
         p_purchases: purchases,
+        // Select the tombstone-aware overload explicitly; three keys are ambiguous.
+        p_purchase_tombstones: {},
         p_products: products ?? null,
         p_branch_stocks: branchStocks ?? null,
       });
@@ -1480,3 +1482,4 @@ export async function initializeNewTenantWorkspace(tenantId: string, settings?: 
   const workspace = emptyWorkspace(settings);
   await saveTenantWorkspace(tenantId, workspace);
 }
+
