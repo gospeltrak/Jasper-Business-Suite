@@ -67,6 +67,11 @@ import {
   readLocalPurchaseTombstones,
   writeLocalPurchaseTombstones,
 } from '../modules/purchases/utils/purchaseSync';
+import {
+  markLocalDeliveryTombstone,
+  readLocalDeliveryTombstones,
+  writeLocalDeliveryTombstones,
+} from '../modules/deliveries/utils/deliverySync';
 import { mergeSettingsForSync, stampSettingsForSync } from '../shared/utils/settingsSync';
 import { BranchProvider, useBranchContext, useOptionalBranchContext } from '../modules/branches/BranchContext';
 import GlobalBranchSwitcher from '../modules/branches/components/GlobalBranchSwitcher';
@@ -2713,6 +2718,34 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     return true;
   };
 
+  const handleAddDelivery = async (delivery: Delivery): Promise<boolean> => {
+    if (blockOfflineBusinessWrite('delivery entry')) return false;
+    localWorkspaceChangedAtRef.current = Date.now();
+    cloudWorkspaceLoadedRef.current = true;
+    const scopedDelivery: Delivery = {
+      ...delivery,
+      branchId: delivery.branchId || activeBranchSelection.activeBranchId || undefined,
+    };
+    const currentDeliveries = deliveriesMap[delivery.tenantId] || [];
+    const nextDeliveries = [scopedDelivery, ...currentDeliveries];
+
+    // Narrow save: only the `deliveries` key changes here -- previously
+    // this only updated local state and relied on the debounced
+    // whole-workspace autosave to persist it, the same replace-based gap
+    // already fixed for sales/purchases.
+    const saved = await saveTenantDeliveriesOnly(
+      delivery.tenantId,
+      nextDeliveries,
+      readLocalDeliveryTombstones(delivery.tenantId),
+    );
+    if (!saved) {
+      addToast('Delivery could not be saved. Please try again.', 'error');
+      return false;
+    }
+    setDeliveriesMap(prev => ({ ...prev, [delivery.tenantId]: nextDeliveries }));
+    return true;
+  };
+
   const handleAddRider = (newRider: DeliveryRider) => {
     setRiders(prev => [{
       ...newRider,
@@ -2906,7 +2939,11 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     );
     const nextDeliveries = applyUpdate(deliveriesMap[activeTenant.id] || []);
     // Narrow save: only the `deliveries` key changes here.
-    const saved = await saveTenantDeliveriesOnly(activeTenant.id, nextDeliveries);
+    const saved = await saveTenantDeliveriesOnly(
+      activeTenant.id,
+      nextDeliveries,
+      readLocalDeliveryTombstones(activeTenant.id),
+    );
     if (!saved) return false;
     setDeliveriesMap(prev => ({ ...prev, [activeTenant.id]: applyUpdate(prev[activeTenant.id] || []) }));
 
@@ -2932,11 +2969,14 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       return false;
     }
 
+    const previousDeliveryTombstones = readLocalDeliveryTombstones(tenantId);
+    const nextDeliveryTombstones = markLocalDeliveryTombstone(tenantId, deliveryId);
     const nextDeliveries = currentDeliveries.filter(delivery => delivery.id !== deliveryId);
 
-    // Narrow save: only the `deliveries` key changes here.
-    const saved = await saveTenantDeliveriesOnly(tenantId, nextDeliveries);
+    // Narrow save: only the `deliveries` key (+ deliveryTombstones) changes here.
+    const saved = await saveTenantDeliveriesOnly(tenantId, nextDeliveries, nextDeliveryTombstones);
     if (!saved) {
+      writeLocalDeliveryTombstones(tenantId, previousDeliveryTombstones);
       addToast('Delivery could not be deleted from the system. Nothing was removed.', 'error');
       return false;
     }
@@ -2949,7 +2989,8 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
           `Deleted delivery ${currentDelivery.id}`,
         );
       } catch (error: any) {
-        await saveTenantDeliveriesOnly(tenantId, currentDeliveries);
+        writeLocalDeliveryTombstones(tenantId, previousDeliveryTombstones);
+        await saveTenantDeliveriesOnly(tenantId, currentDeliveries, previousDeliveryTombstones);
         addToast(error?.message || 'Money & Bank could not reverse this delivery income safely.', 'error');
         return false;
       }
@@ -4846,16 +4887,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
               deliveries={activeDeliveries}
               riders={activeRiders}
               onAddRider={handleAddRider}
-              onAddDelivery={(delivery) => {
-                setDeliveriesMap(prev => {
-                  const currentDeliveries = prev[delivery.tenantId] || [];
-                  const scopedDelivery = {
-                    ...delivery,
-                    branchId: delivery.branchId || activeBranchSelection.activeBranchId || undefined,
-                  };
-                  return { ...prev, [delivery.tenantId]: [scopedDelivery, ...currentDeliveries] };
-                });
-              }}
+              onAddDelivery={handleAddDelivery}
               onDispatchDelivery={handleDispatchDelivery}
               onUpdateDeliveryStatus={handleUpdateDeliveryStatus}
               products={activeProducts}
