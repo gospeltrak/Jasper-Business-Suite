@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import { SyncLog, Sale } from '../../types';
 import {
   Wifi,
@@ -14,7 +13,9 @@ interface DashboardLogsAndSyncProps {
   sales: Sale[];
   isOfflineMode: boolean;
   onToggleOffline: () => void;
-  onSyncOfflineQueue: (callback: () => void) => void;
+  isSyncingOfflineQueue: boolean;
+  offlineSyncStuck: boolean;
+  onSyncNow: () => void;
 }
 
 export default function DashboardLogsAndSync({
@@ -22,78 +23,15 @@ export default function DashboardLogsAndSync({
   sales,
   isOfflineMode,
   onToggleOffline,
-  onSyncOfflineQueue
+  isSyncingOfflineQueue,
+  offlineSyncStuck,
+  onSyncNow
 }: DashboardLogsAndSyncProps) {
-	  // Local state for legacy queue review
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [syncProgress, setSyncProgress] = useState(0);
-  const [syncStatusLines, setSyncStatusLines] = useState<string[]>([]);
-  const [queuedSystemJobs, setQueuedSystemJobs] = useState<any[]>([]);
-
-	  // Count size of legacy pending sales that must not be replayed automatically.
-  const offlinePendingSales = sales.filter(s => s.syncStatus === 'pending');
-
-  const refreshQueuedJobs = () => {
-    try {
-      setQueuedSystemJobs(JSON.parse(onlineStorage.getItem('jasper_offline_sync_queue') || '[]'));
-    } catch {
-      setQueuedSystemJobs([]);
-    }
-  };
-
-  useEffect(() => {
-    refreshQueuedJobs();
-    const timer = window.setInterval(refreshQueuedJobs, 2500);
-    return () => window.clearInterval(timer);
-  }, []);
-
-  const startManualSync = () => {
-    if (offlinePendingSales.length === 0 || isSyncing) return;
-    
-    setIsSyncing(true);
-    setSyncProgress(10);
-	    setSyncStatusLines([
-	      'Checking saved records...',
-	      `Found ${offlinePendingSales.length} old receipt(s).`
-	    ]);
-
-	    setTimeout(() => {
-	      setSyncProgress(40);
-	      setSyncStatusLines(prev => [
-	        ...prev,
-	        'These will not be sent automatically.',
-	        `Kept receipt: ${offlinePendingSales[0].id}.`
-	      ]);
-    }, 800);
-
-    setTimeout(() => {
-      setSyncProgress(75);
-      if (offlinePendingSales.length > 1) {
-        setSyncStatusLines(prev => [
-          ...prev,
-	          `Kept receipt: ${offlinePendingSales[1].id}.`,
-        ]);
-      }
-      setSyncStatusLines(prev => [
-        ...prev,
-	        'Nothing was sent or deleted. Please check these yourself.',
-      ]);
-    }, 1600);
-
-    setTimeout(() => {
-      setSyncProgress(100);
-      setSyncStatusLines(prev => [
-        ...prev,
-	        'Done checking. Records are still kept.'
-      ]);
-      
-	      onSyncOfflineQueue(() => {
-        refreshQueuedJobs();
-        setIsSyncing(false);
-        setSyncProgress(0);
-      });
-    }, 2400);
-  };
+  // Sales still queued on this device, oldest first -- mirrors the order the
+  // real sync engine (Dashboard.tsx: syncPendingOfflineSales) sends them in.
+  const offlinePendingSales = sales
+    .filter(s => s.syncStatus === 'pending')
+    .sort((a, b) => new Date(a.actualTimestamp || a.timestamp).getTime() - new Date(b.actualTimestamp || b.timestamp).getTime());
 
   return (
     <div id="logs-sync-view" className="grid grid-cols-1 lg:grid-cols-12 gap-5">
@@ -154,13 +92,18 @@ export default function DashboardLogsAndSync({
 
               {!isOfflineMode && (
                 <button
-                  disabled={isSyncing}
-                  onClick={startManualSync}
+                  disabled={isSyncingOfflineQueue}
+                  onClick={onSyncNow}
                   className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center space-x-1.5 transition-all active:scale-95 cursor-pointer shadow-sm shadow-emerald-505/10"
                 >
-	                  <AlertTriangle className="w-4 h-4" />
-	                  <span>Review Old Records ({offlinePendingSales.length})</span>
+                  <AlertTriangle className="w-4 h-4" />
+                  <span>{isSyncingOfflineQueue ? 'Syncing…' : `Sync Now (${offlinePendingSales.length})`}</span>
                 </button>
+              )}
+              {offlineSyncStuck && (
+                <p className="text-[10.5px] font-semibold text-amber-700">
+                  Could not sync after several tries. You can keep selling -- it will keep retrying in the background.
+                </p>
               )}
             </div>
           )}
@@ -168,11 +111,11 @@ export default function DashboardLogsAndSync({
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
             <div className="flex items-center justify-between gap-3">
               <div>
-	                <p className="text-xs font-black uppercase tracking-wider text-slate-800">Records Kept on This Device</p>
-	                <p className="mt-0.5 text-[10px] font-medium text-slate-500">Check these yourself if needed.</p>
+                <p className="text-xs font-black uppercase tracking-wider text-slate-800">Sales Waiting to Sync</p>
+                <p className="mt-0.5 text-[10px] font-medium text-slate-500">Oldest first -- this is the order they will sync in.</p>
               </div>
-              <span className={`rounded-full px-2.5 py-1 text-[10px] font-black ${offlinePendingSales.length + queuedSystemJobs.length > 0 ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
-                {offlinePendingSales.length + queuedSystemJobs.length} pending
+              <span className={`rounded-full px-2.5 py-1 text-[10px] font-black ${offlinePendingSales.length > 0 ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'}`}>
+                {offlinePendingSales.length} pending
               </span>
             </div>
             <div className="mt-3 max-h-44 space-y-2 overflow-y-auto">
@@ -182,21 +125,12 @@ export default function DashboardLogsAndSync({
                     <span className="font-bold text-slate-700">Sale receipt</span>
                     <span className="font-mono text-amber-700">{sale.id}</span>
                   </div>
-                  <p className="mt-0.5 truncate text-slate-500">{sale.customerName || 'Walk-in customer'} · {new Date(sale.timestamp).toLocaleString()}</p>
+                  <p className="mt-0.5 truncate text-slate-500">{sale.customerName || 'Walk-in customer'} · {new Date(sale.actualTimestamp || sale.timestamp).toLocaleString()}</p>
                 </div>
               ))}
-              {queuedSystemJobs.slice(0, 6).map((job) => (
-                <div key={job.id} className="rounded-xl border border-amber-100 bg-white px-3 py-2 text-[11px]">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-bold text-slate-700">{job.table || 'Workspace update'}</span>
-	                    <span className="font-mono uppercase text-amber-700">{job.operation || 'preserved'}</span>
-                  </div>
-                  <p className="mt-0.5 truncate text-slate-500">{job.createdAt ? new Date(job.createdAt).toLocaleString() : 'Waiting for network'}</p>
-                </div>
-              ))}
-              {offlinePendingSales.length === 0 && queuedSystemJobs.length === 0 && (
+              {offlinePendingSales.length === 0 && (
                 <div className="rounded-xl border border-emerald-100 bg-white px-3 py-4 text-center text-[11px] font-semibold text-emerald-700">
-	                  No old records waiting. Business changes now need internet to save.
+                  No sales waiting. Everything is synced.
                 </div>
               )}
             </div>
@@ -204,28 +138,11 @@ export default function DashboardLogsAndSync({
         </div>
 
         {/* Sync Console Progress */}
-        {isSyncing && (
+        {isSyncingOfflineQueue && (
           <div className="space-y-3 pt-3 border-t border-slate-100">
-            <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-	              <span>Review status:</span>
-              <span className="font-bold text-emerald-600">{syncProgress}%</span>
-            </div>
-            
-            <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden border border-slate-200/50">
-              <div className="bg-emerald-600 h-full rounded-full transition-all duration-300" style={{ width: `${syncProgress}%` }} />
-            </div>
-
-            {/* Micro Terminal Display */}
-            <div className="bg-slate-900 border border-slate-800 p-3.5 rounded-xl font-mono text-[10px] text-slate-350 space-y-1.5 max-h-[100px] overflow-y-auto">
-              <div className="flex items-center space-x-1 text-slate-500 border-b border-slate-850 pb-1.5 mb-1 font-bold">
-                <Terminal className="w-3.5 h-3.5 text-slate-400" />
-	                <span>Checking Records</span>
-              </div>
-              {syncStatusLines.map((line, idx) => (
-                <p key={idx} className="leading-tight animate-fade-in text-slate-350 font-medium">
-                  {line}
-                </p>
-              ))}
+            <div className="bg-slate-900 border border-slate-800 p-3.5 rounded-xl font-mono text-[10px] text-slate-350 flex items-center space-x-2">
+              <Terminal className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <span>Syncing {offlinePendingSales.length} offline sale(s)…</span>
             </div>
           </div>
         )}

@@ -47,7 +47,7 @@ import GlobalStickyAd from '../shared/components/GlobalStickyAd';
 const SuperSaaSAdminView = lazyWithReload('SuperSaaSAdminView', () => import('../modules/platform-admin/components/SuperSaaSAdminView'));
 import DuressDashboard from '../shared/components/DuressDashboard';
 import CachedImage from '../shared/components/CachedImage';
-import { savePendingSaleOffline } from '../shared/utils/offlineDb';
+import { savePendingSaleOffline, getPendingSales, deletePendingSale } from '../shared/utils/offlineDb';
 import { createCleanTenantSettings, isDemoTenant } from '../shared/utils/tenantIsolation';
 import { flushPendingTenantWorkspace, hasPendingTenantWorkspaceSave, loadTenantProductFresh, loadTenantWorkspace, loadTenantWorkspaceCore, markTenantProductsUpdated, readCachedWorkspace, reloadTenantWorkspace, saveTenantDeliveriesOnly, saveTenantExpensesOnly, saveTenantProductsOnly, saveTenantPurchasesOnly, saveTenantSalesOnly, saveTenantSettings, scheduleTenantWorkspaceSave, subscribeToTenantBusinessType, subscribeToTenantWorkspace, TenantWorkspace, waitForTenantWorkspaceLoad, workspaceHasBusinessData } from '../shared/utils/tenantWorkspace';
 import { safeSetJsonItem, safeSetTenantMapItem } from '../shared/utils/dataSafety';
@@ -1600,6 +1600,14 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
   const [isOfflineMode, setIsOfflineModeState] = useState(() => Capacitor.isNativePlatform() && !navigator.onLine);
   const setIsOfflineMode = (value: boolean) => setIsOfflineModeState(Capacitor.isNativePlatform() && value);
 
+  // Offline sale sync engine state (see syncPendingOfflineSales below).
+  const [isSyncingOfflineQueue, setIsSyncingOfflineQueue] = useState(false);
+  const [offlineSyncStuck, setOfflineSyncStuck] = useState(false);
+  const offlineSyncInFlightRef = useRef(false);
+  const offlineSyncRetryRef = useRef(0);
+  const offlineSyncTimerRef = useRef<number | null>(null);
+  const syncPendingOfflineSalesRef = useRef<() => void>(() => {});
+
   useEffect(() => {
     const handleOffline = () => setIsOfflineMode(true);
     const handleOnline = () => setIsOfflineMode(false);
@@ -2513,6 +2521,13 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     // only when this sale syncs back online.
     const isNativeOfflineSale = Capacitor.isNativePlatform() && !canWriteBusinessDataOnline();
     if (!isNativeOfflineSale && blockOfflineBusinessWrite('POS sale')) return false;
+    // Let the queued offline sales finish syncing first, so this new sale's
+    // sync-order stays after theirs. If sync is stuck (repeated failures),
+    // fall back to joining the same queue instead of freezing the till.
+    if (isSyncingOfflineQueue && !offlineSyncStuck) {
+      addToast('Syncing earlier offline sales, please wait a moment...', 'warning');
+      return false;
+    }
 
     localWorkspaceChangedAtRef.current = Date.now();
     cloudWorkspaceLoadedRef.current = true;
@@ -3378,61 +3393,163 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     }
   };
 
-  // Legacy pending queue review: replay is disabled in online-only mode.
-  const handleSyncOfflineQueue = (callback: () => void) => {
-    const newLog: SyncLog = {
-      id: 'ONLINE-ONLY-SYNC-' + Math.random().toString(36).slice(2, 8),
-      type: 'sale',
-      status: 'warning',
-      message: 'Old saved records were kept but not sent automatically.',
-      timestamp: new Date().toISOString()
-    };
-
-    setLogs(prev => [newLog, ...prev]);
-    callback();
-  };
-
-  // Turn off offline state and record that legacy queue replay stays disabled.
+  // Turn off offline state; actual sync is handled by syncPendingOfflineSales below.
   const handleToggleOnlineAndSync = () => {
     setIsOfflineMode(false);
-    
-    // Log the reconnect sequence
-    const reconnectLog: SyncLog = {
+    setLogs(prev => [{
       id: 'RECONNECT-' + Math.random().toString(36).substring(3, 8),
       type: 'auth_sync',
       status: 'success',
       message: `Internet connection restored.`,
       timestamp: new Date().toISOString()
-    };
-    setLogs(prev => [reconnectLog, ...prev]);
-
-    // Preserve queue without replay.
-    handleSyncOfflineQueue(() => {
-      console.log('[Dashboard] Legacy offline queue preserved; replay disabled.');
-    });
+    }, ...prev]);
+    syncPendingOfflineSalesRef.current();
   };
 
-  useEffect(() => {
-    if (!isOfflineMode) {
-      const currentList = salesMap[currentTenantId] || [];
-      const pendingCount = currentList.filter(s => s.syncStatus === 'pending').length;
-      if (pendingCount > 0) {
-        // Preserve pending records for manual review.
-        const logMsg = `Internet connected. ${pendingCount} old saved receipt(s) kept for review.`;
-        setLogs(prev => [{
-          id: 'AUTO-SYNC-' + Math.random().toString(36).substring(3, 8),
-          type: 'system_action',
-          status: 'success',
-          message: logMsg,
-          timestamp: new Date().toISOString()
-        }, ...prev]);
+  // One queued offline sale -> cloud. append_offline_sale_to_branch adds the
+  // sale and decrements stock atomically and idempotently by sale id (see
+  // supabase/migrations/20261022120000_append_offline_sale_rpc.sql); Treasury
+  // posting (deferred from creation time, see handleAddSale) happens here,
+  // separately, because it is itself already idempotent by sale.id and
+  // reconciling payment channels is TypeScript business logic that does not
+  // belong in the RPC. A failure here is retried on the next sync pass; it
+  // never re-touches the sale or stock, which are already safely committed.
+  const syncOneOfflineSale = async (sale: Sale): Promise<boolean> => {
+    const client = await getSecureDataBridgeClient();
+    if (!client || isPlaceholderSecureDataBridgeClient(client)) return false;
+    const result = await (client as any).rpc('append_offline_sale_to_branch', { p_sale: sale });
+    if (result?.error) {
+      console.warn('[offline-sync] append_offline_sale_to_branch failed:', result.error.message);
+      return false;
+    }
 
-        handleSyncOfflineQueue(() => {
-          console.log('[Dashboard] Legacy pending queue preserved; replay disabled.');
-        });
+    const saleIncome = Math.max(0, Number(sale.total || 0) - Number(sale.deliveryCost || 0));
+    const collectedAmount = sale.paymentStatus === 'unpaid'
+      ? 0
+      : Math.min(saleIncome, Math.max(0, Number(sale.amountPaid ?? saleIncome)));
+    if (collectedAmount > 0) {
+      try {
+        const channels = reconcilePaymentChannels(
+          getTreasuryPaymentMethods(systemSettings.business),
+          systemSettings.paymentChannels || [],
+          { currency: activeTenant.currencyCode },
+        );
+        const rawBreakdown = sale.paymentBreakdown?.length
+          ? sale.paymentBreakdown
+          : [{ method: sale.paymentMethod || 'Cash', amount: collectedAmount }];
+        const availableTotal = rawBreakdown.reduce((sum, part) => sum + Math.max(0, Number(part.amount || 0)), 0);
+        const scale = availableTotal > collectedAmount && availableTotal > 0 ? collectedAmount / availableTotal : 1;
+        const paymentLines = rawBreakdown
+          .map(part => {
+            const channel = findPaymentChannel(channels, part.method || sale.paymentMethod || 'Cash');
+            return { sourceAccountKey: channel?.id || '', amount: Math.max(0, Number(part.amount || 0)) * scale };
+          })
+          .filter(line => line.amount > 0 && line.sourceAccountKey);
+        if (paymentLines.length > 0) {
+          await postTreasurySplitIncome({
+            channels,
+            lines: paymentLines,
+            sourceType: 'sale',
+            sourceId: sale.id,
+            description: `Sale payment ${sale.reference || sale.id}`,
+            openingBalances: getTreasuryOpeningBalances(),
+            cacheKey: `${activeBranchSelection.activeScope}:${activeBranchSelection.activeBranchId || 'all'}`,
+            metadata: { reference: sale.reference, cashierName: sale.cashierName, customerName: sale.customerName || null },
+          });
+        }
+      } catch (error) {
+        console.warn('[offline-sync] deferred treasury posting failed, will retry on next sync:', error);
       }
     }
-  }, [isOfflineMode, salesMap, currentTenantId]);
+    return true;
+  };
+
+  // Orchestrates the whole queue: oldest-created-first (actualTimestamp),
+  // one sale at a time so a single bad record cannot block the rest, never
+  // deleting a queue entry until its sync is confirmed. On repeated failure
+  // while nominally "online" (e.g. the API is down, not just a brief
+  // flicker), falls back to letting the cashier keep selling -- new sales
+  // simply join the same queue, in order -- rather than freezing the till.
+  const syncPendingOfflineSales = async () => {
+    if (!Capacitor.isNativePlatform()) return;
+    if (offlineSyncInFlightRef.current) return;
+    if (!canWriteBusinessDataOnline()) return;
+
+    const queue = await getPendingSales();
+    if (queue.length === 0) {
+      offlineSyncRetryRef.current = 0;
+      setOfflineSyncStuck(false);
+      return;
+    }
+
+    offlineSyncInFlightRef.current = true;
+    setIsSyncingOfflineQueue(true);
+    const ordered = [...queue].sort((a, b) => {
+      const aTime = new Date(a.actualTimestamp || a.timestamp).getTime();
+      const bTime = new Date(b.actualTimestamp || b.timestamp).getTime();
+      return (Number.isFinite(aTime) ? aTime : 0) - (Number.isFinite(bTime) ? bTime : 0);
+    });
+
+    let failed = false;
+    for (const sale of ordered) {
+      const ok = await syncOneOfflineSale(sale);
+      if (!ok) { failed = true; break; }
+      await deletePendingSale(sale.id);
+      setSalesMap(prev => ({
+        ...prev,
+        [sale.tenantId]: (prev[sale.tenantId] || []).map(s => s.id === sale.id ? { ...s, syncStatus: 'synced' as const } : s),
+      }));
+      setLogs(prev => [{
+        id: 'OFFLINE-SYNCED-' + Math.random().toString(36).slice(2, 8),
+        type: 'sale',
+        status: 'success',
+        message: `Offline sale (Ref: ${sale.id}) synced successfully.`,
+        timestamp: new Date().toISOString(),
+      }, ...prev]);
+    }
+
+    offlineSyncInFlightRef.current = false;
+    setIsSyncingOfflineQueue(false);
+
+    if (failed) {
+      offlineSyncRetryRef.current += 1;
+      const attempt = offlineSyncRetryRef.current;
+      if (attempt >= 4 && !offlineSyncStuck) {
+        setOfflineSyncStuck(true);
+        setLogs(prev => [{
+          id: 'OFFLINE-SYNC-STUCK-' + Math.random().toString(36).slice(2, 8),
+          type: 'system_action',
+          status: 'warning',
+          message: 'Could not sync offline sales after several attempts. You can keep selling -- it will keep retrying in the background.',
+          timestamp: new Date().toISOString(),
+        }, ...prev]);
+      }
+      const delayMs = Math.min(60000, 2000 * Math.pow(2, attempt - 1));
+      if (offlineSyncTimerRef.current) window.clearTimeout(offlineSyncTimerRef.current);
+      offlineSyncTimerRef.current = window.setTimeout(() => { syncPendingOfflineSalesRef.current(); }, delayMs);
+    } else {
+      offlineSyncRetryRef.current = 0;
+      setOfflineSyncStuck(false);
+    }
+  };
+
+  // Always-current ref so the reconnect listener (registered once) and the
+  // retry timer never call a stale closure over old systemSettings/activeTenant.
+  useEffect(() => {
+    syncPendingOfflineSalesRef.current = syncPendingOfflineSales;
+  });
+
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    const handleOnline = () => { syncPendingOfflineSalesRef.current(); };
+    window.addEventListener('online', handleOnline);
+    if (navigator.onLine) handleOnline();
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      if (offlineSyncTimerRef.current) window.clearTimeout(offlineSyncTimerRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Calculate size of offline sync queue
   const offlinePendingCount = activeSales.filter(s => s.syncStatus === 'pending').length;
@@ -4650,12 +4767,14 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
 
           {/* TAB ROOT: Sockets logging and sync status queue flusher */}
           {activeTab === 'sync' && (
-            <DashboardLogsAndSync 
+            <DashboardLogsAndSync
               logs={logs}
               sales={activeSales}
               isOfflineMode={isOfflineMode}
               onToggleOffline={() => setIsOfflineMode(!isOfflineMode)}
-              onSyncOfflineQueue={handleSyncOfflineQueue}
+              isSyncingOfflineQueue={isSyncingOfflineQueue}
+              offlineSyncStuck={offlineSyncStuck}
+              onSyncNow={() => syncPendingOfflineSales()}
             />
           )}
 
