@@ -699,11 +699,12 @@ test('pharmacy hierarchy is medicine-only and product edits wait for durable per
 
   assert.match(productSource, /isPharmacyLike && productType === 'medicine' \? \(/);
   assert.match(productSource, /activeTenant\.businessType === 'pharmacy' && editForm\.productType === 'medicine'/);
-  assert.match(productSource, /const saved = await onUpdateProducts\(updated\)/);
-  assert.match(productSource, /if \(!saved\) return;/);
-  assert.match(dashboardSource, /const handleUpdateActiveStocks = async \(updatedProducts: Product\[\]\): Promise<boolean>/);
-  assert.match(dashboardSource, /const \{ products: syncedProducts, saved \} = persistTenantProductsNow\(nextTenantProducts\)/);
+  assert.match(productSource, /const saved = await onUpdateProducts\(updated, \[editingProduct\.id\]\)/);
+  assert.match(productSource, /if \(!saved\) \{\s*setEditSaveError\([^;]+;\s*return;\s*\}\s*setEditingProduct\(null\)/);
+  assert.match(dashboardSource, /const handleUpdateActiveStocks = async \(updatedProducts: Product\[\], changedProductIds\?: string\[\]\): Promise<boolean>/);
+  assert.match(dashboardSource, /const \{ products: syncedProducts, saved \} = persistTenantProductsNow\(nextTenantProducts, branchStockUpdates, changedProductIds\)/);
   assert.match(dashboardSource, /const didSave = await saved;/);
+  assert.match(dashboardSource, /if \(!didSave\) return false;[\s\S]*const durable = readCachedWorkspace\(activeTenant\.id\)/);
 });
 
 test('cloud product tombstones survive core and branch workspace hydration', async () => {
@@ -1068,3 +1069,4 @@ test('GitHub CI runs tests and a production frontend build', async () => {
   assert.match(workflowSource, /run:\s*npm test/);
   assert.match(workflowSource, /run:\s*(?:npm run build|npx vite build)/);
 });
+
