@@ -75,7 +75,7 @@ interface DashboardProductsProps {
   onAddProduct: (prod: Product) => void;
   onAddProducts: (products: Product[]) => void;
   onDeleteProduct: (id: string) => void;
-  onUpdateProducts: (updatedProducts: Product[]) => Promise<boolean>;
+  onUpdateProducts: (updatedProducts: Product[], changedProductIds?: string[]) => Promise<boolean>;
   subscriptionStatus?: any;
   onTriggerUpgrade?: (limitType: 'products' | 'stores' | 'staff' | 'expired') => void;
 }
@@ -199,6 +199,7 @@ export default function DashboardProducts({
   const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isSavingProductEdit, setIsSavingProductEdit] = useState(false);
+  const productEditInFlightRef = useRef(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [editStockDraft, setEditStockDraft] = useState({ shop: '', store: '', alert: '' });
   const [editImageFile, setEditImageFile] = useState<File | null>(null);
@@ -425,209 +426,210 @@ export default function DashboardProducts({
 
   const handleSaveProductEdit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editForm.name) return;
+    if (!editForm.name || !editingProduct?.id || productEditInFlightRef.current) return;
+    productEditInFlightRef.current = true;
+    setIsSavingProductEdit(true);
+    setEditSaveError(null);
+    try {
 
-    const enteredBarcode = String(editForm.barcode || '').trim();
-    const finalizedEditBarcode = enteredBarcode || generateUniqueEan13Barcode(
-      products.flatMap(product => [product.barcode, product.sku]),
-    );
+      const enteredBarcode = String(editForm.barcode || '').trim();
+      const finalizedEditBarcode = enteredBarcode || generateUniqueEan13Barcode(
+        products.flatMap(product => [product.barcode, product.sku]),
+      );
 
-    // Upload new image to Supabase Storage if a new image was selected.
-    // editForm.image = compressed base64 preview from the canvas.
-    // We upload this base64 directly — same pattern as new product creation.
-    let resolvedImageUrl = editForm.image;
-    if (editForm.image && editForm.image.startsWith('data:image') && editingProduct?.id) {
-      try {
-        const migrateToken = await getProductImageUploadToken();
-        const migrateResp = await fetch('/api/images/migrate-product', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${migrateToken}` },
-          body: JSON.stringify({ tenantId: activeTenant.id, productId: editingProduct.id, base64DataUrl: editForm.image }),
-        });
-        const migrateResult = await migrateResp.json();
-        if (migrateResult.success && migrateResult.url) resolvedImageUrl = migrateResult.url;
-        else console.warn('[DashboardProducts] Edit upload failed:', migrateResult.error);
-      } catch (err) {
-        console.warn('[DashboardProducts] Edit image upload failed, keeping preview:', err);
+      // Upload new image to Supabase Storage if a new image was selected.
+      // editForm.image = compressed base64 preview from the canvas.
+      // We upload this base64 directly — same pattern as new product creation.
+      let resolvedImageUrl = editForm.image;
+      if (editForm.image && editForm.image.startsWith('data:image') && editingProduct?.id) {
+        try {
+          const migrateToken = await getProductImageUploadToken();
+          const migrateResp = await fetch('/api/images/migrate-product', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${migrateToken}` },
+            body: JSON.stringify({ tenantId: activeTenant.id, productId: editingProduct.id, base64DataUrl: editForm.image }),
+          });
+          const migrateResult = await migrateResp.json();
+          if (migrateResult.success && migrateResult.url) resolvedImageUrl = migrateResult.url;
+          else console.warn('[DashboardProducts] Edit upload failed:', migrateResult.error);
+        } catch (err) {
+          console.warn('[DashboardProducts] Edit image upload failed, keeping preview:', err);
+        }
+        setEditImageFile(null);
       }
-      setEditImageFile(null);
-    }
 
-    // Evict old image from CachedImage memory + browser cache so new image shows immediately
-    const oldImage = editingProduct?.image;
-    if (oldImage && oldImage !== resolvedImageUrl && oldImage.startsWith('https://')) {
-      evictImageCache(oldImage).catch(() => {});
-    }
-    // Also evict the new URL in case it was previously cached (upsert same path)
-    if (resolvedImageUrl && resolvedImageUrl.startsWith('https://')) {
-      evictImageCache(resolvedImageUrl).catch(() => {});
-    }
+      // Evict old image from CachedImage memory + browser cache so new image shows immediately
+      const oldImage = editingProduct?.image;
+      if (oldImage && oldImage !== resolvedImageUrl && oldImage.startsWith('https://')) {
+        evictImageCache(oldImage).catch(() => {});
+      }
+      // Also evict the new URL in case it was previously cached (upsert same path)
+      if (resolvedImageUrl && resolvedImageUrl.startsWith('https://')) {
+        evictImageCache(resolvedImageUrl).catch(() => {});
+      }
 
-    // Find product in products
-    const updated = products.map(p => {
-      if (p.id === editingProduct?.id) {
-        const rawCostPrice = editForm.costPrice ?? 0;
-        const sellPrice = editForm.sellInRetail !== false ? (editForm.sellingPrice ?? 0) : 0;
-        const b = finalizedEditBarcode;
-        const editPharmacy = getEditPharmacyStructure(editForm);
-        const editDosesPerPacket = Math.max(1, Number(editPharmacy.middleQty || 1));
-        const editTabsPerDose = Math.max(1, Number(editPharmacy.doseQty || 1));
-        const editTopLevel = editPharmacy.hierarchy.levels[0];
-        const editDoseLevel = editPharmacy.hierarchy.levels.find(level => level.id === 'dose') || editPharmacy.hierarchy.levels[1] || editTopLevel;
-        const editTabsPerPacket = Math.max(1, Number(editTopLevel?.quantityToBaseUnit || editDosesPerPacket * editTabsPerDose));
-        // Base unit (e.g. Tablet) price is what the tenant enters as "Retail
-        // Price" -- packet price is derived from it unless explicitly overridden.
-        const editTabPrice = sellPrice;
-        const editPacketPrice = Number(editForm.packetPrice) || (editTabPrice * editTabsPerPacket);
-        const editFullDosePrice = Number(editForm.fullDosePrice || (Number(editDoseLevel?.quantityToBaseUnit || editTabsPerDose) * editTabPrice));
-        const editHalfDosePrice = Number(editForm.halfDosePrice || editFullDosePrice / 2);
-        const editStripLevel = editPharmacy.hierarchy.levels.find(level => level.id === 'strip');
-        const editStripPrice = editStripLevel
-          ? Number(editForm.stripPrice || (editStripLevel.quantityToBaseUnit * editTabPrice))
-          : undefined;
-        const editUsesPharmacyHierarchy = activeTenant.businessType === 'pharmacy' && editForm.productType === 'medicine';
-        const editFractionEligible = editForm.productType !== 'medicine' && (activeTenant.businessType === 'pharmacy' || !!editForm.isBulkProduct);
-        const editFractionEnabled = editFractionEligible && (activeTenant.businessType === 'pharmacy'
-          ? !!(editForm.fractionSaleEnabled ?? editForm.inventorySettings?.fractionSaleEnabled)
-          : !!editForm.isBulkProduct);
-        const editUsesMeasuredUnit = !!editForm.isBulkProduct || !!editForm.allowScaleSelling ||
-          !!editForm.inventorySettings?.allowScaleSelling || editForm.sellingMode === 'scale' || editForm.sellingMode === 'hybrid';
-        const editBaseUnit = editUsesMeasuredUnit
-          ? editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.sellUnit || editForm.unit || 'Unit'
-          : editForm.unit || editForm.baseUnit || editForm.inventorySettings?.baseUnit || 'Unit';
-        const editPurchaseUnit = editForm.purchaseUnit || editForm.inventorySettings?.purchaseUnit || editForm.bulkUnit || 'Package';
-        const editConversionToBase = Math.max(0.001, Number(editForm.conversionToBaseUnit || editForm.inventorySettings?.conversionToBaseUnit || editForm.bulkPurchaseQty || 1));
-        const editPricePerBase = Number(editForm.defaultPricePerBaseUnit || editForm.inventorySettings?.defaultPricePerBaseUnit || editForm.sellUnitPrice || sellPrice || 0);
-        const editPacketPricing = calculateFractionSalePacketPrice(
-          editPricePerBase,
-          editConversionToBase,
-          (editForm.packetPriceOverridden ?? editForm.inventorySettings?.packetPriceOverridden)
-            ? Number(editForm.wholePackagePrice ?? editForm.inventorySettings?.wholePackagePrice)
-            : undefined,
-        );
-        const editPackageBuyingCost = Number(editForm.packageBuyingCost || editForm.inventorySettings?.packageBuyingCost || rawCostPrice || 0);
-        const editLedgerCostPrice = activeTenant.businessType !== 'pharmacy' && editForm.isBulkProduct
-          ? editPackageBuyingCost / editConversionToBase
-          : rawCostPrice;
-        const hierarchyPayload: Partial<Product> = editUsesPharmacyHierarchy
-          ? {
-            dosesPerPacket: editDosesPerPacket,
-            tabsPerDose: editTabsPerDose,
-            tabsPerPack: editTabsPerPacket,
-            pharmacyProductType: editPharmacy.productType,
-            pharmacyHierarchyStart: editPharmacy.hierarchyStart,
-            pharmacyBaseUnit: editPharmacy.hierarchy.baseUnit,
-            pharmacyUnitLevels: editPharmacy.hierarchy.levels,
-            allowsDosageDividing: true,
-            packetPrice: editPacketPrice,
-            stripPrice: editStripPrice,
-            fullDosePrice: editFullDosePrice,
-            halfDosePrice: editHalfDosePrice,
-            tabPrice: editTabPrice,
-            pharmacyUnitBreakdown: {
-              purchaseUnit: editTopLevel.unit,
-              stripUnit: editDoseLevel.unit,
-              baseUnit: editPharmacy.hierarchy.baseUnit,
-              stripsPerBox: editDosesPerPacket,
-              tabletsPerStrip: editTabsPerDose,
-            },
-          }
-          : {
-            dosesPerPacket: p.dosesPerPacket,
-            tabsPerDose: p.tabsPerDose,
-            tabsPerPack: p.tabsPerPack,
-            pharmacyProductType: p.pharmacyProductType,
-            pharmacyHierarchyStart: p.pharmacyHierarchyStart,
-            pharmacyBaseUnit: p.pharmacyBaseUnit,
-            pharmacyUnitLevels: p.pharmacyUnitLevels,
-            allowsDosageDividing: p.allowsDosageDividing,
-            packetPrice: p.packetPrice,
-            stripPrice: p.stripPrice,
-            fullDosePrice: p.fullDosePrice,
-            halfDosePrice: p.halfDosePrice,
-            tabPrice: p.tabPrice,
-            pharmacyUnitBreakdown: p.pharmacyUnitBreakdown,
-          };
-        return {
-          ...p,
-          ...hierarchyPayload,
-          name: editForm.name || '',
-          brand: editForm.brand ? editForm.brand.trim() : undefined,
-          category: editForm.category || '',
-          unit: editUsesPharmacyHierarchy ? editPharmacy.hierarchy.baseUnit : (editForm.unit || editBaseUnit),
-          barcode: b,
-          costPrice: editLedgerCostPrice,
-          sellingPrice: sellPrice,
-          stockQty: getTotalStockQty(editForm.shopStockQty ?? 0, editForm.storeStockQty ?? 0),
-          shopStockQty: editForm.shopStockQty ?? 0,
-          storeStockQty: editForm.storeStockQty ?? 0,
-          alertQty: editForm.alertQty ?? 5,
-          image: resolvedImageUrl,
-          sellInRetail: editForm.sellInRetail !== false,
-          sellInWholesale: !!editForm.sellInWholesale,
-          wholesalePrice: editForm.sellInWholesale ? (editForm.wholesalePrice ?? 0) : undefined,
-          minWholesaleQty: editForm.sellInWholesale ? (editForm.minWholesaleQty ?? 10) : undefined,
-          isBulkProduct: editForm.isBulkProduct,
-          bulkUnit: editForm.isBulkProduct ? editPurchaseUnit : undefined,
-          bulkPurchaseQty: editForm.isBulkProduct ? editConversionToBase : undefined,
-          sellUnit: editForm.isBulkProduct ? editBaseUnit : undefined,
-          sellUnitQty: editForm.isBulkProduct ? 1 : undefined,
-          sellUnitPrice: editForm.isBulkProduct ? editPricePerBase : undefined,
-          bulkToUnitsRatio: editForm.isBulkProduct ? editConversionToBase : undefined,
-          sellingMode: editForm.isBulkProduct ? editForm.sellingMode : undefined,
-          stockTrackingMode: editForm.isBulkProduct ? (editForm.stockTrackingMode || 'quantity') : undefined,
-          markedFinished: editForm.isBulkProduct ? !!editForm.markedFinished : undefined,
-          costingMethod: editForm.costingMethod || editForm.inventorySettings?.costingMethod || 'fifo',
-          sellingMethod: mapCostingMethodToLegacy(editForm.costingMethod || editForm.inventorySettings?.costingMethod || 'fifo'),
-          allowPosMethodOverride: !!editForm.allowPosMethodOverride,
-          allowScaleSelling: activeTenant.businessType !== 'pharmacy' && (!!editForm.allowScaleSelling || !!editForm.isBulkProduct),
-          fractionSaleEnabled: editFractionEnabled,
-          packetPriceOverridden: editFractionEnabled ? editPacketPricing.packetPriceOverridden : editForm.packetPriceOverridden,
-          purchaseUnit: editUsesPharmacyHierarchy ? editTopLevel.unit : editPurchaseUnit,
-          baseUnit: editUsesPharmacyHierarchy ? editPharmacy.hierarchy.baseUnit : editBaseUnit,
-          conversionToBaseUnit: editUsesPharmacyHierarchy ? editTabsPerPacket : editConversionToBase,
-          packageUnitPrice: editUsesPharmacyHierarchy ? undefined : editPricePerBase,
-          wholePackagePrice: editFractionEnabled ? editPacketPricing.packetPrice : editForm.wholePackagePrice,
-          halfPackagePrice: editUsesPharmacyHierarchy ? undefined : editPricePerBase * (editConversionToBase / 2),
-          packageBuyingCost: editUsesPharmacyHierarchy ? undefined : editPackageBuyingCost,
-          allowCustomQuantity: editForm.allowCustomQuantity !== false,
-          defaultPricePerBaseUnit: editPricePerBase,
-          fractionSaleOptions: activeTenant.businessType === 'pharmacy' ? undefined : (editForm.fractionSaleOptions || editForm.inventorySettings?.fractionSaleOptions),
-          inventorySettings: {
+      // Find product in products
+      const updated = products.map(p => {
+        if (p.id === editingProduct?.id) {
+          const rawCostPrice = editForm.costPrice ?? 0;
+          const sellPrice = editForm.sellInRetail !== false ? (editForm.sellingPrice ?? 0) : 0;
+          const b = finalizedEditBarcode;
+          const editPharmacy = getEditPharmacyStructure(editForm);
+          const editDosesPerPacket = Math.max(1, Number(editPharmacy.middleQty || 1));
+          const editTabsPerDose = Math.max(1, Number(editPharmacy.doseQty || 1));
+          const editTopLevel = editPharmacy.hierarchy.levels[0];
+          const editDoseLevel = editPharmacy.hierarchy.levels.find(level => level.id === 'dose') || editPharmacy.hierarchy.levels[1] || editTopLevel;
+          const editTabsPerPacket = Math.max(1, Number(editTopLevel?.quantityToBaseUnit || editDosesPerPacket * editTabsPerDose));
+          // Base unit (e.g. Tablet) price is what the tenant enters as "Retail
+          // Price" -- packet price is derived from it unless explicitly overridden.
+          const editTabPrice = sellPrice;
+          const editPacketPrice = Number(editForm.packetPrice) || (editTabPrice * editTabsPerPacket);
+          const editFullDosePrice = Number(editForm.fullDosePrice || (Number(editDoseLevel?.quantityToBaseUnit || editTabsPerDose) * editTabPrice));
+          const editHalfDosePrice = Number(editForm.halfDosePrice || editFullDosePrice / 2);
+          const editStripLevel = editPharmacy.hierarchy.levels.find(level => level.id === 'strip');
+          const editStripPrice = editStripLevel
+            ? Number(editForm.stripPrice || (editStripLevel.quantityToBaseUnit * editTabPrice))
+            : undefined;
+          const editUsesPharmacyHierarchy = activeTenant.businessType === 'pharmacy' && editForm.productType === 'medicine';
+          const editFractionEligible = editForm.productType !== 'medicine' && (activeTenant.businessType === 'pharmacy' || !!editForm.isBulkProduct);
+          const editFractionEnabled = editFractionEligible && (activeTenant.businessType === 'pharmacy'
+            ? !!(editForm.fractionSaleEnabled ?? editForm.inventorySettings?.fractionSaleEnabled)
+            : !!editForm.isBulkProduct);
+          const editUsesMeasuredUnit = !!editForm.isBulkProduct || !!editForm.allowScaleSelling ||
+            !!editForm.inventorySettings?.allowScaleSelling || editForm.sellingMode === 'scale' || editForm.sellingMode === 'hybrid';
+          const editBaseUnit = editUsesMeasuredUnit
+            ? editForm.baseUnit || editForm.inventorySettings?.baseUnit || editForm.sellUnit || editForm.unit || 'Unit'
+            : editForm.unit || editForm.baseUnit || editForm.inventorySettings?.baseUnit || 'Unit';
+          const editPurchaseUnit = editForm.purchaseUnit || editForm.inventorySettings?.purchaseUnit || editForm.bulkUnit || 'Package';
+          const editConversionToBase = Math.max(0.001, Number(editForm.conversionToBaseUnit || editForm.inventorySettings?.conversionToBaseUnit || editForm.bulkPurchaseQty || 1));
+          const editPricePerBase = Number(editForm.defaultPricePerBaseUnit || editForm.inventorySettings?.defaultPricePerBaseUnit || editForm.sellUnitPrice || sellPrice || 0);
+          const editPacketPricing = calculateFractionSalePacketPrice(
+            editPricePerBase,
+            editConversionToBase,
+            (editForm.packetPriceOverridden ?? editForm.inventorySettings?.packetPriceOverridden)
+              ? Number(editForm.wholePackagePrice ?? editForm.inventorySettings?.wholePackagePrice)
+              : undefined,
+          );
+          const editPackageBuyingCost = Number(editForm.packageBuyingCost || editForm.inventorySettings?.packageBuyingCost || rawCostPrice || 0);
+          const editLedgerCostPrice = activeTenant.businessType !== 'pharmacy' && editForm.isBulkProduct
+            ? editPackageBuyingCost / editConversionToBase
+            : rawCostPrice;
+          const hierarchyPayload: Partial<Product> = editUsesPharmacyHierarchy
+            ? {
+              dosesPerPacket: editDosesPerPacket,
+              tabsPerDose: editTabsPerDose,
+              tabsPerPack: editTabsPerPacket,
+              pharmacyProductType: editPharmacy.productType,
+              pharmacyHierarchyStart: editPharmacy.hierarchyStart,
+              pharmacyBaseUnit: editPharmacy.hierarchy.baseUnit,
+              pharmacyUnitLevels: editPharmacy.hierarchy.levels,
+              allowsDosageDividing: true,
+              packetPrice: editPacketPrice,
+              stripPrice: editStripPrice,
+              fullDosePrice: editFullDosePrice,
+              halfDosePrice: editHalfDosePrice,
+              tabPrice: editTabPrice,
+              pharmacyUnitBreakdown: {
+                purchaseUnit: editTopLevel.unit,
+                stripUnit: editDoseLevel.unit,
+                baseUnit: editPharmacy.hierarchy.baseUnit,
+                stripsPerBox: editDosesPerPacket,
+                tabletsPerStrip: editTabsPerDose,
+              },
+            }
+            : {
+              dosesPerPacket: p.dosesPerPacket,
+              tabsPerDose: p.tabsPerDose,
+              tabsPerPack: p.tabsPerPack,
+              pharmacyProductType: p.pharmacyProductType,
+              pharmacyHierarchyStart: p.pharmacyHierarchyStart,
+              pharmacyBaseUnit: p.pharmacyBaseUnit,
+              pharmacyUnitLevels: p.pharmacyUnitLevels,
+              allowsDosageDividing: p.allowsDosageDividing,
+              packetPrice: p.packetPrice,
+              stripPrice: p.stripPrice,
+              fullDosePrice: p.fullDosePrice,
+              halfDosePrice: p.halfDosePrice,
+              tabPrice: p.tabPrice,
+              pharmacyUnitBreakdown: p.pharmacyUnitBreakdown,
+            };
+          return {
+            ...p,
+            ...hierarchyPayload,
+            name: editForm.name || '',
+            brand: editForm.brand ? editForm.brand.trim() : undefined,
+            category: editForm.category || '',
+            unit: editUsesPharmacyHierarchy ? editPharmacy.hierarchy.baseUnit : (editForm.unit || editBaseUnit),
+            barcode: b,
+            costPrice: editLedgerCostPrice,
+            sellingPrice: sellPrice,
+            stockQty: getTotalStockQty(editForm.shopStockQty ?? 0, editForm.storeStockQty ?? 0),
+            shopStockQty: editForm.shopStockQty ?? 0,
+            storeStockQty: editForm.storeStockQty ?? 0,
+            alertQty: editForm.alertQty ?? 5,
+            image: resolvedImageUrl,
+            sellInRetail: editForm.sellInRetail !== false,
+            sellInWholesale: !!editForm.sellInWholesale,
+            wholesalePrice: editForm.sellInWholesale ? (editForm.wholesalePrice ?? 0) : undefined,
+            minWholesaleQty: editForm.sellInWholesale ? (editForm.minWholesaleQty ?? 10) : undefined,
+            isBulkProduct: editForm.isBulkProduct,
+            bulkUnit: editForm.isBulkProduct ? editPurchaseUnit : undefined,
+            bulkPurchaseQty: editForm.isBulkProduct ? editConversionToBase : undefined,
+            sellUnit: editForm.isBulkProduct ? editBaseUnit : undefined,
+            sellUnitQty: editForm.isBulkProduct ? 1 : undefined,
+            sellUnitPrice: editForm.isBulkProduct ? editPricePerBase : undefined,
+            bulkToUnitsRatio: editForm.isBulkProduct ? editConversionToBase : undefined,
+            sellingMode: editForm.isBulkProduct ? editForm.sellingMode : undefined,
+            stockTrackingMode: editForm.isBulkProduct ? (editForm.stockTrackingMode || 'quantity') : undefined,
+            markedFinished: editForm.isBulkProduct ? !!editForm.markedFinished : undefined,
             costingMethod: editForm.costingMethod || editForm.inventorySettings?.costingMethod || 'fifo',
+            sellingMethod: mapCostingMethodToLegacy(editForm.costingMethod || editForm.inventorySettings?.costingMethod || 'fifo'),
             allowPosMethodOverride: !!editForm.allowPosMethodOverride,
             allowScaleSelling: activeTenant.businessType !== 'pharmacy' && (!!editForm.allowScaleSelling || !!editForm.isBulkProduct),
             fractionSaleEnabled: editFractionEnabled,
-            packetPriceOverridden: editFractionEnabled ? editPacketPricing.packetPriceOverridden : editForm.inventorySettings?.packetPriceOverridden,
+            packetPriceOverridden: editFractionEnabled ? editPacketPricing.packetPriceOverridden : editForm.packetPriceOverridden,
             purchaseUnit: editUsesPharmacyHierarchy ? editTopLevel.unit : editPurchaseUnit,
             baseUnit: editUsesPharmacyHierarchy ? editPharmacy.hierarchy.baseUnit : editBaseUnit,
             conversionToBaseUnit: editUsesPharmacyHierarchy ? editTabsPerPacket : editConversionToBase,
             packageUnitPrice: editUsesPharmacyHierarchy ? undefined : editPricePerBase,
-            wholePackagePrice: editFractionEnabled ? editPacketPricing.packetPrice : editForm.inventorySettings?.wholePackagePrice,
+            wholePackagePrice: editFractionEnabled ? editPacketPricing.packetPrice : editForm.wholePackagePrice,
             halfPackagePrice: editUsesPharmacyHierarchy ? undefined : editPricePerBase * (editConversionToBase / 2),
             packageBuyingCost: editUsesPharmacyHierarchy ? undefined : editPackageBuyingCost,
             allowCustomQuantity: editForm.allowCustomQuantity !== false,
             defaultPricePerBaseUnit: editPricePerBase,
             fractionSaleOptions: activeTenant.businessType === 'pharmacy' ? undefined : (editForm.fractionSaleOptions || editForm.inventorySettings?.fractionSaleOptions),
-            pharmacyUnitBreakdown: hierarchyPayload.pharmacyUnitBreakdown
-              || editForm.inventorySettings?.pharmacyUnitBreakdown,
-          },
-          sku: b
-        } as Product;
-      }
-      return p;
-    });
+            inventorySettings: {
+              costingMethod: editForm.costingMethod || editForm.inventorySettings?.costingMethod || 'fifo',
+              allowPosMethodOverride: !!editForm.allowPosMethodOverride,
+              allowScaleSelling: activeTenant.businessType !== 'pharmacy' && (!!editForm.allowScaleSelling || !!editForm.isBulkProduct),
+              fractionSaleEnabled: editFractionEnabled,
+              packetPriceOverridden: editFractionEnabled ? editPacketPricing.packetPriceOverridden : editForm.inventorySettings?.packetPriceOverridden,
+              purchaseUnit: editUsesPharmacyHierarchy ? editTopLevel.unit : editPurchaseUnit,
+              baseUnit: editUsesPharmacyHierarchy ? editPharmacy.hierarchy.baseUnit : editBaseUnit,
+              conversionToBaseUnit: editUsesPharmacyHierarchy ? editTabsPerPacket : editConversionToBase,
+              packageUnitPrice: editUsesPharmacyHierarchy ? undefined : editPricePerBase,
+              wholePackagePrice: editFractionEnabled ? editPacketPricing.packetPrice : editForm.inventorySettings?.wholePackagePrice,
+              halfPackagePrice: editUsesPharmacyHierarchy ? undefined : editPricePerBase * (editConversionToBase / 2),
+              packageBuyingCost: editUsesPharmacyHierarchy ? undefined : editPackageBuyingCost,
+              allowCustomQuantity: editForm.allowCustomQuantity !== false,
+              defaultPricePerBaseUnit: editPricePerBase,
+              fractionSaleOptions: activeTenant.businessType === 'pharmacy' ? undefined : (editForm.fractionSaleOptions || editForm.inventorySettings?.fractionSaleOptions),
+              pharmacyUnitBreakdown: hierarchyPayload.pharmacyUnitBreakdown
+                || editForm.inventorySettings?.pharmacyUnitBreakdown,
+            },
+            sku: b
+          } as Product;
+        }
+        return p;
+      });
 
-    setIsSavingProductEdit(true);
-    setEditSaveError(null);
-    try {
-      const saved = await onUpdateProducts(updated);
+      const saved = await onUpdateProducts(updated, [editingProduct.id]);
       // Keep the tenant's draft and the edit modal open when the durable
       // workspace write fails. Closing optimistically made hierarchy changes
       // appear saved until the next hydration restored the cloud copy.
       if (!saved) {
         setEditSaveError('Product changes were not saved. Please check your connection and try again.');
-        if (!saved) return;
+        return;
       }
       setEditingProduct(null);
       setEditForm({});
@@ -635,6 +637,7 @@ export default function DashboardProducts({
       console.warn('[DashboardProducts] Product edit save failed:', error);
       setEditSaveError('Product changes were not saved. Please try again.');
     } finally {
+      productEditInFlightRef.current = false;
       setIsSavingProductEdit(false);
     }
   };
@@ -6656,3 +6659,4 @@ export default function DashboardProducts({
   );
 
 }
+

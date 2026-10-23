@@ -2139,25 +2139,24 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
   // silently leaving the UI showing an edit that never actually reached the
   // server -- the same "looks saved, reverts on next real reload" gap
   // already fixed for settings via persistSystemSettingsNow.
-  const persistTenantProductsNow = (updatedProducts: Product[]): { products: Product[]; saved: Promise<boolean> } => {
+  const persistTenantProductsNow = (updatedProducts: Product[], branchStockUpdates?: BranchStock[], changedProductIds?: string[]): { products: Product[]; saved: Promise<boolean> } => {
     if (blockOfflineBusinessWrite('product or stock changes')) {
       return { products: productsMap[activeTenant.id] || [], saved: Promise.resolve(false) };
     }
 
     const previousProducts = productsMap[activeTenant.id] || [];
     const syncUpdatedAt = new Date().toISOString();
+    const nextProductIds = new Set(updatedProducts.map(product => product.id));
     const deletedProductIds = previousProducts
-      .filter((product) => !updatedProducts.some((nextProduct) => nextProduct.id === product.id))
+      .filter((product) => !nextProductIds.has(product.id))
       .map((product) => product.id)
       .filter(Boolean);
     if (deletedProductIds.length > 0) {
       markLocalProductTombstones(activeTenant.id, deletedProductIds, syncUpdatedAt);
     }
     const syncedProducts = stampProductsForSync(updatedProducts, previousProducts, syncUpdatedAt);
-    const updatedProductsMap = {
-      ...productsMap,
-      [activeTenant.id]: syncedProducts,
-    };
+    const changedIds = changedProductIds ? new Set(changedProductIds) : null;
+    const productsToSave = changedIds ? syncedProducts.filter(product => changedIds.has(product.id)) : syncedProducts;
 
     markTenantProductsUpdated(activeTenant.id, syncUpdatedAt);
     saveData(
@@ -2176,15 +2175,10 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       const previous = previousProducts.find(candidate => candidate.id === product.id);
       return product.productType === 'medicine' && !pharmacyHierarchyMatches(product, previous);
     });
-    // Products-only save: only the products array (and tombstones) travels
-    // to the server and gets ID-merged there, instead of round-tripping the
-    // tenant's entire sales/purchases/expenses/deliveries history on every
-    // single product edit -- confirmed live as the cause of slow product
-    // saves, worsening as that history grows. flushPendingTenantWorkspace
-    // still runs first so an older, already-scheduled full workspace
-    // autosave can't fire afterward and race this edit.
-    const saved = flushPendingTenantWorkspace(activeTenant.id)
-      .then(() => saveTenantProductsOnly(activeTenant.id, syncedProducts, readLocalProductTombstones(activeTenant.id)))
+    // The save queue serializes in-flight writes. Database timestamp guards also
+    // protect against a debounced older autosave, so do not force a full save first.
+    const saved = saveTenantProductsOnly(activeTenant.id, productsToSave,
+      readLocalProductTombstones(activeTenant.id), branchStockUpdates)
       .then(async (didSave) => {
         if (!didSave || !changedMedicine) return didSave;
         const persisted = await loadTenantProductFresh(activeTenant.id, changedMedicine.id);
@@ -2244,59 +2238,61 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     return { settings: syncedSettings, saved };
   };
 
-  const handleUpdateActiveStocks = async (updatedProducts: Product[]): Promise<boolean> => {
+  const handleUpdateActiveStocks = async (updatedProducts: Product[], changedProductIds?: string[]): Promise<boolean> => {
     if (blockOfflineBusinessWrite('stock adjustment')) return false;
-
+    const changedIds = changedProductIds ? new Set(changedProductIds) : null;
+    const scopedUpdates = changedIds ? updatedProducts.filter(product => changedIds.has(product.id)) : updatedProducts;
     const tenantProducts = productsMap[activeTenant.id] || [];
-    const safeCatalogueUpdates = updatedProducts.map(updated => {
-      const existing = tenantProducts.find(product => product.id === updated.id);
+    const catalogueById = new Map(tenantProducts.map(product => [product.id, product]));
+    const safeCatalogueUpdates = scopedUpdates.map(updated => {
+      const existing = catalogueById.get(updated.id);
       if (!existing || recordBelongsToActiveBranch(existing, activeBranchSelection)) return updated;
-      // A product shared into this branch through BranchStock keeps its tenant/
-      // owning-branch catalogue record unchanged; only this branch's stock row
-      // is updated below.
       return existing;
     });
     const nextTenantProducts = mergeScopedProducts(tenantProducts, safeCatalogueUpdates);
+    const previousStocks = branchStocksMap[activeTenant.id] || [];
+    let branchStockUpdates: BranchStock[] | undefined;
     if (activeBranchSelection.activeScope === 'branch' && activeBranchSelection.activeBranchId) {
       const now = new Date().toISOString();
-      setBranchStocksMap(previous => {
-        const tenantStocks = previous[activeTenant.id] || [];
-        const updates = new Map(updatedProducts.map(product => [product.id, product]));
-        const retained = tenantStocks.filter(stock => (
-          stock.branchId !== activeBranchSelection.activeBranchId || !updates.has(stock.productId)
-        ));
-        const branchStockUpdates = updatedProducts.map(product => {
-          const existing = tenantStocks.find(stock => (
-            stock.branchId === activeBranchSelection.activeBranchId && stock.productId === product.id
-          ));
-          return {
-            id: existing?.id || `branch-stock-${activeBranchSelection.activeBranchId}-${product.id}`,
-            tenantId: activeTenant.id,
-            branchId: activeBranchSelection.activeBranchId!,
-            productId: product.id,
-            quantity: Number(product.stockQty || 0),
-            shopStockQty: Number(product.shopStockQty || 0),
-            storeStockQty: Number(product.storeStockQty || 0),
-            buyingPrice: product.costPrice,
-            sellingPrice: product.sellingPrice,
-            lowStockAlert: product.alertQty,
-            createdAt: existing?.createdAt || now,
-            updatedAt: now,
-          } satisfies BranchStock;
-        });
-        return { ...previous, [activeTenant.id]: [...retained, ...branchStockUpdates] };
+      const branchId = activeBranchSelection.activeBranchId;
+      const stocksByProductId = new Map(previousStocks.filter(stock => stock.branchId === branchId).map(stock => [stock.productId, stock]));
+      branchStockUpdates = scopedUpdates.flatMap(product => {
+        const existing = stocksByProductId.get(product.id);
+        const original = catalogueById.get(product.id);
+        const update: BranchStock = {
+          ...existing,
+          id: existing?.id || `branch-stock-${branchId}-${product.id}`,
+          tenantId: activeTenant.id,
+          branchId,
+          productId: product.id,
+          quantity: Number(product.stockQty || 0),
+          shopStockQty: Number(product.shopStockQty || 0),
+          storeStockQty: Number(product.storeStockQty || 0),
+          buyingPrice: product.costPrice,
+          sellingPrice: product.sellingPrice,
+          lowStockAlert: product.alertQty,
+          createdAt: existing?.createdAt || now,
+          updatedAt: now,
+        };
+        if (existing && Number(existing.quantity || 0) === update.quantity
+          && Number(existing.shopStockQty || 0) === update.shopStockQty
+          && Number(existing.storeStockQty || 0) === update.storeStockQty
+          && (existing.buyingPrice ?? original?.costPrice) === update.buyingPrice
+          && (existing.sellingPrice ?? original?.sellingPrice) === update.sellingPrice
+          && (existing.lowStockAlert ?? original?.alertQty) === update.lowStockAlert) return [];
+        return [update];
       });
     }
-    const { products: syncedProducts, saved } = persistTenantProductsNow(nextTenantProducts);
-    setProductsMap(prev => ({
-      ...prev,
-      [activeTenant.id]: syncedProducts
-    }));
-
+    const { products: syncedProducts, saved } = persistTenantProductsNow(nextTenantProducts, branchStockUpdates, changedProductIds);
+    setProductsMap(prev => ({ ...prev, [activeTenant.id]: syncedProducts }));
     const didSave = await saved;
     if (!didSave) return false;
-
-    // Add real-time log action
+    // Apply the authoritative result only after catalogue and branch stock commit together.
+    const durable = readCachedWorkspace(activeTenant.id);
+    if (durable?.products) setProductsMap(prev => ({ ...prev, [activeTenant.id]: durable.products }));
+    if (branchStockUpdates !== undefined && durable?.branchStocks) {
+      setBranchStocksMap(prev => ({ ...prev, [activeTenant.id]: durable.branchStocks || [] }));
+    }
     const newLog: SyncLog = {
       id: 'l-' + Math.random().toString(36).substr(2, 9),
       type: 'product_update',
@@ -5422,5 +5418,6 @@ function TenantDashboardGate(props: DashboardProps) {
   }
   return <DashboardContent {...props} />;
 }
+
 
 

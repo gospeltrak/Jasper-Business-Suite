@@ -808,6 +808,15 @@ async function saveTenantWorkspaceNow(
       const missingRpc = ['PGRST202', '42883'].includes(String(secureSave.error?.code || ''));
       if (!secureSave.error) {
         error = null;
+        // The database may retain a newer product/stock snapshot than this autosave.
+        // Cache its committed values so the client does not briefly restore old data.
+        const committed = secureSave.data?.payload;
+        if (Array.isArray(committed?.products)) {
+          workspaceToSave.products = mergeProductsForSync(committed.products, workspaceToSave.products, mergedTombstones);
+        }
+        if (Array.isArray(committed?.branchStocks)) {
+          workspaceToSave.branchStocks = mergeRecordsById(committed.branchStocks, workspaceToSave.branchStocks);
+        }
       } else if (!missingRpc) {
         error = secureSave.error;
       } else {
@@ -993,6 +1002,7 @@ async function saveTenantProductsOnlyNow(
   tenantId: string,
   products: Product[],
   productTombstones: Record<string, string>,
+  branchStocks?: BranchStock[],
 ): Promise<boolean> {
   if (!canWriteBusinessDataOnline()) {
     warnOfflineWriteBlocked(`saveTenantProductsOnly:${tenantId}`);
@@ -1010,18 +1020,25 @@ async function saveTenantProductsOnlyNow(
       const result = await client.rpc('save_current_branch_products', {
         p_products: products,
         p_product_tombstones: productTombstones,
+        ...(branchStocks !== undefined ? { p_branch_stocks: branchStocks } : {}),
       });
       const missingRpc = ['PGRST202', '42883'].includes(String(result.error?.code || ''));
       if (!result.error) {
+        const cached = readCachedWorkspace(tenantId);
         const mergedProducts = Array.isArray(result.data?.products)
           ? result.data.products as Product[]
-          : products;
+          : mergeProductsForSync(products, cached?.products, productTombstones);
         const mergedTombstones = (result.data?.productTombstones || productTombstones) as Record<string, string>;
-        const cached = readCachedWorkspace(tenantId);
         cacheWorkspace(tenantId, {
           ...(cached || emptyWorkspace()),
           products: mergedProducts,
           productTombstones: mergedTombstones,
+          ...(branchStocks !== undefined ? {
+            branchStocks: mergeRecordsById<BranchStock>(
+              Array.isArray(result.data?.branchStocks) ? result.data.branchStocks : branchStocks,
+              cached?.branchStocks,
+            ),
+          } : {}),
         });
         return true;
       }
@@ -1038,8 +1055,9 @@ async function saveTenantProductsOnlyNow(
     const current = readCachedWorkspace(tenantId) || await loadTenantWorkspace(tenantId) || emptyWorkspace();
     return await saveTenantWorkspaceNow(tenantId, {
       ...current,
-      products,
+      products: mergeProductsForSync(products, current.products, productTombstones),
       productTombstones: { ...(current.productTombstones || {}), ...productTombstones },
+      ...(branchStocks !== undefined ? { branchStocks: mergeRecordsById(branchStocks, current.branchStocks) } : {}),
     });
   } catch (error: any) {
     console.warn('[workspace] products-only save exception:', error?.message || error);
@@ -1051,12 +1069,13 @@ export function saveTenantProductsOnly(
   tenantId: string,
   products: Product[],
   productTombstones: Record<string, string> = {},
+  branchStocks?: BranchStock[],
 ): Promise<boolean> {
   if (!tenantId) return Promise.resolve(false);
   const previous = workspaceSaveQueue.get(tenantId) || Promise.resolve(true);
   const next = previous
     .catch(() => false)
-    .then(() => saveTenantProductsOnlyNow(tenantId, products, productTombstones));
+    .then(() => saveTenantProductsOnlyNow(tenantId, products, productTombstones, branchStocks));
   workspaceSaveQueue.set(tenantId, next);
   void next.finally(() => {
     if (workspaceSaveQueue.get(tenantId) === next) workspaceSaveQueue.delete(tenantId);
@@ -1482,4 +1501,5 @@ export async function initializeNewTenantWorkspace(tenantId: string, settings?: 
   const workspace = emptyWorkspace(settings);
   await saveTenantWorkspace(tenantId, workspace);
 }
+
 
