@@ -47,7 +47,7 @@ import GlobalStickyAd from '../shared/components/GlobalStickyAd';
 const SuperSaaSAdminView = lazyWithReload('SuperSaaSAdminView', () => import('../modules/platform-admin/components/SuperSaaSAdminView'));
 import DuressDashboard from '../shared/components/DuressDashboard';
 import CachedImage from '../shared/components/CachedImage';
-import { savePendingSaleOffline, getPendingSales, deletePendingSale } from '../shared/utils/offlineDb';
+import { savePendingSaleOffline, getPendingSales, deletePendingSale, savePendingPurchaseOffline, getPendingPurchases, deletePendingPurchase } from '../shared/utils/offlineDb';
 import { createCleanTenantSettings, isDemoTenant } from '../shared/utils/tenantIsolation';
 import { flushPendingTenantWorkspace, hasPendingTenantWorkspaceSave, loadTenantProductFresh, loadTenantWorkspace, loadTenantWorkspaceCore, markTenantProductsUpdated, readCachedWorkspace, reloadTenantWorkspace, saveTenantDeliveriesOnly, saveTenantExpensesOnly, saveTenantProductsOnly, saveTenantPurchasesOnly, saveTenantSalesOnly, saveTenantSettings, scheduleTenantWorkspaceSave, subscribeToTenantBusinessType, subscribeToTenantWorkspace, TenantWorkspace, waitForTenantWorkspaceLoad, workspaceHasBusinessData } from '../shared/utils/tenantWorkspace';
 import { safeSetJsonItem, safeSetTenantMapItem } from '../shared/utils/dataSafety';
@@ -1606,7 +1606,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
   const offlineSyncInFlightRef = useRef(false);
   const offlineSyncRetryRef = useRef(0);
   const offlineSyncTimerRef = useRef<number | null>(null);
-  const syncPendingOfflineSalesRef = useRef<() => void>(() => {});
+  const syncPendingOfflineRecordsRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     const handleOffline = () => setIsOfflineMode(true);
@@ -3093,7 +3093,16 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
   };
 
   const handleAddPurchase = async (purchase: Purchase, updatedProducts?: Product[]) => {
-    if (blockOfflineBusinessWrite('purchase entry')) return false;
+    // Native-APK-only exception, same pattern as handleAddSale: while
+    // genuinely offline, skip straight to the local-queue branch further
+    // below instead of blocking -- no cloud push, no Treasury posting,
+    // both deferred to sync.
+    const isNativeOfflinePurchase = Capacitor.isNativePlatform() && !canWriteBusinessDataOnline();
+    if (!isNativeOfflinePurchase && blockOfflineBusinessWrite('purchase entry')) return false;
+    if (isSyncingOfflineQueue && !offlineSyncStuck) {
+      addToast('Syncing earlier offline records, please wait a moment...', 'warning');
+      return false;
+    }
 
     localWorkspaceChangedAtRef.current = Date.now();
     cloudWorkspaceLoadedRef.current = true;
@@ -3128,7 +3137,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       addToast('Every registered purchase funding row must use an active Money & Bank account.', 'error');
       return false;
     }
-    if (registeredAllocations.length > 0) {
+    if (!isNativeOfflinePurchase && registeredAllocations.length > 0) {
       try {
         const posted = await postTreasurySplitOutgoing({
           channels: systemSettings.paymentChannels || [],
@@ -3198,40 +3207,61 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       })()
       : (branchStocksMap[activeTenant.id] || []);
     
-    // Narrow save: purchases always changes; products/branchStocks only
-    // travel when this purchase actually adjusted stock, matching the
-    // nextProducts/nextBranchStocks computation above exactly.
-    const saved = await saveTenantPurchasesOnly(
-      activeTenant.id,
-      updatedPurchases,
-      updatedProducts ? nextProducts : undefined,
-      (activeBranchSelection.activeScope === 'branch' && activeBranchSelection.activeBranchId && updatedProducts)
-        ? nextBranchStocks
-        : undefined,
-    );
-    if (!saved) {
-      if (purchase.treasuryJournalId) {
-        try {
-          await reverseTreasuryEntry(
-            purchase.treasuryJournalId,
-            purchase.id,
-            'Purchase workspace save failed',
-          );
-        } catch (error) {
-          console.error('Failed to reverse treasury entry after purchase save failure', error);
-        }
+    if (isNativeOfflinePurchase) {
+      // Durable local persistence BEFORE confirming anything to the cashier,
+      // same discipline as handleAddSale. No cloud push here -- the atomic
+      // stock increase happens for real only at sync time (via
+      // append_offline_purchase_to_branch), never from this locally-computed
+      // nextProducts/nextBranchStocks snapshot, which exists only for the
+      // optimistic on-screen display below.
+      try {
+        await savePendingPurchaseOffline(purchase);
+      } catch (error) {
+        console.error('Failed to persist offline purchase to device storage', error);
+        addToast('Could not save this purchase on the device. Please try again.', 'error');
+        return false;
       }
-      addToast('Purchase could not be saved. Any account payment was reversed safely.', 'error');
-      return false;
-    }
-    
-    setPurchasesMap(prev => ({
-      ...prev,
-      [activeTenant.id]: updatedPurchases
-    }));
-    if (updatedProducts) {
-      setProductsMap(prev => ({ ...prev, [activeTenant.id]: nextProducts }));
-      setBranchStocksMap(prev => ({ ...prev, [activeTenant.id]: nextBranchStocks }));
+      setPurchasesMap(prev => ({ ...prev, [activeTenant.id]: updatedPurchases }));
+      if (updatedProducts) {
+        setProductsMap(prev => ({ ...prev, [activeTenant.id]: nextProducts }));
+        setBranchStocksMap(prev => ({ ...prev, [activeTenant.id]: nextBranchStocks }));
+      }
+    } else {
+      // Narrow save: purchases always changes; products/branchStocks only
+      // travel when this purchase actually adjusted stock, matching the
+      // nextProducts/nextBranchStocks computation above exactly.
+      const saved = await saveTenantPurchasesOnly(
+        activeTenant.id,
+        updatedPurchases,
+        updatedProducts ? nextProducts : undefined,
+        (activeBranchSelection.activeScope === 'branch' && activeBranchSelection.activeBranchId && updatedProducts)
+          ? nextBranchStocks
+          : undefined,
+      );
+      if (!saved) {
+        if (purchase.treasuryJournalId) {
+          try {
+            await reverseTreasuryEntry(
+              purchase.treasuryJournalId,
+              purchase.id,
+              'Purchase workspace save failed',
+            );
+          } catch (error) {
+            console.error('Failed to reverse treasury entry after purchase save failure', error);
+          }
+        }
+        addToast('Purchase could not be saved. Any account payment was reversed safely.', 'error');
+        return false;
+      }
+
+      setPurchasesMap(prev => ({
+        ...prev,
+        [activeTenant.id]: updatedPurchases
+      }));
+      if (updatedProducts) {
+        setProductsMap(prev => ({ ...prev, [activeTenant.id]: nextProducts }));
+        setBranchStocksMap(prev => ({ ...prev, [activeTenant.id]: nextBranchStocks }));
+      }
     }
 
     const newLog: SyncLog = {
@@ -3403,7 +3433,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       message: `Internet connection restored.`,
       timestamp: new Date().toISOString()
     }, ...prev]);
-    syncPendingOfflineSalesRef.current();
+    syncPendingOfflineRecordsRef.current();
   };
 
   // One queued offline sale -> cloud. append_offline_sale_to_branch adds the
@@ -3464,19 +3494,63 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     return true;
   };
 
-  // Orchestrates the whole queue: oldest-created-first (actualTimestamp),
-  // one sale at a time so a single bad record cannot block the rest, never
-  // deleting a queue entry until its sync is confirmed. On repeated failure
-  // while nominally "online" (e.g. the API is down, not just a brief
-  // flicker), falls back to letting the cashier keep selling -- new sales
-  // simply join the same queue, in order -- rather than freezing the till.
-  const syncPendingOfflineSales = async () => {
+  // Mirrors syncOneOfflineSale above, for purchases. append_offline_purchase_to_branch
+  // (see supabase/migrations/20261023090000_append_offline_purchase_rpc.sql)
+  // appends the purchase and increases stock atomically and idempotently by
+  // purchase id; the deferred Treasury (outgoing) posting happens here,
+  // separately, for the same reason as sales -- it is itself idempotent by
+  // purchase.id and a failure here never re-touches the purchase or stock.
+  const syncOneOfflinePurchase = async (purchase: Purchase): Promise<boolean> => {
+    const client = await getSecureDataBridgeClient();
+    if (!client || isPlaceholderSecureDataBridgeClient(client)) return false;
+    const result = await (client as any).rpc('append_offline_purchase_to_branch', { p_purchase: purchase });
+    if (result?.error) {
+      console.warn('[offline-sync] append_offline_purchase_to_branch failed:', result.error.message);
+      return false;
+    }
+
+    const registeredAllocations = registeredPurchaseFunding(purchase.paymentAllocations || []);
+    if (registeredAllocations.length > 0) {
+      try {
+        await postTreasurySplitOutgoing({
+          channels: systemSettings.paymentChannels || [],
+          lines: registeredAllocations.map(allocation => ({
+            sourceAccountKey: String(allocation.sourceKey),
+            amount: allocation.amount,
+          })),
+          sourceType: 'purchase',
+          sourceId: purchase.id,
+          description: `Purchase payment to ${purchase.supplierName}`,
+          openingBalances: getTreasuryOpeningBalances(),
+          cacheKey: `${activeBranchSelection.activeScope}:${activeBranchSelection.activeBranchId || 'all'}`,
+          metadata: {
+            supplierId: purchase.supplierId,
+            supplierName: purchase.supplierName,
+            totalAmount: purchase.totalAmount,
+            fundingAllocations: purchase.paymentAllocations || [],
+          },
+        });
+      } catch (error) {
+        console.warn('[offline-sync] deferred purchase treasury posting failed, will retry on next sync:', error);
+      }
+    }
+    return true;
+  };
+
+  // Orchestrates both queues: sales first, then purchases, each
+  // oldest-created-first (actualTimestamp), one record at a time so a
+  // single bad record cannot block the rest, never deleting a queue entry
+  // until its sync is confirmed. On repeated failure while nominally
+  // "online" (e.g. the API is down, not just a brief flicker), falls back
+  // to letting the cashier keep working -- new records simply join the
+  // same queues, in order -- rather than freezing the till.
+  const syncPendingOfflineRecords = async () => {
     if (!Capacitor.isNativePlatform()) return;
     if (offlineSyncInFlightRef.current) return;
     if (!canWriteBusinessDataOnline()) return;
 
-    const queue = await getPendingSales();
-    if (queue.length === 0) {
+    const [salesQueue, purchasesQueue] = await Promise.all([getPendingSales(), getPendingPurchases()]);
+    if (salesQueue.length === 0 && purchasesQueue.length === 0) {
       offlineSyncRetryRef.current = 0;
       setOfflineSyncStuck(false);
       return;
@@ -3484,14 +3558,14 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
 
     offlineSyncInFlightRef.current = true;
     setIsSyncingOfflineQueue(true);
-    const ordered = [...queue].sort((a, b) => {
+    const byActualTimestamp = (a: { actualTimestamp?: string; timestamp: string }, b: { actualTimestamp?: string; timestamp: string }) => {
       const aTime = new Date(a.actualTimestamp || a.timestamp).getTime();
       const bTime = new Date(b.actualTimestamp || b.timestamp).getTime();
       return (Number.isFinite(aTime) ? aTime : 0) - (Number.isFinite(bTime) ? bTime : 0);
-    });
+    };
 
     let failed = false;
-    for (const sale of ordered) {
+    for (const sale of [...salesQueue].sort(byActualTimestamp)) {
       const ok = await syncOneOfflineSale(sale);
       if (!ok) { failed = true; break; }
       await deletePendingSale(sale.id);
@@ -3508,6 +3582,25 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       }, ...prev]);
     }
 
+    if (!failed) {
+      for (const purchase of [...purchasesQueue].sort(byActualTimestamp)) {
+        const ok = await syncOneOfflinePurchase(purchase);
+        if (!ok) { failed = true; break; }
+        await deletePendingPurchase(purchase.id);
+        setPurchasesMap(prev => ({
+          ...prev,
+          [purchase.tenantId]: (prev[purchase.tenantId] || []).map(p => p.id === purchase.id ? { ...p, syncStatus: 'synced' as const } : p),
+        }));
+        setLogs(prev => [{
+          id: 'OFFLINE-SYNCED-' + Math.random().toString(36).slice(2, 8),
+          type: 'inventory_audit',
+          status: 'success',
+          message: `Offline purchase (Ref: ${purchase.id}) synced successfully.`,
+          timestamp: new Date().toISOString(),
+        }, ...prev]);
+      }
+    }
+
     offlineSyncInFlightRef.current = false;
     setIsSyncingOfflineQueue(false);
 
@@ -3520,13 +3613,13 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
           id: 'OFFLINE-SYNC-STUCK-' + Math.random().toString(36).slice(2, 8),
           type: 'system_action',
           status: 'warning',
-          message: 'Could not sync offline sales after several attempts. You can keep selling -- it will keep retrying in the background.',
+          message: 'Could not sync offline records after several attempts. You can keep working -- it will keep retrying in the background.',
           timestamp: new Date().toISOString(),
         }, ...prev]);
       }
       const delayMs = Math.min(60000, 2000 * Math.pow(2, attempt - 1));
       if (offlineSyncTimerRef.current) window.clearTimeout(offlineSyncTimerRef.current);
-      offlineSyncTimerRef.current = window.setTimeout(() => { syncPendingOfflineSalesRef.current(); }, delayMs);
+      offlineSyncTimerRef.current = window.setTimeout(() => { syncPendingOfflineRecordsRef.current(); }, delayMs);
     } else {
       offlineSyncRetryRef.current = 0;
       setOfflineSyncStuck(false);
@@ -3536,12 +3629,12 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
   // Always-current ref so the reconnect listener (registered once) and the
   // retry timer never call a stale closure over old systemSettings/activeTenant.
   useEffect(() => {
-    syncPendingOfflineSalesRef.current = syncPendingOfflineSales;
+    syncPendingOfflineRecordsRef.current = syncPendingOfflineRecords;
   });
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
-    const handleOnline = () => { syncPendingOfflineSalesRef.current(); };
+    const handleOnline = () => { syncPendingOfflineRecordsRef.current(); };
     window.addEventListener('online', handleOnline);
     if (navigator.onLine) handleOnline();
     return () => {
@@ -4716,6 +4809,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
               onUpdatePurchases={handleUpdatePurchases}
               onDeletePurchase={handleDeletePurchase}
               systemSettings={systemSettings}
+              isOfflineMode={isOfflineMode}
             />
           )}
 
@@ -4770,11 +4864,12 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
             <DashboardLogsAndSync
               logs={logs}
               sales={activeSales}
+              purchases={activePurchases}
               isOfflineMode={isOfflineMode}
               onToggleOffline={() => setIsOfflineMode(!isOfflineMode)}
               isSyncingOfflineQueue={isSyncingOfflineQueue}
               offlineSyncStuck={offlineSyncStuck}
-              onSyncNow={() => syncPendingOfflineSales()}
+              onSyncNow={() => syncPendingOfflineRecords()}
             />
           )}
 

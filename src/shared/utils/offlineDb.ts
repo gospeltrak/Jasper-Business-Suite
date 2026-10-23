@@ -1,10 +1,11 @@
 import { Capacitor } from '@capacitor/core';
-import { Sale } from '../../types';
+import { Sale, Purchase } from '../../types';
 import { warnOfflineWriteBlocked } from './onlineOnly';
 
 const DB_NAME = 'jasper-offline-db';
-const DB_VERSION = 1;
-const STORE_NAME = 'pending_sales';
+const DB_VERSION = 2;
+const SALES_STORE_NAME = 'pending_sales';
+const PURCHASES_STORE_NAME = 'pending_purchases';
 
 // Real offline writes are a native-APK-only feature (see CLAUDE.md /
 // capacitor.config.ts notes): the PWA/web build stays 100% online-only.
@@ -17,8 +18,11 @@ export function openOfflineDb(): Promise<IDBDatabase> {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
     request.onupgradeneeded = () => {
       const db = request.result;
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+      if (!db.objectStoreNames.contains(SALES_STORE_NAME)) {
+        db.createObjectStore(SALES_STORE_NAME, { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains(PURCHASES_STORE_NAME)) {
+        db.createObjectStore(PURCHASES_STORE_NAME, { keyPath: 'id' });
       }
     };
     request.onsuccess = () => resolve(request.result);
@@ -26,64 +30,77 @@ export function openOfflineDb(): Promise<IDBDatabase> {
   });
 }
 
-export async function savePendingSaleOffline(sale: Sale): Promise<void> {
+// Shared CRUD against one IndexedDB object store -- savePendingSaleOffline
+// and savePendingPurchaseOffline etc. below are thin, type-specific names
+// over this, so call sites stay self-explanatory without repeating the
+// same transaction boilerplate per record type.
+async function savePendingRecord<T extends { id: string }>(storeName: string, record: T, label: string): Promise<void> {
   if (!isNativeOfflineCapable()) {
-    warnOfflineWriteBlocked(`savePendingSaleOffline:${sale?.id || 'unknown-sale'}`);
+    warnOfflineWriteBlocked(`${label}:${record?.id || 'unknown'}`);
     return;
   }
-  if (!sale?.id) throw new Error('Cannot queue an offline sale without an id.');
+  if (!record?.id) throw new Error(`Cannot queue an offline ${label} without an id.`);
   const db = await openOfflineDb();
   await new Promise<void>((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readwrite');
-    tx.objectStore(STORE_NAME).put(sale);
+    const tx = db.transaction(storeName, 'readwrite');
+    tx.objectStore(storeName).put(record);
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
     tx.onabort = () => reject(tx.error);
   });
 }
 
-export async function getPendingSales(): Promise<Sale[]> {
+async function getPendingRecords<T>(storeName: string): Promise<T[]> {
   try {
     const db = await openOfflineDb();
     return new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE_NAME, 'readonly');
-      const store = tx.objectStore(STORE_NAME);
-      const request = store.getAll();
+      const tx = db.transaction(storeName, 'readonly');
+      const request = tx.objectStore(storeName).getAll();
       request.onsuccess = () => resolve(request.result || []);
       request.onerror = () => reject(request.error);
     });
   } catch (err) {
-    console.error('Failed to read pending sales from IndexedDB:', err);
+    console.error(`Failed to read pending records from IndexedDB store ${storeName}:`, err);
     return [];
   }
 }
 
-export async function deletePendingSale(id: string): Promise<void> {
+async function deletePendingRecord(storeName: string, id: string, label: string): Promise<void> {
   if (!isNativeOfflineCapable()) {
-    warnOfflineWriteBlocked(`deletePendingSale:${id}`);
+    warnOfflineWriteBlocked(`${label}:${id}`);
     return;
   }
   const db = await openOfflineDb();
   await new Promise<void>((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readwrite');
-    tx.objectStore(STORE_NAME).delete(id);
+    const tx = db.transaction(storeName, 'readwrite');
+    tx.objectStore(storeName).delete(id);
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
     tx.onabort = () => reject(tx.error);
   });
 }
 
-export async function clearPendingSales(): Promise<void> {
+async function clearPendingRecords(storeName: string, label: string): Promise<void> {
   if (!isNativeOfflineCapable()) {
-    warnOfflineWriteBlocked('clearPendingSales');
+    warnOfflineWriteBlocked(label);
     return;
   }
   const db = await openOfflineDb();
   await new Promise<void>((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readwrite');
-    tx.objectStore(STORE_NAME).clear();
+    const tx = db.transaction(storeName, 'readwrite');
+    tx.objectStore(storeName).clear();
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
     tx.onabort = () => reject(tx.error);
   });
 }
+
+export const savePendingSaleOffline = (sale: Sale) => savePendingRecord(SALES_STORE_NAME, sale, 'savePendingSaleOffline');
+export const getPendingSales = () => getPendingRecords<Sale>(SALES_STORE_NAME);
+export const deletePendingSale = (id: string) => deletePendingRecord(SALES_STORE_NAME, id, 'deletePendingSale');
+export const clearPendingSales = () => clearPendingRecords(SALES_STORE_NAME, 'clearPendingSales');
+
+export const savePendingPurchaseOffline = (purchase: Purchase) => savePendingRecord(PURCHASES_STORE_NAME, purchase, 'savePendingPurchaseOffline');
+export const getPendingPurchases = () => getPendingRecords<Purchase>(PURCHASES_STORE_NAME);
+export const deletePendingPurchase = (id: string) => deletePendingRecord(PURCHASES_STORE_NAME, id, 'deletePendingPurchase');
+export const clearPendingPurchases = () => clearPendingRecords(PURCHASES_STORE_NAME, 'clearPendingPurchases');

@@ -537,6 +537,9 @@ export interface Purchase {
   deliveryFee?: number;
   branchId?: string;
   treasuryJournalId?: string;
+  // Native-APK offline queue only -- absent/'synced' for every purchase
+  // recorded online, exactly like Sale.syncStatus.
+  syncStatus?: 'synced' | 'pending';
 }
 
 export interface DeliveryRider {

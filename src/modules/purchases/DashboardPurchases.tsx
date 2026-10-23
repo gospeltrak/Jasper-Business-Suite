@@ -61,6 +61,7 @@ interface DashboardPurchasesProps {
   onUpdatePurchases: (purchases: Purchase[], updatedProducts?: Product[]) => Promise<boolean> | boolean;
   onDeletePurchase: (purchaseId: string) => void | boolean | Promise<void | boolean>;
   systemSettings: SystemSettings;
+  isOfflineMode?: boolean;
 }
 
 // Defined at module scope (not inside DashboardPurchases) so their component
@@ -498,6 +499,7 @@ export default function DashboardPurchases({
   onUpdatePurchases,
   onDeletePurchase,
   systemSettings,
+  isOfflineMode = false,
 }: DashboardPurchasesProps) {
   const [activeSubTab, setActiveSubTab] = useState<'history' | 'till'>('history');
 
@@ -947,8 +949,14 @@ export default function DashboardPurchases({
       };
     });
 
+    // crypto.randomUUID() (not Math.random()) so a purchase id can never
+    // collide across two devices recording purchases offline at once --
+    // the offline-sync RPC relies on this id being globally unique.
+    const purchaseUniqueId = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `${Date.now().toString(36)}-${Math.random().toString(36).substr(2, 9)}`;
     const newPurchase: Purchase = {
-      id: 'PC-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
+      id: 'PC-' + purchaseUniqueId.toUpperCase(),
       supplierId: supplier.id,
       supplierName: supplier.name,
       items: purchaseItems,
@@ -978,7 +986,8 @@ export default function DashboardPurchases({
       tenantId: activeTenant.id,
       discount: purchaseDiscount,
       discountType: purchaseDiscountType,
-      deliveryFee: deliveryFee
+      deliveryFee: deliveryFee,
+      syncStatus: isOfflineMode ? 'pending' : 'synced',
     };
 
     const updatedProductsList = products.map(prod => {
