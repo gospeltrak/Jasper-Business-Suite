@@ -811,6 +811,9 @@ async function saveTenantWorkspaceNow(
         // The database may retain a newer product/stock snapshot than this autosave.
         // Cache its committed values so the client does not briefly restore old data.
         const committed = secureSave.data?.payload;
+        if (Array.isArray(committed?.purchases)) {
+          workspaceToSave.purchases = mergeRecordsById(committed.purchases, workspaceToSave.purchases);
+        }
         if (Array.isArray(committed?.products)) {
           workspaceToSave.products = mergeProductsForSync(committed.products, workspaceToSave.products, mergedTombstones);
         }
@@ -1278,6 +1281,45 @@ export function saveTenantSalesOnly(
   return next;
 }
 
+/** One transaction posts the treasury debit and settles the purchase. Never fall back to a workspace-only write. */
+export function addTenantPurchasePayment(
+  tenantId: string,
+  purchaseId: string,
+  paymentId: string,
+  amount: number,
+  fundingType: 'registered' | 'external',
+  sourceKey?: string,
+): Promise<Purchase> {
+  const previous = workspaceSaveQueue.get(tenantId) || Promise.resolve();
+  const task = previous.catch(() => undefined).then(async () => {
+    if (!tenantId || !canWriteBusinessDataOnline()) throw new Error('Connect to the internet to record a payment.');
+    const client = await getConfiguredClient();
+    if (!client) throw new Error('Payment service is unavailable. Please reconnect.');
+    const result = await client.rpc('add_current_branch_purchase_payment', {
+      p_purchase_id: purchaseId,
+      p_payment_id: paymentId,
+      p_amount: amount,
+      p_funding_type: fundingType,
+      p_source_key: fundingType === 'registered' ? sourceKey : null,
+    });
+    if (result.error || !result.data?.purchase?.id) {
+      if (result.error?.code === '23514') throw new Error('Check the outstanding amount, account balance and account currency. No payment was recorded.');
+      if (result.error?.code === '42501') throw new Error('Select the purchase branch and check your purchase and Money & Bank permissions.');
+      throw new Error('Payment was not confirmed. Refresh purchase history before trying another payment.');
+    }
+    const purchase = result.data.purchase as Purchase;
+    const base = readCachedWorkspace(tenantId) || emptyWorkspace();
+    cacheWorkspace(tenantId, { ...base, purchases: mergeRecordsById([purchase], base.purchases) });
+    return purchase;
+  });
+  const queued = task.then(() => true, () => false);
+  workspaceSaveQueue.set(tenantId, queued);
+  void queued.finally(() => {
+    if (workspaceSaveQueue.get(tenantId) === queued) workspaceSaveQueue.delete(tenantId);
+  });
+  return task;
+}
+
 // Same narrow-save pattern, for Purchases. handleAddPurchase and
 // handleDeletePurchase both adjust `products` (stock received/reversed)
 // and `branchStocks` in the same save that adds/removes the purchase;
@@ -1501,5 +1543,6 @@ export async function initializeNewTenantWorkspace(tenantId: string, settings?: 
   const workspace = emptyWorkspace(settings);
   await saveTenantWorkspace(tenantId, workspace);
 }
+
 
 

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Product, Supplier, Purchase, PurchaseItem, Tenant, SystemSettings, PaymentChannel } from '../../types';
 import { getMaskedAccountReference } from '../../shared/utils/paymentAccounts';
+import PurchasePaymentModal, { type AddPurchasePayment } from './PurchasePaymentModal';
 import ModernSelect from '../../shared/components/ModernSelect';
 import CachedImage from '../../shared/components/CachedImage';
 import { addBatchToProduct, createInventoryBatch, reversePurchaseInventory } from '../../shared/utils/inventoryCosting';
@@ -58,6 +59,7 @@ interface DashboardPurchasesProps {
   onUpdateStocks: (updatedProducts: Product[]) => void;
   purchases: Purchase[];
   onAddPurchase: (purchase: Purchase, updatedProducts?: Product[]) => void | boolean | Promise<void | boolean>;
+  onAddPayment: AddPurchasePayment;
   onUpdatePurchases: (purchases: Purchase[], updatedProducts?: Product[]) => Promise<boolean> | boolean;
   onDeletePurchase: (purchaseId: string) => void | boolean | Promise<void | boolean>;
   systemSettings: SystemSettings;
@@ -128,7 +130,7 @@ function ViewPurchaseModal({ pc, currency, products, onClose }: {
             <div className="space-y-1 min-w-0">
               <span className="block text-[8px] uppercase font-mono font-bold text-slate-400 tracking-wider">Payment Method</span>
               <span className="inline-block px-2 py-0.5 bg-indigo-50 text-indigo-800 rounded-full font-bold text-[10px] mt-0.5">
-                {pc.paymentMethod || 'Credit'}
+                {pc.payments?.some(payment => !payment.reversedAt) ? 'Installments' : pc.paymentMethod || 'Credit'}
               </span>
             </div>
             <div className="space-y-1 min-w-0">
@@ -173,6 +175,15 @@ function ViewPurchaseModal({ pc, currency, products, onClose }: {
               })}
             </div>
           </div>
+
+          {!!pc.payments?.length && <div className="space-y-2">
+            <h5 className="text-xs font-bold text-slate-600">Payment history</h5>
+            {pc.payments.map(payment => <div key={payment.id} className="rounded-xl border border-slate-200 p-3 text-xs">
+              <div className="flex justify-between gap-2 font-semibold"><span>{payment.accountName}</span><span>{currency}{payment.amount.toLocaleString()}</span></div>
+              <p className="mt-1 text-slate-500">{new Date(payment.paidAt).toLocaleString()}{payment.reversedAt ? ' · Reversed' : ''}</p>
+              {payment.treasuryJournalId && <p className="mt-1 break-all font-mono text-[10px] text-slate-400">Journal: {payment.treasuryJournalId}</p>}
+            </div>)}
+          </div>}
 
           {/* Balance tally */}
           <div className="border-t border-slate-100 pt-4 space-y-2 text-xs">
@@ -434,15 +445,10 @@ function EditPurchaseModal({
             <label className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest font-mono">Amount Paid</label>
             <div className="flex items-center bg-slate-50 border border-slate-200 focus-within:border-emerald-500 px-3 py-2.5 rounded-xl transition-all">
               <span className="text-slate-500 font-bold font-mono mr-1.5">{currency}</span>
-              <input type="number" min="0" max={editTotalAmount} value={editAmountPaid} onChange={(event) => setEditAmountPaid(Number(event.target.value) || 0)} className="bg-transparent w-full text-sm text-slate-800 font-black font-mono focus:outline-none text-right" />
-              <button
-                type="button"
-                onClick={() => setEditAmountPaid(editTotalAmount)}
-                className="ml-2 shrink-0 text-[9px] font-black uppercase text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-1 rounded-lg hover:bg-emerald-100"
-              >
-                Pay Full
-              </button>
+              <input type="number" min="0" max={editTotalAmount} value={editAmountPaid} readOnly aria-describedby="purchase-edit-payment-help" className="bg-transparent w-full text-sm text-slate-800 font-black font-mono focus:outline-none text-right" />
+
             </div>
+            <p id="purchase-edit-payment-help" className="text-[10px] text-slate-500">Use Add Payment in purchase actions to record a payment.</p>
             {editTotalAmount - editAmountPaid > 0 && (
               <p className="text-[10px] font-bold text-amber-600">
                 Outstanding: {currency}{Math.round(Math.max(0, editTotalAmount - editAmountPaid)).toLocaleString()}
@@ -460,7 +466,7 @@ function EditPurchaseModal({
           {editAmountPaid > 0 && (
             <div className="space-y-1">
               <label className="text-[9.5px] font-black text-slate-400 uppercase tracking-widest font-mono">Paid From Account</label>
-              <select value={editPaidFromAccountId} onChange={(event) => setEditPaidFromAccountId(event.target.value)} className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-sm px-3 py-2.5 rounded-xl text-slate-800 font-bold outline-none cursor-pointer">
+              <select value={editPaidFromAccountId} disabled className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-sm px-3 py-2.5 rounded-xl text-slate-800 font-bold outline-none cursor-pointer">
                 <option value="">Select paid-from account</option>
                 {paymentAccounts.map(account => (
                   <option key={account.id} value={account.id}>{account.name}{getMaskedAccountReference(account) ? ` — ${getMaskedAccountReference(account)}` : ''}</option>
@@ -495,6 +501,7 @@ export default function DashboardPurchases({
   onUpdateStocks,
   purchases,
   onAddPurchase,
+  onAddPayment,
   onUpdatePurchases,
   onDeletePurchase,
   systemSettings,
@@ -606,6 +613,7 @@ export default function DashboardPurchases({
   const [editPaidFromAccountId, setEditPaidFromAccountId] = useState('');
   const [editPurchaseError, setEditPurchaseError] = useState('');
   const [deletePurchaseId, setDeletePurchaseId] = useState<string | null>(null);
+  const [paymentPurchase, setPaymentPurchase] = useState<Purchase | null>(null);
   const [mobilePurchaseMenu, setMobilePurchaseMenu] = useState<Purchase | null>(null);
 
   const openEditPurchase = (purchase: Purchase) => {
@@ -627,16 +635,19 @@ export default function DashboardPurchases({
     const editTotalAmount = editItems.reduce((sum, item) => sum + (Number(item.costPrice) || 0) * item.qty, 0);
     const safePaid = Math.max(0, Math.min(editTotalAmount, Number(editAmountPaid) || 0));
     if (
-      editPurchase.treasuryJournalId
-      && (
+      (
         safePaid !== Number(editPurchase.amountPaid || 0)
         || editPaidFromAccountId !== (editPurchase.paidFromAccountId || '')
       )
     ) {
-      setEditPurchaseError('A posted payment cannot be silently changed. Reverse/delete this purchase payment, then record the corrected purchase.');
+      setEditPurchaseError('Use Add Payment to settle a purchase. Recorded payments cannot be changed through Edit Purchase.');
       return;
     }
 
+    if (editTotalAmount < Number(editPurchase.amountPaid || 0)) {
+      setEditPurchaseError('Purchase total cannot be less than its recorded payments.');
+      return;
+    }
     const nextTimestamp = localDateToIso(editDate, new Date(editPurchase.timestamp));
     const itemsChanged = JSON.stringify(editItems.map(i => [i.productId, i.qty, i.costPrice]))
       !== JSON.stringify((editPurchase.items || []).map(i => [i.productId, i.qty, i.costPrice]));
@@ -1498,6 +1509,10 @@ export default function DashboardPurchases({
                                         className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
                                         <Eye className="w-3.5 h-3.5 text-emerald-500 shrink-0" /> View Details
                                       </button>
+                                      {pc.totalAmount > pc.amountPaid && <button onClick={() => { setOpenMenuId(null); setPaymentPurchase(pc); }}
+                                        className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-[11px] font-semibold text-emerald-700 hover:bg-emerald-50">
+                                        <DollarSign className="w-3.5 h-3.5 shrink-0" /> Add Payment
+                                      </button>}
                                       <button onClick={() => { setOpenMenuId(null); openEditPurchase(pc); }}
                                         className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
                                         <Pencil className="w-3.5 h-3.5 text-blue-500 shrink-0" /> Edit Purchase
@@ -1664,6 +1679,12 @@ export default function DashboardPurchases({
                             </div>
                           </button>
 
+                          {mobilePurchaseMenu.totalAmount > mobilePurchaseMenu.amountPaid && <button type="button"
+                            onClick={() => { setPaymentPurchase(mobilePurchaseMenu); setMobilePurchaseMenu(null); }}
+                            className="w-full h-14 flex items-center gap-4 px-4 rounded-2xl text-left text-emerald-700 border border-emerald-100 bg-emerald-50">
+                            <DollarSign className="w-5 h-5" /> <span className="text-sm font-bold">Add Payment</span>
+                          </button>}
+
                           {/* Edit */}
                           <button type="button"
                             onClick={() => { openEditPurchase(mobilePurchaseMenu); setMobilePurchaseMenu(null); }}
@@ -1675,7 +1696,7 @@ export default function DashboardPurchases({
                             </div>
                             <div>
                               <p className="text-[14px] font-bold text-slate-800">Edit Purchase</p>
-                              <p className="text-[10px] text-slate-400 mt-0.5">Update payment or delivery status</p>
+                              <p className="text-[10px] text-slate-400 mt-0.5">Update purchase items or delivery status</p>
                             </div>
                           </button>
 
@@ -2202,6 +2223,12 @@ export default function DashboardPurchases({
       </div>
 
       {/* ── MODALS ── */}
+      {paymentPurchase && <PurchasePaymentModal key={paymentPurchase.id}
+        purchase={purchases.find(item => item.id === paymentPurchase.id) || paymentPurchase}
+        accounts={paymentAccounts} currency={currency} onSave={onAddPayment}
+        onClose={() => setPaymentPurchase(null)}
+        onComplete={saved => { setPaymentPurchase(null); setViewPurchase(saved); }}
+      />}
       {viewPurchase && (
         <ViewPurchaseModal
           pc={viewPurchase}
@@ -2241,4 +2268,5 @@ export default function DashboardPurchases({
     </>
   );
 }
+
 

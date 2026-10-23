@@ -48,7 +48,7 @@ import DuressDashboard from '../shared/components/DuressDashboard';
 import CachedImage from '../shared/components/CachedImage';
 import { savePendingSaleOffline } from '../shared/utils/offlineDb';
 import { createCleanTenantSettings, isDemoTenant } from '../shared/utils/tenantIsolation';
-import { flushPendingTenantWorkspace, hasPendingTenantWorkspaceSave, loadTenantProductFresh, loadTenantWorkspace, loadTenantWorkspaceCore, markTenantProductsUpdated, readCachedWorkspace, reloadTenantWorkspace, saveTenantDeliveriesOnly, saveTenantExpensesOnly, saveTenantProductsOnly, saveTenantPurchasesOnly, saveTenantSalesOnly, saveTenantSettings, scheduleTenantWorkspaceSave, subscribeToTenantBusinessType, subscribeToTenantWorkspace, TenantWorkspace, waitForTenantWorkspaceLoad, workspaceHasBusinessData } from '../shared/utils/tenantWorkspace';
+import { addTenantPurchasePayment, flushPendingTenantWorkspace, hasPendingTenantWorkspaceSave, loadTenantProductFresh, loadTenantWorkspace, loadTenantWorkspaceCore, markTenantProductsUpdated, readCachedWorkspace, reloadTenantWorkspace, saveTenantDeliveriesOnly, saveTenantExpensesOnly, saveTenantProductsOnly, saveTenantPurchasesOnly, saveTenantSalesOnly, saveTenantSettings, scheduleTenantWorkspaceSave, subscribeToTenantBusinessType, subscribeToTenantWorkspace, TenantWorkspace, waitForTenantWorkspaceLoad, workspaceHasBusinessData } from '../shared/utils/tenantWorkspace';
 import { safeSetJsonItem, safeSetTenantMapItem } from '../shared/utils/dataSafety';
 import { findPaymentChannel, getTreasuryPaymentMethods, reconcilePaymentChannels } from '../shared/utils/paymentAccounts';
 import { attachPayloadProductTombstones, markLocalProductTombstones, mergeProductTombstones, mergeProductsForSync, readLocalProductTombstones, stampProductsForSync, writeLocalProductTombstones } from '../modules/products/utils/productSync';
@@ -74,7 +74,7 @@ import {
 } from '../modules/branches/branchScope';
 import { ONLINE_ONLY_WRITE_MESSAGE, canWriteBusinessDataOnline } from '../shared/utils/onlineOnly';
 import { getSecureDataBridgeClient, isPlaceholderSecureDataBridgeClient } from '../shared/dataBridge/secureDataBridge';
-import { postTreasuryEntry, postTreasurySplitIncome, postTreasurySplitOutgoing, reverseTreasuryEntry } from '../modules/cash-bank/utils/treasuryApi';
+import { syncTreasuryPaymentAccounts, postTreasuryEntry, postTreasurySplitIncome, postTreasurySplitOutgoing, reverseTreasuryEntry } from '../modules/cash-bank/utils/treasuryApi';
 import { reversePurchaseInventory } from '../shared/utils/inventoryCosting';
 import { isPurchaseFundingBalanced, registeredPurchaseFunding } from '../modules/purchases/utils/purchaseFunding';
 import { getSubscriptionReminder, getSubscriptionReminderKey } from '../shared/utils/subscriptionReminder';
@@ -2011,7 +2011,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       const allocations = Array.isArray(purchase.paymentAllocations)
         ? purchase.paymentAllocations.filter(allocation => allocation.fundingType === 'registered')
         : [];
-      const paymentLines = allocations.length > 0
+      const paymentLines = (purchase.paymentAllocations?.length || 0) > 0
         ? allocations.map(allocation => ({ accountId: allocation.accountId || allocation.sourceKey, amount: allocation.amount }))
         : [{ accountId: purchase.paidFromAccountId, amount: purchase.amountPaid }];
       paymentLines.forEach(({ accountId, amount }) => {
@@ -3189,7 +3189,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     
     setPurchasesMap(prev => ({
       ...prev,
-      [activeTenant.id]: updatedPurchases
+      [activeTenant.id]: readCachedWorkspace(activeTenant.id)?.purchases || updatedPurchases
     }));
     if (updatedProducts) {
       setProductsMap(prev => ({ ...prev, [activeTenant.id]: nextProducts }));
@@ -3205,6 +3205,20 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     };
     setLogs(prev => [newLog, ...prev]);
     return true;
+  };
+
+  const handleAddPurchasePayment = async (purchaseId: string, paymentId: string, amount: number, fundingType: 'registered' | 'external', sourceKey?: string): Promise<Purchase> => {
+    if (blockOfflineBusinessWrite('purchase payment')) throw new Error('Connect to the internet to record a payment.');
+    if (activeBranchSelection.activeScope !== 'branch') throw new Error('Select the purchase branch before recording a payment.');
+    if (fundingType === 'registered') {
+      await syncTreasuryPaymentAccounts(systemSettings.paymentChannels || [], getTreasuryOpeningBalances());
+    }
+    const purchase = await addTenantPurchasePayment(activeTenant.id, purchaseId, paymentId, amount, fundingType, sourceKey);
+    localWorkspaceChangedAtRef.current = Date.now();
+    cloudWorkspaceLoadedRef.current = true;
+    setPurchasesMap(prev => ({ ...prev, [activeTenant.id]: (prev[activeTenant.id] || []).map(item => item.id === purchase.id ? purchase : item) }));
+    addToast('Purchase payment recorded successfully.', 'success');
+    return purchase;
   };
 
   const handleUpdatePurchases = async (nextPurchases: Purchase[], updatedProducts?: Product[]): Promise<boolean> => {
@@ -3263,7 +3277,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
         : undefined,
     );
     if (!saved) return false;
-    setPurchasesMap(prev => ({ ...prev, [activeTenant.id]: tenantPurchases }));
+    setPurchasesMap(prev => ({ ...prev, [activeTenant.id]: readCachedWorkspace(activeTenant.id)?.purchases || tenantPurchases }));
     if (updatedProducts) {
       setProductsMap(prev => ({ ...prev, [activeTenant.id]: nextProducts }));
       setBranchStocksMap(prev => ({ ...prev, [activeTenant.id]: nextBranchStocks }));
@@ -3275,6 +3289,10 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     if (blockOfflineBusinessWrite('purchase deletion')) return false;
     const purchase = (purchasesMap[activeTenant.id] || []).find(item => item.id === purchaseId);
     if (!purchase || !recordBelongsToActiveBranch(purchase, activeBranchSelection)) return false;
+    if (purchase.payments?.length) {
+      addToast('Purchases with recorded installments must be kept for payment audit history.', 'error');
+      return false;
+    }
     localWorkspaceChangedAtRef.current = Date.now();
     cloudWorkspaceLoadedRef.current = true;
     
@@ -4567,6 +4585,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
               onUpdateStocks={handleUpdateActiveStocks}
               purchases={activePurchases}
               onAddPurchase={handleAddPurchase}
+              onAddPayment={handleAddPurchasePayment}
               onUpdatePurchases={handleUpdatePurchases}
               onDeletePurchase={handleDeletePurchase}
               systemSettings={systemSettings}
@@ -5418,6 +5437,7 @@ function TenantDashboardGate(props: DashboardProps) {
   }
   return <DashboardContent {...props} />;
 }
+
 
 
 

@@ -515,6 +515,20 @@ export interface PurchasePaymentAllocation {
   currency?: string;
   reference?: string;
   treasuryJournalId?: string;
+  paidAt?: string;
+}
+
+export interface PurchasePayment {
+  id: string;
+  amount: number;
+  fundingType: 'registered' | 'external';
+  sourceKey?: string;
+  accountName: string;
+  paidAt: string;
+  recordedBy: string;
+  treasuryJournalId?: string;
+  reversedAt?: string;
+  reversalJournalId?: string;
 }
 
 export interface Purchase {
@@ -528,6 +542,7 @@ export interface Purchase {
   paymentMethod?: string;
   paidFromAccountId?: string;
   paymentAllocations?: PurchasePaymentAllocation[];
+  payments?: PurchasePayment[];
   destination: 'shop' | 'store';
   deliveryStatus: 'Pending' | 'Partial' | 'Full order delivered';
   timestamp: string; // ISO String
@@ -929,3 +944,4 @@ export interface LedgerEntry {
   receiptFile?: string;
   muamalaFile?: string;
 }
+

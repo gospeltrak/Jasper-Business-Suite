@@ -141,26 +141,30 @@ export function buildAutoLedgerEntries({
     const allocations = Array.isArray(purchase.paymentAllocations)
       ? purchase.paymentAllocations.filter(allocation => allocation?.fundingType === 'registered')
       : [];
-    const paymentLines = allocations.length > 0
+    const paymentLines = (purchase.paymentAllocations?.length || 0) > 0
       ? allocations.map((allocation: any) => ({
           accountId: allocation.accountId || allocation.sourceKey,
           amount: Math.max(0, Number(allocation.amount || 0)),
+          paidAt: allocation.paidAt,
+          paymentId: allocation.id,
         }))
       : [{
           accountId: purchase.paidFromAccountId,
           amount: Math.max(0, Number(purchase.amountPaid || 0)),
+          paidAt: undefined,
+          paymentId: undefined,
         }];
-    paymentLines.forEach(({ accountId, amount }: { accountId?: string; amount: number }, index: number) => {
+    paymentLines.forEach(({ accountId, amount, paidAt, paymentId }: { accountId?: string; amount: number; paidAt?: string; paymentId?: string }, index: number) => {
       if (amount <= 0 || !accountId || !channels.some(channel => channel.id === accountId)) return;
       generated.push({
-        id: `PURCHASE-PAYMENT-${purchase.id}-${index}`,
+        id: `PURCHASE-PAYMENT-${purchase.id}-${paymentId || index}`,
         tenantId,
         channelId: accountId,
         amount: -amount,
         entryType: 'debit',
         sourceType: 'PURCHASE_PAYMENT',
         description: `Purchase payment to ${purchase.supplierName}: ${purchase.id}`,
-        timestamp: purchase.timestamp,
+        timestamp: paidAt || purchase.timestamp,
         referenceId: purchase.id,
       });
     });
@@ -224,3 +228,4 @@ export function deriveLedgerEntries(input: LedgerDerivationInput): LedgerEntry[]
     ...readCachedManualSettleEntries(input.tenantId, input.hasDemoSeedData),
   ];
 }
+
