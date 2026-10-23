@@ -72,6 +72,11 @@ import {
   readLocalDeliveryTombstones,
   writeLocalDeliveryTombstones,
 } from '../modules/deliveries/utils/deliverySync';
+import {
+  markLocalExpenseTombstone,
+  readLocalExpenseTombstones,
+  writeLocalExpenseTombstones,
+} from '../modules/expenses/utils/expenseSync';
 import { mergeSettingsForSync, stampSettingsForSync } from '../shared/utils/settingsSync';
 import { BranchProvider, useBranchContext, useOptionalBranchContext } from '../modules/branches/BranchContext';
 import GlobalBranchSwitcher from '../modules/branches/components/GlobalBranchSwitcher';
@@ -2092,13 +2097,30 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       return false;
     }
 
-    setExpensesMap(prev => {
-      const currentTenantExpenses = prev[activeTenant.id] || [];
-      return {
-        ...prev,
-        [activeTenant.id]: [expense, ...currentTenantExpenses]
-      };
-    });
+    const currentTenantExpenses = expensesMap[activeTenant.id] || [];
+    const nextExpenses = [expense, ...currentTenantExpenses];
+    // Narrow save: only the `expenses` key changes here -- previously this
+    // only updated local state and relied on the debounced whole-workspace
+    // autosave to persist it, the same replace-based gap already fixed for
+    // sales/purchases/deliveries.
+    const saved = await saveTenantExpensesOnly(
+      activeTenant.id,
+      nextExpenses,
+      readLocalExpenseTombstones(activeTenant.id),
+    );
+    if (!saved) {
+      if (expense.treasuryJournalId) {
+        try {
+          await reverseTreasuryEntry(expense.treasuryJournalId, expense.id, 'Expense workspace save failed');
+        } catch (error) {
+          console.error('Failed to reverse treasury entry after expense save failure', error);
+        }
+      }
+      addToast('Expense could not be saved. Please try again.', 'error');
+      return false;
+    }
+
+    setExpensesMap(prev => ({ ...prev, [activeTenant.id]: nextExpenses }));
 
     const newLog: SyncLog = {
       id: 'l-' + Math.random().toString(36).substr(2, 9),
@@ -2113,12 +2135,27 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
 
   const handleDeleteExpense = async (expenseId: string) => {
     if (blockOfflineBusinessWrite('expense delete')) return false;
-    const expense = (expensesMap[activeTenant.id] || []).find(item => item.id === expenseId);
+    const tenantId = activeTenant.id;
+    const currentExpenses = expensesMap[tenantId] || [];
+    const expense = currentExpenses.find(item => item.id === expenseId);
     if (!expense || !recordBelongsToActiveBranch(expense, activeBranchSelection)) {
       addToast('This expense is not part of the active branch workspace.', 'error');
       return false;
     }
-    if (expense?.treasuryJournalId) {
+
+    const previousExpenseTombstones = readLocalExpenseTombstones(tenantId);
+    const nextExpenseTombstones = markLocalExpenseTombstone(tenantId, expenseId);
+    const nextExpenses = currentExpenses.filter(e => e.id !== expenseId);
+
+    // Narrow save: only the `expenses` key (+ expenseTombstones) changes here.
+    const saved = await saveTenantExpensesOnly(tenantId, nextExpenses, nextExpenseTombstones);
+    if (!saved) {
+      writeLocalExpenseTombstones(tenantId, previousExpenseTombstones);
+      addToast('Expense could not be deleted from the system. Nothing was removed.', 'error');
+      return false;
+    }
+
+    if (expense.treasuryJournalId) {
       try {
         await reverseTreasuryEntry(
           expense.treasuryJournalId,
@@ -2126,15 +2163,14 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
           `Voided expense: ${expense.description}`,
         );
       } catch (error: any) {
+        writeLocalExpenseTombstones(tenantId, previousExpenseTombstones);
+        await saveTenantExpensesOnly(tenantId, currentExpenses, previousExpenseTombstones);
         addToast(error?.message || 'Money & Bank could not reverse this expense safely.', 'error');
         return false;
       }
     }
 
-    setExpensesMap(prev => ({
-      ...prev,
-      [activeTenant.id]: (prev[activeTenant.id] || []).filter(e => e.id !== expenseId)
-    }));
+    setExpensesMap(prev => ({ ...prev, [tenantId]: nextExpenses }));
     return true;
   };
 
@@ -2150,7 +2186,11 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     localWorkspaceChangedAtRef.current = Date.now();
     // Narrow save: only the `expenses` key changes here, so only it needs
     // to travel to the server -- see saveTenantExpensesOnly.
-    const saved = await saveTenantExpensesOnly(activeTenant.id, nextExpenses);
+    const saved = await saveTenantExpensesOnly(
+      activeTenant.id,
+      nextExpenses,
+      readLocalExpenseTombstones(activeTenant.id),
+    );
     if (!saved) return false;
     setExpensesMap(prev => ({ ...prev, [activeTenant.id]: nextExpenses }));
     return true;

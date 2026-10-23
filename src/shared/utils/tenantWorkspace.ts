@@ -1071,6 +1071,7 @@ export function saveTenantProductsOnly(
 async function saveTenantExpensesOnlyNow(
   tenantId: string,
   expenses: Expense[],
+  expenseTombstones: Record<string, string> = {},
 ): Promise<boolean> {
   if (!canWriteBusinessDataOnline()) {
     warnOfflineWriteBlocked(`saveTenantExpensesOnly:${tenantId}`);
@@ -1083,7 +1084,10 @@ async function saveTenantExpensesOnlyNow(
   }
   try {
     if (typeof client.rpc === 'function') {
-      const result = await client.rpc('save_current_branch_expenses', { p_expenses: expenses });
+      const result = await client.rpc('save_current_branch_expenses', {
+        p_expenses: expenses,
+        p_expense_tombstones: expenseTombstones,
+      });
       const missingRpc = ['PGRST202', '42883'].includes(String(result.error?.code || ''));
       if (!result.error) {
         const mergedExpenses = Array.isArray(result.data?.expenses)
@@ -1109,10 +1113,11 @@ async function saveTenantExpensesOnlyNow(
 export function saveTenantExpensesOnly(
   tenantId: string,
   expenses: Expense[],
+  expenseTombstones: Record<string, string> = {},
 ): Promise<boolean> {
   if (!tenantId) return Promise.resolve(false);
   const previous = workspaceSaveQueue.get(tenantId) || Promise.resolve(true);
-  const next = previous.catch(() => false).then(() => saveTenantExpensesOnlyNow(tenantId, expenses));
+  const next = previous.catch(() => false).then(() => saveTenantExpensesOnlyNow(tenantId, expenses, expenseTombstones));
   workspaceSaveQueue.set(tenantId, next);
   void next.finally(() => {
     if (workspaceSaveQueue.get(tenantId) === next) workspaceSaveQueue.delete(tenantId);
