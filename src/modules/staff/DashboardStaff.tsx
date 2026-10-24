@@ -307,6 +307,68 @@ export default function DashboardStaff({
     setStaffList(systemSettings.staffs || []);
   }, [systemSettings.staffs]);
 
+  // Reconcile HR with actual tenant logins. This list is read-only and never
+  // pushes an incomplete snapshot back into settings: it protects against a
+  // stale workspace save hiding already registered staff after refresh.
+  useEffect(() => {
+    let live = true;
+    const refreshDirectory = async () => {
+      try {
+        const client: any = await getSecureDataBridgeClient();
+        const { data } = await client.auth.getSession();
+        const token = data?.session?.access_token;
+        if (!token) return;
+        const response = await fetch('/api/staff/directory', {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: 'no-store',
+        });
+        if (!response.ok) return;
+        const result = await response.json();
+        if (!live || !Array.isArray(result.staff)) return;
+        setStaffList(previous => {
+          const merged = [...previous];
+          for (const account of result.staff) {
+            if (!account.authUserId || !account.email) continue;
+            const index = merged.findIndex(item =>
+              (item as StaffSettings & { authUserId?: string }).authUserId === account.authUserId
+              || String(item.email || '').trim().toLowerCase() === account.email
+            );
+            if (index >= 0) {
+              // Keep all payroll, allowance, and HR edits when login exists.
+              const existing = merged[index];
+              merged[index] = {
+                ...existing,
+                email: existing.email || account.email,
+                phone: existing.phone || account.phone,
+                branchId: existing.branchId || account.branchId,
+              };
+            } else {
+              merged.push({
+                id: `auth-${account.authUserId}`,
+                name: account.name || account.email,
+                email: account.email,
+                phone: account.phone || '',
+                role: account.role || 'Seller',
+                branchId: account.branchId || undefined,
+                status: 'active',
+                salary: 0,
+                allowances: [],
+                dateJoined: account.dateJoined || undefined,
+              });
+            }
+          }
+          return merged;
+        });
+      } catch (error) {
+        console.warn('[staff] Could not refresh registered staff directory:', error);
+      }
+    };
+    void refreshDirectory();
+    const onFocus = () => void refreshDirectory();
+    window.addEventListener('focus', onFocus);
+    return () => { live = false; window.removeEventListener('focus', onFocus); };
+  }, [activeTenant.id]);
+
   // Keep the role picker valid as roles get created/renamed/deleted in
   // Settings while this form is open — it's no longer allowed to silently
   // fall back to a hardcoded role name that may not exist.
