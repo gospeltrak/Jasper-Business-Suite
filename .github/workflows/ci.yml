@@ -23,5 +23,5 @@ jobs:
       - name: Run tests
         run: npm test
 
-      - name: Verify frontend build
-        run: npx vite build
+      - name: Verify production deployment build
+        run: npm run build
