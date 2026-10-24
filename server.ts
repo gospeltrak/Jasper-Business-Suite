@@ -4106,6 +4106,56 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     }
   });
 
+  // The Auth-backed directory is the authoritative source for registered staff.
+  // HR settings can be stale or overwritten independently; a valid login must
+  // never disappear from the tenant's Staff screen because of settings sync.
+  app.get('/api/staff/directory', rateLimit({ windowMs: 60_000, max: 60, prefix: 'staff-directory' }), async (req, res) => {
+    const admin = await getTenantAdminRequestProfile(req);
+    if (!admin) return sendExpectedSafeApiError(req, res, 'AUTH_ERROR', 403, 'registration');
+    try {
+      const [usersResult, assignmentsResult, branchesResult] = await Promise.all([
+        adminTable('users')
+          .select('id, name, email, phone, role_key, role, is_active, created_at')
+          .eq('tenant_id', admin.tenantId)
+          .eq('account_type', 'business_staff'),
+        adminTable('branch_staff_assignments')
+          .select('staff_id, branch_id, status')
+          .eq('tenant_id', admin.tenantId),
+        adminTable('branches')
+          .select('id, is_default')
+          .eq('tenant_id', admin.tenantId),
+      ]);
+      if (usersResult.error) throw usersResult.error;
+      if (assignmentsResult.error) throw assignmentsResult.error;
+      if (branchesResult.error) throw branchesResult.error;
+
+      const branches = branchesResult.data || [];
+      const primaryBranchId = branches.find((item: any) => item.is_default)?.id || branches[0]?.id || null;
+      const activeAssignments = new Map<string, string>();
+      for (const assignment of assignmentsResult.data || []) {
+        if (assignment.status === 'active' && !activeAssignments.has(String(assignment.staff_id))) {
+          activeAssignments.set(String(assignment.staff_id), String(assignment.branch_id));
+        }
+      }
+      const staff = (usersResult.data || [])
+        .filter((item: any) => item.is_active !== false)
+        .map((item: any) => ({
+          authUserId: String(item.id),
+          name: String(item.name || ''),
+          email: String(item.email || '').trim().toLowerCase(),
+          phone: String(item.phone || ''),
+          role: String(item.role_key || item.role || 'Seller'),
+          branchId: activeAssignments.get(String(item.id)) || primaryBranchId,
+          dateJoined: item.created_at ? String(item.created_at).slice(0, 10) : null,
+        }));
+      return res.set('Cache-Control', 'no-store').json({ staff });
+    } catch (error) {
+      return sendUnexpectedSafeApiError(req, res, error, {
+        fallbackCode: 'LOAD_ERROR', context: 'registration', operation: 'staff_directory',
+      });
+    }
+  });
+
   // Tenant-admin-driven staff login creation: the admin sets the staff
   // member's email and an initial password directly (no Google invitation,
   // no email sent) and they can sign in with those credentials right away.
