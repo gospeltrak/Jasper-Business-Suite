@@ -265,6 +265,7 @@ export default function DashboardStaff({
   const [credentialStaffId, setCredentialStaffId] = useState('');
   const [selectedStaff, setSelectedStaff] = useState<StaffSettings | null>(null);
   const [staffToRemove, setStaffToRemove] = useState<StaffSettings | null>(null);
+  const [isRemovingStaff, setIsRemovingStaff] = useState(false);
   const [staffToPay, setStaffToPay] = useState<StaffSettings | null>(null);
   const [salaryPaymentAmount, setSalaryPaymentAmount] = useState('');
   const [salaryPaymentMethod, setSalaryPaymentMethod] = useState('Bank Transfer');
@@ -326,7 +327,18 @@ export default function DashboardStaff({
         const result = await response.json();
         if (!live || !Array.isArray(result.staff)) return;
         setStaffList(previous => {
-          const merged = [...previous];
+          // A deleted Auth user is not an HR directory member. Remove only
+          // records previously linked to Auth; preserve the owner and any
+          // legitimate HR-only records which do not have login credentials.
+          const activeIds = new Set(result.staff.map((account: any) => String(account.authUserId || '')));
+          const activeEmails = new Set(result.staff.map((account: any) => String(account.email || '').toLowerCase()));
+          const merged = previous.filter(item => {
+            const linkedId = String((item as StaffSettings & { authUserId?: string }).authUserId ||
+              (item.id.startsWith('auth-') ? item.id.slice(5) : ''));
+            if (!linkedId) return true;
+            return activeIds.has(linkedId) ||
+              (Boolean(item.email) && activeEmails.has(String(item.email).toLowerCase()));
+          });
           for (const account of result.staff) {
             if (!account.authUserId || !account.email) continue;
             const index = merged.findIndex(item =>
@@ -755,32 +767,41 @@ export default function DashboardStaff({
   };
 
   const confirmRemoveStaff = async () => {
-    if (!staffToRemove) return;
+    if (!staffToRemove || isRemovingStaff) return;
     const removedStaff = staffToRemove;
-    setStaffToRemove(null);
-    persistStaffList(staffList.filter(s => s.id !== removedStaff.id));
-
-    // Leaving the HR list is the low-risk part and always succeeds above.
-    // If this staff member ever had a real login created for them, it must
-    // also be revoked here -- otherwise they keep full access indefinitely,
-    // just invisible from this screen with no way to manage or re-remove it.
-    if (!removedStaff.email) return;
+    setIsRemovingStaff(true);
+    setSuccessMessage('');
     try {
-      const client: any = await getSecureDataBridgeClient();
-      const { data } = await client.auth.getSession();
-      const accessToken = data?.session?.access_token;
-      if (!accessToken) throw new Error('Admin session is required.');
-      const response = await fetch('/api/staff/remove', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ email: removedStaff.email }),
-      });
-      const result = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(result.error || 'Staff login could not be revoked.');
+      // First revoke login access. Do not remove the HR record optimistically:
+      // if Auth revocation fails the old code hid the staff but left them
+      // able to sign in, and later reconciliation brought them back.
+      if (removedStaff.email) {
+        const client: any = await getSecureDataBridgeClient();
+        const { data } = await client.auth.getSession();
+        const accessToken = data?.session?.access_token;
+        if (!accessToken) throw new Error('Admin session is required.');
+        const response = await fetch('/api/staff/remove', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+          body: JSON.stringify({ email: removedStaff.email }),
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || 'Staff login could not be revoked.');
+      }
+
+      const saved = await persistStaffList(staffList.filter(s => s.id !== removedStaff.id));
+      setStaffToRemove(null);
+      if (!saved) {
+        setSuccessMessage('Login access was revoked, but HR settings could not be saved. The removed login will no longer appear in the active staff directory after refresh.');
+      } else {
+        setSuccessMessage(`${removedStaff.name} removed from active staff.`);
+      }
     } catch (error) {
       setSuccessMessage(error instanceof Error
-        ? `${removedStaff.name} was removed from the list, but their login could not be revoked: ${error.message}. They can still sign in -- contact support.`
-        : `${removedStaff.name} was removed from the list, but their login could not be revoked. They can still sign in -- contact support.`);
+        ? `Could not complete staff removal: ${error.message}`
+        : 'Could not complete staff removal. Please try again.');
+    } finally {
+      setIsRemovingStaff(false);
       setTimeout(() => setSuccessMessage(''), 8000);
     }
   };
