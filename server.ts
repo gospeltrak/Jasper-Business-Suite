@@ -4117,7 +4117,8 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         adminTable('users')
           .select('id, name, email, phone, role_key, role, is_active, created_at')
           .eq('tenant_id', admin.tenantId)
-          .eq('account_type', 'business_staff'),
+          .eq('account_type', 'business_staff')
+          .eq('is_active', true),
         adminTable('branch_staff_assignments')
           .select('staff_id, branch_id, status')
           .eq('tenant_id', admin.tenantId),
@@ -4264,10 +4265,25 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       throw scopeError;
     }
     const targetId = (targetUser as any).id;
+    // Revoke the business profile FIRST. Historical deletions removed auth.users
+    // but left public.users behind, so the directory later resurrected staff.
+    // An inactive profile also blocks RLS while the Auth deletion is in flight.
+    const { error: deactivateError } = await adminTable('users')
+      .update({ is_active: false })
+      .eq('id', targetId)
+      .eq('tenant_id', tenantId)
+      .eq('account_type', 'business_staff');
+    if (deactivateError) throw deactivateError;
+
     const { error: deleteAuthError } = await supabaseAdmin.auth.admin.deleteUser(targetId);
-    if (deleteAuthError) throw deleteAuthError;
-    await adminTable('users').delete().eq('id', targetId);
-    await adminTable('branch_staff_assignments').delete().eq('tenant_id', tenantId).eq('staff_id', targetId);
+    // Idempotent: an already-deleted Auth identity must NOT cause a failure
+    // that leaves a visible, active ghost record in public.users.
+    if (deleteAuthError && Number((deleteAuthError as any).status || 0) !== 404
+      && !/user not found|user does not exist/i.test(deleteAuthError.message || '')) throw deleteAuthError;
+
+    // Retain an inactive profile as a tombstone rather than destroying payroll
+    // history or other tenant records that may still reference this user.
+    // Directory endpoints only return active profiles.
     return { status: 'removed' };
   }
 
@@ -4300,6 +4316,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         .select('id,name,email,phone,role,role_key,created_at,is_active')
         .eq('tenant_id', tenantId)
         .eq('account_type', 'business_staff')
+        .eq('is_active', true)
         .order('created_at', { ascending: true });
       if (error) throw error;
       return res.json({ staff: data || [] });
