@@ -781,6 +781,18 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
           }
         }
 
+        // Auth credentials may still be valid briefly after a tenant revokes a
+        // staff account. Never admit an explicitly inactive business profile.
+        if (userProfile?.is_active === false) {
+          await client.auth.signOut();
+          setError(toUserFacingError(
+            { status: 403 },
+            { language: currentLang, context: 'sign_in', fallbackCode: 'PERMISSION_ERROR' },
+          ).message);
+          setIsLoading(false);
+          return;
+        }
+
         const isPlatformAdmin = userProfile?.account_type === 'super_admin' ||
           ['superadmin', 'super_admin'].includes(String(userProfile?.role_key || userProfile?.role || '').toLowerCase());
         const profileTenantId = userProfile?.tenant_id || userProfile?.active_tenant;
