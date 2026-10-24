@@ -622,7 +622,7 @@ test('tenant operational dates use local calendar helpers instead of UTC date sl
   ]);
   assert.match(sources[0], /localDateToIso\(saleDate, now\)/);
   assert.match(sources[1], /localDateToIso\(cleanDate, new Date\(\), 12\)/);
-  assert.match(sources[2], /timestampToLocalDate\(sale\.timestamp\)/);
+  assert.match(sources[2], /filteredSales\.forEach\(s => \{[\s\S]{0,120}const dStr = timestampToLocalDate\(s\.timestamp\)/);
   assert.match(sources[3], /timestampToLocalDate\(sale\.timestamp\)/);
   for (const source of sources) {
     assert.doesNotMatch(source, /new Date\(\)\.toISOString\(\)\.(?:split\('T'\)\[0\]|slice\(0,\s*10\))/);
