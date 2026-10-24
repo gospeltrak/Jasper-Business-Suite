@@ -68,14 +68,6 @@ export default function DashboardReports({
   headerSearchQuery = '',
   activeBranch,
 }: DashboardReportsProps) {
-  // DEPLOYMENT CONTRACT GUARD: Exact string match for automated source tests
-  const _contractGuard = () => {
-    const sale = sales[0] || { timestamp: '' };
-    timestampToLocalDate(sale.timestamp);
-    
-  };
-  _contractGuard();
-
   const currency = activeTenant.currency;
 
   const [reportTab, setReportTab] = useState<'p&l' | 'sales-report' | 'payments' | 'inventory' | 'velocity' | 'users' | 'expenses' | 'product-monitoring' | 'dual-channel' | 'deliveries' | 'bulk-products' | 'stock-adjustment' | 'purchases-report' | 'money-bank'>(

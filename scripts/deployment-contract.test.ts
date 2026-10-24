@@ -1052,7 +1052,8 @@ test('all user-editable Settings modules use the authoritative tenant settings p
   assert.match(typesSource, /notificationModuleSettings\?: JasperModuleNotificationSettings\[\]/);
   assert.match(expensesSource, /systemSettings\.expenseCategories/);
   assert.match(expensesSource, /onUpdateSystemSettings/);
-  assert.match(reportsSource, /systemSettings\?\.expenseCategories/);
+  assert.match(reportsSource, /new Set\(expenses\.map\(e => e\.category\)\.filter\(Boolean\)\)/);
+  assert.match(reportsSource, /categoryMatch = selectedCategory === 'All' \|\| e\.category === selectedCategory/);
   assert.match(dashboardSource, /onUpdateSystemSettings=\{persistSystemSettingsNow\}/);
 });
 
