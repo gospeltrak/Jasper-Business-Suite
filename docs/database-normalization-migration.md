@@ -103,3 +103,41 @@ manifest. A successful normalization is not authorization to delete anything.
 - Rendered Vite/Vitest QA could not start inside the Codex filesystem sandbox
   because esbuild was denied access while resolving pnpm-linked config paths.
   TypeScript and all non-Vite contract tests passed.
+
+## 2026-10-24 normalized read cutover
+
+All nine existing tenant workspaces passed per-tenant reconciliation and were
+activated for normalized reads: Lim cleaners, Tunde Inv, Orvix Pharmacy,
+Loyal phamacy, J.m phamacy, Jasper Company Ltd, D.s phamacy, Fg phamacy and Orvix Shop.
+
+The normalization processor now tracks `source_active` on migration-managed
+products, sales/items, expenses, deliveries, purchases/items and branch stock.
+Rows absent from the current workspace become inactive; their internal IDs,
+legacy IDs and historical source records remain intact. Restoring the source
+reactivates the same rows. Native rows with a null legacy ID are preserved.
+Normalized runtime reads and reconciliation totals include active source rows.
+
+Reconciliation now records the exact source payload hash, which is required by
+the normalized-read readiness gate. Both normalization workers handle normalized
+tenants, synchronize branch stock and retain normalized mode after validation.
+
+Verification performed:
+
+- All nine tenants: counts, exact numeric financial totals, full source content
+  and branch stock matched; readiness was true and all queue entries completed.
+- Twelve active owner/staff identities: normalized branch payloads matched legacy
+  branch payloads; 48 ledger pagination checks passed with seven-row pages.
+- Owner/staff cross-tenant RLS checks passed for all eight normalized tables.
+- Removal/restoration retained record IDs; repeated normalization was idempotent.
+- Rollback and reactivation were exercised for every tenant inside a rolled-back
+  transaction; future writes correctly gated reads until the queue reconciled.
+- Purchase installment/treasury regression checks passed after cutover.
+- Source workspace hashes/timestamps, treasury balances/journals and all 68 native
+  Lim cleaners products were unchanged by the cutover.
+
+This is a normalized **read** cutover. Existing atomic business RPCs continue to
+write the authoritative workspace and queue normalized synchronization. JSON
+remains available for dual-write compatibility and safe rollback; this rollout
+does not remove it or authorize legacy cleanup. Newly registered tenants still
+require their own verified migration.
+

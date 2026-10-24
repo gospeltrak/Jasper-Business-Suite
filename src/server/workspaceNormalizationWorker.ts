@@ -28,7 +28,7 @@ export async function processWorkspaceNormalizationQueue(): Promise<WorkspaceNor
           where outbox.status in ('pending', 'failed')
             and outbox.available_at <= statement_timestamp()
             and state.dual_write_enabled
-            and state.read_mode in ('legacy', 'shadow')
+            and state.read_mode in ('legacy', 'shadow', 'normalized')
           order by outbox.available_at, outbox.requested_at, outbox.tenant_id
           limit 1
           for update of outbox skip locked
@@ -55,6 +55,11 @@ export async function processWorkspaceNormalizationQueue(): Promise<WorkspaceNor
       if (!batchId) throw new Error('Normalization did not return a migration batch.');
 
       await rawTx.$queryRaw(Prisma.sql`
+        select public.normalize_branch_stock_snapshot(
+          ${job.tenant_id}::uuid, ${job.workspace_updated_at}::timestamptz
+        )
+      `);
+      await rawTx.$queryRaw(Prisma.sql`
         select public.refresh_workspace_source_ordinals(${job.tenant_id}::uuid)
       `);
       const reconciliations = await rawTx.$queryRaw<ReconciliationResult[]>(Prisma.sql`
@@ -65,13 +70,18 @@ export async function processWorkspaceNormalizationQueue(): Promise<WorkspaceNor
       const validations = await rawTx.$queryRaw<ValidationResult[]>(Prisma.sql`
         select public.validate_workspace_shadow_content(${job.tenant_id}::uuid) as validation
       `);
+      const stockValidations = await rawTx.$queryRaw<ValidationResult[]>(Prisma.sql`
+        select public.validate_branch_stock_shadow(${job.tenant_id}::uuid) as validation
+      `);
       const exactMatch = reconciliations[0]?.is_match === true
-        && validations[0]?.validation?.allMatch === true;
+        && validations[0]?.validation?.allMatch === true
+        && stockValidations[0]?.validation?.allMatch === true;
       if (!exactMatch) throw new Error('Normalization reconciliation or content validation failed.');
 
       await rawTx.$executeRaw(Prisma.sql`
         update public.workspace_migration_state state
-        set phase = 'shadow_read', read_mode = 'shadow',
+        set phase = case when state.read_mode = 'normalized' then 'normalized' else 'shadow_read' end,
+            read_mode = case when state.read_mode = 'normalized' then 'normalized' else 'shadow' end,
             source_counts = reconciliation.source_counts,
             target_counts = reconciliation.target_counts,
             source_totals = reconciliation.source_totals,
@@ -105,3 +115,4 @@ export async function processWorkspaceNormalizationQueue(): Promise<WorkspaceNor
     throw new Error('Workspace normalization worker failed before claiming a job.');
   }
 }
+
