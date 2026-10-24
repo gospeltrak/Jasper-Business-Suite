@@ -1,32 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Tenant, User, Sale, SaleItem } from '../../types';
 import { formatLocalDate } from '../../shared/utils/localDate';
-import { 
-  Pill, 
-  Sparkles, 
-  Layers, 
-  DollarSign, 
-  ShieldAlert, 
-  Clock, 
-  ClipboardList, 
-  CheckCircle, 
-  CheckCircle2,
-  Cpu,
-  Search,
-  Plus,
-  Trash2,
-  Minimize2,
-  Activity,
-  UserCheck,
-  AlertTriangle,
-  HeartPulse,
-  Coins,
-  Printer,
-  MessageSquare,
-  BadgeAlert,
-  ThermometerSnowflake,
-  FileText
-} from 'lucide-react';
+import { Pill, Sparkles, Layers, ShieldAlert, ClipboardList, Cpu, Search, Trash2, Activity, AlertTriangle, Printer, MessageSquare, BadgeAlert, ThermometerSnowflake } from "lucide-react";
 
 interface SandboxProps {
   activeTenant: Tenant;
@@ -1587,3 +1562,4 @@ export default function DashboardSandboxVerticals({ activeTenant, currentUser, o
     </div>
   );
 }
+

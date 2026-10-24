@@ -1,7 +1,7 @@
 import React from 'react';
 import { useJasperNotifications } from '../contexts/JasperNotificationContext';
 import { useTranslation } from '../contexts/LanguageContext';
-import { Bell, Check, X, Clock, FileText, ShoppingCart, AlertTriangle, AlertCircle } from 'lucide-react';
+import { Bell, Check, X, FileText, ShoppingCart, AlertCircle } from "lucide-react";
 
 interface Props {
   isOpen: boolean;
@@ -129,3 +129,4 @@ export const NotificationCenterModal: React.FC<Props> = ({ isOpen, onClose, onNa
     </div>
   );
 };
+

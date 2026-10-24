@@ -344,3 +344,4 @@ When Google Search is enabled, use current public evidence for the tenant's nich
     return res.json({ success: false, text: fallback, source: 'fallback_error', errorCode: 'GEMINI_ERROR' });
   }
 }
+

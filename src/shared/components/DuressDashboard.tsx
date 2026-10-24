@@ -1,22 +1,5 @@
-import React, { useState, FormEvent } from 'react';
-import { 
-  DollarSign, 
-  Users, 
-  TrendingUp, 
-  Share2, 
-  FileImage, 
-  Mail, 
-  Settings as SettingsIcon, 
-  Globe, 
-  ArrowUpRight, 
-  Upload, 
-  Trash2, 
-  ExternalLink,
-  Plus,
-  Send,
-  CheckCircle,
-  AlertCircle
-} from 'lucide-react';
+import { useState, FormEvent } from "react";
+import { DollarSign, Users, TrendingUp, Share2, FileImage, Mail, Settings as SettingsIcon, Globe, ArrowUpRight, Upload, Trash2, Plus, Send, CheckCircle } from "lucide-react";
 import duressData from '../../../data/duress-fake-data.json';
 
 interface DuressDashboardProps {
@@ -383,7 +366,7 @@ export default function DuressDashboard({ onLogout }: DuressDashboardProps) {
                   <div className="space-y-4 pt-2">
                     {duressData.earnings.history.map((h, i) => {
                       // Map monthly values to percentage widths: max is June index, 920,000
-                      const amounts = [720, 680, 810, 750, 890, 920];
+                      
                       const widths = [75, 70, 85, 80, 95, 100];
                       return (
                         <div key={h.month} className="space-y-1.5">
@@ -1246,3 +1229,4 @@ export default function DuressDashboard({ onLogout }: DuressDashboardProps) {
     </div>
   );
 }
+

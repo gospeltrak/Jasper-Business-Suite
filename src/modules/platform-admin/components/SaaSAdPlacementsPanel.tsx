@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
 import { CheckCircle, MonitorPlay, Pin, Trash2 } from 'lucide-react';
 import {
   GlobalAdPlacementSettings,
@@ -228,3 +228,4 @@ export default function SaaSAdPlacementsPanel({ compact = false }: { compact?: b
     </div>
   );
 }
+

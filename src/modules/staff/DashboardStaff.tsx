@@ -3,36 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import jsPDF from 'jspdf';
 import { useTranslation } from '../../shared/contexts/LanguageContext';
 import { StaffSettings, StaffAllowance, SystemSettings, Sale, Expense, Delivery, Tenant } from '../../types';
-import {
-  Users,
-  UserPlus,
-  BarChart3,
-  CheckCircle2,
-  Camera,
-  Shield,
-  Upload,
-  KeyRound,
-  Clock,
-  DollarSign,
-  Activity,
-  Trash2,
-  Save,
-  Truck,
-  Smartphone,
-  TimerReset,
-  Eye,
-  Plus,
-  X,
-  CalendarDays,
-  FileDown,
-  Wallet,
-  Briefcase,
-  ClipboardList,
-  FileText,
-  ChevronLeft,
-  ChevronRight,
-  MoreVertical
-} from 'lucide-react';
+import { Users, UserPlus, BarChart3, CheckCircle2, Camera, Shield, Upload, KeyRound, Clock, DollarSign, Activity, Trash2, Save, Truck, Smartphone, Eye, Plus, X, FileDown, Wallet, Briefcase, ClipboardList, FileText, ChevronLeft, ChevronRight, MoreVertical } from "lucide-react";
 import { compressImageFile } from '../../shared/utils/imageCompression';
 import { getMaskedAccountReference } from '../../shared/utils/paymentAccounts';
 import { loadBranchWorkspace } from '../branches/branchApi';
@@ -2179,4 +2150,5 @@ export default function DashboardStaff({
     </div>
   );
 }
+
 

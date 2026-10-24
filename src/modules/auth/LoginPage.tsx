@@ -1,29 +1,7 @@
 import { useState, FormEvent, useEffect, useSyncExternalStore } from 'react';
 import { useTranslation } from '../../shared/contexts/LanguageContext';
-import {
-  Store,
-  KeyRound,
-  AlertTriangle,
-  Play,
-  HelpCircle,
-  UserPlus,
-  Building,
-  Pill,
-  Sparkles,
-  CheckCircle,
-  MapPin,
-  Compass,
-  Briefcase,
-  Shield,
-  Globe,
-  MessageCircle,
-  RefreshCw,
-  Eye,
-  EyeOff,
-  Check,
-  Mail
-} from 'lucide-react';
-import { DEMO_USERS, DEFAULT_TENANTS } from '../../data';
+import { Shield, Eye, EyeOff, Check, Mail } from "lucide-react";
+import { DEMO_USERS } from "../../data";
 import { User, Tenant } from '../../types';
 import { getSecureDataBridgeClient, isPlaceholderSecureDataBridgeClient, isPasswordRecoverySessionActive, subscribeToPasswordRecoverySession } from '../../shared/dataBridge/secureDataBridge';
 import { initializeCleanTenantWorkspace } from '../../shared/utils/tenantIsolation';
@@ -192,11 +170,6 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   const [adminMfaPrompt, setAdminMfaPrompt] = useState<SuperAdminMfaPrompt | null>(null);
   const [adminMfaCode, setAdminMfaCode] = useState('');
   const [adminMfaAttempts, setAdminMfaAttempts] = useState(0);
-  const [loginOtpMode, setLoginOtpMode] = useState(false);
-  const [loginOtp, setLoginOtp] = useState('');
-  const [loginOtpInput, setLoginOtpInput] = useState('');
-  const [loginOtpUser, setLoginOtpUser] = useState<any | null>(null);
-  const [loginOtpMessage, setLoginOtpMessage] = useState<string | null>(null);
   const [showRecovery, setShowRecovery] = useState(isPasswordRecoverySessionActive);
   const [resetEmail, setResetEmail] = useState('');
   const [resetSent, setResetSent] = useState(false);
@@ -250,12 +223,6 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     onNavigate('/');
   };
 
-  // SaaS Dynamic Niche Launch State
-  const [launchedNiches, setLaunchedNiches] = useState<string[]>(() => {
-    const raw = onlineStorage.getItem('saas_launched_niches');
-    return raw ? JSON.parse(raw) : ['retail', 'pharmacy']; // Matches the user's wish: retail & pharmacy active first!
-  });
-
   useEffect(() => {
     // Business Settings' light/dark logo pair is the single source of truth
     // for every tenant logo in the app, including here on the public
@@ -276,12 +243,6 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       })
       .catch(() => undefined);
 
-    const handleUpdate = () => {
-      const raw = onlineStorage.getItem('saas_launched_niches');
-      if (raw) setLaunchedNiches(JSON.parse(raw));
-    };
-    window.addEventListener('saas_niches_updated', handleUpdate);
-
     // Check for params in URL on load
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('ref') || urlParams.get('promo');
@@ -294,7 +255,6 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       setAuthTab('signin');
     }
 
-    return () => window.removeEventListener('saas_niches_updated', handleUpdate);
   }, [isTenantDomainLogin]);
 
   useEffect(() => {
@@ -333,51 +293,6 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     return text;
   };
 
-  const getAllSystemUsers = () => {
-    const customUsers = JSON.parse(onlineStorage.getItem('jasper_custom_users') || '[]');
-    const saasStaffs = JSON.parse(onlineStorage.getItem('jasper_saas_staffs') || '[]');
-    const systemUsers = [...DEMO_USERS, ...customUsers, ...saasStaffs].map((user: any) => {
-      const { password: _removedPassword, ...safeUser } = user || {};
-      return safeUser;
-    });
-    const resolveStaffPermissions = (settings: any, roleName: string) => {
-      // No hardcoded preset fallback — an unmatched role resolves to no
-      // permissions rather than silently borrowing a default role's rights.
-      const roles = settings.customRoles || [];
-      const normalizedRole = (roleName || '').toLowerCase();
-      const roleKey = normalizedRole === 'waiter' ? 'seller' : normalizedRole;
-      return roles.find((role: any) => role.name.toLowerCase() === roleKey)?.permissions || {};
-    };
-
-    // Scan all cached tenants settings for staffs
-    for (let i = 0; i < onlineStorage.length; i++) {
-        const key = onlineStorage.key(i);
-        if (key && key.startsWith('jasper_settings_')) {
-          const tenantId = key.replace('jasper_settings_', '');
-          try {
-            const settings = JSON.parse(onlineStorage.getItem(key) || '{}');
-            if (settings.staffs && Array.isArray(settings.staffs)) {
-              settings.staffs.forEach((staff: any) => {
-                 const staffRole = staff.role || 'Cashier';
-                 systemUsers.push({
-                   id: staff.id,
-                   email: staff.phone || staff.name.toLowerCase().replace(' ', '') + '@orvix.africa',
-                   phone: staff.phone || '',
-                   name: staff.name,
-                   role: staffRole,
-                   tenantId: tenantId,
-                   activeTenant: tenantId,
-                   profileImage: staff.profileImage,
-                   isSaaSStaff: true,
-                   rolePermissions: resolveStaffPermissions(settings, staffRole)
-                 });
-              });
-            }
-          } catch(e) {}
-        }
-    }
-    return systemUsers;
-  };
 
   const getPhoneDigits = (phone: string) => (phone || '').replace(/\D/g, '');
 
@@ -696,72 +611,10 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       handleCheckEmail(e);
     } else if (!(await verifyLoginTurnstile())) {
       return;
-    } else if (loginOtpMode) {
-      triggerOtpLogin();
+
     } else {
       triggerLogin(email, password);
     }
-  };
-
-  const handleSendLoginOtp = () => {
-    setLoginOtpMessage(null);
-    setError(null);
-
-    const user = getAllSystemUsers().find((u: any) =>
-      sameLoginIdentifier(u.phone, email) || sameLoginIdentifier(u.email, email)
-    );
-
-    if (!user) {
-      setLoginOtpMessage('No account found for this WhatsApp number.');
-      return;
-    }
-
-    const whatsappNumber = normalizePhoneForWhatsapp(user.phone || email);
-    if (!whatsappNumber) {
-      setLoginOtpMessage('This account has no WhatsApp number. Ask admin to update the phone number.');
-      return;
-    }
-
-    const otp = String(Math.floor(100000 + Math.random() * 900000));
-    setLoginOtp(otp);
-    setLoginOtpUser(user);
-    setLoginOtpInput('');
-    setLoginOtpMode(true);
-    setPassword('');
-    setLoginOtpMessage('OTP prepared. Send it through WhatsApp, then enter it here.');
-
-    const message = `Orvix login OTP: ${otp}. Use this code to sign in. If you did not request this, please ignore it.`;
-    window.open(`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`, '_blank', 'noopener,noreferrer');
-  };
-
-  const triggerOtpLogin = () => {
-    setError(null);
-    if (!loginOtpUser || !loginOtp) {
-      setLoginOtpMode(false);
-      setLoginOtpMessage('Request a new WhatsApp OTP.');
-      return;
-    }
-
-    if (loginOtpInput.trim() !== loginOtp) {
-      setLoginOtpMessage('Wrong OTP. Check WhatsApp and try again.');
-      return;
-    }
-
-    setIsLoading(true);
-    triggerOnLoginWithSplash({
-      id: loginOtpUser.id || 'u-' + Math.random().toString(36).substr(2, 9),
-      email: loginOtpUser.email,
-      name: loginOtpUser.name,
-      role: loginOtpUser.role as any,
-      tenantId: loginOtpUser.tenantId,
-      activeTenant: loginOtpUser.activeTenant,
-      profileImage: loginOtpUser.profileImage,
-      phone: loginOtpUser.phone,
-      trial_start_date: loginOtpUser.trial_start_date || new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-      trial_end_date: loginOtpUser.trial_end_date || new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString(),
-      is_affiliate_lead: loginOtpUser.is_affiliate_lead || false,
-      referral_code_used: loginOtpUser.referral_code_used || ''
-    });
   };
 
   const triggerLogin = async (targetIdentifier: string, targetPass: string) => {
@@ -1051,18 +904,6 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         setIsLoading(false);
       }
     }, 600);
-  };
-
-  const handleQuickFill = (userObj: typeof DEMO_USERS[0]) => {
-    setHasActiveLoginAttempt(true);
-    setEmail(userObj.phone || userObj.email);
-    setPassword(userObj.password);
-    setLoginOtpMode(false);
-    setLoginOtp('');
-    setLoginOtpInput('');
-    setLoginOtpUser(null);
-    setEmailChecked(true);
-    triggerLogin(userObj.phone || userObj.email, userObj.password);
   };
 
   const numberValue = (value: unknown): number => Number(value || 0);
@@ -1988,3 +1829,4 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     </div>
   );
 }
+

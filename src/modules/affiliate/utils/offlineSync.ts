@@ -72,7 +72,6 @@ interface SyncQueueItem {
   retries: number;
 }
 
-const SYNC_QUEUE_KEY = 'jasper_offline_sync_queue';
 
 export function enqueueSyncItem(item: Omit<SyncQueueItem, 'id' | 'createdAt' | 'retries'>): void {
   warnOfflineWriteBlocked(`enqueueSyncItem:${item.table}/${item.operation}`);
@@ -195,3 +194,4 @@ export function getImmersiveAffiliates(currentAccountId?: string): any[] {
     );
   } catch { return []; }
 }
+

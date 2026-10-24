@@ -1,4 +1,4 @@
-import React from "react";
+
 
 export function getTermsTitle(lang: string, portalRole?: string): string {
   if (portalRole === 'partner') return "Partner Program Agreement & Terms";
@@ -367,3 +367,4 @@ export function renderTermsContent(lang: string, portalRole?: string) {
     </div>
   );
 }
+

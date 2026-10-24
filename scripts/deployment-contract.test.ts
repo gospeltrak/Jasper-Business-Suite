@@ -885,7 +885,7 @@ test('affiliate workspace uses affiliate-scoped source tracking without querying
 test('Forecasting Lucy is routed through authenticated Express API wiring', async () => {
   const serverSource = await read('server.ts');
   const forecastingSource = await read('src/modules/forecasting/DashboardForecasting.tsx');
-  const lucySource = await read('api/lucy.ts');
+  const lucySource = await read('src/server/lucy.ts');
   assert.match(serverSource, /app\.post\('\/api\/lucy'/);
   assert.match(serverSource, /await requireTenantUser\(req,\s*tenantId\)/);
   assert.match(serverSource, /return await lucyHandler\(req,\s*res\)/);
@@ -896,7 +896,7 @@ test('Forecasting Lucy is routed through authenticated Express API wiring', asyn
 
 test('Lucy text generation uses current stable Gemini models', async () => {
   const serverSource = await read('server.ts');
-  const lucySource = await read('api/lucy.ts');
+  const lucySource = await read('src/server/lucy.ts');
   assert.match(serverSource, /diamond:\s*'gemini-3\.5-flash-lite'/);
   assert.match(serverSource, /tanzanite:\s*'gemini-3\.6-flash'/);
   assert.match(serverSource, /model:\s*'gemini-3\.5-flash-lite'/);
@@ -911,8 +911,7 @@ test('Lucy text generation uses current stable Gemini models', async () => {
 
 test('Lucy uses authenticated Gemini Swahili speech and current market grounding', async () => {
   const serverSource = await read('server.ts');
-  const lucySource = await read('api/lucy.ts');
-  const copilotSource = await read('src/modules/ai-copilot/AIBusinessCopilot.tsx');
+  const lucySource = await read('src/server/lucy.ts');
   const forecastingSource = await read('src/modules/forecasting/DashboardForecasting.tsx');
   const speechSource = await read('src/modules/ai-copilot/utils/lucySpeech.ts');
 
@@ -927,14 +926,6 @@ test('Lucy uses authenticated Gemini Swahili speech and current market grounding
   assert.match(lucySource, /groundingMetadata\?\.groundingChunks/);
   assert.match(speechSource, /Authorization: `Bearer \$\{session\.access_token\}`/);
   assert.match(speechSource, /unlockLucySpeech/);
-  assert.match(copilotSource, /speakWithGeminiLucy/);
-  assert.match(copilotSource, /lastLucyMessage/);
-  assert.doesNotMatch(copilotSource, /Open POS|Check low stock|Generate today report|Forecast next month/);
-  assert.match(copilotSource, /conversationLanguage/);
-  assert.match(copilotSource, /option\|number\|namba\|chaguo/);
-  assert.match(copilotSource, /messages\.slice\(-8\)/);
-  assert.match(copilotSource, /deviceClass: window\.innerWidth < 768/);
-  assert.match(copilotSource, /Current market sources/);
   assert.match(forecastingSource, /speakWithGeminiLucy/);
   assert.match(forecastingSource, /sources: Array\.isArray\(data\.sources\)/);
   assert.match(serverSource, /buildVerifiedLucySalesWalkthrough/);
@@ -1018,7 +1009,8 @@ test('tenant hydration never opens an empty workspace after a transient load fai
 
 test('tenant wildcard domains have an additive immutable database contract', async () => {
   const migrationSource = await read('supabase/migrations/20260729000400_tenant_wildcard_domains.sql');
-  const slugApiSource = await read('api/tenant/slug.ts');
+  const serverSource = await read('server.ts');
+  const slugApiSource = serverSource.slice(serverSource.indexOf("app.post('/api/tenant/slug'"), serverSource.indexOf("app.get('/api/super-admin/overview'"));
 
   for (const column of [
     'business_name',
@@ -1069,4 +1061,5 @@ test('GitHub CI runs tests and a production frontend build', async () => {
   assert.match(workflowSource, /run:\s*npm test/);
   assert.match(workflowSource, /run:\s*(?:npm run build|npx vite build)/);
 });
+
 

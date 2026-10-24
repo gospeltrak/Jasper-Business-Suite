@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { TrendingUp, FileText, Search, AlertCircle, BarChart3, Package, Globe, CreditCard } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { TrendingUp, Search, AlertCircle, Package, Globe } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { loadPlatformRecord } from '../utils/superAdminPlatformRecords';
 import { loadSuperAdminOverview, mapSuperAdminUsers } from '../utils/superAdminData';
@@ -472,3 +472,4 @@ export default function SaaSHardwareSales() {
     </div>
   );
 }
+

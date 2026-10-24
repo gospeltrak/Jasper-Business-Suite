@@ -1,12 +1,5 @@
 import { getSecureDataBridgeClient } from '../../shared/dataBridge/secureDataBridge';
-import type {
-  BranchContextSnapshot,
-  BranchEntitlement,
-  SelectableBranchScope,
-  BranchWorkspaceSnapshot,
-  CreateBranchInput,
-  CreatedBranchResult,
-} from './branchTypes';
+import type { BranchContextSnapshot, SelectableBranchScope, BranchWorkspaceSnapshot, CreateBranchInput, CreatedBranchResult } from "./branchTypes";
 import type { SalesDocument } from '../../types';
 
 export class BranchApiError extends Error {
@@ -369,3 +362,4 @@ export const transferStockBetweenBranches = async (input: {
   });
   return response.transfer;
 };
+

@@ -1,39 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Shield, 
-  Users, 
-  Award, 
-  Volume2, 
-  Layers, 
-  Sparkles, 
-  Search, 
-  Plus, 
-  Trash, 
-  CheckCircle, 
-  TrendingUp, 
-  Smartphone, 
-  Lock, 
-  Unlock, 
-  FileText, 
-  RefreshCw, 
-  Send,
-  Upload,
-  UploadCloud,
-  Heart,
-  Image as ImageIcon,
-  MessageSquare,
-  Video,
-  BookOpen,
-  Store,
-  Pill,
-  ArrowLeft,
-  Laptop,
-  Globe,
-  Clock
-} from 'lucide-react';
+import { Shield, Users, Volume2, Sparkles, Unlock, UploadCloud, Image as ImageIcon, MessageSquare, Video, BookOpen, Store, Pill, ArrowLeft, Laptop, Globe, Clock } from "lucide-react";
 
 import SaaSUserDesk from './SaaSUserDesk';
-import { formatLocalDate } from '../../../shared/utils/localDate';
+
 import SuperAffiliateControlCenter from './SuperAffiliateControlCenter';
 import Dashboard from '../../../components/Dashboard';
 import AffiliateWorkspace from '../../affiliate/components/AffiliateWorkspace';
@@ -54,7 +23,7 @@ import SaaSWebEditor from './SaaSWebEditor';
 import SaaSAdPlacementsPanel from './SaaSAdPlacementsPanel';
 import { loadPlatformRecord, savePlatformRecord } from '../utils/superAdminPlatformRecords';
 import { ONLINE_ONLY_WRITE_MESSAGE, canWriteBusinessDataOnline } from '../../../shared/utils/onlineOnly';
-import { verifySuperAdminPassword } from '../utils/superAdminData';
+
 import { prepareSuperAdminMfa, SuperAdminMfaPrompt, verifySuperAdminMfa } from '../utils/superAdminMfa';
 
 export type SuperAdminWorkspaceTab = 'dashboard' | 'subscribers' | 'hw-pos' | 'hw-inventory' | 'hw-sales' | 'affiliates' | 'affiliate-agents' | 'sub-affiliates' | 'status' | 'reports' | 'user-activity' | 'expenses' | 'chats' | 'inbox' | 'security' | 'promotions' | 'tutorials' | 'ad-placements' | 'web-editor' | 'settings';
@@ -77,13 +46,7 @@ export default function SuperSaaSAdminView({
   // Init legacy queue preservation for platform records. Writes are online-only.
   useEffect(() => { initPlatformSync(); }, []);
   const activeTab = externalActiveTab || internalActiveTab;
-  const setActiveTab = (tab: SuperAdminWorkspaceTab) => {
-    if (externalSetActiveTab) {
-      externalSetActiveTab(tab);
-    } else {
-      setInternalActiveTab(tab);
-    }
-  };
+  
 
   // State Management for Banners, Ads, Hotline
   const [adPlacements, setAdPlacements] = useState<any[]>([]);
@@ -170,10 +133,6 @@ export default function SuperSaaSAdminView({
   const [dmSearchQuery, setDmSearchQuery] = useState('');
   const [dmMessage, setDmMessage] = useState('');
 
-  const [newAffFirstName, setNewAffFirstName] = useState('');
-  const [newAffLastName, setNewAffLastName] = useState('');
-  const [newAffPurpose, setNewAffPurpose] = useState('Standard Website Promo');
-  const [couponCreationLog, setCouponCreationLog] = useState('');
 
   const [newBannerTitle, setNewBannerTitle] = useState('');
   const [newBannerSize, setNewBannerSize] = useState('728x90');
@@ -364,10 +323,7 @@ export default function SuperSaaSAdminView({
   };
 
   */
-  const handleSignOutAdminGuard = () => {
-    setIsUnlocked(false);
-    alert('🔒 Admin terminal relocked.');
-  };
+  
 
   // Hotline Send Broadcast
   const handleSendBroadcast = async (e: React.FormEvent) => {
@@ -549,70 +505,7 @@ export default function SuperSaaSAdminView({
   };
 
   // Campaign Auto Code generator with automatic collision resolution
-  const handleGeneratePromoAndLink = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newAffFirstName.trim()) return;
-
-    const codeBase = newAffFirstName.trim().toUpperCase();
-    let uniqueCode = codeBase;
-    
-    let existingAffs: any[] = [];
-    try {
-      existingAffs = await loadPlatformRecord<any[]>('saas_immersive_affiliates', 'global', []);
-    } catch (error: any) {
-      alert(error?.message || ONLINE_ONLY_WRITE_MESSAGE);
-      return;
-    }
-    
-    let suffix = 0;
-    while (existingAffs.some((a: any) => String(a.promoCode || a.promo_code || '').toUpperCase() === uniqueCode)) {
-      suffix++;
-      uniqueCode = `${codeBase}${suffix.toString().padStart(2, '0')}`;
-    }
-
-    const campaignLink = `https://dukaplus.co.tz/join?ref=${uniqueCode.toLowerCase()}`;
-    
-    // Save back to list
-    const newAffRecord = {
-      id: 'aff-' + Math.floor(Math.random() * 100000),
-      name: `${newAffFirstName} ${newAffLastName}`.trim(),
-      username: `@${newAffFirstName.toLowerCase()}_referrals`,
-      email: `${newAffFirstName.toLowerCase()}@dukaplus-marketer.co.tz`,
-      phone: '+255 777 000 000',
-      status: 'Active',
-      joinedDate: formatLocalDate(),
-      affiliateLink: campaignLink,
-      promoCode: uniqueCode,
-      conversionsLink: 0,
-      conversionsPromo: 0,
-      totalEarnings: 0,
-      revenueDate: 0,
-      monthlyEarnings: [{ month: '2026-05', amount: 0 }],
-      sessions: [],
-      recentPayouts: []
-    };
-
-    const nextList = [newAffRecord, ...existingAffs];
-    try {
-      await savePlatformRecord('saas_immersive_affiliates', 'global', nextList);
-      onlineStorage.setItem('saas_immersive_affiliates', JSON.stringify(nextList));
-    } catch (error: any) {
-      alert(error?.message || ONLINE_ONLY_WRITE_MESSAGE);
-      return;
-    }
-
-    // Set response log after cloud confirmation.
-    const responseLog = `🎉 PROMO COLLISION SAFEGUARDS TRIGGERED\n--------------------------------------\nPROMOTER CODE BOUND: ${uniqueCode}\nCAMPAIGN TRACK LINK: ${campaignLink}\nSEGMENT ASSIGNED: ${newAffPurpose}\nSTATUS: Active Central Registry Node`;
-    setCouponCreationLog(responseLog);
-
-    // Force updates on user list or desk listeners
-    window.dispatchEvent(new Event('saas_logs_updated'));
-    
-    setNewAffFirstName('');
-    setNewAffLastName('');
-    handleAuditLog(`Registered active affiliate promoter: ${newAffRecord.name} (PROMO: ${uniqueCode})`, newAffRecord.name);
-    alert(`⚡ Promo code: "${uniqueCode}" was securely registered to affiliate directory!`);
-  };
+  
 
   if (mirroredAccount) {
     if (isMirrorAffiliate) {
@@ -1502,3 +1395,4 @@ export default function SuperSaaSAdminView({
     </div>
   );
 }
+

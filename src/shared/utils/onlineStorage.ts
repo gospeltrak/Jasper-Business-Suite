@@ -7,6 +7,7 @@ let hydrated = false;
 let saveTimer: number | null = null;
 let saveChain = Promise.resolve();
 let lastPersistedSnapshot = '';
+let persistenceNeeded = false;
 const HYDRATION_TIMEOUT_MS = 4000;
 const PERSIST_DEBOUNCE_MS = 1000;
 
@@ -17,7 +18,10 @@ const persist = async () => {
   const currentTenantId = tenantId;
   const payload = snapshot();
   const serialized = JSON.stringify(payload);
-  if (serialized === lastPersistedSnapshot) return;
+  if (serialized === lastPersistedSnapshot) {
+    persistenceNeeded = false;
+    return;
+  }
   const client: any = await getSecureDataBridgeClient();
   const { error } = await client.from('tenant_data').upsert({
     tenant_id: currentTenantId,
@@ -26,11 +30,15 @@ const persist = async () => {
     updated_at: new Date().toISOString(),
   }, { onConflict: 'tenant_id,data_key' });
   if (error) throw error;
-  if (tenantId === currentTenantId) lastPersistedSnapshot = serialized;
+  if (tenantId === currentTenantId) {
+    lastPersistedSnapshot = serialized;
+    persistenceNeeded = serialized !== JSON.stringify(snapshot());
+  }
 };
 
 const schedulePersist = () => {
   if (!tenantId || !hydrated) return;
+  persistenceNeeded = true;
   if (saveTimer !== null) window.clearTimeout(saveTimer);
   saveTimer = window.setTimeout(() => {
     saveTimer = null;
@@ -43,6 +51,10 @@ const schedulePersist = () => {
 export const onlineStorage: Storage = {
   get length() { return values.size; },
   clear() {
+    if (!values.size) {
+      if (persistenceNeeded && saveTimer === null) schedulePersist();
+      return;
+    }
     values.clear();
     schedulePersist();
   },
@@ -53,11 +65,20 @@ export const onlineStorage: Storage = {
     return Array.from(values.keys())[index] ?? null;
   },
   removeItem(key: string) {
+    if (!values.has(key)) {
+      if (persistenceNeeded && saveTimer === null) schedulePersist();
+      return;
+    }
     values.delete(key);
     schedulePersist();
   },
   setItem(key: string, value: string) {
-    values.set(key, String(value));
+    const nextValue = String(value);
+    if (values.get(key) === nextValue) {
+      if (persistenceNeeded && saveTimer === null) schedulePersist();
+      return;
+    }
+    values.set(key, nextValue);
     schedulePersist();
   },
 };
@@ -96,6 +117,7 @@ export async function configureOnlineStorage(nextTenantId: string): Promise<void
   hydrated = false;
   values.clear();
   lastPersistedSnapshot = '';
+  persistenceNeeded = false;
 
   try {
     const client: any = await getSecureDataBridgeClient();
@@ -136,6 +158,7 @@ export function resetOnlineStorage(): void {
   hydrated = false;
   values.clear();
   lastPersistedSnapshot = '';
+  persistenceNeeded = false;
   if (saveTimer !== null) window.clearTimeout(saveTimer);
   saveTimer = null;
 }
@@ -145,3 +168,4 @@ declare global {
 }
 
 globalThis.onlineStorage = onlineStorage;
+

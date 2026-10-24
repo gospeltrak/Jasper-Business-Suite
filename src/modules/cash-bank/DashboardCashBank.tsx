@@ -7,36 +7,7 @@ import { postTreasuryEntry, syncTreasuryPaymentAccounts, transferTreasuryFunds }
 import { buildAutoLedgerEntries, readCachedManualSettleEntries } from './utils/ledgerDerivation';
 import { downloadExcelFile } from '../../shared/utils/excelExport';
 import { formatLocalDate } from '../../shared/utils/localDate';
-import { 
-  Landmark, 
-  Wallet, 
-  Coins, 
-  Calendar, 
-  ArrowRight,
-  ArrowUpRight,
-  ArrowDownRight,
-  Plus, 
-  CheckCircle, 
-  Search, 
-  Filter, 
-  Clock, 
-  User, 
-  Download, 
-  AlertCircle, 
-  ChevronDown, 
-  ChevronRight,
-  FileText,
-  Building,
-  RefreshCw,
-  PlusCircle,
-  HelpCircle,
-  TrendingUp,
-  TrendingDown,
-  Send,
-  BarChart3,
-  Eye,
-  X
-} from 'lucide-react';
+import { Landmark, Wallet, Coins, Calendar, ArrowRight, ArrowUpRight, ArrowDownRight, Plus, CheckCircle, Search, Clock, User, Download, AlertCircle, ChevronRight, FileText, RefreshCw, PlusCircle, Send, BarChart3, Eye, X } from "lucide-react";
 
 interface DashboardCashBankProps {
   activeTenant: Tenant;
@@ -1725,7 +1696,6 @@ export default function DashboardCashBank({
             </div>
 
 
-
             {/* QUICK AUDIT TRACKER INFOGRAPHIC */}
             <div className="lg:col-span-7 bg-white border border-slate-200 rounded-2xl md:rounded-3xl p-4 sm:p-6 flex flex-col justify-between space-y-5 shadow-xs animate-fadeIn">
               <div>
@@ -2169,3 +2139,4 @@ export default function DashboardCashBank({
     </div>
   );
 }
+

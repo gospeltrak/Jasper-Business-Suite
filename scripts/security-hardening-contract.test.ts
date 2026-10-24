@@ -11,7 +11,6 @@ const loginPage = fs.readFileSync('src/modules/auth/LoginPage.tsx', 'utf8');
 const login = fs.readFileSync('src/modules/auth/LoginPage.tsx', 'utf8');
 const admin = fs.readFileSync('src/modules/platform-admin/components/SuperSaaSAdminView.tsx', 'utf8');
 const migration = fs.readFileSync('supabase/migrations/20260812000300_close_legacy_public_rls.sql', 'utf8');
-const productImageHandler = fs.readFileSync('api/images/migrate-product.ts', 'utf8');
 const repositoryAudit = fs.readFileSync('scripts/security-repository-audit.mjs', 'utf8');
 const packageJson = fs.readFileSync('package.json', 'utf8');
 const notificationContext = fs.readFileSync('src/shared/contexts/JasperNotificationContext.tsx', 'utf8');
@@ -126,9 +125,11 @@ test('tenant image uploads require JSON, tenant authorization, and verified file
   assert.match(productRoute, /await requireTenantUser\(req, String\(tenantId\)\)/);
   assert.match(productRoute, /allowed\.magic\(buffer\)/);
   assert.match(productRoute, /Image could not be saved securely/);
-  assert.match(productImageHandler, /Content-Type application\/json is required/);
-  assert.match(productImageHandler, /allowed\.magic\(buffer\)/);
-  assert.match(productImageHandler, /belongsToTenant/);
+  assert.match(productRoute, /Content-Type application\/json is required/);
+  const tenantAuthorization = server.slice(server.indexOf('async function requireTenantUser('), server.indexOf('async function requireActiveUser('));
+  assert.match(tenantAuthorization, /supabaseAdmin\.auth\.getUser\(token\)/);
+  assert.match(tenantAuthorization, /const belongsToTenant =[\s\S]*tenant_id[\s\S]*=== tenantId/);
+  assert.match(tenantAuthorization, /if \(profileError \|\| !\(isPlatformAdmin \|\| belongsToTenant\)\)/);
 });
 
 test('repository verification blocks tracked secrets and exposes a production dependency audit', () => {
@@ -254,3 +255,4 @@ test('landing language and login navigation are instant and deterministic', () =
   assert.match(landingBundle, /if\(value==='WhatsApp report notifications'\)item\.remove\(\)/);
   assert.match(landingPage, /if \(href === '#login'\)[\s\S]*onNavigate\('\/login'\)/);
 });
+

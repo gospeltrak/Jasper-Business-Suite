@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Product, Sale, Tenant } from '../../types';
-import { createLucyResponse, detectLucyLanguage, getLucyGreeting } from '../ai-copilot/utils/lucyBrain';
+import { detectLucyLanguage, getLucyGreeting } from "../ai-copilot/utils/lucyBrain";
 import { getSecureDataBridgeClient } from '../../shared/dataBridge/secureDataBridge';
 import { speakWithGeminiLucy, stopLucySpeech } from '../ai-copilot/utils/lucySpeech';
 import { 
@@ -15,29 +15,7 @@ import {
   Tooltip, 
   Legend 
 } from 'recharts';
-import { 
-  Sparkles, 
-  RefreshCw, 
-  TrendingUp, 
-  AlertTriangle, 
-  Package, 
-  Compass, 
-  ArrowRight, 
-  CheckCircle, 
-  Truck, 
-  TrendingDown, 
-  Info, 
-  Calendar, 
-  Grid, 
-  MessageSquare, 
-  Send, 
-  Globe, 
-  ExternalLink, 
-  ArrowUpRight, 
-  ArrowDownRight, 
-  Lightbulb, 
-  HelpCircle 
-} from 'lucide-react';
+import { RefreshCw, TrendingUp, AlertTriangle, CheckCircle, Truck, Send, ExternalLink, ArrowUpRight, ArrowDownRight, Lightbulb } from "lucide-react";
 
 interface ForecastItem {
   sku: string;
@@ -1540,3 +1518,4 @@ export default function DashboardForecasting({
     </div>
   );
 }
+

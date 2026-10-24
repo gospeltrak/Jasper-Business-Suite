@@ -8,39 +8,8 @@ import { sanitizeTrustedHtml } from '../../shared/utils/safeHtml';
 import { getBusinessDisplayName } from '../../shared/utils/businessBranding';
 import { formatLocalDate, timestampToLocalDate } from '../../shared/utils/localDate';
 import { getSaleItemUnitCost } from '../sales/utils/saleItemTotals';
-import { 
-  ResponsiveContainer, 
-  ComposedChart, 
-  Line, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip as RechartsTooltip, 
-  Legend as RechartsLegend 
-} from 'recharts';
-import { 
-  TrendingUp, 
-  ShoppingCart, 
-  Coins, 
-  Package, 
-  FileText,
-  Clock,
-  ArrowUp,
-  ArrowDown,
-  ShieldAlert,
-  AlertTriangle,
-  ChevronDown,
-  ChevronUp,
-  Calendar,
-  Layers,
-  ArrowRight,
-  TrendingDown,
-  MoreVertical,
-  Printer,
-  Share2,
-  Receipt
-} from 'lucide-react';
+import { ResponsiveContainer, ComposedChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip } from "recharts";
+import { TrendingUp, ShoppingCart, Coins, FileText, ArrowUp, ShieldAlert, AlertTriangle, ChevronDown, ChevronUp, Layers, TrendingDown, MoreVertical, Printer, Share2, Receipt } from "lucide-react";
 
 interface DashboardOverviewProps {
   activeTenant: Tenant;
@@ -325,7 +294,7 @@ export default function DashboardOverview({
   // Helper dataset with dynamic weighting based on selected statusTimeframe parameter
   const chartData = useMemo(() => {
     const now = new Date();
-    const isNewTenant = sales.length === 0;
+    
     
     if (statusTimeframe === 'today') {
       // 4 Day Segments: Dawn, Morning, Afternoon, Evening
@@ -499,10 +468,7 @@ export default function DashboardOverview({
   }, [chartData]);
 
   const barWidth = statusTimeframe === 'week' ? 8 : 12;
-  const targetOffset = 0;
-  const salesOffset = statusTimeframe === 'week' ? 10 : 15;
-  const purchasesOffset = statusTimeframe === 'week' ? 20 : 30;
-  const centerTextOffset = statusTimeframe === 'week' ? 14 : 21;
+
 
   const startXList = useMemo(() => {
     if (statusTimeframe === 'today') {
@@ -1639,3 +1605,4 @@ export default function DashboardOverview({
     </div>
   );
 }
+

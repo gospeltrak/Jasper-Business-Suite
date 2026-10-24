@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { flushSync } from 'react-dom';
-import { Tenant, Delivery, DeliveryRider, SaleItem, Product, SystemSettings, Sale, StaffSettings } from '../../types';
+import { Tenant, Delivery, DeliveryRider, Product, SystemSettings, Sale, StaffSettings } from "../../types";
 import { 
   Truck, 
   UserPlus, 
@@ -3526,3 +3526,4 @@ Vehicle Plate Number: ${plateNumber}
     </div>
   );
 }
+

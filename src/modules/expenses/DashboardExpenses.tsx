@@ -1,47 +1,11 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  Receipt, 
-  Plus, 
-  Trash2, 
-  Calendar, 
-  ArrowUpRight, 
-  Upload, 
-  FileText, 
-  Check, 
-  FolderKanban, 
-  Info, 
-  Coins, 
-  MessageSquare, 
-  PlusCircle, 
-  Download, 
-  AlertCircle,
-  TrendingDown,
-  X,
-  Sparkles,
-  TrendingUp,
-  MoreVertical,
-  Eye,
-  Edit,
-  ChevronRight
-} from 'lucide-react';
-import { 
-  ResponsiveContainer, 
-  AreaChart, 
-  ComposedChart,
-  Area, 
-  XAxis, 
-  YAxis, 
-  Tooltip, 
-  LineChart, 
-  Line, 
-  CartesianGrid 
-} from 'recharts';
-import { Tenant, Expense, Product, Sale, SystemSettings } from '../../types';
+import { Receipt, Plus, Trash2, Calendar, Upload, FileText, Check, FolderKanban, PlusCircle, Download, AlertCircle, TrendingDown, X, MoreVertical, Eye, Edit, ChevronRight } from "lucide-react";
+import { ResponsiveContainer, ComposedChart, Area, XAxis, YAxis, Tooltip, Line } from "recharts";
+import { Tenant, Expense, Sale, SystemSettings } from "../../types";
 import { safeSetJsonItem } from '../../shared/utils/dataSafety';
 import { getMaskedAccountReference, getTreasuryPaymentMethods, reconcilePaymentChannels } from '../../shared/utils/paymentAccounts';
 import { formatLocalDate, localDateToIso, timestampToLocalDate } from '../../shared/utils/localDate';
-
 
 
 interface DashboardExpensesProps {
@@ -230,25 +194,7 @@ export default function DashboardExpenses({
   }, [quickDateOption]);
 
   // Synchronize manual date picker to clear quick pick if they don't match
-  const handleManualDateChange = (val: string) => {
-    setSelectedDateFilter(val);
-    if (!val) {
-      setQuickDateOption('all');
-    } else {
-      const todayStr = formatLocalDate();
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      const yesterdayStr = formatLocalDate(yesterday);
-
-      if (val === todayStr) {
-        setQuickDateOption('today');
-      } else if (val === yesterdayStr) {
-        setQuickDateOption('yesterday');
-      } else {
-        setQuickDateOption('all'); // custom
-      }
-    }
-  };
+  
 
   // Filter expenses list by active dates/days
   const filteredExpenses = useMemo(() => {
@@ -1506,3 +1452,4 @@ export default function DashboardExpenses({
     </div>
   );
 }
+

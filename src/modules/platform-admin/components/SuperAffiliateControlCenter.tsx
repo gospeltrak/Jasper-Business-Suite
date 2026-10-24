@@ -551,4 +551,5 @@ function Field({ label, value, onChange }: { label: string; value: string; onCha
   );
 }
 function EmptyCard({ text }: { text: string }) { return <div className="rounded-2xl border border-slate-800/80 bg-slate-900 p-6 text-center text-sm text-slate-500 shadow-sm shadow-black/20">{text}</div>; }
-function Card({ title, meta, stats }: { key?: string; title: string; meta: string; stats: Array<[string, string | number]> }) { return <article className="bg-slate-900 border border-slate-800 p-4 rounded-lg"><b>{title}</b><p className="text-xs text-slate-500 mt-1">{meta}</p><div className="mt-4 grid grid-cols-2 gap-3 text-xs">{stats.map(([label, value]) => <p key={label} className="text-slate-400">{label}<strong className="block text-white text-sm">{value}</strong></p>)}</div></article>; }
+
+

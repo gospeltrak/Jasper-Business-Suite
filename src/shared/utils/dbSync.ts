@@ -279,18 +279,6 @@ export async function syncOnLogin(tenantId: string): Promise<void> {
   await pullAllFromCloud(tenantId);
 }
 
-/**
- * Legacy entry point retained as a no-op. Browser data is never pushed.
- */
-async function syncLocalToCloud(tenantId: string, options: { onlyMeaningfulPayloads?: boolean } = {}): Promise<void> {
-  if (!canWriteBusinessDataOnline()) {
-    warnOfflineWriteBlocked(`syncLocalToCloud:${tenantId}`);
-    return;
-  }
-
-  void options;
-}
-
 // ─── SQL to create the table ─────────────────────────────────────────────────
 // Run this in Supabase Dashboard → SQL Editor once:
 //
@@ -310,4 +298,5 @@ async function syncLocalToCloud(tenantId: string, options: { onlyMeaningfulPaylo
 //   FOR INSERT WITH CHECK (true);
 // CREATE POLICY "tenant_data_update" ON public.tenant_data
 //   FOR UPDATE USING (true);
+
 

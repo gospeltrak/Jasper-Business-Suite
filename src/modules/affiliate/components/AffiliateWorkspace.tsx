@@ -1,42 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import {
-  BarChart3,
-  CalendarClock,
-  CheckCircle2,
-  ClipboardList,
-  Copy,
-  Download,
-  ExternalLink,
-  Film,
-  Link as LinkIcon,
-  LogOut,
-  LoaderCircle,
-  Menu,
-  Pencil as PencilIcon,
-  PlayCircle,
-  RefreshCw,
-  Settings,
-  ShieldCheck,
-  TrendingUp,
-  Wallet,
-  X,
-  AlertCircle,
-  ArrowDownToLine,
-  Phone,
-  User,
-  Lock,
-  ChevronRight,
-  Clock,
-  CheckCheck,
-  Users,
-  Search,
-  MapPin,
-  Building2,
-  Calendar,
-  SlidersHorizontal,
-  Bell,
-  type LucideIcon,
-} from 'lucide-react';
+import { BarChart3, CalendarClock, CheckCircle2, ClipboardList, Copy, Download, ExternalLink, Film, Link as LinkIcon, LogOut, LoaderCircle, Menu, Pencil as PencilIcon, PlayCircle, RefreshCw, Settings, ShieldCheck, TrendingUp, Wallet, X, AlertCircle, ArrowDownToLine, Phone, User, Lock, ChevronRight, Clock, CheckCheck, Users, Search, MapPin, Building2, Calendar, Bell, type LucideIcon } from "lucide-react";
 import {
   AffiliateCampaign,
   AffiliateNotification,
@@ -1538,3 +1501,4 @@ function NotificationRow({ notification, onMarkRead }: { key?: unknown; notifica
 function MeetingRow({ meeting, onJoin }: { key?: unknown; meeting: any; onJoin: () => void }) {
   return <article className="flex flex-col justify-between gap-3 p-4 sm:flex-row sm:items-center"><div><p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">{meeting.status}</p><h3 className="mt-1 text-sm font-bold text-slate-950">{meeting.title}</h3><p className="mt-1 text-sm text-slate-500">{formatDateTime(meeting.starts_at)}{meeting.host_name ? ` · ${meeting.host_name}` : ''}</p>{meeting.notes && <p className="mt-2 text-sm text-slate-600">{meeting.notes}</p>}</div>{['upcoming', 'live'].includes(meeting.status) && <button type="button" onClick={onJoin} className="inline-flex items-center justify-center gap-2 rounded-md bg-slate-900 px-3 py-2.5 text-xs font-semibold text-white"><PlayCircle className="h-4 w-4" /> Join<ExternalLink className="h-3.5 w-3.5" /></button>}</article>;
 }
+

@@ -7,53 +7,7 @@ import { isDemoTenant } from '../../shared/utils/tenantIsolation';
 import { safeSetJsonItem } from '../../shared/utils/dataSafety';
 import { canWriteBusinessDataOnline } from '../../shared/utils/onlineOnly';
 import { formatLocalDate, localDateToIso, timestampToLocalDate } from '../../shared/utils/localDate';
-import {
-
-  Search, 
-  Calendar, 
-  Filter, 
-  FileText, 
-  Printer, 
-  CheckCircle2, 
-  Clock, 
-  DollarSign, 
-  User,
-  Users,
-  Phone,
-  ArrowRight,
-  TrendingUp,
-  X,
-  CreditCard,
-  XOctagon,
-  Menu,
-  Edit,
-  Trash2,
-  Plus,
-  Check,
-  Building,
-  Coins,
-  MessageSquare,
-  Download,
-  Bike,
-  Eye,
-  Lock,
-  WifiOff,
-  Receipt,
-  MoreVertical,
-  AlertCircle,
-  ChevronRight,
-  PlusCircle,
-  Pencil,
-  ZoomIn,
-  ZoomOut,
-  Maximize2,
-  Share2,
-  ChevronLeft,
-  Barcode,
-  ScanLine,
-  RefreshCw,
-  Minus
-} from 'lucide-react';
+import { Search, Calendar, FileText, Printer, CheckCircle2, Clock, User, Users, ArrowRight, TrendingUp, X, CreditCard, Edit, Trash2, Plus, Check, Building, Coins, MessageSquare, Download, Eye, Lock, Receipt, MoreVertical, AlertCircle, ChevronRight, PlusCircle, Pencil, ZoomIn, ZoomOut, ChevronLeft, RefreshCw, Minus } from "lucide-react";
 import { downloadPdfFromElement, shareElementPdfToWhatsApp } from '../../shared/utils/pdfShare';
 import CachedImage from '../../shared/components/CachedImage';
 import { getActiveBranchAddress, getActiveBranchDisplayName, getActiveBranchEmail, getActiveBranchLogo, getActiveBranchPhone } from '../../shared/utils/businessBranding';
@@ -999,7 +953,7 @@ export default function DashboardSalesList({
   const [settleActualDrawerCount, setSettleActualDrawerCount] = useState<number | ''>('');
   const [settlePayInAmount, setSettlePayInAmount] = useState<number | ''>('');
   const [settleCashierName, setSettleCashierName] = useState(() => currentUser?.name || 'In-Office Teller');
-  const [settleDestination, setSettleDestination] = useState('Main Safe Vault');
+  
   const [settleMemo, setSettleMemo] = useState('');
   const [settleSuccessMsg, setSettleSuccessMsg] = useState<string | null>(null);
 
@@ -1981,7 +1935,7 @@ export default function DashboardSalesList({
             const isPaid = !isCredit;
             const isSettled = isCredit && amountDueRaw <= 0;
             const isPartial = isCredit && totalCollectedSoFar > 0 && amountDueRaw > 0;
-            const isUnpaid = isCredit && totalCollectedSoFar <= 0;
+            
 
             const statusLabel = isPaid ? 'Paid' : isSettled ? 'Settled' : isPartial ? 'Partial' : 'Unpaid';
             const statusDot = isPaid || isSettled ? '#22c55e' : isPartial ? '#f59e0b' : '#ef4444';
@@ -6200,3 +6154,4 @@ export default function DashboardSalesList({
     </div>
   );
 }
+

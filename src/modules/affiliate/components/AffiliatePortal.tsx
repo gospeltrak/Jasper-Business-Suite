@@ -1,50 +1,5 @@
 import React, { useState, useEffect } from "react";
-import {
-  Users,
-  DollarSign,
-  MousePointer,
-  Award,
-  PhoneCall,
-  Clock,
-  AlertTriangle,
-  Copy,
-  Check,
-  ArrowLeft,
-  ArrowRight,
-  Sparkles,
-  Layers,
-  FileText,
-  Smartphone,
-  Info,
-  Download,
-  Image as ImageIcon,
-  Code,
-  Target,
-  Video,
-  Mic,
-  MicOff,
-  PlusCircle,
-  Plus,
-  Trash2,
-  Edit2,
-  Send,
-  Play,
-  Tv,
-  Eye,
-  EyeOff,
-  Mail,
-  BookOpen,
-  Volume2,
-  VolumeX,
-  Grid,
-  MessageSquare,
-  ExternalLink,
-  Search,
-  ShoppingCart,
-  Package,
-  CheckCircle,
-  XCircle,
-} from "lucide-react";
+import { Users, DollarSign, MousePointer, Award, Clock, AlertTriangle, Copy, Check, ArrowLeft, Sparkles, Layers, Smartphone, Info, Download, Code, Target, Video, Mic, MicOff, PlusCircle, Trash2, Edit2, Send, Play, Tv, Eye, EyeOff, Mail, BookOpen, MessageSquare, ExternalLink, Search, ShoppingCart, Package, CheckCircle, XCircle } from "lucide-react";
 import SaaSHardwarePOS from "../../../shared/components/SaaSHardwarePOS";
 import SaaSHardwareInventory from "../../../shared/components/SaaSHardwareInventory";
 import AffiliateWorkspace from "./AffiliateWorkspace";
@@ -56,17 +11,7 @@ import AffiliateAgentDesk from "./AffiliateAgentDesk";
 import { getSecureDataBridgeClient } from "../../../shared/dataBridge/secureDataBridge";
 import { downloadExcelFileFromRows } from "../../../shared/utils/excelExport";
 import { formatLocalDate } from "../../../shared/utils/localDate";
-import {
-  requireOnline,
-  isOnline,
-  initOfflineSync,
-  dbWrite,
-  saveAffiliateSession,
-  clearAffiliateSession,
-  getAffiliateSession,
-  flushSyncQueue,
-  AffiliateSession,
-} from "../utils/offlineSync";
+import { isOnline, initOfflineSync, dbWrite, clearAffiliateSession, flushSyncQueue } from "../utils/offlineSync";
 import { ONLINE_ONLY_WRITE_MESSAGE } from "../../../shared/utils/onlineOnly";
 import { endCloudSession, startCloudSession, touchCloudSession } from "../../../shared/utils/sessionControl";
 import { useTranslation } from "../../../shared/contexts/LanguageContext";
@@ -319,7 +264,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     setWaitlistPhone("");
   };
   const [copiedBanner, setCopiedBanner] = useState(false);
-  const [payoutFormSuccess, setPayoutFormSuccess] = useState(false);
+  
 
   // Super Affiliate Extra State Actions
   const [superActiveTab, setSuperActiveTab] = useState<
@@ -409,9 +354,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
   // Video conferencing simulation state representors
   const [isConferenceActive, setIsConferenceActive] = useState(false);
-  const [conferenceRoomId, setConferenceRoomId] = useState(
-    "CONF-ORVIX-MASTERCLASS",
-  );
+  
   const [videoHostMutedAll, setVideoHostMutedAll] = useState(false);
   const [conferenceMembers, setConferenceMembers] = useState([
     {
@@ -468,27 +411,13 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
   const [activeSpeakerId, setActiveSpeakerId] = useState("m1");
 
   // SaaS Mirror Selected User
-  const [selectedMirrorAccount, setSelectedMirrorAccount] = useState<
-    any | null
-  >(null);
+  
 
   // States for sub-affiliate mirror editing & monitoring
-  const [isEditingMirroredClicks, setIsEditingMirroredClicks] = useState(false);
-  const [mirroredClicksValue, setMirroredClicksValue] = useState(148);
-  const [showAddMirroredStoreModal, setShowAddMirroredStoreModal] =
-    useState(false);
-  const [showEditMirroredStoreModal, setShowEditMirroredStoreModal] =
-    useState(false);
-  const [selectedEditMirroredStore, setSelectedEditMirroredStore] = useState<
-    any | null
-  >(null);
+
 
   // Form input fields for mirrored subscriber stores
-  const [mirroredStoreName, setMirroredStoreName] = useState("");
-  const [mirroredStoreTier, setMirroredStoreTier] =
-    useState("Diamond");
-  const [mirroredStoreStatus, setMirroredStoreStatus] = useState("Paid");
-  const [mirroredStoreCharge, setMirroredStoreCharge] = useState(30000);
+
 
   // Click counter — real data only, no demo fallback
   const [clicksCount, setClicksCount] = useState<number>(() => {
@@ -5372,3 +5301,4 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     </div>
   );
 }
+

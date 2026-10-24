@@ -1,46 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { CompanySettings, BusinessSettings, ProductStoreSettings, StaffSettings, SystemSettings, Tenant, CustomRole, RolePermission, InvoiceSettings, Sale, Expense, Delivery } from '../../types';
+import { CompanySettings, BusinessSettings, ProductStoreSettings, StaffSettings, SystemSettings, Tenant, CustomRole, InvoiceSettings, Sale, Expense, Delivery } from "../../types";
 import { useTheme } from '../../shared/contexts/ThemeContext';
 import { useTranslation } from '../../shared/contexts/LanguageContext';
-import { DEFAULT_TENANTS } from '../../data';
+
 import { getPaymentModeName } from '../../shared/utils/paymentAccounts';
-import { 
-  Settings as SettingsIcon, 
-  Building, 
-  Building2,
-  Package,
-  Users, 
-  Check, 
-  Trash2, 
-  Plus, 
-  Upload, 
-  Coins, 
-  Globe, 
-  Clock, 
-  CreditCard, 
-  Store, 
-  Tag, 
-  Sliders, 
-  Sun, 
-  Moon, 
-  Bell,
-  Percent, 
-  PercentSquare, 
-  User, 
-  CheckCircle,
-  FileText,
-  ShieldCheck,
-  Lock,
-  KeyRound,
-  Save,
-  X,
-  Activity,
-  DollarSign,
-  Truck,
-  ArrowLeft,
-  ChevronRight,
-  Search
-} from 'lucide-react';
+import { Settings as SettingsIcon, Building, Building2, Package, Users, Check, Trash2, Plus, Upload, CreditCard, Store, Tag, Sliders, Sun, Moon, Bell, CheckCircle, FileText, ShieldCheck, Lock, X, Activity, DollarSign, Truck, ArrowLeft, ChevronRight, Search } from "lucide-react";
 import { DashboardNotificationsSettings } from '../notifications-settings/DashboardNotificationsSettings';
 import { getSecureDataBridgeClient } from '../../shared/dataBridge/secureDataBridge';
 import { compressImageFile } from '../../shared/utils/imageCompression';
@@ -2499,3 +2463,4 @@ export default function DashboardSettings({
     </div>
   );
 }
+

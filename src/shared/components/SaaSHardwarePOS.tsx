@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { ShoppingCart, Search, Plus, Trash, CheckCircle, User } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { ShoppingCart, Trash, CheckCircle } from "lucide-react";
 import { defaultHardwareInventory, loadPlatformRecord, savePlatformRecord } from '../../modules/platform-admin/utils/superAdminPlatformRecords';
 import { getSecureDataBridgeClient } from '../dataBridge/secureDataBridge';
 import { ONLINE_ONLY_WRITE_MESSAGE } from '../utils/onlineOnly';
@@ -449,3 +449,4 @@ export default function SaaSHardwarePOS({ affiliateId }: { affiliateId?: string 
     </div>
   );
 }
+

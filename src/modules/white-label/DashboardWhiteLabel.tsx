@@ -1,25 +1,6 @@
 import { useState } from 'react';
 import { Tenant } from '../../types';
-import { 
-  Palette, 
-  Code, 
-  Layers, 
-  Globe, 
-  Sparkles, 
-  CheckCircle, 
-  ExternalLink,
-  Laptop, 
-  ShieldAlert, 
-  CreditCard,
-  FileCode,
-  Copy,
-  Layout,
-  RefreshCw,
-  Sliders,
-  Check,
-  Smartphone,
-  Info
-} from 'lucide-react';
+import { Palette, Code, Sparkles, CheckCircle, Laptop, CreditCard, Copy, RefreshCw, Check, Smartphone, Info } from "lucide-react";
 
 interface DashboardWhiteLabelProps {
   activeTenant: Tenant;
@@ -619,3 +600,4 @@ export default function DashboardWhiteLabel({ activeTenant }: DashboardWhiteLabe
     </div>
   );
 }
+

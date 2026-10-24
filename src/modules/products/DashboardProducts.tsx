@@ -3,36 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Tenant, Product, ProductBatch, SystemSettings, DosageForm, ProductType } from '../../types';
 import { isDemoTenant } from '../../shared/utils/tenantIsolation';
 import { getSecureDataBridgeClient } from '../../shared/dataBridge/secureDataBridge';
-import { 
-  Plus, 
-  Package, 
-  Trash2, 
-  AlertCircle, 
-  TrendingUp, 
-  Sparkles, 
-  Check, 
-  ArrowLeftRight, 
-  X, 
-  Upload, 
-  Download, 
-  Printer, 
-  Wifi, 
-  Bluetooth, 
-  Search, 
-  FileSpreadsheet, 
-  Layers, 
-  Camera, 
-  Database, 
-  RefreshCw,
-  Sliders,
-  CheckCircle,
-  HelpCircle,
-  MoreVertical,
-  Eye,
-  Edit,
-  Scale,
-  ChevronRight
-} from 'lucide-react';
+import { Plus, Package, Trash2, AlertCircle, TrendingUp, Sparkles, Check, ArrowLeftRight, X, Upload, Download, Printer, Search, Layers, Camera, Database, RefreshCw, Sliders, CheckCircle, MoreVertical, Eye, Edit, Scale, ChevronRight } from "lucide-react";
 import { useTranslation } from '../../shared/contexts/LanguageContext';
 import CachedImage, { evictImageCache } from '../../shared/components/CachedImage';
 import {
@@ -1065,11 +1036,11 @@ export default function DashboardProducts({
   const [connectionType, setConnectionType] = useState<'usb' | 'wifi' | 'bluetooth'>('usb');
   
   // Printer config variables
-  const [selectedUsbPort, setSelectedUsbPort] = useState('COM3 (XP-365B Thermal Label printer)');
-  const [selectedBtDevice, setSelectedBtDevice] = useState('RP85 Mobile Printer (paired)');
+  
+  
   const [wifiIpAddress, setWifiIpAddress] = useState('192.168.1.120');
   const [wifiPort, setWifiPort] = useState('9100');
-  const [isConnectingPrinter, setIsConnectingPrinter] = useState(false);
+  
   const [isPrinterConnected, setIsPrinterConnected] = useState(true);
   const [showTestPrintModal, setShowTestPrintModal] = useState(false);
   const [isPrintingJob, setIsPrintingJob] = useState(false);
@@ -1939,13 +1910,7 @@ export default function DashboardProducts({
   });
 
   // Connection trigger simulator
-  const handleConnectHardware = () => {
-    setIsConnectingPrinter(true);
-    setTimeout(() => {
-      setIsConnectingPrinter(false);
-      setIsPrinterConnected(true);
-    }, 1200);
-  };
+  
 
   // Trigger print queue
   const handleTriggerPrintLabels = () => {
@@ -6659,4 +6624,5 @@ export default function DashboardProducts({
   );
 
 }
+
 

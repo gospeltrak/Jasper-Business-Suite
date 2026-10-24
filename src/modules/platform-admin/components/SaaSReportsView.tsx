@@ -1,16 +1,5 @@
-import React, { useState, useEffect } from "react";
-import {
-  DollarSign,
-  TrendingUp,
-  TrendingDown,
-  Calendar,
-  FileText,
-  ArrowUpRight,
-  ArrowDownRight,
-  Layers,
-  Package,
-  ShoppingCart,
-} from "lucide-react";
+import { useState, useEffect } from "react";
+import { TrendingUp, TrendingDown, FileText, ArrowUpRight, ArrowDownRight, Layers, Package } from "lucide-react";
 import {
   BarChart,
   Bar,
@@ -60,7 +49,7 @@ export default function SaaSReportsView() {
   const [hardwareSales, setHardwareSales] = useState<any[]>([]);
   const [hardwareInventory, setHardwareInventory] = useState<any[]>([]);
   const [subscriptionRevenue, setSubscriptionRevenue] = useState(0);
-  const [printReady, setPrintReady] = useState(false);
+  
   const [timeframeMode, setTimeframeMode] = useState<"monthly" | "weekly">("monthly");
 
   useEffect(() => {
@@ -875,3 +864,4 @@ export default function SaaSReportsView() {
     </div>
   );
 }
+

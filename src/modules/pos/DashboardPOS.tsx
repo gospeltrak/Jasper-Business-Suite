@@ -454,7 +454,6 @@ export default function DashboardPOS({
   const [posWarning, setPosWarning] = useState<string | null>(null);
 
 
-
   const currency = systemSettings?.company?.currency || activeTenant.currency;
 
   // Determine if wholesale mode should be available based on product registrations
@@ -787,19 +786,6 @@ export default function DashboardPOS({
     });
   };
 
-  const updateCartDiscount = (id: string, discount: number, type?: 'percent' | 'cash') => {
-    setCart(prev => {
-      return prev.map(i => {
-        if (i.product.id === id) {
-          const actualType = type !== undefined ? type : (i.discountType || 'percent');
-          const limit = actualType === 'percent' ? 100 : i.product.sellingPrice;
-          const finalDiscount = Math.max(0, Math.min(limit, discount));
-          return { ...i, discount: finalDiscount, discountType: actualType };
-        }
-        return i;
-      });
-    });
-  };
 
   const removeFromCart = (id: string) => {
     setCart(prev => prev.filter(i => i.product.id !== id));
@@ -2164,7 +2150,6 @@ export default function DashboardPOS({
       </div>
 
 
-
       {/* CHECKOUT MODAL SYSTEM */}
       {isCheckoutOpen && (
         <div className="fixed inset-0 z-[110] flex items-end md:items-center justify-center p-0 md:p-4 bg-slate-950/70" style={{paddingBottom: 'calc(var(--dashboard-bottom-nav-height, 0px) + env(safe-area-inset-bottom))'}}>
@@ -2760,3 +2745,4 @@ export default function DashboardPOS({
     </div>
   );
 }
+

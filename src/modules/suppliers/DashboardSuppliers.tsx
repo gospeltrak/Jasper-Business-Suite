@@ -1,19 +1,6 @@
 import { useState, FormEvent } from 'react';
 import { Supplier, Purchase, Product, Sale, Tenant } from '../../types';
-import {
-  Phone,
-  Mail,
-  User,
-  Plus,
-  X,
-  Award,
-  Truck,
-  Users,
-  Search,
-  Store,
-  Calendar,
-  Receipt
-} from 'lucide-react';
+import { Phone, Mail, User, Plus, X, Award, Truck, Search, Store, Calendar, Receipt } from "lucide-react";
 
 interface DashboardSuppliersProps {
   suppliers: Supplier[];
@@ -576,3 +563,4 @@ export default function DashboardSuppliers({
     </div>
   );
 }
+

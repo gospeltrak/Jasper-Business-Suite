@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Activity, ShieldAlert, CheckCircle, XCircle, Gift, Search, RefreshCw, FileText, Clock, Package, User, AlertCircle, Bell, Check, type LucideIcon } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from "react";
+import { ShieldAlert, CheckCircle, XCircle, Gift, Search, RefreshCw, FileText, User, AlertCircle, Bell, Check, type LucideIcon } from "lucide-react";
 import { getSecureDataBridgeClient } from '../../../shared/dataBridge/secureDataBridge';
 import { normalizeSubscriptionPlanId, SUBSCRIPTION_PLANS } from '../../../shared/utils/subscription';
 import {
@@ -1110,3 +1110,4 @@ export default function SaaSStatusAndRequests() {
     </div>
   );
 }
+

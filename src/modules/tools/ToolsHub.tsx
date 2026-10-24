@@ -1,26 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from '../../shared/contexts/LanguageContext';
 import { getSecureDataBridgeClient } from '../../shared/dataBridge/secureDataBridge';
-import { 
-  ArrowLeft, 
-  Sparkles, 
-  Crop, 
-  QrCode, 
-  Code, 
-  Download, 
-  Languages, 
-  Sun, 
-  Moon, 
-  Coins, 
-  Plus, 
-  Upload, 
-  CheckCircle, 
-  AlertCircle, 
-  Dribbble, 
-  RefreshCcw, 
-  CreditCard,
-  FileText
-} from 'lucide-react';
+import { ArrowLeft, Sparkles, Crop, QrCode, Code, Download, Languages, Sun, Moon, Coins, Plus, Upload, CheckCircle, AlertCircle, RefreshCcw, CreditCard } from "lucide-react";
 
 interface ToolsHubProps {
   onNavigate: (path: string) => void;
@@ -1545,3 +1526,4 @@ export default function ToolsHub({ onNavigate, isDark, onToggleTheme }: ToolsHub
     </div>
   );
 }
+

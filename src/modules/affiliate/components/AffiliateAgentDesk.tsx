@@ -11,15 +11,7 @@
  */
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  Activity, AlertTriangle, ArrowLeft, Award, BarChart3,
-  CalendarPlus, CheckCircle, ClipboardPlus,
-  Coins, Copy, Edit2, ExternalLink, Eye, FileText,
-  HardDrive, Info, LoaderCircle, Lock, Menu, MessageSquare, Monitor,
-  RefreshCw, Send, Settings, ShieldAlert, ShieldCheck, TrendingUp,
-  Users, Video, Wallet, XCircle, Zap, AlertCircle,
-  Download, LogOut, PhoneCall, Bell,
-} from 'lucide-react';
+import { ArrowLeft, Award, BarChart3, CalendarPlus, CheckCircle, ClipboardPlus, Coins, Copy, Edit2, ExternalLink, Eye, FileText, HardDrive, Info, LoaderCircle, Lock, Menu, MessageSquare, Monitor, RefreshCw, Send, Settings, ShieldAlert, ShieldCheck, Users, Video, XCircle, Zap, AlertCircle, Download, LogOut, Bell } from "lucide-react";
 import {
   AffiliateAgentWorkspace,
   AffiliateNotification,
@@ -28,13 +20,7 @@ import {
   loadAffiliateAgentWorkspace,
   markAffiliateNotificationRead,
 } from '../utils/affiliateWorkspace';
-import {
-  isOnline,
-  initOfflineSync,
-  dbWrite,
-  clearAffiliateSession,
-  flushSyncQueue,
-} from '../utils/offlineSync';
+import { isOnline, initOfflineSync, dbWrite, flushSyncQueue } from "../utils/offlineSync";
 import { ONLINE_ONLY_WRITE_MESSAGE } from '../../../shared/utils/onlineOnly';
 import { canShowDashboardAd, useGlobalAdSettings } from '../../../shared/utils/adPlacement';
 import { sanitizeTrustedHtml } from '../../../shared/utils/safeHtml';
@@ -179,7 +165,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [notice, setNotice] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<DashTab>('overview');
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  
   const [moreOpen, setMoreOpen] = useState(false);
   const [isNetworkOnline, setIsNetworkOnline] = useState(isOnline());
   const adSettings = useGlobalAdSettings();
@@ -1335,7 +1321,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
                           const payoutMethod = aff?.payoutMethod || '—';
                           // Always show actual WHT amount — flag only controls if it's deducted
                           const grossComm = row.subAffiliateGrossCommission15;
-                          const whtAmount = grossComm * 0.05;
+                          
                           const noTin = !aff?.tinStatus || aff.tinStatus === 'not_submitted';
 
                           return (
@@ -1971,3 +1957,4 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
     </div>
   );
 }
+

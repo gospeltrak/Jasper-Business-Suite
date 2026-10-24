@@ -10,33 +10,7 @@ import { formatProductQuantity } from '../../shared/utils/unitFormatter';
 import { calculateBaseCost, convertToBaseQuantity, getBaseUnitLabel, resolvePackageLevels } from '../../shared/utils/universalUnits';
 import { calculateFractionPurchaseLine, isFractionSaleEnabled, resolveFractionSaleConfig } from '../sales/utils/fractionSale';
 import { formatLocalDate, localDateToIso } from '../../shared/utils/localDate';
-import { 
-  Truck, 
-  Package, 
-  Search, 
-  Plus, 
-  Minus, 
-  Trash2, 
-  Calendar, 
-  DollarSign, 
-  CheckCircle, 
-  AlertCircle, 
-  ArrowRight,
-  ClipboardList,
-  Store,
-  Archive,
-  FileSpreadsheet,
-  Filter,
-  ArrowUpDown,
-  MoreVertical,
-  Eye,
-  Pencil,
-  X,
-  ChevronDown,
-  ScanBarcode,
-  Lock,
-  Edit
-} from 'lucide-react';
+import { Truck, Package, Search, Plus, Minus, Trash2, Calendar, DollarSign, CheckCircle, AlertCircle, ArrowRight, ClipboardList, Store, Archive, FileSpreadsheet, ArrowUpDown, MoreVertical, Eye, Pencil, X, ChevronDown, ScanBarcode, Lock, Edit } from "lucide-react";
 
 type PurchaseFundingRow = {
   id: string;

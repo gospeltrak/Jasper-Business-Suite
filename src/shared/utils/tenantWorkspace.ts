@@ -183,9 +183,6 @@ const scopedArray = (payload: any, tenantId: string): any[] => {
   return [];
 };
 
-const readLocalProductsUpdatedAt = (tenantId: string): string | null => {
-  return runtimeProductsUpdatedAt.get(tenantId) || null;
-};
 
 export const markTenantProductsUpdated = (tenantId: string, updatedAt = new Date().toISOString()) => {
   if (!tenantId) return;
@@ -1562,7 +1559,5 @@ export async function initializeNewTenantWorkspace(tenantId: string, settings?: 
   const workspace = emptyWorkspace(settings);
   await saveTenantWorkspace(tenantId, workspace);
 }
-
-
 
 

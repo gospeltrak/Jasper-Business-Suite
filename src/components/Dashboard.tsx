@@ -6,7 +6,7 @@ import { useTranslation } from '../shared/contexts/LanguageContext';
 import { useTenantLogo } from '../shared/contexts/TenantLogoContext';
 import { useTheme } from '../shared/contexts/ThemeContext';
 import { useJasperNotifications } from '../shared/contexts/JasperNotificationContext';
-import { Branch, BranchStaffAssignment, BranchStock, User, Tenant, Product, Sale, SyncLog, Supplier, Expense, Purchase, PurchasePaymentAllocation, Delivery, DeliveryRider, SystemSettings, CustomRole, SaleItem } from '../types';
+import { Branch, BranchStaffAssignment, BranchStock, User, Tenant, Product, Sale, SyncLog, Supplier, Expense, Purchase, PurchasePaymentAllocation, Delivery, DeliveryRider, SystemSettings, SaleItem } from "../types";
 import { 
   DEFAULT_TENANTS, 
   DEFAULT_PRODUCTS, 
@@ -45,7 +45,7 @@ import DashboardScreenErrorBoundary from '../shared/components/DashboardScreenEr
 import GlobalStickyAd from '../shared/components/GlobalStickyAd';
 const SuperSaaSAdminView = lazyWithReload('SuperSaaSAdminView', () => import('../modules/platform-admin/components/SuperSaaSAdminView'));
 import DuressDashboard from '../shared/components/DuressDashboard';
-import CachedImage from '../shared/components/CachedImage';
+
 import { savePendingSaleOffline } from '../shared/utils/offlineDb';
 import { createCleanTenantSettings, isDemoTenant } from '../shared/utils/tenantIsolation';
 import { addTenantPurchasePayment, flushPendingTenantWorkspace, hasPendingTenantWorkspaceSave, loadTenantProductFresh, loadTenantWorkspace, loadTenantWorkspaceCore, markTenantProductsUpdated, readCachedWorkspace, reloadTenantWorkspace, saveTenantDeliveriesOnly, saveTenantExpensesOnly, saveTenantProductsOnly, saveTenantPurchasesOnly, saveTenantSalesOnly, saveTenantSettings, scheduleTenantWorkspaceSave, subscribeToTenantBusinessType, subscribeToTenantWorkspace, TenantWorkspace, waitForTenantWorkspaceLoad, workspaceHasBusinessData } from '../shared/utils/tenantWorkspace';
@@ -80,7 +80,7 @@ import { isPurchaseFundingBalanced, registeredPurchaseFunding } from '../modules
 import { getSubscriptionReminder, getSubscriptionReminderKey } from '../shared/utils/subscriptionReminder';
 import { compressImageFile } from '../shared/utils/imageCompression';
 import { formatLocalDate } from '../shared/utils/localDate';
-import { Shield, Sparkles as SparklesIcon, AlertTriangle, CheckCircle, HelpCircle as HelpIcon, Play, RefreshCcw, CreditCard as CardIcon, Bell } from 'lucide-react';
+import { Shield, AlertTriangle, CreditCard as CardIcon, Bell } from "lucide-react";
 import { 
   getSubscriptionState, 
   checkSubscriptionStatus, 
@@ -95,59 +95,7 @@ import {
 
 const DashboardBranchesSettings = lazyWithReload('DashboardBranchesSettings', () => import('../modules/branches/components/DashboardBranchesSettings'));
 
-import { 
-  Store, 
-  LogOut, 
-  Cpu, 
-  LayoutDashboard, 
-  ShoppingCart, 
-  Package, 
-  Users, 
-  Activity, 
-  Wifi, 
-  WifiOff, 
-  HelpCircle,
-  Database,
-  Building,
-  DollarSign,
-  TrendingUp,
-  FileText,
-  Receipt,
-  Sparkles,
-  Truck,
-  Bike,
-  Pill,
-  Globe,
-  Clock,
-  Settings as SettingsIcon,
-  Coins,
-  Wallet,
-  ChevronLeft,
-  ChevronRight,
-  BrainCircuit,
-  Award,
-  Volume2,
-  MessageSquare,
-  Inbox,
-  ShieldAlert,
-  Layers,
-  MonitorPlay,
-  Menu,
-  MoreHorizontal,
-  X,
-  Sun,
-  Moon,
-  PieChart,
-  TrendingDown,
-  CloudLightning,
-  ArrowRightLeft,
-  MapPin,
-  MinusCircle,
-  RefreshCw,
-  Handshake,
-  Download,
-  LoaderCircle
-} from 'lucide-react';
+import { LogOut, LayoutDashboard, ShoppingCart, Package, Users, Activity, Database, Building, TrendingUp, FileText, Receipt, Truck, Globe, Clock, Settings as SettingsIcon, Wallet, ChevronLeft, ChevronRight, Award, MessageSquare, Inbox, MonitorPlay, Menu, X, Sun, Moon, PieChart, TrendingDown, CloudLightning, MapPin, MinusCircle, Handshake, Download, LoaderCircle } from "lucide-react";
 
 // A high-fidelity composite component representing a rider on a motorcycle with a delivery basket on their back
 function DeliveryMotorcycleIcon({ className, size = 18 }: { className?: string; size?: number }) {
@@ -475,7 +423,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
 
   // Sidebar Collapse state (icons vs full sidebar labels)
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
+  
   const [moreMenuOpen, setMoreMenuOpen] = useState<boolean>(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState<boolean>(false);
   const [logoutError, setLogoutError] = useState<string | null>(null);
@@ -1363,79 +1311,6 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       };
     }
   }, []);
-
-  // Floating support hotline and broadcast tracker
-  const [isSupportConsoleOpen, setIsSupportConsoleOpen] = useState(false);
-  const [activeConsoleTab, setActiveConsoleTab] = useState<'alerts' | 'chat' | 'offers'>('alerts');
-  const [consoleChats, setConsoleChats] = useState<any[]>([]);
-  const [userChatInput, setUserChatInput] = useState('');
-  const [localBulletins, setLocalBulletins] = useState<any[]>([]);
-  const [localOffers, setLocalOffers] = useState<any[]>([]);
-
-  // Periodically synchronise with SaaS Admin broadcasts
-  useEffect(() => {
-    const fetchHotlineAssets = () => {
-      // 1. Load bulletins
-      const rawBulletins = onlineStorage.getItem('jasper_super_admin_bulletins');
-      if (rawBulletins) {
-        setLocalBulletins(JSON.parse(rawBulletins));
-      } else {
-        const fallbackBulletins = [
-          { id: 'bul-1', timestamp: new Date().toISOString(), title: 'Mpesa real-time sync upgrade completed', content: 'Our real-time transaction processing latency is now officially verified at 0.3 seconds across all East African cash endpoints.', type: 'system' }
-        ];
-        setLocalBulletins(fallbackBulletins);
-      }
-
-      // 2. Load Offers
-      const rawOffers = onlineStorage.getItem('jasper_super_admin_broadcast_offers');
-      if (rawOffers) {
-        setLocalOffers(JSON.parse(rawOffers));
-      } else {
-        const fallbackOffers = [
-          { id: 'off-1', timestamp: new Date().toISOString(), title: 'SaaS Suite Easter Discount', code: 'UPGRADE20', badge: 'SAVE 20%', description: 'Get a 20% flat discount on unified retail, wholesale, and pharmacy bookkeeping models. Limited time discount.', isActive: true }
-        ];
-        setLocalOffers(fallbackOffers);
-      }
-
-      // 3. Load Chat messages
-      const rawChats = onlineStorage.getItem('jasper_super_admin_hotline_chats');
-      if (rawChats) {
-        setConsoleChats(JSON.parse(rawChats));
-      } else {
-        const defaultChats = [
-          { id: 'ch-1', tenantId: activeTenant.id, tenantName: activeTenant.name, senderName: user.name, timestamp: new Date().toISOString(), messageText: 'Habari, we would like assistance wiring extra Epson thermal printers to our wholesale terminals today.', direction: 'user_to_admin', isRead: false }
-        ];
-        setConsoleChats(defaultChats);
-      }
-    };
-
-    fetchHotlineAssets();
-    // Refresh every 5 seconds to simulate real-time socket updates
-    const syncInterval = setInterval(fetchHotlineAssets, 5000);
-    return () => clearInterval(syncInterval);
-  }, [activeTenant.id, user.name]);
-
-  const handleSendMerchantMessage = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!userChatInput.trim()) return;
-
-    const newMsg = {
-      id: 'ch-usr-' + Math.floor(Math.random() * 100000),
-      tenantId: activeTenant.id,
-      tenantName: activeTenant.name,
-      senderName: user.name,
-      timestamp: new Date().toISOString(),
-      messageText: userChatInput,
-      direction: 'user_to_admin',
-      isRead: false
-    };
-
-    const currentSaved = JSON.parse(onlineStorage.getItem('jasper_super_admin_hotline_chats') || '[]');
-    const updated = [...currentSaved, newMsg];
-    onlineStorage.setItem('jasper_super_admin_hotline_chats', JSON.stringify(updated));
-    setConsoleChats(updated);
-    setUserChatInput('');
-  };
 
   // Dynamic system permissions resolver based on actingStaffId
   const activeRoleName = (() => {
@@ -3356,30 +3231,6 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     return true;
   };
 
-  // Switch store tenant controller
-  const handleTenantChange = (tenantId: string) => {
-    const matched = tenantsList.find(t => t.id === tenantId);
-    if (matched) {
-      setActiveTenant(matched);
-      // Automatically adjust visual tab layout of active workspace
-      if (matched.businessType === 'pharmacy') {
-        setActiveTab('sandbox-pms');
-      } else {
-        setActiveTab('overview');
-      }
-      
-      // Auto register a log trace of changing desks
-      const newLog: SyncLog = {
-        id: 'l-' + Math.random().toString(36).substr(2, 9),
-        type: 'auth_sync',
-        status: 'success',
-        message: `Active user terminal pivoted to multi-tenant node: ${matched.name} (${matched.city})`,
-        timestamp: new Date().toISOString()
-      };
-      setLogs(prev => [newLog, ...prev]);
-    }
-  };
-
   // Legacy pending queue review: replay is disabled in online-only mode.
   const handleSyncOfflineQueue = (callback: () => void) => {
     const newLog: SyncLog = {
@@ -3462,121 +3313,6 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     || activeProfileBusinessName
     || 'My Business';
   const onlineBusinessName = activeProfileBusinessName;
-  const customBusinessName = businessDisplayName;
-  const customBusinessAddressDetail = systemSettings.business?.businessAddress
-    ? `Branch: ${systemSettings.business.businessAddress.split(',')[0]}`
-    : 'Unified ERP Node';
-
-  // Helper properties to resolve bottom navigation items dynamically
-  const tab1Id = user.role === 'SuperAdmin' ? 'admin-dashboard' :
-                 activeTenant.businessType === 'pharmacy' ? 'sandbox-pms' : 'overview';
-  const tab1Label = user.role === 'SuperAdmin' ? 'Dashboard' :
-                    activeTenant.businessType === 'pharmacy' ? 'Clinics' : 'Overview';
-  const Tab1Icon = LayoutDashboard;
-
-  const tab2Id = user.role === 'SuperAdmin' ? 'admin-subscribers' : 'pos';
-  const tab2Label = user.role === 'SuperAdmin' ? 'Subscribers' : 'POS Till';
-  const Tab2Icon = user.role === 'SuperAdmin' ? Users : ShoppingCart;
-
-  const tab3Id = user.role === 'SuperAdmin' ? 'admin-affiliates' : 'sales-list';
-  const tab3Label = user.role === 'SuperAdmin' ? 'Affiliates' : 'Sales';
-  const Tab3Icon = user.role === 'SuperAdmin' ? Award : FileText;
-
-  const tab4Id = user.role === 'SuperAdmin' ? 'admin-reports' : 'products';
-  const tab4Label = user.role === 'SuperAdmin' ? 'Reports' : 'Stock';
-  const Tab4Icon = user.role === 'SuperAdmin' ? Database : Package;
-
-  // Secondary options that go inside the Bottom Sheet "More" menu
-  const secondaryMenuOptions = (user.role === 'SuperAdmin'
-    ? [
-
-        { id: 'admin-status', label: 'Status & Requests', icon: Activity },
-        { id: 'admin-expenses', label: 'Expenses', icon: Receipt },
-        { id: 'admin-chats', label: 'Chats / Broadcasts', icon: MessageSquare },
-        { id: 'admin-inbox', label: 'User Inbox', icon: Inbox },
-        { id: 'admin-security', label: 'Security Activity', icon: ShieldAlert },
-        { id: 'admin-ad-placements', label: 'Ad Placements', icon: MonitorPlay },
-        { id: 'admin-promotions', label: 'Ad Exchange SSP', icon: MonitorPlay },
-        { id: 'admin-web-editor', label: 'Web Editor', icon: Globe },
-        { id: 'admin-settings', label: 'Settings', icon: SettingsIcon }
-      ]
-    : activeTenant.businessType === 'pharmacy'
-        ? [
-            { id: 'purchases-list', label: 'Pharma Purchases Journal', icon: Truck },
-            { id: 'expenses', label: 'Expenses', icon: Receipt },
-            { id: 'inventory', label: 'Drug Stock Valuations', icon: Package },
-            { id: 'suppliers', label: 'Suppliers Directory', icon: Users },
-            { id: 'reports', label: 'Reports & Audits', icon: DollarSign },
-            { id: 'sync', label: 'Sync Safety Hub', icon: Activity },
-            { id: 'whitelabel', label: 'White-Label Branding', icon: Globe },
-            { id: 'settings', label: 'System Settings', icon: SettingsIcon }
-          ]
-        : [
-            { id: 'purchases-list', label: 'Purchases Journal', icon: Truck },
-            { id: 'deliveries', label: 'Deliveries Menu', icon: DeliveryMotorcycleIcon },
-            { id: 'expenses', label: 'Expenses', icon: Receipt },
-            { id: 'inventory', label: 'Stock Valuations', icon: Package },
-            { id: 'forecasting', label: 'AI Stock Forecast', icon: TrendingUp },
-            { id: 'suppliers', label: 'Partners Directory', icon: Users },
-            { id: 'reports', label: 'Reports & Audits', icon: DollarSign },
-            { id: 'sync', label: 'Sync Safety Hub', icon: Activity },
-            { id: 'whitelabel', label: 'White-Label Branding', icon: Globe },
-            { id: 'settings', label: 'System Settings', icon: SettingsIcon }
-          ]
-  ).filter(item => isTabAllowed(item.id));
-
-  // Master list of all menu items for the desktop Sidebar Menu
-  const menuOptions = (user.role === 'SuperAdmin'
-    ? [
-        { id: 'admin-dashboard', label: 'Dashboard', icon: LayoutDashboard },
-        { id: 'admin-subscribers', label: 'Subscribers List', icon: Users },
-        { id: 'admin-affiliates', label: 'Affiliates', icon: Award },
-
-        { id: 'admin-status', label: 'Status and Request', icon: Activity },
-        { id: 'admin-reports', label: 'Reports', icon: Database },
-        { id: 'admin-user-activity', label: 'User Activity', icon: Users },
-        { id: 'admin-expenses', label: 'Expenses', icon: Receipt },
-        { id: 'admin-chats', label: 'Chats', icon: MessageSquare },
-        { id: 'admin-inbox', label: 'Inbox', icon: Inbox },
-        { id: 'admin-security', label: 'Security Activity', icon: ShieldAlert },
-        { id: 'admin-ad-placements', label: 'Ad Placements', icon: MonitorPlay },
-        { id: 'admin-promotions', label: 'Ad Exchange SSP', icon: MonitorPlay },
-        { id: 'admin-web-editor', label: 'Web Editor', icon: Globe },
-        { id: 'admin-settings', label: 'Settings', icon: SettingsIcon }
-      ]
-    : activeTenant.businessType === 'pharmacy'
-          ? [
-              { id: 'sandbox-pms', label: 'Clinical Rx Intercept', icon: Pill },
-              { id: 'pos', label: 'Pharmacist Till (POS)', icon: ShoppingCart },
-              { id: 'expenses', label: 'Expenses', icon: Receipt },
-              { id: 'sales-list', label: 'Prescriptions & Sales', icon: FileText },
-              { id: 'purchases-list', label: 'Pharma Purchases Journal', icon: Truck },
-              { id: 'inventory', label: 'Drug Stock Valuations', icon: Package },
-              { id: 'products', label: 'Drugs & Products Catalog', icon: Package },
-              { id: 'suppliers', label: 'Suppliers Directory', icon: Users },
-              { id: 'reports', label: 'Reports & Audits', icon: DollarSign },
-              { id: 'sync', label: 'Sync Safety Hub', icon: Activity },
-              { id: 'whitelabel', label: 'White-Label Branding', icon: Globe },
-              { id: 'settings', label: 'System Settings', icon: SettingsIcon }
-            ]
-          : [
-              { id: 'overview', label: 'Sales Summary', icon: LayoutDashboard },
-              { id: 'pos', label: 'Cashier Till (POS)', icon: ShoppingCart },
-              { id: 'expenses', label: 'Expenses', icon: Receipt },
-              { id: 'sales-list', label: 'Sales List', icon: FileText },
-              { id: 'purchases-list', label: 'Purchases Journal', icon: Truck },
-              { id: 'deliveries', label: 'Deliveries Menu', icon: DeliveryMotorcycleIcon },
-              { id: 'inventory', label: 'Stock Valuations', icon: Package },
-              { id: 'forecasting', label: 'AI Stock Forecast', icon: TrendingUp },
-              { id: 'products', label: 'Products Catalog', icon: Package },
-              { id: 'suppliers', label: 'Partners Directory', icon: Users },
-              { id: 'reports', label: 'Reports & Audits', icon: DollarSign },
-              { id: 'sync', label: 'Sync Safety Hub', icon: Activity },
-              { id: 'whitelabel', label: 'White-Label Branding', icon: Globe },
-              { id: 'settings', label: 'System Settings', icon: SettingsIcon }
-            ]
-  ).filter(item => isTabAllowed(item.id));
-
   const customSidebarItems = activeRoleName === 'SuperAdmin' ? [
     { id: 'admin-dashboard', label: 'Dashboard', icon: LayoutDashboard, tabId: 'admin-dashboard' },
     { id: 'admin-subscribers', label: 'Subscribers', icon: Users, tabId: 'admin-subscribers' },
@@ -3600,7 +3336,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     // Determines which menu items are visible based on the active subscription plan.
     // Ruby = basic, Diamond = mid, Tanzanite = full
     const planId = subStatus.plan.id;
-    const isRuby      = planId === 'ruby'      || planId === 'essential' || planId === 'trial';
+    
     const isDiamond   = planId === 'diamond'   || planId === 'business';
     const isTanzanite = planId === 'tanzanite' || planId === 'wholesale';
 
@@ -5444,8 +5180,5 @@ function TenantDashboardGate(props: DashboardProps) {
   }
   return <DashboardContent {...props} />;
 }
-
-
-
 
 

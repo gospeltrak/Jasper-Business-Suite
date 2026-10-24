@@ -223,7 +223,7 @@ export default function App() {
     let cancelled = false;
     const resolveCurrentHost = async () => {
       try {
-        // ?portal= is a developer-only override (see api/tenant/resolve.ts) for
+        // ?portal= is a developer-only override (see the tenant resolver in server.ts) for
         // simulating auth/admin/affiliate/partner subdomains on localhost or a
         // Vercel preview URL, where real wildcard subdomains aren't reachable.
         const portalOverride = new URLSearchParams(window.location.search).get('portal') || '';
@@ -903,3 +903,4 @@ export default function App() {
     </div>
   );
 }
+

@@ -1,62 +1,11 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Product, Sale, Tenant, Expense, CustomRole, Supplier, LedgerEntry, PaymentChannel } from '../../types';
-import { 
-  ResponsiveContainer, 
-  LineChart, 
-  Line, 
-  XAxis, 
-  YAxis, 
-  Tooltip, 
-  CartesianGrid, 
-  Legend,
-  PieChart,
-  Pie,
-  Cell,
-  BarChart,
-  Bar
-} from 'recharts';
-import { 
-  BarChart3, 
-  TrendingUp, 
-  Calendar, 
-  DollarSign, 
-  Package, 
-  Users, 
-  ArrowUpDown, 
-  Receipt, 
-  Tag, 
-  Filter, 
-  ArrowUpRight, 
-  ArrowDownRight, 
-  Percent, 
-  ShoppingBag, 
-  Plus, 
-  Search,
-  CheckCircle,
-  AlertCircle,
-  Archive,
-  FileText,
-  Image,
-  UploadCloud,
-  Eye,
-  ShieldAlert,
-  Printer,
-  Truck,
-  ChevronDown,
-  ChevronUp,
-  ChevronRight,
-  MinusCircle,
-  ShoppingCart,
-  ArrowLeft,
-  ArrowRight,
-  Scale,
-  Landmark,
-  Wallet
-} from 'lucide-react';
-import { formatProductQuantity, formatSaleItemQuantity, getProductUnitName } from '../../shared/utils/unitFormatter';
-import { getDisplayStockBreakdown, resolvePackageLevels } from '../../shared/utils/universalUnits';
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from "recharts";
+import { BarChart3, TrendingUp, Calendar, DollarSign, Package, ArrowUpDown, Receipt, Tag, ArrowUpRight, ArrowDownRight, ShoppingBag, Search, AlertCircle, FileText, Truck, ChevronDown, ChevronRight, MinusCircle, ShoppingCart, Landmark } from "lucide-react";
+import { formatProductQuantity } from "../../shared/utils/unitFormatter";
+
 import { downloadPdfFromElement } from '../../shared/utils/pdfShare';
-import CachedImage from '../../shared/components/CachedImage';
+
 import ModernSelect from '../../shared/components/ModernSelect';
 import { getActiveBranchAddress, getActiveBranchDisplayName, getActiveBranchEmail, getActiveBranchPhone } from '../../shared/utils/businessBranding';
 import type { BranchSummary } from '../branches/branchTypes';
@@ -123,7 +72,7 @@ export default function DashboardReports({
   const _contractGuard = () => {
     const sale = sales[0] || { timestamp: '' };
     timestampToLocalDate(sale.timestamp);
-    const _categories = systemSettings?.expenseCategories;
+    
   };
   _contractGuard();
 
@@ -199,17 +148,7 @@ export default function DashboardReports({
 
   const [selectedMonitoredProductId, setSelectedMonitoredProductId] = useState<string>('all');
   const [productSearchQuery, setProductSearchQuery] = useState<string>('');
-  const [productSortBy, setProductSortBy] = useState<'qtySold' | 'revenue' | 'profit' | 'margin' | 'totOnHand' | 'name' | 'sku'>('qtySold');
-  const [productSortOrder, setProductSortOrder] = useState<'asc' | 'desc'>('desc');
 
-  const handleProductHeaderSort = (field: typeof productSortBy) => {
-    if (productSortBy === field) {
-      setProductSortOrder(prev => prev === 'desc' ? 'asc' : 'desc');
-    } else {
-      setProductSortBy(field);
-      setProductSortOrder('desc');
-    }
-  };
 
   useEffect(() => {
     if (!selectedMonitoredProductId) {
@@ -268,53 +207,16 @@ export default function DashboardReports({
   const tabScrollRef = useRef<HTMLDivElement>(null);
   const [showTabScrollHint, setShowTabScrollHint] = useState(false);
 
-  const [plValuationSegment, setPlValuationSegment] = useState<'shop' | 'store' | 'combined'>('shop');
-  const [plValuationSearch, setPlValuationSearch] = useState('');
-  const [plValuationSortBy, setPlValuationSortBy] = useState<'margin' | 'value' | 'name'>('margin');
 
   useEffect(() => {
     if (headerSearchQuery !== undefined) {
       setSearchTerm(headerSearchQuery);
     }
   }, [headerSearchQuery, reportTab]);
-  const [mobileSelectorOpen, setMobileSelectorOpen] = useState(false);
 
-  const [salesSearch, setSalesSearch] = useState('');
-  const [salesPaymentFilter, setSalesPaymentFilter] = useState<string>('All');
+
   const [selectedInspectSale, setSelectedInspectSale] = useState<Sale | null>(null);
 
-  const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
-  const [expenseCategory, setExpenseCategory] = useState('Utilities & Power');
-  const [expenseAmount, setExpenseAmount] = useState('');
-  const [expenseDesc, setExpenseDesc] = useState('');
-  const [expenseImage, setExpenseImage] = useState<string>('');
-  const [dragActive, setDragActive] = useState(false);
-  const [previewReceiptImage, setPreviewReceiptImage] = useState<string | null>(null);
-
-
-  const classifyPaymentMethod = (method: string) => {
-    const m = (method || '').toLowerCase();
-    // Prefer the tenant's own registered account category (set once, when
-    // the account was created in Cash & Bank) over guessing from the name.
-    // That's what correctly recognizes real provider/bank names like
-    // "CRDB", "NMB" or "Mixx by Yas" that don't contain a generic word
-    // like "bank" or "mobile" -- the keyword guesses below previously
-    // dumped all of those into "Cash" by falling through to the default.
-    const configuredChannels: any[] = systemSettings?.paymentChannels || [];
-    const matchedChannel = configuredChannels.find((ch: any) =>
-      (ch.name || '').toLowerCase() === m || (ch.paymentMethod || '').toLowerCase() === m
-    );
-    if (matchedChannel?.category === 'physical') return 'Cash';
-    if (matchedChannel?.category === 'telco') return 'MobileMoney';
-    if (matchedChannel?.category === 'bank') return 'BankTransfer';
-
-    if (m.includes('cash')) return 'Cash';
-    if (m.includes('card') || m.includes('online') || m.includes('stripe') || m.includes('paypal')) return 'CardAndOnline';
-    if (m.includes('mobile') || m.includes('mpesa') || m.includes('tigo') || m.includes('airtel') || m.includes('mixx') || m.includes('yas') || m.includes('halo')) return 'MobileMoney';
-    if (m.includes('bank') || m.includes('transfer')) return 'BankTransfer';
-    if (m.includes('credit') || m.includes('deferred')) return 'Credit';
-    return 'Cash';
-  };
 
   // Mirrors POS's own visibility rule (DashboardPOS.tsx hasAnyWholesaleProduct)
   // -- only show the Retail/Wholesale report filter for tenants who actually
@@ -579,17 +481,6 @@ export default function DashboardReports({
       </div>
     </>
   );
-
-  const paymentBreakdown = useMemo(() => {
-    const breakdown = { Cash: 0, CardAndOnline: 0, MobileMoney: 0, BankTransfer: 0, Credit: 0 };
-    filteredSales.forEach(s => {
-      const method = classifyPaymentMethod(s.paymentMethod);
-      if (breakdown[method !== undefined ? method as keyof typeof breakdown : 'Cash'] !== undefined) {
-        breakdown[method !== undefined ? method as keyof typeof breakdown : 'Cash'] += saleProductRevenue(s);
-      }
-    });
-    return breakdown;
-  }, [filteredSales]);
 
   const pnlStats = useMemo(() => {
     const totalSalesRevenue = filteredSales.reduce((sum, s) => sum + saleProductRevenue(s), 0);
@@ -2463,3 +2354,4 @@ export default function DashboardReports({
     </div>
   );
 }
+

@@ -9,7 +9,7 @@ import dotenv from 'dotenv';
 import { GoogleGenAI, Type } from '@google/genai';
 import { createClient } from '@supabase/supabase-js';
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
-import lucyHandler from './api/lucy.js';
+import lucyHandler from './src/server/lucy.js';
 import {
   type SafeErrorCode,
   type SafeErrorContext,
@@ -2786,7 +2786,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     }
   });
 
-  // Mirrors the standalone api/tenant/slug.ts GET handler: with no ?slug=, returns
+  // With no ?slug=, this shared handler returns
   // this tenant's own already-assigned (immutable-after-registration) domain instead
   // of an availability check. Public info -- same as what /api/tenant/resolve exposes.
   app.get('/api/tenant/slug', async (req, res) => {
@@ -5985,4 +5985,5 @@ async function startServer() {
 if (!process.env.VERCEL) {
   startServer();
 }
+
 
