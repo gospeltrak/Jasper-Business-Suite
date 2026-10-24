@@ -54,8 +54,19 @@ test('super admin overview stays lightweight and tenant workspaces load on deman
     server.indexOf("app.get('/api/super-admin/tenants/:tenantId/branch-access'"),
   );
   assert.match(workspaceRoute, /await requirePlatformAdmin\(req\)/);
-  assert.match(workspaceRoute, /\.eq\('tenant_id', tenantId\)/);
-  assert.match(workspaceRoute, /select\('tenant_id,payload,updated_at'\)/);
+  assert.match(workspaceRoute, /rpc\('get_tenant_workspace_snapshot', \{ p_tenant_id: tenantId \}\)/);
+  assert.match(workspaceRoute, /if \(!isUuid\(tenantId\)\)/);
+  assert.match(workspaceRoute, /private, no-store, max-age=0/);
+  assert.doesNotMatch(workspaceRoute, /adminTable\('tenant_workspaces'\)/);
+  const directWriteApi = fs.readFileSync('supabase/migrations/20261024043845_normalized_business_write_api_adapters.sql', 'utf8');
+  const snapshotRpc = directWriteApi.slice(
+    directWriteApi.indexOf('create or replace function public.get_tenant_workspace_snapshot('),
+    directWriteApi.indexOf('create or replace function private.legacy_business_data_key('),
+  );
+  assert.match(snapshotRpc, /from public\.tenant_workspaces where tenant_id=p_tenant_id/);
+  assert.match(snapshotRpc, /private\.normalized_business_snapshot\(tenant_id\)/);
+  assert.match(snapshotRpc, /revoke all on function public\.get_tenant_workspace_snapshot\(uuid\) from public,anon,authenticated/);
+  assert.match(snapshotRpc, /grant execute on function public\.get_tenant_workspace_snapshot\(uuid\) to service_role/);
 });
 
 test('online operational metrics use recent device sessions without loading tenant workspaces', () => {
