@@ -141,3 +141,59 @@ remains available for dual-write compatibility and safe rollback; this rollout
 does not remove it or authorize legacy cleanup. Newly registered tenants still
 require their own verified migration.
 
+
+## Direct normalized business writes
+
+The direct-write rollout supersedes the read-only transition above. Per-tenant
+`normalized_writes_enabled` gates the source of truth. It defaults to false;
+operators enable it only after normalized-read reconciliation and deployment QA.
+
+For enabled tenants, existing product, sales, expense, delivery, purchase,
+offline-sync and installment RPCs load normalized rows and write their typed
+columns and item relations directly in the same database transaction. Individual
+`source_record` values retain extended fields for the existing API representation;
+there is no persisted tenant-wide business array. Pending delivery notes have
+their own tenant/branch-scoped table. Existing supplier, rider, branch, staff and
+treasury tables retain their established write paths.
+
+`tenant_workspaces` retains configuration and a revision timestamp for Realtime.
+Products, invoices, purchases, expenses, deliveries, stock and pending-note arrays
+are removed from its live payload. Realtime clients treat changes as invalidation
+events and reload the authorized branch. Legacy business-key helpers route through
+the same normalized RPCs; a failed RPC does not fall back to an old JSON write.
+
+Direct-write tenants do not enqueue normalization work, and both workers exclude
+them. Legacy backfill functions reject attempts to overwrite their newer records.
+Business saves therefore become readable immediately without waiting for Cron.
+
+Deletion requires an explicit tombstone. Archived rows retain their IDs and audit
+data; a missing record in a background snapshot does not delete it. New deletion
+intents are branch-scoped, and associated treasury reversals commit with deletion.
+Installment-bearing purchases remain protected. Sale deletion also closes linked
+dispatch records; product deltas in offline sync update the active branch stock.
+
+The privileged cutover function stores the original snapshot and hash in
+`private.normalized_write_cutover_archives`. This archive is unavailable to app
+users. Rollback rebuilds the **latest** workspace from normalized rows before
+returning to legacy writes, including transactions created after cutover.
+Configuration JSON and per-row extensible metadata are not business workspace
+blobs and remain supported.
+
+New empty tenants start with direct writes after the global rollout gate is
+enabled. Non-empty imports require the same verified migration gates.
+
+Validation includes real SQL roundtrips (rolled back), multi-account/external
+installments, retries, treasury reversal, stock and item foreign keys, offline
+idempotency, stale snapshot protection, authorized branch reloads and all-tenant
+pagination. The SQL checks live in `supabase/tests/normalized_business_write_*.sql`.
+
+Operator status query:
+
+```sql
+select tenant_id, read_mode, normalized_writes_enabled,
+       normalized_writes_activated_at
+from public.workspace_migration_state;
+```
+
+No legacy backups or historical normalized rows are deleted by this rollout.
+

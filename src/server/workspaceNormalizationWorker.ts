@@ -27,7 +27,7 @@ export async function processWorkspaceNormalizationQueue(): Promise<WorkspaceNor
           join public.workspace_migration_state state using (tenant_id)
           where outbox.status in ('pending', 'failed')
             and outbox.available_at <= statement_timestamp()
-            and state.dual_write_enabled
+            and state.dual_write_enabled and not state.normalized_writes_enabled
             and state.read_mode in ('legacy', 'shadow', 'normalized')
           order by outbox.available_at, outbox.requested_at, outbox.tenant_id
           limit 1
@@ -115,4 +115,5 @@ export async function processWorkspaceNormalizationQueue(): Promise<WorkspaceNor
     throw new Error('Workspace normalization worker failed before claiming a job.');
   }
 }
+
 

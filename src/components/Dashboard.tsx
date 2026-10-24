@@ -2095,6 +2095,13 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       addToast('This expense is not part of the active branch workspace.', 'error');
       return false;
     }
+    if (readCachedWorkspace(activeTenant.id)?.businessStorage === 'normalized') {
+      const nextExpenses = (expensesMap[activeTenant.id] || []).filter(item => item.id !== expenseId);
+      const saved = await saveTenantExpensesOnly(activeTenant.id, nextExpenses, { [expenseId]: new Date().toISOString() });
+      if (!saved) { addToast('Expense could not be deleted safely. Nothing was removed.', 'error'); return false; }
+      setExpensesMap(prev => ({ ...prev, [activeTenant.id]: readCachedWorkspace(activeTenant.id)?.expenses || nextExpenses }));
+      return true;
+    }
     if (expense?.treasuryJournalId) {
       try {
         await reverseTreasuryEntry(
@@ -2888,7 +2895,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     const nextDeliveries = currentDeliveries.filter(delivery => delivery.id !== deliveryId);
 
     // Narrow save: only the `deliveries` key changes here.
-    const saved = await saveTenantDeliveriesOnly(tenantId, nextDeliveries);
+    const saved = await saveTenantDeliveriesOnly(tenantId, nextDeliveries, readCachedWorkspace(tenantId)?.businessStorage === 'normalized' ? { [deliveryId]: new Date().toISOString() } : undefined);
     if (!saved) {
       addToast('Delivery could not be deleted from the system. Nothing was removed.', 'error');
       return false;
@@ -3316,7 +3323,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     });
     // Narrow save: this delete atomically touches purchases + products
     // (stock reversed) + branchStocks, exactly as before.
-    const saved = await saveTenantPurchasesOnly(activeTenant.id, nextPurchases, nextProducts, nextBranchStocks);
+    const saved = await saveTenantPurchasesOnly(activeTenant.id, nextPurchases, nextProducts, nextBranchStocks, readCachedWorkspace(activeTenant.id)?.businessStorage === 'normalized' ? { [purchaseId]: new Date().toISOString() } : undefined);
     if (!saved) return false;
 
     if (purchase.treasuryJournalId) {
@@ -5437,6 +5444,7 @@ function TenantDashboardGate(props: DashboardProps) {
   }
   return <DashboardContent {...props} />;
 }
+
 
 
 

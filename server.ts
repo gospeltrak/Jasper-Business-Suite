@@ -3001,10 +3001,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       if (!isUuid(tenantId)) return res.status(400).json({ error: 'Invalid tenant identifier.' });
       res.setHeader('Cache-Control', 'private, no-store, max-age=0');
       res.setHeader('Vary', 'Authorization');
-      const { data, error } = await adminTable('tenant_workspaces')
-        .select('tenant_id,payload,updated_at')
-        .eq('tenant_id', tenantId)
-        .maybeSingle();
+      const { data, error } = await supabaseAdmin!.rpc('get_tenant_workspace_snapshot', { p_tenant_id: tenantId });
       if (error) throw error;
       return res.json({ workspace: data || { tenant_id: tenantId, payload: {}, updated_at: null } });
     } catch (error: any) {
@@ -5988,3 +5985,4 @@ async function startServer() {
 if (!process.env.VERCEL) {
   startServer();
 }
+

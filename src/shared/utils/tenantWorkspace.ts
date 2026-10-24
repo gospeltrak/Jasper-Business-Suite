@@ -23,6 +23,7 @@ import { canWriteBusinessDataOnline, warnOfflineWriteBlocked } from './onlineOnl
 // ─── Types ─────────────────────────────────────────────────────────────────
 
 export interface TenantWorkspace {
+  businessStorage?: 'normalized';
   branches?: Branch[];
   branchStocks?: BranchStock[];
   branchStaffAssignments?: BranchStaffAssignment[];
@@ -160,6 +161,7 @@ const loadNormalizedWorkspaceLedgers = async (client: any): Promise<Partial<Tena
 const normalizeWorkspace = (workspace: Partial<TenantWorkspace> | null | undefined): TenantWorkspace | null => {
   if (!workspace) return null;
   return {
+    businessStorage: workspace.businessStorage,
     branches:            workspace.branches            || [],
     branchStocks:        workspace.branchStocks        || [],
     branchStaffAssignments: workspace.branchStaffAssignments || [],
@@ -479,6 +481,10 @@ async function fetchWorkspaceCore(tenantId: string): Promise<WorkspaceCoreResult
       .eq('tenant_id', tenantId)
       .maybeSingle();
 
+    if (data?.payload?.businessStorage === 'normalized') {
+      console.warn('[workspace] normalized read API is unavailable; refusing a metadata-only fallback');
+      return null;
+    }
     if (error) {
       console.warn('[workspace] load error:', error.message);
       return null;
@@ -811,6 +817,13 @@ async function saveTenantWorkspaceNow(
         // The database may retain a newer product/stock snapshot than this autosave.
         // Cache its committed values so the client does not briefly restore old data.
         const committed = secureSave.data?.payload;
+        if (committed?.businessStorage === 'normalized') {
+          workspaceToSave.businessStorage = 'normalized';
+          workspaceToSave.sales = Array.isArray(committed.sales) ? committed.sales : workspaceToSave.sales;
+          workspaceToSave.expenses = Array.isArray(committed.expenses) ? committed.expenses : workspaceToSave.expenses;
+          workspaceToSave.deliveries = Array.isArray(committed.deliveries) ? committed.deliveries : workspaceToSave.deliveries;
+          workspaceToSave.pendingDeliveryNotes = Array.isArray(committed.pendingDeliveryNotes) ? committed.pendingDeliveryNotes : workspaceToSave.pendingDeliveryNotes;
+        }
         if (Array.isArray(committed?.purchases)) {
           workspaceToSave.purchases = mergeRecordsById(committed.purchases, workspaceToSave.purchases);
         }
@@ -1093,6 +1106,7 @@ export function saveTenantProductsOnly(
 async function saveTenantExpensesOnlyNow(
   tenantId: string,
   expenses: Expense[],
+  tombstones?: Record<string, string>,
 ): Promise<boolean> {
   if (!canWriteBusinessDataOnline()) {
     warnOfflineWriteBlocked(`saveTenantExpensesOnly:${tenantId}`);
@@ -1105,7 +1119,7 @@ async function saveTenantExpensesOnlyNow(
   }
   try {
     if (typeof client.rpc === 'function') {
-      const result = await client.rpc('save_current_branch_expenses', { p_expenses: expenses });
+      const result = await client.rpc('save_current_branch_expenses', tombstones ? { p_expenses: expenses, p_expense_tombstones: tombstones } : { p_expenses: expenses });
       const missingRpc = ['PGRST202', '42883'].includes(String(result.error?.code || ''));
       if (!result.error) {
         const mergedExpenses = Array.isArray(result.data?.expenses)
@@ -1131,10 +1145,11 @@ async function saveTenantExpensesOnlyNow(
 export function saveTenantExpensesOnly(
   tenantId: string,
   expenses: Expense[],
+  tombstones?: Record<string, string>,
 ): Promise<boolean> {
   if (!tenantId) return Promise.resolve(false);
   const previous = workspaceSaveQueue.get(tenantId) || Promise.resolve(true);
-  const next = previous.catch(() => false).then(() => saveTenantExpensesOnlyNow(tenantId, expenses));
+  const next = previous.catch(() => false).then(() => saveTenantExpensesOnlyNow(tenantId, expenses, tombstones));
   workspaceSaveQueue.set(tenantId, next);
   void next.finally(() => {
     if (workspaceSaveQueue.get(tenantId) === next) workspaceSaveQueue.delete(tenantId);
@@ -1148,6 +1163,7 @@ export function saveTenantExpensesOnly(
 async function saveTenantDeliveriesOnlyNow(
   tenantId: string,
   deliveries: Delivery[],
+  tombstones?: Record<string, string>,
 ): Promise<boolean> {
   if (!canWriteBusinessDataOnline()) {
     warnOfflineWriteBlocked(`saveTenantDeliveriesOnly:${tenantId}`);
@@ -1160,7 +1176,7 @@ async function saveTenantDeliveriesOnlyNow(
   }
   try {
     if (typeof client.rpc === 'function') {
-      const result = await client.rpc('save_current_branch_deliveries', { p_deliveries: deliveries });
+      const result = await client.rpc('save_current_branch_deliveries', tombstones ? { p_deliveries: deliveries, p_delivery_tombstones: tombstones } : { p_deliveries: deliveries });
       const missingRpc = ['PGRST202', '42883'].includes(String(result.error?.code || ''));
       if (!result.error) {
         const mergedDeliveries = Array.isArray(result.data?.deliveries)
@@ -1186,10 +1202,11 @@ async function saveTenantDeliveriesOnlyNow(
 export function saveTenantDeliveriesOnly(
   tenantId: string,
   deliveries: Delivery[],
+  tombstones?: Record<string, string>,
 ): Promise<boolean> {
   if (!tenantId) return Promise.resolve(false);
   const previous = workspaceSaveQueue.get(tenantId) || Promise.resolve(true);
-  const next = previous.catch(() => false).then(() => saveTenantDeliveriesOnlyNow(tenantId, deliveries));
+  const next = previous.catch(() => false).then(() => saveTenantDeliveriesOnlyNow(tenantId, deliveries, tombstones));
   workspaceSaveQueue.set(tenantId, next);
   void next.finally(() => {
     if (workspaceSaveQueue.get(tenantId) === next) workspaceSaveQueue.delete(tenantId);
@@ -1331,6 +1348,7 @@ async function saveTenantPurchasesOnlyNow(
   purchases: Purchase[],
   products?: Product[],
   branchStocks?: BranchStock[],
+  purchaseTombstones: Record<string, string> = {},
 ): Promise<boolean> {
   if (!canWriteBusinessDataOnline()) {
     warnOfflineWriteBlocked(`saveTenantPurchasesOnly:${tenantId}`);
@@ -1346,7 +1364,7 @@ async function saveTenantPurchasesOnlyNow(
       const result = await client.rpc('save_current_branch_purchases', {
         p_purchases: purchases,
         // Select the tombstone-aware overload explicitly; three keys are ambiguous.
-        p_purchase_tombstones: {},
+        p_purchase_tombstones: purchaseTombstones,
         p_products: products ?? null,
         p_branch_stocks: branchStocks ?? null,
       });
@@ -1387,12 +1405,13 @@ export function saveTenantPurchasesOnly(
   purchases: Purchase[],
   products?: Product[],
   branchStocks?: BranchStock[],
+  purchaseTombstones: Record<string, string> = {},
 ): Promise<boolean> {
   if (!tenantId) return Promise.resolve(false);
   const previous = workspaceSaveQueue.get(tenantId) || Promise.resolve(true);
   const next = previous
     .catch(() => false)
-    .then(() => saveTenantPurchasesOnlyNow(tenantId, purchases, products, branchStocks));
+    .then(() => saveTenantPurchasesOnlyNow(tenantId, purchases, products, branchStocks, purchaseTombstones));
   workspaceSaveQueue.set(tenantId, next);
   void next.finally(() => {
     if (workspaceSaveQueue.get(tenantId) === next) workspaceSaveQueue.delete(tenantId);
@@ -1436,32 +1455,32 @@ export async function subscribeToTenantWorkspace(
   if (!client) return () => undefined;
 
   try {
+    let stopped = false;
+    let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+    const refresh = () => {
+      if (stopped) return;
+      clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(async () => {
+        if (stopped) return;
+        if (hasPendingTenantWorkspaceSave(tenantId)) { refresh(); return; }
+        const workspace = await reloadTenantWorkspace(tenantId);
+        if (!stopped && workspace) onWorkspace(workspace);
+      }, 150);
+    };
     const channelId = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
     const channel: RealtimeChannel = client
       .channel(`tenant-workspace:${tenantId}:${channelId}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'tenant_workspaces', filter: `tenant_id=eq.${tenantId}` },
-        (event: any) => {
-          const workspace = event.new?.payload as TenantWorkspace | undefined;
-          if (workspace) {
-            const safe = normalizeWorkspace(workspace);
-            if (!safe) return;
-            const cached = readCachedWorkspace(tenantId);
-            if (!workspaceHasBusinessData(safe) && workspaceHasBusinessData(cached)) {
-              console.warn('[workspace] ignored empty realtime payload because local cache has business data');
-              return;
-            }
-            writeLocalProductTombstones(tenantId, safe.productTombstones || {});
-            writeLocalSaleTombstones(tenantId, safe.saleTombstones || {});
-            cacheWorkspace(tenantId, safe);
-            onWorkspace(safe);
-          }
-        }
+        // Normalized writes publish a small revision row; fetch only the authorized branch payload.
+        () => refresh()
       )
       .subscribe();
 
     return () => {
+      stopped = true;
+      clearTimeout(refreshTimer);
       try { client.removeChannel(channel); } catch { /* ignore */ }
     };
   } catch (e) {
@@ -1543,6 +1562,7 @@ export async function initializeNewTenantWorkspace(tenantId: string, settings?: 
   const workspace = emptyWorkspace(settings);
   await saveTenantWorkspace(tenantId, workspace);
 }
+
 
 
 

@@ -43,6 +43,20 @@ function now(): string {
   return new Date().toISOString();
 }
 
+async function routeBusinessData(client: any, dataKey: string, payload?: any, write = false): Promise<{ handled: boolean; payload?: any }> {
+  const businessKeys = new Set(['__all__', 'products', 'products_map', 'sales', 'sales_map', 'expenses', 'expenses_map',
+    'deliveries', 'deliveries_map', 'purchases', 'purchases_map', 'pendingDeliveryNotes', 'pendingDeliveryNotes_map',
+    'pending_delivery_notes_map', 'branchStocks', 'branch_stocks_map']);
+  if (!businessKeys.has(dataKey)) return { handled: false };
+  if (typeof client.rpc !== 'function') return { handled: false };
+  const result = await client.rpc('route_current_branch_business_data', {
+    p_key: dataKey, p_payload: payload ?? null, p_write: write,
+  });
+  if (['PGRST202', '42883'].includes(String(result.error?.code || ''))) return { handled: false };
+  if (result.error) throw new Error('Business data could not be synchronized safely. Please reconnect and try again.');
+  return result.data || { handled: false };
+}
+
 const isProductDataKey = (dataKey: string) => dataKey === 'products' || dataKey === 'products_map';
 
 async function saveRemoteDataBackup(client: any, tenantId: string, dataKey: string, payload: any, reason: string): Promise<void> {
@@ -83,6 +97,8 @@ export async function pushToCloud(tenantId: string, dataKey: string, payload: an
 
   try {
     const client: any = await getSecureDataBridgeClient();
+    const routed = await routeBusinessData(client, dataKey, payload, true);
+    if (routed.handled) return routed.payload;
     let payloadToPush = payload;
 
     if (isProtectedDataKey(dataKey)) {
@@ -180,6 +196,8 @@ export async function pushToCloud(tenantId: string, dataKey: string, payload: an
 export async function pullFromCloud(tenantId: string, dataKey: string): Promise<any | null> {
   try {
     const client: any = await getSecureDataBridgeClient();
+    const routed = await routeBusinessData(client, dataKey);
+    if (routed.handled) return routed.payload;
     const { data, error } = await client
       .from('tenant_data')
       .select('payload, updated_at')
@@ -201,6 +219,8 @@ export async function pullFromCloud(tenantId: string, dataKey: string): Promise<
 export async function pullAllFromCloud(tenantId: string): Promise<Record<string, any>> {
   try {
     const client: any = await getSecureDataBridgeClient();
+    const routed = await routeBusinessData(client, '__all__');
+    if (routed.handled) return routed.payload || {};
     const { data, error } = await client
       .from('tenant_data')
       .select('data_key, payload')
@@ -290,3 +310,4 @@ async function syncLocalToCloud(tenantId: string, options: { onlyMeaningfulPaylo
 //   FOR INSERT WITH CHECK (true);
 // CREATE POLICY "tenant_data_update" ON public.tenant_data
 //   FOR UPDATE USING (true);
+
