@@ -480,7 +480,7 @@ export default function App() {
           .eq('id', authUser.id)
           .maybeSingle();
 
-        if (cancelled || isPasswordRecoverySessionActive() || profileError || !userProfile) return;
+        if (cancelled || isPasswordRecoverySessionActive() || profileError || !userProfile || userProfile.is_active === false) return;
 
         const isPlatformAdmin = userProfile?.account_type === 'super_admin' ||
           ['superadmin', 'super_admin'].includes(String(userProfile?.role_key || userProfile?.role || '').toLowerCase());
