@@ -87,9 +87,10 @@ begin
   v_income := round((p_sale->>'total')::numeric-coalesce((p_sale->>'deliveryCost')::numeric,0),2);
   -- POS revenue excludes delivery fees, even if the customer pays both together.
   v_paid := least(v_income, greatest(0, round(coalesce((p_sale->>'amountPaid')::numeric,v_income),2)));
+  -- Validate real amounts; do not trust an outdated client paymentStatus.
+  -- A partial payment is a supported POS transaction, not an error.
   if v_income is null or v_income<=0 or v_paid is null or v_paid<=0
     or v_income>9999999999999999.99 or v_paid>v_income
-    or (p_sale->>'paymentStatus'='paid' and v_income-v_paid>0.01)
   then
     raise exception using errcode='22023', message='POS payment cannot exceed sale revenue.';
   end if;
