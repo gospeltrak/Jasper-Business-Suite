@@ -892,7 +892,7 @@ test('Forecasting remains authenticated and functional without conversational Lu
   assert.match(forecastingSource, /Authorization:\s*`Bearer \$\{accessToken\}`/);
   assert.match(forecastingSource, /Run Lucy Projections/);
   assert.match(forecastingSource, /Timeline Cashflow Forecasts/);
-  assert.match(forecastingSource, /Projected 30D/);
+  assert.match(forecastingSource, /Predicted 30D/);
   for (const source of [serverSource, forecastingSource]) {
     assert.doesNotMatch(source, /\/api\/lucy(?:\/speech)?|\/api\/copilot|speakWithGeminiLucy|lucyHandler|handleSendLucyMessage/);
   }
