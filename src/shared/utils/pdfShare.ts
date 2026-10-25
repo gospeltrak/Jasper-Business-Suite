@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import { toCanvas as htmlToCanvas } from 'html-to-image';
 import { buildWhatsAppLink } from './whatsapp';
-import { posReceiptPaymentMode, posReceiptWalkInCustomer, posReceiptQuantity, posReceiptDate, posReceiptTime } from './posReceiptI18n';
+import { posReceiptLabel, posReceiptPaymentMode, posReceiptWalkInCustomer, posReceiptQuantity, posReceiptDate, posReceiptTime } from './posReceiptI18n';
 
 const sanitizeFileName = (name: string) =>
   name.replace(/[^\w.-]+/g, '_').replace(/_+/g, '_').replace(/^_+|_+$/g, '');
@@ -442,7 +442,7 @@ function drawPosReceipt(pdf: jsPDF, data: ReceiptData, width: number): number {
   const balance = Math.max(0, data.grandTotal - (data.amountPaid || 0));
   if (balance > 0) totalRow(L('balanceDue'), fmt(balance));
   else if ((data.change || 0) > 0) totalRow(L('change'), fmt(data.change || 0));
-  left(`${L('payment')}: ${posReceiptPaymentMode(data.paymentMethod, lang)}`, margin, y, { size: 7, color: muted });
+  left(`${posReceiptLabel('mode', lang)}: ${posReceiptPaymentMode(data.paymentMethod, lang)}`, margin, y, { size: 7, color: muted });
   y += 11;
   if (data.paymentMethod === 'Multi-Channel' && Array.isArray(data.paymentBreakdown) && data.paymentBreakdown.length > 0) {
     data.paymentBreakdown.forEach(part => {
