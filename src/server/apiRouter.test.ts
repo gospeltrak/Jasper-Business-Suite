@@ -13,7 +13,7 @@ describe('single production API entry point', () => {
 
   it.each([
     ['auth/config', 'GET'], ['auth/register', 'POST'], ['affiliate/register', 'POST'],
-    ['health', 'GET'], ['forecast', 'POST'], ['lucy', 'POST'],
+    ['health', 'GET'], ['forecast', 'POST'],
     ['images/migrate-product', 'POST'], ['sales/sync', 'POST'],
     ['tenant/resolve', 'GET'], ['tenant/slug', 'GET'], ['tenant/slug', 'POST'],
     ['tenant/logo-by-domain', 'GET'],
@@ -38,15 +38,16 @@ describe('single production API entry point', () => {
     expect(server.createApp).toHaveBeenCalledWith({ serveClient: false });
   });
 
-  it('deploys one API function while retaining public routes and the Lucy handler', () => {
+  it('deploys one API function while retaining public routes and forecasting', () => {
     const apiRoot = new URL('../../api/', import.meta.url);
     const apiFiles = readdirSync(apiRoot, { recursive: true }).filter(name => String(name).endsWith('.ts'));
     expect(apiFiles).toEqual(['router.ts']);
     const config = JSON.parse(readFileSync(new URL('../../vercel.json', import.meta.url), 'utf8'));
     expect(config.rewrites[0]).toEqual({ source: '/api/:path*', destination: '/api/router?path=:path*' });
     const source = readFileSync(new URL('../../server.ts', import.meta.url), 'utf8');
-    expect(source).toContain("import lucyHandler from './src/server/lucy.js'");
-    expect(source).toContain("app.post('/api/lucy'");
+    expect(source).toContain("app.post('/api/forecast'");
+    expect(source).not.toContain("app.post('/api/lucy'");
+    expect(source).not.toContain("app.post('/api/copilot'");
     expect(source).toContain("app.post('/api/auth/staff-login'");
     expect(source).toContain("req.query?.mode === 'staff-login'");
   });
