@@ -17,7 +17,7 @@ function entry(
     ...scope,
     key: `${scope.tenantId}::${scope.branchId}::${scope.actorId}::${scope.deviceId}::${id}`,
     idempotencyKey: `${scope.tenantId}:${scope.branchId}:${scope.deviceId}:${type}:${id}`,
-    operationId: id, type, baseSnapshotRevision: 'server-r11',
+    operationId: id, type, payloadDigest: 'sha256:payload-'+id, baseSnapshotRevision: 'server-r11',
     clientSequence: 1, createdAt: '2026-10-25T12:00:00Z',
     status: 'pending', payload: { id }, attempts: 0, ...options,
   };
@@ -25,6 +25,7 @@ function entry(
 function receipt(item: NativeJournalEntry): ServerReceipt {
   return {
     tenantId: item.tenantId, branchId: item.branchId,
+    actorId: item.actorId, deviceId: item.deviceId, payloadDigest: item.payloadDigest,
     operationId: item.operationId, idempotencyKey: item.idempotencyKey,
     type: item.type, status: 'committed',
     inventoryCommitted: true, treasuryCommitted: true,
