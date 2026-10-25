@@ -45,10 +45,11 @@
     "test": "vitest run src",
     "test:watch": "vitest",
     "native:android:init": "npx cap add android",
-    "native:android:sync": "npm run build && npx cap sync android",
+    "native:android:sync": "npm run native:build:web && npx cap sync android",
     "native:ios:init": "npx cap add ios",
-    "native:ios:sync": "npm run build && npx cap sync ios",
-    "native:verify": "node scripts/verify-native-contract.mjs"
+    "native:ios:sync": "npm run native:build:web && npx cap sync ios",
+    "native:verify": "node scripts/verify-native-contract.mjs",
+    "native:build:web": "vite build --outDir dist/native-web"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.3",
