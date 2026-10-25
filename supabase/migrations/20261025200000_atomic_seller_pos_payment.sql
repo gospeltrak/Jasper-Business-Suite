@@ -148,7 +148,8 @@ begin
     raise exception using errcode='22023', message='POS sale items must have a product, quantity and price.';
   end if;
   v_income := round((p_sale->>'total')::numeric-coalesce((p_sale->>'deliveryCost')::numeric,0),2);
-  v_paid := round((p_sale->>'amountPaid')::numeric,2);
+  -- POS revenue excludes delivery fees, even if the customer pays both together.
+  v_paid := least(v_income, greatest(0, round(coalesce((p_sale->>'amountPaid')::numeric,v_income),2)));
   if v_income is null or v_income<=0 or v_paid is null or v_paid<=0
     or v_income>9999999999999999.99 or v_paid>v_income
     or (p_sale->>'paymentStatus'='paid' and v_income-v_paid>0.01)
@@ -192,7 +193,7 @@ begin
       or not exists (select 1 from jsonb_array_elements(v_sales) as item
         where item->>'id'=v_sale_id
           and item->>'treasuryJournalId'=v_existing.id::text
-          and abs(coalesce((item->>'amountPaid')::numeric,0)-v_paid)<0.01)
+          and abs(least(v_income,greatest(0,coalesce((item->>'amountPaid')::numeric,v_income)))-v_paid)<0.01)
     then
       raise exception using errcode='23505', message='Sale idempotency key conflicts with an existing posting.';
     end if;
