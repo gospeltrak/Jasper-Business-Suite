@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { Capacitor } from '@capacitor/core';
 import PWAInstallBanner from '../shared/components/PWAInstallBanner';
 import { requestManualInstallPrompt } from '../shared/utils/pwaInstallPrompt';
 import { useTranslation } from '../shared/contexts/LanguageContext';
@@ -3403,7 +3404,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       {/* PWA install banner — shows after login, not on login page. Skipped
           entirely in mirrorMode: a Super Admin peeking into a tenant's
           workspace should never be prompted to install that tenant's app. */}
-      {mirrorMode ? null : user.role === 'SuperAdmin' ? (
+      {(mirrorMode || Capacitor.isNativePlatform()) ? null : user.role === 'SuperAdmin' ? (
         <PWAInstallBanner
           tenantId="super-admin"
           businessName="Orvix Super Admin"
