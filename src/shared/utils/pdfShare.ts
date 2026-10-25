@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import { toCanvas as htmlToCanvas } from 'html-to-image';
 import { buildWhatsAppLink } from './whatsapp';
+import { posReceiptPaymentMode, posReceiptWalkInCustomer, posReceiptQuantity, posReceiptDate, posReceiptTime } from './posReceiptI18n';
 
 const sanitizeFileName = (name: string) =>
   name.replace(/[^\w.-]+/g, '_').replace(/_+/g, '_').replace(/^_+|_+$/g, '');
@@ -381,17 +382,19 @@ function drawPosReceipt(pdf: jsPDF, data: ReceiptData, width: number): number {
   dashedLine(y);
   y += 12;
 
-  const title = (data.documentTitle || L('posReceipt')).toUpperCase();
+  const originalTitle = data.documentTitle;
+  const title = (lang === 'sw' && originalTitle?.trim().toLowerCase() === 'pos receipt'
+    ? L('posReceipt') : (originalTitle || L('posReceipt'))).toUpperCase();
   center(title, y, { size: 8.5, bold: true });
   y += 12;
   left(`${L('no')}: ${data.receiptId}`, margin, y, { size: 7 });
   left(
-    new Date(data.timestamp).toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+    `${posReceiptDate(data.timestamp, lang)} ${posReceiptTime(data.timestamp, lang)}`,
     width - margin, y, { size: 7, align: 'right', color: muted }
   );
   y += 11;
   if (data.cashierName) { left(`${L('cashier')}: ${data.cashierName}`, margin, y, { size: 7, color: muted }); y += 11; }
-  if (data.customerName) { left(`${L('customer')}: ${data.customerName}`, margin, y, { size: 7, color: muted }); y += 11; }
+  if (data.customerName) { left(`${L('customer')}: ${posReceiptWalkInCustomer(data.customerName, lang)}`, margin, y, { size: 7, color: muted }); y += 11; }
   y += 3;
   dashedLine(y);
   y += 12;
@@ -408,7 +411,7 @@ function drawPosReceipt(pdf: jsPDF, data: ReceiptData, width: number): number {
     pdf.setFont('helvetica', 'bold'); pdf.setFontSize(7.4); pdf.setTextColor(navy);
     pdf.text(nameLines, margin, y);
     y += nameLines.length * 9;
-    const qtyLine = `${item.qty}${item.unit ? ` ${item.unit}` : ''} x ${fmt(item.price)}`;
+    const qtyLine = `${posReceiptQuantity(`${item.qty}${item.unit ? ` ${item.unit}` : ''}`, lang)} x ${fmt(item.price)}`;
     pdf.setFont('helvetica', 'normal'); pdf.setFontSize(7); pdf.setTextColor(muted);
     pdf.text(qtyLine, margin, y);
     pdf.setFont('helvetica', 'bold'); pdf.setFontSize(7.4); pdf.setTextColor(navy);
@@ -439,11 +442,11 @@ function drawPosReceipt(pdf: jsPDF, data: ReceiptData, width: number): number {
   const balance = Math.max(0, data.grandTotal - (data.amountPaid || 0));
   if (balance > 0) totalRow(L('balanceDue'), fmt(balance));
   else if ((data.change || 0) > 0) totalRow(L('change'), fmt(data.change || 0));
-  left(`${L('payment')}: ${data.paymentMethod}`, margin, y, { size: 7, color: muted });
+  left(`${L('payment')}: ${posReceiptPaymentMode(data.paymentMethod, lang)}`, margin, y, { size: 7, color: muted });
   y += 11;
   if (data.paymentMethod === 'Multi-Channel' && Array.isArray(data.paymentBreakdown) && data.paymentBreakdown.length > 0) {
     data.paymentBreakdown.forEach(part => {
-      left(`  ${part.method}`, margin, y, { size: 6.8, color: muted });
+      left(`  ${posReceiptPaymentMode(part.method, lang)}`, margin, y, { size: 6.8, color: muted });
       left(fmt(part.amount), width - margin, y, { size: 6.8, color: muted, align: 'right' });
       y += 10;
     });
@@ -486,7 +489,10 @@ export async function sharePosReceiptPdf(
   message?: string
 ): Promise<ShareResult> {
   const pdfFile = createPosReceiptPdfFromData(data);
-  const waMessage = message || `Hello${data.customerName ? ` ${data.customerName}` : ''}, please find your receipt attached from ${data.businessName}. Thank you!`;
+  const lang = resolveReceiptLanguage(data.language);
+  const waMessage = message || (lang === 'sw'
+    ? `Habari${data.customerName ? ` ${posReceiptWalkInCustomer(data.customerName, lang)}` : ''}, tafadhali pokea risiti yako kutoka ${data.businessName}. Asante!`
+    : `Hello${data.customerName ? ` ${data.customerName}` : ''}, please find your receipt attached from ${data.businessName}. Thank you!`);
   const cleanPhone = phone.replace(/[^\d]/g, '');
   const files = [pdfFile];
 
