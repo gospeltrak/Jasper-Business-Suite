@@ -105,6 +105,7 @@ export interface FeatureAccess {
   hasStaffPermission: boolean;
   devicePermissionGranted: boolean;
   offline: boolean;
+  secureLocalVaultVerified: boolean;
 }
 /** Only a verified, unlocked staff member may open native device capabilities.
  * Device permissions are requested just-in-time and never silently granted.
@@ -112,7 +113,7 @@ export interface FeatureAccess {
 export function mayStartNativeFeature(feature: NativeDeviceFeature, access: FeatureAccess): boolean {
   if (access.nativePlatform === 'web' || !access.authenticated || !access.appUnlocked || !access.hasStaffPermission) return false;
   if (!access.devicePermissionGranted) return false;
-  if (feature === 'offline_financial_journal') return !access.offline || access.nativePlatform === 'android';
+  if (feature === 'offline_financial_journal') return access.secureLocalVaultVerified;
   // Native barcode scanning and paired printer operations need no internet.
   // iOS offline journal requires its own secure native SQLite adapter first.
   return true;
