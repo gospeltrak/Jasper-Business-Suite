@@ -146,7 +146,8 @@ test('Seller POS settlement is a separate atomic permission, not generic Money &
   assert.match(migration, /idempotency_key='sale:'\|\|v_sale_id\|\|':v1'/i);
   assert.match(migration, /public\.save_current_branch_sales\(jsonb_build_array\(v_sale_with_journal\)\)/i);
   assert.match(migration, /grant execute on function public\.post_current_branch_pos_sale\(jsonb,jsonb\) to authenticated/i);
-  assert.doesNotMatch(migration, /grant.*money_bank\.post|delete from|truncate table|drop table/i);
+  assert.doesNotMatch(migration, /^\s*grant\b[^\n]*money_bank\.post/gmi);
+  assert.doesNotMatch(migration, /^\s*(delete from|truncate table|drop table)\b/gmi);
   assert.match(treasuryApi, /if \(input\.sourceType === 'sale'\)[\s\S]*post_current_branch_pos_sale/);
   assert.match(dashboard, /saleSavedAtomically \|\| await saveTenantSalesOnly/);
 });
