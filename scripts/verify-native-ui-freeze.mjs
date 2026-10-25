@@ -36,6 +36,12 @@ function replaceExactOnce(input, expression, replacement, description) {
 }
 
 export function expectedDashboardAfterAuthorizedPwaRemoval(baseline) {
+  // PR #8 has already removed all PWA install prompts from production.
+  // Once main contains that hotfix, native UI must match it byte-for-byte.
+  if (!baseline.includes("import PWAInstallBanner from '../shared/components/PWAInstallBanner';")) {
+    assert.doesNotMatch(baseline, /<PWAInstallBanner|requestManualInstallPrompt|install-orvix-app/);
+    return baseline;
+  }
   let result = baseline;
   const once = (pattern, replacement, name) => {
     result = replaceExactOnce(result, pattern, replacement, name);
