@@ -1,8 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Capacitor } from '@capacitor/core';
-import PWAInstallBanner from '../shared/components/PWAInstallBanner';
-import { requestManualInstallPrompt } from '../shared/utils/pwaInstallPrompt';
 import { useTranslation } from '../shared/contexts/LanguageContext';
 import { useTenantLogo } from '../shared/contexts/TenantLogoContext';
 import { useTheme } from '../shared/contexts/ThemeContext';
@@ -96,7 +93,7 @@ import {
 
 const DashboardBranchesSettings = lazyWithReload('DashboardBranchesSettings', () => import('../modules/branches/components/DashboardBranchesSettings'));
 
-import { LogOut, LayoutDashboard, ShoppingCart, Package, Users, Activity, Database, Building, TrendingUp, FileText, Receipt, Truck, Globe, Clock, Settings as SettingsIcon, Wallet, ChevronLeft, ChevronRight, Award, MessageSquare, Inbox, MonitorPlay, Menu, X, Sun, Moon, PieChart, TrendingDown, CloudLightning, MapPin, MinusCircle, Handshake, Download, LoaderCircle } from "lucide-react";
+import { LogOut, LayoutDashboard, ShoppingCart, Package, Users, Activity, Database, Building, TrendingUp, FileText, Receipt, Truck, Globe, Clock, Settings as SettingsIcon, Wallet, ChevronLeft, ChevronRight, Award, MessageSquare, Inbox, MonitorPlay, Menu, X, Sun, Moon, PieChart, TrendingDown, CloudLightning, MapPin, MinusCircle, Handshake, LoaderCircle } from "lucide-react";
 
 // A high-fidelity composite component representing a rider on a motorcycle with a delivery basket on their back
 function DeliveryMotorcycleIcon({ className, size = 18 }: { className?: string; size?: number }) {
@@ -3401,27 +3398,6 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
   return (
     <div id="dashboard-scaffold" className="w-full h-dvh bg-[#f5f6fa] dark:bg-slate-950 flex text-slate-800 dark:text-slate-200 font-sans antialiased overflow-hidden select-none">
 
-      {/* PWA install banner — shows after login, not on login page. Skipped
-          entirely in mirrorMode: a Super Admin peeking into a tenant's
-          workspace should never be prompted to install that tenant's app. */}
-      {(mirrorMode || Capacitor.isNativePlatform()) ? null : user.role === 'SuperAdmin' ? (
-        <PWAInstallBanner
-          tenantId="super-admin"
-          businessName="Orvix Super Admin"
-          businessLogo="/icon-512.png"
-          appId="/admin"
-          startUrl="/admin"
-          automaticPrompt={false}
-        />
-      ) : activeTenant.id ? (
-        <PWAInstallBanner
-          tenantId={activeTenant.id}
-          businessName={businessDisplayName}
-          businessLogo={customBrandingLogo || null}
-          enabled={workspaceReady && Boolean(onlineBusinessName)}
-        />
-      ) : null}
-
       {/* Branch-switch data reload indicator. GlobalBranchSwitcher's own
           spinner only covers the quick branch-selection step; this covers
           the longer step after it -- reloading that branch's actual
@@ -3809,16 +3785,6 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                           <SettingsIcon className="w-4 h-4 text-slate-400" />
                           <span className="font-semibold">Settings</span>
                         </button>
-                        {user.role !== 'SuperAdmin' && (
-                          <button
-                            type="button"
-                            onClick={() => { requestManualInstallPrompt(); setShowUserMenu(false); }}
-                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-                          >
-                            <Download className="w-4 h-4 text-slate-400" />
-                            <span className="font-semibold">Install Orvix App</span>
-                          </button>
-                        )}
                         <div className="border-t border-slate-100 dark:border-slate-800 my-1" />
                         <button
                           type="button"
@@ -4784,11 +4750,9 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
               <div className="bg-white dark:bg-slate-900 rounded-2xl overflow-hidden border border-slate-100 dark:border-slate-800">
                 {(user.role === 'SuperAdmin' ? [
                   { id: 'admin-web-editor', label: 'Web Editor',  icon: Globe,       desc: 'Edit landing page content', color: 'text-blue-600 dark:text-blue-400',   bg: 'bg-blue-50 dark:bg-blue-500/10' },
-                  { id: 'install-orvix-app', label: 'Install Admin App', icon: Download, desc: 'Add Super Admin to your home screen', color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10', alwaysShow: true },
                 ] : [
                   { id: 'settings', label: 'Settings', icon: SettingsIcon, desc: 'Manage your business settings', color: 'text-slate-600 dark:text-slate-400', bg: 'bg-slate-100 dark:bg-slate-800' },
                   { id: 'subscription-modal', label: 'Subscription', icon: CardIcon, desc: 'Pay online or upload an offline receipt', color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10', alwaysShow: true },
-                  { id: 'install-orvix-app', label: 'Install Orvix App', icon: Download, desc: 'Add this app to your home screen', color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10', alwaysShow: true },
                 ]).filter(item => (item as any).alwaysShow || isTabAllowed(item.id)).map((item, idx, arr) => {
                   const Icon = item.icon;
                   return (
@@ -4801,8 +4765,6 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                             limitType: 'general',
                             description: 'Manage active subscriptions and premium account plans.',
                           });
-                        } else if (item.id === 'install-orvix-app') {
-                          requestManualInstallPrompt();
                         } else {
                           setActiveTab(item.id as any);
                         }
