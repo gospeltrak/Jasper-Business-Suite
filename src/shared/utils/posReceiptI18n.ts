@@ -64,8 +64,8 @@ export function posReceiptWalkInCustomer(raw: string | undefined | null, languag
 export function posReceiptQuantity(raw: string, language: PosReceiptLanguage): string {
   if (language !== 'sw') return raw;
   // Only replace known units in quantities, never product descriptions.
-  return raw.replace(/\bpcs\b/gi, 'vipande')
-    .replace(/\bpieces\b/gi, 'vipande')
+  return raw.replace(/\bpcs\b/gi, 'vip.')
+    .replace(/\bpieces\b/gi, 'vip.')
     .replace(/\bpacket(s)?\b/gi, 'pakiti')
     .replace(/\bbox(es)?\b/gi, 'boksi')
     .replace(/\bbottles?\b/gi, 'chupa');
