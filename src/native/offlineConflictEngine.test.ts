@@ -8,10 +8,12 @@ import {
 const op: OperationIdentity = {
   tenantId: 'tenant-A', branchId: 'branch-A', actorId: 'cashier-A',
   deviceId: 'phone-A', operationId: 'sale-UUID', idempotencyKey: 'tenant-A:branch-A:phone-A:sale:sale-UUID',
-  type: 'sale', baseSnapshotRevision: 'revision-12', createdAt: '2026-10-25T10:00:00.000Z',
+  type: 'sale', payloadDigest: 'sha256:payload-original', baseSnapshotRevision: 'revision-12', createdAt: '2026-10-25T10:00:00.000Z',
 };
 const receipt: ServerReceipt = {
-  tenantId: op.tenantId, branchId: op.branchId, operationId: op.operationId,
+  tenantId: op.tenantId, branchId: op.branchId,
+  actorId: op.actorId, deviceId: op.deviceId, payloadDigest: op.payloadDigest,
+  operationId: op.operationId,
   idempotencyKey: op.idempotencyKey, type: op.type, status: 'committed',
   inventoryCommitted: true, treasuryCommitted: true,
   serverRevision: 'revision-13', serverCommittedAt: '2026-10-25T10:05:00.000Z',
@@ -49,7 +51,9 @@ describe('Sync receipts: never delete or overwrite an unacknowledged offline act
     expect(receiptOutcome({ status: 'already_committed' }).outcome).toBe('complete');
   });
   it.each([
-    ['tenantId', 'tenant-B'], ['branchId', 'branch-B'], ['operationId', 'different-id'],
+    ['tenantId', 'tenant-B'], ['branchId', 'branch-B'],
+    ['actorId','another-cashier'], ['deviceId','another-phone'], ['payloadDigest','sha256:other-payload'],
+    ['operationId', 'different-id'],
     ['idempotencyKey', 'different-key'], ['type', 'purchase'],
   ] as const)('blocks a mismatched server receipt (%s)', (field, value) => {
     expect(receiptOutcome({ [field]: value }).outcome).toBe('blocked');
