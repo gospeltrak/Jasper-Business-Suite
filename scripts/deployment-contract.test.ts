@@ -570,14 +570,17 @@ test('navigation tolerates transient permission hydration without ejecting activ
   assert.match(dashboardSource, /if \(isTabAllowed\(activeTab\)\) return;[\s\S]{0,260}800/);
 });
 
-test('POS completion waits for a durable sale save and compensates treasury on failure', async () => {
+test('POS completion atomically saves paid sales and retains unpaid-sale safeguards', async () => {
   const dashboardSource = await read('src/components/Dashboard.tsx');
+  const treasurySource = await read('src/modules/cash-bank/utils/treasuryApi.ts');
   const saleHandler = dashboardSource.slice(
     dashboardSource.indexOf('const handleAddSale = async'),
     dashboardSource.indexOf('const handleAddRider =', dashboardSource.indexOf('const handleAddSale = async')),
   );
-  assert.match(saleHandler, /const saleSaved = await saveTenantSalesOnly/);
-  assert.match(saleHandler, /await reverseTreasuryEntry\(postedTreasuryJournalId/);
+  assert.match(saleHandler, /sale: saleToStore/);
+  assert.match(saleHandler, /saleSavedAtomically = true/);
+  assert.match(saleHandler, /const saleSaved = saleSavedAtomically \|\| await saveTenantSalesOnly/);
+  assert.match(treasurySource, /post_current_branch_pos_sale/);
   assert.match(saleHandler, /if \(!saleSaved\)[\s\S]{0,700}return false/);
 });
 

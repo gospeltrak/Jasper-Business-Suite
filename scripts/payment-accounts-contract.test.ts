@@ -127,3 +127,27 @@ test('two-device session migration serializes admissions without deleting sessio
   assert.match(sql, /grant execute on function public\.start_user_session[\s\S]+to authenticated/i);
   assert.doesNotMatch(sql, /\b(delete from|truncate table|drop table|drop column)\b/i);
 });
+
+test('Seller POS settlement is a separate atomic permission, not generic Money & Bank access', () => {
+  const migration = readFileSync(
+    new URL('../supabase/migrations/20261025200000_atomic_seller_pos_payment.sql', import.meta.url),
+    'utf8',
+  );
+  const treasuryApi = readFileSync(new URL('../src/modules/cash-bank/utils/treasuryApi.ts', import.meta.url), 'utf8');
+  const dashboard = readFileSync(new URL('../src/components/Dashboard.tsx', import.meta.url), 'utf8');
+  assert.match(migration, /create or replace function private\.has_branch_permission/i);
+  assert.match(migration, /role_permissions #>> array\[v_module,v_action\]/i);
+  assert.match(migration, /permission_key=v_key and g\.effect='deny'/i);
+  assert.match(migration, /create or replace function public\.post_current_branch_pos_sale/i);
+  assert.match(migration, /private\.can_write_branch\(v_tenant,v_branch,'pos\.write'\)/i);
+  assert.match(migration, /p_sale->>'tenantId' is distinct from v_tenant::text/i);
+  assert.match(migration, /p_sale->>'branchId' is distinct from v_branch::text/i);
+  assert.match(migration, /v_line_total is distinct from v_paid/i);
+  assert.match(migration, /idempotency_key='sale:'\|\|v_sale_id\|\|':v1'/i);
+  assert.match(migration, /public\.save_current_branch_sales\(jsonb_build_array\(v_sale_with_journal\)\)/i);
+  assert.match(migration, /grant execute on function public\.post_current_branch_pos_sale\(jsonb,jsonb\) to authenticated/i);
+  assert.doesNotMatch(migration, /^\s*grant\b[^\n]*money_bank\.post/gmi);
+  assert.doesNotMatch(migration, /^\s*(delete from|truncate table|drop table)\b/gmi);
+  assert.match(treasuryApi, /if \(input\.sourceType === 'sale'\)[\s\S]*post_current_branch_pos_sale/);
+  assert.match(dashboard, /saleSavedAtomically \|\| await saveTenantSalesOnly/);
+});

@@ -1,4 +1,4 @@
-import type { PaymentChannel } from '../../../types';
+import type { PaymentChannel, Sale } from '../../../types';
 import { getSecureDataBridgeClient } from '../../../shared/dataBridge/secureDataBridge';
 import { getMaskedAccountReference } from '../../../shared/utils/paymentAccounts';
 
@@ -222,6 +222,8 @@ export async function postTreasurySplitIncome(input: {
   channels: PaymentChannel[];
   lines: Array<{ sourceAccountKey: string; amount: number }>;
   sourceType: 'sale' | 'delivery' | 'other';
+  // Only a real POS sale can use the narrowly authorized, atomic checkout RPC.
+  sale?: Sale;
   sourceId: string;
   description: string;
   openingBalances?: Record<string, number>;
@@ -264,6 +266,21 @@ export async function postTreasurySplitIncome(input: {
     .sort((a, b) => String(a.accountId).localeCompare(String(b.accountId)));
   if (lines.some(line => !line.accountId)) {
     throw new Error('A Money & Bank account could not be synchronized.');
+  }
+
+  // POS payments must create the sale record and the money journal in one
+  // database transaction. Sellers never receive generic money_bank.post.
+  if (input.sourceType === 'sale') {
+    if (!input.sale || input.sale.id !== input.sourceId) {
+      throw new Error('A matching POS sale is required before recording its payment.');
+    }
+    const { data, error } = await client.rpc('post_current_branch_pos_sale', {
+      p_sale: { ...input.sale, branchId },
+      p_lines: lines,
+    });
+    if (error) throw safeTreasuryError(error);
+    if (!data?.journalId) throw new Error('POS sale payment was not confirmed. Check Sales before retrying.');
+    return { journalId: String(data.journalId), branchId };
   }
 
   const { data, error } = await client.rpc('post_current_tenant_treasury_split_entry', {
