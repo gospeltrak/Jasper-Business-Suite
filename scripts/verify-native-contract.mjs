@@ -43,6 +43,8 @@ test('only local native API paths are rewritten to the trusted HTTPS backend', (
   assert.match(main, /installNativeApiTransport\(\)/);
 });
 
-test('native app does not advertise a second PWA installation', () => {
-  assert.match(dashboard, /mirrorMode \|\| Capacitor\.isNativePlatform\(\)/);
+test('Orvix never renders app-controlled Install PWA messages on any platform', () => {
+  assert.doesNotMatch(dashboard, /PWAInstallBanner|requestManualInstallPrompt|install-orvix-app/);
+  assert.doesNotMatch(dashboard, /Install (?:Orvix|Admin) App/);
+  assert.match(dashboard, /setActiveTab\(item\.id as any\)/);
 });
