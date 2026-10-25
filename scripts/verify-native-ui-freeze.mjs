@@ -14,7 +14,8 @@ import assert from 'node:assert/strict';
  * initializes the native API transport without changing viewport/UI logic.
  */
 export function isPermittedNativeDiffPath(path) {
-  if (path.startsWith('src/native/')) return true;
+  // New native services/tests are allowed; new JSX/styles are NOT implicit UI approvals.
+  if (path.startsWith('src/native/')) return path.endsWith('.ts');
   if (/^src\/server\/nativeOfflineLedger(?:\.test)?\.ts$/.test(path)) return true;
   if (path === 'src/shared/utils/nativeApiTransport.ts') return true;
   if (path === 'src/main.tsx' || path === 'src/components/Dashboard.tsx') return true;
@@ -85,6 +86,7 @@ function selfTest() {
     'src/components/GlobalBranchSwitcher.tsx',
     'src/shared/contexts/ThemeContext.tsx',
     'index.html', 'public/logo.svg', 'src/App.tsx',
+    'src/native/NativePinScreen.tsx', 'src/native/native.css',
   ];
   for (const path of blocked) assert.equal(isPermittedNativeDiffPath(path), false, path);
   const permitted = [
