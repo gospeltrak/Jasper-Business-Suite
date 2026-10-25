@@ -17,7 +17,6 @@ const notificationContext = fs.readFileSync('src/shared/contexts/JasperNotificat
 const notificationSettings = fs.readFileSync('src/modules/notifications-settings/DashboardNotificationsSettings.tsx', 'utf8');
 const platformNotificationsMigration = fs.readFileSync('supabase/migrations/20260814000100_platform_notifications.sql', 'utf8');
 const statusRequests = fs.readFileSync('src/modules/platform-admin/components/SaaSStatusAndRequests.tsx', 'utf8');
-const pwaInstallBanner = fs.readFileSync('src/shared/components/PWAInstallBanner.tsx', 'utf8');
 const landingBundle = fs.readFileSync('public/orvix-landing/app.js', 'utf8');
 const landingPage = fs.readFileSync('src/modules/landing/LandingPage.tsx', 'utf8');
 const webEditor = fs.readFileSync('src/modules/platform-admin/components/SaaSWebEditor.tsx', 'utf8');
@@ -235,16 +234,14 @@ test('legacy public policies are replaced with tenant, affiliate, partner, or pl
   assert.match(migration, /private\.is_platform_admin/);
 });
 
-test('Super Admin PWA is separate and only launches from the More menu', () => {
-  assert.match(dashboard, /businessName="Orvix Super Admin"/);
-  assert.match(dashboard, /appId="\/admin"/);
-  assert.match(dashboard, /startUrl="\/admin"/);
-  assert.match(dashboard, /automaticPrompt=\{false\}/);
-  assert.match(dashboard, /label: 'Install Admin App'/);
-  assert.match(dashboard, /item\.id === 'install-orvix-app'[\s\S]*requestManualInstallPrompt\(\)/);
-  assert.match(pwaInstallBanner, /if \(!enabled \|\| !automaticPrompt \|\| !tenantId/);
-  assert.match(pwaInstallBanner, /id: resolvedAppId/);
-  assert.match(pwaInstallBanner, /start_url: resolvedStartUrl/);
+test('Orvix never displays or launches install-PWA prompts for tenant or admin', () => {
+  // PWA manifest/service-worker may remain for existing installed web clients;
+  // no Orvix-controlled install banner or user-menu trigger may be rendered.
+  assert.doesNotMatch(dashboard, /<PWAInstallBanner|requestManualInstallPrompt|install-orvix-app/);
+  assert.doesNotMatch(dashboard, /Install (?:Orvix|Admin) App/);
+  assert.match(dashboard, /setActiveTab\(item\.id as any\)/);
+  assert.match(dashboard, /<span className="font-semibold">Settings<\/span>/);
+  assert.match(dashboard, /<span className="font-semibold">Sign Out<\/span>/);
 });
 
 test('landing language and login navigation are instant and deterministic', () => {
