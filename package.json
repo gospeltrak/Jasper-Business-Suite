@@ -48,7 +48,7 @@
     "native:android:sync": "npm run native:build:web && npx cap sync android",
     "native:ios:init": "npx cap add ios",
     "native:ios:sync": "npm run native:build:web && npx cap sync ios",
-    "native:verify": "node scripts/verify-native-contract.mjs",
+    "native:verify": "node scripts/verify-native-contract.mjs && vitest run src/native",
     "native:build:web": "vite build --outDir dist/native-web"
   },
   "dependencies": {
