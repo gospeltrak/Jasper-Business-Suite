@@ -2166,7 +2166,7 @@ export default function DashboardPOS({
             <div className="px-6 py-4 md:py-5 bg-slate-50 border-b border-slate-250 flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <Receipt className="w-5 h-5 text-emerald-600" />
-                <h4 className="font-bold text-slate-800 text-sm">{posReceiptLabel('mode', receiptLanguage)}</h4>
+                <h4 className="font-bold text-slate-800 text-sm">{receiptLanguage === 'sw' ? posReceiptLabel('mode', receiptLanguage) : 'Payment Mode'}</h4>
               </div>
               <button 
                 onClick={() => { setIsCheckoutOpen(false); setPaymentStatus('idle'); }}
