@@ -1,16 +1,20 @@
 import { Capacitor } from '@capacitor/core';
 
 export type NativeOperationType = 'sale' | 'purchase' | 'expense';
-export type NativeJournalStatus = 'pending' | 'cloud_committed' | 'complete';
+export type NativeJournalStatus = 'pending' | 'syncing' | 'retry_wait' | 'needs_review' | 'blocked' | 'cloud_committed' | 'complete';
 
 export interface NativeJournalScope {
   tenantId: string;
   branchId: string;
   actorId: string;
+  deviceId: string;
 }
 export interface NativeJournalEntry<T = unknown> extends NativeJournalScope {
   key: string;
   operationId: string;
+  idempotencyKey: string;
+  baseSnapshotRevision: string;
+  clientSequence: number;
   type: NativeOperationType;
   createdAt: string;
   status: NativeJournalStatus;
@@ -21,7 +25,7 @@ export interface NativeJournalEntry<T = unknown> extends NativeJournalScope {
 
 const DATABASE = 'orvix-native-operations-v1';
 const STORE = 'journal';
-const VERSION = 1;
+const VERSION = 2;
 
 export function assertNativeJournalAccess(scope: NativeJournalScope): void {
   if (!Capacitor.isNativePlatform()) {
@@ -33,7 +37,7 @@ export function assertNativeJournalAccess(scope: NativeJournalScope): void {
   if (Capacitor.getPlatform() === 'ios') {
     throw new Error('Offline entry is disabled on iOS until durable native SQLite storage is verified.');
   }
-  if (!scope.tenantId || !scope.branchId || !scope.actorId) {
+  if (!scope.tenantId || !scope.branchId || !scope.actorId || !scope.deviceId) {
     throw new Error('A verified user, tenant and selected branch are required for offline writes.');
   }
 }
@@ -44,9 +48,14 @@ function openDb(): Promise<IDBDatabase> {
     const request = indexedDB.open(DATABASE, VERSION);
     request.onupgradeneeded = () => {
       const db = request.result;
-      if (!db.objectStoreNames.contains(STORE)) {
+      if (db.objectStoreNames.contains(STORE)) {
+        // Existing staging journal is never cleared; upgrade the index in place.
+        const existing = request.transaction!.objectStore(STORE);
+        if (existing.indexNames.contains('scope')) existing.deleteIndex('scope');
+        existing.createIndex('scope', ['tenantId', 'actorId', 'branchId', 'deviceId'], { unique: false });
+      } else {
         const journal = db.createObjectStore(STORE, { keyPath: 'key' });
-        journal.createIndex('scope', ['tenantId', 'actorId', 'branchId'], { unique: false });
+        journal.createIndex('scope', ['tenantId', 'actorId', 'branchId', 'deviceId'], { unique: false });
       }
     };
     request.onsuccess = () => resolve(request.result);
@@ -80,7 +89,7 @@ function inStore<T>(mode: IDBTransactionMode, run: (store: IDBObjectStore, resol
 export function journalKey(scope: NativeJournalScope, type: NativeOperationType, operationId: string): string {
   const safeId = String(operationId || '').trim();
   if (!safeId) throw new Error('Offline transaction id is required.');
-  return [scope.tenantId, scope.actorId, scope.branchId, type, safeId].join('::');
+  return [scope.tenantId, scope.actorId, scope.branchId, scope.deviceId, type, safeId].join('::');
 }
 
 /**
@@ -92,15 +101,22 @@ export async function stageNativeOperation<T extends { id: string; tenantId?: st
   scope: NativeJournalScope,
   type: NativeOperationType,
   payload: T,
+  metadata: { baseSnapshotRevision: string; clientSequence: number },
 ): Promise<NativeJournalEntry<T>> {
   assertNativeJournalAccess(scope);
   if (!payload?.id || (payload.tenantId && payload.tenantId !== scope.tenantId)
       || (payload.branchId && payload.branchId !== scope.branchId)) {
     throw new Error('Offline transaction has missing id or belongs to a different tenant/branch.');
   }
+  if (!metadata?.baseSnapshotRevision || !Number.isSafeInteger(metadata.clientSequence) || metadata.clientSequence < 1) {
+    throw new Error('An authoritative server snapshot revision and device sequence are required.');
+  }
   const entry: NativeJournalEntry<T> = {
     ...scope, type, key: journalKey(scope, type, payload.id),
-    operationId: payload.id, payload,
+    operationId: payload.id,
+    idempotencyKey: [scope.tenantId, scope.branchId, scope.deviceId, type, payload.id].join(':'),
+    baseSnapshotRevision: metadata.baseSnapshotRevision,
+    clientSequence: metadata.clientSequence, payload,
     createdAt: new Date().toISOString(), status: 'pending', attempts: 0,
   };
   // Best effort to pin storage on Android. Do not treat rejection as success.
@@ -122,7 +138,7 @@ export async function stageNativeOperation<T extends { id: string; tenantId?: st
 export async function listNativeOperations(scope: NativeJournalScope): Promise<NativeJournalEntry[]> {
   assertNativeJournalAccess(scope);
   return inStore<NativeJournalEntry[]>('readonly', (store, resolve) => {
-    const request = store.index('scope').getAll([scope.tenantId, scope.actorId, scope.branchId]);
+    const request = store.index('scope').getAll([scope.tenantId, scope.actorId, scope.branchId, scope.deviceId]);
     request.onsuccess = () => {
       resolve((request.result || []).sort((a, b) => a.createdAt.localeCompare(b.createdAt)));
     };
@@ -140,6 +156,9 @@ export async function updateNativeOperationStatus(
   lastError?: string,
 ): Promise<void> {
   assertNativeJournalAccess(scope);
+  if (status === 'complete') {
+    throw new Error('Completion requires an independently validated authoritative server receipt.');
+  }
   const key = journalKey(scope, type, operationId);
   await inStore<void>('readwrite', (store, resolve) => {
     const request = store.get(key);
