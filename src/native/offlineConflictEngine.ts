@@ -19,6 +19,7 @@ export interface OfflineIdentity {
 export interface OperationIdentity extends OfflineIdentity {
   operationId: string;
   idempotencyKey: string;
+  payloadDigest: string;
   type: OperationKind;
   baseSnapshotRevision: string;
   createdAt: string;
@@ -26,6 +27,9 @@ export interface OperationIdentity extends OfflineIdentity {
 export interface ServerReceipt {
   tenantId: string;
   branchId: string;
+  actorId: string;
+  deviceId: string;
+  payloadDigest: string;
   operationId: string;
   idempotencyKey: string;
   type: OperationKind;
@@ -79,6 +83,8 @@ export function evaluateServerResponse(
   if (status < 200 || status >= 300) return { outcome: 'needs_review', code: 'unexpected_server_rejection' };
   if (!receipt) return { outcome: 'retry_wait', code: 'missing_server_receipt', retryAfterMs: retryDelayMs(attempt, op.idempotencyKey) };
   if (receipt.tenantId !== op.tenantId || receipt.branchId !== op.branchId
+    || receipt.actorId !== op.actorId || receipt.deviceId !== op.deviceId
+    || !op.payloadDigest || receipt.payloadDigest !== op.payloadDigest
     || receipt.operationId !== op.operationId || receipt.idempotencyKey !== op.idempotencyKey || receipt.type !== op.type) {
     return { outcome: 'blocked', code: 'receipt_identity_mismatch' };
   }
