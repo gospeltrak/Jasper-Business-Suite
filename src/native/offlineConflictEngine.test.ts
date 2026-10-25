@@ -110,7 +110,7 @@ describe('Atomic stock grant model for simultaneous offline cashiers', () => {
     expect(first.next?.grants[0].remainingMicros).toBe('5500000');
   });
   it('two devices cannot spend another device allocation even on the same product', () => {
-    const deviceB: OfflineSaleIntent = { ...sale, deviceId:'phone-B', idempotencyKey:'phone-B:sale-1' };
+    const deviceB: OfflineSaleIntent = { ...sale, deviceId:'phone-B', idempotencyKey:'phone-B:sale-1', lines: sale.lines.map(line => ({ ...line })) };
     expect(simulateStockAdmission(deviceB,budget()).code).toBe('no_scoped_server_stock_grant');
     const split = budget();
     split.grants.push({...grant, deviceId:'phone-B',grantId:'grant-B', allowedMicros:'4000000', remainingMicros:'4000000'});
