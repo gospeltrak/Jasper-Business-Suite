@@ -117,6 +117,27 @@ export interface LocalStockBudget {
   grants: StockGrant[];
   appliedOperationIds: string[];
 }
+/**
+ * Time proof must originate from an authenticated server handshake plus a
+ * trusted native monotonic clock (not Date.now()). A fake/old proof is unsafe.
+ * The native clock adapter + server signature verification are release gates.
+ */
+export interface TrustedOfflineClock {
+  serverTimeAtHandshake: string;
+  monotonicElapsedMs: number;
+  continuityVerified: boolean;
+  serverProofId: string;
+  maxOfflineMs: number;
+}
+function verifiedServerNow(clock: TrustedOfflineClock): number | null {
+  if (!clock || !clock.continuityVerified || !clock.serverProofId ||
+      !Number.isFinite(clock.monotonicElapsedMs) || clock.monotonicElapsedMs < 0 ||
+      !Number.isFinite(clock.maxOfflineMs) || clock.maxOfflineMs <= 0 ||
+      clock.maxOfflineMs > 24 * 60 * 60_000 || clock.monotonicElapsedMs > clock.maxOfflineMs) return null;
+  const handshake = Date.parse(clock.serverTimeAtHandshake);
+  return Number.isFinite(handshake) ? handshake + clock.monotonicElapsedMs : null;
+}
+
 export interface StockAdmission {
   outcome: 'accepted' | 'duplicate' | 'needs_review' | 'blocked';
   code: string;
@@ -144,6 +165,7 @@ function sameScope(a: OfflineIdentity, b: OfflineIdentity): boolean {
 export function simulateStockAdmission(
   intent: OfflineSaleIntent,
   budget: LocalStockBudget,
+  clock: TrustedOfflineClock,
 ): StockAdmission {
   if (!intent.tenantId || !intent.branchId || !intent.actorId || !intent.deviceId
     || !intent.operationId || !intent.idempotencyKey || !intent.baseSnapshotRevision) {
@@ -155,6 +177,8 @@ export function simulateStockAdmission(
   if (!Array.isArray(intent.lines) || intent.lines.length === 0) {
     return { outcome: 'blocked', code: 'sale_has_no_lines' };
   }
+  const verifiedNow = verifiedServerNow(clock);
+  if (verifiedNow === null) return { outcome: 'blocked', code: 'trusted_native_clock_required' };
   const nextGrants = budget.grants.map(g => ({ ...g }));
   for (const line of intent.lines) {
     const qty = parseMicros(line.quantityMicros);
@@ -167,6 +191,9 @@ export function simulateStockAdmission(
     }
     if (!grant.expiresAtServer || !Number.isFinite(Date.parse(grant.expiresAtServer))) {
       return { outcome: 'blocked', code: 'unverifiable_stock_grant' };
+    }
+    if (verifiedNow >= Date.parse(grant.expiresAtServer)) {
+      return { outcome: 'needs_review', code: 'stock_grant_expired' };
     }
     const remaining = parseMicros(grant.remainingMicros);
     const allowed = parseMicros(grant.allowedMicros);
