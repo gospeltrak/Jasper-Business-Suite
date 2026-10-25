@@ -39,7 +39,7 @@ class FakeSqlPool implements OfflineSqlPool {
     this.connects++;
     let working: State | null = null;
     const query: OfflineSqlClient['query'] = async (sql, params=[]) => {
-      this.commands.push(sql.trim().slice(0,88));
+      this.commands.push(sql.trim());
       if (sql === 'BEGIN') {
         working = copyState(this.state);
         return { rows: [] };
