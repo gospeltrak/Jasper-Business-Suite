@@ -882,62 +882,29 @@ test('affiliate workspace uses affiliate-scoped source tracking without querying
   assert.doesNotMatch(workspaceSource, /client\.from\('tenants'\)\.select\('\*'\)\.or/);
 });
 
-test('Forecasting Lucy is routed through authenticated Express API wiring', async () => {
+test('Forecasting remains authenticated and functional without conversational Lucy AI', async () => {
   const serverSource = await read('server.ts');
   const forecastingSource = await read('src/modules/forecasting/DashboardForecasting.tsx');
-  const lucySource = await read('src/server/lucy.ts');
-  assert.match(serverSource, /app\.post\('\/api\/lucy'/);
-  assert.match(serverSource, /await requireTenantUser\(req,\s*tenantId\)/);
-  assert.match(serverSource, /return await lucyHandler\(req,\s*res\)/);
+  assert.match(serverSource, /app\.post\('\/api\/forecast'/);
+  assert.match(serverSource, /await requireTenantUser\(req, String\(tenant\?\.id \|\| ''\)\)/);
+  assert.match(serverSource, /generateLocalForecast\(products, salesHistory \|\| \[\], tenant \|\| \{\}\)/);
+  assert.match(forecastingSource, /fetch\(`\/api\/forecast`/);
   assert.match(forecastingSource, /Authorization:\s*`Bearer \$\{accessToken\}`/);
-  assert.match(lucySource, /await requireLucyTenantUser\(req,\s*String\(businessData\?\.tenantId/);
-  assert.match(lucySource, /supabaseAdmin\.auth\.getUser\(token\)/);
+  assert.match(forecastingSource, /Run Lucy Projections/);
+  assert.match(forecastingSource, /Timeline Cashflow Forecasts/);
+  assert.match(forecastingSource, /Predicted 30D/);
+  for (const source of [serverSource, forecastingSource]) {
+    assert.doesNotMatch(source, /\/api\/lucy(?:\/speech)?|\/api\/copilot|speakWithGeminiLucy|lucyHandler|handleSendLucyMessage/);
+  }
+  assert.doesNotMatch(forecastingSource, /chatMessages|chatInput|Business Copilot · Online|Ask Lucy anything/);
 });
 
-test('Lucy text generation uses current stable Gemini models', async () => {
+test('Forecast engine retains current Gemini model and health checks', async () => {
   const serverSource = await read('server.ts');
-  const lucySource = await read('src/server/lucy.ts');
-  assert.match(serverSource, /diamond:\s*'gemini-3\.5-flash-lite'/);
-  assert.match(serverSource, /tanzanite:\s*'gemini-3\.6-flash'/);
   assert.match(serverSource, /model:\s*'gemini-3\.5-flash-lite'/);
-  assert.match(lucySource, /model:\s*'gemini-3\.6-flash'/);
-  assert.doesNotMatch(serverSource, /diamond:\s*'gemini-2\.5-flash-lite'/);
-  assert.doesNotMatch(serverSource, /tanzanite:\s*'gemini-2\.5-flash'/);
-  assert.doesNotMatch(lucySource, /model:\s*'gemini-2\.5-flash'/);
   assert.match(serverSource, /app\.get\('\/api\/health\/gemini'/);
   assert.match(serverSource, /await ai\.models\.get\(\{ model: 'gemini-3\.6-flash' \}\)/);
   assert.doesNotMatch(serverSource, /\/api\/health\/gemini[\s\S]{0,1200}(error\?\.message|error\.stack)/);
-});
-
-test('Lucy uses authenticated Gemini Swahili speech and current market grounding', async () => {
-  const serverSource = await read('server.ts');
-  const lucySource = await read('src/server/lucy.ts');
-  const forecastingSource = await read('src/modules/forecasting/DashboardForecasting.tsx');
-  const speechSource = await read('src/modules/ai-copilot/utils/lucySpeech.ts');
-
-  assert.match(serverSource, /app\.post\('\/api\/lucy\/speech'/);
-  assert.match(serverSource, /await requireTenantUser\(req, tenantId\)/);
-  assert.match(serverSource, /gemini-3\.1-flash-tts-preview/);
-  assert.match(serverSource, /voice: 'Leda'/);
-  assert.match(serverSource, /young adult Kenyan woman/);
-  assert.match(serverSource, /interaction\.outputs\.find/);
-  assert.match(serverSource, /tools: \[\{ googleSearch: \{\} \}\]/);
-  assert.match(lucySource, /tools: \[\{ googleSearch: \{\} \}\]/);
-  assert.match(lucySource, /groundingMetadata\?\.groundingChunks/);
-  assert.match(speechSource, /Authorization: `Bearer \$\{session\.access_token\}`/);
-  assert.match(speechSource, /unlockLucySpeech/);
-  assert.match(forecastingSource, /speakWithGeminiLucy/);
-  assert.match(forecastingSource, /sources: Array\.isArray\(data\.sources\)/);
-  assert.match(serverSource, /buildVerifiedLucySalesWalkthrough/);
-  assert.match(serverSource, /Proceed to Payment/);
-  assert.match(serverSource, /Choose Payment Method/);
-  assert.match(serverSource, /Confirm Payment/);
-  assert.match(serverSource, /GUIDED WALKTHROUGH MODE/);
-  assert.match(serverSource, /CHOICE MODE/);
-  assert.match(serverSource, /resolveLucyConversationChoice/);
-  assert.match(lucySource, /Use choices only when a real decision is required/);
-  assert.match(serverSource, /normalizeLucyResponseText/);
-  assert.match(serverSource, /RECENT CONVERSATION \(OLDEST TO NEWEST/);
 });
 
 test('reports use branded, searchable, multi-page PDF mode', async () => {
