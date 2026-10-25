@@ -151,3 +151,33 @@ test('Seller POS settlement is a separate atomic permission, not generic Money &
   assert.match(treasuryApi, /if \(input\.sourceType === 'sale'\)[\s\S]*post_current_branch_pos_sale/);
   assert.match(dashboard, /saleSavedAtomically \|\| await saveTenantSalesOnly/);
 });
+
+
+test('POS 22023 validation identifies bad checkout safely without bypassing branch or tenant checks', () => {
+  const sql = readFileSync(
+    new URL('../supabase/migrations/20261026213000_pos_sale_payload_validation.sql', import.meta.url),
+    'utf8',
+  );
+  const client = readFileSync(
+    new URL('../src/modules/cash-bank/utils/treasuryApi.ts', import.meta.url),
+    'utf8',
+  );
+  assert.match(sql, /create or replace function public\.post_current_branch_pos_sale/i);
+  assert.match(sql, /private\.can_write_branch\(v_tenant,v_branch,'pos\.write'\)/);
+  assert.match(sql, /p_sale->>'tenantId' is distinct from v_tenant::text/);
+  assert.match(sql, /p_sale->>'branchId' is distinct from v_branch::text/);
+  assert.match(sql, /POS branch is out of sync/);
+  assert.match(sql, /POS cart must contain between 1 and 500 items/);
+  assert.match(sql, /p_sale->>'treasuryJournalId' is not null/);
+  assert.match(sql, /p_sale->>'paymentStatus'/);
+  assert.match(sql, /v_line_total is distinct from v_paid/);
+  assert.match(sql, /status='already_posted'/i);
+  assert.match(sql, /v_sale_with_journal := p_sale \|\| jsonb_build_object/i);
+  assert.match(sql, /'paymentStatus',case when v_paid>=v_income then 'paid' else 'partial' end/i);
+  assert.match(sql, /public\.save_current_branch_sales\(jsonb_build_array\(v_sale_with_journal\)\)/);
+  assert.match(client, /if \(code === '22023'\)/);
+  assert.match(client, /safePosErrors\.includes\(message\)/);
+  assert.match(client, /if \(code === '23514'\)/);
+  assert.doesNotMatch(sql, /^\s*(?:delete from|truncate table|drop table)\b/gmi);
+  assert.doesNotMatch(sql, /grant.*money_bank\.post/i);
+});
