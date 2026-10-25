@@ -171,7 +171,7 @@ test('POS 22023 validation identifies bad checkout safely without bypassing bran
   assert.match(sql, /p_sale->>'treasuryJournalId' is not null/);
   assert.match(sql, /p_sale->>'paymentStatus'/);
   assert.match(sql, /v_line_total is distinct from v_paid/);
-  assert.match(sql, /status='already_posted'/i);
+  assert.match(sql, /'status','already_posted'/i);
   assert.match(sql, /v_sale_with_journal := p_sale \|\| jsonb_build_object/i);
   assert.match(sql, /'paymentStatus',case when v_paid>=v_income then 'paid' else 'partial' end/i);
   assert.match(sql, /public\.save_current_branch_sales\(jsonb_build_array\(v_sale_with_journal\)\)/);
