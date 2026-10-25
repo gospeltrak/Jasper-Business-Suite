@@ -1,6 +1,7 @@
 import type { PaymentChannel, Sale } from '../../../types';
 import { getSecureDataBridgeClient } from '../../../shared/dataBridge/secureDataBridge';
 import { getMaskedAccountReference } from '../../../shared/utils/paymentAccounts';
+import { selectPaymentAccountsForBranch } from './treasuryBranchAccounts';
 
 type TreasuryDirection = 'in' | 'out';
 
@@ -54,11 +55,39 @@ const toStoredMaskedReference = (channel: PaymentChannel) => {
 
 const safeTreasuryError = (error: any) => {
   const code = String(error?.code || '');
-  if (code === '23514') return new Error('The selected account has insufficient available funds.');
+  if (code === '22023') {
+    // Only server-authored, PII-free POS validation messages are safe to show.
+    // Raw SQL errors can expose internal table/function details.
+    const message = String(error?.message || '');
+    const safePosErrors = [
+      'POS sale payload is missing. Please reopen the cart.',
+      'POS business context changed. Sign in to the correct business.',
+      'POS branch is out of sync. Re-select your branch before checkout.',
+      'POS cart must contain between 1 and 500 items.',
+      'POS sale reference is invalid. Please reopen the cart.',
+      'POS sale already carries a payment reference. Check Sales before retrying.',
+      'At least one valid payment account is required.',
+      'POS sale items must have a product, quantity and price.',
+      'POS payment cannot exceed sale revenue.',
+      'Every payment line must have a valid positive amount.',
+      'POS split payment accounts must be unique.',
+    ];
+    return new Error(safePosErrors.includes(message)
+      ? message
+      : 'POS sale details could not be verified. Please check your branch and cart before retrying.');
+  }
+  if (code === '23514') {
+    const message = String(error?.message || '');
+    if (message === 'Collected payment must match POS sale amount paid.')
+      return new Error('The POS amount collected does not match the sale payment. Check the amount before retrying.');
+    if (message === 'POS payments require active accounts in one branch and currency.')
+      return new Error('Selected payment account does not belong to the active branch or currency.');
+    return new Error('The Money & Bank account or payment amount could not be verified.');
+  }
   if (code === '42501') return new Error('You do not have permission to post this Money & Bank transaction.');
   if (code === 'P0002') return new Error('The selected Money & Bank account is not active.');
-  if (code === '23505') return new Error('This Money & Bank transaction was already posted.');
-  return new Error('Money & Bank could not post this transaction safely. Nothing was saved.');
+  if (code === '23505') return new Error('This sale or payment already exists. Check Sales before retrying.');
+  return new Error('Money & Bank could not post this transaction safely. Check Sales before retrying.');
 };
 
 const TREASURY_ACCOUNT_CACHE_TTL_MS = 30_000;
@@ -254,10 +283,16 @@ export async function postTreasurySplitIncome(input: {
     input.openingBalances,
     input.cacheKey,
   );
-  const mapping = new Map(syncedAccounts.map(account => [account.sourceKey, account]));
+  // Cash and M-Pesa may reuse the same sourceKey in every tenant branch.
+  // Restrict Sale payment routing to the branch selected on the POS sale,
+  // instead of overwriting one branch's sourceKey with another branch's.
+  const saleSelection = input.sourceType === 'sale'
+    ? selectPaymentAccountsForBranch(syncedAccounts, [...aggregated.keys()], input.sale?.branchId)
+    : null;
+  const mapping = saleSelection?.accounts || new Map(syncedAccounts.map(account => [account.sourceKey, account]));
   const branchIds = new Set([...aggregated.keys()].map(key => mapping.get(key)?.branchId).filter(Boolean));
   if (branchIds.size !== 1) throw new Error('Split payments must belong to one active branch.');
-  const branchId = String([...branchIds][0] || '');
+  const branchId = saleSelection?.branchId || String([...branchIds][0] || '');
   const lines = [...aggregated.entries()]
     .map(([sourceAccountKey, amount]) => ({
       accountId: mapping.get(sourceAccountKey)?.accountId,
