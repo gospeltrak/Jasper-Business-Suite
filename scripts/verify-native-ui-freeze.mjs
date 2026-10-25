@@ -9,9 +9,10 @@ import assert from 'node:assert/strict';
  * Purchasing/Expenses screens are frozen. App functionality is added through
  * native services, secure storage, transport and backend logic, NOT redesigns.
  *
- * The sole permitted Dashboard difference suppresses the redundant web-PWA
- * install prompt inside a native shell. The sole permitted main.tsx difference
- * initializes the native API transport without changing viewport/UI logic.
+ * The user explicitly authorized ONE global UI removal: all Install PWA
+ * banners and install-menu entries, on web, tablet, phone and native.
+ * Everything else stays byte-for-byte identical to main's UI.
+ * The only permitted main.tsx difference initializes native API transport.
  */
 export function isPermittedNativeDiffPath(path) {
   // New native services/tests are allowed; new JSX/styles are NOT implicit UI approvals.
@@ -26,16 +27,40 @@ export function isPermittedNativeDiffPath(path) {
   return true;
 }
 
-export function stripPermittedNativeShellAdapters(path, current) {
+function replaceExactOnce(input, expression, replacement, description) {
+  const matches = input.match(expression);
+  if (!matches || matches.length !== 1) {
+    throw new Error(`Authorized Install PWA removal anchor changed: ${description}`);
+  }
+  return input.replace(expression, replacement);
+}
+
+export function expectedDashboardAfterAuthorizedPwaRemoval(baseline) {
+  let result = baseline;
+  const once = (pattern, replacement, name) => {
+    result = replaceExactOnce(result, pattern, replacement, name);
+  };
+  once(/^import PWAInstallBanner from '\.\.\/shared\/components\/PWAInstallBanner';\n/m, '', 'banner import');
+  once(/^import \{ requestManualInstallPrompt \} from '\.\.\/shared\/utils\/pwaInstallPrompt';\n/m, '', 'manual install import');
+  once(/      \{\/\* PWA install banner —[\s\S]*?\n      \{\/\* Branch-switch data reload indicator\./,
+    '      {/* Branch-switch data reload indicator.', 'install banner only');
+  once(/\n[ \t]*\{user\.role !== 'SuperAdmin' && \(\n[\s\S]*?requestManualInstallPrompt\(\); setShowUserMenu\(false\);[\s\S]*?\n[ \t]*\)\}/,
+    '', 'profile install option');
+  once(/^.*\{ id: 'install-orvix-app', label: 'Install Admin App'.*\n/m, '', 'admin More install');
+  once(/^.*\{ id: 'install-orvix-app', label: 'Install Orvix App'.*\n/m, '', 'tenant More install');
+  once(/\} else if \(item\.id === 'install-orvix-app'\) \{\n\s*requestManualInstallPrompt\(\);\n\s*/,
+    '', 'More menu install handler');
+  once(/Handshake, Download, LoaderCircle \} from "lucide-react";/,
+    'Handshake, LoaderCircle } from "lucide-react";', 'unused PWA Download icon');
+  return result;
+}
+
+export function stripPermittedNativeShellAdapters(path, current, baseline) {
   if (path === 'src/components/Dashboard.tsx') {
-    // Exactly the native PWA banner check. No JSX classes/layout may differ.
-    const addedImport = "import { Capacitor } from '@capacitor/core';\n";
-    const allowedExpression = "{(mirrorMode || Capacitor.isNativePlatform()) ? null : user.role === 'SuperAdmin' ? (";
-    const originalExpression = "{mirrorMode ? null : user.role === 'SuperAdmin' ? (";
-    if (!current.includes(addedImport) || !current.includes(allowedExpression)) {
-      throw new Error('Dashboard.tsx native shell adapter changed unexpectedly.');
-    }
-    return current.replace(addedImport, '').replace(allowedExpression, originalExpression);
+    if (typeof baseline !== 'string') throw new Error('Dashboard UI baseline required.');
+    assert.equal(current, expectedDashboardAfterAuthorizedPwaRemoval(baseline),
+      'Dashboard.tsx contains unapproved changes beyond removing Install PWA');
+    return baseline;
   }
   if (path === 'src/main.tsx') {
     const bootstrap =
@@ -66,7 +91,7 @@ function verifyAgainstBase(base) {
     try {
       const oldSource = git('show', `${baseline}:${path}`);
       const current = readFileSync(path, 'utf8');
-      assert.equal(stripPermittedNativeShellAdapters(path, current), oldSource);
+      assert.equal(stripPermittedNativeShellAdapters(path, current, oldSource), oldSource);
     } catch (error) {
       failures.push(`Unexpected changes to protected entrypoint ${path}: ${error instanceof Error ? error.message : error}`);
     }
@@ -100,7 +125,7 @@ function selfTest() {
   assert.throws(() => stripPermittedNativeShellAdapters('src/main.tsx', 'redesigned UI'),
     /adapter changed/);
   assert.throws(() => stripPermittedNativeShellAdapters('src/components/Dashboard.tsx', 'redesigned UI'),
-    /adapter changed/);
+    /baseline required/);
   console.log('Orvix UI freeze policy self-tests passed.');
 }
 
