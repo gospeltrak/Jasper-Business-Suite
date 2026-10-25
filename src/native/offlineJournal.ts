@@ -58,7 +58,7 @@ function openDb(): Promise<IDBDatabase> {
 function inStore<T>(mode: IDBTransactionMode, run: (store: IDBObjectStore, resolve: (value: T) => void, reject: (error: Error) => void) => void): Promise<T> {
   return openDb().then(db => new Promise<T>((resolve, reject) => {
     const tx = db.transaction(STORE, mode);
-    let result: T;
+    let result!: T;
     let settled = false;
     const success = (value: T) => { result = value; };
     tx.oncomplete = () => {
@@ -145,9 +145,13 @@ export async function updateNativeOperationStatus(
     const request = store.get(key);
     request.onsuccess = () => {
       const old = request.result as NativeJournalEntry | undefined;
-      if (!old) throw new Error('Offline transaction not found; cannot acknowledge cloud sync.');
+      if (!old) {
+        store.transaction.abort();
+        return;
+      }
       if (old.status === 'complete' && status !== 'complete') {
-        throw new Error('Cannot return a completed transaction to pending.');
+        store.transaction.abort();
+        return;
       }
       const updated: NativeJournalEntry = {
         ...old, status, attempts: old.attempts + 1, ...(lastError ? { lastError } : {}),
