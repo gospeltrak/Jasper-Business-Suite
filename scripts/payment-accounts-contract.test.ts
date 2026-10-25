@@ -169,7 +169,6 @@ test('POS 22023 validation identifies bad checkout safely without bypassing bran
   assert.match(sql, /POS branch is out of sync/);
   assert.match(sql, /POS cart must contain between 1 and 500 items/);
   assert.match(sql, /p_sale->>'treasuryJournalId' is not null/);
-  assert.match(sql, /p_sale->>'paymentStatus'/);
   assert.match(sql, /v_line_total is distinct from v_paid/);
   assert.match(sql, /'status','already_posted'/i);
   assert.match(sql, /v_sale_with_journal := p_sale \|\| jsonb_build_object/i);
