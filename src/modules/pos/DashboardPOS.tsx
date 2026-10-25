@@ -7,6 +7,8 @@ import {
   getProductCostingMethod,
 } from '../../shared/utils/inventoryCosting';
 import { formatProductQuantity, formatSaleItemQuantity } from '../../shared/utils/unitFormatter';
+import { useTranslation } from '../../shared/contexts/LanguageContext';
+import { posReceiptLabel, posReceiptPaymentMode, posReceiptWalkInCustomer, posReceiptQuantity, posReceiptDate, posReceiptTime } from '../../shared/utils/posReceiptI18n';
 import { getPaymentModeName } from '../../shared/utils/paymentAccounts';
 import { getActiveBranchAddress, getActiveBranchDisplayName, getActiveBranchLogo, getActiveBranchPhone } from '../../shared/utils/businessBranding';
 import type { BranchSummary } from '../branches/branchTypes';
@@ -186,6 +188,7 @@ export default function DashboardPOS({
   onClearPreloadedCart,
   onGoToPaymentSettings
 }: DashboardPOSProps) {
+  const { lang: receiptLanguage } = useTranslation();
   const showProductImages = systemSettings?.posSettings?.showProductImages !== false;
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -2163,7 +2166,7 @@ export default function DashboardPOS({
             <div className="px-6 py-4 md:py-5 bg-slate-50 border-b border-slate-250 flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <Receipt className="w-5 h-5 text-emerald-600" />
-                <h4 className="font-bold text-slate-800 text-sm">Payment Mode</h4>
+                <h4 className="font-bold text-slate-800 text-sm">{posReceiptLabel('mode', receiptLanguage)}</h4>
               </div>
               <button 
                 onClick={() => { setIsCheckoutOpen(false); setPaymentStatus('idle'); }}
@@ -2485,9 +2488,9 @@ export default function DashboardPOS({
                   <div className="p-2.5 bg-emerald-100 rounded-full border border-emerald-200 flex items-center justify-center">
                     <CheckCircle className="w-8 h-8 text-emerald-600" />
                   </div>
-                  <h4 className="text-sm font-bold text-slate-800 uppercase tracking-widest">TRANSACTION APPROVED</h4>
+                  <h4 className="text-sm font-bold text-slate-800 uppercase tracking-widest">{receiptLanguage === 'sw' ? 'MUAMALA UMEIDHINISHWA' : 'TRANSACTION APPROVED'}</h4>
                   <p className="text-[10px] font-mono text-slate-400 font-bold uppercase">
-                    {isOfflineMode ? 'MANUAL PAYMENT QUEUED OFFLINE' : 'MANUAL PAYMENT RECORDED SUCCESSFULLY'}
+                    {isOfflineMode ? (receiptLanguage === 'sw' ? 'MALIPO YANASUBIRI KUSAWAZISHWA' : 'MANUAL PAYMENT QUEUED OFFLINE') : (receiptLanguage === 'sw' ? 'MALIPO YAMEHIFADHIWA KWA MAFANIKIO' : 'MANUAL PAYMENT RECORDED SUCCESSFULLY')}
                   </p>
                 </div>
 
@@ -2513,30 +2516,30 @@ export default function DashboardPOS({
 
                   <div className="border-t border-dashed border-slate-300" />
 
-                  <h3 className="text-center text-sm font-black uppercase tracking-wide text-black">POS Receipt</h3>
+                  <h3 className="text-center text-sm font-black uppercase tracking-wide text-black">{posReceiptLabel('title', receiptLanguage)}</h3>
 
                   {/* Core docket information */}
                   <div className="space-y-1.5 text-[11px] text-black">
                     <div className="flex justify-between">
-                      <span>Invoice No:</span>
+                      <span>{posReceiptLabel('invoiceNo', receiptLanguage)}:</span>
                       <span className="font-semibold">{receiptResult.reference || `REC-${receiptResult.id.toUpperCase().slice(0, 8)}`}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span>Tarehe:</span>
-                      <span className="font-semibold">{new Date(receiptResult.timestamp).toLocaleDateString([], { dateStyle: 'long' })}</span>
+                      <span>{posReceiptLabel('date', receiptLanguage)}:</span>
+                      <span className="font-semibold">{posReceiptDate(receiptResult.timestamp, receiptLanguage)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span>Wakati:</span>
-                      <span className="font-semibold">{new Date(receiptResult.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      <span>{posReceiptLabel('time', receiptLanguage)}:</span>
+                      <span className="font-semibold">{posReceiptTime(receiptResult.timestamp, receiptLanguage)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span>{activeTenant.businessType === 'pharmacy' ? 'Pharmacist:' : 'Cashier:'}</span>
+                      <span>{activeTenant.businessType === 'pharmacy' ? `${posReceiptLabel('pharmacist', receiptLanguage)}:` : `${posReceiptLabel('cashier', receiptLanguage)}:`}</span>
                       <span className="font-semibold">{receiptResult.cashierName}</span>
                     </div>
                     {receiptResult.customerName && (
                       <div className="flex justify-between">
-                        <span>Customer:</span>
-                        <span className="font-semibold">{receiptResult.customerName}</span>
+                        <span>{posReceiptLabel('customer', receiptLanguage)}:</span>
+                        <span className="font-semibold">{posReceiptWalkInCustomer(receiptResult.customerName, receiptLanguage)}</span>
                       </div>
                     )}
                   </div>
@@ -2547,10 +2550,10 @@ export default function DashboardPOS({
                   <div>
                     <div className="flex text-[10px] font-black uppercase text-black pb-1.5 border-b-2 border-black">
                       <span className="w-5 shrink-0">#</span>
-                      <span className="flex-1">Maelezo</span>
-                      <span className="w-12 shrink-0 text-center">Qty</span>
-                      <span className="w-16 shrink-0 text-right">Bei</span>
-                      <span className="w-16 shrink-0 text-right">Jumla</span>
+                      <span className="flex-1">{posReceiptLabel('description', receiptLanguage)}</span>
+                      <span className="w-12 shrink-0 text-center">{posReceiptLabel('quantity', receiptLanguage)}</span>
+                      <span className="w-16 shrink-0 text-right">{posReceiptLabel('price', receiptLanguage)}</span>
+                      <span className="w-16 shrink-0 text-right">{posReceiptLabel('total', receiptLanguage)}</span>
                     </div>
                     {receiptResult.items.map((item, index) => {
                       const finalItemPrice = item.discountType === 'cash'
@@ -2561,7 +2564,7 @@ export default function DashboardPOS({
                           <div className="flex items-start py-2 text-[11px] text-black">
                             <span className="w-5 shrink-0 text-slate-400">{index + 1}</span>
                             <span className="flex-1 font-semibold pr-1">{item.productName}</span>
-                            <span className="w-12 shrink-0 text-center">{formatSaleItemQuantity(item)}</span>
+                            <span className="w-12 shrink-0 text-center">{posReceiptQuantity(formatSaleItemQuantity(item), receiptLanguage)}</span>
                             <span className="w-16 shrink-0 text-right">{currency}{Math.round(finalItemPrice).toLocaleString()}</span>
                             <span className="w-16 shrink-0 text-right font-bold">{currency}{Math.round(finalItemPrice * item.qty).toLocaleString()}</span>
                           </div>
@@ -2592,12 +2595,12 @@ export default function DashboardPOS({
                       <>
                         <div className="space-y-1.5 text-[11px] text-black">
                           <div className="flex justify-between">
-                            <span>Jumla Ndogo</span>
+                            <span>{posReceiptLabel('subtotal', receiptLanguage)}</span>
                             <span className="font-semibold">{currency}{Math.round(itemsSubtotal).toLocaleString()}</span>
                           </div>
                           {orderDiscountAmt > 0 && (
                             <div className="flex justify-between">
-                              <span>Punguzo</span>
+                              <span>{posReceiptLabel('discount', receiptLanguage)}</span>
                               <span className="font-semibold">-{currency}{Math.round(orderDiscountAmt).toLocaleString()}</span>
                             </div>
                           )}
@@ -2609,19 +2612,19 @@ export default function DashboardPOS({
                           )}
                           {receiptResult.deliveryCost ? (
                             <div className="flex justify-between">
-                              <span>Delivery</span>
+                              <span>{posReceiptLabel('delivery', receiptLanguage)}</span>
                               <span className="font-semibold">{currency}{Math.round(receiptResult.deliveryCost).toLocaleString()}</span>
                             </div>
                           ) : null}
                         </div>
 
                         <div className="border-t-2 border-black pt-1.5 flex justify-between text-sm font-black text-black">
-                          <span>Jumla</span>
+                          <span>{posReceiptLabel('total', receiptLanguage)}</span>
                           <span>{currency}{Math.round(receiptResult.total).toLocaleString()}</span>
                         </div>
                         {balanceDue > 0 && (
                           <div className="border-t-2 border-black pt-1.5 flex justify-between text-[11px] text-black">
-                            <span>Due</span>
+                            <span>{posReceiptLabel('due', receiptLanguage)}</span>
                             <span className="font-semibold">{currency}{Math.round(balanceDue).toLocaleString()}</span>
                           </div>
                         )}
@@ -2630,18 +2633,18 @@ export default function DashboardPOS({
 
                         {/* Payment details */}
                         <div className="space-y-1 text-[11px] text-black">
-                          <p className="font-black uppercase tracking-wide">Payment Details</p>
+                          <p className="font-black uppercase tracking-wide">{posReceiptLabel('paymentDetails', receiptLanguage)}</p>
                           <div className="flex justify-between">
-                            <span>Mode</span>
-                            <span className="font-semibold">{receiptResult.paymentMethod}</span>
+                            <span>{posReceiptLabel('mode', receiptLanguage)}</span>
+                            <span className="font-semibold">{posReceiptPaymentMode(receiptResult.paymentMethod, receiptLanguage)}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span>Kiasi</span>
+                            <span>{posReceiptLabel('amount', receiptLanguage)}</span>
                             <span className="font-semibold">{currency}{Math.round(paidAmount).toLocaleString()}</span>
                           </div>
                           {changeDue > 0 && (
                             <div className="flex justify-between">
-                              <span>Change</span>
+                              <span>{posReceiptLabel('change', receiptLanguage)}</span>
                               <span className="font-semibold">{currency}{Math.round(changeDue).toLocaleString()}</span>
                             </div>
                           )}
@@ -2649,7 +2652,7 @@ export default function DashboardPOS({
                             <div className="pt-1 space-y-0.5">
                               {receiptResult.paymentBreakdown.map((part, i) => (
                                 <div key={i} className="flex justify-between text-slate-600">
-                                  <span>{part.method}</span>
+                                  <span>{posReceiptPaymentMode(part.method, receiptLanguage)}</span>
                                   <span className="font-mono">{currency}{Math.round(part.amount).toLocaleString()}</span>
                                 </div>
                               ))}
@@ -2672,8 +2675,8 @@ export default function DashboardPOS({
 
                   {/* Footer */}
                   <div className="text-center space-y-1 pt-1">
-                    <p className="text-[10px] font-black text-black">Thank you for shopping with us</p>
-                    <p className="text-[9px] text-slate-400">Powered by Orvix.africa</p>
+                    <p className="text-[10px] font-black text-black">{posReceiptLabel('thankYou', receiptLanguage)}</p>
+                    <p className="text-[9px] text-slate-400">{posReceiptLabel('poweredBy', receiptLanguage)}</p>
                   </div>
                 </div>
 
