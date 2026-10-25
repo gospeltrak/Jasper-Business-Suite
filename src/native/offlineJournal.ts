@@ -168,7 +168,7 @@ export async function updateNativeOperationStatus(
         store.transaction.abort();
         return;
       }
-      if (old.status === 'complete' && status !== 'complete') {
+      if (old.status === 'complete') {
         store.transaction.abort();
         return;
       }
