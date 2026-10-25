@@ -8,11 +8,10 @@ on:
       - 'capacitor.config.ts'
       - 'package.json'
       - 'package-lock.json'
-      - 'src/main.tsx'
-      - 'src/shared/utils/nativeApiTransport.ts'
-      - 'src/components/Dashboard.tsx'
-      - 'src/shared/utils/offlineDb.ts'
-      - 'scripts/verify-native-contract.mjs'
+      - 'src/**'
+      - 'public/**'
+      - 'index.html'
+      - 'scripts/verify-native-*.mjs'
       - '.github/workflows/native-android-qa.yml'
 
 permissions:
@@ -31,6 +30,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           persist-credentials: false
+          fetch-depth: 0
 
       - name: Use Node 22
         uses: actions/setup-node@v4
@@ -46,6 +46,12 @@ jobs:
 
       - name: Install locked dependencies
         run: npm ci
+
+      - name: Verify UI is unchanged from main
+        run: |
+          git fetch --no-tags origin main
+          node scripts/verify-native-ui-freeze.mjs --self-test
+          node scripts/verify-native-ui-freeze.mjs --base origin/main
 
       - name: Native isolation and security contracts
         run: npm run native:verify
