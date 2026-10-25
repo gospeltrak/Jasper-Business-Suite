@@ -1,6 +1,7 @@
 import type { PaymentChannel, Sale } from '../../../types';
 import { getSecureDataBridgeClient } from '../../../shared/dataBridge/secureDataBridge';
 import { getMaskedAccountReference } from '../../../shared/utils/paymentAccounts';
+import { selectPaymentAccountsForBranch } from './treasuryBranchAccounts';
 
 type TreasuryDirection = 'in' | 'out';
 
@@ -282,10 +283,16 @@ export async function postTreasurySplitIncome(input: {
     input.openingBalances,
     input.cacheKey,
   );
-  const mapping = new Map(syncedAccounts.map(account => [account.sourceKey, account]));
+  // Cash and M-Pesa may reuse the same sourceKey in every tenant branch.
+  // Restrict Sale payment routing to the branch selected on the POS sale,
+  // instead of overwriting one branch's sourceKey with another branch's.
+  const saleSelection = input.sourceType === 'sale'
+    ? selectPaymentAccountsForBranch(syncedAccounts, [...aggregated.keys()], input.sale?.branchId)
+    : null;
+  const mapping = saleSelection?.accounts || new Map(syncedAccounts.map(account => [account.sourceKey, account]));
   const branchIds = new Set([...aggregated.keys()].map(key => mapping.get(key)?.branchId).filter(Boolean));
   if (branchIds.size !== 1) throw new Error('Split payments must belong to one active branch.');
-  const branchId = String([...branchIds][0] || '');
+  const branchId = saleSelection?.branchId || String([...branchIds][0] || '');
   const lines = [...aggregated.entries()]
     .map(([sourceAccountKey, amount]) => ({
       accountId: mapping.get(sourceAccountKey)?.accountId,
