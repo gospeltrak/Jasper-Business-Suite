@@ -2387,6 +2387,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       syncUpdatedAt,
     } as Sale;
     let postedTreasuryJournalId = '';
+    let saleSavedAtomically = false;
     const saleIncome = Math.max(0, Number(sale.total || 0) - Number(sale.deliveryCost || 0));
     const collectedAmount = sale.paymentStatus === 'unpaid'
       ? 0
@@ -2433,6 +2434,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
           channels,
           lines: paymentLines,
           sourceType: 'sale',
+          sale: saleToStore,
           sourceId: sale.id,
           description: `Sale payment ${sale.reference || sale.id}`,
           openingBalances: getTreasuryOpeningBalances(),
@@ -2449,6 +2451,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
           treasuryJournalId: posted.journalId,
         };
         postedTreasuryJournalId = posted.journalId;
+        saleSavedAtomically = true;
       } catch (error: any) {
         addToast(error?.message || 'Money & Bank could not post this sale safely.', 'error');
         return false;
@@ -2458,10 +2461,11 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       saleToStore,
       ...(salesMap[activeTenant.id] || []).filter(existing => existing.id !== saleToStore.id),
     ];
-    // Narrow save: only the `sales` key changes here -- stock is deducted
-    // via a separate onUpdateStocks() call right after this succeeds
-    // (DashboardPOS.tsx), exactly as before this change.
-    const saleSaved = await saveTenantSalesOnly(
+    // Paid POS sales were already saved atomically with their Money & Bank
+    // journal by post_current_branch_pos_sale. Saving again would risk a
+    // redundant write; unpaid/local-demo sales retain the existing path.
+    // Stock updates still use the existing onUpdateStocks pipeline.
+    const saleSaved = saleSavedAtomically || await saveTenantSalesOnly(
       activeTenant.id,
       nextTenantSales,
       readLocalSaleTombstones(activeTenant.id),
