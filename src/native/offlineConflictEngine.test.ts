@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  evaluateServerResponse, retryDelayMs, simulateStockAdmission,
+  evaluateServerResponse, retryDelayMs, simulateStockAdmission as performStockAdmission,
   mayRestoreDeletedRecord,
   type LocalStockBudget, type OfflineSaleIntent, type OperationIdentity, type StockGrant, type ServerReceipt,
 } from './offlineConflictEngine';
@@ -29,6 +29,19 @@ function budget(overrides?: Partial<StockGrant>): LocalStockBudget {
 function receiptOutcome(input: Partial<ServerReceipt> = {}, status = 200) {
   return evaluateServerResponse(op, { httpStatus: status, receipt: { ...receipt, ...input } });
 }
+
+const trustedClock = {
+  serverTimeAtHandshake: '2026-10-25T10:00:00.000Z',
+  monotonicElapsedMs: 3000,
+  continuityVerified: true,
+  serverProofId: 'test-server-proof',
+  maxOfflineMs: 60 * 60 * 1000,
+};
+const simulateStockAdmission = (
+  intent: Parameters<typeof performStockAdmission>[0],
+  allowance: Parameters<typeof performStockAdmission>[1],
+  clock: Parameters<typeof performStockAdmission>[2] = trustedClock,
+) => performStockAdmission(intent, allowance, clock);
 
 describe('Sync receipts: never delete or overwrite an unacknowledged offline action', () => {
   it('commits only with the same operation identity and both financial/stock confirmations', () => {
@@ -157,6 +170,12 @@ describe('Atomic stock grant model for simultaneous offline cashiers', () => {
     expect(simulateStockAdmission(multi,initial).outcome).toBe('blocked');
     expect(initial.grants[0].remainingMicros).toBe('8000000');
     expect(initial.appliedOperationIds).toEqual([]);
+  });
+  it('blocks untrusted clock, expired grants, and offline lease expired', () => {
+    expect(simulateStockAdmission(sale,budget(),{...trustedClock,continuityVerified:false}).code).toBe('trusted_native_clock_required');
+    expect(simulateStockAdmission(sale,budget(),{...trustedClock,serverProofId:''}).code).toBe('trusted_native_clock_required');
+    expect(simulateStockAdmission(sale,budget(),{...trustedClock,monotonicElapsedMs:2*60*60*1000}).code).toBe('trusted_native_clock_required');
+    expect(simulateStockAdmission(sale,budget({expiresAtServer:'2026-10-25T10:00:01.000Z'})).code).toBe('stock_grant_expired');
   });
   it('product tombstone is not undone by an older device snapshot', () => {
     expect(mayRestoreDeletedRecord(true,false)).toBe(false);
