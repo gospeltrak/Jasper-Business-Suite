@@ -1,4 +1,6 @@
 import { Capacitor } from '@capacitor/core';
+import { evaluateServerResponse, type ServerReceipt } from './offlineConflictEngine';
+import { offlinePayloadDigest } from './offlinePayloadDigest';
 
 export type NativeOperationType = 'sale' | 'purchase' | 'expense';
 export type NativeJournalStatus = 'pending' | 'syncing' | 'retry_wait' | 'needs_review' | 'blocked' | 'cloud_committed' | 'complete';
@@ -13,6 +15,8 @@ export interface NativeJournalEntry<T = unknown> extends NativeJournalScope {
   key: string;
   operationId: string;
   idempotencyKey: string;
+  payloadDigest: string;
+  serverReceipt?: ServerReceipt;
   baseSnapshotRevision: string;
   clientSequence: number;
   type: NativeOperationType;
@@ -111,10 +115,12 @@ export async function stageNativeOperation<T extends { id: string; tenantId?: st
   if (!metadata?.baseSnapshotRevision || !Number.isSafeInteger(metadata.clientSequence) || metadata.clientSequence < 1) {
     throw new Error('An authoritative server snapshot revision and device sequence are required.');
   }
+  const payloadDigest = await offlinePayloadDigest(payload);
   const entry: NativeJournalEntry<T> = {
     ...scope, type, key: journalKey(scope, type, payload.id),
     operationId: payload.id,
     idempotencyKey: [scope.tenantId, scope.branchId, scope.deviceId, type, payload.id].join(':'),
+    payloadDigest,
     baseSnapshotRevision: metadata.baseSnapshotRevision,
     clientSequence: metadata.clientSequence, payload,
     createdAt: new Date().toISOString(), status: 'pending', attempts: 0,
@@ -174,6 +180,56 @@ export async function updateNativeOperationStatus(
       }
       const updated: NativeJournalEntry = {
         ...old, status, attempts: old.attempts + 1, ...(lastError ? { lastError } : {}),
+      };
+      const put = store.put(updated);
+      put.onsuccess = () => resolve(undefined);
+    };
+  });
+}
+
+/**
+ * Only this function can acknowledge a native transaction as complete.
+ * The server receipt is checked AGAINST THE ACTUAL STORED ROW inside one
+ * IndexedDB readwrite transaction; it is then retained with the operation
+ * instead of deleting the evidence. The authoritative server must separately
+ * enforce an atomic idempotency ledger, stock grant and Treasury posting.
+ */
+export async function completeNativeOperationFromReceipt(
+  entry: NativeJournalEntry,
+  receipt: ServerReceipt,
+): Promise<void> {
+  const scope: NativeJournalScope = {
+    tenantId: entry.tenantId, branchId: entry.branchId,
+    actorId: entry.actorId, deviceId: entry.deviceId,
+  };
+  assertNativeJournalAccess(scope);
+  await inStore<void>('readwrite', (store, resolve) => {
+    const request = store.get(entry.key);
+    request.onsuccess = () => {
+      const stored = request.result as NativeJournalEntry | undefined;
+      if (!stored || stored.key !== entry.key || stored.idempotencyKey !== entry.idempotencyKey
+        || stored.payloadDigest !== entry.payloadDigest || stored.clientSequence !== entry.clientSequence) {
+        store.transaction.abort();
+        return;
+      }
+      const evaluated = evaluateServerResponse(stored, { httpStatus: 200, receipt });
+      if (evaluated.outcome !== 'complete') {
+        store.transaction.abort();
+        return;
+      }
+      if (stored.status === 'complete') {
+        // A repeated, identical server receipt is harmless. A DIFFERENT
+        // server revision would be a tampering/conflicting-response incident.
+        if (JSON.stringify(stored.serverReceipt) !== JSON.stringify(receipt)) {
+          store.transaction.abort();
+          return;
+        }
+        resolve(undefined);
+        return;
+      }
+      const updated: NativeJournalEntry = {
+        ...stored, status: 'complete', serverReceipt: receipt,
+        attempts: stored.attempts + 1, lastError: undefined,
       };
       const put = store.put(updated);
       put.onsuccess = () => resolve(undefined);
