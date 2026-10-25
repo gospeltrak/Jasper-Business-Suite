@@ -1,0 +1,77 @@
+name: Native Android QA (no production release)
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'capacitor.config.ts'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'src/main.tsx'
+      - 'src/shared/utils/nativeApiTransport.ts'
+      - 'src/components/Dashboard.tsx'
+      - 'src/shared/utils/offlineDb.ts'
+      - 'scripts/verify-native-contract.mjs'
+      - '.github/workflows/native-android-qa.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-android-qa-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android-debug-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Use Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Use JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Native isolation and security contracts
+        run: npm run native:verify
+
+      - name: Validate TypeScript
+        run: npm run lint
+
+      - name: Build packaged native web assets
+        env:
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        run: npm run native:build:web
+
+      - name: Create Android shell and sync packaged assets
+        run: |
+          npx cap add android
+          npx cap sync android
+
+      - name: Compile unsigned QA/debug APK
+        working-directory: android
+        run: ./gradlew :app:assembleDebug --no-daemon
+
+      - name: Keep debug APK as internal QA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: orvix-android-debug-qa-only
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 7
