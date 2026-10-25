@@ -75,7 +75,7 @@ describe('Native device hardware authorization', () => {
   const granted = {
     nativePlatform: 'android' as const, authenticated: true,
     appUnlocked: true, hasStaffPermission: true,
-    devicePermissionGranted: true, offline: true,
+    devicePermissionGranted: true, offline: true, secureLocalVaultVerified: false,
   };
   it('never unlocks camera/printer features in web/PWA', () => {
     for (const feature of ['camera_barcode', 'bluetooth_printer', 'wifi_printer'] as const) {
@@ -95,6 +95,7 @@ describe('Native device hardware authorization', () => {
   });
   it('iOS offline accounting remains blocked until encrypted native journal is ready', () => {
     expect(mayStartNativeFeature('offline_financial_journal', { ...granted, nativePlatform: 'ios' })).toBe(false);
-    expect(mayStartNativeFeature('offline_financial_journal', granted)).toBe(true);
+    expect(mayStartNativeFeature('offline_financial_journal', granted)).toBe(false);
+    expect(mayStartNativeFeature('offline_financial_journal', { ...granted, secureLocalVaultVerified: true })).toBe(true);
   });
 });
