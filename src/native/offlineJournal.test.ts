@@ -13,7 +13,7 @@ import {
   stageNativeOperation,
 } from './offlineJournal';
 
-const scope = { tenantId: 'tenant-a', branchId: 'branch-a', actorId: 'staff-a' };
+const scope = { tenantId: 'tenant-a', branchId: 'branch-a', actorId: 'staff-a', deviceId: 'device-a' };
 
 beforeEach(() => {
   vi.mocked(Capacitor.isNativePlatform).mockReturnValue(false);
@@ -23,7 +23,7 @@ beforeEach(() => {
 describe('Native offline isolation', () => {
   it('blocks any web/PWA offline write', async () => {
     expect(() => assertNativeJournalAccess(scope)).toThrow(/installed Android\/iOS app/);
-    await expect(stageNativeOperation(scope, 'sale', { id: 'sale-1' })).rejects.toThrow(/installed Android\/iOS app/);
+    await expect(stageNativeOperation(scope, 'sale', { id: 'sale-1' }, {baseSnapshotRevision:'rev-1',clientSequence:1})).rejects.toThrow(/installed Android\/iOS app/);
   });
 
   it('does not accept iOS IndexedDB as durable accounting storage', () => {
@@ -38,6 +38,7 @@ describe('Native offline isolation', () => {
     expect(() => assertNativeJournalAccess({ ...scope, branchId: '' })).toThrow(/selected branch/);
     expect(() => assertNativeJournalAccess({ ...scope, actorId: '' })).toThrow(/verified user/);
     expect(() => assertNativeJournalAccess(scope)).not.toThrow();
+    expect(() => assertNativeJournalAccess({...scope, deviceId:''})).toThrow(/verified user/);
   });
 
   it('never mixes actor, tenant, branch or transaction type into one queue entry', () => {
@@ -46,6 +47,7 @@ describe('Native offline isolation', () => {
       journalKey({ ...scope, tenantId: 'tenant-b' }, 'sale', 'tx-1'),
       journalKey({ ...scope, branchId: 'branch-b' }, 'sale', 'tx-1'),
       journalKey({ ...scope, actorId: 'staff-b' }, 'sale', 'tx-1'),
+      journalKey({ ...scope, deviceId: 'device-b' }, 'sale', 'tx-1'),
       journalKey(scope, 'purchase', 'tx-1'),
       journalKey(scope, 'expense', 'tx-1'),
       journalKey(scope, 'sale', 'tx-2'),
@@ -57,8 +59,8 @@ describe('Native offline isolation', () => {
   it('rejects transaction payloads from other tenants or branches before storage', async () => {
     vi.mocked(Capacitor.isNativePlatform).mockReturnValue(true);
     vi.mocked(Capacitor.getPlatform).mockReturnValue('android');
-    await expect(stageNativeOperation(scope, 'sale', { id: 'sale-x', tenantId: 'tenant-b' })).rejects.toThrow(/different tenant/);
-    await expect(stageNativeOperation(scope, 'sale', { id: 'sale-x', branchId: 'branch-b' })).rejects.toThrow(/different tenant/);
-    await expect(stageNativeOperation(scope, 'sale', { id: '' })).rejects.toThrow(/missing id/);
+    await expect(stageNativeOperation(scope, 'sale', { id: 'sale-x', tenantId: 'tenant-b' }, {baseSnapshotRevision:'rev-1',clientSequence:1})).rejects.toThrow(/different tenant/);
+    await expect(stageNativeOperation(scope, 'sale', { id: 'sale-x', branchId: 'branch-b' }, {baseSnapshotRevision:'rev-1',clientSequence:1})).rejects.toThrow(/different tenant/);
+    await expect(stageNativeOperation(scope, 'sale', { id: '' }, {baseSnapshotRevision:'rev-1',clientSequence:1})).rejects.toThrow(/missing id/);
   });
 });
