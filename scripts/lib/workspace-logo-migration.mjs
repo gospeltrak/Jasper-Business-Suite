@@ -36,13 +36,13 @@ function setPath(record, path, value) {
 
 export function readInlineImage(value) {
   if (typeof value !== 'string' || !value.startsWith('data:')) return null;
-  const match = /^data:(image\\/[^;,]+);base64,([A-Za-z0-9+/=\\s]+)$/i.exec(value);
+  const match = /^data:(image\/[^;,]+);base64,([A-Za-z0-9+/=\s]+)$/i.exec(value);
   if (!match) throw new Error('Unsupported or malformed inline image; original is preserved');
   const mime = match[1].toLowerCase();
   if (!Object.hasOwn(MIME_EXTENSIONS, mime)) {
     throw new Error('Unsupported inline image MIME; original is preserved');
   }
-  const source = match[2].replace(/\\s/g, '');
+  const source = match[2].replace(/\s/g, '');
   const bytes = Buffer.from(source, 'base64');
   if (!bytes.length || bytes.length > MAX_IMAGE_BYTES || bytes.toString('base64') !== source) {
     throw new Error('Invalid or oversized inline image; original is preserved');
