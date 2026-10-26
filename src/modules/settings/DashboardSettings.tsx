@@ -7,7 +7,6 @@ import { getPaymentModeName } from '../../shared/utils/paymentAccounts';
 import { Settings as SettingsIcon, Building, Building2, Package, Users, Check, Trash2, Plus, Upload, CreditCard, Store, Tag, Sliders, Sun, Moon, Bell, CheckCircle, FileText, ShieldCheck, Lock, X, Activity, DollarSign, Truck, ArrowLeft, ChevronRight, Search } from "lucide-react";
 import { DashboardNotificationsSettings } from '../notifications-settings/DashboardNotificationsSettings';
 import { getSecureDataBridgeClient } from '../../shared/dataBridge/secureDataBridge';
-import { compressImageFile } from '../../shared/utils/imageCompression';
 import { getTreasuryPaymentMethods, reconcilePaymentChannels } from '../../shared/utils/paymentAccounts';
 import { lazyWithReload } from '../../shared/utils/lazyWithReload';
 
