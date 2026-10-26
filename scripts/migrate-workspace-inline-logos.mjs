@@ -9,7 +9,7 @@
  */
 import { createHash } from 'node:crypto';
 import { mkdir, open, readFile, stat } from 'node:fs/promises';
-import { resolve, sep } from 'node:path';
+import { isAbsolute, resolve, sep } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { createClient } from '@supabase/supabase-js';
 import pg from 'pg';
@@ -26,6 +26,7 @@ function arg(name) {
 }
 
 async function backupWorkspace(directory, row) {
+  if (!isAbsolute(directory)) throw new Error('An absolute backup directory path is required');
   const dest = resolve(directory);
   const cwd = resolve('.');
   if (dest === cwd || dest.startsWith(cwd + sep)) {
