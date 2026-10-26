@@ -1037,3 +1037,23 @@ test('GitHub CI runs tests and a production frontend build', async () => {
 
 
 
+
+test('Adjust Stock waits for the durable narrow product save before updating audit and closing modal', async () => {
+  const productSource = await read('src/modules/products/DashboardProducts.tsx');
+  const dashboardSource = await read('src/components/Dashboard.tsx');
+  const start = productSource.indexOf('const handleAdjustStock = async');
+  const end = productSource.indexOf('const handleBrandLogoUpload', start);
+  assert.ok(start >= 0 && end > start);
+  const handler = productSource.slice(start, end);
+  assert.match(handler, /adjustSaveInFlightRef\.current/);
+  assert.match(handler, /prepareManualStockAdjustment\(freshProduct, type, qty\)/);
+  assert.match(handler, /const saved = await onUpdateProducts\(/);
+  assert.match(handler, /\[freshProduct\.id\]/);
+  assert.match(handler, /if \(!saved\) \{[\s\S]*?setAdjustSaveError\([\s\S]*?return;/);
+  assert.ok(handler.indexOf('const saved = await onUpdateProducts') < handler.indexOf('const log = {'));
+  assert.ok(handler.indexOf('const log = {') < handler.indexOf('setAdjustProduct(null)'));
+  assert.match(handler, /finally \{[\s\S]*adjustSaveInFlightRef\.current = false/);
+  assert.match(productSource, /disabled=\{qty <= 0 \|\| isSavingAdjustment\}/);
+  assert.match(dashboardSource, /const \{ products: syncedProducts, saved \} = persistTenantProductsNow\(nextTenantProducts, branchStockUpdates, changedProductIds\)/);
+  assert.match(dashboardSource, /const didSave = await saved;/);
+});

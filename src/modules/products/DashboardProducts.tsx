@@ -19,6 +19,7 @@ import { classifyUniversalImportRows, downloadableUniversalTemplate, exportProdu
 import { downloadExcelFileFromRows, readExcelFileAsCsvText } from '../../shared/utils/excelExport';
 import { compressImageFile } from '../../shared/utils/imageCompression';
 import { safeSetJsonItem } from '../../shared/utils/dataSafety';
+import { prepareManualStockAdjustment } from './utils/manualStockAdjustment';
 import { generateUniqueEan13Barcode } from './barcode';
 import { calculateFractionSalePacketPrice } from '../sales/utils/fractionSale';
 import ModernSelect, { ModernSelectOption } from '../../shared/components/ModernSelect';
@@ -192,6 +193,9 @@ export default function DashboardProducts({
   const [adjustProduct, setAdjustProduct] = useState<Product | null>(null);
   const [adjustQty, setAdjustQty] = useState<number | ''>('');
   const [adjustReason, setAdjustReason] = useState<string>('');
+  const [isSavingAdjustment, setIsSavingAdjustment] = useState(false);
+  const [adjustSaveError, setAdjustSaveError] = useState<string | null>(null);
+  const adjustSaveInFlightRef = useRef(false);
   const [adjustSearch, setAdjustSearch] = useState<string>('');
   const [adjustSearchResults, setAdjustSearchResults] = useState<Product[]>([]);
   const [adjustShowSearch, setAdjustShowSearch] = useState(false);
@@ -761,48 +765,63 @@ export default function DashboardProducts({
     setAdjustSearchResults(results);
   };
 
-  const handleAdjustStock = (type: 'add' | 'deduct') => {
-    if (!adjustProduct || !adjustQty || Number(adjustQty) <= 0) return;
-    const qty = Number(adjustQty);
-    const currentStock = adjustProduct.shopStockQty ?? adjustProduct.stockQty ?? 0;
-    const newStock = type === 'add' ? currentStock + qty : Math.max(0, currentStock - qty);
-
-    const updatedProduct: Product = {
-      ...adjustProduct,
-      stockQty: newStock,
-      shopStockQty: newStock,
-    };
-    onUpdateProducts(products.map(p => p.id === adjustProduct.id ? updatedProduct : p));
-
-    // Log the adjustment for reporting
-    const log = {
-      id: `adj-${Date.now()}`,
-      productId: adjustProduct.id,
-      productName: adjustProduct.name,
-      sku: adjustProduct.sku || '',
-      type,
-      qty,
-      previousStock: currentStock,
-      newStock,
-      reason: adjustReason || (type === 'add' ? 'Manual addition' : 'Manual deduction'),
-      adjustedAt: new Date().toISOString(),
-      tenantId: (activeTenant as any)?.id || '',
-    };
-    const existing = JSON.parse(onlineStorage.getItem('jasper_stock_adjustments') || '[]');
-    existing.unshift(log);
-    safeSetJsonItem('jasper_stock_adjustments', existing.slice(0, 1000), {
-      tenantId: (activeTenant as any)?.id || '',
-      dataKey: 'stock_adjustments',
-      logLabel: `${(activeTenant as any)?.id || 'global'}/stock-adjustments`,
-    });
-
-    // Reset
-    setAdjustProduct(null);
-    setAdjustQty('');
-    setAdjustReason('');
-    setAdjustSearch('');
-    setAdjustSearchResults([]);
-    setAdjustShowSearch(false);
+  const handleAdjustStock = async (type: 'add' | 'deduct') => {
+    // Prevent duplicate taps, stale snapshots and false success on failed writes.
+    if (!adjustProduct || adjustSaveInFlightRef.current) return;
+    adjustSaveInFlightRef.current = true;
+    setIsSavingAdjustment(true);
+    setAdjustSaveError(null);
+    try {
+      const freshProduct = products.find(product => product.id === adjustProduct.id);
+      if (!freshProduct) throw new Error('This product is no longer available. Refresh the stock list.');
+      const qty = Number(adjustQty);
+      const adjustment = prepareManualStockAdjustment(freshProduct, type, qty);
+      // Only one product ID is changed; avoid rewriting every branch's stock.
+      const saved = await onUpdateProducts(
+        products.map(product => product.id === freshProduct.id ? adjustment.product : product),
+        [freshProduct.id],
+      );
+      if (!saved) {
+        setAdjustSaveError('Stock changes were not saved. Please check your connection and try again.');
+        return;
+      }
+      // A failed audit cache must never cause a second stock mutation.
+      const log = {
+        id: `adj-${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`}`,
+        productId: freshProduct.id,
+        productName: freshProduct.name,
+        sku: freshProduct.sku || '',
+        type, qty,
+        previousStock: adjustment.previousShopStock,
+        newStock: adjustment.nextShopStock,
+        reason: adjustReason || (type === 'add' ? 'Manual addition' : 'Manual deduction'),
+        adjustedAt: new Date().toISOString(),
+        tenantId: activeTenant.id,
+        branchId: freshProduct.branchId || undefined,
+      };
+      try {
+        const existing = JSON.parse(onlineStorage.getItem('jasper_stock_adjustments') || '[]');
+        safeSetJsonItem('jasper_stock_adjustments', [log, ...(Array.isArray(existing) ? existing : [])].slice(0, 1000), {
+          tenantId: activeTenant.id,
+          dataKey: 'stock_adjustments',
+          logLabel: `${activeTenant.id}/stock-adjustments`,
+        });
+      } catch (logError) {
+        console.warn('[AdjustStock] Inventory saved, audit view cache unavailable:', logError);
+      }
+      setAdjustProduct(null);
+      setAdjustQty('');
+      setAdjustReason('');
+      setAdjustSearch('');
+      setAdjustSearchResults([]);
+      setAdjustShowSearch(false);
+    } catch (error) {
+      console.warn('[AdjustStock] Save failed:', error);
+      setAdjustSaveError(error instanceof Error ? error.message : 'Stock changes could not be saved. Please try again.');
+    } finally {
+      adjustSaveInFlightRef.current = false;
+      setIsSavingAdjustment(false);
+    }
   };
 
   const handleBrandLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -6512,7 +6531,7 @@ export default function DashboardProducts({
             key="adjust-modal-backdrop"
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="tenant-modal-overlay fixed inset-0 z-[110] bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4"
-            onClick={(e) => { if (e.target === e.currentTarget) { setAdjustProduct(null); setAdjustQty(''); setAdjustReason(''); setAdjustSearch(''); setAdjustSearchResults([]); setAdjustShowSearch(false); } }}
+            onClick={(e) => { if (e.target === e.currentTarget && !adjustSaveInFlightRef.current) { setAdjustProduct(null); setAdjustQty(''); setAdjustReason(''); setAdjustSearch(''); setAdjustSearchResults([]); setAdjustShowSearch(false); setAdjustSaveError(null); } }}
           >
             <motion.div
               key="adjust-modal"
@@ -6535,7 +6554,7 @@ export default function DashboardProducts({
                 </div>
                 <button
                   type="button"
-                  onClick={() => { setAdjustProduct(null); setAdjustQty(''); setAdjustReason(''); setAdjustSearch(''); setAdjustSearchResults([]); setAdjustShowSearch(false); }}
+                  onClick={() => { if (adjustSaveInFlightRef.current) return; setAdjustProduct(null); setAdjustQty(''); setAdjustReason(''); setAdjustSearch(''); setAdjustSearchResults([]); setAdjustShowSearch(false); setAdjustSaveError(null); }}
                   className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center cursor-pointer border-none transition-colors"
                 >
                   <X className="w-4 h-4 text-slate-500" />
@@ -6624,11 +6643,14 @@ export default function DashboardProducts({
                   </div>
                 )}
 
+                {adjustSaveError && (
+                  <p role="alert" className="text-xs font-semibold text-rose-600">{t(adjustSaveError)}</p>
+                )}
                 {/* Action buttons */}
                 <div className="tenant-form-footer grid grid-cols-2 gap-3 pt-1 pb-2">
                   <button
                     type="button"
-                    disabled={qty <= 0}
+                    disabled={qty <= 0 || isSavingAdjustment}
                     onClick={() => handleAdjustStock('add')}
                     className="flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 disabled:opacity-40 text-white font-black text-sm transition-colors cursor-pointer border-none"
                   >
@@ -6636,7 +6658,7 @@ export default function DashboardProducts({
                   </button>
                   <button
                     type="button"
-                    disabled={qty <= 0}
+                    disabled={qty <= 0 || isSavingAdjustment}
                     onClick={() => handleAdjustStock('deduct')}
                     className="flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-rose-500 hover:bg-rose-400 active:bg-rose-600 disabled:opacity-40 text-white font-black text-sm transition-colors cursor-pointer border-none"
                   >
