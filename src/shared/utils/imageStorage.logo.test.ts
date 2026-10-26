@@ -32,17 +32,26 @@ describe('tenant logo storage path and failure safety', () => {
   it('uses separate light and dark keys within the uploader-owned RLS folder', async () => {
     const light = await uploadTenantLogo(svg, 'tenant-A', 'light');
     const dark = await uploadTenantLogo(svg, 'tenant-A', 'dark');
-    expect(storage.upload).toHaveBeenNthCalledWith(1, 'user-one/tenant-A/logo-light.svg', svg, {
-      contentType: 'image/svg+xml',
-      upsert: true,
-    });
-    expect(storage.upload).toHaveBeenNthCalledWith(2, 'user-one/tenant-A/logo-dark.svg', svg, {
-      contentType: 'image/svg+xml',
-      upsert: true,
-    });
-    expect(light).toContain('/user-one/tenant-A/logo-light.svg');
-    expect(dark).toContain('/user-one/tenant-A/logo-dark.svg');
+    expect(storage.upload).toHaveBeenCalledTimes(2);
+    const [lightPath, lightBlob, lightOptions] = storage.upload.mock.calls[0];
+    const [darkPath, darkBlob, darkOptions] = storage.upload.mock.calls[1];
+    expect(lightPath).toMatch(/^user-one\\/tenant-A\\/logo-light-[0-9a-f-]{36}\\.svg$/);
+    expect(darkPath).toMatch(/^user-one\\/tenant-A\\/logo-dark-[0-9a-f-]{36}\\.svg$/);
+    expect(lightBlob).toBe(svg);
+    expect(darkBlob).toBe(svg);
+    expect(lightOptions).toEqual({ contentType: 'image/svg+xml', upsert: false });
+    expect(darkOptions).toEqual({ contentType: 'image/svg+xml', upsert: false });
+    expect(light).toContain(lightPath);
+    expect(dark).toContain(darkPath);
     expect(light).not.toBe(dark);
+  });
+
+  it('gives repeat uploads distinct paths so earlier logo URLs remain valid', async () => {
+    await uploadTenantLogo(svg, 'tenant-A', 'light');
+    await uploadTenantLogo(svg, 'tenant-A', 'light');
+    expect(storage.upload.mock.calls[0][0]).not.toBe(storage.upload.mock.calls[1][0]);
+    expect(storage.upload.mock.calls[0][2].upsert).toBe(false);
+    expect(storage.upload.mock.calls[1][2].upsert).toBe(false);
   });
 
   it('does not attempt an upload without an authenticated uploader', async () => {
