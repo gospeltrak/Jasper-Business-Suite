@@ -168,7 +168,7 @@ begin
     'accessMode', case when v_branch_id is null then 'compatibility_primary' else 'branch' end
   );
 end;
-$function$
+$function$;
 
 
 revoke all on function private.get_current_branch_workspace_lightweight() from public,anon,authenticated;
@@ -210,7 +210,7 @@ begin
   return jsonb_set(v_scoped, '{payload}', v_payload, true)
     || jsonb_build_object('readSource', 'normalized_paginated');
 end;
-$function$
+$function$;
 
 
 commit;
