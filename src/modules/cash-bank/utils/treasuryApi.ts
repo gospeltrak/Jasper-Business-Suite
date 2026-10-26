@@ -248,13 +248,21 @@ export async function transferTreasuryFunds(input: {
   if (input.sourceAccountKey === input.destinationAccountKey) {
     throw new Error('Source and destination accounts must be different.');
   }
-  const syncedAccounts = await syncTreasuryPaymentAccounts(input.channels, input.openingBalances);
-  const source = syncedAccounts.find(account => account.sourceKey === input.sourceAccountKey);
-  const destination = syncedAccounts.find(account => account.sourceKey === input.destinationAccountKey);
+  const client: any = await getSecureDataBridgeClient();
+  const [syncedAccounts, context] = await Promise.all([
+    syncTreasuryPaymentAccounts(input.channels, input.openingBalances),
+    client.rpc('get_current_branch_context'),
+  ]);
+  if (context.error || context.data?.activeScope !== 'branch' || !context.data?.activeBranchId) {
+    throw new Error('Select a branch before transferring funds.');
+  }
+  const selection = selectPaymentAccountsForBranch(syncedAccounts,
+    [input.sourceAccountKey, input.destinationAccountKey], context.data.activeBranchId);
+  const source = selection.accounts.get(input.sourceAccountKey);
+  const destination = selection.accounts.get(input.destinationAccountKey);
   if (!source?.accountId || !destination?.accountId) {
     throw new Error('Both Money & Bank accounts must be active and synchronized.');
   }
-  const client: any = await getSecureDataBridgeClient();
   const { data, error } = await client.rpc('transfer_current_tenant_treasury_funds', {
     p_source_account_id: source.accountId,
     p_destination_account_id: destination.accountId,
@@ -263,6 +271,7 @@ export async function transferTreasuryFunds(input: {
     p_description: input.description,
     p_metadata: input.metadata || {},
   });
+  if (error?.code === '42501') throw new Error('Your role does not allow transfers in this branch. Ask the owner to check Transfer Between Treasury Accounts.');
   if (error) throw safeTreasuryError(error);
   return {
     journalId: String(data?.journalId || ''),
@@ -427,4 +436,5 @@ export async function reverseTreasuryEntry(journalId: string, sourceId: string, 
   });
   if (error) throw safeTreasuryError(error);
 }
+
 

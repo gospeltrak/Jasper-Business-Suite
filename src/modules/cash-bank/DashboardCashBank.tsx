@@ -19,6 +19,7 @@ interface DashboardCashBankProps {
   systemSettings?: SystemSettings;
   onUpdateSystemSettings?: (updated: SystemSettings) => void;
   branchScopeKey?: string;
+  canTransfer?: boolean;
 }
 
 export default function DashboardCashBank({ 
@@ -31,6 +32,7 @@ export default function DashboardCashBank({
   systemSettings,
   onUpdateSystemSettings,
   branchScopeKey = 'default',
+  canTransfer = false,
 }: DashboardCashBankProps) {
   const hasDemoSeedData = isDemoTenant(activeTenant.id);
   // Date interval settings state with user-friendly names
@@ -290,6 +292,7 @@ export default function DashboardCashBank({
   // Carry out safe transfer action between registers and accounts/wallets
   const handleExecuteSettleTill = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canTransfer) { setSettleError('Your role does not allow treasury transfers.'); return; }
     if (isTransferSubmitting) return;
     setSettleError(null);
     const amountVal = parseFloat(settleAmount);
@@ -786,7 +789,7 @@ export default function DashboardCashBank({
             {id:'accounts', label:'Accounts', icon:<Landmark className="w-4 h-4"/>},
             {id:'transfer', label:'Transfer', icon:<Send className="w-4 h-4"/>},
             {id:'audit',    label:'History',  icon:<Clock className="w-4 h-4"/>},
-          ] as const).map(tab => {
+          ] as const).filter(tab => tab.id !== 'transfer' || canTransfer).map(tab => {
             const active = mobileSectionTab === tab.id;
             return (
               <button key={tab.id} type="button" onClick={() => setMobileSectionTab(tab.id)}
@@ -1036,7 +1039,7 @@ export default function DashboardCashBank({
                   </div>
                 )}
 
-                <button type="submit" disabled={isTransferSubmitting}
+                <button type="submit" disabled={isTransferSubmitting || !canTransfer}
                   className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-black rounded-2xl transition-colors flex items-center justify-center gap-2">
                   <Send className="w-4 h-4"/> {isTransferSubmitting ? 'Posting Transfer…' : 'Execute Transfer'}
                 </button>
@@ -1686,7 +1689,7 @@ export default function DashboardCashBank({
                 )}
                 <button
                   type="submit"
-                  disabled={isTransferSubmitting}
+                  disabled={isTransferSubmitting || !canTransfer}
                   className="w-full bg-slate-900 hover:bg-slate-800 text-white font-extrabold py-3 px-3 rounded-2xl sm:rounded-xl text-xs transition-all cursor-pointer shadow-sm flex items-center justify-center space-x-1 border-none min-h-[50px] sm:min-h-0"
                 >
                   <PlusCircle className="w-3.5 h-3.5 text-emerald-400" />
@@ -2139,4 +2142,5 @@ export default function DashboardCashBank({
     </div>
   );
 }
+
 

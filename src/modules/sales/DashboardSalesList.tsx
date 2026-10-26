@@ -1,3 +1,4 @@
+import { getSaleCollected, getSaleCheckoutPaid } from './utils/salePaymentTotals';
 import React, { useState, useRef, useEffect, FormEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { Sale, Tenant, SaleItem, Product, SystemSettings, SalesDocument, User as AppUser } from '../../types';
@@ -139,6 +140,7 @@ interface DashboardSalesListProps {
   activeTenant: Tenant;
   sales: Sale[];
   onUpdateSales?: (updatedSales: Sale[]) => Promise<boolean> | boolean;
+  onAddPayment?: (saleId: string, paymentId: string, amount: number, sourceKey: string, paidAt?: string) => Promise<Sale>;
   onDeleteSale?: (sale: Sale) => Promise<boolean> | boolean;
   rolePermissions?: any;
   products?: Product[];
@@ -204,7 +206,8 @@ const mergeDocumentsForSync = (incoming: SalesDocument[], current: SalesDocument
 export default function DashboardSalesList({
   activeTenant, 
   sales, 
-  onUpdateSales, 
+  onUpdateSales,
+  onAddPayment, 
   onDeleteSale,
   rolePermissions,
   products = [],
@@ -902,7 +905,7 @@ export default function DashboardSalesList({
   // aggregate sale.amountPaid persisted via onUpdateSales before this; the
   // itemized history (used by the Payments Log timeline) was previously lost
   // on reload, same persistence pattern as doubleEntryLedgers below.
-  const [installmentRecords, setInstallmentRecords] = useState<Record<string, Array<{
+  const [cachedInstallmentRecords, setInstallmentRecords] = useState<Record<string, Array<{
     id: string;
     date: string;
     amount: number;
@@ -914,12 +917,26 @@ export default function DashboardSalesList({
   });
 
   useEffect(() => {
-    safeSetJsonItem(`installment_records_${activeTenant.id}`, installmentRecords, {
+    safeSetJsonItem(`installment_records_${activeTenant.id}`, cachedInstallmentRecords, {
       tenantId: activeTenant.id,
       dataKey: 'installment_records',
       logLabel: `${activeTenant.id}/installment-records`,
     });
-  }, [installmentRecords, activeTenant.id]);
+  }, [cachedInstallmentRecords, activeTenant.id]);
+
+  const installmentRecords = React.useMemo(() => {
+    const result = { ...cachedInstallmentRecords };
+    for (const sale of sales) {
+      const payments = new Map((result[sale.id] || []).map(payment => [payment.id, payment]));
+      for (const payment of sale.payments || []) payments.set(payment.id, payment);
+      if (payments.size) result[sale.id] = [...payments.values()].sort((a, b) => a.date.localeCompare(b.date));
+    }
+    return result;
+  }, [cachedInstallmentRecords, sales]);
+  const paymentAttemptRef = useRef<{ fingerprint: string; id: string } | null>(null);
+  const paymentBusyRef = useRef(false);
+  const [paymentBusy, setPaymentBusy] = useState(false);
+  const [paymentError, setPaymentError] = useState('');
 
   // -----------------------------------------------------------------
   // Live Cashier Register Math (Daily Expected Collections Today)
@@ -930,7 +947,7 @@ export default function DashboardSalesList({
   const todayCashSalesVolume = sales
     .filter(s => s.timestamp.startsWith(todayStr) && s.paymentMethod === 'Cash')
     .reduce((sum, s) => {
-      const initialPaid = s.amountPaid !== undefined ? s.amountPaid : s.total;
+      const initialPaid = getSaleCheckoutPaid(s, installmentRecords[s.id] || []);
       return sum + initialPaid;
     }, 0);
 
@@ -1068,13 +1085,13 @@ export default function DashboardSalesList({
   const pendingSyncCount = filteredSales.filter(s => s.syncStatus === 'pending').length;
   const creditsCount = filteredSales.filter(s => s.paymentMethod === 'Credit').length;
   const creditsVolume = filteredSales.filter(s => s.paymentMethod === 'Credit').reduce((acc, s) => acc + s.total, 0);
-  const getAmountPaidForSale = (s: Sale) => s.amountPaid !== undefined ? s.amountPaid : (s.paymentMethod === 'Credit' ? 0 : s.total);
+  const getAmountPaidForSale = getSaleCollected;
   const amountCollectedVolume = filteredSales.reduce((acc, s) => acc + getAmountPaidForSale(s), 0);
   const amountCollectedCount = filteredSales.filter(s => getAmountPaidForSale(s) > 0).length;
   const pendingCount = filteredSales.filter(s => {
-    const amountPaid = s.amountPaid !== undefined ? s.amountPaid : s.total;
+    const amountPaid = getSaleCollected(s);
     const pastInstallments = (installmentRecords[s.id] || []).reduce((sum, inst) => sum + inst.amount, 0);
-    const totalCollectedSoFar = s.paymentMethod === 'Credit' ? (amountPaid + pastInstallments) : s.total;
+    const totalCollectedSoFar = s.paymentMethod === 'Credit' ? amountPaid : s.total;
     return s.paymentMethod === 'Credit' && totalCollectedSoFar < s.total;
   }).length;
 
@@ -1084,35 +1101,28 @@ export default function DashboardSalesList({
     printThermalReceipt(selectedSale);
   };
 
-  const handleAddInstallment = (saleId: string, amount: number, method: string, date?: string) => {
-    if (amount <= 0) return;
-    const newInstallments = [
-      ...(installmentRecords[saleId] || []),
-      {
-        id: 'inst-' + Math.random().toString(36).substr(2, 9),
-        date: date || new Date().toISOString(),
-        amount,
-        method
-      }
-    ];
-
-    setInstallmentRecords(prev => ({
-      ...prev,
-      [saleId]: newInstallments
-    }));
-
-    // Instantly reconcile back to parent database
-    if (onUpdateSales) {
-      const parentSale = sales.find(s => s.id === saleId);
-      if (parentSale) {
-        const initialPaid = parentSale.amountPaid !== undefined ? parentSale.amountPaid : (parentSale.paymentMethod === 'Credit' ? 0 : parentSale.total);
-        const updatedSale = {
-          ...parentSale,
-          amountPaid: Math.min(parentSale.total, initialPaid + amount)
-        };
-        onUpdateSales(sales.map(s => s.id === saleId ? updatedSale : s));
-      }
+  const handleAddInstallment = async (saleId: string, amount: number, method: string, date?: string): Promise<boolean> => {
+    if (paymentBusyRef.current) return false;
+    if (!onAddPayment || rolePermissions?.paymentIn?.write === false) {
+      setPaymentError('Your role does not allow customer payments.'); return false;
     }
+    const account = findPaymentChannel(systemSettings?.paymentChannels || [], method);
+    if (!account || account.status === 'inactive' || !Number.isFinite(amount) || amount <= 0) {
+      setPaymentError('Select an active payment account and a valid amount.'); return false;
+    }
+    const fingerprint = JSON.stringify({ saleId, amount, sourceKey: account.id });
+    if (paymentAttemptRef.current?.fingerprint !== fingerprint) paymentAttemptRef.current = { fingerprint, id: crypto.randomUUID() };
+    paymentBusyRef.current = true; setPaymentBusy(true); setPaymentError('');
+    try {
+      const savedSale = await onAddPayment(saleId, paymentAttemptRef.current.id, amount, account.id, date);
+      setSelectedSale(previous => previous?.id === saleId ? savedSale : previous);
+      setViewingSaleDetail(previous => previous?.id === saleId ? savedSale : previous);
+      paymentAttemptRef.current = null;
+      return true;
+    } catch (error: any) {
+      setPaymentError(error?.message || 'Customer payment could not be confirmed. Refresh Sales before retrying.');
+      return false;
+    } finally { paymentBusyRef.current = false; setPaymentBusy(false); }
   };
 
   const buildDocumentWhatsAppMessage = (doc: SalesDocument) => {
@@ -1930,9 +1940,9 @@ export default function DashboardSalesList({
             const saleItems = sale.items || [];
             const totalVal = sale.total;
             const isCredit = sale.paymentMethod === 'Credit';
-            const amountPaid = sale.amountPaid !== undefined ? sale.amountPaid : totalVal;
+            const amountPaid = getSaleCollected(sale);
             const pastInstallments = (installmentRecords[sale.id] || []).reduce((sum, inst) => sum + inst.amount, 0);
-            const totalCollectedSoFar = isCredit ? (amountPaid + pastInstallments) : totalVal;
+            const totalCollectedSoFar = isCredit ? amountPaid : totalVal;
             const amountDueRaw = isCredit ? Math.max(0, totalVal - totalCollectedSoFar) : 0;
 
             const isPaid = !isCredit;
@@ -2071,7 +2081,7 @@ export default function DashboardSalesList({
                   const initialPaid = sale.amountPaid !== undefined ? sale.amountPaid : (isCredit ? 0 : totalVal);
                   const installments = installmentRecords[sale.id] || [];
                   const extraPaid = installments.reduce((sum, inst) => sum + inst.amount, 0);
-                  const calculatedPaid = Math.min(totalVal, initialPaid + extraPaid);
+                  const calculatedPaid = Math.min(totalVal, initialPaid);
                   const calculatedDue = Math.max(0, totalVal - calculatedPaid);
                   let paymentStatus: 'Paid' | 'Not Paid' | 'Partially Paid' = 'Paid';
                   if (calculatedPaid <= 0.05) paymentStatus = 'Not Paid';
@@ -2269,7 +2279,7 @@ export default function DashboardSalesList({
         const debtSales = sales.filter(s => {
           const initialPaid = s.amountPaid !== undefined ? s.amountPaid : (s.paymentMethod === 'Credit' ? 0 : s.total);
           const installmentsVal = (installmentRecords[s.id] || []).reduce((sum, i) => sum + i.amount, 0);
-          const calculatedPaid = Math.min(s.total, initialPaid + installmentsVal);
+          const calculatedPaid = Math.min(s.total, initialPaid);
           return (s.total - calculatedPaid) > 0;
         });
         const totalDebtIssued = debtSales.reduce((sum, s) => sum + s.total, 0);
@@ -2277,7 +2287,7 @@ export default function DashboardSalesList({
         const totalDebtPaidIn = debtSales.reduce((sum, s) => {
           const initialPaid = s.amountPaid !== undefined ? s.amountPaid : 0;
           const installmentsVal = (installmentRecords[s.id] || []).reduce((instTot, i) => instTot + i.amount, 0);
-          return sum + Math.min(s.total, initialPaid + installmentsVal);
+          return sum + Math.min(s.total, initialPaid);
         }, 0);
 
         const totalDebtOutstanding = Math.max(0, totalDebtIssued - totalDebtPaidIn);
@@ -2353,7 +2363,7 @@ export default function DashboardSalesList({
                 const initialPaid = s.amountPaid !== undefined ? s.amountPaid : 0;
                 const installments = installmentRecords[s.id] || [];
                 const extraPaid = installments.reduce((sum, inst) => sum + inst.amount, 0);
-                const calculatedPaid = Math.min(totalVal, initialPaid + extraPaid);
+                const calculatedPaid = Math.min(totalVal, initialPaid);
                 const calculatedDue = Math.max(0, totalVal - calculatedPaid);
                 const isCleared = calculatedDue === 0;
 
@@ -3863,7 +3873,7 @@ export default function DashboardSalesList({
                   const discAmt = originalSub - taxableSub;
                   const initialPaid = selectedSale.amountPaid !== undefined ? selectedSale.amountPaid : (selectedSale.paymentMethod === 'Credit' ? 0 : selectedSale.total);
                   const extra = (installmentRecords[selectedSale.id] || []).reduce((sum, inst) => sum + inst.amount, 0);
-                  const totalPaidNow = Math.min(selectedSale.total, initialPaid + extra);
+                  const totalPaidNow = Math.min(selectedSale.total, initialPaid);
                   const dueRemainder = Math.max(0, selectedSale.total - totalPaidNow);
                   return (
                     <>
@@ -4036,8 +4046,8 @@ export default function DashboardSalesList({
               {/* Metric Overview cards grid */}
               {(() => {
                 const totalInvoice = selectedSale.total;
-                const initialPaid = selectedSale.amountPaid !== undefined ? selectedSale.amountPaid : (selectedSale.paymentMethod === 'Credit' ? 0 : totalInvoice);
                 const extraInstallments = installmentRecords[selectedSale.id] || [];
+                const initialPaid = getSaleCheckoutPaid(selectedSale, extraInstallments);
 
                 // Reconstruct the installment history timeline step-by-step
                 const steps: {
@@ -4090,7 +4100,7 @@ export default function DashboardSalesList({
                 });
 
                 const dueRemainder = lastRemaining;
-                const totalPaidNow = Math.min(totalInvoice, initialPaid + extraInstallments.reduce((sum, inst) => sum + inst.amount, 0));
+                const totalPaidNow = Math.min(totalInvoice, getSaleCollected(selectedSale));
 
                 return (
                   <>
@@ -4232,7 +4242,7 @@ export default function DashboardSalesList({
                          })()}
 
                          <form
-                           onSubmit={(e) => {
+                           onSubmit={async (e) => {
                              e.preventDefault();
                              const currentValStr = payInInputVal !== '' ? payInInputVal : dueRemainder.toString();
                              const amt = parseFloat(currentValStr);
@@ -4241,7 +4251,8 @@ export default function DashboardSalesList({
                               const payDateVal = (form.elements.namedItem('paymentDate') as HTMLInputElement)?.value;
                               const timestamp = payDateVal ? localDateToIso(payDateVal, new Date(), 12) : new Date().toISOString();
                              if (amt > 0) {
-                               handleAddInstallment(selectedSale.id, Math.min(amt, dueRemainder), channel, timestamp);
+                               const saved = await handleAddInstallment(selectedSale.id, Math.min(amt, dueRemainder), channel, timestamp);
+                               if (!saved) return;
                                setPayInInputVal('');
                                form.reset();
                              }
@@ -4285,11 +4296,13 @@ export default function DashboardSalesList({
                              </div>
                            </div>
 
+                           {paymentError && <p role="alert" className="text-sm text-rose-600">{paymentError}</p>}
                            <button 
+                             disabled={paymentBusy || rolePermissions?.paymentIn?.write === false}
                              type="submit"
                              className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[11px] uppercase tracking-wider rounded-xl cursor-pointer border-none shadow-xs transition-colors"
                            >
-                             add payment
+                             {paymentBusy ? 'Saving…' : 'add payment'}
                            </button>
                          </form>
                        </div>
@@ -4450,7 +4463,7 @@ export default function DashboardSalesList({
                   const initialPaid = viewingSaleDetail.amountPaid !== undefined ? viewingSaleDetail.amountPaid : (isCredit ? 0 : grandTotalVal);
                   const installments = installmentRecords[viewingSaleDetail.id] || [];
                   const extraPaid = installments.reduce((sum, inst) => sum + inst.amount, 0);
-                  const totalPaid = Math.min(grandTotalVal, initialPaid + extraPaid);
+                  const totalPaid = Math.min(grandTotalVal, initialPaid);
                   const remainingDue = Math.max(0, grandTotalVal - totalPaid);
 
                   return (
@@ -5831,7 +5844,7 @@ export default function DashboardSalesList({
                     const initialPaid = mobileActionsSale.amountPaid !== undefined ? mobileActionsSale.amountPaid : (isCredit ? 0 : totalVal);
                     const installments = installmentRecords[mobileActionsSale.id] || [];
                     const extraPaid = installments.reduce((sum, inst) => sum + inst.amount, 0);
-                    const calculatedPaid = Math.min(totalVal, initialPaid + extraPaid);
+                    const calculatedPaid = Math.min(totalVal, initialPaid);
                     const calculatedDue = Math.max(0, totalVal - calculatedPaid);
 
                     setSelectedSale(mobileActionsSale);
@@ -5862,7 +5875,7 @@ export default function DashboardSalesList({
                     const initialPaid = mobileActionsSale.amountPaid !== undefined ? mobileActionsSale.amountPaid : (isCredit ? 0 : totalVal);
                     const installments = installmentRecords[mobileActionsSale.id] || [];
                     const extraPaid = installments.reduce((sum, inst) => sum + inst.amount, 0);
-                    const calculatedPaid = Math.min(totalVal, initialPaid + extraPaid);
+                    const calculatedPaid = Math.min(totalVal, initialPaid);
                     const calculatedDue = Math.max(0, totalVal - calculatedPaid);
 
                     setEditingSale(mobileActionsSale);
@@ -6157,4 +6170,5 @@ export default function DashboardSalesList({
     </div>
   );
 }
+
 

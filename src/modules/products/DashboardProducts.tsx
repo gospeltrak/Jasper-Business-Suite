@@ -176,6 +176,7 @@ export default function DashboardProducts({
   const [editImageFile, setEditImageFile] = useState<File | null>(null);
   const [editForm, setEditForm] = useState<Partial<Product>>({});
   const [editSaveError, setEditSaveError] = useState<string | null>(null);
+  const [isEditScannerOpen, setIsEditScannerOpen] = useState(false);
   const getTotalStockQty = (shopQty: number, storeQty: number) => Number((Number(shopQty || 0) + Number(storeQty || 0)).toFixed(3));
   
   // Smart Batch Pricing & Restock
@@ -618,6 +619,14 @@ export default function DashboardProducts({
       products.flatMap(product => [product.barcode, product.sku]),
     );
     setEditForm(prev => ({ ...prev, barcode: generatedBarcode }));
+  };
+
+  const handleScanEditBarcode = (scannedText: string) => {
+    const barcode = scannedText.trim();
+    if (!editingProduct || !barcode) return;
+    setEditForm(prev => ({ ...prev, barcode }));
+    setEditSaveError(null);
+    setIsEditScannerOpen(false);
   };
 
   const getReplenishPricingPreview = (
@@ -4419,6 +4428,17 @@ export default function DashboardProducts({
         }}
       />
 
+      {isEditScannerOpen && editingProduct && (
+        <div className="fixed inset-0 z-[250]">
+          <DashboardBarcodeScanner
+            isOpen
+            onClose={() => setIsEditScannerOpen(false)}
+            products={products}
+            onScanSuccess={handleScanEditBarcode}
+          />
+        </div>
+      )}
+
       {/* MODAL II: THERMAL HARDWARE SUCCESS DIAGNOSTIC TEST PAGE */}
       {showTestPrintModal && (
         <div id="modal-test-print" className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in font-mono text-[11px] text-slate-900 select-none" style={{paddingBottom: `calc(${'var(--dashboard-bottom-nav-height, 60px)'} + env(safe-area-inset-bottom))`}}>
@@ -5519,7 +5539,7 @@ export default function DashboardProducts({
 
                   <div className="space-y-1.5 font-mono">
                     <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Retail barcode (SKU)</label>
-                    <div className="flex flex-col gap-2 sm:flex-row">
+                    <div className="flex flex-col gap-2">
                       <input
                         type="text"
                         value={editForm.barcode || ''}
@@ -5528,16 +5548,28 @@ export default function DashboardProducts({
                         aria-label="Retail barcode"
                         className="min-w-0 flex-1 bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-855 font-bold outline-none font-mono tracking-wide"
                       />
+                      <div className="grid grid-cols-2 gap-2">
                       <button
                         type="button"
                         onClick={handleGenerateEditBarcode}
-                        className="flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-[10px] font-black text-emerald-700 transition-colors hover:border-emerald-300 hover:bg-emerald-100 active:bg-emerald-200"
+                        disabled={isSavingProductEdit}
+                        className="flex min-w-0 items-center justify-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-2 py-2.5 text-[10px] font-black text-emerald-700 transition-colors hover:border-emerald-300 hover:bg-emerald-100 active:bg-emerald-200 disabled:opacity-50"
                       >
                         <RefreshCw className="h-3.5 w-3.5" />
                         <span>Generate Barcode</span>
                       </button>
+                      <button
+                        type="button"
+                        disabled={isSavingProductEdit}
+                        onClick={() => setIsEditScannerOpen(true)}
+                        className="flex min-w-0 items-center justify-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-2 py-2.5 text-[10px] font-black text-emerald-700 transition-colors hover:border-emerald-300 hover:bg-emerald-100 active:bg-emerald-200 disabled:opacity-50"
+                      >
+                        <Camera className="h-3.5 w-3.5 shrink-0" />
+                        <span>Scan Barcode</span>
+                      </button>
+                      </div>
                     </div>
-                    <p className="text-[9.5px] text-slate-400 font-sans">Enter a barcode, or tap Generate Barcode to create one.</p>
+                    <p className="text-[9.5px] text-slate-400 font-sans">Enter, generate or scan a barcode, then save your changes.</p>
                   </div>
 
                   <div className="grid gap-3 pb-1 font-mono" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.75rem' }}>
@@ -6624,5 +6656,6 @@ export default function DashboardProducts({
   );
 
 }
+
 
 

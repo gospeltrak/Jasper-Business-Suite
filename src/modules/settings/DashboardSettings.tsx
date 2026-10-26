@@ -2045,6 +2045,7 @@ export default function DashboardSettings({
               { key: 'expenses', category: 'Finance & Accounting', name: 'Operating Expenses Records', desc: 'Allows logging rent costs, store licensing, salaries, and operating branch payouts' },
               { key: 'expenseCategories', category: 'Finance & Accounting', name: 'Expense Category Chart', desc: 'Allows customization of the chart of ledger expense categories' },
               { key: 'paymentOut', category: 'Finance & Accounting', name: 'Supplier Bill Payments (Pay-Out)', desc: 'Authorizes outgoing cash to suppliers or cost contractors' },
+              { key: 'fundTransfers', category: 'Finance & Accounting', name: 'Transfer Between Treasury Accounts', desc: 'Write authorizes transfers between assigned branch accounts. Does not grant access to balances or Money & Bank history.' },
               { key: 'cashAndBank', category: 'Finance & Accounting', name: 'Cash Register Float & Vault Safes', desc: 'Allows checking register drawer floats, cash safety vaults, and branch bank balances' },
               { key: 'reportsSalesExpenses', category: 'Finance & Accounting', name: 'General Sales & Expense Reports', desc: 'Access overall profit-and-loss, cash flow performance metrics' },
               { key: 'reportsProfitCogs', category: 'Finance & Accounting', name: 'Cost of Goods & Profit Audits', desc: 'Detailed view to product margins, net profit after cost of goods calculations' },
@@ -2463,4 +2464,5 @@ export default function DashboardSettings({
     </div>
   );
 }
+
 

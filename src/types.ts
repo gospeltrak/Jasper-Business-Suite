@@ -396,7 +396,13 @@ export interface SaleItem {
   sourceBranchName?: string;
 }
 
+export interface SalePayment {
+  id: string; amount: number; method: string; sourceKey: string; date: string;
+  recordedAt?: string; recordedBy?: string; treasuryJournalId?: string;
+}
+
 export interface Sale {
+  payments?: SalePayment[];
   id: string;
   items: SaleItem[];
   total: number;           // grandTotal including delivery (kept for backward compat)
@@ -734,6 +740,7 @@ export interface CustomRole {
     emailSettings?: RolePermission;
     updateApp?: RolePermission;
     cashAndBank?: RolePermission;
+  fundTransfers?: RolePermission;
     storesBranch?: RolePermission;
     translations?: RolePermission;
     rolePermissions?: RolePermission;
@@ -944,4 +951,5 @@ export interface LedgerEntry {
   receiptFile?: string;
   muamalaFile?: string;
 }
+
 

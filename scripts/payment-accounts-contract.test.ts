@@ -94,8 +94,9 @@ test('sales, delivery, purchases, expenses, and payroll use canonical treasury p
   const staff = readFileSync(new URL('../src/modules/staff/DashboardStaff.tsx', import.meta.url), 'utf8');
   const cashBank = readFileSync(new URL('../src/modules/cash-bank/DashboardCashBank.tsx', import.meta.url), 'utf8');
   assert.match(dashboard, /postTreasurySplitIncome\(\{/);
-  assert.match(dashboard, /sourceType:\s*'purchase'/);
-  assert.match(dashboard, /expense\.payrollPaymentType \? 'payroll' : 'expense'/);
+  assert.match(dashboard, /saveFundedPurchase\(purchase/);
+  assert.match(dashboard, /saveExpensePayment\(expense\)/);
+  assert.match(dashboard, /addSalePayment\(saleId, paymentId, amount, sourceKey, paidAt\)/);
   assert.match(dashboard, /collectDeliveryPayment\(currentDelivery\.id, account\?\.id\)/);
   assert.match(dashboard, /reverseTreasuryEntry\(/);
   assert.match(staff, /payrollPaymentType:\s*salaryPaymentType/);
@@ -181,4 +182,5 @@ test('POS 22023 validation identifies bad checkout safely without bypassing bran
   assert.doesNotMatch(sql, /^\s*(?:delete from|truncate table|drop table)\b/gmi);
   assert.doesNotMatch(sql, /grant.*money_bank\.post/i);
 });
+
 

@@ -72,7 +72,9 @@ import {
 } from '../modules/branches/branchScope';
 import { ONLINE_ONLY_WRITE_MESSAGE, canWriteBusinessDataOnline } from '../shared/utils/onlineOnly';
 import { getSecureDataBridgeClient, isPlaceholderSecureDataBridgeClient } from '../shared/dataBridge/secureDataBridge';
-import { collectDeliveryPayment, syncTreasuryPaymentAccounts, postTreasuryEntry, postTreasurySplitIncome, postTreasurySplitOutgoing, reverseTreasuryEntry } from '../modules/cash-bank/utils/treasuryApi';
+import { saveExpensePayment, saveFundedPurchase, addSalePayment } from '../modules/cash-bank/utils/operationPayments';
+import DashboardFundsTransfer from '../modules/cash-bank/DashboardFundsTransfer';
+import { collectDeliveryPayment, syncTreasuryPaymentAccounts, postTreasurySplitIncome, reverseTreasuryEntry } from '../modules/cash-bank/utils/treasuryApi';
 import { reversePurchaseInventory } from '../shared/utils/inventoryCosting';
 import { isPurchaseFundingBalanced, registeredPurchaseFunding } from '../modules/purchases/utils/purchaseFunding';
 import { getSubscriptionReminder, getSubscriptionReminderKey } from '../shared/utils/subscriptionReminder';
@@ -1348,6 +1350,10 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
         reportsSalesExpenses: { read: true, write: true, edit: true },
         reportsProfitCogs: { read: true, write: true, edit: true },
         sync: { read: true, write: true, edit: true },
+        cashAndBank: { read: true, write: true, edit: true },
+        fundTransfers: { read: true, write: true, edit: true },
+        paymentIn: { read: true, write: true, edit: true },
+        paymentOut: { read: true, write: true, edit: true },
         settings: { read: true, write: true, edit: true }
       };
     }
@@ -1438,6 +1444,8 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
         return perms.purchases?.read;
       case 'deliveries':
         return perms.pos?.read;
+      case 'cash-bank-matrix':
+        return Boolean(perms.cashAndBank?.read || perms.fundTransfers?.write);
       case 'expenses':
         return perms.expenses?.read;
       case 'inventory':
@@ -1912,31 +1920,8 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     }
 
     try {
-      const posted = await postTreasuryEntry({
-        channels: systemSettings.paymentChannels || [],
-        sourceAccountKey: String(expense.paidFromAccountId || ''),
-        amount: expense.amount,
-        direction: 'out',
-        sourceType: expense.payrollPaymentType ? 'payroll' : 'expense',
-        sourceId: expense.id,
-        description: expense.description,
-        openingBalances: getTreasuryOpeningBalances(),
-        metadata: {
-          category: expense.category,
-          staffId: expense.staffId || null,
-          staffName: expense.staffName,
-          payrollPaymentType: expense.payrollPaymentType || null,
-          payrollPeriodStart: expense.payrollPeriodStart || null,
-          payrollPeriodEnd: expense.payrollPeriodEnd || null,
-          reference: expense.payrollReference || expense.receiptRef || null,
-          attachmentName: expense.payrollAttachmentName || null,
-        },
-      });
-      expense = {
-        ...expense,
-        branchId: posted.branchId,
-        treasuryJournalId: posted.journalId,
-      };
+      await syncTreasuryPaymentAccounts(systemSettings.paymentChannels || [], getTreasuryOpeningBalances());
+      expense = await saveExpensePayment(expense);
     } catch (error: any) {
       addToast(error?.message || 'Money & Bank could not post this expense safely.', 'error');
       return false;
@@ -1999,18 +1984,16 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     if (blockOfflineBusinessWrite('expense update')) return false;
     const existingExpense = (expensesMap[activeTenant.id] || []).find(item => item.id === updatedExpense.id);
     if (!existingExpense || !recordBelongsToActiveBranch(existingExpense, activeBranchSelection)) return false;
-    const nextExpenses = (expensesMap[activeTenant.id] || []).map(expense => (
-      expense.id === updatedExpense.id
-        ? { ...updatedExpense, branchId: existingExpense.branchId, syncUpdatedAt: new Date().toISOString() }
-        : expense
-    ));
-    localWorkspaceChangedAtRef.current = Date.now();
-    // Narrow save: only the `expenses` key changes here, so only it needs
-    // to travel to the server -- see saveTenantExpensesOnly.
-    const saved = await saveTenantExpensesOnly(activeTenant.id, nextExpenses);
-    if (!saved) return false;
-    setExpensesMap(prev => ({ ...prev, [activeTenant.id]: nextExpenses }));
-    return true;
+    try {
+      await syncTreasuryPaymentAccounts(systemSettings.paymentChannels || [], getTreasuryOpeningBalances());
+      const savedExpense = await saveExpensePayment(updatedExpense, existingExpense);
+      localWorkspaceChangedAtRef.current = Date.now();
+      setExpensesMap(prev => ({ ...prev, [activeTenant.id]: (prev[activeTenant.id] || []).map(item => item.id === savedExpense.id ? savedExpense : item) }));
+      return true;
+    } catch (error: any) {
+      addToast(error?.message || 'Expense changes could not be saved safely.', 'error');
+      return false;
+    }
   };
 
   // Returns both the optimistically-applied products (for callers that need
@@ -2968,44 +2951,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       addToast('Every registered purchase funding row must use an active Money & Bank account.', 'error');
       return false;
     }
-    if (registeredAllocations.length > 0) {
-      try {
-        const posted = await postTreasurySplitOutgoing({
-          channels: systemSettings.paymentChannels || [],
-          lines: registeredAllocations.map(allocation => ({
-            sourceAccountKey: String(allocation.sourceKey),
-            amount: allocation.amount,
-          })),
-          sourceType: 'purchase',
-          sourceId: purchase.id,
-          description: `Purchase payment to ${purchase.supplierName}`,
-          openingBalances: getTreasuryOpeningBalances(),
-          cacheKey: `${activeBranchSelection.activeScope}:${activeBranchSelection.activeBranchId || 'all'}`,
-          metadata: {
-            supplierId: purchase.supplierId,
-            supplierName: purchase.supplierName,
-            totalAmount: purchase.totalAmount,
-            fundingAllocations: paymentAllocations,
-          },
-        });
-        purchase = {
-          ...purchase,
-          branchId: posted.branchId,
-          treasuryJournalId: posted.journalId,
-          paymentAllocations: paymentAllocations.map(allocation => ({
-            ...allocation,
-            treasuryJournalId: posted.journalId,
-          })),
-        };
-      } catch (error: any) {
-        addToast(error?.message || 'Money & Bank could not post this purchase safely.', 'error');
-        return false;
-      }
-    } else if (paymentAllocations.length > 0) {
-      purchase = { ...purchase, paymentAllocations };
-    }
-    const currentTenantPurchases = purchasesMap[activeTenant.id] || [];
-    const updatedPurchases = [purchase, ...currentTenantPurchases];
+    purchase = { ...purchase, paymentAllocations };
     const tenantProducts = productsMap[activeTenant.id] || [];
     const nextProducts = updatedProducts ? mergeScopedProducts(tenantProducts, updatedProducts) : tenantProducts;
     const nextBranchStocks = activeBranchSelection.activeScope === 'branch' && activeBranchSelection.activeBranchId && updatedProducts
@@ -3041,37 +2987,20 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     // Narrow save: purchases always changes; products/branchStocks only
     // travel when this purchase actually adjusted stock, matching the
     // nextProducts/nextBranchStocks computation above exactly.
-    const saved = await saveTenantPurchasesOnly(
-      activeTenant.id,
-      updatedPurchases,
-      updatedProducts ? nextProducts : undefined,
-      (activeBranchSelection.activeScope === 'branch' && activeBranchSelection.activeBranchId && updatedProducts)
-        ? nextBranchStocks
-        : undefined,
-    );
-    if (!saved) {
-      let accountPaymentReversed = !purchase.treasuryJournalId;
-      if (purchase.treasuryJournalId) {
-        try {
-          await reverseTreasuryEntry(
-            purchase.treasuryJournalId,
-            purchase.id,
-            'Purchase workspace save failed',
-          );
-          accountPaymentReversed = true;
-        } catch (error) {
-          console.error('Failed to reverse treasury entry after purchase save failure', error);
-        }
+    try {
+      if (registeredAllocations.length > 0) {
+        await syncTreasuryPaymentAccounts(systemSettings.paymentChannels || [], getTreasuryOpeningBalances());
       }
-      addToast(accountPaymentReversed
-        ? 'Purchase could not be saved. Any account payment was reversed safely.'
-        : 'Purchase could not be saved and the account payment could not be reversed. Check Money & Bank payment history before retrying.', 'error');
+      purchase = await saveFundedPurchase(purchase, updatedProducts ? nextProducts : undefined,
+        activeBranchSelection.activeScope === 'branch' && updatedProducts ? nextBranchStocks : undefined);
+    } catch (error: any) {
+      addToast(error?.message || 'Purchase could not be saved safely. No partial payment was recorded.', 'error');
       return false;
     }
     
     setPurchasesMap(prev => ({
       ...prev,
-      [activeTenant.id]: readCachedWorkspace(activeTenant.id)?.purchases || updatedPurchases
+      [activeTenant.id]: [purchase, ...(prev[activeTenant.id] || []).filter(item => item.id !== purchase.id)]
     }));
     if (updatedProducts) {
       setProductsMap(prev => ({ ...prev, [activeTenant.id]: nextProducts }));
@@ -3087,6 +3016,17 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     };
     setLogs(prev => [newLog, ...prev]);
     return true;
+  };
+
+  const handleAddSalePayment = async (saleId: string, paymentId: string, amount: number, sourceKey: string, paidAt?: string): Promise<Sale> => {
+    if (blockOfflineBusinessWrite('customer payment')) throw new Error('Connect to the internet to record a payment.');
+    if (activeBranchSelection.activeScope !== 'branch') throw new Error('Select the sale branch before recording a payment.');
+    await syncTreasuryPaymentAccounts(systemSettings.paymentChannels || [], getTreasuryOpeningBalances());
+    const sale = await addSalePayment(saleId, paymentId, amount, sourceKey, paidAt);
+    localWorkspaceChangedAtRef.current = Date.now();
+    cloudWorkspaceLoadedRef.current = true;
+    setSalesMap(prev => ({ ...prev, [activeTenant.id]: (prev[activeTenant.id] || []).map(item => item.id === sale.id ? sale : item) }));
+    return sale;
   };
 
   const handleAddPurchasePayment = async (purchaseId: string, paymentId: string, amount: number, fundingType: 'registered' | 'external', sourceKey?: string): Promise<Purchase> => {
@@ -4385,6 +4325,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
               activeTenant={activeTenant}
               sales={activeSales}
               onUpdateSales={handleUpdateSales}
+              onAddPayment={handleAddSalePayment}
               onDeleteSale={handleDeleteSale}
               rolePermissions={currentPermissions}
               products={activeProducts}
@@ -4409,6 +4350,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
               onAddExpense={handleAddExpense}
               onDeleteExpense={handleDeleteExpense}
               onUpdateExpense={handleUpdateExpense}
+              rolePermissions={currentPermissions}
               userName={user.name}
               sales={activeSales}
               systemSettings={systemSettings}
@@ -4449,7 +4391,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
           )}
 
           {/* TAB ROOT: Money & Bank Balance Matrix (Double-Entry Treasury Ledger) */}
-          {activeTab === 'cash-bank-matrix' && (
+          {activeTab === 'cash-bank-matrix' && (currentPermissions?.cashAndBank?.read ? (
             <DashboardCashBank
               key={`${activeTenant.id}:${activeBranchSelection.activeScope}:${activeBranchSelection.activeBranchId || 'all'}`}
               activeTenant={activeTenant}
@@ -4459,10 +4401,13 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
               purchases={activePurchases}
               user={user}
               systemSettings={systemSettings}
+              canTransfer={Boolean(currentPermissions?.fundTransfers?.write)}
               branchScopeKey={`${activeBranchSelection.activeScope}:${activeBranchSelection.activeBranchId || 'all'}`}
               onUpdateSystemSettings={persistSystemSettingsNow}
             />
-          )}
+          ) : (
+            <DashboardFundsTransfer key={`${activeTenant.id}:${activeBranchSelection.activeBranchId || 'all'}`} channels={systemSettings.paymentChannels || []} canTransfer={Boolean(currentPermissions?.fundTransfers?.write)} />
+          ))}
 
           {/* TAB ROOT: Agency White-Label Branding Studio */}
           {activeTab === 'whitelabel' && (
@@ -5145,6 +5090,7 @@ function TenantDashboardGate(props: DashboardProps) {
   }
   return <DashboardContent {...props} />;
 }
+
 
 
 

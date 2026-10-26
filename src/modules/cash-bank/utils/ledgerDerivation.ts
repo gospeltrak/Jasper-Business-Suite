@@ -1,5 +1,6 @@
 import { Sale, Expense, Purchase, PaymentChannel, LedgerEntry } from '../../../types';
 import { findPaymentChannel } from '../../../shared/utils/paymentAccounts';
+import { getSaleCheckoutPaid } from '../../sales/utils/salePaymentTotals';
 
 export interface LedgerDerivationInput {
   tenantId: string;
@@ -67,17 +68,19 @@ export function buildAutoLedgerEntries({
   };
 
   sales.forEach(sale => {
-    const saleAmount = Math.max(0, sale.total - (sale.deliveryCost || 0));
+    const saleAmount = Math.min(Math.max(0, sale.total - (sale.deliveryCost || 0)), getSaleCheckoutPaid(sale));
     const breakdown = Array.isArray(sale.paymentBreakdown) && sale.paymentBreakdown.length > 0
       ? sale.paymentBreakdown
       : [{ method: sale.paymentMethod || 'Cash', amount: saleAmount }];
 
+    let remainingCheckout = saleAmount;
     breakdown.forEach((part, index) => {
-      const amount = Math.max(0, Number(part.amount || 0));
+      const amount = Math.min(remainingCheckout, Math.max(0, Number(part.amount || 0)));
       if (amount <= 0) return;
       const linkedPayment = getPaymentChannel(part.method || sale.paymentMethod || 'Cash');
       if (!linkedPayment) return;
       const { targetChannelId, desc } = linkedPayment;
+      remainingCheckout -= amount;
 
       generated.push({
         id: `POS-RECON-${sale.id}-${index}`,
@@ -89,6 +92,16 @@ export function buildAutoLedgerEntries({
         description: desc,
         timestamp: sale.timestamp,
         referenceId: sale.reference,
+      });
+    });
+    (sale.payments || []).forEach(payment => {
+      const account = channels.find(channel => channel.id === payment.sourceKey);
+      if (!account || !(payment.amount > 0)) return;
+      generated.push({
+        id: `SALE-PAYMENT-${payment.id}`, tenantId, channelId: account.id,
+        amount: payment.amount, entryType: 'credit', sourceType: 'POS_CHECKOUT',
+        description: `Customer installment: ${payment.method}`, timestamp: payment.date,
+        referenceId: payment.id,
       });
     });
   });
@@ -228,4 +241,5 @@ export function deriveLedgerEntries(input: LedgerDerivationInput): LedgerEntry[]
     ...readCachedManualSettleEntries(input.tenantId, input.hasDemoSeedData),
   ];
 }
+
 
