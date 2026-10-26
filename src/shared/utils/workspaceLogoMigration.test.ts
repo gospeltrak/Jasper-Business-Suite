@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { execFileSync } from 'node:child_process';
+import { resolve } from 'node:path';
 import {
   collectInlineLogoCandidates,
   immutableLogoStoragePath,
@@ -14,6 +16,9 @@ const inline = `data:image/png;base64,${png.toString('base64')}`;
 const tenantId = '64ba3572-b61f-4142-826c-e6fa48eab169';
 
 describe('non-destructive inline logo migration', () => {
+  it('operator script is valid ESM without running any database operation', () => {
+    expect(() => execFileSync(process.execPath, ['--check', resolve('scripts/migrate-workspace-inline-logos.mjs')])).not.toThrow();
+  });
   const payload = {
     settings: {
       business: {
