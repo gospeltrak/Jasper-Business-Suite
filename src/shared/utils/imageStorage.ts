@@ -150,13 +150,13 @@ export async function uploadTenantLogo(
 
     const ext = file.type === 'image/svg+xml' ? 'svg' : 'jpg';
     // Keep light and dark logos in separate objects, without overwriting old logos.
-    const path = `${uploaderId}/${tenantId}/${variant ? `logo-${variant}` : 'logo'}.${ext}`;
+    const path = `${uploaderId}/${tenantId}/${variant ? `logo-${variant}` : 'logo'}-${crypto.randomUUID()}.${ext}`;
 
     const { error } = await client.storage
       .from('tenant-logos')
       .upload(path, uploadBlob, {
         contentType,
-        upsert: true,
+        upsert: false, // new immutable object needs INSERT only; Storage has no SELECT policy
       });
 
     if (error) {
