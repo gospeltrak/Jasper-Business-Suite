@@ -39,6 +39,6 @@ begin
   return jsonb_set(v_scoped, '{payload}', v_payload, true)
     || jsonb_build_object('readSource', 'normalized_paginated');
 end;
-$function$
+$function$;
 
 commit;
