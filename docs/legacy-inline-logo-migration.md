@@ -17,7 +17,7 @@ This task removes the **runtime settings payload dependency on embedded logo bas
 2. Before any production apply, export a fresh Supabase backup or verify PITR restore, and check subscription/tenant context.
 3. Run the **read-only preview** per tenant; inspect the number of inline fields and distinct images. No logo contents are printed.
 4. Apply to **one tenant only** from a trusted server/operator machine. An independent full workspace backup is written first to a private directory outside the repository, as JSON mode 0600.
-5. The script writes immutable content-addressed objects to Storage (`tenant-logos/migrated/{tenantId}/{sha256}.{ext}`), downloads them to verify exact bytes, and replaces only the identified logo paths. It refuses to update if `updated_at` differs from the value read initially.
+5. The script writes immutable content-addressed objects to Storage (`tenant-logos/migrated/{tenantId}/{sha256}.{ext}`), downloads them to verify exact bytes, and updates only specific JSONB logo paths inside a single PostgreSQL transaction. It uses the existing explicit-settings-tenant transaction flag required by the protective trigger, checks the original payload and `updated_at` under a row lock, and rolls back if anything differs. It does **not** disable triggers.
 6. Verify the live business app for that tenant: light/dark UI, brand name, branches, invoice/PDF, staff permissions, payments, sales, products and stock. Validate that non-logo JSON hash/content and financial totals are unchanged.
 7. Repeat separately for other tenants only after the pilot passes. Retain rollback snapshots and historical `tenant_data` backups under the existing retention policy.
 
@@ -26,7 +26,9 @@ This task removes the **runtime settings payload dependency on embedded logo bas
 Never put the service key in frontend code, a ticket, CI logs, screenshots or Git history. It must be a server-only environment variable, provided through an approved secret manager.
 
 ```sh
-# Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in a trusted server terminal.
+# Set DATABASE_URL for the production Postgres connection.
+# For --apply only, also set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.
+# All credentials must stay on a trusted server/operator terminal.
 node scripts/migrate-workspace-inline-logos.mjs --tenant-id=<TENANT_UUID>
 
 # Explicit opt-in write, for one tenant only:
@@ -39,7 +41,7 @@ node scripts/migrate-workspace-inline-logos.mjs \
   --backup-dir="$HOME/orvix-private-logo-backups"
 ```
 
-The CLI defaults to dry-run and refuses apply in CI, without a one-tenant confirmation, or without a private backup destination. Supported inline MIME: PNG, JPEG, WebP, GIF; unsupported formats fail closed without changing the database. A failed migration can leave unused, immutable Storage objects; it does **not** remove original logo values or any business tables.
+The CLI defaults to dry-run (requiring only DATABASE_URL) and refuses apply in CI, without a one-tenant confirmation, or without a private backup destination. Supported inline MIME: PNG, JPEG, WebP, GIF; unsupported formats fail closed without changing the database. A failed migration can leave unused, immutable Storage objects; the SQL transaction rolls back the settings update. It does **not** remove original logo values or any business tables.
 
 ## Rollback principle
 
