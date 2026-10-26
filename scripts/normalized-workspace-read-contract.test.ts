@@ -76,3 +76,34 @@ test('client batches normalized page reads and preserves the full ledger set', (
   assert.match(client, /fallbackRequired/);
   assert.match(client, /payload = \{ \.\.\.payload, \.\.\.ledgers \}/);
 });
+
+
+test('lightweight normalized bootstrap excludes historical ledgers without changing tenant and branch scoping', () => {
+  const optimized = readFileSync(
+    new URL('../supabase/migrations/20261026234000_lightweight_normalized_workspace_bootstrap.sql', import.meta.url),
+    'utf8',
+  );
+  const sourceStart = optimized.indexOf('CREATE OR REPLACE FUNCTION private.get_current_branch_workspace_lightweight()');
+  const sourceEnd = optimized.indexOf('revoke all on function private.get_current_branch_workspace_lightweight', sourceStart);
+  assert.ok(sourceStart >= 0 && sourceEnd > sourceStart);
+  const scoped = optimized.slice(sourceStart, sourceEnd);
+  assert.match(scoped, /private\.current_tenant_id\(\)/);
+  assert.match(scoped, /private\.normalized_writes_enabled\(v_tenant_id\)/);
+  assert.match(scoped, /private\.normalized_business_snapshot\(v_tenant_id,\s*array\['products','branchStocks','pendingDeliveryNotes'\]\)/);
+  assert.match(scoped, /public\.get_current_branch_context\(\)/);
+  assert.match(scoped, /private\.filter_branch_json_array\(/);
+  assert.match(scoped, /v_branch_id is not null/);
+  assert.match(scoped, /'staffs'/);
+  assert.match(scoped, /'paymentChannels'/);
+  assert.match(scoped, /'no_branch_access'/);
+  const bootstrap = optimized.slice(sourceEnd);
+  assert.match(bootstrap, /workspace_normalized_reads_ready\(v_tenant_id\)/);
+  assert.match(bootstrap, /return public\.get_current_branch_workspace_v2\(\)/);
+  assert.match(bootstrap, /v_scoped := private\.get_current_branch_workspace_lightweight\(\)/);
+  assert.match(bootstrap, /'sales', '\[\]'::jsonb/);
+  assert.match(bootstrap, /'expenses', '\[\]'::jsonb/);
+  assert.match(bootstrap, /'deliveries', '\[\]'::jsonb/);
+  assert.match(bootstrap, /'purchases', '\[\]'::jsonb/);
+  assert.match(optimized, /revoke all on function private\.get_current_branch_workspace_lightweight\(\) from public,anon,authenticated/);
+  assert.doesNotMatch(optimized, /^\s*(?:delete from|truncate|drop table|alter table|update\s+public|insert into\s+public)\b/gmi);
+});
