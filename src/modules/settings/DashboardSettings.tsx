@@ -441,58 +441,47 @@ export default function DashboardSettings({
     }));
   };
 
-  // Drag and drop logo processors
+  // Store only Supabase Storage URLs in business settings. A local base64
+  // preview must never be written to a tenant-wide JSON settings payload.
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>, target: 'business_light' | 'business_dark') => {
     const file = e.target.files?.[0];
-    if (file) {
-      try {
-        const base64String = await compressImageFile(file, { maxWidth: 512, maxHeight: 512, quality: 0.72 });
-
-        // Upload to Supabase Storage in background — get a permanent URL
-        // that replaces the base64 string everywhere once upload completes.
-        const applyLogoUrl = (url: string) => {
-          const urlToUse = url || base64String;
-          if (target === 'business_light') {
-            const nextBusinessForm = {
-              ...businessForm,
-              businessLogoLight: urlToUse,
-              businessLogo: businessForm.businessLogo || urlToUse
-            };
-            setBusinessForm(nextBusinessForm);
-            persistBusinessSettings(nextBusinessForm);
-          } else {
-            // Deliberately does NOT fall back into the general `businessLogo`
-            // field the way the light-logo branch above does. `businessLogo`
-            // is the "safe on a white background" fallback used by Reports
-            // and the Light Theme preview card — leaking a dark-theme logo
-            // (which can carry a baked-in dark/black background) into it
-            // reproduces the exact black-logo-box artifact those call sites
-            // exist to avoid. Places that do want the dark logo already read
-            // `businessLogoDark` directly (see getBusinessLogo()).
-            const nextBusinessForm = {
-              ...businessForm,
-              businessLogoDark: urlToUse
-            };
-            setBusinessForm(nextBusinessForm);
-            persistBusinessSettings(nextBusinessForm);
-          }
-        };
-
-        // Apply base64 immediately for instant preview
-        applyLogoUrl(base64String);
-
-        // Then upload to Storage and replace with permanent URL
-        import('../../shared/utils/imageStorage').then(({ uploadTenantLogo }) =>
-          uploadTenantLogo(file, activeTenant.id)
-        ).then((storageUrl) => {
-          if (storageUrl) applyLogoUrl(storageUrl);
-        }).catch((err) => {
-          console.warn('[DashboardSettings] Logo Storage upload failed, base64 kept:', err);
-        });
-
-      } catch (error) {
-        console.warn('Unable to compress uploaded logo', error);
+    if (!file) return;
+    try {
+      const { uploadTenantLogo } = await import('../../shared/utils/imageStorage');
+      const variant = target === 'business_light' ? 'light' : 'dark';
+      const storageUrl = await uploadTenantLogo(file, activeTenant.id, variant);
+      if (!storageUrl) {
+        // Preserve the existing logo and its settings when Storage is unavailable.
+        window.alert(isSw
+          ? 'Imeshindikana kupakia nembo. Nembo yako ya zamani haijabadilishwa. Jaribu tena.'
+          : 'Logo upload failed. Your existing logo is unchanged. Please try again.');
+        return;
       }
+
+      if (target === 'business_light') {
+        const nextBusinessForm = {
+          ...businessForm,
+          businessLogoLight: storageUrl,
+          // Replace old inline base64 fallback, but preserve any existing URL.
+          businessLogo: !businessForm.businessLogo || businessForm.businessLogo.startsWith('data:')
+            ? storageUrl
+            : businessForm.businessLogo,
+        };
+        setBusinessForm(nextBusinessForm);
+        persistBusinessSettings(nextBusinessForm);
+      } else {
+        // The dark logo must not overwrite the general light-safe fallback.
+        const nextBusinessForm = { ...businessForm, businessLogoDark: storageUrl };
+        setBusinessForm(nextBusinessForm);
+        persistBusinessSettings(nextBusinessForm);
+      }
+    } catch (error) {
+      console.warn('[DashboardSettings] Logo Storage upload failed:', error);
+      window.alert(isSw
+        ? 'Imeshindikana kupakia nembo. Nembo yako ya zamani haijabadilishwa. Jaribu tena.'
+        : 'Logo upload failed. Your existing logo is unchanged. Please try again.');
+    } finally {
+      e.target.value = '';
     }
   };
 
