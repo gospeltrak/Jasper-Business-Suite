@@ -1173,7 +1173,7 @@ async function saveTenantDeliveriesOnlyNow(
   }
   try {
     if (typeof client.rpc === 'function') {
-      const result = await client.rpc('save_current_branch_deliveries', tombstones ? { p_deliveries: deliveries, p_delivery_tombstones: tombstones } : { p_deliveries: deliveries });
+      const result = await client.rpc('save_current_branch_deliveries', { p_deliveries: deliveries, p_delivery_tombstones: tombstones || {} });
       const missingRpc = ['PGRST202', '42883'].includes(String(result.error?.code || ''));
       if (!result.error) {
         const mergedDeliveries = Array.isArray(result.data?.deliveries)
@@ -1559,5 +1559,6 @@ export async function initializeNewTenantWorkspace(tenantId: string, settings?: 
   const workspace = emptyWorkspace(settings);
   await saveTenantWorkspace(tenantId, workspace);
 }
+
 
 

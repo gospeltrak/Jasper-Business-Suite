@@ -96,7 +96,7 @@ test('sales, delivery, purchases, expenses, and payroll use canonical treasury p
   assert.match(dashboard, /postTreasurySplitIncome\(\{/);
   assert.match(dashboard, /sourceType:\s*'purchase'/);
   assert.match(dashboard, /expense\.payrollPaymentType \? 'payroll' : 'expense'/);
-  assert.match(dashboard, /sourceType:\s*'delivery'/);
+  assert.match(dashboard, /collectDeliveryPayment\(currentDelivery\.id, account\?\.id\)/);
   assert.match(dashboard, /reverseTreasuryEntry\(/);
   assert.match(staff, /payrollPaymentType:\s*salaryPaymentType/);
   assert.match(staff, /payrollEnabled=\{subStatus\.plan\.id === 'tanzanite'\}|payrollEnabled/);
@@ -181,3 +181,4 @@ test('POS 22023 validation identifies bad checkout safely without bypassing bran
   assert.doesNotMatch(sql, /^\s*(?:delete from|truncate table|drop table)\b/gmi);
   assert.doesNotMatch(sql, /grant.*money_bank\.post/i);
 });
+

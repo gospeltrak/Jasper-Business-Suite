@@ -1,4 +1,5 @@
-import type { PaymentChannel, Sale } from '../../../types';
+import type { Delivery, PaymentChannel, Sale } from '../../../types';
+import { requireOnlineBusinessWrite } from '../../../shared/utils/onlineOnly';
 import { getSecureDataBridgeClient } from '../../../shared/dataBridge/secureDataBridge';
 import { getMaskedAccountReference } from '../../../shared/utils/paymentAccounts';
 import { selectPaymentAccountsForBranch } from './treasuryBranchAccounts';
@@ -36,6 +37,30 @@ export interface TreasuryTransferResult {
   sourceBalance: number;
   destinationBalance: number;
   status: 'posted' | 'already_posted';
+}
+
+/** The server derives fee, branch and tenant from the saved delivery. */
+export async function collectDeliveryPayment(deliveryId: string, sourceAccountKey?: string): Promise<Delivery> {
+  requireOnlineBusinessWrite('delivery payment');
+  const client: any = await getSecureDataBridgeClient();
+  const { data, error } = await client.rpc('collect_current_branch_delivery_payment', {
+    p_delivery_id: deliveryId,
+    p_source_account_key: sourceAccountKey || null,
+  });
+  if (error) {
+    if (error.code === '42501') throw new Error('You do not have permission to collect delivery payments in this branch.');
+    if (error.code === 'P0002') throw new Error('This delivery is not available in the selected branch. Refresh Deliveries and try again.');
+    if (error.code === '23505') throw new Error('This delivery has a conflicting payment record. Check its payment history before retrying.');
+    if (error.code === '23514') throw new Error('The delivery fee, account or existing collection could not be verified. Check the delivery and payment history.');
+    throw new Error('Delivery payment could not be confirmed. Check Deliveries before retrying.');
+  }
+  const delivery = data?.delivery as Delivery | undefined;
+  if (!delivery || delivery.id !== deliveryId || delivery.status !== 'Delivered'
+    || delivery.deliveryPaymentStatus !== 'collected'
+    || (Number(delivery.deliveryCost || 0) > 0 && !delivery.treasuryJournalId)) {
+    throw new Error('Delivery payment was not confirmed. Refresh Deliveries before retrying.');
+  }
+  return delivery;
 }
 
 const toTreasuryType = (channel: PaymentChannel) => {
@@ -402,3 +427,4 @@ export async function reverseTreasuryEntry(journalId: string, sourceId: string, 
   });
   if (error) throw safeTreasuryError(error);
 }
+

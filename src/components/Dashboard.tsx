@@ -72,7 +72,7 @@ import {
 } from '../modules/branches/branchScope';
 import { ONLINE_ONLY_WRITE_MESSAGE, canWriteBusinessDataOnline } from '../shared/utils/onlineOnly';
 import { getSecureDataBridgeClient, isPlaceholderSecureDataBridgeClient } from '../shared/dataBridge/secureDataBridge';
-import { syncTreasuryPaymentAccounts, postTreasuryEntry, postTreasurySplitIncome, postTreasurySplitOutgoing, reverseTreasuryEntry } from '../modules/cash-bank/utils/treasuryApi';
+import { collectDeliveryPayment, syncTreasuryPaymentAccounts, postTreasuryEntry, postTreasurySplitIncome, postTreasurySplitOutgoing, reverseTreasuryEntry } from '../modules/cash-bank/utils/treasuryApi';
 import { reversePurchaseInventory } from '../shared/utils/inventoryCosting';
 import { isPurchaseFundingBalanced, registeredPurchaseFunding } from '../modules/purchases/utils/purchaseFunding';
 import { getSubscriptionReminder, getSubscriptionReminderKey } from '../shared/utils/subscriptionReminder';
@@ -2609,39 +2609,37 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     let collectedAccountId = currentDelivery.deliveryPaymentAccountId;
 
     const deliveryIncomeAmount = Math.max(0, Number(currentDelivery.deliveryCost || 0));
-    if (
-      status === 'Delivered'
-      && currentDelivery.deliveryPaymentStatus !== 'collected'
-      && deliveryIncomeAmount > 0
-    ) {
-      const account = findPaymentChannel(
+    if (status === 'Delivered') {
+      const channels = reconcilePaymentChannels(
+        getTreasuryPaymentMethods(systemSettings.business),
         systemSettings.paymentChannels || [],
-        currentDelivery.deliveryPaymentMethod || 'Cash',
+        { currency: activeTenant.currencyCode },
       );
-      if (!account) {
+      const account = deliveryIncomeAmount > 0
+        ? findPaymentChannel(channels, currentDelivery.deliveryPaymentMethod || 'Cash')
+        : undefined;
+      if (deliveryIncomeAmount > 0 && !account) {
         addToast('Select an active delivery payment account before marking this delivery as collected.', 'error');
         return false;
       }
       try {
-        const posted = await postTreasuryEntry({
-          channels: systemSettings.paymentChannels || [],
-          sourceAccountKey: account.id,
-          amount: deliveryIncomeAmount,
-          direction: 'in',
-          sourceType: 'delivery',
-          sourceId: currentDelivery.id,
-          description: `Collected delivery income for ${currentDelivery.id}`,
-          openingBalances: getTreasuryOpeningBalances(),
-          metadata: {
-            saleId: currentDelivery.saleId,
-            customerName: currentDelivery.customerName,
-          },
-        });
-        treasuryJournalId = posted.journalId;
-        treasuryBranchId = posted.branchId;
-        collectedAccountId = account.id;
+        const committed = await collectDeliveryPayment(currentDelivery.id, account?.id);
+        localWorkspaceChangedAtRef.current = Date.now();
+        cloudWorkspaceLoadedRef.current = true;
+        setDeliveriesMap(previous => ({
+          ...previous,
+          [activeTenant.id]: (previous[activeTenant.id] || []).map(delivery => delivery.id === committed.id ? committed : delivery),
+        }));
+        setLogs(previous => [{
+          id: 'delivery-payment-' + Math.random().toString(36).slice(2, 9),
+          type: 'product_update',
+          status: 'success',
+          message: `Delivery dispatch ${deliveryId} status updated: Delivered.`,
+          timestamp: new Date().toISOString(),
+        }, ...previous]);
+        return true;
       } catch (error: any) {
-        addToast(error?.message || 'Money & Bank could not post this delivery income safely.', 'error');
+        addToast(error?.message || 'Delivery payment could not be saved safely.', 'error');
         return false;
       }
     }
@@ -5147,5 +5145,6 @@ function TenantDashboardGate(props: DashboardProps) {
   }
   return <DashboardContent {...props} />;
 }
+
 
 
