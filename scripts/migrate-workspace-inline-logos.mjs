@@ -118,7 +118,7 @@ async function run() {
   }
 
   if (!isDeepStrictEqual(changed[0].payload, replacement) ||
-      collectInlineLogoCandidates(changed[0].payload).length !== candidates.length - candidates.length) {
+      collectInlineLogoCandidates(changed[0].payload).length !== 0) {
     throw new Error('Post-write validation failed; restore using the private backup after manual investigation');
   }
   console.log('Migration confirmed: logo URLs replaced, all other workspace fields preserved; original backup retained.');
