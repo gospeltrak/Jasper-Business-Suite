@@ -751,7 +751,9 @@ test('staff salary payments are wired into the shared expense and reporting ledg
   assert.match(staffSource, /Optional Attachment/);
   assert.match(staffSource, /Recent Payment History/);
   assert.match(dashboardSource, /payrollEnabled=\{subStatus\.plan\.id === 'tanzanite'\}/);
-  assert.match(dashboardSource, /sourceType:\s*expense\.payrollPaymentType \? 'payroll' : 'expense'/);
+  assert.match(dashboardSource, /saveExpensePayment\(expense\)/);
+  const expensePayment = await read('supabase/migrations/20261026040333_operation_payment_consistency_and_balance_privacy.sql');
+  assert.match(expensePayment, /case when nullif\(p_expense->>'payrollPaymentType',''\) is null then 'expense' else 'payroll' end/);
 });
 
 test('branch stock transfer is atomic and exposed through authenticated API wiring', async () => {
@@ -1032,5 +1034,6 @@ test('GitHub CI runs tests and a production frontend build', async () => {
   assert.match(workflowSource, /run:\s*npm test/);
   assert.match(workflowSource, /run:\s*(?:npm run build|npx vite build)/);
 });
+
 
 
