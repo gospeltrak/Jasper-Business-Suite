@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { useTranslation } from '../contexts/LanguageContext';
+import { findBarcodeProduct, getBarcodeScanBox } from '../utils/barcodeScan';
 
 type CameraErrorCode = 'permission' | 'not-found' | 'in-use' | 'generic';
 
@@ -53,6 +54,9 @@ export default function DashboardBarcodeScanner({
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const scannerContainerRef = useRef<HTMLDivElement>(null);
   const lastScanRef = useRef<{ value: string; at: number }>({ value: '', at: 0 });
+  const scanHandlersRef = useRef({ products, onScanSuccess });
+  scanHandlersRef.current = { products, onScanSuccess };
+  const feedbackTimersRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
   // Set on unmount so a start() still awaiting the queue (or the camera
   // permission prompt) releases the camera immediately once it does get a
   // stream, instead of leaving it open after the user already closed.
@@ -83,19 +87,26 @@ export default function DashboardBarcodeScanner({
   // Unified Trigger Logic (Camera, Manual, Hardware)
   const handleItemBarcodeTrigger = (codeHex: string) => {
     const trimmed = codeHex.trim();
-    if (!trimmed) return;
+    if (!trimmed || closedRef.current) return;
+    const foundProduct = findBarcodeProduct(scanHandlersRef.current.products, trimmed);
 
-    const foundProduct = products.find(
-      p => String(p.barcode || '').trim() === trimmed || String(p.sku || '').toUpperCase() === trimmed.toUpperCase()
-    ) || null;
+    // POS owns acceptance, stock feedback and its success/error sounds.
+    // Do not show a green success overlay before the cart accepts the item.
+    if (inline) {
+      scanHandlersRef.current.onScanSuccess(trimmed, foundProduct);
+      return;
+    }
 
     setScanSuccessAnim(foundProduct ? foundProduct.name : `Barcode: ${trimmed}`);
     playBeep();
 
-    setTimeout(() => {
+    const timer = setTimeout(() => {
+      feedbackTimersRef.current.delete(timer);
+      if (closedRef.current) return;
       setScanSuccessAnim(null);
-      onScanSuccess(trimmed, foundProduct);
+      scanHandlersRef.current.onScanSuccess(trimmed, findBarcodeProduct(scanHandlersRef.current.products, trimmed));
     }, 450);
+    feedbackTimersRef.current.add(timer);
   };
 
   // Camera Lifecycle
@@ -106,9 +117,11 @@ export default function DashboardBarcodeScanner({
     }
     return () => {
       closedRef.current = true;
+      feedbackTimersRef.current.forEach(timer => clearTimeout(timer));
+      feedbackTimersRef.current.clear();
       stopCamera();
     };
-  }, [isOpen]);
+  }, [isOpen, inline]);
 
   const startCamera = () => queueCameraOp(async () => {
     if (closedRef.current) return;
@@ -119,10 +132,9 @@ export default function DashboardBarcodeScanner({
 
       const config = {
         fps: 10,
-        // Sized to fit the shorter viewfinder box below -- this is the
-        // library's own shaded-overlay scan guide (the open rectangle the
-        // user sees), not a custom one drawn on top of it.
-        qrbox: { width: 230, height: 110 },
+        // Expand the actual clear decoding area in POS, including the
+        // library's shaded guide; keep it inside the live camera dimensions.
+        qrbox: (width: number, height: number) => getBarcodeScanBox(width, height, inline),
         aspectRatio: 1.333334
       };
 
@@ -130,6 +142,7 @@ export default function DashboardBarcodeScanner({
         { facingMode: "environment" },
         config,
         (decodedText) => {
+          if (closedRef.current) return;
           const now = Date.now();
           // Debounce: Same barcode must wait 1.8s to be scanned again
           if (lastScanRef.current.value !== decodedText || now - lastScanRef.current.at > 1800) {
@@ -210,7 +223,7 @@ export default function DashboardBarcodeScanner({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, products]);
+  }, [isOpen, inline]);
 
   if (!isOpen) return null;
 
@@ -229,15 +242,14 @@ export default function DashboardBarcodeScanner({
   const content = (
     <>
         <div className="p-2">
-          {/* Camera scan target -- short, wide, like a real barcode-scanner
-             viewport. The open centre rectangle is the library's own
-             shaded-overlay scan guide (see qrbox in startCamera); it stays
+          {/* The open centre rectangle is the library's actual enlarged
+             shaded-overlay decoding guide (see qrbox in startCamera); it stays
              empty/clear so the live camera feed shows through while it
              works, and turns into the error panel below only on failure. */}
-          <div className="relative w-full h-40 bg-slate-950 rounded-2xl overflow-hidden flex items-center justify-center">
+          <div className={`relative w-full ${inline ? 'h-64 sm:h-72 lg:h-80' : 'h-40'} bg-slate-950 rounded-2xl overflow-hidden flex items-center justify-center`}>
             <button
               onClick={onClose}
-              aria-label="Close scanner"
+              aria-label={lang === 'sw' ? 'Funga skana' : 'Close scanner'}
               className="absolute top-2 right-2 z-30 p-1.5 bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-white rounded-full transition-colors cursor-pointer"
             >
               <X className="w-4 h-4" />
@@ -288,3 +300,4 @@ export default function DashboardBarcodeScanner({
     </div>
   );
 }
+

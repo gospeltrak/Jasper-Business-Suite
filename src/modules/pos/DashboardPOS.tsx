@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Tenant, Product, Sale, SaleItem, SystemSettings } from '../../types';
 import {
   calculateWeightedAverageCost,
@@ -39,6 +39,7 @@ import {
   Package
 } from 'lucide-react';
 import DashboardBarcodeScanner from '../../shared/components/DashboardBarcodeScanner';
+import { findBarcodeProduct, fitsPosShopStock, getPosShopStock, posBarcodeMessage, type PosBarcodeOutcome } from '../../shared/utils/barcodeScan';
 import CachedImage from '../../shared/components/CachedImage';
 import { downloadPdfFromElement, shareElementPdfToWhatsApp } from '../../shared/utils/pdfShare';
 import { localDateToIso, timestampToLocalDate } from '../../shared/utils/localDate';
@@ -192,7 +193,7 @@ export default function DashboardPOS({
   const showProductImages = systemSettings?.posSettings?.showProductImages !== false;
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [cart, setCart] = useState<Array<{ 
+  const [cart, setCartState] = useState<Array<{ 
     product: Product; 
     qty: number; 
     discount: number; 
@@ -202,6 +203,16 @@ export default function DashboardPOS({
     bulkSellMode?: 'scale' | 'pcs' | 'standard';
     fractionSaleLevel?: FractionSaleLevel;
   }>>([]);
+  // Scanner callbacks can arrive before React paints the previous update.
+  // Reserve each cart mutation synchronously so rapid scans share one stock limit.
+  const cartRef = useRef(cart);
+  const setCart = useCallback((update: typeof cart | ((current: typeof cart) => typeof cart)) => {
+    const next = typeof update === 'function' ? update(cartRef.current) : update;
+    cartRef.current = next;
+    setCartState(next);
+  }, []);
+  const latestProductsRef = useRef(products);
+  latestProductsRef.current = products;
   const [deliveryCost, setDeliveryCost] = useState<number>(0);
   const [orderDiscount, setOrderDiscount] = useState<number>(0);
   const [orderDiscountDraft, setOrderDiscountDraft] = useState('');
@@ -281,22 +292,24 @@ export default function DashboardPOS({
     }, 3000);
   };
 
-  const handleScanSuccess = (scannedCode: string, matchedProduct: Product | null) => {
-    if (matchedProduct) {
-      const isOOS = (matchedProduct.shopStockQty ?? 0) <= 0 || (matchedProduct.stockQty ?? 0) <= 0;
-      if (isOOS) {
-        playWarningBeep();
-        addScanToast('warning', `📦 Out of stock — ${matchedProduct.name}`);
-      } else {
-        addToCart(matchedProduct);
-        addScanToast('success', `✓ ${matchedProduct.name} added`);
-        playCartSuccessBeepAfterPaint();
-      }
-    } else {
+  const handleScanSuccess = (scannedCode: string, _matchedProduct: Product | null) => {
+    // Resolve against the current complete catalogue, never the search/stock grid
+    // or the product snapshot captured when the camera was opened.
+    const product = findBarcodeProduct(latestProductsRef.current, scannedCode);
+    if (!product) {
       playErrorBeep();
-      addScanToast('error', `⚠️ Not found — ${scannedCode}`);
+      addScanToast('error', posBarcodeMessage('not-found', receiptLanguage, scannedCode));
+      return;
     }
-    // Keep scanner open for next scan — supermarket multi-scan
+    const outcome = addToCart(product);
+    if (outcome === 'added') {
+      addScanToast('success', posBarcodeMessage('added', receiptLanguage, product.name));
+      playCartSuccessBeepAfterPaint();
+    } else {
+      playWarningBeep();
+      addScanToast('warning', posBarcodeMessage(outcome, receiptLanguage, product.name));
+    }
+    // Keep the scanner open; rejected scans never emit an added/success signal.
   };
   
   // Checkout Modal system
@@ -600,21 +613,23 @@ export default function DashboardPOS({
     return matchesSearch && matchesCategory && inStock;
   }), [products, searchTerm, selectedCategory]);
 
-  const addToCart = useCallback((prod: Product) => {
+  const addToCart = useCallback((candidate: Product): PosBarcodeOutcome => {
+    const prod = latestProductsRef.current.find(product => product.id === candidate.id);
+    if (!prod) return 'not-found';
     // Channel selling permissions validation
     if (sellingChannel === 'retail' && prod.sellInRetail === false) {
       setPosWarning(`Product "${prod.name}" is wholesale-only. Change channel to Wholesale to sell this product.`);
-      return;
+      return 'channel-blocked';
     }
     if (sellingChannel === 'wholesale' && prod.sellInWholesale === false) {
       setPosWarning(`Product "${prod.name}" is retail-only. Change channel to Retail to sell this product.`);
-      return;
+      return 'channel-blocked';
     }
 
-    const shopQty = prod.shopStockQty ?? 0;
+    const shopQty = getPosShopStock(prod);
     if (shopQty <= 0) {
-      setPosWarning(`Stock Limit: "${prod.name}" is completely out of stock in the shop!`);
-      return;
+      setPosWarning(posBarcodeMessage('out-of-stock', receiptLanguage, prod.name));
+      return 'out-of-stock';
     }
 
     const isMedicine = usesPharmacyHierarchy(prod);
@@ -628,17 +643,19 @@ export default function DashboardPOS({
       setPosWarning(`Prescription required: "${prod.name}" needs a valid prescription.`);
     }
 
+    let outcome: PosBarcodeOutcome = 'out-of-stock';
     setCart(prev => {
       const existing = prev.find(i => i.product.id === prod.id);
       if (existing) {
         // limit by stock with weight checks
-        const boxWeight = getCartStockWeight(existing);
+        const boxWeight = getCartStockWeight({ ...existing, product: prod });
         
         const nextQty = existing.qty + 1;
-        if (nextQty * boxWeight > shopQty) {
-          setPosWarning(`Stock Limit: Cannot add more than ${formatProductQuantity(shopQty, prod)} of "${prod.name}" to the register basket!`);
+        if (!fitsPosShopStock(prod, nextQty, boxWeight)) {
+          setPosWarning(posBarcodeMessage('out-of-stock', receiptLanguage, prod.name));
           return prev;
         }
+        outcome = 'added';
         return prev.map(i => i.product.id === prod.id ? { ...i, qty: nextQty } : i);
       }
       // Wholesale price only kicks in (see getCartUnitPrice) once the cart
@@ -654,6 +671,15 @@ export default function DashboardPOS({
           : sellingChannel === 'wholesale'
             ? Math.min(prod.minWholesaleQty || 10, shopQty)
             : 1;
+      const unitsPerQuantity = getCartStockWeight({
+        product: prod, dosageType: initialDosage, tabsSelected: initialTabs,
+        fractionSaleLevel: isFraction ? 'piece' : undefined,
+      });
+      if (!fitsPosShopStock(prod, initialQty, unitsPerQuantity)) {
+        setPosWarning(posBarcodeMessage('out-of-stock', receiptLanguage, prod.name));
+        return prev;
+      }
+      outcome = 'added';
       return [...prev, {
         product: prod,
         qty: initialQty,
@@ -665,7 +691,8 @@ export default function DashboardPOS({
         fractionSaleLevel: isFraction ? 'piece' : undefined,
       }];
     });
-  }, [sellingChannel, supportsFractionSale, usesPharmacyHierarchy, getCartStockWeight]);
+    return outcome;
+  }, [sellingChannel, supportsFractionSale, usesPharmacyHierarchy, getCartStockWeight, receiptLanguage, setCart]);
 
   const updateCartQty = useCallback((id: string, delta: number) => {
     setCart(prev => {
@@ -2748,4 +2775,5 @@ export default function DashboardPOS({
     </div>
   );
 }
+
 
