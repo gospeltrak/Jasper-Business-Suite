@@ -13,7 +13,7 @@ const png = Buffer.concat([
   Buffer.from('safe-tenant-logo-bytes'),
 ]);
 const inline = `data:image/png;base64,${png.toString('base64')}`;
-const tenantId = '64ba3572-b61f-4142-826c-e6fa48eab169';
+const tenantId = '00000000-1111-4111-8111-222222222222';
 
 describe('non-destructive inline logo migration', () => {
   it('operator script is valid ESM without running any database operation', () => {
