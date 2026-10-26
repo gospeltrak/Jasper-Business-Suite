@@ -126,6 +126,14 @@ export async function uploadTenantLogo(
 ): Promise<string | null> {
   try {
     const client: any = await getSecureDataBridgeClient();
+    // Storage RLS for tenant-logos permits writes only under auth.uid()/.
+    // Nest tenant IDs below that folder; do not broaden Storage permissions.
+    const { data: authData, error: authError } = await client.auth.getUser();
+    const uploaderId = authData?.user?.id;
+    if (authError || !uploaderId) {
+      console.error('[imageStorage] uploadTenantLogo requires an authenticated uploader');
+      return null;
+    }
 
     // Logos get slightly more generous compression (still 400×400 max)
     // but we accept SVG as-is since we can't canvas-compress vector graphics
@@ -142,7 +150,7 @@ export async function uploadTenantLogo(
 
     const ext = file.type === 'image/svg+xml' ? 'svg' : 'jpg';
     // Keep light and dark logos in separate objects, without overwriting old logos.
-    const path = `${tenantId}/${variant ? `logo-${variant}` : 'logo'}.${ext}`;
+    const path = `${uploaderId}/${tenantId}/${variant ? `logo-${variant}` : 'logo'}.${ext}`;
 
     const { error } = await client.storage
       .from('tenant-logos')
