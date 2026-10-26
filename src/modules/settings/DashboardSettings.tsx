@@ -8,6 +8,7 @@ import { Settings as SettingsIcon, Building, Building2, Package, Users, Check, T
 import { DashboardNotificationsSettings } from '../notifications-settings/DashboardNotificationsSettings';
 import { getSecureDataBridgeClient } from '../../shared/dataBridge/secureDataBridge';
 import { getTreasuryPaymentMethods, reconcilePaymentChannels } from '../../shared/utils/paymentAccounts';
+import { withUploadedBusinessLogo } from './utils/logoSettings';
 import { lazyWithReload } from '../../shared/utils/lazyWithReload';
 
 const DashboardBranchesSettings = lazyWithReload('SettingsDashboardBranches', () => import('../branches/components/DashboardBranchesSettings'));
@@ -134,6 +135,9 @@ export default function DashboardSettings({
     return { ...base, themeMode: (base as any).themeMode || (isDark ? 'dark' : 'light') };
   });
   const [businessForm, setBusinessForm] = useState<BusinessSettings>(() => normalizeBusinessSettings(systemSettings?.business, systemSettings?.company));
+  // Keep the latest settings available when multiple logo uploads finish asynchronously.
+  const latestBusinessFormRef = useRef(businessForm);
+  latestBusinessFormRef.current = businessForm;
   // The tenant's subdomain/business-name slug is assigned server-side at registration
   // (and is immutable after that) and lives on the `tenants` table row, not inside
   // systemSettings.business -- so it's fetched separately here rather than relying on
@@ -457,23 +461,14 @@ export default function DashboardSettings({
         return;
       }
 
-      if (target === 'business_light') {
-        const nextBusinessForm = {
-          ...businessForm,
-          businessLogoLight: storageUrl,
-          // Replace old inline base64 fallback, but preserve any existing URL.
-          businessLogo: !businessForm.businessLogo || businessForm.businessLogo.startsWith('data:')
-            ? storageUrl
-            : businessForm.businessLogo,
-        };
-        setBusinessForm(nextBusinessForm);
-        persistBusinessSettings(nextBusinessForm);
-      } else {
-        // The dark logo must not overwrite the general light-safe fallback.
-        const nextBusinessForm = { ...businessForm, businessLogoDark: storageUrl };
-        setBusinessForm(nextBusinessForm);
-        persistBusinessSettings(nextBusinessForm);
-      }
+      const nextBusinessForm = withUploadedBusinessLogo(
+        latestBusinessFormRef.current,
+        variant,
+        storageUrl,
+      );
+      latestBusinessFormRef.current = nextBusinessForm;
+      setBusinessForm(nextBusinessForm);
+      persistBusinessSettings(nextBusinessForm);
     } catch (error) {
       console.warn('[DashboardSettings] Logo Storage upload failed:', error);
       window.alert(isSw
