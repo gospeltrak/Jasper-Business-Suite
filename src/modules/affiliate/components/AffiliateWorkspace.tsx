@@ -829,7 +829,7 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
                                 </td>
                                 <td className="px-4 py-3 text-slate-500 text-xs">
                                   <p className="font-mono">{s.phone_number || '—'}</p>
-                                  {s.email && <p className="mt-0.5 max-w-[180px] truncate">{s.email}</p>}
+                                  {s.email && <p translate="no" className="mt-0.5 max-w-[180px] truncate">{s.email}</p>}
                                 </td>
                                 <td className="px-4 py-3 text-slate-600 text-xs">{s.package_name || '—'}</td>
                                 <td className="px-4 py-3"><span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${st.color}`}>{st.label}</span></td>

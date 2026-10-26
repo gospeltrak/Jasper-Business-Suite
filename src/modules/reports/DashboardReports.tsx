@@ -935,7 +935,7 @@ export default function DashboardReports({
             {rows.map(s => (
               <tr key={s.id} className="hover:bg-slate-50 cursor-pointer transition-colors" onClick={() => setSelectedInspectSale(s)}>
                 <td className="p-3 text-slate-500 whitespace-nowrap">{formatLocalDate(new Date(s.timestamp))}</td>
-                <td className="p-3 font-mono font-bold text-slate-600">{s.id}</td>
+                <td translate="no" className="p-3 font-mono font-bold text-slate-600">{s.id}</td>
                 <td className="p-3 font-medium text-slate-800">{s.customerName || 'Walk-in'}</td>
                 <td className="p-3 text-right font-black text-slate-900">{currency}{saleProductRevenue(s).toLocaleString()}</td>
                 <td className="p-3 text-center">
@@ -1465,8 +1465,8 @@ export default function DashboardReports({
                       return (
                         <tr key={p.id} className="hover:bg-slate-50 transition-colors">
                           <td className="p-3">
-                            <p className="font-bold text-slate-800">{p.name}</p>
-                            <p className="text-[10px] text-slate-400 font-mono">{p.sku}</p>
+                            <p translate="no" className="font-bold text-slate-800">{p.name}</p>
+                            <p translate="no" className="text-[10px] text-slate-400 font-mono">{p.sku}</p>
                           </td>
                           <td className="p-3 text-slate-600">{p.category || 'General'}</td>
                           <td className="p-3 text-right">
@@ -1680,7 +1680,7 @@ export default function DashboardReports({
                         {moneyBankChannelInBreakdown.map(row => (
                           <div key={row.channelId} className="bg-slate-50 rounded-xl border border-slate-200 p-3">
                             <div className="flex items-center justify-between text-xs mb-1.5 gap-2">
-                              <span className="font-bold text-slate-700 truncate">{row.name}</span>
+                              <span translate="no" className="font-bold text-slate-700 truncate">{row.name}</span>
                               <span className="font-mono font-black text-slate-900 shrink-0">{currency}{Math.round(row.amount).toLocaleString()} · {row.percent.toFixed(0)}%</span>
                             </div>
                             <div className="h-1.5 rounded-full bg-slate-200 overflow-hidden">
@@ -1777,7 +1777,7 @@ export default function DashboardReports({
                           <tbody className="divide-y divide-slate-100">
                             {moneyBankReceivables.map(r => (
                               <tr key={`${r.name}-${r.phone}`} className="hover:bg-slate-50 transition-colors">
-                                <td className="p-3 font-medium text-slate-800">{r.name}</td>
+                                <td translate="no" className="p-3 font-medium text-slate-800">{r.name}</td>
                                 <td className="p-3 text-slate-500 font-mono">{r.phone || '—'}</td>
                                 <td className="p-3 text-right text-slate-600">{r.count}</td>
                                 <td className="p-3 text-right font-mono font-black text-emerald-700">{currency}{Math.round(r.amountDue).toLocaleString()}</td>
@@ -1793,7 +1793,7 @@ export default function DashboardReports({
                         {moneyBankReceivables.map(r => (
                           <div key={`${r.name}-${r.phone}`} className="bg-white border border-slate-200 rounded-2xl p-3.5 shadow-xs flex items-center gap-3">
                             <div className="flex-1 min-w-0">
-                              <p className="text-xs font-bold text-slate-800 truncate">{r.name}</p>
+                              <p translate="no" className="text-xs font-bold text-slate-800 truncate">{r.name}</p>
                               <p className="text-[10px] text-slate-400 mt-0.5">{r.phone || '—'} · {r.count} unpaid sales</p>
                             </div>
                             <p className="text-xs font-mono font-black shrink-0 text-emerald-700">{currency}{Math.round(r.amountDue).toLocaleString()}</p>
@@ -1819,7 +1819,7 @@ export default function DashboardReports({
                           <tbody className="divide-y divide-slate-100">
                             {moneyBankPayables.map(p => (
                               <tr key={p.name} className="hover:bg-slate-50 transition-colors">
-                                <td className="p-3 font-medium text-slate-800">{p.name}</td>
+                                <td translate="no" className="p-3 font-medium text-slate-800">{p.name}</td>
                                 <td className="p-3 text-right text-slate-600">{p.count}</td>
                                 <td className="p-3 text-right font-mono font-black text-rose-600">{currency}{Math.round(p.amountDue).toLocaleString()}</td>
                               </tr>
@@ -1834,7 +1834,7 @@ export default function DashboardReports({
                         {moneyBankPayables.map(p => (
                           <div key={p.name} className="bg-white border border-slate-200 rounded-2xl p-3.5 shadow-xs flex items-center gap-3">
                             <div className="flex-1 min-w-0">
-                              <p className="text-xs font-bold text-slate-800 truncate">{p.name}</p>
+                              <p translate="no" className="text-xs font-bold text-slate-800 truncate">{p.name}</p>
                               <p className="text-[10px] text-slate-400 mt-0.5">{p.count} unpaid purchases</p>
                             </div>
                             <p className="text-xs font-mono font-black shrink-0 text-rose-600">{currency}{Math.round(p.amountDue).toLocaleString()}</p>
@@ -1911,8 +1911,8 @@ export default function DashboardReports({
                             }`}>{idx + 1}</span>
                           </td>
                           <td className="p-3">
-                            <p className="font-bold text-slate-800">{row.product.name}</p>
-                            <p className="text-[10px] text-slate-400 font-mono">{row.product.sku}</p>
+                            <p translate="no" className="font-bold text-slate-800">{row.product.name}</p>
+                            <p translate="no" className="text-[10px] text-slate-400 font-mono">{row.product.sku}</p>
                           </td>
                           <td className="p-3 text-right font-mono text-slate-700">{formatProductQuantity(row.qty, row.product)}</td>
                           <td className="p-3 text-right font-mono text-slate-700">{currency}{Math.round(row.revenue).toLocaleString()}</td>
@@ -2035,8 +2035,8 @@ export default function DashboardReports({
                           <tr key={row.product.id} className="hover:bg-slate-50 transition-colors">
                             <td className="p-3 text-slate-400 font-mono">{idx + 1}</td>
                             <td className="p-3">
-                              <p className="font-bold text-slate-800">{row.product.name}</p>
-                              <p className="text-[10px] text-slate-400 font-mono">{row.product.sku}</p>
+                              <p translate="no" className="font-bold text-slate-800">{row.product.name}</p>
+                              <p translate="no" className="text-[10px] text-slate-400 font-mono">{row.product.sku}</p>
                             </td>
                             <td className="p-3 text-slate-600">{row.product.category || 'General'}</td>
                             <td className="p-3 text-right font-mono text-slate-700">{formatProductQuantity(row.qty, row.product)}</td>
@@ -2117,7 +2117,7 @@ export default function DashboardReports({
                     {deliveryReportStats.validDeliveries.map(d => (
                       <tr key={d.id} className="hover:bg-slate-50 transition-colors">
                         <td className="p-3 text-slate-500 whitespace-nowrap">{formatLocalDate(new Date(d.timestamp))}</td>
-                        <td className="p-3 font-medium text-slate-800">{d.customerName}</td>
+                        <td translate="no" className="p-3 font-medium text-slate-800">{d.customerName}</td>
                         <td className="p-3 text-slate-600">{d.riderDetails?.name || d.riderId || 'Unassigned'}</td>
                         <td className="p-3 text-slate-600 max-w-[180px] truncate">{d.customerAddress || '—'}</td>
                         <td className="p-3 text-center">
@@ -2203,7 +2203,7 @@ export default function DashboardReports({
                     {purchaseReportStats.sorted.map((p: any) => (
                       <tr key={p.id} className="hover:bg-slate-50 transition-colors">
                         <td className="p-3 text-slate-500 whitespace-nowrap">{formatLocalDate(new Date(p.timestamp))}</td>
-                        <td className="p-3 font-medium text-slate-800">{p.supplierName}</td>
+                        <td translate="no" className="p-3 font-medium text-slate-800">{p.supplierName}</td>
                         <td className="p-3 text-right font-mono font-black text-slate-900">{currency}{Math.round(p.totalAmount || 0).toLocaleString()}</td>
                         <td className="p-3 text-right font-mono text-emerald-700">{currency}{Math.round(p.amountPaid || 0).toLocaleString()}</td>
                         <td className={`p-3 text-right font-mono ${(p.amountDue || 0) > 0 ? 'text-amber-600 font-bold' : 'text-slate-500'}`}>{currency}{Math.round(p.amountDue || 0).toLocaleString()}</td>
@@ -2296,7 +2296,7 @@ export default function DashboardReports({
                       <tr key={a.id || i} className="hover:bg-slate-50 transition-colors">
                         <td className="p-3 text-slate-500 whitespace-nowrap">{new Date(a.adjustedAt).toLocaleDateString()} {new Date(a.adjustedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
                         <td className="p-3">
-                          <p className="font-bold text-slate-800">{a.productName}</p>
+                          <p translate="no" className="font-bold text-slate-800">{a.productName}</p>
                           <p className="text-[10px] text-slate-400 font-mono">{a.sku || '—'}</p>
                         </td>
                         <td className="p-3 text-center">

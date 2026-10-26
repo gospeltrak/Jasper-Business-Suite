@@ -274,7 +274,7 @@ export default function DashboardForecasting({
           <div className="space-y-1.5">
             <h4 className="text-sm font-bold text-slate-800">Lucy Diagnostics Standby</h4>
             <p className="text-xs text-slate-450 font-sans leading-relaxed">
-              No predictive modeling has been compiled yet. Click the button below to generate full sales demand, expenses projections, best sellers suggestions, and industry expansions for the active <b>{activeTenant.name}</b> branch in <b>{activeTenant.city} ({activeTenant.businessType})</b>.
+              No predictive modeling has been compiled yet. Click the button below to generate full sales demand, expenses projections, best sellers suggestions, and industry expansions for the active <b translate="no">{activeTenant.name}</b> branch in <b>{activeTenant.city} ({activeTenant.businessType})</b>.
             </p>
           </div>
           <button
@@ -565,7 +565,7 @@ export default function DashboardForecasting({
                     <div key={idx} className="py-2.5 flex items-center justify-between">
                       <div className="space-y-0.5">
                         <span className="text-[9px] bg-slate-100 text-slate-700 font-mono px-1.5 py-0.5 rounded">Rank #{idx+1}</span>
-                        <h5 className="text-xs font-bold text-slate-800">{bs.productName}</h5>
+                        <h5 translate="no" className="text-xs font-bold text-slate-800">{bs.productName}</h5>
                       </div>
                       <div className="text-right">
                         <p className="text-xs font-mono font-black text-slate-700">{bs.qtySold} sold</p>
@@ -594,7 +594,7 @@ export default function DashboardForecasting({
                   {forecastData.trendingProducts?.map((tp, idx) => (
                     <div key={idx} className="py-2.5 flex flex-col space-y-1">
                       <div className="flex items-center justify-between">
-                        <h5 className="text-xs font-bold text-slate-800">{tp.productName}</h5>
+                        <h5 translate="no" className="text-xs font-bold text-slate-800">{tp.productName}</h5>
                         <span className="text-[10px] font-mono text-indigo-700 bg-indigo-50 px-1.5 rounded-full font-bold">
                           {tp.currentMarketTrendScore}% Score
                         </span>
@@ -634,7 +634,7 @@ export default function DashboardForecasting({
                             {suggestion.demandVolume}
                           </span>
                         </div>
-                        <h4 className="text-xs font-black text-slate-800 leading-snug">{suggestion.name}</h4>
+                        <h4 translate="no" className="text-xs font-black text-slate-800 leading-snug">{suggestion.name}</h4>
                         <p className="text-[11px] text-slate-600 font-sans leading-relaxed">{suggestion.rationale}</p>
                       </div>
 
@@ -699,8 +699,8 @@ export default function DashboardForecasting({
                         <tr key={idx} className="hover:bg-slate-50/50 transition-all text-slate-700">
                           
                           <td className="p-3 max-w-[180px]">
-                            <p className="font-bold text-slate-800 leading-tight truncate">{item.productName}</p>
-                            <span className="text-[9.5px] text-slate-400 font-mono">{item.sku}</span>
+                            <p translate="no" className="font-bold text-slate-800 leading-tight truncate">{item.productName}</p>
+                            <span translate="no" className="text-[9.5px] text-slate-400 font-mono">{item.sku}</span>
                           </td>
 
                           <td className="p-3 text-center">
@@ -787,4 +787,5 @@ export default function DashboardForecasting({
     </div>
   );
 }
+
 

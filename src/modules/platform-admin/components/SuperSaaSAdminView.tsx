@@ -876,7 +876,7 @@ export default function SuperSaaSAdminView({
                           </span>
                         </div>
                         <div>
-                          <h4 className="font-extrabold text-xs text-white leading-tight">{item.name}</h4>
+                          <h4 translate="no" className="font-extrabold text-xs text-white leading-tight">{item.name}</h4>
                           <span className="text-[10px] text-slate-500 block font-mono mt-1 uppercase tracking-wider">{item.slug} vertical</span>
                         </div>
                         <p className="text-[10.5px] text-slate-400 leading-normal font-light">

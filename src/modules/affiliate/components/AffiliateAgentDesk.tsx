@@ -974,7 +974,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
             </div>
             <div>
               <p className="text-[10px] text-amber-400/70 uppercase font-bold tracking-widest">Sub-Affiliate Account</p>
-              <h2 className="text-xl font-black text-white">{mirrorTarget.name}</h2>
+              <h2 translate="no" className="text-xl font-black text-white">{mirrorTarget.name}</h2>
               <div className="flex items-center gap-3 mt-1">
                 <span className="text-[10px] text-slate-400 font-mono">{mirrorTarget.promoCode}</span>
                 <TinBadge status={mirrorTarget.tinStatus} />
@@ -1412,8 +1412,8 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
                         <div className="p-4 space-y-4">
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0">
-                              <p className="font-black text-white text-sm truncate">{aff.name}</p>
-                              <p className="text-[10px] text-slate-500 mt-0.5">{aff.phone}</p>
+                              <p translate="no" className="font-black text-white text-sm truncate">{aff.name}</p>
+                              <p translate="no" className="text-[10px] text-slate-500 mt-0.5">{aff.phone}</p>
                               <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                                 <span className="text-[9px] font-black text-amber-400 font-mono bg-amber-500/10 px-2 py-0.5 rounded">{aff.promoCode}</span>
                                 <span className="text-[9px] font-bold text-emerald-300 bg-emerald-500/10 px-2 py-0.5 rounded">
@@ -1759,7 +1759,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
                   <select value={selectedAffId} onChange={e => setSelectedAffId(e.target.value)}
                     className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl px-3 py-2.5 text-sm outline-none focus:border-amber-500 cursor-pointer">
                     <option value="">Choose sub-affiliate...</option>
-                    {subAffiliates.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                    {subAffiliates.map(a => <option translate="no" key={a.id} value={a.id}>{a.name}</option>)}
                   </select>
                 </div>
                 <form onSubmit={scheduleMeeting} className="space-y-3">
@@ -1817,7 +1817,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
               </div>
               <div>
                 <p className="font-black text-white capitalize">{statusModal.action} Account</p>
-                <p className="text-xs text-slate-400">{statusModal.aff.name}</p>
+                <p translate="no" className="text-xs text-slate-400">{statusModal.aff.name}</p>
               </div>
             </div>
             <p className="text-xs text-slate-300">

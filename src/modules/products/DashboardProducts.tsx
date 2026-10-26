@@ -3636,7 +3636,7 @@ export default function DashboardProducts({
 
                         {/* Name + meta */}
                         <div className="flex-1 min-w-0">
-                          <p className="font-bold text-slate-900 dark:text-white text-[13px] leading-snug truncate">{prod.name}</p>
+                          <p translate="no" className="font-bold text-slate-900 dark:text-white text-[13px] leading-snug truncate">{prod.name}</p>
                           <div className="flex items-center gap-1.5 mt-0.5">
                             {prod.category && <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 truncate max-w-[100px]">{prod.category}</span>}
                             {prod.brand && <><span className="text-slate-200 dark:text-slate-700">·</span><span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 truncate max-w-[80px]">{prod.brand}</span></>}
@@ -3771,7 +3771,7 @@ export default function DashboardProducts({
                             </div>
                           </div>
                         </td>
-                        <td className="py-4 px-4 font-mono font-bold text-slate-700 tracking-wide text-[11px]">
+                        <td translate="no" className="py-4 px-4 font-mono font-bold text-slate-700 tracking-wide text-[11px]">
                           {prod.barcode}
                         </td>
                         <td className="py-4 px-4 font-bold text-[10px] tracking-wider text-slate-400 select-none uppercase font-mono">
@@ -4027,7 +4027,7 @@ export default function DashboardProducts({
                           className="p-3 hover:bg-slate-50/80 flex items-center justify-between cursor-pointer transition-colors"
                         >
                           <div className="space-y-0.5 text-left">
-                            <p className="font-bold text-slate-800 text-xs">{p.name}</p>
+                            <p translate="no" className="font-bold text-slate-800 text-xs">{p.name}</p>
                             <span className="font-mono text-[9px] text-slate-400">Barcode: {p.barcode}</span>
                           </div>
                           <button
@@ -4066,7 +4066,7 @@ export default function DashboardProducts({
                         >
                           <div className="flex items-center space-x-3 max-w-[55%]">
                             <div className="space-y-0.5 truncate text-left">
-                              <p className="font-bold text-slate-800 truncate text-[12px]">{p.name}</p>
+                              <p translate="no" className="font-bold text-slate-800 truncate text-[12px]">{p.name}</p>
                               <span className="font-mono text-[9px] text-slate-400 block">Barcode: {p.barcode}</span>
                             </div>
                           </div>
@@ -4298,13 +4298,13 @@ export default function DashboardProducts({
                       {printLayoutOption === 'only_barcode' ? (
                         <div className="py-1 flex flex-col items-center justify-center space-y-0.5 bg-white">
                           {renderDynamicCssBarcode(p.barcode)}
-                          <p className="font-mono text-[9.5px] font-bold text-slate-700">{p.barcode}</p>
+                          <p translate="no" className="font-mono text-[9.5px] font-bold text-slate-700">{p.barcode}</p>
                         </div>
                       ) : (
                         <>
                           {/* Product Name placed centered in the middle */}
                           <div className="text-center font-sans">
-                            <p className="font-extrabold text-slate-800 truncate text-[11px] leading-tight">{p.name}</p>
+                            <p translate="no" className="font-extrabold text-slate-800 truncate text-[11px] leading-tight">{p.name}</p>
                           </div>
 
                           {/* Price display if selected, placed below product name */}
@@ -4319,7 +4319,7 @@ export default function DashboardProducts({
                           {/* Visual Barcode bars details */}
                           <div className="pt-0.5 text-center space-y-0.5 bg-white select-none pointer-events-none">
                             {renderDynamicCssBarcode(p.barcode)}
-                            <p className="font-mono text-[8.5px] font-bold text-slate-600">{p.barcode}</p>
+                            <p translate="no" className="font-mono text-[8.5px] font-bold text-slate-600">{p.barcode}</p>
                           </div>
                         </>
                       )}
@@ -4369,13 +4369,13 @@ export default function DashboardProducts({
                         {printLayoutOption === 'only_barcode' ? (
                           <div className="py-1 flex flex-col items-center justify-center space-y-0.5 bg-white h-full min-h-[85px]">
                             {renderDynamicCssBarcode(p.barcode)}
-                            <p className="font-mono text-[8.5px] text-slate-800 font-bold">{p.barcode}</p>
+                            <p translate="no" className="font-mono text-[8.5px] text-slate-800 font-bold">{p.barcode}</p>
                           </div>
                         ) : (
                           <>
                             {/* Product name centered in the middle */}
                             <div className="text-center truncate">
-                              <p className="font-bold text-slate-800 truncate text-[10px] leading-tight">{p.name}</p>
+                              <p translate="no" className="font-bold text-slate-800 truncate text-[10px] leading-tight">{p.name}</p>
                             </div>
 
                             {/* Price display below product name, if selected */}
@@ -4390,7 +4390,7 @@ export default function DashboardProducts({
                             {/* Centered Barcode bars and code */}
                             <div className="pt-0.5 text-center bg-white space-y-0.5 select-none pointer-events-none">
                               {renderDynamicCssBarcode(p.barcode)}
-                              <p className="font-mono text-[7.5px] text-slate-500 font-bold">{p.barcode}</p>
+                              <p translate="no" className="font-mono text-[7.5px] text-slate-500 font-bold">{p.barcode}</p>
                             </div>
                           </>
                         )}
@@ -4531,7 +4531,7 @@ export default function DashboardProducts({
               {/* Product Info */}
               <div className="space-y-0.5 normal-case font-medium">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{transferProduct.category}</p>
-                <h5 className="text-xs font-bold text-slate-900 leading-snug">{transferProduct.name}</h5>
+                <h5 translate="no" className="text-xs font-bold text-slate-900 leading-snug">{transferProduct.name}</h5>
                 <p className="text-[10px] font-mono text-slate-500">Barcode: {transferProduct.barcode}</p>
               </div>
 
@@ -4597,8 +4597,8 @@ export default function DashboardProducts({
 
                   {transferDirection === 'branch_to_branch' && (
                     <div className="grid grid-cols-1 gap-3 normal-case">
-                      <label className="space-y-1"><span className="text-[10px] font-bold text-slate-500">Source branch</span><select value={transferSourceBranchId} onChange={e => setTransferSourceBranchId(e.target.value)} className="w-full min-h-[44px] rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold">{transferBranches.map(branch => <option key={branch.id || branch.branchCode} value={branch.id || ''}>{branch.businessName || branch.branchName}</option>)}</select></label>
-                      <label className="space-y-1"><span className="text-[10px] font-bold text-slate-500">Destination branch</span><select value={transferDestinationBranchId} onChange={e => setTransferDestinationBranchId(e.target.value)} className="w-full min-h-[44px] rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold"><option value="">Choose destination</option>{transferBranches.filter(branch => branch.id !== transferSourceBranchId).map(branch => <option key={branch.id || branch.branchCode} value={branch.id || ''}>{branch.businessName || branch.branchName}</option>)}</select></label>
+                      <label className="space-y-1"><span className="text-[10px] font-bold text-slate-500">Source branch</span><select value={transferSourceBranchId} onChange={e => setTransferSourceBranchId(e.target.value)} className="w-full min-h-[44px] rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold">{transferBranches.map(branch => <option translate="no" key={branch.id || branch.branchCode} value={branch.id || ''}>{branch.businessName || branch.branchName}</option>)}</select></label>
+                      <label className="space-y-1"><span className="text-[10px] font-bold text-slate-500">Destination branch</span><select value={transferDestinationBranchId} onChange={e => setTransferDestinationBranchId(e.target.value)} className="w-full min-h-[44px] rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold"><option value="">Choose destination</option>{transferBranches.filter(branch => branch.id !== transferSourceBranchId).map(branch => <option translate="no" key={branch.id || branch.branchCode} value={branch.id || ''}>{branch.businessName || branch.branchName}</option>)}</select></label>
                     </div>
                   )}
 
@@ -4839,7 +4839,7 @@ export default function DashboardProducts({
                           }
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="font-bold text-slate-800 text-[12.5px] leading-snug truncate">{prod.name}</p>
+                          <p translate="no" className="font-bold text-slate-800 text-[12.5px] leading-snug truncate">{prod.name}</p>
                           <div className="flex items-center gap-1.5 mt-0.5">
                             {prod.brand && <span className="text-[10px] font-semibold text-slate-400 truncate max-w-[90px]">{prod.brand}</span>}
                             {prod.unit && <><span className="text-slate-200">·</span><span className="text-[10px] font-mono font-semibold text-slate-400">{prod.unit}</span></>}
@@ -5024,7 +5024,7 @@ export default function DashboardProducts({
                               {initials}
                             </span>
                           )}
-                          <span className="truncate pr-1">{b.name}</span>
+                          <span translate="no" className="truncate pr-1">{b.name}</span>
                         </div>
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono leading-none flex-shrink-0 ${
                           selectedBrandFilter?.toLowerCase() === b.name.toLowerCase() ? 'bg-emerald-600 text-white font-bold' : 'bg-slate-200 text-slate-700 font-semibold'
@@ -5103,7 +5103,7 @@ export default function DashboardProducts({
                           }
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="font-bold text-slate-800 text-[12.5px] leading-snug truncate">{prod.name}</p>
+                          <p translate="no" className="font-bold text-slate-800 text-[12.5px] leading-snug truncate">{prod.name}</p>
                           <div className="flex items-center gap-1.5 mt-0.5">
                             {prod.category && <span className="text-[10px] font-semibold text-slate-400 truncate max-w-[90px]">{prod.category}</span>}
                             {prod.unit && <><span className="text-slate-200">·</span><span className="text-[10px] font-mono font-semibold text-slate-400">{prod.unit}</span></>}
@@ -5183,7 +5183,7 @@ export default function DashboardProducts({
                   
                   <div className="space-y-1.5 normal-case font-semibold text-xs">
                     <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Product Name / Title</label>
-                    <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 font-bold">
+                    <div translate="no" className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 font-bold">
                       {viewingProduct.name}
                     </div>
                   </div>
@@ -5222,7 +5222,7 @@ export default function DashboardProducts({
                   
                   <div className="space-y-1.5 font-mono">
                     <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Retail barcode (SKU)</label>
-                    <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 font-bold font-mono tracking-wide">
+                    <div translate="no" className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 font-bold font-mono tracking-wide">
                       {viewingProduct.barcode}
                     </div>
                   </div>
@@ -6146,7 +6146,7 @@ export default function DashboardProducts({
                   <X className="w-4 h-4" />
                 </button>
               </div>
-              <p className="text-xs text-slate-500">Adding new purchases for <span className="font-bold text-slate-800">{replenishProduct.name}</span></p>
+              <p className="text-xs text-slate-500">Adding new purchases for <span translate="no" className="font-bold text-slate-800">{replenishProduct.name}</span></p>
             </div>
 
             <div className="tenant-form-body p-6 space-y-5 overflow-y-auto overflow-x-hidden min-h-0">
@@ -6320,9 +6320,9 @@ export default function DashboardProducts({
                       : mobileProductMenu.name.charAt(0).toUpperCase()}
                   </div>
                   <div className="min-w-0">
-                    <p className="text-[15px] font-extrabold text-slate-900 leading-tight truncate">{mobileProductMenu.name}</p>
+                    <p translate="no" className="text-[15px] font-extrabold text-slate-900 leading-tight truncate">{mobileProductMenu.name}</p>
                     <p className="text-[11px] text-slate-400 mt-0.5 font-mono">
-                      {mobileProductMenu.sku && <span>{mobileProductMenu.sku}</span>}
+                      {mobileProductMenu.sku && <span translate="no">{mobileProductMenu.sku}</span>}
                       {mobileProductMenu.category && <span className="ml-1 text-slate-300">· {mobileProductMenu.category}</span>}
                     </p>
                   </div>
@@ -6468,7 +6468,7 @@ export default function DashboardProducts({
               </div>
               <div className="space-y-4 px-5 py-5">
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-sm font-black text-slate-900">{productToDelete.name}</p>
+                  <p translate="no" className="text-sm font-black text-slate-900">{productToDelete.name}</p>
                   <p className="mt-1 text-[11px] text-slate-500">
                     {productToDelete.barcode || productToDelete.sku || 'No barcode'} • Stock {getTotalStockQty(productToDelete.shopStockQty || 0, productToDelete.storeStockQty || 0)}
                   </p>
@@ -6565,7 +6565,7 @@ export default function DashboardProducts({
                             className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-blue-50 text-left cursor-pointer border-none bg-transparent transition-colors"
                           >
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-bold text-slate-800 truncate">{p.name}</p>
+                              <p translate="no" className="text-sm font-bold text-slate-800 truncate">{p.name}</p>
                               <p className="text-[10px] text-slate-400">{p.barcode || p.sku || 'No barcode'} · Stock: {(p as any).shopStockQty ?? (p as any).stockQty ?? 0}</p>
                             </div>
                           </button>

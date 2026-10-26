@@ -1059,7 +1059,7 @@ export default function SaaSWebEditor() {
                           )}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <h4 className="text-xs text-white font-extrabold truncate">{candidate.name}</h4>
+                          <h4 translate="no" className="text-xs text-white font-extrabold truncate">{candidate.name}</h4>
                           <p className="text-[10px] text-slate-500 font-mono mt-0.5">
                             {candidate.logoUrl ? 'Uploaded logo found' : 'No uploaded logo, initials fallback'}
                           </p>
@@ -1197,8 +1197,8 @@ export default function SaaSWebEditor() {
                       <tbody className="divide-y divide-slate-850">
                         {partnerWaitlist.map((lead: any, idx: number) => (
                           <tr key={idx} className="hover:bg-slate-900/50 text-slate-200">
-                            <td className="p-3 font-semibold font-sans">{lead.fullName}</td>
-                            <td className="p-3 text-emerald-400">{lead.phoneNumber}</td>
+                            <td translate="no" className="p-3 font-semibold font-sans">{lead.fullName}</td>
+                            <td translate="no" className="p-3 text-emerald-400">{lead.phoneNumber}</td>
                             <td className="p-3 text-slate-500">{lead.addedAt || 'N/A'}</td>
                             <td className="p-3 text-right">
                               <button

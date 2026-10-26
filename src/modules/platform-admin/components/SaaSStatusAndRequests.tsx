@@ -893,7 +893,7 @@ export default function SaaSStatusAndRequests() {
                 <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border-2 transition-colors ${isChecked ? 'border-cyan-500 bg-cyan-500' : 'border-slate-600 bg-slate-900'}`}>
                   {isChecked && <Check className="h-2.5 w-2.5 text-slate-950" strokeWidth={4} />}
                 </span>
-                <span className="text-xs font-bold text-white truncate">{t.name}</span>
+                <span translate="no" className="text-xs font-bold text-white truncate">{t.name}</span>
                 <span className="text-[9px] text-slate-500 font-mono shrink-0">{t.active_package_id || t.subscription_plan || 'trial'}</span>
               </button>
             );
@@ -966,7 +966,7 @@ export default function SaaSStatusAndRequests() {
                 <h4 className="text-sm font-black text-white">Confirm free grant</h4>
               </div>
               <p className="text-xs text-slate-300 leading-5">
-                You are about to grant <span className="font-black text-emerald-400">{SUBSCRIPTION_PLANS[grantPackage]?.name}</span> for{' '}
+                You are about to grant <span translate="no" className="font-black text-emerald-400">{SUBSCRIPTION_PLANS[grantPackage]?.name}</span> for{' '}
                 <span className="font-black text-white">{grantDurationValue} {grantDurationUnit}</span> to{' '}
                 <span className="font-black text-white">{selectedTenantIds.size} tenant{selectedTenantIds.size === 1 ? '' : 's'}</span>, free of charge.
                 This will not be recorded as revenue.
@@ -1039,7 +1039,7 @@ export default function SaaSStatusAndRequests() {
                     <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border-2 transition-colors ${isChecked ? 'border-amber-500 bg-amber-500' : 'border-slate-600 bg-slate-900'}`}>
                       {isChecked && <Check className="h-2.5 w-2.5 text-slate-950" strokeWidth={4} />}
                     </span>
-                    <span className="text-xs font-bold text-white truncate">{a.name}</span>
+                    <span translate="no" className="text-xs font-bold text-white truncate">{a.name}</span>
                   </button>
                 );
               })}
@@ -1074,7 +1074,7 @@ export default function SaaSStatusAndRequests() {
                     <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border-2 transition-colors ${isChecked ? 'border-amber-500 bg-amber-500' : 'border-slate-600 bg-slate-900'}`}>
                       {isChecked && <Check className="h-2.5 w-2.5 text-slate-950" strokeWidth={4} />}
                     </span>
-                    <span className="text-xs font-bold text-white truncate">{p.name}</span>
+                    <span translate="no" className="text-xs font-bold text-white truncate">{p.name}</span>
                   </button>
                 );
               })}

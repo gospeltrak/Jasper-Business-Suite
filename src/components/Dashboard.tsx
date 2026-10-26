@@ -3452,7 +3452,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                   )}
                 </div>
                 <div className="text-left leading-tight min-w-0 transition-opacity duration-300">
-                  <div className="font-extrabold text-sm text-white truncate max-w-[140px] tracking-tight">{user.name}</div>
+                  <div translate="no" className="font-extrabold text-sm text-white truncate max-w-[140px] tracking-tight">{user.name}</div>
                   <div className="text-[10px] text-slate-400 capitalize truncate max-w-[140px]">{user.role} Profile</div>
                 </div>
               </div>
@@ -3533,7 +3533,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
             </div>
             {!sidebarCollapsed && (
               <div className="space-y-0.5 leading-none min-w-0 text-left transition-opacity duration-300">
-                <p className="text-xs font-bold text-white leading-tight truncate">{user.name}</p>
+                <p translate="no" className="text-xs font-bold text-white leading-tight truncate">{user.name}</p>
                 <span className="text-[9px] font-mono text-slate-550 uppercase tracking-widest leading-none block mt-0.5 truncate">{activeRoleName}</span>
               </div>
             )}
@@ -3706,7 +3706,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                     <div className="absolute right-0 mt-2 w-52 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-xl z-50 overflow-hidden animate-fade-in">
                       {/* User info header */}
                       <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800">
-                        <p className="text-xs font-black text-slate-800 dark:text-white truncate">{user.name}</p>
+                        <p translate="no" className="text-xs font-black text-slate-800 dark:text-white truncate">{user.name}</p>
                         <p className="text-[10px] text-slate-400 capitalize mt-0.5">{user.role}</p>
                       </div>
                       {/* Menu items */}
@@ -4094,7 +4094,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                           <div className="flex items-center justify-between gap-3">
                             <div>
                               <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-widest ${isDiamond ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600'}`}>{tag}</span>
-                              <h3 className="mt-3 text-2xl font-black text-slate-950">{plan.name}</h3>
+                              <h3 translate="no" className="mt-3 text-2xl font-black text-slate-950">{plan.name}</h3>
                             </div>
                             <div className="text-right">
                               <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Monthly</p>
@@ -4744,7 +4744,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-semibold text-rose-600 leading-tight">Sign Out</p>
-                  <p className="text-xs text-slate-400 dark:text-slate-500 leading-tight mt-0.5">{user.name}</p>
+                  <p translate="no" className="text-xs text-slate-400 dark:text-slate-500 leading-tight mt-0.5">{user.name}</p>
                 </div>
               </button>
             </div>
@@ -4815,7 +4815,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                         <CardIcon className="h-5 w-5" strokeWidth={2.2} />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="text-base font-black text-slate-950 md:text-lg">{plan.name}</p>
+                        <p translate="no" className="text-base font-black text-slate-950 md:text-lg">{plan.name}</p>
                         <p className="mt-0.5 text-lg font-bold tracking-tight text-slate-700 md:text-xl">
                           {activeTenant.currency}{plan.price.toLocaleString()}
                         </p>
@@ -4859,7 +4859,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                     <div className="mt-3 overflow-hidden rounded-[20px] border border-slate-200 bg-white">
                       <div className="flex items-center justify-between gap-4 px-4 py-4 md:px-5">
                         <span className="text-sm font-medium text-slate-500">Selected plan</span>
-                        <span className="text-base font-black text-slate-950">
+                        <span translate="no" className="text-base font-black text-slate-950">
                           {SUBSCRIPTION_PLANS[selectedPlanId].name}
                         </span>
                       </div>

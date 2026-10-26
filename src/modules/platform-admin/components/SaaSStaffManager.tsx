@@ -209,13 +209,13 @@ export default function SaaSStaffManager() {
                       </div>
                     )}
                     <div>
-                      <p className="text-xs font-black text-white">{staff.name}</p>
+                      <p translate="no" className="text-xs font-black text-white">{staff.name}</p>
                       <p className="text-[10px] bg-amber-500/10 text-amber-500 px-1.5 py-0.5 rounded uppercase font-mono mt-0.5 font-bold tabular-nums">SaaS Delegate</p>
                     </div>
                   </div>
                 </div>
                 
-                <p className="text-xs font-medium text-slate-400 mb-3 truncate font-mono">{staff.email}</p>
+                <p translate="no" className="text-xs font-medium text-slate-400 mb-3 truncate font-mono">{staff.email}</p>
                 
                 <div className="flex items-center justify-between border-t border-slate-800 pt-3">
                   <div className="text-[9.5px] font-mono text-slate-500 font-black uppercase flex items-center">

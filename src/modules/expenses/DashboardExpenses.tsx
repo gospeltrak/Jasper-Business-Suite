@@ -833,7 +833,7 @@ export default function DashboardExpenses({
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
                       <span className="text-xs font-mono font-bold text-slate-400">{String(i + 1).padStart(2, '0')}</span>
-                      <h4 className="text-xs font-bold text-slate-900 dark:text-white">{cat.name}</h4>
+                      <h4 translate="no" className="text-xs font-bold text-slate-900 dark:text-white">{cat.name}</h4>
                       <span className="text-[9px] font-bold text-slate-400 bg-slate-100 dark:bg-slate-800/80 px-1.5 py-0.5 rounded-sm font-mono">
                         {cat.count} files
                       </span>
@@ -1407,7 +1407,7 @@ export default function DashboardExpenses({
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide block mb-1">Paid From Account</label>
                 <select value={editForm.paidFromAccountId} onChange={e => setEditForm(p => ({...p, paidFromAccountId: e.target.value}))}
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500 cursor-pointer">
-                  {paymentAccounts.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}
+                  {paymentAccounts.map(account => <option translate="no" key={account.id} value={account.id}>{account.name}</option>)}
                 </select>
               </div>
               <div className="flex gap-2 pt-1">

@@ -755,7 +755,7 @@ export default function DashboardSandboxVerticals({ activeTenant, currentUser, o
                         <span className="text-[9.5px] font-mono font-bold text-slate-450 bg-slate-100 px-1.5 py-0.5 rounded-sm">
                           {drug.category}
                         </span>
-                        <h4 className="text-xs font-extrabold text-slate-850 pt-1 leading-tight">{drug.name}</h4>
+                        <h4 translate="no" className="text-xs font-extrabold text-slate-850 pt-1 leading-tight">{drug.name}</h4>
                         <span className="text-[10px] italic font-mono text-slate-450 block font-medium">
                           {drug.generic}
                         </span>
@@ -883,7 +883,7 @@ export default function DashboardSandboxVerticals({ activeTenant, currentUser, o
 
                       <div className="pr-6 space-y-0.5">
                         <span className="text-[8.5px] font-bold font-mono text-indigo-600 bg-indigo-50 px-1 py-px rounded">{item.drug.batchNo}</span>
-                        <h5 className="text-[11.5px] font-extrabold text-slate-805">{item.drug.name}</h5>
+                        <h5 translate="no" className="text-[11.5px] font-extrabold text-slate-805">{item.drug.name}</h5>
                         <p className="text-[9.5px] font-mono text-slate-450 italic">{item.drug.generic}</p>
                       </div>
 
@@ -1072,7 +1072,7 @@ export default function DashboardSandboxVerticals({ activeTenant, currentUser, o
                 <tbody className="divide-y divide-slate-100 font-sans text-slate-650 text-[11px]">
                   {prescriptions.map((clm) => (
                     <tr key={clm.id} className="hover:bg-slate-50/50">
-                      <td className="py-3 font-mono font-black text-indigo-700">{clm.id}</td>
+                      <td translate="no" className="py-3 font-mono font-black text-indigo-700">{clm.id}</td>
                       <td className="py-3 font-bold text-slate-800">{clm.patientName}</td>
                       <td className="py-3 font-mono text-[10.5px] italic text-slate-600">{clm.drug}</td>
                       <td className="py-3">
@@ -1250,7 +1250,7 @@ export default function DashboardSandboxVerticals({ activeTenant, currentUser, o
                     return (
                       <tr key={drug.id} className="hover:bg-slate-50/50">
                         <td className="py-3">
-                          <span className="font-bold text-slate-850 block">{drug.name}</span>
+                          <span translate="no" className="font-bold text-slate-850 block">{drug.name}</span>
                           <span className="text-[9.5px] italic text-slate-450 font-mono italic leading-none">{drug.generic}</span>
                         </td>
                         <td className="py-3 font-mono font-bold text-slate-500">{drug.batchNo}</td>
@@ -1388,7 +1388,7 @@ export default function DashboardSandboxVerticals({ activeTenant, currentUser, o
             <div className="p-6 overflow-y-auto space-y-6 flex-grow bg-slate-50 text-slate-805">
               <div className="bg-white p-5 rounded-3xl font-mono text-xs space-y-4 shadow-md border-dashed border-2 border-slate-250">
                 <div className="text-center space-y-1 border-b border-dashed border-slate-200 pb-3">
-                  <h5 className="font-bold text-sm uppercase">{activeTenant.name}</h5>
+                  <h5 translate="no" className="font-bold text-sm uppercase">{activeTenant.name}</h5>
                   <p className="text-[10px] text-slate-500">APOTHECARY DISPENSARY SHIFT</p>
                   <p className="text-[10px] text-slate-500">{activeTenant.city}, {activeTenant.country}</p>
                 </div>
@@ -1397,7 +1397,7 @@ export default function DashboardSandboxVerticals({ activeTenant, currentUser, o
                 <div className="space-y-1 text-[10.5px] border-b border-dashed border-slate-200 pb-2 text-left">
                   <div className="flex justify-between">
                     <span>Rx Ticket ID:</span>
-                    <span className="font-bold">{successReceiptSale.id}</span>
+                    <span translate="no" className="font-bold">{successReceiptSale.id}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Filing DateTime:</span>
@@ -1405,7 +1405,7 @@ export default function DashboardSandboxVerticals({ activeTenant, currentUser, o
                   </div>
                   <div className="flex justify-between">
                     <span>Registered Patient:</span>
-                    <span className="font-bold">{successReceiptSale.customerName}</span>
+                    <span translate="no" className="font-bold">{successReceiptSale.customerName}</span>
                   </div>
                   <div className="flex justify-between">
                     <span>Clinical Pharmacist:</span>
@@ -1427,7 +1427,7 @@ export default function DashboardSandboxVerticals({ activeTenant, currentUser, o
                   
                   {successReceiptSale.items.map((item, idx) => (
                     <div key={idx} className="grid grid-cols-12 text-[10.5px] gap-y-0.5">
-                      <span className="col-span-6 font-bold text-slate-850 line-clamp-1">
+                      <span translate="no" className="col-span-6 font-bold text-slate-850 line-clamp-1">
                         {item.productName}
                       </span>
                       <span className="col-span-2 text-center text-[9.5px] text-slate-500 font-mono">

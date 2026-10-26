@@ -463,7 +463,7 @@ export default function DashboardWhiteLabel({ activeTenant }: DashboardWhiteLabe
                           ].map((x) => (
                             <div key={x.code} className="grid grid-cols-12 p-2.5 items-center hover:bg-slate-50/55">
                               <span className="col-span-1 font-mono text-[9px] font-bold text-slate-400">{x.code}</span>
-                              <span className="col-span-5 font-bold text-slate-805 truncate">{x.name}</span>
+                              <span translate="no" className="col-span-5 font-bold text-slate-805 truncate">{x.name}</span>
                               <span className="col-span-3">
                                 <span className={`inline-block text-[9px] px-1.5 py-0.5 rounded-full font-bold ${
                                   x.status.includes('Warning') ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-800'

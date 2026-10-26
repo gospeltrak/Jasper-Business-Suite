@@ -140,7 +140,7 @@ export default function SaaSExpensesView() {
               <div key={item.id} className="bg-slate-950 p-3.5 rounded-xl border border-slate-855 flex justify-between items-center text-xs font-mono relative group">
                 <div className="space-y-1 text-left">
                   <div className="flex items-center space-x-2">
-                    <span className="text-amber-400 font-bold text-[10px] bg-amber-500/10 px-2 py-0.5 rounded">{item.id}</span>
+                    <span translate="no" className="text-amber-400 font-bold text-[10px] bg-amber-500/10 px-2 py-0.5 rounded">{item.id}</span>
                     <span className="font-extrabold text-white text-[11.5px] font-sans">{item.title}</span>
                   </div>
                   <div className="text-[10px] text-slate-500 pl-1">{item.date} • {item.recipient}</div>

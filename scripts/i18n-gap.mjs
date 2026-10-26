@@ -14,6 +14,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 
 const SOURCE = 'src/shared/contexts/LanguageContext.tsx';
+const UI_PHRASES = 'src/shared/utils/swahiliUiTranslations.ts';
 // 'en' is deliberately a small set of jargon overrides, not a full parallel
 // dictionary (untranslated text is already English), so it was never a
 // meaningful comparison target here. With only one full localization ('sw')
@@ -67,6 +68,9 @@ function keysFor(lang) {
   const keys = new Set();
   for (const m of block.matchAll(/"([^"]+)"\s*:\s*"/g)) {
     keys.add(m[1]);
+  }
+  if (lang === 'sw' && existsSync(UI_PHRASES)) {
+    for (const m of readFileSync(UI_PHRASES, 'utf8').matchAll(/^\s*"([^"]+)"\s*:\s*"/gm)) keys.add(m[1]);
   }
   return keys;
 }
@@ -136,7 +140,7 @@ console.log('\n' + '─'.repeat(64));
 if (failed) {
   console.log('\nKuna funguo zinazokosekana. Tumia --full kuona orodha kamili.');
 } else {
-  console.log('\nLugha zote zimekamilika.');
+  console.log('\nUkaguzi wa funguo za tafsiri umefaulu. Maandishi ya kurasa yanahakikiwa pia kwenye tests za Kiswahili.');
 }
 
 process.exit(failed ? 1 : 0);

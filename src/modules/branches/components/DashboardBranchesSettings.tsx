@@ -541,7 +541,7 @@ function BranchDetailsDialog({ activeTenant, branch, onClose }: { activeTenant: 
         <div className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-slate-300 dark:bg-slate-700 md:hidden" />
         <div className="flex shrink-0 items-center justify-between border-b border-slate-200 px-5 py-4 dark:border-slate-800">
           <div>
-            <h3 id="branch-details-title" className="text-lg font-black text-slate-950 dark:text-white">{branch.branchName}</h3>
+            <h3 translate="no" id="branch-details-title" className="text-lg font-black text-slate-950 dark:text-white">{branch.branchName}</h3>
             <p className="mt-0.5 text-xs font-semibold text-slate-500">{branch.branchCode}</p>
           </div>
           <button type="button" onClick={onClose} className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 text-slate-500 dark:border-slate-700" aria-label="Close branch details"><X className="h-5 w-5" /></button>
@@ -629,8 +629,8 @@ function BranchActionsSheet({
         <div className="mx-auto h-1 w-11 rounded-full bg-slate-300 dark:bg-slate-700" />
         <div className="flex items-center justify-between py-4">
           <div className="min-w-0">
-            <h3 id="branch-actions-title" className="truncate text-base font-black text-slate-950 dark:text-white">{branch.branchName}</h3>
-            <p className="mt-0.5 truncate text-xs font-semibold text-slate-500 dark:text-slate-400">{branch.businessName || branch.branchName}</p>
+            <h3 translate="no" id="branch-actions-title" className="truncate text-base font-black text-slate-950 dark:text-white">{branch.branchName}</h3>
+            <p translate="no" className="mt-0.5 truncate text-xs font-semibold text-slate-500 dark:text-slate-400">{branch.businessName || branch.branchName}</p>
           </div>
           <button type="button" onClick={onClose} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-600 dark:bg-slate-900 dark:text-slate-300" aria-label="Close branch actions"><X className="h-5 w-5" /></button>
         </div>
@@ -788,9 +788,9 @@ function BranchSettingsContent({ activeTenant, onTriggerUpgrade }: DashboardBran
               <div className="min-w-0 flex-1">
                 <div className="flex items-start gap-2">
                   <div className="min-w-0 flex-1">
-                    <h3 className="line-clamp-2 text-[14px] font-black leading-5 text-slate-950 dark:text-white">{branch.businessName || branch.branchName}</h3>
+                    <h3 translate="no" className="line-clamp-2 text-[14px] font-black leading-5 text-slate-950 dark:text-white">{branch.businessName || branch.branchName}</h3>
                     <div className="mt-1 flex min-w-0 items-center gap-2">
-                      <span className="truncate text-[12px] font-semibold text-slate-600 dark:text-slate-300">{branch.branchName}</span>
+                      <span translate="no" className="truncate text-[12px] font-semibold text-slate-600 dark:text-slate-300">{branch.branchName}</span>
                       {branch.isDefault ? <span className="shrink-0 rounded-md border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[9px] font-black uppercase text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">Primary</span> : null}
                     </div>
                   </div>
@@ -867,8 +867,8 @@ function BranchSettingsContent({ activeTenant, onTriggerUpgrade }: DashboardBran
                 <button key={branchKey} type="button" onClick={() => setTabletSelectedBranchId(branchKey)} className={`flex min-h-[118px] w-full items-start gap-3 border-b border-slate-100 p-4 text-left transition dark:border-slate-800 ${isSelected ? 'border-transparent bg-emerald-50/60 dark:bg-emerald-950/20' : 'hover:bg-slate-50 dark:hover:bg-slate-900/50'}`}>
                   <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${isSelected ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300' : 'bg-slate-100 text-slate-500 dark:bg-slate-900 dark:text-slate-300'}`}><Building2 className="h-5 w-5" /></span>
                   <span className="min-w-0 flex-1">
-                    <span className="block line-clamp-2 text-[13px] font-black leading-5 text-slate-950 dark:text-white">{branch.businessName || branch.branchName}</span>
-                    <span className="mt-1 block truncate text-[11px] font-semibold text-slate-500 dark:text-slate-400">{branch.branchName}</span>
+                    <span translate="no" className="block line-clamp-2 text-[13px] font-black leading-5 text-slate-950 dark:text-white">{branch.businessName || branch.branchName}</span>
+                    <span translate="no" className="mt-1 block truncate text-[11px] font-semibold text-slate-500 dark:text-slate-400">{branch.branchName}</span>
                     <span className="mt-1.5 flex items-center gap-1 truncate text-[10.5px] font-medium text-slate-500 dark:text-slate-400"><MapPin className="h-3.5 w-3.5" />{branchLocation(branch)}</span>
                     <span className="mt-2 inline-flex items-center gap-1.5 text-[10.5px] font-black text-emerald-700 dark:text-emerald-400"><span className="h-2 w-2 rounded-full bg-emerald-500" />{branch.isLocked ? 'Read only' : branch.status}</span>
                   </span>
@@ -882,7 +882,7 @@ function BranchSettingsContent({ activeTenant, onTriggerUpgrade }: DashboardBran
               <div>
                 <div className="flex items-center gap-3 border-b border-slate-200 p-5 dark:border-slate-800">
                   <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300"><Building2 className="h-7 w-7" /></span>
-                  <div className="min-w-0 flex-1"><h4 className="line-clamp-2 text-base font-black text-slate-950 dark:text-white">{tabletSelectedBranch.businessName || tabletSelectedBranch.branchName}</h4><p className="mt-1 text-xs font-bold text-emerald-700 dark:text-emerald-400">{tabletSelectedBranch.isLocked ? 'Read only' : tabletSelectedBranch.status}</p></div>
+                  <div className="min-w-0 flex-1"><h4 translate="no" className="line-clamp-2 text-base font-black text-slate-950 dark:text-white">{tabletSelectedBranch.businessName || tabletSelectedBranch.branchName}</h4><p className="mt-1 text-xs font-bold text-emerald-700 dark:text-emerald-400">{tabletSelectedBranch.isLocked ? 'Read only' : tabletSelectedBranch.status}</p></div>
                   <button type="button" onClick={() => setSelectedBranch(tabletSelectedBranch)} className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-500 dark:border-slate-700 dark:text-slate-300" aria-label={`View ${tabletSelectedBranch.branchName} details`}><MoreHorizontal className="h-5 w-5" /></button>
                 </div>
                 <dl className="divide-y divide-slate-200 dark:divide-slate-800">
@@ -977,9 +977,9 @@ function BranchSettingsContent({ activeTenant, onTriggerUpgrade }: DashboardBran
             <div className="flex min-w-0 items-center gap-3">
               <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full border ${branch.isLocked ? 'border-slate-200 bg-slate-100 text-slate-400 dark:border-slate-700 dark:bg-slate-800' : 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300'}`}><Building2 className="h-5 w-5" /></span>
               <div className="min-w-0">
-                <span className="block truncate text-sm font-black text-slate-950 dark:text-white">{branch.businessName || branch.branchName}</span>
+                <span translate="no" className="block truncate text-sm font-black text-slate-950 dark:text-white">{branch.businessName || branch.branchName}</span>
                 <div className="mt-1 flex min-w-0 items-center gap-2">
-                  <span className="truncate text-xs font-semibold text-slate-500 dark:text-slate-400">{branch.branchName}</span>
+                  <span translate="no" className="truncate text-xs font-semibold text-slate-500 dark:text-slate-400">{branch.branchName}</span>
                   {branch.isDefault ? <span className="shrink-0 rounded-md border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[9px] font-black uppercase text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300">Primary</span> : null}
                   {branch.isLocked ? <LockKeyhole className="h-3.5 w-3.5 shrink-0 text-slate-400" /> : null}
                 </div>

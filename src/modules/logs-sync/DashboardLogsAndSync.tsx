@@ -180,7 +180,7 @@ export default function DashboardLogsAndSync({
                 <div key={sale.id} className="rounded-xl border border-amber-100 bg-white px-3 py-2 text-[11px]">
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-bold text-slate-700">Sale receipt</span>
-                    <span className="font-mono text-amber-700">{sale.id}</span>
+                    <span translate="no" className="font-mono text-amber-700">{sale.id}</span>
                   </div>
                   <p className="mt-0.5 truncate text-slate-500">{sale.customerName || 'Walk-in customer'} · {new Date(sale.timestamp).toLocaleString()}</p>
                 </div>

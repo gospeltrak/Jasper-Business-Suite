@@ -1170,7 +1170,7 @@ export default function DashboardOverview({
                 <div key={data.id || idx} className="flex items-center justify-between">
                   <div className="flex items-center space-x-1.5 min-w-0 pr-2">
                     <span className={`w-2.5 h-2.5 rounded-full ${data.bgColorClass} shrink-0`} />
-                    <span className="truncate font-medium text-slate-705 text-slate-700">{data.name}</span>
+                    <span translate="no" className="truncate font-medium text-slate-705 text-slate-700">{data.name}</span>
                   </div>
                   <div className="text-right font-mono text-slate-400 shrink-0 font-semibold">{data.percentage}% ({data.qty} pcs)</div>
                 </div>
@@ -1541,7 +1541,7 @@ export default function DashboardOverview({
                   >
                     <div className="flex items-start justify-between gap-1.5">
                       <div className="min-w-0 pr-1.5">
-                        <p className="text-xs font-bold text-[#1a1a2e] pb-0.5 truncate font-sans">
+                        <p translate="no" className="text-xs font-bold text-[#1a1a2e] pb-0.5 truncate font-sans">
                           {product.name}
                         </p>
                         <p className="text-[10px] text-slate-400 truncate font-mono">

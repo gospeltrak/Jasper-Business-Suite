@@ -109,7 +109,7 @@ function ViewPurchaseModal({ pc, currency, products, onClose }: {
             </div>
             <div className="space-y-1 min-w-0">
               <span className="block text-[8px] uppercase font-mono font-bold text-slate-400 tracking-wider">Supplier</span>
-              <span className="font-bold text-slate-700 text-[11px] break-words">{pc.supplierName}</span>
+              <span translate="no" className="font-bold text-slate-700 text-[11px] break-words">{pc.supplierName}</span>
             </div>
             <div className="space-y-1 min-w-0">
               <span className="block text-[8px] uppercase font-mono font-bold text-slate-400 tracking-wider">Delivery Status</span>
@@ -134,7 +134,7 @@ function ViewPurchaseModal({ pc, currency, products, onClose }: {
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-bold text-slate-800 text-[12px] truncate">{it.productName}</p>
+                      <p translate="no" className="font-bold text-slate-800 text-[12px] truncate">{it.productName}</p>
                       <p className="text-[10px] text-slate-400 font-mono mt-0.5">
                         {it.qty}{unitLabel ? ` ${unitLabel}` : ''} × {currency}{(it.costPrice || 0).toLocaleString()}
                       </p>
@@ -153,7 +153,7 @@ function ViewPurchaseModal({ pc, currency, products, onClose }: {
           {!!pc.payments?.length && <div className="space-y-2">
             <h5 className="text-xs font-bold text-slate-600">Payment history</h5>
             {pc.payments.map(payment => <div key={payment.id} className="rounded-xl border border-slate-200 p-3 text-xs">
-              <div className="flex justify-between gap-2 font-semibold"><span>{payment.accountName}</span><span>{currency}{payment.amount.toLocaleString()}</span></div>
+              <div className="flex justify-between gap-2 font-semibold"><span translate="no">{payment.accountName}</span><span>{currency}{payment.amount.toLocaleString()}</span></div>
               <p className="mt-1 text-slate-500">{new Date(payment.paidAt).toLocaleString()}{payment.reversedAt ? ' · Reversed' : ''}</p>
               {payment.treasuryJournalId && <p className="mt-1 break-all font-mono text-[10px] text-slate-400">Journal: {payment.treasuryJournalId}</p>}
             </div>)}
@@ -348,7 +348,7 @@ function EditPurchaseModal({
                 return (
                   <div key={item.productId} className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2">
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-bold text-slate-800 truncate">{item.productName}</p>
+                      <p translate="no" className="text-xs font-bold text-slate-800 truncate">{item.productName}</p>
                       {!isBaseLevel && (
                         <p className="text-[9px] text-amber-600 font-semibold">{item.packageLevelLabel || 'Packaged unit'} — remove &amp; re-add to change qty</p>
                       )}
@@ -406,7 +406,7 @@ function EditPurchaseModal({
                       onClick={() => addProductToItems(p)}
                       className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-slate-50"
                     >
-                      <span className="text-xs font-semibold text-slate-700 truncate">{p.name}</span>
+                      <span translate="no" className="text-xs font-semibold text-slate-700 truncate">{p.name}</span>
                       <span className="text-[10px] font-bold text-emerald-600 shrink-0 ml-2">+ Add</span>
                     </button>
                   ))}
@@ -1419,8 +1419,8 @@ export default function DashboardPurchases({
                                   {pc.supplierName.charAt(0).toUpperCase()}
                                 </div>
                                 <div>
-                                  <p className="text-[12px] font-bold text-slate-800">{pc.supplierName}</p>
-                                  <p className="text-[10px] text-slate-400 font-mono">{pc.id}</p>
+                                  <p translate="no" className="text-[12px] font-bold text-slate-800">{pc.supplierName}</p>
+                                  <p translate="no" className="text-[10px] text-slate-400 font-mono">{pc.id}</p>
                                 </div>
                               </div>
                             </td>
@@ -1553,7 +1553,7 @@ export default function DashboardPurchases({
                               {pc.supplierName.charAt(0).toUpperCase()}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="font-extrabold text-slate-900 text-[14px] leading-tight truncate">{pc.supplierName}</p>
+                              <p translate="no" className="font-extrabold text-slate-900 text-[14px] leading-tight truncate">{pc.supplierName}</p>
                               <p className="text-[10px] text-slate-400 font-mono mt-0.5">
                                 {new Date(pc.timestamp).toLocaleDateString([],{day:'numeric',month:'short',year:'numeric'})} · {(pc.items || []).length} item{(pc.items || []).length!==1?'s':''} · {pc.destination==='shop'?'🏪':'📦'}
                               </p>
@@ -1622,7 +1622,7 @@ export default function DashboardPurchases({
                         <div className="px-5 pt-2 pb-4 border-b border-slate-100">
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="font-extrabold text-slate-900 text-[15px]">{mobilePurchaseMenu.supplierName}</p>
+                              <p translate="no" className="font-extrabold text-slate-900 text-[15px]">{mobilePurchaseMenu.supplierName}</p>
                               <p className="text-[11px] text-slate-400 font-mono mt-0.5">
                                 {mobilePurchaseMenu.id} · {new Date(mobilePurchaseMenu.timestamp).toLocaleDateString([], {month:'short', day:'numeric', year:'numeric'})}
                               </p>
@@ -1749,14 +1749,14 @@ export default function DashboardPurchases({
                     </div>
                     <div className="space-y-1">
                       <div className="flex flex-col gap-1">
-                        <span className="inline-block self-start max-w-full truncate text-[9px] font-mono tracking-wider font-extrabold bg-slate-200/60 px-2 py-0.5 rounded text-slate-500">
+                        <span translate="no" className="inline-block self-start max-w-full truncate text-[9px] font-mono tracking-wider font-extrabold bg-slate-200/60 px-2 py-0.5 rounded text-slate-500">
                           {prod.sku}
                         </span>
                         <span className="text-[9.5px] font-bold text-slate-400 font-mono">
                           Stock: {formatProductQuantity(prod.stockQty, prod)}
                         </span>
                       </div>
-                      <h6 className="text-xs font-bold text-slate-800 line-clamp-2 leading-tight group-hover:text-emerald-700">{prod.name}</h6>
+                      <h6 translate="no" className="text-xs font-bold text-slate-800 line-clamp-2 leading-tight group-hover:text-emerald-700">{prod.name}</h6>
                     </div>
                     <div className="flex justify-between items-center border-t border-slate-100 pt-2 text-[11px]">
                       <div>
@@ -1907,7 +1907,7 @@ export default function DashboardPurchases({
                               <Package className="h-4 w-4 text-slate-300" />
                             )}
                           </span>
-                          <span className="text-xs font-semibold text-slate-800 truncate">{prod.name}</span>
+                          <span translate="no" className="text-xs font-semibold text-slate-800 truncate">{prod.name}</span>
                         </span>
                         <span className="text-[10px] font-bold text-emerald-600 ml-2 shrink-0">+ Add</span>
                       </button>
@@ -1932,7 +1932,7 @@ export default function DashboardPurchases({
                     {cart.map(item => (
                       <div key={item.product.id} className="p-2.5 bg-slate-50 border border-slate-200/80 rounded-xl space-y-1.5">
                         <div className="flex justify-between items-start gap-2">
-                          <span className="font-bold text-xs text-slate-800 line-clamp-1">{item.product.name}</span>
+                          <span translate="no" className="font-bold text-xs text-slate-800 line-clamp-1">{item.product.name}</span>
                           <button
                             type="button"
                             onClick={() => handleUpdateQty(item.product.id, 0)}

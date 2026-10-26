@@ -168,7 +168,7 @@ export default function SaaSHardwareSales() {
       {/* Tabs */}
       <div className="flex space-x-2 border-b border-slate-800 pb-0 overflow-x-auto">
         {TABS.map(tab => (
-          <button 
+          <button translate="no" 
             key={tab.id} 
             onClick={() => setActiveTab(tab.id as any)}
             className={`px-4 py-3 text-[10px] font-bold uppercase whitespace-nowrap transition-colors border-b-2 ${activeTab === tab.id ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500' : 'text-slate-500 hover:text-white border-transparent'}`}
@@ -277,8 +277,8 @@ export default function SaaSHardwareSales() {
                 {filteredSales.map((sale, i) => (
                   <tr key={i} className="hover:bg-slate-900/40">
                     <td className="p-3 text-slate-400">{new Date(sale.date).toLocaleDateString()}</td>
-                    <td className="p-3 text-indigo-400">{sale.receiptNo}</td>
-                    <td className="p-3 text-white font-sans">{sale.customerName}</td>
+                    <td translate="no" className="p-3 text-indigo-400">{sale.receiptNo}</td>
+                    <td translate="no" className="p-3 text-white font-sans">{sale.customerName}</td>
                     <td className="p-3">
                       <span className={`px-2 py-0.5 rounded text-[9px] uppercase ${sale.isAffiliate ? 'bg-amber-500/10 text-amber-400' : sale.isSubscriber ? 'bg-emerald-500/10 text-emerald-400' : 'bg-slate-800 text-slate-300'}`}>
                         {sale.isAffiliate ? 'Affiliate' : sale.isSubscriber ? 'Subscriber' : 'Walk-in'}
@@ -412,7 +412,7 @@ export default function SaaSHardwareSales() {
                 {sales.filter(s => s.isAffiliate).map((sale, i) => (
                   <tr key={i} className="hover:bg-slate-900/40">
                     <td className="p-3 text-slate-400">{new Date(sale.date).toLocaleDateString()}</td>
-                    <td className="p-3 text-amber-400 font-bold">{sale.customerName}</td>
+                    <td translate="no" className="p-3 text-amber-400 font-bold">{sale.customerName}</td>
                     <td className="p-3">
                       <span className={`px-2 py-0.5 rounded text-[9px] uppercase ${sale.paymentMethod === 'Credit' ? 'bg-rose-500/10 text-rose-400' : 'bg-slate-800 text-slate-300'}`}>
                         {sale.paymentMethod || 'Cash'}

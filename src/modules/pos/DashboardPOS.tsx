@@ -1638,7 +1638,7 @@ export default function DashboardPOS({
                           </span>
                         )}
                       </div>
-                      <h5 className={`font-extrabold text-[10px] sm:text-xs xl:text-[11px] text-slate-800 leading-snug pt-0.5 select-all ${showProductImages ? 'line-clamp-2 min-h-[1.75rem] sm:min-h-[2.25rem] xl:min-h-[1.75rem]' : 'truncate md:text-sm'}`} title={prod.name}>
+                      <h5 translate="no" className={`font-extrabold text-[10px] sm:text-xs xl:text-[11px] text-slate-800 leading-snug pt-0.5 select-all ${showProductImages ? 'line-clamp-2 min-h-[1.75rem] sm:min-h-[2.25rem] xl:min-h-[1.75rem]' : 'truncate md:text-sm'}`} title={prod.name}>
                         {prod.name}
                       </h5>
                       {!showProductImages && (
@@ -1792,7 +1792,7 @@ export default function DashboardPOS({
                         }`} title={sellingChannel === 'wholesale' ? 'Wholesale Price Active' : 'Retail Price Active'}>
                           {sellingChannel === 'wholesale' ? 'W' : 'R'}
                         </span>
-                        <span className="truncate">{item.product.name}</span>
+                        <span translate="no" className="truncate">{item.product.name}</span>
                       </h6>
                       
                       {/* Price below name - Simplified as requested */}
@@ -2590,7 +2590,7 @@ export default function DashboardPOS({
                         <div key={index}>
                           <div className="flex items-start py-2 text-[11px] text-black">
                             <span className="w-5 shrink-0 text-slate-400">{index + 1}</span>
-                            <span className="flex-1 font-semibold pr-1">{item.productName}</span>
+                            <span translate="no" className="flex-1 font-semibold pr-1">{item.productName}</span>
                             <span className="w-12 shrink-0 text-center">{posReceiptQuantity(formatSaleItemQuantity(item), receiptLanguage)}</span>
                             <span className="w-16 shrink-0 text-right">{currency}{Math.round(finalItemPrice).toLocaleString()}</span>
                             <span className="w-16 shrink-0 text-right font-bold">{currency}{Math.round(finalItemPrice * item.qty).toLocaleString()}</span>

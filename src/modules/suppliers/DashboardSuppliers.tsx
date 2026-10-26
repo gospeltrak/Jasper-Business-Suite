@@ -289,7 +289,7 @@ export default function DashboardSuppliers({
                       <Store className="w-5 h-5" />
                     </div>
                     <div className="text-left">
-                      <h6 className="text-sm font-bold text-slate-900">{sup.name}</h6>
+                      <h6 translate="no" className="text-sm font-bold text-slate-900">{sup.name}</h6>
                       <p className="text-xs text-slate-500">{sup.contactPerson || 'No contact person'}</p>
                     </div>
                   </div>
@@ -337,10 +337,10 @@ export default function DashboardSuppliers({
                             <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold">
                               {cust.name[0]}
                             </div>
-                            <span className="text-sm font-bold text-slate-800">{cust.name}</span>
+                            <span translate="no" className="text-sm font-bold text-slate-800">{cust.name}</span>
                           </div>
                         </td>
-                        <td className="px-6 py-4 text-sm text-slate-500">{cust.phone}</td>
+                        <td translate="no" className="px-6 py-4 text-sm text-slate-500">{cust.phone}</td>
                         <td className="px-6 py-4 text-sm font-black text-slate-900 text-right">{activeTenant.currency}{cust.totalSpent.toLocaleString()}</td>
                         <td className="px-6 py-4 text-sm text-slate-500 text-center">{cust.sales.length}</td>
                         <td className="px-6 py-4 text-right">
@@ -374,8 +374,8 @@ export default function DashboardSuppliers({
                         {cust.name[0]}
                       </div>
                       <div className="text-left min-w-0">
-                        <h6 className="text-sm font-bold text-slate-900 truncate">{cust.name}</h6>
-                        <p className="text-xs text-slate-500 truncate">{cust.phone}</p>
+                        <h6 translate="no" className="text-sm font-bold text-slate-900 truncate">{cust.name}</h6>
+                        <p translate="no" className="text-xs text-slate-500 truncate">{cust.phone}</p>
                         {cust.totalDue > 0 ? (
                           <span className="inline-flex items-center mt-1 text-[9px] font-bold uppercase px-2 py-0.5 rounded-full bg-rose-50 text-rose-700">
                             Owes: {activeTenant.currency}{Math.round(cust.totalDue).toLocaleString()}
@@ -410,7 +410,7 @@ export default function DashboardSuppliers({
                       <Store className="w-4 h-4" />
                     </div>
                     <div className="min-w-0">
-                      <h6 className="text-sm font-bold text-slate-900 truncate">{perf.supplier.name}</h6>
+                      <h6 translate="no" className="text-sm font-bold text-slate-900 truncate">{perf.supplier.name}</h6>
                       <p className="text-[10px] text-slate-400 font-medium">
                         {perf.purchaseCount} purchase{perf.purchaseCount !== 1 ? 's' : ''} · {perf.distinctProductCount} product{perf.distinctProductCount !== 1 ? 's' : ''}
                       </p>
@@ -491,8 +491,8 @@ export default function DashboardSuppliers({
                   {viewingCustomer.name[0]}
                 </div>
                 <div className="min-w-0">
-                  <h4 className="text-sm font-black tracking-tight truncate">{viewingCustomer.name}</h4>
-                  <p className="text-[10px] font-mono text-slate-400 truncate">{viewingCustomer.phone}</p>
+                  <h4 translate="no" className="text-sm font-black tracking-tight truncate">{viewingCustomer.name}</h4>
+                  <p translate="no" className="text-[10px] font-mono text-slate-400 truncate">{viewingCustomer.phone}</p>
                 </div>
               </div>
               <button onClick={() => setViewingCustomer(null)} className="p-1.5 text-slate-400 hover:text-white rounded-lg transition-colors cursor-pointer bg-transparent border-none shrink-0 ml-2">

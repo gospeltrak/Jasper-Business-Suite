@@ -489,7 +489,7 @@ export default function DuressDashboard({ onLogout }: DuressDashboardProps) {
                         }
                         return (
                           <tr key={sub.name + '-' + index} className="hover:bg-slate-900/40 transition-colors">
-                            <td className="py-3 font-semibold text-white">{sub.name}</td>
+                            <td translate="no" className="py-3 font-semibold text-white">{sub.name}</td>
                             <td className="py-3 text-slate-300">{sub.business}</td>
                             <td className="py-3 font-mono text-[11px] text-slate-400">{sub.package}</td>
                             <td className="py-3 font-mono text-white">{sub.amount}</td>
@@ -586,7 +586,7 @@ export default function DuressDashboard({ onLogout }: DuressDashboardProps) {
                       const percentages = [80, 55, 55, 30, 30];
                       return (
                         <div key={aff.name} className="flex items-center justify-between py-2.5 text-xs">
-                          <div className="flex-1 max-w-[120px] font-sans font-medium text-slate-300">
+                          <div translate="no" className="flex-1 max-w-[120px] font-sans font-medium text-slate-300">
                             {aff.name}
                           </div>
                           
@@ -679,7 +679,7 @@ export default function DuressDashboard({ onLogout }: DuressDashboardProps) {
                           <div className="flex items-start justify-between">
                             <div>
                               <div className="flex items-center space-x-2">
-                                <span className={`font-bold font-sans text-xs ${isInactive ? 'text-slate-500' : 'text-white'}`}>{aff.name}</span>
+                                <span translate="no" className={`font-bold font-sans text-xs ${isInactive ? 'text-slate-500' : 'text-white'}`}>{aff.name}</span>
                                 {aff.performance && (
                                   <span className="px-1.5 py-0.2 bg-amber-500/10 text-amber-500 border border-amber-500/20 rounded text-[9px] font-mono font-bold">
                                     {aff.performance}

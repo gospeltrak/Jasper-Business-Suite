@@ -1153,7 +1153,7 @@ export default function DashboardStaff({
               {credentialRole && !customRoles.some(r => r.name === credentialRole) && (
                 <option value={credentialRole}>{credentialRole} (current)</option>
               )}
-              {customRoles.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
+              {customRoles.map(r => <option translate="no" key={r.id} value={r.name}>{r.name}</option>)}
             </select>
           ) : (
             <div className="min-h-[44px] rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800 flex items-center">
@@ -1283,8 +1283,8 @@ export default function DashboardStaff({
                           <div className="flex items-center gap-3">
                             {renderAvatar(staff)}
                             <div className="min-w-0">
-                              <div className="font-black text-slate-900 truncate">{staff.name}</div>
-                              <div className="text-xs text-slate-500 mt-0.5">{staff.phone}</div>
+                              <div translate="no" className="font-black text-slate-900 truncate">{staff.name}</div>
+                              <div translate="no" className="text-xs text-slate-500 mt-0.5">{staff.phone}</div>
                             </div>
                           </div>
                         </td>
@@ -1378,7 +1378,7 @@ export default function DashboardStaff({
                     <div className="flex items-center gap-3">
                       {renderAvatar(staff, 'w-11 h-11')}
                       <div className="min-w-0 flex-1">
-                        <h4 className="font-black text-slate-950 text-sm truncate">{staff.name}</h4>
+                        <h4 translate="no" className="font-black text-slate-950 text-sm truncate">{staff.name}</h4>
                         <span className="text-[10px] font-black uppercase text-indigo-600 truncate">{staff.role}</span>
                       </div>
                       <button
@@ -1457,7 +1457,7 @@ export default function DashboardStaff({
                       <label className="space-y-1.5 md:col-span-2">
                         <span className="text-xs font-black text-slate-700">Branch</span>
                         <select value={regBranchId} onChange={e => setRegBranchId(e.target.value)} className="w-full min-h-[48px] rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black outline-none focus:border-indigo-500">
-                          {availableBranches.map(branch => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
+                          {availableBranches.map(branch => <option translate="no" key={branch.id} value={branch.id}>{branch.name}</option>)}
                         </select>
                       </label>
                       <div className="space-y-1.5 md:col-span-2">
@@ -1506,7 +1506,7 @@ export default function DashboardStaff({
                     <label className="space-y-1.5 block">
                       <span className="text-xs font-black text-slate-700">Assign Role</span>
                       <select name="staffRole" aria-invalid={registrationErrorField === 'staffRole' || undefined} aria-describedby={registrationErrorField === 'staffRole' ? 'staff-registration-error' : undefined} value={selectedRole} onChange={e => setSelectedRole(e.target.value)} className="w-full min-h-[48px] rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black outline-none focus:border-indigo-500">
-                        {customRoles.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
+                        {customRoles.map(r => <option translate="no" key={r.id} value={r.name}>{r.name}</option>)}
                       </select>
                     </label>
                   )
@@ -1680,7 +1680,7 @@ export default function DashboardStaff({
                     <div className="flex items-center gap-3 min-w-0">
                       {renderAvatar(staff, 'w-11 h-11')}
                       <div className="min-w-0">
-                        <h4 className="font-black text-slate-900 text-sm truncate">{staff.name}</h4>
+                        <h4 translate="no" className="font-black text-slate-900 text-sm truncate">{staff.name}</h4>
                         <span className="text-[10px] font-bold uppercase tracking-wide text-indigo-600 truncate">{staff.role}</span>
                       </div>
                     </div>
@@ -1715,7 +1715,7 @@ export default function DashboardStaff({
                 <div className="min-w-0 flex items-center gap-3 flex-1">
                   {renderAvatar(staff, 'w-10 h-10')}
                   <div className="min-w-0">
-                    <h3 className="font-black text-slate-950 text-sm truncate">{staff.name}</h3>
+                    <h3 translate="no" className="font-black text-slate-950 text-sm truncate">{staff.name}</h3>
                     <p className="text-[11px] text-slate-500 font-semibold">{payrollPeriod.start} to {payrollPeriod.end}</p>
                   </div>
                 </div>
@@ -1814,7 +1814,7 @@ export default function DashboardStaff({
                   }}
                   className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm font-semibold"
                 />
-                {salaryPaymentAttachment && <span className="block text-xs font-bold text-emerald-700">{salaryPaymentAttachment.name}</span>}
+                {salaryPaymentAttachment && <span translate="no" className="block text-xs font-bold text-emerald-700">{salaryPaymentAttachment.name}</span>}
               </label>
             </div>
             <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
@@ -1850,7 +1850,7 @@ export default function DashboardStaff({
           <div className="w-full md:max-w-md rounded-t-[2rem] md:rounded-[2rem] bg-white p-5 md:p-6 shadow-2xl">
             <h3 id="remove-staff-title" className="text-lg font-black text-slate-950">Remove staff account?</h3>
             <p className="mt-2 text-sm font-semibold leading-6 text-slate-600">
-              This will remove <strong className="text-slate-900">{staffToRemove.name}</strong> from this business.
+              This will remove <strong translate="no" className="text-slate-900">{staffToRemove.name}</strong> from this business.
               Review the selected account before confirming.
             </p>
             <div className="staff-two-column-grid mt-6 grid grid-cols-2 gap-3">
@@ -1881,7 +1881,7 @@ export default function DashboardStaff({
               <div className="flex items-center gap-3 min-w-0">
                 {renderAvatar(selectedStaff, 'w-12 h-12')}
                 <div className="min-w-0">
-                  <h3 className="font-black text-slate-950 truncate">{selectedStaff.name}</h3>
+                  <h3 translate="no" className="font-black text-slate-950 truncate">{selectedStaff.name}</h3>
                   <p className="text-xs font-semibold text-slate-500 truncate">Username: {selectedStaff.phone}</p>
                 </div>
               </div>
@@ -1972,7 +1972,7 @@ export default function DashboardStaff({
                     <div className="mt-4 rounded-2xl bg-white border border-slate-200 p-3 space-y-2">
                       <span className="block text-[10px] font-black uppercase text-slate-400">Branch Access</span>
                       <select value={profileBranchId} onChange={e => setProfileBranchId(e.target.value)} className="w-full min-h-[44px] rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm font-black outline-none">
-                        {availableBranches.map(branch => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
+                        {availableBranches.map(branch => <option translate="no" key={branch.id} value={branch.id}>{branch.name}</option>)}
                       </select>
                       <div className="grid grid-cols-2 gap-2">
                         <button type="button" onClick={() => setProfileAccessScope('assigned_branches')} className={`min-h-[42px] rounded-xl text-xs font-black border ${profileAccessScope === 'assigned_branches' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-200'}`}>
@@ -2081,7 +2081,7 @@ export default function DashboardStaff({
                       (selectedStaff.allowances || []).map(allowance => (
                         <div key={allowance.id} className="rounded-2xl bg-white border border-slate-200 p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                           <div>
-                            <div className="font-black text-sm text-slate-900">{allowance.name}</div>
+                            <div translate="no" className="font-black text-sm text-slate-900">{allowance.name}</div>
                             <div className="text-[11px] font-semibold text-slate-500">{formatMoney(allowance.amount)} · {allowance.frequency} · {allowance.startDate}{allowance.endDate ? ` to ${allowance.endDate}` : ''}</div>
                           </div>
                           <button type="button" onClick={() => handleRemoveAllowance(selectedStaff.id, allowance.id)} className="min-h-[38px] rounded-xl bg-rose-50 px-3 text-xs font-black text-rose-700 inline-flex items-center justify-center gap-1">
@@ -2158,7 +2158,7 @@ export default function DashboardStaff({
                 <div className="px-5 pb-3 pt-1 text-left shrink-0 flex items-center gap-3">
                   {renderAvatar(staff, 'w-10 h-10')}
                   <div className="min-w-0">
-                    <h3 className="text-base font-extrabold text-slate-800 leading-tight truncate">{staff.name}</h3>
+                    <h3 translate="no" className="text-base font-extrabold text-slate-800 leading-tight truncate">{staff.name}</h3>
                     <p className="text-xs text-slate-500 mt-0.5 font-bold uppercase tracking-wide truncate">{staff.role}</p>
                   </div>
                 </div>
@@ -2233,5 +2233,6 @@ export default function DashboardStaff({
     </div>
   );
 }
+
 
 

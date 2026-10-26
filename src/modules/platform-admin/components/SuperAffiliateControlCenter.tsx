@@ -251,7 +251,7 @@ export default function SuperAffiliateControlCenter({ initialTab = 'agents', isU
               <button type="button" onClick={() => { setDeleteTarget(null); setDeletePassword(''); setDeleteError(''); }} className="rounded-xl bg-slate-800 p-2 text-slate-300 hover:bg-slate-700"><X className="w-3.5 h-3.5" /></button>
             </div>
             <p className="text-sm text-slate-300">
-              You are about to <strong className="text-rose-400">permanently delete</strong> <strong>{deleteTarget.name}</strong>.
+              You are about to <strong className="text-rose-400">permanently delete</strong> <strong translate="no">{deleteTarget.name}</strong>.
               This action cannot be undone.
             </p>
             {deleteTarget.kind === 'partner' && (
@@ -395,7 +395,7 @@ function SubAffiliateSection({ rows, totals, onExport, onEdit, loadingAffiliateI
           <tbody className="divide-y divide-slate-800/80 bg-slate-900">
             {rows.map((row) => (
               <tr key={row.id}>
-                <td className="p-3"><b>{row.name}</b><span className="block text-xs text-slate-500">{row.phone || 'No phone'} · {row.status}</span></td>
+                <td className="p-3"><b translate="no">{row.name}</b><span className="block text-xs text-slate-500">{row.phone || 'No phone'} · {row.status}</span></td>
                 <td className="p-3">{row.parentAgentName}<span className="block text-xs text-slate-500">{row.parentAgentCode || '—'}</span></td>
                 <td className="p-3"><span className="font-mono text-xs text-emerald-300">{row.promoCode}</span><span className="block text-[11px] text-slate-500 truncate max-w-[200px]">{row.referralLink}</span></td>
                 <td className="p-3 text-center">{row.subscribers}</td>
@@ -426,7 +426,7 @@ function SubAffiliateSection({ rows, totals, onExport, onEdit, loadingAffiliateI
             <div className="py-3.5 pl-4 pr-3.5">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[14px] font-extrabold leading-tight text-white">{row.name}</p>
+                  <p translate="no" className="truncate text-[14px] font-extrabold leading-tight text-white">{row.name}</p>
                   <p className="mt-0.5 truncate font-mono text-[10px] text-slate-500">{row.parentAgentName} · <span className="text-emerald-400">{row.promoCode}</span></p>
                 </div>
                 <div className="flex shrink-0 items-start gap-2">
@@ -456,7 +456,7 @@ function SubAffiliateSection({ rows, totals, onExport, onEdit, loadingAffiliateI
           >
             <div className="flex justify-center py-2"><div className="h-1 w-12 rounded-full bg-slate-700" /></div>
             <div className="px-5 pb-1 pt-1 text-left">
-              <h3 className="text-sm font-extrabold leading-tight text-white">{cardActionsFor.name}</h3>
+              <h3 translate="no" className="text-sm font-extrabold leading-tight text-white">{cardActionsFor.name}</h3>
               <p className="mt-0.5 font-mono text-[11px] text-slate-500">{cardActionsFor.parentAgentName} · <span className="text-emerald-400">{cardActionsFor.promoCode}</span></p>
             </div>
             <div className="space-y-2 p-4">

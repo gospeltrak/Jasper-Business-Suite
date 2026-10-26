@@ -2101,7 +2101,7 @@ export default function DashboardSettings({
                               <div className="flex items-center space-x-2.5">
                                 <Lock className={`w-3.5 h-3.5 ${isSel ? 'text-white' : 'text-slate-400'}`} />
                                 <div className="min-w-0">
-                                  <p className="font-bold truncate">{r.name}</p>
+                                  <p translate="no" className="font-bold truncate">{r.name}</p>
                                   <p className={`text-[9.5px] font-normal leading-relaxed ${isSel ? 'text-emerald-100' : 'text-slate-400'}`}>
                                     Custom role
                                   </p>
@@ -2218,7 +2218,7 @@ export default function DashboardSettings({
                                     )}
                                     <tr className="hover:bg-slate-50/50 transition-colors">
                                       <td className="p-3 space-y-0.5 max-w-[240px]">
-                                        <p className="font-bold text-slate-800">{mod.name}</p>
+                                        <p translate="no" className="font-bold text-slate-800">{mod.name}</p>
                                         <p className="text-[10px] text-slate-400 leading-normal font-normal">{mod.desc}</p>
                                       </td>
                                       
@@ -2266,7 +2266,7 @@ export default function DashboardSettings({
                                 )}
                                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                                   <div>
-                                    <p className="font-black text-slate-900 text-sm leading-snug">{mod.name}</p>
+                                    <p translate="no" className="font-black text-slate-900 text-sm leading-snug">{mod.name}</p>
                                     <p className="text-[11px] text-slate-500 leading-relaxed mt-1">{mod.desc}</p>
                                   </div>
                                   <div className="grid grid-cols-3 gap-2 mt-4">
@@ -2441,7 +2441,7 @@ export default function DashboardSettings({
                     
                     <div className="bg-slate-50 border border-slate-100 rounded-xl p-4">
                       <p className="text-xs text-slate-500 font-medium">
-                        This report calculates metrics strictly linked to actions explicitly logged by <strong className="text-slate-800">{viewingStaffReport.name}</strong> under their profile context. 
+                        This report calculates metrics strictly linked to actions explicitly logged by <strong translate="no" className="text-slate-800">{viewingStaffReport.name}</strong> under their profile context. 
                       </p>
                     </div>
                   </div>

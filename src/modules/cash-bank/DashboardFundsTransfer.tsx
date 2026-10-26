@@ -37,12 +37,12 @@ export default function DashboardFundsTransfer({ channels, canTransfer }: { chan
       }}>
         <label className="block text-sm">From account
           <select required value={source} onChange={event => setSource(event.target.value)} className="block w-full mt-1 rounded-lg border p-3 bg-transparent">
-            <option value="">Select account</option>{accounts.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}
+            <option value="">Select account</option>{accounts.map(account => <option translate="no" key={account.id} value={account.id}>{account.name}</option>)}
           </select>
         </label>
         <label className="block text-sm">To account
           <select required value={destination} onChange={event => setDestination(event.target.value)} className="block w-full mt-1 rounded-lg border p-3 bg-transparent">
-            <option value="">Select account</option>{accounts.filter(account => account.id !== source).map(account => <option key={account.id} value={account.id}>{account.name}</option>)}
+            <option value="">Select account</option>{accounts.filter(account => account.id !== source).map(account => <option translate="no" key={account.id} value={account.id}>{account.name}</option>)}
           </select>
         </label>
         <label className="block text-sm">Amount<input required type="number" min="0.01" step="0.01" value={amount} onChange={event => setAmount(event.target.value)} className="block w-full mt-1 rounded-lg border p-3 bg-transparent" /></label>

@@ -583,7 +583,7 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
                       <div className="flex justify-between items-start gap-2">
                         <div className="min-w-0">
                           <span className="block truncate text-base font-semibold text-white">{u.tenantName}</span>
-                          <span className="mt-0.5 block truncate text-xs text-slate-400">{u.name}</span>
+                          <span translate="no" className="mt-0.5 block truncate text-xs text-slate-400">{u.name}</span>
                           <span className="block truncate text-xs text-slate-600">{u.username || u.email}</span>
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
@@ -1004,7 +1004,7 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
                                   {userPurchases.map((sale: any, idx: number) => (
                                     <div key={idx} className="bg-slate-900 border border-slate-800 rounded-lg p-3">
                                       <div className="flex justify-between items-center border-b border-slate-850 pb-2 mb-2 text-[10px] text-slate-400 font-mono">
-                                        <span>Receipt: <span className="text-indigo-400">{sale.receiptNo}</span></span>
+                                        <span>Receipt: <span translate="no" className="text-indigo-400">{sale.receiptNo}</span></span>
                                         <span>Date: {new Date(sale.date).toLocaleDateString()}</span>
                                       </div>
                                       <div className="space-y-2">
@@ -1195,7 +1195,7 @@ export default function SaaSUserDesk({ isUnlocked = false, onLock }: { isUnlocke
                 <AppWindow className="w-6 h-6 text-indigo-400" />
               </div>
               <h3 className="text-white font-bold text-lg font-sans">Mirror Gateway Authorization</h3>
-              <p className="text-xs text-indigo-300 mt-1">Target Account: <span className="font-mono text-white">{mirrorTarget.name}</span></p>
+              <p className="text-xs text-indigo-300 mt-1">Target Account: <span translate="no" className="font-mono text-white">{mirrorTarget.name}</span></p>
             </div>
             <div className="p-6 space-y-4">
               <div className="space-y-3">

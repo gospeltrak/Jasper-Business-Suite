@@ -99,7 +99,7 @@ export default function SaaSHardwareInventory({ affiliateId }: { affiliateId?: s
             <div key={item.id} className="bg-slate-950 border border-slate-800 p-4 rounded-xl space-y-2 group">
               <div className="flex justify-between items-start">
                 <div>
-                  <h4 className="font-bold text-white text-xs">{item.name}</h4>
+                  <h4 translate="no" className="font-bold text-white text-xs">{item.name}</h4>
                   <span className="text-[9px] uppercase font-mono text-indigo-400 bg-indigo-500/10 px-1.5 py-0.5 rounded">{item.category}</span>
                 </div>
                 {!affiliateId && (

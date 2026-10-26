@@ -2820,7 +2820,7 @@ export default function DashboardSalesList({
                                 <div key={s.id} className="bg-white border border-slate-200 p-2 rounded-xl flex items-center justify-between text-[11px] hover:border-indigo-300 transition-all">
                                   <div>
                                     <div className="font-bold text-slate-800 flex items-center space-x-1.5">
-                                      <span className="text-indigo-600">{s.id}</span>
+                                      <span translate="no" className="text-indigo-600">{s.id}</span>
                                       <span className="text-slate-400 font-mono text-[9px]">{new Date(s.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                                     </div>
                                     <div className="text-[9.5px] text-slate-500 truncate max-w-[170px]" title={itemsSummary || 'Customer Sale Record'}>{itemsSummary || 'Customer Sale Record'}</div>
@@ -3091,7 +3091,7 @@ export default function DashboardSalesList({
                           <div className="space-y-1.5 text-slate-700 font-sans" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center justify-center space-x-2">
                               <FileText className="w-5 h-5 text-indigo-600 animate-pulse" />
-                              <span className="text-xs font-bold truncate max-w-[200px]" title={settleReceiptFile.name}>{settleReceiptFile.name}</span>
+                              <span translate="no" className="text-xs font-bold truncate max-w-[200px]" title={settleReceiptFile.name}>{settleReceiptFile.name}</span>
                               <span className="text-[10px] text-slate-500 font-mono">({settleReceiptFile.size})</span>
                             </div>
                             <button
@@ -3193,7 +3193,7 @@ export default function DashboardSalesList({
                               </td>
                               <td className="p-2.5 font-bold font-sans text-slate-800">
                                 {st.cashierName}
-                                <span className="block text-[8px] uppercase tracking-wider font-mono text-indigo-500 mt-0.5">{st.id}</span>
+                                <span translate="no" className="block text-[8px] uppercase tracking-wider font-mono text-indigo-500 mt-0.5">{st.id}</span>
                               </td>
                               <td className="p-2.5 text-right font-mono text-slate-600">
                                 {currency}{st.openingFloat + st.expectedSalesCash}
@@ -3285,10 +3285,10 @@ export default function DashboardSalesList({
                             const isNegative = entry.amount < 0;
                             return (
                               <tr key={entry.id} className="hover:bg-indigo-950/30 transition-all">
-                                <td className="p-2.5 text-indigo-405 font-bold">{entry.id}</td>
+                                <td translate="no" className="p-2.5 text-indigo-405 font-bold">{entry.id}</td>
                                 <td className="p-2.5 text-indigo-300">
                                   <span className="block font-bold">{entry.settlementId}</span>
-                                  <span className="text-[9px] text-slate-400">{entry.reference}</span>
+                                  <span translate="no" className="text-[9px] text-slate-400">{entry.reference}</span>
                                 </td>
                                 <td className="p-2.5 font-sans leading-tight">
                                   <span className="block font-bold text-indigo-200">
@@ -3669,7 +3669,7 @@ export default function DashboardSalesList({
                       {(selectedSale.items || []).map((item, index) => (
                         <tr key={index} className={index % 2 ? 'bg-slate-50/60' : 'bg-white'}>
                           <td className="py-3 px-4 text-slate-400 font-mono">{index + 1}</td>
-                          <td className="py-3 px-4 font-semibold text-slate-800">{item.productName}</td>
+                          <td translate="no" className="py-3 px-4 font-semibold text-slate-800">{item.productName}</td>
                           <td className="py-3 px-4 text-center text-slate-700">{formatSaleItemQuantity(item, products.find(product => product.id === item.productId))}</td>
                           <td className="py-3 px-4 text-right font-mono text-slate-600">{currency}{(item.selectedUnitPrice ?? item.price).toLocaleString()}</td>
                           <td className="py-3 px-4 text-right font-mono font-black text-slate-900">{currency}{Math.round(getSaleItemLineTotal(item)).toLocaleString()}</td>
@@ -3707,7 +3707,7 @@ export default function DashboardSalesList({
                         <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1">
                           <span className="text-slate-400">Payment Mode</span><strong className="text-right text-slate-700">{selectedSale.paymentMethod}</strong>
                           {accountNumber && <><span className="text-slate-400">Account No.</span><strong className="text-right text-slate-700 font-mono">{accountNumber}</strong></>}
-                          {accountName && <><span className="text-slate-400">Account Name</span><strong className="text-right text-slate-700">{accountName}</strong></>}
+                          {accountName && <><span className="text-slate-400">Account Name</span><strong translate="no" className="text-right text-slate-700">{accountName}</strong></>}
                           <span className="text-slate-400">Amount</span><strong className="text-right text-slate-900 font-mono">{currency}{Math.round(selectedSale.total).toLocaleString()}</strong>
                         </div>
                       </div>
@@ -3846,7 +3846,7 @@ export default function DashboardSalesList({
                       <div key={index}>
                         <div className="flex items-start py-2 text-[11px] text-black">
                           <span className="w-5 shrink-0 text-slate-400">{index + 1}</span>
-                          <span className="flex-1 font-semibold pr-1">{item.productName}</span>
+                          <span translate="no" className="flex-1 font-semibold pr-1">{item.productName}</span>
                           <span className="w-12 shrink-0 text-center">{posReceiptQuantity(formatSaleItemQuantity(item, itemProduct), receiptLanguage)}</span>
                           <span className="w-16 shrink-0 text-right">{currency}{Math.round(priceAfterDiscount).toLocaleString()}</span>
                           <span className="w-16 shrink-0 text-right font-bold">{currency}{Math.round(priceAfterDiscount * item.qty).toLocaleString()}</span>
@@ -4431,7 +4431,7 @@ export default function DashboardSalesList({
                         </div>
 
                         <div className="flex-1 min-w-0">
-                          <p className="font-bold text-slate-800 text-[12px] truncate">{item.productName}</p>
+                          <p translate="no" className="font-bold text-slate-800 text-[12px] truncate">{item.productName}</p>
                           <p className="text-[10px] text-slate-400 font-mono mt-0.5">
                             {formatSaleItemQuantity(item, matchingProduct)} × {currency}{(item.selectedUnitPrice ?? item.price).toLocaleString()}
                           </p>
@@ -4634,7 +4634,7 @@ export default function DashboardSalesList({
                     return (
                       <div key={index} className="p-3 hover:bg-slate-50/50 transition-colors flex items-center justify-between gap-4 text-xs">
                         <div className="space-y-0.5 max-w-[50%]">
-                          <p className="font-bold text-slate-800 truncate">{item.productName}</p>
+                          <p translate="no" className="font-bold text-slate-800 truncate">{item.productName}</p>
                           <p className="text-[10px] font-mono text-slate-500">
                             Unit Price: {currency}{item.price.toLocaleString()}
                           </p>
@@ -5104,7 +5104,7 @@ export default function DashboardSalesList({
                           disabled={editingDocumentIsCrossBranch}
                           className="w-full bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 dark:text-slate-100 disabled:opacity-60">
                           {(crossBranchSources?.branches || []).map(branch => (
-                            <option key={branch.id} value={branch.id}>{branch.businessName || branch.branchName}</option>
+                            <option translate="no" key={branch.id} value={branch.id}>{branch.businessName || branch.branchName}</option>
                           ))}
                         </select>
                         {editingDocumentIsCrossBranch && (
@@ -5121,7 +5121,7 @@ export default function DashboardSalesList({
                           }}
                           className="w-full bg-white dark:bg-slate-900 border border-indigo-200 dark:border-indigo-800 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 dark:text-slate-100">
                           {(crossBranchSources?.branches || []).map(branch => (
-                            <option key={branch.id} value={branch.id}>{branch.branchName}</option>
+                            <option translate="no" key={branch.id} value={branch.id}>{branch.branchName}</option>
                           ))}
                         </select>
                       </div>
@@ -5179,7 +5179,7 @@ export default function DashboardSalesList({
                       return (
                         <div className="bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-800 rounded-xl px-3 py-2 flex items-center justify-between">
                           <div className="min-w-0">
-                            <p className="text-sm font-bold text-indigo-800 dark:text-indigo-300 truncate">{selected.name}</p>
+                            <p translate="no" className="text-sm font-bold text-indigo-800 dark:text-indigo-300 truncate">{selected.name}</p>
                             <p className="text-[10px] text-indigo-500">{currency}{(selectedSource?.sellingPrice ?? selected.sellingPrice).toLocaleString()} · Stock: {selectedSource?.quantity ?? selected.shopStockQty ?? selected.stockQty ?? 0}</p>
                           </div>
                           <button type="button" onClick={() => { setDocWizardSelectedProductId(''); setDocWizardProductSearchQuery(''); }}
@@ -5200,7 +5200,7 @@ export default function DashboardSalesList({
                           <button key={p.id} type="button"
                             onClick={() => { setDocWizardSelectedProductId(p.id); setDocWizardProductSearchQuery(p.name); }}
                             className={`w-full text-left px-3 py-2.5 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 border-b border-slate-50 dark:border-slate-800 last:border-0 cursor-pointer transition-colors ${docWizardSelectedProductId === p.id ? 'bg-indigo-50 dark:bg-indigo-900/20' : ''}`}>
-                            <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">{p.name}</p>
+                            <p translate="no" className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">{p.name}</p>
                             <p className="text-[10px] text-slate-400">{currency}{(source?.sellingPrice ?? p.sellingPrice).toLocaleString()} · Stock: {source?.quantity ?? p.shopStockQty ?? p.stockQty ?? 0}</p>
                           </button>
                           );
@@ -5262,7 +5262,7 @@ export default function DashboardSalesList({
                     {newDocItems.map((item, idx) => (
                       <div key={idx} className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2">
                         <div className="flex-1 min-w-0">
-                          <p className="text-[13px] font-bold text-slate-800 dark:text-slate-100 truncate">{item.productName}</p>
+                          <p translate="no" className="text-[13px] font-bold text-slate-800 dark:text-slate-100 truncate">{item.productName}</p>
                           <div className="flex items-center gap-1.5 mt-1">
                             <button type="button"
                               onClick={() => setNewDocItems(prev => prev.map((it, i) => i === idx ? { ...it, qty: Math.max(1, it.qty - 1) } : it))}
@@ -5585,7 +5585,7 @@ export default function DashboardSalesList({
                             {documentBranding.name.charAt(0)}
                           </div>
                         )}
-                        <h2 className="text-xl font-black text-slate-900 tracking-tight">{documentBranding.name}</h2>
+                        <h2 translate="no" className="text-xl font-black text-slate-900 tracking-tight">{documentBranding.name}</h2>
                         <p className="text-[11px] text-slate-400 mt-0.5 uppercase tracking-wide font-semibold">{documentBranding.city}</p>
                         {/* Address, phone, email — from Corporate Business Setup. Kept plain black/gray,
                             never the brand color, so it always reads as the legal business address. */}

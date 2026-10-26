@@ -2137,10 +2137,10 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                                         className="hover:bg-slate-900/40"
                                       >
                                         <td className="p-3">
-                                          <div className="font-bold text-white block">
+                                          <div translate="no" className="font-bold text-white block">
                                             {kid.name}
                                           </div>
-                                          <div className="text-[10px] text-slate-400">
+                                          <div translate="no" className="text-[10px] text-slate-400">
                                             {kid.email}
                                           </div>
                                         </td>
@@ -2259,7 +2259,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                                 <div className="space-y-2">
                                   <div className="flex justify-between items-start">
                                     <div>
-                                      <span className="text-[10px] bg-teal-500/10 text-teal-400 border border-teal-500/20 px-2 py-0.5 rounded font-mono font-bold tracking-widest">
+                                      <span translate="no" className="text-[10px] bg-teal-500/10 text-teal-400 border border-teal-500/20 px-2 py-0.5 rounded font-mono font-bold tracking-widest">
                                         {claim.id}
                                       </span>
                                       <h4 className="text-xs font-bold text-white mt-1.5">
@@ -2583,7 +2583,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                               <div className="flex justify-between items-start">
                                 <div>
                                   <div className="flex items-center gap-2">
-                                    <span className="text-[9px] bg-slate-950 text-slate-400 px-2 py-0.5 rounded font-mono font-bold uppercase">
+                                    <span translate="no" className="text-[9px] bg-slate-950 text-slate-400 px-2 py-0.5 rounded font-mono font-bold uppercase">
                                       {aff.id}
                                     </span>
                                     {aff.isDisabled && (
@@ -2592,10 +2592,10 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                                       </span>
                                     )}
                                   </div>
-                                  <h4 className="text-xs font-black text-white mt-1.5">
+                                  <h4 translate="no" className="text-xs font-black text-white mt-1.5">
                                     {aff.name}
                                   </h4>
-                                  <span className="text-[10px] text-slate-500 block truncate font-sans">
+                                  <span translate="no" className="text-[10px] text-slate-500 block truncate font-sans">
                                     {aff.email}
                                   </span>
                                 </div>
@@ -2629,7 +2629,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                                   <span className="text-[8.5px] text-slate-550 block uppercase">
                                     Wallet Account
                                   </span>
-                                  <span className="text-white block font-bold truncate">
+                                  <span translate="no" className="text-white block font-bold truncate">
                                     {aff.phone}
                                   </span>
                                   <span className="text-[8px] text-emerald-400 uppercase font-black">
@@ -2932,7 +2932,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                           { id: "message", name: "Messages" },
                           { id: "marketing", name: "Marketing Assets" },
                         ].map((c) => (
-                          <button
+                          <button translate="no"
                             key={c.id}
                             type="button"
                             onClick={() => setSessionsCategory(c.id as any)}
@@ -3166,7 +3166,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                                   </div>
 
                                   <div className="flex justify-between items-center text-[10px] font-mono text-slate-400 pt-1 border-t border-slate-900/60">
-                                    <span className="text-white font-bold truncate pr-1">
+                                    <span translate="no" className="text-white font-bold truncate pr-1">
                                       {m.name}
                                     </span>
                                     <span
@@ -3271,7 +3271,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                                       {m.avatar}
                                     </span>
                                     <div>
-                                      <span className="text-white block font-bold truncate max-w-[140px]">
+                                      <span translate="no" className="text-white block font-bold truncate max-w-[140px]">
                                         {m.name}
                                       </span>
                                       <span className="text-[8px] text-slate-550 block uppercase">
@@ -4200,7 +4200,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                           size: ssp.size,
                         })),
                       ].map((t) => (
-                        <button
+                        <button translate="no"
                           key={t.id}
                           type="button"
                           onClick={() => setActiveCreativeTab(t.id)}
@@ -4989,7 +4989,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                           className="bg-slate-900/60 p-3 rounded-lg border border-slate-850 text-xs text-left space-y-2"
                         >
                           <div className="flex justify-between items-center text-[10px] font-mono">
-                            <span className="text-emerald-400 font-bold">
+                            <span translate="no" className="text-emerald-400 font-bold">
                               {ticket.id}
                             </span>
                             <span className="text-slate-500">
@@ -5166,10 +5166,10 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                         );
                         return (
                           <tr key={k.id} className="hover:bg-slate-900/30">
-                            <td className="p-4 font-bold text-white">
+                            <td translate="no" className="p-4 font-bold text-white">
                               {k.name}
                             </td>
-                            <td className="p-4 font-mono text-slate-300">
+                            <td translate="no" className="p-4 font-mono text-slate-300">
                               {k.phone}
                             </td>
                             <td className="p-4 font-mono text-slate-400">

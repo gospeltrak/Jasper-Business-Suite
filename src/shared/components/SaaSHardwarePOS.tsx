@@ -249,7 +249,7 @@ export default function SaaSHardwarePOS({ affiliateId }: { affiliateId?: string 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {inventory.map(item => (
                 <div key={item.id} className="bg-slate-950 border border-slate-800 p-4 rounded-xl cursor-pointer hover:border-indigo-500/50 transition-colors" onClick={() => addToCart(item)}>
-                  <h4 className="font-bold text-white text-xs">{item.name}</h4>
+                  <h4 translate="no" className="font-bold text-white text-xs">{item.name}</h4>
                   <div className="flex justify-between items-center mt-2">
                     <span className="text-[10px] text-emerald-400 font-mono font-bold">{item.price.toLocaleString()} TZS</span>
                     <span className="text-[9px] text-slate-500 font-mono">Stock: {item.stock}</span>
@@ -345,7 +345,7 @@ export default function SaaSHardwarePOS({ affiliateId }: { affiliateId?: string 
             cart.map(c => (
               <div key={c.id} className="flex items-center justify-between bg-slate-950 p-2.5 rounded-lg border border-slate-800">
                 <div className="flex-1">
-                  <h4 className="text-[11px] font-bold text-white">{c.name}</h4>
+                  <h4 translate="no" className="text-[11px] font-bold text-white">{c.name}</h4>
                   <span className="text-[10px] text-emerald-400 font-mono font-bold whitespace-nowrap">{(c.price * c.qty).toLocaleString()} TZS</span>
                 </div>
                 <div className="flex items-center space-x-2">

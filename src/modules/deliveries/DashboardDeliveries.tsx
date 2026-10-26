@@ -1188,7 +1188,7 @@ Vehicle Plate Number: ${plateNumber}
                 <div className="flex justify-between items-start gap-3 pb-3 border-b border-slate-100 pr-8">
                   <div className="min-w-0">
                     <span className="text-[10px] font-bold text-slate-400 block font-mono">ORDER REF: {del.saleId}</span>
-                    <h4 className="font-extrabold text-base sm:text-sm text-slate-900 tracking-tight mt-0.5 truncate">{del.customerName}</h4>
+                    <h4 translate="no" className="font-extrabold text-base sm:text-sm text-slate-900 tracking-tight mt-0.5 truncate">{del.customerName}</h4>
                     {del.customerPhone && (
                       <span className="text-[11px] font-mono text-slate-500 flex items-center mt-0.5">
                         <Smartphone className="w-3 h-3 text-slate-400 mr-1 shrink-0" />
@@ -1221,7 +1221,7 @@ Vehicle Plate Number: ${plateNumber}
                   <div className="max-h-[160px] overflow-y-auto space-y-1.1 scrollbar-thin">
                     {del.items.map((item, idx) => (
                       <div key={idx} className="flex justify-between text-xs text-slate-600">
-                        <span className="font-medium truncate max-w-[70%]">{item.productName}</span>
+                        <span translate="no" className="font-medium truncate max-w-[70%]">{item.productName}</span>
                         <span className="font-bold font-mono text-slate-800 shrink-0 select-none">{formatSaleItemQuantity(item)}</span>
                       </div>
                     ))}
@@ -1242,8 +1242,8 @@ Vehicle Plate Number: ${plateNumber}
                       <span className="capitalize text-[10px] text-emerald-600 border border-emerald-200 bg-white rounded px-1">{del.riderDetails.classification}</span>
                     </div>
                     <div className="space-y-0.5">
-                      <p className="font-black text-slate-800 text-xs">{del.riderDetails.name}</p>
-                      <p className="font-mono text-[10.5px] text-slate-500">{del.riderDetails.phone}</p>
+                      <p translate="no" className="font-black text-slate-800 text-xs">{del.riderDetails.name}</p>
+                      <p translate="no" className="font-mono text-[10.5px] text-slate-500">{del.riderDetails.phone}</p>
                       <p className="text-[10.5px] text-slate-600 font-sans mt-0.5">
                         Vehicle: <span className="font-semibold capitalize text-slate-800">{del.riderDetails.vehicleColor} {del.riderDetails.vehicleType}</span> ({del.riderDetails.licensePlate})
                       </p>
@@ -1427,8 +1427,8 @@ Vehicle Plate Number: ${plateNumber}
                           }`}
                         >
                           <div className="min-w-0">
-                            <p className="font-extrabold text-xs text-slate-900 truncate">{staff.name}</p>
-                            <p className="text-[10.5px] font-mono text-slate-500 mt-0.5">{staff.phone}</p>
+                            <p translate="no" className="font-extrabold text-xs text-slate-900 truncate">{staff.name}</p>
+                            <p translate="no" className="text-[10.5px] font-mono text-slate-500 mt-0.5">{staff.phone}</p>
                             {(staff.vehicleType || staff.licensePlate) && (
                               <p className="text-[10.5px] text-slate-500 mt-1 uppercase tracking-wider font-mono">
                                 {staff.vehicleColor} {staff.vehicleType} {staff.licensePlate ? `(${staff.licensePlate})` : ''}
@@ -1765,8 +1765,8 @@ Vehicle Plate Number: ${plateNumber}
                     {activeRiders.map((crew) => (
                       <tr key={crew.id} className="hover:bg-slate-50/70 transition-colors">
                         <td className="py-4.5 px-4 font-semibold">
-                          <p className="text-slate-800 font-bold">{crew.name}</p>
-                          <p className="text-slate-500 text-[10.5px] font-mono mt-0.5">{crew.phone}</p>
+                          <p translate="no" className="text-slate-800 font-bold">{crew.name}</p>
+                          <p translate="no" className="text-slate-500 text-[10.5px] font-mono mt-0.5">{crew.phone}</p>
                         </td>
                         <td className="py-4.5 px-4 capitalize">
                           <span className={`px-2 py-0.5 text-[10px] rounded font-bold uppercase tracking-wider ${
@@ -1793,8 +1793,8 @@ Vehicle Plate Number: ${plateNumber}
                   <div key={crew.id} className="rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_2px_10px_rgba(15,23,42,0.05)]">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="font-black text-slate-900 truncate">{crew.name}</p>
-                        <p className="text-[11px] text-slate-500 font-mono mt-1">{crew.phone}</p>
+                        <p translate="no" className="font-black text-slate-900 truncate">{crew.name}</p>
+                        <p translate="no" className="text-[11px] text-slate-500 font-mono mt-1">{crew.phone}</p>
                       </div>
                       <span className={`shrink-0 px-2.5 py-1 text-[10px] rounded-full font-black uppercase tracking-wider ${
                         crew.classification === 'driver'
@@ -1896,7 +1896,7 @@ Vehicle Plate Number: ${plateNumber}
                           {note.saleId || 'No Info'}
                         </td>
                         <td className="py-3 px-4">
-                          <div className="font-extrabold text-slate-900">{note.customerName}</div>
+                          <div translate="no" className="font-extrabold text-slate-900">{note.customerName}</div>
                           <div className="text-[10.5px] text-slate-500">{note.customerPhone || 'No Phone'}</div>
                         </td>
                         <td className="py-3 px-4 font-mono font-bold text-slate-500">
@@ -1966,7 +1966,7 @@ Vehicle Plate Number: ${plateNumber}
                         <span className="text-[10px] font-black text-amber-700 uppercase tracking-widest font-mono">
                           {note.saleId || 'No Info'}
                         </span>
-                        <p className="mt-1 font-black text-slate-900 truncate">{note.customerName}</p>
+                        <p translate="no" className="mt-1 font-black text-slate-900 truncate">{note.customerName}</p>
                         <p className="text-[11px] text-slate-500 mt-0.5">{note.customerPhone || 'No Phone'}</p>
                       </div>
                       <span className="shrink-0 text-[10px] font-black text-slate-500 bg-slate-100 rounded-full px-2.5 py-1">
@@ -2184,7 +2184,7 @@ Vehicle Plate Number: ${plateNumber}
                           className="w-full text-left px-4 py-3 hover:bg-emerald-50 border-b border-slate-50 last:border-0 transition-colors cursor-pointer border-none bg-transparent">
                           <div className="flex items-center justify-between gap-3">
                             <div className="min-w-0">
-                              <p className="text-xs font-black text-slate-900 truncate">{result.reference}</p>
+                              <p translate="no" className="text-xs font-black text-slate-900 truncate">{result.reference}</p>
                               <p className="text-[10px] text-slate-500 truncate">{result.record.customerName || 'Customer'} · {new Date(result.record.timestamp).toLocaleDateString()}</p>
                             </div>
                             <div className="text-right shrink-0">
@@ -2870,7 +2870,7 @@ Vehicle Plate Number: ${plateNumber}
                                 <td className="px-6 py-3">
                                   {d.riderDetails ? (
                                     <div>
-                                      <span className="font-bold">{d.riderDetails.name}</span>
+                                      <span translate="no" className="font-bold">{d.riderDetails.name}</span>
                                       <span className="text-[10px] block text-slate-400">{d.riderDetails.vehicleType}</span>
                                     </div>
                                   ) : (
@@ -3146,8 +3146,8 @@ Vehicle Plate Number: ${plateNumber}
                             }`}
                           >
                             <div>
-                              <p className="font-extrabold text-xs text-slate-900">{crew.name}</p>
-                              <p className="text-[10.5px] font-mono text-slate-500 mt-0.5">{crew.phone}</p>
+                              <p translate="no" className="font-extrabold text-xs text-slate-900">{crew.name}</p>
+                              <p translate="no" className="text-[10.5px] font-mono text-slate-500 mt-0.5">{crew.phone}</p>
                               <p className="text-[10.5px] text-slate-500 mt-1 uppercase tracking-wider font-mono">
                                 Vehicle: <span className="font-bold">{crew.vehicleColor} {crew.vehicleType}</span> ({crew.licensePlate})
                               </p>

@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { SWAHILI_UI_TRANSLATIONS } from '../utils/swahiliUiTranslations';
 
 export type LanguageType = 'en' | 'sw';
 
@@ -1786,49 +1787,41 @@ const BUSINESS_DICTIONARY: Record<string, Record<string, string>> = {
   },
 };
 
-// The fallback phrase-parsing pass (step 4 below) used to re-sort every
-// dictionary entry and rebuild a fresh RegExp for each of the ~900 entries
-// on every single call -- and this runs on every DOM mutation across the
-// whole app (see the MutationObserver in LanguageProvider below), not just
-// once per screen. Cached once per language on first use instead: the sort
-// and RegExp construction now happen a handful of times per session, not
-// on every keystroke/render. The cached RegExp objects use the 'g' flag and
-// are reused across calls, so lastIndex must be reset before each use below
-// -- otherwise a global regex's internal position would carry over between
-// unrelated translateString() calls and cause it to silently miss matches.
-const dictionaryFallbackCache = new Map<LanguageType, { enKey: string; translation: string; regex: RegExp }[]>();
+Object.assign(BUSINESS_DICTIONARY.sw, SWAHILI_UI_TRANSLATIONS);
+
+// Match complete phrases first, and replace each original fragment once.
+// Never run later English substitutions over Swahili already produced by this pass.
+const dictionaryFallbackCache = new Map<LanguageType, RegExp>();
 
 function getDictionaryFallbackEntries(lang: LanguageType, dict: Record<string, string>) {
   const cached = dictionaryFallbackCache.get(lang);
   if (cached) return cached;
 
-  const entries = Object.entries(dict)
-    .filter(([enKey]) => enKey.length >= 2)
-    .sort((a, b) => b[0].length - a[0].length)
-    .map(([enKey, translation]) => {
+  const alternatives = Object.keys(dict)
+    .filter(enKey => enKey.length >= 2)
+    .sort((a, b) => b.length - a.length)
+    .map(enKey => {
       const escaped = enKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const startBoundary = /^[a-zA-Z0-9]/.test(enKey) ? '\\b' : '';
       const endBoundary = /[a-zA-Z0-9]$/.test(enKey) ? '\\b' : '';
-      let regex: RegExp | null = null;
-      try {
-        regex = new RegExp(`${startBoundary}${escaped}${endBoundary}`, 'gi');
-      } catch {
-        regex = null;
-      }
-      return regex ? { enKey, translation, regex } : null;
-    })
-    .filter((entry): entry is { enKey: string; translation: string; regex: RegExp } => entry !== null);
-
-  dictionaryFallbackCache.set(lang, entries);
-  return entries;
+      return `${startBoundary}${escaped}${endBoundary}`;
+    });
+  const matcher = new RegExp(alternatives.join('|'), 'gi');
+  dictionaryFallbackCache.set(lang, matcher);
+  return matcher;
 }
 
 // Clean casing-aware word-by-word replacement or exact lookup
-function translateString(text: string, lang: LanguageType): string {
+export function translateString(text: string, lang: LanguageType): string {
   if (!text) return text;
 
   const trimmed = text.trim();
   if (!trimmed) return text;
+  // Addresses and reference codes are registered data, including when React
+  // puts them in a separate text node next to a translated label.
+  if (/^(?:https?:\/\/|www\.)\S+$/i.test(trimmed)
+    || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)
+    || /^(?:PC|SL|EXP|TX|PO|PAY|REF|INV|DOC|LPO|DN)[-_:][A-Za-z0-9_-]+$/i.test(trimmed)) return text;
 
   // A translated text node must keep its original surrounding whitespace --
   // adjacent sibling text nodes (e.g. a React `{count} items` expression
@@ -1872,28 +1865,19 @@ function translateString(text: string, lang: LanguageType): string {
     return leading + translatedBase + trailingPunctuation + trailing;
   }
 
-  // 4. Fallback: Parse common tokens and phrases recursively (sorted by length desc)
-  let parsed = trimmed;
-  const fallbackEntries = getDictionaryFallbackEntries(lang, dict);
-
-  for (const { enKey, translation, regex } of fallbackEntries) {
-    regex.lastIndex = 0;
-    if (regex.test(parsed)) {
-      regex.lastIndex = 0;
-      parsed = parsed.replace(regex, (match) => {
-        return matchCasing(match, translation);
-      });
-    }
-  }
+  // 4. Translate dynamic-label fragments without translating the result again.
+  const matcher = getDictionaryFallbackEntries(lang, dict);
+  matcher.lastIndex = 0;
+  const parsed = trimmed.replace(matcher, match => matchCasing(match, dict[match.toLowerCase()]));
 
   // Console log missing translation keys if lang is Swahili ('sw')
   if (lang === 'sw') {
     const hasEnglishLetters = /[a-zA-Z]{3,}/.test(trimmed);
-    const alreadyTranslated = parsed !== trimmed && !/[a-zA-Z]{3,}/.test(parsed);
+    const alreadyTranslated = parsed !== trimmed;
     const key = trimmed.toLowerCase().replace(/[:!?]$/, '').trim();
     const isTranslatedInDict = !!(dict[key] || dict[key.replace(/\s+/g, ' ')]);
 
-    if (hasEnglishLetters && !isTranslatedInDict && !alreadyTranslated) {
+    if (typeof window !== 'undefined' && hasEnglishLetters && !isTranslatedInDict && !alreadyTranslated) {
       const cacheKey = `missing_translation_${lang}_${key}`;
       if (!(window as any)[cacheKey]) {
         (window as any)[cacheKey] = true;
@@ -1914,7 +1898,7 @@ function matchCasing(original: string, translation: string): string {
   return translation;
 }
 
-function translateNode(node: Node, language: LanguageType) {
+export function translateNode(node: Node, language: LanguageType) {
   if (node.nodeType === Node.TEXT_NODE) {
     const originalText = (node as any).__originalText !== undefined 
       ? (node as any).__originalText 
