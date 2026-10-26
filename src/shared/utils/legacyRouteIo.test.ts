@@ -8,7 +8,7 @@ const getFunction = (s: string) => {
   const start = s.indexOf(marker);
   const end = s.indexOf('\n$function$\n;', start + marker.length);
   if (start < 0 || end < 0) throw new Error('The secured legacy route definition must exist');
-  return s.slice(start, end + '\n$function
+  return s.slice(start, end + '\n$function$'.length);
 };
 const oldBody = getFunction(base);
 const newBody = getFunction(migration);
