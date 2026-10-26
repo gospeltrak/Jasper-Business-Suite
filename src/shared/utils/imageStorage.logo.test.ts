@@ -35,8 +35,8 @@ describe('tenant logo storage path and failure safety', () => {
     expect(storage.upload).toHaveBeenCalledTimes(2);
     const [lightPath, lightBlob, lightOptions] = storage.upload.mock.calls[0];
     const [darkPath, darkBlob, darkOptions] = storage.upload.mock.calls[1];
-    expect(lightPath).toMatch(/^user-one\\/tenant-A\\/logo-light-[0-9a-f-]{36}\\.svg$/);
-    expect(darkPath).toMatch(/^user-one\\/tenant-A\\/logo-dark-[0-9a-f-]{36}\\.svg$/);
+    expect(lightPath).toMatch(/^user-one\/tenant-A\/logo-light-[0-9a-f-]{36}\.svg$/);
+    expect(darkPath).toMatch(/^user-one\/tenant-A\/logo-dark-[0-9a-f-]{36}\.svg$/);
     expect(lightBlob).toBe(svg);
     expect(darkBlob).toBe(svg);
     expect(lightOptions).toEqual({ contentType: 'image/svg+xml', upsert: false });
