@@ -121,7 +121,8 @@ export async function uploadProductImage(
  */
 export async function uploadTenantLogo(
   file: File,
-  tenantId: string
+  tenantId: string,
+  variant: 'light' | 'dark' | null = null
 ): Promise<string | null> {
   try {
     const client: any = await getSecureDataBridgeClient();
@@ -140,7 +141,8 @@ export async function uploadTenantLogo(
     }
 
     const ext = file.type === 'image/svg+xml' ? 'svg' : 'jpg';
-    const path = `${tenantId}/logo.${ext}`;
+    // Keep light and dark logos in separate objects, without overwriting old logos.
+    const path = `${tenantId}/${variant ? `logo-${variant}` : 'logo'}.${ext}`;
 
     const { error } = await client.storage
       .from('tenant-logos')
