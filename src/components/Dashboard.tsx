@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from '../shared/contexts/LanguageContext';
+import { confirmConnectivityLoss, normalizeActionNotice, permissionNotice, offlineNotice, OFFLINE_CONFIRMATION_MS } from '../shared/utils/actionNoticePolicy';
 import { useTenantLogo } from '../shared/contexts/TenantLogoContext';
 import { useTheme } from '../shared/contexts/ThemeContext';
 import { useJasperNotifications } from '../shared/contexts/JasperNotificationContext';
@@ -635,20 +636,27 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
   // the effect below fires for logs[0] on mount.
   const [logs, setLogs] = useState<SyncLog[]>(() => []);
 
-  // Modern Toast notification array state and dispatcher
+  // The existing toast UI is unchanged. Short mobile-network flaps are quiet,
+  // and genuine staff authorization failures use one localized message.
   const [toasts, setToasts] = useState<UI_Toast[]>([]);
-
+  const confirmedOfflineRef = useRef(false);
+  const recentNoticesRef = useRef<Map<string, number>>(new Map());
   const addToast = (message: string, type: 'success' | 'error' | 'warning' | 'info' = 'success') => {
+    const localized = normalizeActionNotice(message, lang === 'sw' ? 'sw' : 'en', confirmedOfflineRef.current);
+    if (!localized) return;
+    const now = Date.now();
+    const lastShown = recentNoticesRef.current.get(localized) || 0;
+    const delay = localized === offlineNotice(lang === 'sw' ? 'sw' : 'en') ? 30_000 : 1800;
+    if (now - lastShown < delay) return;
+    recentNoticesRef.current.set(localized, now);
+    if (recentNoticesRef.current.size > 40) {
+      for (const [key, at] of recentNoticesRef.current) if (now - at > 35_000) recentNoticesRef.current.delete(key);
+    }
     const id = Math.random().toString(36).substr(2, 9);
-    setToasts(prev => {
-      const list = [...prev, { id, type, message }];
-      if (list.length > 3) list.shift();
-      return list;
-    });
-    setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id));
-    }, 3500);
+    setToasts(prev => [...prev, { id, type, message: localized }].slice(-3));
+    window.setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3500);
   };
+  const notifyPermissionDenied = () => addToast(permissionNotice(lang === 'sw' ? 'sw' : 'en'), 'warning');
 
   const blockOfflineBusinessWrite = (action: string) => {
     if (canWriteBusinessDataOnline()) return false;
@@ -1291,23 +1299,9 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
 
       navigator.serviceWorker.addEventListener('message', handleServiceWorkerMessage);
 
-      // Handle standard browser offline -> online transition
-      const handleOnlineStatus = () => {
-        const newLog: SyncLog = {
-          id: 'l-' + Math.random().toString(36).substr(2, 9),
-          type: 'inventory_audit',
-          status: 'warning',
-          message: 'Internet connection restored.',
-          timestamp: new Date().toISOString()
-        };
-        setLogs(prev => [newLog, ...prev]);
-      };
-
-      window.addEventListener('online', handleOnlineStatus);
-
+      // Never log/toast "connected" for every Wi-Fi-to-mobile handoff.
       return () => {
         navigator.serviceWorker.removeEventListener('message', handleServiceWorkerMessage);
-        window.removeEventListener('online', handleOnlineStatus);
       };
     }
   }, []);
@@ -1473,21 +1467,48 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     }
   };
 
-  // Simulated connection states
+  // The dot updates immediately, but a toast requires continuous disconnection
+  // plus a failed same-origin health probe. HTTP errors are not "no internet".
   const [isOfflineMode, setIsOfflineMode] = useState(!navigator.onLine);
-
   useEffect(() => {
-    const handleOffline = () => setIsOfflineMode(true);
-    const handleOnline = () => setIsOfflineMode(false);
-    
+    let active = true;
+    let timer: number | undefined;
+    const clear = () => { if (timer !== undefined) window.clearTimeout(timer); timer = undefined; };
+    const handleOnline = () => {
+      clear();
+      confirmedOfflineRef.current = false;
+      setIsOfflineMode(false);
+    };
+    const handleOffline = () => {
+      setIsOfflineMode(true);
+      clear();
+      timer = window.setTimeout(async () => {
+        const offline = await confirmConnectivityLoss(() => !navigator.onLine, async () => {
+          const controller = new AbortController();
+          const abortTimer = window.setTimeout(() => controller.abort(), 4500);
+          try {
+            await fetch('/api/health', { method: 'GET', cache: 'no-store', signal: controller.signal });
+            return true; // Any HTTP response proves connectivity.
+          } finally {
+            window.clearTimeout(abortTimer);
+          }
+        });
+        if (active && offline && !confirmedOfflineRef.current) {
+          confirmedOfflineRef.current = true;
+          addToast(offlineNotice(lang === 'sw' ? 'sw' : 'en'), 'warning');
+        }
+      }, OFFLINE_CONFIRMATION_MS);
+    };
     window.addEventListener('offline', handleOffline);
     window.addEventListener('online', handleOnline);
-    
+    if (!navigator.onLine) handleOffline();
     return () => {
+      active = false;
+      clear();
       window.removeEventListener('offline', handleOffline);
       window.removeEventListener('online', handleOnline);
     };
-  }, []);
+  }, [lang]);
 
   // Multi-tenant pivot controller keys
   const currentTenantId = user.activeTenant || user.tenantId;
@@ -1903,6 +1924,10 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
   };
 
   const handleAddExpense = async (expense: Expense) => {
+    if (!currentPermissions?.expenses?.write && activeRoleName !== 'SuperAdmin') {
+      notifyPermissionDenied();
+      return false;
+    }
     if (blockOfflineBusinessWrite('expense entry')) return false;
 
     localWorkspaceChangedAtRef.current = Date.now();
@@ -2359,6 +2384,10 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
   };
 
   const handleAddSale = async (sale: Sale) => {
+    if (!currentPermissions?.pos?.write && activeRoleName !== 'SuperAdmin') {
+      notifyPermissionDenied();
+      return false;
+    }
     if (blockOfflineBusinessWrite('POS sale')) return false;
 
     localWorkspaceChangedAtRef.current = Date.now();
@@ -2796,6 +2825,10 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
   };
 
   const handleCreateProducts = (newProducts: Product[]) => {
+    if (!currentPermissions?.products?.write && activeRoleName !== 'SuperAdmin') {
+      notifyPermissionDenied();
+      return;
+    }
     if (blockOfflineBusinessWrite('product creation')) return;
 
     if (newProducts.length === 0) return;
@@ -2832,6 +2865,10 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
   };
 
   const handleDeleteProduct = (id: string) => {
+    if (!currentPermissions?.products?.edit && activeRoleName !== 'SuperAdmin') {
+      notifyPermissionDenied();
+      return;
+    }
     if (blockOfflineBusinessWrite('product delete/archive')) return;
 
     const tenantProducts = productsMap[activeTenant.id] || [];
@@ -2916,6 +2953,10 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
   };
 
   const handleAddPurchase = async (purchase: Purchase, updatedProducts?: Product[]) => {
+    if (!currentPermissions?.purchases?.write && activeRoleName !== 'SuperAdmin') {
+      notifyPermissionDenied();
+      return false;
+    }
     if (blockOfflineBusinessWrite('purchase entry')) return false;
 
     localWorkspaceChangedAtRef.current = Date.now();
@@ -4582,6 +4623,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                     key={tab.id}
                     onClick={() => {
                       if (isMore) { setMoreMenuOpen(true); }
+                      else if (!isTabAllowed(tab.id)) { notifyPermissionDenied(); }
                       else { setActiveTab(tab.id as any); setMoreMenuOpen(false); }
                     }}
                     className="flex-1 flex flex-col items-center justify-center relative transition-all duration-150 active:scale-90 cursor-pointer bg-transparent border-none outline-none"
@@ -4677,7 +4719,11 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                   const Icon = item.icon;
                   return (
                     <button key={item.id} type="button"
-                      onClick={() => { setActiveTab(item.id as any); setMoreMenuOpen(false); }}
+                      onClick={() => {
+                        if (!isTabAllowed(item.id)) { notifyPermissionDenied(); return; }
+                        setActiveTab(item.id as any);
+                        setMoreMenuOpen(false);
+                      }}
                       className="flex flex-col items-center gap-1.5 active:scale-90 transition-all duration-150 cursor-pointer bg-transparent border-none outline-none">
                       <div className={`w-14 h-14 rounded-2xl ${item.bg} flex items-center justify-center shadow-sm`}>
                         <Icon className="w-6 h-6 text-white" strokeWidth={2} />
@@ -4713,6 +4759,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                             description: 'Manage active subscriptions and premium account plans.',
                           });
                         } else {
+                          if (!isTabAllowed(item.id)) { notifyPermissionDenied(); return; }
                           setActiveTab(item.id as any);
                         }
                         setMoreMenuOpen(false);
