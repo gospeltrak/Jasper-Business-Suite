@@ -54,7 +54,7 @@ const SAFE_ERROR_MESSAGES: Record<SafeErrorLanguage, Record<SafeErrorCode, strin
   },
   sw: {
     AUTH_ERROR: 'Muda wa kuingia umeisha. Tafadhali ingia tena.',
-    PERMISSION_ERROR: 'Huna ruhusa ya kufanya kitendo hiki.',
+    PERMISSION_ERROR: 'Huna idhini ya kufanya kitendo hiki.',
     VALIDATION_ERROR: 'Tafadhali hakiki taarifa ulizoingiza kisha ujaribu tena.',
     NETWORK_ERROR: 'Tafadhali hakiki muunganisho wa intaneti kisha ujaribu tena.',
     NOT_FOUND: 'Taarifa ulizoomba hazikupatikana.',

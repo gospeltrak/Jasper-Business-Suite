@@ -8,6 +8,7 @@ import {
 } from '../../shared/utils/inventoryCosting';
 import { formatProductQuantity, formatSaleItemQuantity } from '../../shared/utils/unitFormatter';
 import { useTranslation } from '../../shared/contexts/LanguageContext';
+import { normalizeActionNotice } from '../../shared/utils/actionNoticePolicy';
 import { posReceiptLabel, posReceiptPaymentMode, posReceiptWalkInCustomer, posReceiptQuantity, posReceiptDate, posReceiptTime } from '../../shared/utils/posReceiptI18n';
 import { getPaymentModeName } from '../../shared/utils/paymentAccounts';
 import { getActiveBranchAddress, getActiveBranchDisplayName, getActiveBranchLogo, getActiveBranchPhone } from '../../shared/utils/businessBranding';
@@ -1081,7 +1082,13 @@ export default function DashboardPOS({
       await finalizeSale();
     } catch (error: any) {
       console.error('Checkout failed', error);
-      setCheckoutError(error?.message || 'Payment could not be completed. Please try again.');
+      // A lost/slow request is NOT proof that the device is offline or that
+      // the payment was discarded; preserve the cart and ask for verification.
+      const localized = normalizeActionNotice(String(error?.message || ''),
+        receiptLanguage === 'sw' ? 'sw' : 'en', false);
+      setCheckoutError(localized || (receiptLanguage === 'sw'
+        ? 'Muamala haujathibitishwa. Hakiki Sales kabla ya kujaribu tena.'
+        : 'Payment status is unconfirmed. Check Sales before retrying.'));
     } finally {
       setIsProcessingPayment(false);
     }
