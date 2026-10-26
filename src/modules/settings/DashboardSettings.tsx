@@ -543,35 +543,40 @@ export default function DashboardSettings({
   };
   const [selectedBranchForLogo, setSelectedBranchForLogo] = useState<string | null>(null);
 
+  // Legacy store-location branding is currently hidden, but retain a safe
+  // implementation so re-enabling it never writes base64 into tenant settings.
   const handleBranchLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>, storeName: string, mode: 'light' | 'dark') => {
     const file = e.target.files?.[0];
     if (!file) return;
     try {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const logoUrl = reader.result as string;
-        const currentBranding = businessForm.branchBranding || {};
-        const currentEntry = currentBranding[storeName] || {};
-        const updated = {
-          ...businessForm,
-          branchBranding: {
-            ...currentBranding,
-            [storeName]: {
-              ...currentEntry,
-              ...(mode === 'light'
-                ? { businessLogoLight: logoUrl, businessLogo: currentEntry.businessLogo || logoUrl }
-                : { businessLogoDark: logoUrl })
-            }
+      const { uploadTenantLogo } = await import('../../shared/utils/imageStorage');
+      const logoUrl = await uploadTenantLogo(file, activeTenant.id, mode);
+      if (!logoUrl) throw new Error('Storage rejected logo upload');
+      const currentBranding = businessForm.branchBranding || {};
+      const currentEntry = currentBranding[storeName] || {};
+      const updated = {
+        ...businessForm,
+        branchBranding: {
+          ...currentBranding,
+          [storeName]: {
+            ...currentEntry,
+            ...(mode === 'light'
+              ? { businessLogoLight: logoUrl, businessLogo: !currentEntry.businessLogo || currentEntry.businessLogo.startsWith('data:')
+                ? logoUrl : currentEntry.businessLogo }
+              : { businessLogoDark: logoUrl })
           }
-        };
-        setBusinessForm(updated);
-        persistBusinessSettings(updated);
+        }
       };
-      reader.readAsDataURL(file);
-    } catch (err) {
-      console.warn('[BranchLogo] Upload failed:', err);
+      setBusinessForm(updated);
+      persistBusinessSettings(updated);
+    } catch (error) {
+      console.warn('[BranchLogo] Storage upload failed; saved settings left unchanged:', error);
+      window.alert(isSw
+        ? 'Nembo haijapakiwa. Mipangilio ya zamani imebaki salama.'
+        : 'Logo upload failed. Existing settings remain unchanged.');
+    } finally {
+      e.target.value = '';
     }
-    e.target.value = '';
   };
 
   const handleBranchLogoRemove = (storeName: string, mode: 'light' | 'dark') => {
