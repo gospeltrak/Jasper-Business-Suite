@@ -5750,7 +5750,7 @@ export default function DashboardProducts({
                     />
                   </div>
 
-                  <div className="grid gap-3 pt-1" style={{ display: 'grid', gridTemplateColumns: `repeat(${activeTenant.businessType === 'pharmacy' ? 1 : 2}, minmax(0, 1fr))`, gap: '0.75rem' }}>
+                  <div className="grid gap-3 pt-1" style={{ display: 'grid', gridTemplateColumns: `repeat(${activeTenant.businessType !== 'pharmacy' && editForm.isBulkProduct ? 2 : 1}, minmax(0, 1fr))`, gap: '0.75rem' }}>
                     <label className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 uppercase">
                       <input
                         type="checkbox"
@@ -5775,7 +5775,7 @@ export default function DashboardProducts({
                       />
                       POS Override
                     </label>
-                    {(activeTenant.businessType !== 'pharmacy' || editForm.productType !== 'medicine') && (
+                    {((activeTenant.businessType === 'pharmacy' && editForm.productType !== 'medicine') || (activeTenant.businessType !== 'pharmacy' && editForm.isBulkProduct)) && (
                       <label className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 uppercase">
                         <input
                           type="checkbox"
@@ -5801,7 +5801,7 @@ export default function DashboardProducts({
                     )}
                   </div>
 
-                  {activeTenant.businessType !== 'pharmacy' && (
+                  {activeTenant.businessType !== 'pharmacy' && editForm.isBulkProduct && (
                     <div className="grid gap-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '0.75rem' }}>
                       <div className="space-y-1">
                         <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Package Name</label>
@@ -5930,6 +5930,7 @@ export default function DashboardProducts({
 
               {/* Edit Bidhaa ya Jumla / Bulk Product SECTION — driven by the single
                   "Fraction Sale" toggle above, not a second switch. */}
+              {editForm.isBulkProduct && (
               <div className="px-5 pb-5">
                 <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
                   <div className="bg-slate-50 border-b border-slate-200 px-4 py-2.5 flex items-center space-x-2">
@@ -6103,6 +6104,7 @@ export default function DashboardProducts({
                   )}
                 </div>
               </div>
+              )}
             </div>
 
             <div className="tenant-form-footer sticky bottom-0 z-10 bg-slate-50 p-3 sm:p-4 flex gap-2 border-t border-slate-200 shrink-0">
