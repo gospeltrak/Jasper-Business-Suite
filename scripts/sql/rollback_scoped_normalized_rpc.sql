@@ -55,6 +55,5 @@ begin
  end if;
  return jsonb_build_object('handled',true,'payload',v_result);
 end;
-$function$
-
+$function$;
 commit;
