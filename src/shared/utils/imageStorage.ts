@@ -4,7 +4,7 @@
  * Handles all image uploads for Orvix Business Suite.
  *
  * Strategy:
- *   1. Compress the image in the browser (canvas → 400×400px, JPEG 75%)
+ *   1. Compress in the browser with adaptive dimensions/quality and byte caps
  *   2. Upload the compressed file to Supabase Storage
  *   3. Return the permanent public URL — this URL is what gets saved in
  *      the database and onlineStorage, never the raw base64 data
@@ -14,64 +14,39 @@
  *   - tenant-logos    → /{tenantId}/logo.jpg
  *
  * Why this approach:
- *   - Compressed size: ~20-30KB per image (down from 2-5MB raw)
- *   - 200 tenants × 400 images × 25KB = ~2GB total in Supabase Storage
+ *   - Logos hard-capped at 10 KiB; products target 10 KiB, capped at 25 KiB
+ *   - Byte budget is enforced before Storage upload, not just assumed by quality
  *   - onlineStorage only stores a ~100-byte URL, never image data
  *   - Images never disappear because they are not subject to onlineStorage
  *     quota limits
  */
 
 import { getSecureDataBridgeClient } from '../dataBridge/secureDataBridge';
+import {
+  compressImageToBudget,
+  imageFileExtension,
+  LOGO_MAX_BYTES,
+  PRODUCT_MAX_BYTES,
+  PRODUCT_TARGET_BYTES,
+  type ImageBudget,
+} from './imageUploadBudget';
 
 // ─── Compression ─────────────────────────────────────────────────────────────
 
-const MAX_DIMENSION = 400; // px — matches POS catalogue card size
-const JPEG_QUALITY  = 0.75; // 75% — good visual quality, ~20-30KB output
-
 /**
- * Compress any image file to MAX_DIMENSION × MAX_DIMENSION JPEG at JPEG_QUALITY.
- * Maintains aspect ratio — shorter dimension is padded to a square with white.
- * Returns a Blob ready for upload.
+ * Backwards-compatible JPEG image compressor. Product photos target 10 KiB
+ * with a 25 KiB maximum. Branch logos pass a stricter 10 KiB budget.
  */
-export async function compressImage(file: File): Promise<Blob> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error('Failed to read image file'));
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onerror = () => reject(new Error('Failed to decode image'));
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width  = MAX_DIMENSION;
-        canvas.height = MAX_DIMENSION;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) { reject(new Error('Canvas not available')); return; }
-
-        // White background (so transparent PNGs look clean as JPEG)
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, MAX_DIMENSION, MAX_DIMENSION);
-
-        // Scale to fit within MAX_DIMENSION × MAX_DIMENSION, centered
-        const scale = Math.min(MAX_DIMENSION / img.width, MAX_DIMENSION / img.height);
-        const w = Math.round(img.width  * scale);
-        const h = Math.round(img.height * scale);
-        const x = Math.round((MAX_DIMENSION - w) / 2);
-        const y = Math.round((MAX_DIMENSION - h) / 2);
-        ctx.drawImage(img, x, y, w, h);
-
-        canvas.toBlob(
-          (blob) => {
-            if (blob) resolve(blob);
-            else reject(new Error('Canvas toBlob returned null'));
-          },
-          'image/jpeg',
-          JPEG_QUALITY
-        );
-      };
-      img.src = e.target?.result as string;
-    };
-    reader.readAsDataURL(file);
-  });
+export async function compressImage(
+  file: File,
+  budget: ImageBudget = {
+    targetBytes: PRODUCT_TARGET_BYTES,
+    maxBytes: PRODUCT_MAX_BYTES,
+    maxDimension: 400,
+    preferredMime: 'image/jpeg',
+  },
+): Promise<Blob> {
+  return compressImageToBudget(file, budget);
 }
 
 // ─── Upload helpers ───────────────────────────────────────────────────────────
@@ -141,14 +116,22 @@ export async function uploadTenantLogo(
     let contentType: string;
 
     if (file.type === 'image/svg+xml') {
+      if (!Number.isFinite(file.size) || file.size > LOGO_MAX_BYTES) {
+        throw new Error('SVG logos must be 10 KB or smaller');
+      }
       uploadBlob = file;
       contentType = 'image/svg+xml';
     } else {
-      uploadBlob = await compressImage(file);
-      contentType = 'image/jpeg';
+      uploadBlob = await compressImageToBudget(file, {
+        targetBytes: LOGO_MAX_BYTES,
+        maxBytes: LOGO_MAX_BYTES,
+        maxDimension: 400,
+        preferredMime: 'image/webp',
+      });
+      contentType = uploadBlob.type;
     }
 
-    const ext = file.type === 'image/svg+xml' ? 'svg' : 'jpg';
+    const ext = file.type === 'image/svg+xml' ? 'svg' : imageFileExtension(uploadBlob);
     // Keep light and dark logos in separate objects, without overwriting old logos.
     const path = `${uploaderId}/${tenantId}/${variant ? `logo-${variant}` : 'logo'}-${crypto.randomUUID()}.${ext}`;
 
@@ -203,14 +186,22 @@ export async function uploadBranchLogo(
     let uploadBlob: Blob;
     let contentType: string;
     if (file.type === 'image/svg+xml') {
+      if (!Number.isFinite(file.size) || file.size > LOGO_MAX_BYTES) {
+        throw new Error('SVG logos must be 10 KB or smaller');
+      }
       uploadBlob = file;
       contentType = 'image/svg+xml';
     } else {
-      uploadBlob = await compressImage(file);
-      contentType = 'image/jpeg';
+      uploadBlob = await compressImageToBudget(file, {
+        targetBytes: LOGO_MAX_BYTES,
+        maxBytes: LOGO_MAX_BYTES,
+        maxDimension: 400,
+        preferredMime: 'image/webp',
+      });
+      contentType = uploadBlob.type;
     }
 
-    const ext = file.type === 'image/svg+xml' ? 'svg' : 'jpg';
+    const ext = file.type === 'image/svg+xml' ? 'svg' : imageFileExtension(uploadBlob);
     const path = `${tenantId}/branches/${branchId}/logo-${variant}.${ext}`;
 
     const { error } = await client.storage
@@ -257,13 +248,13 @@ export async function uploadProductImageFromBase64(
     for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
     const blob = new Blob([bytes], { type: mimeType });
 
-    const ext = mimeType === 'image/png' ? 'png' : mimeType === 'image/webp' ? 'webp' : 'jpg';
-    const path = `${tenantId}/${productId}.${ext}`;
+    const optimized = await compressImage(blob as File);
+    const path = `${tenantId}/${productId}.jpg`;
 
     const client: any = await getSecureDataBridgeClient();
     const { error } = await client.storage
       .from('product-images')
-      .upload(path, blob, { contentType: mimeType, upsert: true });
+      .upload(path, optimized, { contentType: optimized.type, upsert: true });
 
     if (error) {
       console.error('[imageStorage] uploadProductImageFromBase64 failed:', error.message);
