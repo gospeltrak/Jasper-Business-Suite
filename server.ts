@@ -1896,7 +1896,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     const encoded = /^data:image\/jpeg;base64,([A-Za-z0-9+/=]+)$/.exec(logoBase64)?.[1];
     if (!encoded) return res.status(400).json({ error: 'The branch logo must be a valid image.' });
     const buffer = Buffer.from(encoded, 'base64');
-    if (!buffer.length || buffer.length > 10 * 1024 || buffer[0] !== 0xff || buffer[1] !== 0xd8 || buffer[2] !== 0xff) {
+    if (!buffer.length || buffer.length > 10_000 || buffer[0] !== 0xff || buffer[1] !== 0xd8 || buffer[2] !== 0xff) {
       return res.status(400).json({ error: 'The optimized branch logo is invalid or too large.' });
     }
 
