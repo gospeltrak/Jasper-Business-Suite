@@ -17,7 +17,7 @@ import { getActiveBranchAddress, getActiveBranchDisplayName, getActiveBranchEmai
 import type { BranchSummary } from '../branches/branchTypes';
 import { useOptionalBranchContext } from '../branches/BranchContext';
 import { normalizeSubscriptionPlanId } from '../../shared/utils/subscription';
-import { findPaymentChannel, getPaymentModeName } from '../../shared/utils/paymentAccounts';
+import { findPaymentChannel, getDebtCollectionPaymentChannels, getPaymentModeName } from '../../shared/utils/paymentAccounts';
 import { calculateSalesDocumentTotals } from './utils/salesDocumentTotals';
 import { getSaleItemLineTotal } from './utils/saleItemTotals';
 import {
@@ -700,6 +700,19 @@ export default function DashboardSalesList({
     });
     return [...new Set(enabled.length > 0 ? enabled : ['Cash'])];
   }, [systemSettings?.business?.paymentModes, systemSettings?.paymentChannels]);
+  // The debts form must use the same resolved account identities as
+  // Money & Bank. Configured modes (e.g. Mpesa) do not always exist yet in
+  // systemSettings.paymentChannels until Money & Bank has been opened.
+  const debtCollectionChannels = React.useMemo(() => getDebtCollectionPaymentChannels(
+    systemSettings?.business,
+    systemSettings?.paymentChannels || [],
+    { currency: activeTenant.currencyCode, branchId: activeBranchId || undefined },
+  ), [systemSettings?.business?.paymentModes, systemSettings?.business?.deliveryPaymentModes,
+      systemSettings?.paymentChannels, activeTenant.currencyCode, activeBranchId]);
+  const debtCollectionMethods = React.useMemo(
+    () => [...new Set(debtCollectionChannels.map(channel => channel.paymentMethod || '').filter(Boolean))],
+    [debtCollectionChannels],
+  );
   const getDocumentPaymentAccount = React.useCallback((method: string) => {
     const channel = findPaymentChannel(systemSettings?.paymentChannels || [], method);
     return {
@@ -1106,9 +1119,9 @@ export default function DashboardSalesList({
     if (!onAddPayment || rolePermissions?.paymentIn?.write === false) {
       setPaymentError('Your role does not allow customer payments.'); return false;
     }
-    const account = findPaymentChannel(systemSettings?.paymentChannels || [], method);
-    if (!account || account.status === 'inactive' || !Number.isFinite(amount) || amount <= 0) {
-      setPaymentError('Select an active payment account and a valid amount.'); return false;
+    const account = findPaymentChannel(debtCollectionChannels, method);
+    if (!account || !Number.isFinite(amount) || amount <= 0) {
+      setPaymentError('Select an active Money & Bank payment account and a valid amount.'); return false;
     }
     const fingerprint = JSON.stringify({ saleId, amount, sourceKey: account.id });
     if (paymentAttemptRef.current?.fingerprint !== fingerprint) paymentAttemptRef.current = { fingerprint, id: crypto.randomUUID() };
@@ -4285,7 +4298,8 @@ export default function DashboardSalesList({
                                  name="channel"
                                  className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-bold font-sans cursor-pointer focus:outline-none"
                                >
-                                 {documentPaymentMethods.map(method => (
+                                 {debtCollectionMethods.length === 0 && <option value="">No active Money & Bank account</option>}
+                                {debtCollectionMethods.map(method => (
                                    <option key={method} value={method}>{method}</option>
                                  ))}
                                </select>
@@ -4296,9 +4310,10 @@ export default function DashboardSalesList({
                              </div>
                            </div>
 
+                           {debtCollectionMethods.length === 0 && <p className="text-xs text-amber-700">Set up an active Money & Bank payment account in Settings before collecting a debt.</p>}
                            {paymentError && <p role="alert" className="text-sm text-rose-600">{paymentError}</p>}
                            <button 
-                             disabled={paymentBusy || rolePermissions?.paymentIn?.write === false}
+                             disabled={paymentBusy || debtCollectionMethods.length === 0 || rolePermissions?.paymentIn?.write === false}
                              type="submit"
                              className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[11px] uppercase tracking-wider rounded-xl cursor-pointer border-none shadow-xs transition-colors"
                            >

@@ -49,7 +49,7 @@ import { savePendingSaleOffline } from '../shared/utils/offlineDb';
 import { createCleanTenantSettings, isDemoTenant } from '../shared/utils/tenantIsolation';
 import { addTenantPurchasePayment, flushPendingTenantWorkspace, hasPendingTenantWorkspaceSave, loadTenantProductFresh, loadTenantWorkspace, loadTenantWorkspaceCore, markTenantProductsUpdated, readCachedWorkspace, reloadTenantWorkspace, saveTenantDeliveriesOnly, saveTenantExpensesOnly, saveTenantProductsOnly, saveTenantPurchasesOnly, saveTenantSalesOnly, saveTenantSettings, scheduleTenantWorkspaceSave, subscribeToTenantBusinessType, subscribeToTenantWorkspace, TenantWorkspace, waitForTenantWorkspaceLoad, workspaceHasBusinessData } from '../shared/utils/tenantWorkspace';
 import { safeSetJsonItem, safeSetTenantMapItem } from '../shared/utils/dataSafety';
-import { findPaymentChannel, getTreasuryPaymentMethods, reconcilePaymentChannels } from '../shared/utils/paymentAccounts';
+import { findPaymentChannel, getDebtCollectionPaymentChannels, getTreasuryPaymentMethods, reconcilePaymentChannels } from '../shared/utils/paymentAccounts';
 import { attachPayloadProductTombstones, markLocalProductTombstones, mergeProductTombstones, mergeProductsForSync, readLocalProductTombstones, stampProductsForSync, writeLocalProductTombstones } from '../modules/products/utils/productSync';
 import { pharmacyHierarchyMatches } from '../modules/verticals/utils/pharmacyHierarchyPersistence';
 import {
@@ -3061,8 +3061,25 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
 
   const handleAddSalePayment = async (saleId: string, paymentId: string, amount: number, sourceKey: string, paidAt?: string): Promise<Sale> => {
     if (blockOfflineBusinessWrite('customer payment')) throw new Error('Connect to the internet to record a payment.');
-    if (activeBranchSelection.activeScope !== 'branch') throw new Error('Select the sale branch before recording a payment.');
-    await syncTreasuryPaymentAccounts(systemSettings.paymentChannels || [], getTreasuryOpeningBalances());
+    if (activeBranchSelection.activeScope !== 'branch' || !activeBranchSelection.activeBranchId) {
+      throw new Error('Select the sale branch before recording a payment.');
+    }
+    const availableAccounts = getDebtCollectionPaymentChannels(
+      systemSettings.business,
+      systemSettings.paymentChannels || [],
+      { currency: activeTenant.currencyCode, branchId: activeBranchSelection.activeBranchId },
+    );
+    if (!availableAccounts.some(account => account.id === sourceKey)) {
+      throw new Error('This Money & Bank payment account is not active in the selected branch. Refresh Sales and try again.');
+    }
+    // Synchronize the SAME resolved channel selected on the debt form, then
+    // confirm the server recognizes its source key in this branch before
+    // posting an idempotent, ledger-backed installment.
+    const synced = await syncTreasuryPaymentAccounts(availableAccounts, getTreasuryOpeningBalances());
+    if (!synced.some(account => account.sourceKey === sourceKey
+      && account.accountId && account.branchId === activeBranchSelection.activeBranchId)) {
+      throw new Error('The selected Money & Bank account could not be verified for this branch. Check Settings before retrying.');
+    }
     const sale = await addSalePayment(saleId, paymentId, amount, sourceKey, paidAt);
     localWorkspaceChangedAtRef.current = Date.now();
     cloudWorkspaceLoadedRef.current = true;
