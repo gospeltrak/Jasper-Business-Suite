@@ -65,4 +65,6 @@ jobs:
             -f scripts/sql/ci_inventory_synthetic_assertions.sql \
             -f scripts/sql/ci_sales_payment_synthetic_fixture.sql \
             -f scripts/sql/staging_backfill_sales_payment_breakdowns.sql \
-            -f scripts/sql/ci_sales_payment_synthetic_assertions.sql
+            -f scripts/sql/ci_sales_payment_synthetic_assertions.sql \
+            -f scripts/sql/staging_mirror_sales_payment_breakdowns.sql \
+            -f scripts/sql/ci_sales_payment_mirror_assertions.sql
