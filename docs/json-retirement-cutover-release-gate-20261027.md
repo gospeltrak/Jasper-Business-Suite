@@ -224,3 +224,99 @@ frontend/build. No live Supabase schema changes were performed, so it is
 still **not safe to drop source_record** or claim typed expenses are
 authoritative. A verified private Storage receipt migration is required
 before the two inline receipts can be removed without loss.
+
+## Owner-approved final architecture: normalized tables as the ONLY live source of truth (2026-10-27)
+
+The owner requires **complete retirement of operational JSON storage**, not
+merely copying some business tables while retaining a second JSON-based
+workspace state. This section is a **hard acceptance contract**, not a claim
+that the migration is complete.
+
+### Required live persistence architecture
+
+- **Sales, sale items, debts, installments, tender splits, refunds, credit
+  notes, purchase orders, purchases, procurement payments, stock movements,
+  transfers, expenses, payments and money/bank journals:** typed relational
+  PostgreSQL tables; foreign keys, numeric precision, tenant and branch keys,
+  idempotency keys, indexes and restrictive RLS; all reads and writes use these
+  authoritative rows.
+- **Products and variations:** typed product catalog, costing methods, price
+  lists, fractional selling, package hierarchies, inventory batches,
+  pharmacy FEFO, expiry, units and conversions; stock and costing mutations
+  must be atomic, replay-safe, branch-scoped, and never derived from a stale
+  JSON snapshot.
+- **Settings and roles:** explicit typed/domain tables for business settings,
+  role/permission matrices, branches, subscription configuration, notification
+  preferences, staff assignments and financial accounts. A key/value
+  container holding JSON strings is an **interim compatibility bridge**, not
+  the finished normalized design.
+- **Documents and evidence:** typed documents, line items, payments,
+  relationships, and audit trail; large signed receipts, scanned proofs,
+  logos and images go to appropriately private, tenant-scoped Supabase Storage
+  with **relational** attachment metadata (storage path, SHA-256/hash,
+  media type, byte length, owner, tenant/branch, lifecycle). Original bytes
+  are verified; no unsafe public bucket for customer financial evidence.
+- **Offline/mobile:** SQLite/native local transactional tables and ordered
+  idempotent operation queues on device; reconcile with versioned,
+  normalized server tables without resurrecting tombstones or overwriting
+  newer work. No opaque shared JSON workspace snapshot as a write source.
+- **All pages and APIs:** after cutover must use normalized PostgreSQL
+  rows for CREATE, READ, UPDATE and DELETE; no runtime reads/writes that
+  source operational truth from `tenant_workspaces.payload`,
+  `tenant_data.application_state`, `source_record`, giant
+  `tenant_data` blobs, or reconstructed all-tenant JSON snapshots.
+  JSON over the **network** is allowed as an API serialization format, but
+  cannot be the authoritative database record. PostgreSQL JSON columns may
+  remain only for demonstrably non-operational opaque metadata, and even
+  those must be justified and audited if the owner's zero-JSON goal applies.
+
+### Staged migration / release conditions
+
+1. After a plan upgrade, create a **charged staging branch only with cost
+   approval**, record its exact project reference and a deletion/stop-billing
+   step. Restore **both Postgres and Storage**, verify the backup can be read,
+   compare signed receipt bytes, validate all tenant and legacy/global scopes.
+2. Maintain a **field-by-field matrix** of every production JSON key, its
+   destination typed table/column, active writers/readers, type precision,
+   branch and tenant permissions, and whether it contains data no longer
+   used. Unknown keys block deletion.
+3. Backfill tables incrementally with exact checksums, per-record parity,
+   ledger amount and stock invariants, consistent snapshots, RLS checks,
+   offline conflict/replay simulations and tested rollback for each module.
+   History, documents, signatures and backup evidence remain immutable.
+4. Introduce transactional compatibility synchronization only while
+   migrating. At each tenant's safe cutover, switch all reads and writes
+   **together** to normalized storage, with new writes never flowing back
+   into an opaque JSON blob. Monitor errors and detect drift.
+5. Prove all active application modules, staff roles, branches, web/PWA
+   behavior and future native offline workflows execute on typed tables.
+   Test real user scenarios (sale, partial debt payment, supplier invoice,
+   expense, refund, stock adjustment, transfer, expiry and fractional unit
+   sale) and verify equal balances and tenant isolation.
+6. Disable legacy code paths and remove JSON dependencies before declaring
+   success. Mark no stale snapshot as authoritative; do **not** merely hide
+   the giant blob or rename `source_record`.
+7. **Only after** verified final export/restore and explicit owner approval,
+   archive then retire obsolete JSON *operational* blobs and compatibility
+   columns without deleting protected backups, customer evidence or audit
+   history. Archived old-format backups can exist as immutable recovery
+   artifacts but must never participate in everyday business processing.
+8. Verify fresh production transactions by code search, database
+   monitoring/pg_stat_statements, tests and zero unexpected writes to
+   historical JSON stores. Require an operator-signed go/no-go report
+   (including backup restoration and rollback drill).
+9. **Immediately delete the temporary staging branch after verification**;
+   independently check `list_branches` to ensure no additional billable
+   branch is running. If deletion fails, report the blocker and keep trying
+   safely; do not claim billing stopped without confirmation.
+
+### Explicit release blockers TODAY
+
+- No restored real-data staging exists. Supabase refused creating a
+  staging branch on the current plan. No charged branch was created.
+- The current PR #21 is still a draft with preparatory SQL, synthetic
+  tests and off-by-default feature gates. It is **not** the completed
+  typed-only cutover or production deployment.
+- Several active paths still depend on `source_record`,
+  `tenant_workspaces.payload`, global legacy `tenant_data` records and
+  receipt/base64 evidence; a zero-JSON operational state is **not yet met**.
