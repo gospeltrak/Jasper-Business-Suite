@@ -17,12 +17,81 @@ BEGIN
   END IF;
 END $guard$;
 
--- Inactive and superseded typed rows are retained as historical shadow
--- entries; no DELETE is used, even if an edited breakdown gets shorter.
+-- Inactive lines are retained, and every overwritten line version is
+-- copied to a separate, append-only typed audit table. Never DELETE rows.
 ALTER TABLE public.orvix_sale_payment_breakdown_headers
   ADD COLUMN IF NOT EXISTS source_active boolean NOT NULL DEFAULT true;
 ALTER TABLE public.orvix_sale_payment_breakdown_lines
   ADD COLUMN IF NOT EXISTS is_current boolean NOT NULL DEFAULT true;
+
+-- Append-only relational evidence for an old payment-line version whenever
+-- a typed line changes. A (tenant,sale,ordinal) upsert must never overwrite
+-- the sole copy of a payment amount or reference.
+CREATE TABLE IF NOT EXISTS public.orvix_sale_payment_line_history (
+  history_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL,
+  sale_id text NOT NULL,
+  source_ordinal integer NOT NULL,
+  payment_method text NOT NULL,
+  amount numeric NOT NULL,
+  reference_present boolean NOT NULL,
+  payment_reference text,
+  was_current boolean NOT NULL,
+  superseded_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS orvix_sale_payment_line_history_by_sale
+  ON public.orvix_sale_payment_line_history
+  (tenant_id,sale_id,superseded_at,history_id);
+
+ALTER TABLE public.orvix_sale_payment_line_history ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.orvix_sale_payment_line_history FORCE ROW LEVEL SECURITY;
+REVOKE ALL ON public.orvix_sale_payment_line_history FROM PUBLIC,anon,authenticated;
+GRANT SELECT ON public.orvix_sale_payment_line_history TO authenticated;
+DO $history_policy$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_policies WHERE schemaname='public'
+    AND tablename='orvix_sale_payment_line_history') THEN
+    RAISE EXCEPTION 'Existing sale payment audit policy needs review.';
+  END IF;
+  EXECUTE 'CREATE POLICY orvix_sale_payment_history_tenant_select
+    ON public.orvix_sale_payment_line_history
+    FOR SELECT TO authenticated
+    USING (tenant_id=(select private.current_tenant_id()))';
+END $history_policy$;
+
+CREATE OR REPLACE FUNCTION private.orvix_audit_sale_payment_line()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO ''
+AS $audit$
+BEGIN
+  IF OLD.tenant_id IS DISTINCT FROM NEW.tenant_id
+     OR OLD.sale_id IS DISTINCT FROM NEW.sale_id
+     OR OLD.source_ordinal IS DISTINCT FROM NEW.source_ordinal THEN
+    RAISE EXCEPTION 'Sale payment audit identity is immutable.';
+  END IF;
+  IF (OLD.payment_method,OLD.amount,OLD.reference_present,
+      OLD.payment_reference,OLD.is_current)
+      IS DISTINCT FROM
+     (NEW.payment_method,NEW.amount,NEW.reference_present,
+      NEW.payment_reference,NEW.is_current)
+  THEN
+    INSERT INTO public.orvix_sale_payment_line_history
+      (tenant_id,sale_id,source_ordinal,payment_method,amount,
+       reference_present,payment_reference,was_current)
+    VALUES (OLD.tenant_id,OLD.sale_id,OLD.source_ordinal,
+      OLD.payment_method,OLD.amount,OLD.reference_present,
+      OLD.payment_reference,OLD.is_current);
+  END IF;
+  RETURN NEW;
+END;
+$audit$;
+REVOKE ALL ON FUNCTION private.orvix_audit_sale_payment_line()
+  FROM PUBLIC,anon,authenticated;
+CREATE TRIGGER orvix_sale_payment_line_history_update_trigger
+BEFORE UPDATE ON public.orvix_sale_payment_breakdown_lines
+FOR EACH ROW EXECUTE FUNCTION private.orvix_audit_sale_payment_line();
 
 CREATE OR REPLACE FUNCTION private.orvix_mirror_sale_payment_breakdown()
 RETURNS trigger
@@ -106,14 +175,15 @@ BEGIN
         source_array_hash=EXCLUDED.source_array_hash,
         source_active=true;
 
-  -- A line no longer in the current JSON is not deleted; its is_current
-  -- flag is reset atomically with the sale's original write.
+  -- Only retire lines beyond the new source length; don't toggle every
+  -- current line off/on for a normal payment edit. Such toggling increases
+  -- writes, temp IO and misleading audit events.
   UPDATE public.orvix_sale_payment_breakdown_lines l
     SET is_current=false
     WHERE l.tenant_id=NEW.tenant_id AND l.sale_id=NEW.legacy_id
-      AND l.is_current;
+      AND l.is_current AND l.source_ordinal >= v_count;
 
-  INSERT INTO public.orvix_sale_payment_breakdown_lines
+  INSERT INTO public.orvix_sale_payment_breakdown_lines AS current_line
     (tenant_id,sale_id,source_ordinal,payment_method,amount,
      reference_present,payment_reference,is_current)
   SELECT NEW.tenant_id,NEW.legacy_id,(x.ord-1)::integer,
@@ -128,7 +198,13 @@ BEGIN
     amount=EXCLUDED.amount,
     reference_present=EXCLUDED.reference_present,
     payment_reference=EXCLUDED.payment_reference,
-    is_current=true;
+    is_current=true
+  WHERE (current_line.payment_method,current_line.amount,
+         current_line.reference_present,current_line.payment_reference,
+         current_line.is_current)
+    IS DISTINCT FROM
+        (EXCLUDED.payment_method,EXCLUDED.amount,
+         EXCLUDED.reference_present,EXCLUDED.payment_reference,true);
 
   RETURN NEW;
 END;
@@ -143,5 +219,6 @@ FOR EACH ROW EXECUTE FUNCTION private.orvix_mirror_sale_payment_breakdown();
 COMMIT;
 
 -- Not a live cutover. Typed reads must filter is_current AND source_active.
+-- The audit table records every superseded version; do not erase this evidence.
 -- Removing the staging trigger for rollback does NOT delete customer sales:
 -- DROP TRIGGER orvix_sales_payment_breakdown_shadow_trigger ON public.sales;
