@@ -3,6 +3,10 @@
 -- Legacy tenant_data rows and data_backup_% are NEVER edited or deleted.
 -- This candidate does NOT activate client reads; state='shadow' until
 -- independent restore-tested staging verification and explicit cutover.
+-- CRITICAL: live read-only audit found 2 UUID tenant-scoped rows and 2
+-- legacy/non-UUID rows. These legacy/global rows are not accessible through
+-- private.current_tenant_id() and MUST remain in tenant_data untouched.
+-- Only move UUID tenants with both an existing workspace and user membership.
 BEGIN;
 DO $guard$
 BEGIN
@@ -69,6 +73,9 @@ DECLARE v_bad bigint;
 BEGIN
   SELECT COUNT(*) INTO v_bad FROM public.tenant_data t
   WHERE t.data_key='application_state'
+    AND t.tenant_id ~* '^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$'
+    AND EXISTS(SELECT 1 FROM public.tenant_workspaces w WHERE w.tenant_id::text=t.tenant_id)
+    AND EXISTS(SELECT 1 FROM public.users u WHERE u.tenant_id::text=t.tenant_id)
     AND jsonb_typeof(t.payload) IS DISTINCT FROM 'object';
   IF v_bad>0 THEN
     RAISE EXCEPTION 'Unexpected application_state JSON shape on % tenant rows.',v_bad;
@@ -77,6 +84,9 @@ BEGIN
   FROM public.tenant_data t
   CROSS JOIN LATERAL jsonb_each(t.payload) e
   WHERE t.data_key='application_state'
+    AND t.tenant_id ~* '^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$'
+    AND EXISTS(SELECT 1 FROM public.tenant_workspaces w WHERE w.tenant_id::text=t.tenant_id)
+    AND EXISTS(SELECT 1 FROM public.users u WHERE u.tenant_id::text=t.tenant_id)
     AND jsonb_typeof(e.value) IS DISTINCT FROM 'string';
   IF v_bad>0 THEN
     RAISE EXCEPTION 'Application state contains % non-string values; refusing lossy conversion.',v_bad;
@@ -89,6 +99,9 @@ SELECT t.tenant_id,e.key,e.value #>> '{}',false,t.updated_at
 FROM public.tenant_data t
 CROSS JOIN LATERAL jsonb_each(t.payload) e
 WHERE t.data_key='application_state'
+    AND t.tenant_id ~* '^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$'
+    AND EXISTS(SELECT 1 FROM public.tenant_workspaces w WHERE w.tenant_id::text=t.tenant_id)
+    AND EXISTS(SELECT 1 FROM public.users u WHERE u.tenant_id::text=t.tenant_id)
 ON CONFLICT(tenant_id,state_key) DO NOTHING;
 
 INSERT INTO public.orvix_tenant_application_state_status
@@ -97,6 +110,9 @@ SELECT t.tenant_id,'shadow',md5(t.payload::text),
   (SELECT count(*) FROM jsonb_object_keys(t.payload))
 FROM public.tenant_data t
 WHERE t.data_key='application_state'
+    AND t.tenant_id ~* '^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$'
+    AND EXISTS(SELECT 1 FROM public.tenant_workspaces w WHERE w.tenant_id::text=t.tenant_id)
+    AND EXISTS(SELECT 1 FROM public.users u WHERE u.tenant_id::text=t.tenant_id)
 ON CONFLICT(tenant_id) DO NOTHING;
 
 -- Compare exact JSONB reconstruction per tenant, not merely key counts.
@@ -105,11 +121,15 @@ DO $parity$
 DECLARE v_bad bigint;
 BEGIN
   SELECT count(*) INTO v_bad FROM public.tenant_data t
-  JOIN public.orvix_tenant_application_state_status h
+  LEFT JOIN public.orvix_tenant_application_state_status h
     ON h.tenant_id=t.tenant_id
   WHERE t.data_key='application_state'
+    AND t.tenant_id ~* '^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$'
+    AND EXISTS(SELECT 1 FROM public.tenant_workspaces w WHERE w.tenant_id::text=t.tenant_id)
+    AND EXISTS(SELECT 1 FROM public.users u WHERE u.tenant_id::text=t.tenant_id)
     AND (
-      h.state IS DISTINCT FROM 'shadow'
+      h.tenant_id IS NULL
+      OR h.state IS DISTINCT FROM 'shadow'
       OR h.source_payload_hash IS DISTINCT FROM md5(t.payload::text)
       OR h.source_entry_count IS DISTINCT FROM
          (SELECT count(*) FROM jsonb_object_keys(t.payload))
