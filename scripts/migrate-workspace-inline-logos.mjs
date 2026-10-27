@@ -54,6 +54,7 @@ async function run() {
   const doApply = process.argv.includes('--apply');
   const confirmId = arg('confirm-tenant');
   const backupDir = arg('backup-dir');
+  const projectRef = arg('expected-project-ref');
   if (!tenantId || !/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(tenantId)) {
     throw new Error('Supply --tenant-id=<UUID> to scope the operation to one tenant');
   }
@@ -64,6 +65,22 @@ async function run() {
   if (!databaseUrl) throw new Error('Server-only DATABASE_URL is required');
   if (doApply && (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY)) {
     throw new Error('Server-only SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required for apply');
+  }
+  // Prevent attaching one project's private workspace images to a different
+  // Supabase Storage project by accidentally mixing operator credentials.
+  if (doApply) {
+    if (!projectRef || !/^[a-z0-9]{20}$/.test(projectRef)) {
+      throw new Error('Apply requires --expected-project-ref=<SUPABASE_PROJECT_REF>');
+    }
+    const storageUrl = new URL(process.env.SUPABASE_URL);
+    const dbUrl = new URL(databaseUrl);
+    const storageMatches = storageUrl.protocol === 'https:' &&
+      storageUrl.hostname === `${projectRef}.supabase.co`;
+    const dbMatches = dbUrl.hostname === `db.${projectRef}.supabase.co` ||
+      dbUrl.username === `postgres.${projectRef}`;
+    if (!storageMatches || !dbMatches) {
+      throw new Error('Database and Storage project identity mismatch; refusing to migrate');
+    }
   }
 
   const db = new Client({ connectionString: databaseUrl });
