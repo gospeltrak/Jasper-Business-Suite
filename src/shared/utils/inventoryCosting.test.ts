@@ -21,6 +21,8 @@ import {
   deductBatchesForSale,
   getActiveBatchesOldestFirst,
   getPosSellingPriceForCostingMethod,
+  getProductCostingMethod,
+  normalizeStoredCostingMethod,
   reversePurchaseInventory,
 } from './inventoryCosting';
 
@@ -217,5 +219,37 @@ describe('deductBatchesForSale (FEFO allocation)', () => {
     const result = deductBatchesForSale(product, 30);
     expect(result.batchesUsed[0].batchId).toBe('older');
     expect(result.unitCost).toBe(2000);
+  });
+});
+
+describe('legacy weighted-average normalization without data loss', () => {
+  it('maps existing weighted_average records to canonical average_price for POS', () => {
+    const legacy = {
+      ...baseProduct({ sellingPrice: 600 }),
+      costingMethod: 'weighted_average',
+      inventorySettings: {
+        costingMethod: 'weighted_average',
+        allowPosMethodOverride: false,
+        allowScaleSelling: false,
+        purchaseUnit: 'Sack',
+        baseUnit: 'kg',
+        conversionToBaseUnit: 100,
+        allowCustomQuantity: true,
+      },
+    } as unknown as Product;
+    const original = JSON.stringify(legacy);
+    expect(getProductCostingMethod(legacy)).toBe('average_price');
+    expect(getPosSellingPriceForCostingMethod(legacy, 600, getProductCostingMethod(legacy))).toBe(600);
+    expect(JSON.stringify(legacy)).toBe(original); // do not rewrite customer source_record
+  });
+
+  it('retains all canonical costing modes and does not silently treat unknown labels as FIFO', () => {
+    expect(normalizeStoredCostingMethod('fifo')).toBe('fifo');
+    expect(normalizeStoredCostingMethod('average_price')).toBe('average_price');
+    expect(normalizeStoredCostingMethod('batch_price')).toBe('batch_price');
+    expect(normalizeStoredCostingMethod('weighted_average')).toBe('average_price');
+    expect(normalizeStoredCostingMethod('unrecognized-method')).toBeUndefined();
+    const legacy = baseProduct({ sellingMethod: 'manual_batch' });
+    expect(getProductCostingMethod(legacy)).toBe('batch_price');
   });
 });
