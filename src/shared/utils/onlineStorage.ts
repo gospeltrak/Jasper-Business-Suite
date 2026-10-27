@@ -15,6 +15,7 @@ const PERSIST_DEBOUNCE_MS = 1000;
 const USE_TYPED_APP_STATE = import.meta.env.VITE_ORVIX_TYPED_APP_STATE === 'true';
 let typedStateActive = false;
 let typedStateReadFailed = false;
+let hydrationGeneration = 0;
 let nextTypedRevision = 0;
 const typedPendingChanges = new Map<string, TypedOnlineStateChange>();
 
@@ -157,6 +158,7 @@ export async function configureOnlineStorage(nextTenantId: string): Promise<void
   if (!nextTenantId) return;
   if (tenantId === nextTenantId && hydrated) return;
 
+  const generation = ++hydrationGeneration;
   tenantId = nextTenantId;
   hydrated = false;
   values.clear();
@@ -174,7 +176,7 @@ export async function configureOnlineStorage(nextTenantId: string): Promise<void
         .select('state')
         .eq('tenant_id', nextTenantId)
         .maybeSingle();
-      if (tenantId !== nextTenantId) return;
+      if (tenantId !== nextTenantId || hydrationGeneration !== generation) return;
       if (statusError && !['42P01', 'PGRST205'].includes(String(statusError.code || ''))) {
         typedStateReadFailed = true;
         throw statusError;
@@ -190,8 +192,9 @@ export async function configureOnlineStorage(nextTenantId: string): Promise<void
             .from('orvix_tenant_application_state_entries')
             .select('state_key,state_value,is_deleted')
             .eq('tenant_id', nextTenantId)
+            .order('state_key', { ascending: true })
             .range(offset, offset + 499);
-          if (tenantId !== nextTenantId) return;
+          if (tenantId !== nextTenantId || hydrationGeneration !== generation) return;
           if (typedError || !Array.isArray(rows)) {
             throw typedError || new Error('Typed application state read failed');
           }
@@ -220,7 +223,7 @@ export async function configureOnlineStorage(nextTenantId: string): Promise<void
         HYDRATION_TIMEOUT_MS,
       )),
     ]);
-    if (tenantId !== nextTenantId) return;
+    if (tenantId !== nextTenantId || hydrationGeneration !== generation) return;
     const { data, error } = result || {};
     if (error) {
       console.warn('[onlineStorage] database load failed:', error.message);
@@ -234,12 +237,14 @@ export async function configureOnlineStorage(nextTenantId: string): Promise<void
     // workspace hydration is slow or temporarily unavailable.
     console.warn('[onlineStorage] continuing without preloaded data:', error?.message || error);
   } finally {
+    if (tenantId !== nextTenantId || hydrationGeneration !== generation) return;
     lastPersistedSnapshot = JSON.stringify(snapshot());
     hydrated = !typedStateReadFailed;
   }
 }
 
 export function resetOnlineStorage(): void {
+  hydrationGeneration += 1;
   tenantId = null;
   hydrated = false;
   values.clear();
