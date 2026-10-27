@@ -25,7 +25,7 @@ describe('non-destructive inline logo migration', () => {
     expect(script).toMatch(/for update/i);
     expect(script).toContain("app.jasper_explicit_settings_tenant");
     expect(script).toMatch(/where tenant_id=\$\$\{params\.length \+ 1\}::uuid/);
-    expect(script).toContain("updated_at=${params.length + 2}::timestamptz");
+    expect(script).toContain("updated_at=$${params.length + 2}::timestamptz");
     expect(script).toContain("updated_at !== row.updated_at");
     expect(script).toContain("payload_json !== row.payload_json");
     expect(script).not.toMatch(/(?:disable\s+trigger|drop\s+table|truncate\s+table)/i);
