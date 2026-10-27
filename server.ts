@@ -1080,7 +1080,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       if (!tenant) return res.status(404).json({ error: 'Subscription not found.' });
       const planId = String(tenant.active_package_id || tenant.selected_package_id || '').toLowerCase();
       const subscriptionStatus = String(tenant.subscription_status || '').toLowerCase();
-      const isTrial = subscriptionStatus === 'trial' || planId === 'trial';
+      const isTrial = subscriptionStatus === 'trial' || (subscriptionStatus === 'active' && planId === 'trial');
       const isActivePaid = subscriptionStatus === 'active'
         && ['ruby', 'diamond', 'tanzanite'].includes(planId);
       const days = Math.ceil((Date.parse(String(tenant.subscription_end_date || '')) - Date.now()) / 86_400_000);
