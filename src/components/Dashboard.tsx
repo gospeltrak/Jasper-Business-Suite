@@ -1314,13 +1314,14 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     return rawRole;
   })();
 
-  const canAccessNotificationInbox = user.role === 'SuperAdmin' || activeRoleName === 'Admin';
+  const canAccessNotificationInbox = user.role === 'SuperAdmin'
+    || ['admin', 'owner', 'tenant_admin'].includes(String(activeRoleName).toLowerCase());
 
   useEffect(() => {
     configureInbox({
       tenantId: user.role === 'SuperAdmin' ? '' : activeTenant.id,
       userId: user.id,
-      role: user.role === 'SuperAdmin' ? 'SuperAdmin' : (activeRoleName === 'Admin' ? 'Admin' : activeRoleName),
+      role: user.role === 'SuperAdmin' ? 'SuperAdmin' : (canAccessNotificationInbox ? 'Admin' : activeRoleName),
     });
     if (!canAccessNotificationInbox) setIsNotificationCenterOpen(false);
   }, [activeRoleName, activeTenant.id, canAccessNotificationInbox, configureInbox, user.id, user.role]);
