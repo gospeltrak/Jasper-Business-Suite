@@ -30,7 +30,7 @@ describe('universal product unit hierarchy: guarded typed staging backfill', () 
     expect(sql).toContain('sort_order integer NOT NULL');
     expect(sql.match(/WITH ORDINALITY/g)?.length).toBeGreaterThanOrEqual(6);
     expect(sql.match(/ON CONFLICT \(tenant_id,product_id,/g)?.length).toBe(3);
-    expect(sql).toContain('item->>\'packageLevelId\'');
+    expect(sql).toContain("unit_item.value->>'packageLevelId'");
     expect(sql).toContain('Selling units reference % missing package levels.');
     expect(sql).toContain('duplicate_keys');
   });
