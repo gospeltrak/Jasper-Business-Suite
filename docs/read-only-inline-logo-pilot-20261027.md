@@ -23,7 +23,7 @@ The observed size reduction for this **single sample workspace** is about 79%; i
 
 ## All-workspace preflight
 
-Across all 9 workspaces, the previous read-only check recorded 5 inline `businessLogo`, 5 inline `businessLogoLight`, 1 inline `businessLogoDark`, 1 inline `company.logo` and 0 inline `company.logoUrl`. Historical rows remain in `tenant_data`; neither they nor `source_record` are cleanup targets in this PR.
+Across all 9 workspaces, recursive read-only inspection recorded 5 inline `businessLogo`, 5 inline `businessLogoLight`, 1 inline `businessLogoDark`, 1 inline `company.logo`, **4 brand logos under `settings.productStore.brands[*].logo`**, and 0 inline `company.logoUrl`. Total: **16 occurrences, 9 unique images, ~2,311 kB of encoded base64**. Historical rows remain in `tenant_data`; neither they nor `source_record` are cleanup targets in this PR.
 
 Supabase `tenant-logos` bucket: public, three matching policies; existing write permissions are **not** modified. All four protection and normalization triggers on `public.tenant_workspaces` remain enabled.
 
