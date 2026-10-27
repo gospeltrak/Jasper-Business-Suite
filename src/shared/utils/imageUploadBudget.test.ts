@@ -11,7 +11,7 @@ import {
 const makeBlob = (size: number, type = 'image/webp') => new Blob([new Uint8Array(size)], { type });
 
 describe('tenant image size budgets', () => {
-  it('keeps logo byte sizes at or below 10 KiB', async () => {
+  it('keeps logo byte sizes at or below 10 KB', async () => {
     const encode = vi.fn(async (dimension: number, quality: number) =>
       makeBlob(dimension === 400 && quality >= 0.7 ? 16000 : 9000));
     const result = await selectBudgetedImage(encode, {
@@ -29,7 +29,7 @@ describe('tenant image size budgets', () => {
     )).rejects.toBeInstanceOf(ImageBudgetError);
   });
 
-  it('prefers a 10 KiB product when one can be produced', async () => {
+  it('prefers a 10 KB product when one can be produced', async () => {
     const result = await selectBudgetedImage(
       async (_, quality) => makeBlob(quality < 0.7 ? 9500 : 15000),
       { targetBytes: PRODUCT_TARGET_BYTES, maxBytes: PRODUCT_MAX_BYTES },
@@ -37,7 +37,7 @@ describe('tenant image size budgets', () => {
     expect(result.size).toBe(9500);
   });
 
-  it('allows better-detail product fallback only up to 25 KiB', async () => {
+  it('allows better-detail product fallback only up to 25 KB', async () => {
     const result = await selectBudgetedImage(
       async () => makeBlob(23000),
       { targetBytes: PRODUCT_TARGET_BYTES, maxBytes: PRODUCT_MAX_BYTES },
