@@ -7,6 +7,7 @@ This task removes the **runtime settings payload dependency on embedded logo bas
 - Nine workspaces are on normalized reads/writes; this does not authorize backup deletion.
 - Tenant workspace JSON is approximately 2.3 MB in total, predominantly repeated business/company logos.
 - Five workspaces contain inline `businessLogo` data URLs (four WebP, one PNG), commonly duplicated as `businessLogoLight`; one contains an inline `businessLogoDark` and one an inline `company.logo` (PNG).
+- Recursive inspection identified **four additional inline logos** under `settings.productStore.brands[*].logo` (and no other workspace base64 image paths). Across nine workspaces, 16 base64 image occurrences correspond to 9 distinct images (~2,311 kB encoded). The operator migration handles these indexed brand logos without changing order/names or other fields.
 - The real multi-branch logo editor already calls an authenticated server upload endpoint and stores returned URLs. Do not replace its authorization flow with the legacy hidden store-location handler.
 - Settings uploads previously saved transient base64 immediately and used a shared object key. The separate PR fix saves immutable Storage URLs only on upload success. No original branding data is deleted by that fix.
 - Current Supabase `tenant-logos` Storage policies have INSERT/UPDATE/DELETE for the authenticated uploader's UID folder but no SELECT policy; new client uploads use unique keys and `upsert:false`.
@@ -14,6 +15,7 @@ This task removes the **runtime settings payload dependency on embedded logo bas
 ## Phased migration
 
 1. Merge the reviewed app fix after CI and staging owner/staff checks, including white-background/light logo, dark logo, invoices, reports, and permission denial.
+   Brand logo upload in Products → Brands is now also Storage-first, preventing new inline images from re-accumulating in `productStore.brands`.
 2. Before any production apply, export a fresh Supabase backup or verify PITR restore, and check subscription/tenant context.
 3. Run the **read-only preview** per tenant; inspect the number of inline fields and distinct images. No logo contents are printed.
 4. Apply to **one tenant only** from a trusted server/operator machine. An independent full workspace backup is written first to a private directory outside the repository, as JSON mode 0600.
