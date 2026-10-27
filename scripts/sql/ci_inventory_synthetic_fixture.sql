@@ -19,6 +19,7 @@ CREATE TABLE public.products (
 );
 CREATE TABLE public.tenant_workspaces (tenant_id uuid PRIMARY KEY,payload jsonb NOT NULL);
 CREATE TABLE public.tenant_data (tenant_id text NOT NULL,data_key text NOT NULL,payload jsonb,
+  updated_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY(tenant_id,data_key));
 \ir ../../supabase_inventory_costing.sql
 
