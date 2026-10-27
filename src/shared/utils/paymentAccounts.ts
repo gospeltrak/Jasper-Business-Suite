@@ -147,3 +147,53 @@ export const findPaymentChannel = (
     normalize(channel.paymentMethod) === method,
   );
 };
+
+/**
+ * Receivables collection uses the same reconciled Money & Bank channels as
+ * checkout. The legacy invoice/settings screen may list "Mpesa" even when
+ * systemSettings.paymentChannels has not been initialized yet; looking only
+ * in that raw array prevents every installment from being recorded.
+ *
+ * Never invent an account for a payment method explicitly disabled in Money
+ * & Bank, reactivate an archived channel, select a different branch's
+ * account, or treat "Credit" as an incoming payment.
+ */
+export const getDebtCollectionPaymentChannels = (
+  business?: Partial<BusinessSettings>,
+  existingChannels: PaymentChannel[] = [],
+  options: { currency?: string; branchId?: string } = {},
+): PaymentChannel[] => {
+  const original = Array.isArray(existingChannels) ? existingChannels : [];
+  const configured = getTreasuryPaymentMethods(business);
+  const methods = (configured.length ? configured : original.map(
+    channel => channel.paymentMethod || channel.name || '',
+  ))
+    .filter(method => method && !/^credit$/i.test(method.trim()));
+
+  const usableMethods = methods.filter(method => {
+    const matches = original.filter(channel =>
+      normalize(channel.paymentMethod || channel.name || channel.provider) === normalize(method),
+    );
+    // An explicitly disabled mode must never be silently reactivated.
+    return matches.length === 0 || matches.some(channel =>
+      channel.status !== 'inactive' &&
+      channel.status !== 'archived' &&
+      (!options.branchId || !channel.branchId || channel.branchId === options.branchId),
+    );
+  });
+  const enabled = new Set(usableMethods.map(normalize));
+  const disabledIds = new Set(original
+    .filter(channel => channel.status === 'inactive' || channel.status === 'archived')
+    .map(channel => channel.id));
+
+  return reconcilePaymentChannels(usableMethods, original, options).filter(channel =>
+    !!channel.id &&
+    !!channel.paymentMethod &&
+    enabled.has(normalize(channel.paymentMethod)) &&
+    !disabledIds.has(channel.id) &&
+    channel.category !== 'person' &&
+    channel.status !== 'inactive' &&
+    channel.status !== 'archived' &&
+    (!options.branchId || !channel.branchId || channel.branchId === options.branchId),
+  );
+};
