@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
   collectInlineLogoCandidates,
@@ -16,6 +17,20 @@ const inline = `data:image/png;base64,${png.toString('base64')}`;
 const tenantId = '00000000-1111-4111-8111-222222222222';
 
 describe('non-destructive inline logo migration', () => {
+  it('operator apply uses a single CAS-protected, tenant-scoped transaction without disabling triggers', () => {
+    const script = readFileSync(resolve('scripts/migrate-workspace-inline-logos.mjs'), 'utf8');
+    expect(script).toContain("await db.query('BEGIN')");
+    expect(script).toContain("await db.query('COMMIT')");
+    expect(script).toContain("await db.query('ROLLBACK')");
+    expect(script).toMatch(/for update/i);
+    expect(script).toContain("app.jasper_explicit_settings_tenant");
+    expect(script).toMatch(/where tenant_id=\$\$\{params\.length \+ 1\}::uuid/);
+    expect(script).toContain("updated_at=${params.length + 2}::timestamptz");
+    expect(script).toContain("updated_at !== row.updated_at");
+    expect(script).toContain("payload_json !== row.payload_json");
+    expect(script).not.toMatch(/(?:disable\s+trigger|drop\s+table|truncate\s+table)/i);
+  });
+
   it('operator script is valid ESM without running any database operation', () => {
     expect(() => execFileSync(process.execPath, ['--check', resolve('scripts/migrate-workspace-inline-logos.mjs')])).not.toThrow();
   });
