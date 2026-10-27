@@ -49,7 +49,7 @@ BEGIN
   SELECT count(*) INTO n FROM public.orvix_tenant_application_state_entries;
   IF n<>4 THEN RAISE EXCEPTION 'Tenant A can see % entries instead of four',n; END IF;
   SELECT count(*) INTO n FROM public.orvix_tenant_application_state_status;
-  IF n<>1 THEN RAISE EXCEPTION 'Tenant A status view leaks cross-tenant',n; END IF;
+  IF n<>1 THEN RAISE EXCEPTION 'Tenant A status view leaks cross-tenant: %',n; END IF;
   BEGIN
     UPDATE public.orvix_tenant_application_state_entries
       SET state_value='hacked'
