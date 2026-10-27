@@ -52,6 +52,16 @@ CREATE UNIQUE INDEX IF NOT EXISTS
 DO $validate$
 DECLARE v_bad bigint;
 BEGIN
+  -- The existence of a non-array batches property is a hard error; never
+  -- skip an unrecognized data shape and then claim reconciliation succeeded.
+  SELECT COUNT(*) INTO v_bad
+  FROM public.products p
+  WHERE p.source_active AND p.source_record ? 'batches'
+    AND jsonb_typeof(p.source_record->'batches') IS DISTINCT FROM 'array';
+  IF v_bad<>0 THEN
+    RAISE EXCEPTION 'Malformed product batches arrays: % source rows.',v_bad;
+  END IF;
+
   WITH batches AS (
     SELECT p.tenant_id::text AS tenant_id,p.legacy_id AS product_id,
       p.source_record AS product_json,
@@ -97,6 +107,21 @@ BEGIN
            AND jsonb_typeof(b.j->'quantityPurchasedBase') IS DISTINCT FROM 'number')
        OR (b.j ? 'quantityRemainingBase'
            AND jsonb_typeof(b.j->'quantityRemainingBase') IS DISTINCT FROM 'number')
+       OR (b.j ? 'quantityPurchasedBase' AND
+          (b.j->>'quantityPurchasedBase')::numeric IS DISTINCT FROM
+          round((b.j->>'quantityPurchasedBase')::numeric,6))
+       OR (b.j ? 'quantityRemainingBase' AND
+          (b.j->>'quantityRemainingBase')::numeric IS DISTINCT FROM
+          round((b.j->>'quantityRemainingBase')::numeric,6))
+       OR (b.j ? 'previousBuyingPrice' AND
+          (b.j->>'previousBuyingPrice')::numeric IS DISTINCT FROM
+          round((b.j->>'previousBuyingPrice')::numeric,2))
+       OR (b.j ? 'suggestedSellingPrice' AND
+          (b.j->>'suggestedSellingPrice')::numeric IS DISTINCT FROM
+          round((b.j->>'suggestedSellingPrice')::numeric,2))
+       OR (b.j ? 'finalSellingPrice' AND
+          (b.j->>'finalSellingPrice')::numeric IS DISTINCT FROM
+          round((b.j->>'finalSellingPrice')::numeric,2))
        OR (b.j ? 'priceChangePercentage'
            AND jsonb_typeof(b.j->'priceChangePercentage') IS DISTINCT FROM 'number')
        OR (b.j ? 'previousBuyingPrice'
