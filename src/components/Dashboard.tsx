@@ -315,7 +315,7 @@ function SubscriptionCheckoutStateBridge({
 function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggleTheme, initialTab, mirrorMode = false }: DashboardProps) {
   const { t, lang, setLang } = useTranslation();
   const { getFallbackInitials, getLogoUrl } = useTenantLogo();
-  const { addSaleNotification, addSubscriptionReminderNotification, unreadCount, hydrateTenantModuleSettings, configureInbox } = useJasperNotifications();
+  const { addSaleNotification, refreshInbox, unreadCount, hydrateTenantModuleSettings, configureInbox } = useJasperNotifications();
   const [showDashLangMenu, setShowDashLangMenu] = useState(false);
   // Mobile top-bar "quick settings" menu (theme/language/notifications/
   // online-offline), collapsed behind one animated trigger instead of four
@@ -1812,26 +1812,9 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     );
   }, [subscriptionReminderKey]);
 
-  // Phone has no header to show the countdown badge in (Dashboard's top bar
-  // only exists from 768px up) — deliver the same 3/2/1-day reminder into
-  // the bell/inbox instead, once per key (matches the badge's own dismiss
-  // key: tenant + subscription end date + day count, so day 3, day 2, and
-  // day 1 are each a distinct key and each notify exactly once).
-  useEffect(() => {
-    if (!subscriptionReminder || !subscriptionReminderKey) return;
-    if (typeof window === 'undefined' || window.innerWidth >= 768) return;
-    const notifiedKey = `${subscriptionReminderKey}:notified`;
-    if (sessionStorage.getItem(notifiedKey) === 'sent') return;
-    // Set the guard before adding the notification (not after) so a second
-    // effect run with the same key -- e.g. a double-invoked effect -- sees
-    // it already marked sent instead of racing to add a duplicate.
-    sessionStorage.setItem(notifiedKey, 'sent');
-    addSubscriptionReminderNotification({
-      tenantId: activeTenant.id,
-      title: subscriptionReminder.title,
-      message: subscriptionReminder.message,
-    });
-  }, [subscriptionReminder, subscriptionReminderKey, activeTenant.id, addSubscriptionReminderNotification]);
+  // Daily 3/2/1-day notices now persist in the authenticated notification
+  // inbox for every device via refreshInbox (not a phone-only local alert).
+  // The backend verifies the real subscription and deduplicates each day.
 
   // Compact header countdown between search and online status.
   const renderSubscriptionCountdownBadge = () => {
@@ -3719,6 +3702,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
               {canAccessNotificationInbox && <div
                 className="relative p-2 text-slate-400 dark:text-slate-300 hover:text-slate-600 dark:hover:text-white transition-colors cursor-pointer bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800"
                 onClick={() => {
+                  void refreshInbox();
                   setIsNotificationCenterOpen(true);
                   setMoreMenuOpen(false);
                 }}
@@ -3950,6 +3934,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                           <button
                             type="button"
                             onClick={() => {
+                              void refreshInbox();
                               setIsNotificationCenterOpen(true);
                               setShowMobileQuickMenu(false);
                             }}
@@ -4048,7 +4033,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
 
                 {canAccessNotificationInbox && <div
                   className="relative p-2 text-slate-500 dark:text-slate-400 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors active:scale-90 cursor-pointer"
-                  onClick={() => setIsNotificationCenterOpen(true)}
+                  onClick={() => { void refreshInbox(); setIsNotificationCenterOpen(true); }}
                 >
                   <Bell className="w-5 h-5" />
                   {unreadCount > 0 && <div className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-rose-500 rounded-full border-2 border-white dark:border-slate-900" />}
@@ -4682,6 +4667,26 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
 
           {/* Scrollable content */}
           <div className="flex-1 overflow-y-auto pb-24">
+            {canAccessNotificationInbox && (
+              <div className="px-5 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMoreMenuOpen(false);
+                    void refreshInbox();
+                    setIsNotificationCenterOpen(true);
+                  }}
+                  className="flex w-full items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
+                  aria-label={lang === 'sw' ? 'Fungua arifa' : 'Open notifications'}
+                >
+                  <Bell className="h-5 w-5 text-emerald-600" />
+                  <span>{lang === 'sw' ? 'Arifa' : 'Notifications'}</span>
+                  {unreadCount > 0 && (
+                    <span className="ml-auto rounded-full bg-rose-500 px-2 py-0.5 text-[11px] font-bold text-white">{unreadCount}</span>
+                  )}
+                </button>
+              </div>
+            )}
             <div className="px-5 pt-5 pb-2">
               <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-3">All Features</p>
               <div className="mobile-more-features-grid gap-4">
