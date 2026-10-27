@@ -64,6 +64,10 @@ BEGIN
       (VALUES('fractionSaleEnabled'),('packetPriceOverridden')) AS fields(k)
     WHERE r.settings ? fields.k
       AND jsonb_typeof(r.settings->fields.k) NOT IN('boolean','null')
+  ), malformed_options AS (
+    SELECT 1 FROM raw r
+    WHERE r.settings ? 'fractionSaleOptions'
+      AND jsonb_typeof(r.settings->'fractionSaleOptions') IS DISTINCT FROM 'array'
   ), invalid_options AS (
     SELECT 1
     FROM raw r CROSS JOIN LATERAL
@@ -71,10 +75,10 @@ BEGIN
         WHEN jsonb_typeof(r.settings->'fractionSaleOptions')='array'
           THEN r.settings->'fractionSaleOptions'
         ELSE '[]'::jsonb END) AS opt(value)
-    WHERE jsonb_typeof(opt.value)<>'object'
-      OR jsonb_typeof(opt.value->'id')<>'string'
-      OR jsonb_typeof(opt.value->'label')<>'string'
-      OR jsonb_typeof(opt.value->'quantityInBaseUnit')<>'number'
+    WHERE jsonb_typeof(opt.value) IS DISTINCT FROM 'object'
+      OR jsonb_typeof(opt.value->'id') IS DISTINCT FROM 'string'
+      OR jsonb_typeof(opt.value->'label') IS DISTINCT FROM 'string'
+      OR jsonb_typeof(opt.value->'quantityInBaseUnit') IS DISTINCT FROM 'number'
       OR coalesce((opt.value->>'quantityInBaseUnit')::numeric,0)<=0
       OR (opt.value->>'quantityInBaseUnit')::numeric
           IS DISTINCT FROM round((opt.value->>'quantityInBaseUnit')::numeric,6)
@@ -87,22 +91,25 @@ BEGIN
   ), invalid_pharmacy AS (
     SELECT 1 FROM raw r
     WHERE r.settings ? 'pharmacyUnitBreakdown'
-      AND jsonb_typeof(r.settings->'pharmacyUnitBreakdown')<>'object'
+      AND jsonb_typeof(r.settings->'pharmacyUnitBreakdown') IS DISTINCT FROM 'object'
     UNION ALL
     SELECT 1 FROM raw r
     WHERE jsonb_typeof(r.settings->'pharmacyUnitBreakdown')='object'
       AND (
-        jsonb_typeof(r.settings#>'{pharmacyUnitBreakdown,purchaseUnit}')<>'string'
-        OR jsonb_typeof(r.settings#>'{pharmacyUnitBreakdown,stripUnit}')<>'string'
-        OR jsonb_typeof(r.settings#>'{pharmacyUnitBreakdown,baseUnit}')<>'string'
-        OR jsonb_typeof(r.settings#>'{pharmacyUnitBreakdown,stripsPerBox}')<>'number'
-        OR jsonb_typeof(r.settings#>'{pharmacyUnitBreakdown,tabletsPerStrip}')<>'number'
+        jsonb_typeof(r.settings#>'{pharmacyUnitBreakdown,purchaseUnit}') IS DISTINCT FROM 'string'
+        OR jsonb_typeof(r.settings#>'{pharmacyUnitBreakdown,stripUnit}') IS DISTINCT FROM 'string'
+        OR jsonb_typeof(r.settings#>'{pharmacyUnitBreakdown,baseUnit}') IS DISTINCT FROM 'string'
+        OR jsonb_typeof(r.settings#>'{pharmacyUnitBreakdown,stripsPerBox}') IS DISTINCT FROM 'number'
+        OR jsonb_typeof(r.settings#>'{pharmacyUnitBreakdown,tabletsPerStrip}') IS DISTINCT FROM 'number'
         OR coalesce((r.settings#>>'{pharmacyUnitBreakdown,stripsPerBox}')::numeric,0)<=0
         OR coalesce((r.settings#>>'{pharmacyUnitBreakdown,tabletsPerStrip}')::numeric,0)<=0
+        OR (r.settings#>>'{pharmacyUnitBreakdown,stripsPerBox}')::numeric IS DISTINCT FROM round((r.settings#>>'{pharmacyUnitBreakdown,stripsPerBox}')::numeric,6)
+        OR (r.settings#>>'{pharmacyUnitBreakdown,tabletsPerStrip}')::numeric IS DISTINCT FROM round((r.settings#>>'{pharmacyUnitBreakdown,tabletsPerStrip}')::numeric,6)
       )
   )
   SELECT COUNT(*) INTO v_invalid FROM (
     SELECT 1 FROM scalar_error UNION ALL
+    SELECT 1 FROM malformed_options UNION ALL
     SELECT 1 FROM invalid_options UNION ALL
     SELECT 1 FROM invalid_pharmacy
   ) err;
