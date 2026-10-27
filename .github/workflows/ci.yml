@@ -69,4 +69,7 @@ jobs:
             -f scripts/sql/staging_mirror_sales_payment_breakdowns.sql \
             -f scripts/sql/ci_sales_payment_mirror_assertions.sql \
             -f scripts/sql/staging_disable_sales_payment_shadow_mirror.sql \
-            -f scripts/sql/ci_sales_payment_mirror_rollback_assertions.sql
+            -f scripts/sql/ci_sales_payment_mirror_rollback_assertions.sql \
+            -f scripts/sql/ci_expense_finance_synthetic_fixture.sql \
+            -f scripts/sql/staging_normalize_expense_finance_fields.sql \
+            -f scripts/sql/ci_expense_finance_synthetic_assertions.sql
