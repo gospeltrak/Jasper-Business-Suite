@@ -143,6 +143,22 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         setNotifications([]);
         return;
       }
+      // Server validates the authoritative subscription and adds at most one
+      // persisted, per-tenant reminder for each of days 3, 2 and 1. Do not
+      // trust client clock or use a phone-only local notification.
+      if (inboxScope.role === 'Admin') {
+        try {
+          await fetch('/api/notifications/subscription-reminder', {
+            method: 'POST',
+            headers: {
+              Accept: 'application/json',
+              Authorization: `Bearer ${session.access_token}`,
+            },
+          });
+        } catch {
+          // Keep existing inbox usable if reminder creation is unavailable.
+        }
+      }
       const response = await fetch('/api/notifications/inbox', {
         headers: { Accept: 'application/json', Authorization: `Bearer ${session.access_token}` },
       });
