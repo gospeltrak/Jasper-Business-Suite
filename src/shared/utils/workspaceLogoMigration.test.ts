@@ -48,6 +48,13 @@ describe('non-destructive inline logo migration', () => {
         businessName: 'Unchanged business',
       },
       company: { logo: inline, tin: 'unchanged' },
+      productStore: {
+        brands: [
+          { name: 'Brand One', logo: inline, retain: 'yes' },
+          { name: 'Brand Two', logo: 'https://example.org/previous.png', retain: 'yes' },
+          { name: 'Brand Three', logo: inline, retain: 'yes' },
+        ],
+      },
     },
     products: [],
     saleTombstones: { record: 'never-touch' },
@@ -56,7 +63,7 @@ describe('non-destructive inline logo migration', () => {
   it('collects only inline logos, including legacy branch branding, without mutating input', () => {
     const before = structuredClone(payload);
     const candidates = collectInlineLogoCandidates(payload);
-    expect(candidates).toHaveLength(4);
+    expect(candidates).toHaveLength(6);
     expect(new Set(candidates.map((c: any) => c.image.hash)).size).toBe(1);
     expect(payload).toEqual(before);
     const url = 'https://example.supabase.co/storage/v1/object/public/tenant-logos/migrated/hash.png';
@@ -66,6 +73,11 @@ describe('non-destructive inline logo migration', () => {
     expect(result.settings.business.businessLogoDark).toBe(payload.settings.business.businessLogoDark);
     expect(result.settings.business.branchBranding.Shop.businessLogoLight).toBe(url);
     expect(result.settings.company.logo).toBe(url);
+    expect(result.settings.productStore.brands[0].logo).toBe(url);
+    expect(result.settings.productStore.brands[1].logo).toBe('https://example.org/previous.png');
+    expect(result.settings.productStore.brands[2].logo).toBe(url);
+    expect(result.settings.productStore.brands.map(b => b.name)).toEqual(['Brand One', 'Brand Two', 'Brand Three']);
+    expect(result.settings.productStore.brands.every(b => b.retain === 'yes')).toBe(true);
     expect(result.settings.company.tin).toBe('unchanged');
     expect(result.settings.business.businessName).toBe('Unchanged business');
     expect(result.saleTombstones).toEqual(payload.saleTombstones);
