@@ -91,3 +91,19 @@ New read-only `extensions.pg_stat_statements` inspection flags the remaining hig
 **Prepared but intentionally NOT run on production:** `scripts/sql/staging_backfill_product_inventory_settings.sql` is a guarded, idempotent INSERT-only staging candidate. It maps the historical method spelling to the canonical typed value, skips inactive rows, never overwrites an existing typed row, refuses incompatible field types/precision and rolls back if any active-source field fails exact typed comparison. It leaves `products.source_record`, stock, sales, subscriptions, branches, backups and existing tables untouched. A staging session must explicitly set `app.orvix_inventory_backfill_permission=STAGING_ONLY_RESTORE_TESTED`. Companion: `scripts/sql/read_only_product_inventory_preflight.sql`, plus `src/shared/utils/inventorySettingsBackfill.test.ts`.
 
 **Cutover not done:** The existing target does not yet capture extended JSON fields such as package-specific prices, embedded fraction sale settings, medicine unit levels, expiry and batch history. Both shadow backfill and transactionally consistent read/write cutover require restored staging, tenant parity checks, tests and explicit data-preservation approval. Do **not** drop source_record, change stock math, delete inactive histories or confuse preparing a backfill with completing a migration.
+
+## Stage 2: typed package prices, fraction options, pharmacy units (2026-10-27)
+
+New staging-only SQL: `scripts/sql/staging_extend_and_backfill_inventory_details.sql` and safety tests `src/shared/utils/inventoryDetailsShadow.test.ts`. This **has not been applied to production or a staging database**; GitHub CI tests prove source-level guardrails, not actual PostgreSQL execution. Complementary, production-safe SQL: `scripts/sql/read_only_inventory_normalization_coverage.sql`.
+
+Fresh aggregate read-only evidence from the current 279 active `inventorySettings` JSON sources:
+
+- `packageUnitPrice`, `halfPackagePrice`, `packageBuyingCost`: **166 products** each; `wholePackagePrice`: **119**.
+- `fractionSaleEnabled`: **47**; 3 products contain **12** explicit fraction option entries (all have identity, quantity, label, price, order and acceptable precision).
+- 4 pharmacy-product `pharmacyUnitBreakdown` structures, with typed string unit labels and positive quantities at acceptable numeric precision.
+- 30 active products contain **33** batches. Their current JSON records include `destination`, `quantityPurchasedBase`, `quantityRemainingBase`, etc. The current `jasper_inventory_batches` schema does **not** capture all of these, so **batch source JSON must not be deleted yet**.
+- Existing typed tables `jasper_product_inventory_settings`, `jasper_fraction_sale_options` and `jasper_pharmacy_unit_breakdowns` remained empty during this read-only audit.
+
+The extension script keeps optional package prices and booleans in explicit columns (not JSONB), preserves original fraction-option IDs via a new `legacy_option_id` field, preserves order, and writes the four pharmacy breakdowns to the existing typed relation. It is guarded by an isolated-staging approval marker and validates source field types, exact numeric precision, existing shadow drift and transaction-end parity; failures roll back. Its array and pharmacy source checks reject missing/null/malformed values rather than silently dropping unsupported data. Backups, live product rows and `source_record` are deliberately unchanged.
+
+**Remaining to finish JSON retirement:** run both scripts on a restore-tested staging clone; fix any SQL-runtime/schema differences; implement same-transaction typed writes, gated reads and per-tenant equality checks. Move all extended top-level product fields, inventory batches (including FEFO/expiry), sales payment detail and receipts before considering `source_record` removal. **Do not call this complete just because the staging scripts or CI pass.**
