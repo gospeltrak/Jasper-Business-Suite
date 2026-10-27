@@ -79,3 +79,37 @@ settings legacy data and client-state read activation remain uncompleted
 production release gates. The objective is less rewrite I/O and simpler
 tenant-specific records *without data loss*, not claiming zero JSON
 everywhere.
+
+## Live-schema compatibility finding, 2026-10-27
+
+A second production **read-only** audit uncovered a critical distinction not
+covered by the original synthetic fixtures:
+
+- **4** legacy `tenant_data.application_state` rows in total.
+- **2** rows use UUID tenant IDs; both have a matching workspace and a
+  membership entry in `public.users`. They hold **24** Storage keys and
+  approximately **2,278 kB**.
+- **2** rows use old, non-UUID/global identifiers. They hold **21** keys and
+  approximately **5,441 kB**. These are not associated with a tenant that
+  can be selected by `private.current_tenant_id()` and must NOT be given
+  an invented tenant ID.
+- The migration was corrected to process **only** UUID tenant IDs with
+  matching `tenant_workspaces` and `users` membership. The old global
+  sources remain untouched inside `tenant_data`, and no inaccessible
+  typed tenant rows or activation markers are created for them.
+- The PostgreSQL 17 integration fixture now includes **two extra legacy
+  non-UUID scopes**, verifies their original hashes remain unchanged and
+  ensures they have no typed tenant shadow records.
+
+Thus the earlier **7.7 MB** headline cannot accurately be presented as
+7.7 MB of ready-to-convert customer tenant data: only about **2.3 MB** is
+eligible for this tenant-scoped path; the remaining **5.4 MB** must undergo
+its own read/write provenance audit and separate archival/migration design.
+
+## Pending-state reconnect protection
+
+The client now listens for browser `online` events: a change deferred
+during an internet outage is automatically retried on reconnection instead
+of silently requiring the user to make a second edit. This applies to both
+the legacy JSON persistence path and the optional typed key path. The
+feature gate for typed storage remains **OFF in production**.
