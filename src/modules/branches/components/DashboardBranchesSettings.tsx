@@ -364,7 +364,14 @@ function BranchLogoUploadCard({
         import('../../../shared/utils/imageStorage'),
         import('../branchApi'),
       ]);
-      const compressed = await compressImage(file);
+      const { LOGO_MAX_BYTES } = await import('../../../shared/utils/imageUploadBudget');
+      const compressed = await compressImage(file, {
+        targetBytes: LOGO_MAX_BYTES,
+        maxBytes: LOGO_MAX_BYTES,
+        maxDimension: 400,
+        // The existing authenticated branch endpoint expects JPEG bytes.
+        preferredMime: 'image/jpeg',
+      });
       const logoBase64 = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onerror = () => reject(new Error('The selected image could not be read.'));
