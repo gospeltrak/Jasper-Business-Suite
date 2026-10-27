@@ -18,13 +18,18 @@ CREATE TABLE public.products (
   source_active boolean NOT NULL DEFAULT true
 );
 CREATE TABLE public.tenant_workspaces (tenant_id uuid PRIMARY KEY,payload jsonb NOT NULL);
+CREATE TABLE public.users (tenant_id uuid NOT NULL);
 CREATE TABLE public.tenant_data (tenant_id text NOT NULL,data_key text NOT NULL,payload jsonb,
   updated_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY(tenant_id,data_key));
 \ir ../../supabase_inventory_costing.sql
 
 INSERT INTO public.tenant_workspaces VALUES
- ('11111111-1111-1111-1111-111111111111','{"settings":{"businessName":"Synthetic Store"}}');
+ ('11111111-1111-1111-1111-111111111111','{"settings":{"businessName":"Synthetic Store"}}'),
+ ('22222222-2222-2222-2222-222222222222','{"settings":{"businessName":"Second Synthetic Tenant"}}');
+INSERT INTO public.users (tenant_id) VALUES
+ ('11111111-1111-1111-1111-111111111111'),
+ ('22222222-2222-2222-2222-222222222222');
 INSERT INTO public.tenant_data VALUES
  ('11111111-1111-1111-1111-111111111111','data_backup_protected_ci',
   '{"historicSales":[{"id":"s-original","amount":2500}],"stock":99}');
