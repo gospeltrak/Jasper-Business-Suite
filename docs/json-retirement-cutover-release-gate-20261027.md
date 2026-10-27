@@ -135,3 +135,33 @@ payment replay; prove exact typed-vs-legacy parity on real tenants; verify
 cashier/branch permissions, payment audit evidence and cross-branch isolation.
 The staging shadow tables remain disconnected from the live payment flow.
 **No live sales, treasury journals, payments or backup rows changed.**
+
+## Stage 3b: same-transaction write mirroring proven on synthetic PostgreSQL
+
+`scripts/sql/staging_mirror_sales_payment_breakdowns.sql` installs a
+**staging-only** AFTER INSERT / UPDATE trigger on the normalized
+`public.sales` relation. Within the sale transaction, the trigger uses
+NEW's existing tenant ID and legacy sale ID (never a client-submitted
+shadow tenant ID), validates the source payment lines, updates the typed
+header/hash and upserts each current typed line. Superseded entries are
+marked `is_current=false`, *not deleted*, and inactive/tombstoned sales
+are marked in `source_active` while retaining source evidence. Public
+authenticated roles cannot call the private SECURITY DEFINER function
+or directly create/modify typed payment records.
+
+`scripts/sql/ci_sales_payment_mirror_assertions.sql` tests real
+PostgreSQL transactions for new sales, payment amount changes, shorter
+arrays, absent vs empty arrays, tombstones, rejected invalid amounts,
+original source integrity and unchanged protected backups. The PG17
+synthetic integration job completed successfully on commit
+`5f5c53cb48916aff8ea7cff52a27fd516d292659`.
+
+**Important stage-only gates:** This does not imply that other legacy
+writes bypassing public.sales are mirrored. All business write paths,
+RPC and offline resync paths require proof of normalization and exact
+side-by-side reads on a **restore-tested real-data staging clone**.
+Never apply the trigger to production from this draft SQL; its
+SECURITY DEFINER privileges, performance/lock overhead, transaction
+rollback behavior and semantics of ALL legacy writers must first be
+measured and reviewed. The existing customer JSON and ledgers remain
+canonical until read cutover is proven safe.
