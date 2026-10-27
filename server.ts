@@ -1079,14 +1079,16 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       if (tenantError) throw tenantError;
       if (!tenant) return res.status(404).json({ error: 'Subscription not found.' });
       const planId = String(tenant.active_package_id || tenant.selected_package_id || '').toLowerCase();
+      const subscriptionStatus = String(tenant.subscription_status || '').toLowerCase();
+      const isTrial = subscriptionStatus === 'trial' || planId === 'trial';
+      const isActivePaid = subscriptionStatus === 'active'
+        && ['ruby', 'diamond', 'tanzanite'].includes(planId);
       const days = Math.ceil((Date.parse(String(tenant.subscription_end_date || '')) - Date.now()) / 86_400_000);
-      if (String(tenant.subscription_status || '').toLowerCase() !== 'active'
-        || !['ruby', 'diamond', 'tanzanite'].includes(planId)
-        || !Number.isInteger(days) || days < 1 || days > 3) {
+      if ((!isTrial && !isActivePaid) || !Number.isInteger(days) || days < 1 || days > 3) {
         return res.json({ created: false });
       }
 
-      const planName = planId.charAt(0).toUpperCase() + planId.slice(1);
+      const planName = isTrial ? 'Free Trial' : planId.charAt(0).toUpperCase() + planId.slice(1);
       const endAt = new Date(tenant.subscription_end_date).toISOString();
       const idempotencyKey = `subscription-expiry:${endAt}:${days}`;
       const eventTable = supabaseAdmin!.from('branch_notification_events');
@@ -1095,9 +1097,9 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         .eq('idempotency_key', idempotencyKey).maybeSingle();
       if (lookupError) throw lookupError;
       if (!event) {
-        const message = days === 1
-          ? `Your ${planName} package expires tomorrow.`
-          : `Your ${planName} package expires in ${days} days.`;
+        const message = isTrial
+          ? (days === 1 ? 'Your free trial expires tomorrow.' : `Your free trial expires in ${days} days.`)
+          : (days === 1 ? `Your ${planName} package expires tomorrow.` : `Your ${planName} package expires in ${days} days.`);
         const inserted = await eventTable.insert({
           tenant_id: access.tenantId,
           branch_id: null,
@@ -1109,7 +1111,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
           message,
           priority: 'normal',
           idempotency_key: idempotencyKey,
-          payload: { planName, daysRemaining: days, subscriptionEndAt: endAt },
+          payload: { planName, daysRemaining: days, subscriptionEndAt: endAt, isTrial },
         }).select('id').single();
         // A concurrent session may have inserted the same daily event.
         if (inserted.error && inserted.error.code !== '23505') throw inserted.error;
@@ -1203,6 +1205,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
             moduleName: event?.module_name || 'system',
             subscriptionPlanName: event?.module_name === 'subscription' ? event?.payload?.planName : undefined,
             subscriptionDaysRemaining: event?.module_name === 'subscription' ? Number(event?.payload?.daysRemaining) : undefined,
+            subscriptionIsTrial: event?.module_name === 'subscription' ? event?.payload?.isTrial === true : undefined,
             title: event?.title || 'System notification',
             message: event?.message || '',
             notificationType: event?.event_type || 'system_alert',
