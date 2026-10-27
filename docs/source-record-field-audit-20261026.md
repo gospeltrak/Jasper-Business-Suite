@@ -76,3 +76,18 @@ New read-only `extensions.pg_stat_statements` inspection flags the remaining hig
 `pg_stat_database.temp_bytes` now reports **~92 GB cumulative**, an I/O counter — **NOT** a 92 GB disk file or current storage bill. Prior read-only checkpoint noted ~61 GB cumulative; it should not be interpreted as 31 GB produced today because the sampling windows/reset timing were not synchronized.
 
 **Next performance PR:** prioritize exactly scoped `route_current_branch_business_data` and full `save_current_branch_workspace` paths, eliminating unnecessary full-workspace JSON composition and temp sorts in favor of narrow normalized reads/writes. Use a measured before/after on staging with representative tenant data, compare nested result hashes, ledger totals, stock, branch permissions and P95 request timing. Do not optimize by deleting rows, removing backup protections, or changing a business write to non-atomic.
+
+## Typed product inventory settings staging backfill (2026-10-27)
+
+**Actual repository change:** `src/shared/utils/inventoryCosting.ts` now recognizes `weighted_average` as the historical storage spelling of canonical `average_price`. It does this **only in memory** on business-logic reads, preserving the original customer `source_record` value. Regression coverage added to `src/shared/utils/inventoryCosting.test.ts`.
+
+**Read-only live audit:**
+- 484 product rows total; 416 have original `source_record`.
+- 286 product rows contain inventorySettings JSON; **279 active**, **7 inactive historical**.
+- Among active candidates **120 use `weighted_average`** in both the top-level and nested settings. The existing typed `jasper_product_inventory_settings.costing_method` has a CHECK constraint accepting only `fifo`, `average_price`, `batch_price`. Therefore blind JSON-to-typed backfill would reject or mishandle those 120 rows.
+- No active candidate lacked a legacy identifier; no observed costing-method or numeric precision incompatibility for typed pricing (2 decimals) and unit conversions (6 decimals).
+- Existing typed settings target currently contains **zero rows**. RLS is enabled and forced, with tenant- and platform-admin-scoped policies.
+
+**Prepared but intentionally NOT run on production:** `scripts/sql/staging_backfill_product_inventory_settings.sql` is a guarded, idempotent INSERT-only staging candidate. It maps the historical method spelling to the canonical typed value, skips inactive rows, never overwrites an existing typed row, refuses incompatible field types/precision and rolls back if any active-source field fails exact typed comparison. It leaves `products.source_record`, stock, sales, subscriptions, branches, backups and existing tables untouched. A staging session must explicitly set `app.orvix_inventory_backfill_permission=STAGING_ONLY_RESTORE_TESTED`. Companion: `scripts/sql/read_only_product_inventory_preflight.sql`, plus `src/shared/utils/inventorySettingsBackfill.test.ts`.
+
+**Cutover not done:** The existing target does not yet capture extended JSON fields such as package-specific prices, embedded fraction sale settings, medicine unit levels, expiry and batch history. Both shadow backfill and transactionally consistent read/write cutover require restored staging, tenant parity checks, tests and explicit data-preservation approval. Do **not** drop source_record, change stock math, delete inactive histories or confuse preparing a backfill with completing a migration.
