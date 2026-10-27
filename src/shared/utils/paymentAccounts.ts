@@ -173,7 +173,7 @@ export const getDebtCollectionPaymentChannels = (
   // Spelling variants such as "M-Pesa" / "Mpesa" / "M Pesa" must
   // resolve to the SAME configured account rather than creating a second
   // Money & Bank account for an old tenant.
-  const methodIdentity = (value: string): string => normalize(value).replace(/[\\s_-]/g, '');
+  const methodIdentity = (value: string): string => normalize(value).replace(/[\s_-]/g, '');
   const usableMethods = methods.filter(method => {
     const matches = original.filter(channel =>
       methodIdentity(channel.paymentMethod || channel.name || channel.provider || '') === methodIdentity(method),
