@@ -57,6 +57,24 @@ describe('online cache avoids redundant persistence work', () => {
     resetOnlineStorage();
   });
 
+  it('automatically saves pending state on reconnect without another user edit', async () => {
+    const { configureOnlineStorage, onlineStorage, resetOnlineStorage } = await import('./onlineStorage');
+    await configureOnlineStorage('tenant-a');
+    (navigator as { onLine: boolean }).onLine = false;
+    onlineStorage.setItem('existing', 'offline edit');
+    await vi.advanceTimersByTimeAsync(1001);
+    expect(bridge.upsert).not.toHaveBeenCalled();
+    (navigator as { onLine: boolean }).onLine = true;
+    const listeners = (window.addEventListener as ReturnType<typeof vi.fn>).mock.calls;
+    const onlineListener = listeners.find(([type]) => type === 'online')?.[1] as (() => void) | undefined;
+    expect(onlineListener).toBeDefined();
+    onlineListener?.();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(bridge.upsert).toHaveBeenCalledTimes(1);
+    expect(bridge.upsert.mock.calls[0][0].payload).toEqual({ existing: 'offline edit' });
+    resetOnlineStorage();
+  });
+
   it('allows the same value to retry after a database save failed', async () => {
     const { configureOnlineStorage, onlineStorage, resetOnlineStorage } = await import('./onlineStorage');
     await configureOnlineStorage('tenant-a');

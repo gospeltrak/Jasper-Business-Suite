@@ -1064,6 +1064,92 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
 
   app.use(express.json({ limit: '8mb' }));
 
+  // Persist one expiry reminder per tenant, subscription end date and remaining
+  // day (3/2/1). All values come from the authoritative server-side tenant row:
+  // the client cannot select an end date, days count or another tenant.
+  app.post('/api/notifications/subscription-reminder', async (req, res) => {
+    try {
+      const access = await requireNotificationInboxUser(req);
+      if (access.isPlatformAdmin || !isUuid(access.tenantId)) return res.json({ created: false });
+      const { data: tenant, error: tenantError } = await supabaseAdmin!
+        .from('tenants')
+        .select('id,active_package_id,selected_package_id,subscription_status,subscription_end_date')
+        .eq('id', access.tenantId)
+        .maybeSingle();
+      if (tenantError) throw tenantError;
+      if (!tenant) return res.status(404).json({ error: 'Subscription not found.' });
+      const planId = String(tenant.active_package_id || tenant.selected_package_id || '').toLowerCase();
+      const subscriptionStatus = String(tenant.subscription_status || '').toLowerCase();
+      const isTrial = subscriptionStatus === 'trial' || (subscriptionStatus === 'active' && planId === 'trial');
+      const isActivePaid = subscriptionStatus === 'active'
+        && ['ruby', 'diamond', 'tanzanite'].includes(planId);
+      const days = Math.ceil((Date.parse(String(tenant.subscription_end_date || '')) - Date.now()) / 86_400_000);
+      if ((!isTrial && !isActivePaid) || !Number.isInteger(days) || days < 1 || days > 3) {
+        return res.json({ created: false });
+      }
+
+      const planName = isTrial ? 'Free Trial' : planId.charAt(0).toUpperCase() + planId.slice(1);
+      const endAt = new Date(tenant.subscription_end_date).toISOString();
+      const idempotencyKey = `subscription-expiry:${endAt}:${days}`;
+      const eventTable = supabaseAdmin!.from('branch_notification_events');
+      let { data: event, error: lookupError } = await eventTable
+        .select('id').eq('tenant_id', access.tenantId)
+        .eq('idempotency_key', idempotencyKey).maybeSingle();
+      if (lookupError) throw lookupError;
+      if (!event) {
+        const message = isTrial
+          ? (days === 1 ? 'Your free trial expires tomorrow.' : `Your free trial expires in ${days} days.`)
+          : (days === 1 ? `Your ${planName} package expires tomorrow.` : `Your ${planName} package expires in ${days} days.`);
+        const inserted = await eventTable.insert({
+          tenant_id: access.tenantId,
+          branch_id: null,
+          event_type: 'system_alert',
+          module_name: 'subscription',
+          entity_type: 'subscription',
+          entity_id: endAt,
+          title: 'Subscription expiry',
+          message,
+          priority: 'normal',
+          idempotency_key: idempotencyKey,
+          payload: { planName, daysRemaining: days, subscriptionEndAt: endAt, isTrial },
+        }).select('id').single();
+        // A concurrent session may have inserted the same daily event.
+        if (inserted.error && inserted.error.code !== '23505') throw inserted.error;
+        if (inserted.data) event = inserted.data;
+        else {
+          const retry = await eventTable.select('id').eq('tenant_id', access.tenantId)
+            .eq('idempotency_key', idempotencyKey).single();
+          if (retry.error || !retry.data) throw retry.error || new Error('Subscription notice unavailable');
+          event = retry.data;
+        }
+      }
+
+      // Recipient identity has a unique index, so repeated sign-in/refresh
+      // never resets a previously read notification to unread.
+      const recipients = supabaseAdmin!.from('branch_notification_recipients');
+      const prior = await recipients.select('id').eq('tenant_id', access.tenantId)
+        .eq('event_id', event.id).eq('recipient_user_id', access.user.id)
+        .eq('delivery_channel', 'in_app').maybeSingle();
+      if (prior.error) throw prior.error;
+      if (!prior.data) {
+        const deliveredAt = new Date().toISOString();
+        const inserted = await recipients.insert({
+          tenant_id: access.tenantId,
+          event_id: event.id,
+          recipient_user_id: access.user.id,
+          delivery_channel: 'in_app',
+          delivery_status: 'delivered',
+          delivered_at: deliveredAt,
+        });
+        if (inserted.error && inserted.error.code !== '23505') throw inserted.error;
+      }
+      return res.json({ created: true });
+    } catch (error: any) {
+      const status = Number(error?.status || 500);
+      return res.status(status).json({ error: status < 500 ? error.message : 'Subscription reminder is temporarily unavailable.' });
+    }
+  });
+
   app.get('/api/notifications/inbox', async (req, res) => {
     try {
       const access = await requireNotificationInboxUser(req);
@@ -1100,7 +1186,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
 
       const { data, error } = await supabaseAdmin!
         .from('branch_notification_recipients')
-        .select('id, tenant_id, event_id, delivery_status, read_at, created_at, branch_notification_events!inner(id, tenant_id, module_name, event_type, title, message, created_at)')
+        .select('id, tenant_id, event_id, delivery_status, read_at, created_at, branch_notification_events!inner(id, tenant_id, module_name, event_type, title, message, payload, created_at)')
         .eq('tenant_id', access.tenantId)
         .eq('recipient_user_id', access.user.id)
         .eq('delivery_channel', 'in_app')
@@ -1117,6 +1203,9 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
             id: recipient.id,
             tenantId: recipient.tenant_id,
             moduleName: event?.module_name || 'system',
+            subscriptionPlanName: event?.module_name === 'subscription' ? event?.payload?.planName : undefined,
+            subscriptionDaysRemaining: event?.module_name === 'subscription' ? Number(event?.payload?.daysRemaining) : undefined,
+            subscriptionIsTrial: event?.module_name === 'subscription' ? event?.payload?.isTrial === true : undefined,
             title: event?.title || 'System notification',
             message: event?.message || '',
             notificationType: event?.event_type || 'system_alert',
@@ -1896,7 +1985,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     const encoded = /^data:image\/jpeg;base64,([A-Za-z0-9+/=]+)$/.exec(logoBase64)?.[1];
     if (!encoded) return res.status(400).json({ error: 'The branch logo must be a valid image.' });
     const buffer = Buffer.from(encoded, 'base64');
-    if (!buffer.length || buffer.length > 1_000_000 || buffer[0] !== 0xff || buffer[1] !== 0xd8 || buffer[2] !== 0xff) {
+    if (!buffer.length || buffer.length > 10_000 || buffer[0] !== 0xff || buffer[1] !== 0xd8 || buffer[2] !== 0xff) {
       return res.status(400).json({ error: 'The optimized branch logo is invalid or too large.' });
     }
 

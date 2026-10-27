@@ -913,6 +913,10 @@ export interface JasperNotification {
   moduleName: string;
   title: string;
   message: string;
+  /** Server-verified subscription countdown metadata for bilingual rendering. */
+  subscriptionPlanName?: string;
+  subscriptionDaysRemaining?: number;
+  subscriptionIsTrial?: boolean;
   notificationType: 'sale' | 'report' | 'daily_summary' | 'weekly_summary' | 'monthly_summary' | 'profit_loss_report' | 'expense_report' | 'low_stock' | 'price_alert' | 'cash_alert' | 'stock_alert' | 'system_alert';
   reportPeriodStart?: string;
   reportPeriodEnd?: string;

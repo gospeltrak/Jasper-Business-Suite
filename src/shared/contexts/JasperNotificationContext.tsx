@@ -27,7 +27,6 @@ interface NotificationContextProps {
     cashierName: string;
     itemsSummary?: string;
   }) => void;
-  addSubscriptionReminderNotification: (payload: { tenantId: string; title: string; message: string }) => void;
 }
 
 const normalizeModuleName = (moduleName: string) => {
@@ -142,6 +141,22 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       if (!session?.access_token) {
         setNotifications([]);
         return;
+      }
+      // Server validates the authoritative subscription and adds at most one
+      // persisted, per-tenant reminder for each of days 3, 2 and 1. Do not
+      // trust client clock or use a phone-only local notification.
+      if (inboxScope.role === 'Admin') {
+        try {
+          await fetch('/api/notifications/subscription-reminder', {
+            method: 'POST',
+            headers: {
+              Accept: 'application/json',
+              Authorization: `Bearer ${session.access_token}`,
+            },
+          });
+        } catch {
+          // Keep existing inbox usable if reminder creation is unavailable.
+        }
       }
       const response = await fetch('/api/notifications/inbox', {
         headers: { Accept: 'application/json', Authorization: `Bearer ${session.access_token}` },
@@ -282,36 +297,6 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     saveNotifications([newNotif, ...notifications]);
   };
 
-  // Phone-only delivery for the subscription-expiry countdown: tablet/desktop
-  // show it as a header badge (Dashboard.tsx), but that header doesn't exist
-  // on phone width, so it goes into the bell/inbox instead. Same
-  // Admin-only/tenant-scoped gating as addSaleNotification, local-state only
-  // (no server round-trip) since this is re-derived from live subscription
-  // state each time, not a persisted record.
-  const addSubscriptionReminderNotification = (payload: { tenantId: string; title: string; message: string }) => {
-    if (!inboxScope || inboxScope.role !== 'Admin' || inboxScope.tenantId !== payload.tenantId) return;
-    // Belt-and-braces guard alongside the sessionStorage check at the call
-    // site (Dashboard.tsx): that guard is keyed by day-count/plan, so it can
-    // still fire twice for the exact same reminder if the key computation
-    // races. Refuse an exact title+message duplicate that's already in the
-    // list rather than relying on timing alone.
-    const alreadyShown = notifications.some(n => n.tenantId === payload.tenantId && n.title === payload.title && n.message === payload.message);
-    if (alreadyShown) return;
-    const newNotif: JasperNotification = {
-      id: Math.random().toString(36).substr(2, 9),
-      tenantId: payload.tenantId,
-      moduleName: 'subscription',
-      title: payload.title,
-      message: payload.message,
-      notificationType: 'system_alert',
-      deliveryChannel: 'in_app',
-      status: 'sent',
-      isRead: false,
-      createdAt: new Date().toISOString()
-    };
-    saveNotifications([newNotif, ...notifications]);
-  };
-
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
   return (
@@ -329,8 +314,7 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
       hydrateTenantModuleSettings,
       markAsRead,
       markAllAsRead,
-      addSaleNotification,
-      addSubscriptionReminderNotification
+      addSaleNotification
     }}>
       {children}
     </NotificationContext.Provider>

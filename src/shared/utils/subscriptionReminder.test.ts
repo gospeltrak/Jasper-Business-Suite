@@ -16,6 +16,19 @@ describe('Paid plan expiry reminders', () => {
     expect(getSubscriptionReminder('tanzanite', 'Tanzanite', days, false, false)?.message).toContain(phrase);
   });
 
+  it.each([3, 2, 1])('uses short bilingual paid-plan copy without a pay-now sentence at %i days', days => {
+    const en = getSubscriptionReminder('tanzanite', 'Tanzanite', days, false, false, 'en')!;
+    const sw = getSubscriptionReminder('tanzanite', 'Tanzanite', days, false, false, 'sw')!;
+    expect(en.message).toBe(days === 1
+      ? 'Your Tanzanite package expires tomorrow.'
+      : `Your Tanzanite package expires in ${days} days.`);
+    expect(sw.message).toBe(days === 1
+      ? 'Kifurushi chako cha Tanzanite kitaisha kesho.'
+      : `Kifurushi chako cha Tanzanite kitaisha ndani ya siku ${days}.`);
+    expect(en.message).not.toMatch(/pay now|renew now|avoid interruption/i);
+    expect(sw.message).not.toMatch(/lipia sasa|ili usikatizwe/i);
+  });
+
   it('applies the same 3-day warning to non-Tanzanite plans too', () => {
     const reminder = getSubscriptionReminder('diamond', 'Diamond', 2, false, false);
     expect(reminder).not.toBeNull();
@@ -41,6 +54,13 @@ describe('Free trial countdown', () => {
     expect(reminder?.level).toBe('trial');
     expect(reminder?.daysRemaining).toBe(20);
     expect(reminder?.title).toContain('20');
+  });
+
+  it('keeps trial reminders short without payment instructions in the header', () => {
+    expect(getSubscriptionReminder('trial', 'Diamond Free Trial', 2, false, true, 'en')?.message)
+      .toBe('Your free trial expires in 2 days.');
+    expect(getSubscriptionReminder('trial', 'Diamond Free Trial', 2, false, true, 'sw')?.message)
+      .toBe('Jaribio lako la bure litaisha ndani ya siku 2.');
   });
 
   it('reflects the promo-code-driven 10 vs 20 day duration as passed in', () => {

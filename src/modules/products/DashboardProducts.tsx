@@ -265,6 +265,7 @@ export default function DashboardProducts({
   const [selectedBrandFilter, setSelectedBrandFilter] = useState<string | null>(null);
   const [newBrandName, setNewBrandName] = useState('');
   const [newBrandLogo, setNewBrandLogo] = useState('');
+  const [isUploadingBrandLogo, setIsUploadingBrandLogo] = useState(false);
 
   useEffect(() => {
     if (!Array.isArray(systemSettings?.productStore?.brands)) return;
@@ -825,10 +826,23 @@ export default function DashboardProducts({
   };
 
   const handleBrandLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const compressed = await compressImageFile(file, { maxWidth: 512, maxHeight: 512, quality: 0.72 });
-    setNewBrandLogo(compressed);
+    const input = e.currentTarget;
+    const file = input.files?.[0];
+    if (!file || isUploadingBrandLogo) return;
+    setIsUploadingBrandLogo(true);
+    try {
+      const { uploadTenantBrandLogo } = await import('../../shared/utils/imageStorage');
+      const storageUrl = await uploadTenantBrandLogo(file, activeTenant.id);
+      if (!storageUrl) throw new Error('Product brand logo upload was rejected');
+      // Store only a public Storage URL. Never persist preview data/base64.
+      setNewBrandLogo(storageUrl);
+    } catch (error) {
+      console.warn('[ProductBrand] Storage upload failed; saved brand data unchanged:', error);
+      window.alert(t('Unable to upload brand logo. Please check your connection and try again.'));
+    } finally {
+      setIsUploadingBrandLogo(false);
+      input.value = '';
+    }
   };
 
   // Search filter
@@ -4958,11 +4972,12 @@ export default function DashboardProducts({
                         type="file" 
                         accept="image/*"
                         onChange={handleBrandLogoUpload}
+                        disabled={isUploadingBrandLogo}
                         className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
                       />
                       <button type="button" className="py-1 px-2.5 bg-white border border-slate-220 rounded-lg font-bold text-[10.5px] text-slate-700 flex items-center space-x-1 hover:bg-slate-50 shadow-2xs cursor-pointer">
                         <Upload className="w-3 h-3 text-slate-400" />
-                        <span>Upload Logo</span>
+                        <span>{isUploadingBrandLogo ? 'Uploading...' : 'Upload Logo'}</span>
                       </button>
                     </div>
                   </div>
@@ -4970,7 +4985,9 @@ export default function DashboardProducts({
 
                 <button
                   type="button"
+                  disabled={isUploadingBrandLogo}
                   onClick={() => {
+                    if (isUploadingBrandLogo) return;
                     const trimmed = newBrandName.trim();
                     if (!trimmed) return;
                     if (brandsList.map(b => b.name.toLowerCase()).includes(trimmed.toLowerCase())) {
@@ -4987,7 +5004,7 @@ export default function DashboardProducts({
                   }}
                   className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-505 text-white rounded-xl font-bold uppercase text-[10.5px] transition-all cursor-pointer"
                 >
-                  Save Product Brand
+                  {isUploadingBrandLogo ? 'Uploading Logo...' : 'Save Product Brand'}
                 </button>
               </div>
             </div>

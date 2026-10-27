@@ -7,8 +7,8 @@ import { getPaymentModeName } from '../../shared/utils/paymentAccounts';
 import { Settings as SettingsIcon, Building, Building2, Package, Users, Check, Trash2, Plus, Upload, CreditCard, Store, Tag, Sliders, Sun, Moon, Bell, CheckCircle, FileText, ShieldCheck, Lock, X, Activity, DollarSign, Truck, ArrowLeft, ChevronRight, Search } from "lucide-react";
 import { DashboardNotificationsSettings } from '../notifications-settings/DashboardNotificationsSettings';
 import { getSecureDataBridgeClient } from '../../shared/dataBridge/secureDataBridge';
-import { compressImageFile } from '../../shared/utils/imageCompression';
 import { getTreasuryPaymentMethods, reconcilePaymentChannels } from '../../shared/utils/paymentAccounts';
+import { withUploadedBusinessLogo } from './utils/logoSettings';
 import { lazyWithReload } from '../../shared/utils/lazyWithReload';
 
 const DashboardBranchesSettings = lazyWithReload('SettingsDashboardBranches', () => import('../branches/components/DashboardBranchesSettings'));
@@ -135,6 +135,9 @@ export default function DashboardSettings({
     return { ...base, themeMode: (base as any).themeMode || (isDark ? 'dark' : 'light') };
   });
   const [businessForm, setBusinessForm] = useState<BusinessSettings>(() => normalizeBusinessSettings(systemSettings?.business, systemSettings?.company));
+  // Keep the latest settings available when multiple logo uploads finish asynchronously.
+  const latestBusinessFormRef = useRef(businessForm);
+  latestBusinessFormRef.current = businessForm;
   // The tenant's subdomain/business-name slug is assigned server-side at registration
   // (and is immutable after that) and lives on the `tenants` table row, not inside
   // systemSettings.business -- so it's fetched separately here rather than relying on
@@ -441,58 +444,38 @@ export default function DashboardSettings({
     }));
   };
 
-  // Drag and drop logo processors
+  // Store only Supabase Storage URLs in business settings. A local base64
+  // preview must never be written to a tenant-wide JSON settings payload.
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>, target: 'business_light' | 'business_dark') => {
     const file = e.target.files?.[0];
-    if (file) {
-      try {
-        const base64String = await compressImageFile(file, { maxWidth: 512, maxHeight: 512, quality: 0.72 });
-
-        // Upload to Supabase Storage in background — get a permanent URL
-        // that replaces the base64 string everywhere once upload completes.
-        const applyLogoUrl = (url: string) => {
-          const urlToUse = url || base64String;
-          if (target === 'business_light') {
-            const nextBusinessForm = {
-              ...businessForm,
-              businessLogoLight: urlToUse,
-              businessLogo: businessForm.businessLogo || urlToUse
-            };
-            setBusinessForm(nextBusinessForm);
-            persistBusinessSettings(nextBusinessForm);
-          } else {
-            // Deliberately does NOT fall back into the general `businessLogo`
-            // field the way the light-logo branch above does. `businessLogo`
-            // is the "safe on a white background" fallback used by Reports
-            // and the Light Theme preview card — leaking a dark-theme logo
-            // (which can carry a baked-in dark/black background) into it
-            // reproduces the exact black-logo-box artifact those call sites
-            // exist to avoid. Places that do want the dark logo already read
-            // `businessLogoDark` directly (see getBusinessLogo()).
-            const nextBusinessForm = {
-              ...businessForm,
-              businessLogoDark: urlToUse
-            };
-            setBusinessForm(nextBusinessForm);
-            persistBusinessSettings(nextBusinessForm);
-          }
-        };
-
-        // Apply base64 immediately for instant preview
-        applyLogoUrl(base64String);
-
-        // Then upload to Storage and replace with permanent URL
-        import('../../shared/utils/imageStorage').then(({ uploadTenantLogo }) =>
-          uploadTenantLogo(file, activeTenant.id)
-        ).then((storageUrl) => {
-          if (storageUrl) applyLogoUrl(storageUrl);
-        }).catch((err) => {
-          console.warn('[DashboardSettings] Logo Storage upload failed, base64 kept:', err);
-        });
-
-      } catch (error) {
-        console.warn('Unable to compress uploaded logo', error);
+    if (!file) return;
+    try {
+      const { uploadTenantLogo } = await import('../../shared/utils/imageStorage');
+      const variant = target === 'business_light' ? 'light' : 'dark';
+      const storageUrl = await uploadTenantLogo(file, activeTenant.id, variant);
+      if (!storageUrl) {
+        // Preserve the existing logo and its settings when Storage is unavailable.
+        window.alert(isSw
+          ? 'Imeshindikana kupakia nembo. Nembo yako ya zamani haijabadilishwa. Jaribu tena.'
+          : 'Logo upload failed. Your existing logo is unchanged. Please try again.');
+        return;
       }
+
+      const nextBusinessForm = withUploadedBusinessLogo(
+        latestBusinessFormRef.current,
+        variant,
+        storageUrl,
+      );
+      latestBusinessFormRef.current = nextBusinessForm;
+      setBusinessForm(nextBusinessForm);
+      persistBusinessSettings(nextBusinessForm);
+    } catch (error) {
+      console.warn('[DashboardSettings] Logo Storage upload failed:', error);
+      window.alert(isSw
+        ? 'Imeshindikana kupakia nembo. Nembo yako ya zamani haijabadilishwa. Jaribu tena.'
+        : 'Logo upload failed. Your existing logo is unchanged. Please try again.');
+    } finally {
+      e.target.value = '';
     }
   };
 
@@ -555,35 +538,40 @@ export default function DashboardSettings({
   };
   const [selectedBranchForLogo, setSelectedBranchForLogo] = useState<string | null>(null);
 
+  // Legacy store-location branding is currently hidden, but retain a safe
+  // implementation so re-enabling it never writes base64 into tenant settings.
   const handleBranchLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>, storeName: string, mode: 'light' | 'dark') => {
     const file = e.target.files?.[0];
     if (!file) return;
     try {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const logoUrl = reader.result as string;
-        const currentBranding = businessForm.branchBranding || {};
-        const currentEntry = currentBranding[storeName] || {};
-        const updated = {
-          ...businessForm,
-          branchBranding: {
-            ...currentBranding,
-            [storeName]: {
-              ...currentEntry,
-              ...(mode === 'light'
-                ? { businessLogoLight: logoUrl, businessLogo: currentEntry.businessLogo || logoUrl }
-                : { businessLogoDark: logoUrl })
-            }
+      const { uploadTenantLogo } = await import('../../shared/utils/imageStorage');
+      const logoUrl = await uploadTenantLogo(file, activeTenant.id, mode);
+      if (!logoUrl) throw new Error('Storage rejected logo upload');
+      const currentBranding = businessForm.branchBranding || {};
+      const currentEntry = currentBranding[storeName] || {};
+      const updated = {
+        ...businessForm,
+        branchBranding: {
+          ...currentBranding,
+          [storeName]: {
+            ...currentEntry,
+            ...(mode === 'light'
+              ? { businessLogoLight: logoUrl, businessLogo: !currentEntry.businessLogo || currentEntry.businessLogo.startsWith('data:')
+                ? logoUrl : currentEntry.businessLogo }
+              : { businessLogoDark: logoUrl })
           }
-        };
-        setBusinessForm(updated);
-        persistBusinessSettings(updated);
+        }
       };
-      reader.readAsDataURL(file);
-    } catch (err) {
-      console.warn('[BranchLogo] Upload failed:', err);
+      setBusinessForm(updated);
+      persistBusinessSettings(updated);
+    } catch (error) {
+      console.warn('[BranchLogo] Storage upload failed; saved settings left unchanged:', error);
+      window.alert(isSw
+        ? 'Nembo haijapakiwa. Mipangilio ya zamani imebaki salama.'
+        : 'Logo upload failed. Existing settings remain unchanged.');
+    } finally {
+      e.target.value = '';
     }
-    e.target.value = '';
   };
 
   const handleBranchLogoRemove = (storeName: string, mode: 'light' | 'dark') => {

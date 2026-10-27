@@ -42,11 +42,11 @@ export const getSubscriptionReminder = (
         : `${daysRemaining} ${daysRemaining === 1 ? 'day' : 'days'} left in trial`,
       message: isSw
         ? (daysRemaining === 1
-          ? 'Jaribio lako la bure linaisha kesho. Lipia sasa ili biashara yako iendelee bila kukatizwa.'
-          : `Jaribio lako la bure linaisha baada ya siku ${daysRemaining}. Unaweza kulipia wakati wowote ili kuendelea na huduma kamili.`)
+          ? 'Jaribio lako la bure linaisha kesho.'
+          : `Jaribio lako la bure litaisha ndani ya siku ${daysRemaining}.`)
         : (daysRemaining === 1
-          ? 'Your free trial ends tomorrow. Pay now to keep your business running without interruption.'
-          : `Your free trial ends in ${daysRemaining} days. Pay any time to keep full access.`),
+          ? 'Your free trial expires tomorrow.'
+          : `Your free trial expires in ${daysRemaining} days.`),
       daysRemaining,
     };
   }
@@ -67,13 +67,11 @@ export const getSubscriptionReminder = (
   if (daysRemaining > 3) return null;
   const message = isSw
     ? (daysRemaining === 1
-      ? `Kifurushi chako cha ${planName} kinaisha kesho. Lipia sasa ili usikatizwe.`
-      : `Kifurushi chako cha ${planName} kinaisha baada ya siku ${daysRemaining}. Lipia sasa ili kiendelee kufanya kazi.`)
+      ? `Kifurushi chako cha ${planName} kitaisha kesho.`
+      : `Kifurushi chako cha ${planName} kitaisha ndani ya siku ${daysRemaining}.`)
     : (daysRemaining === 1
-      ? `Your ${planName} package expires tomorrow. Pay now to avoid interruption.`
-      : daysRemaining === 2
-        ? `Your ${planName} package expires in 2 days. Pay now to keep your workspace active.`
-        : `Your ${planName} package expires in 3 days. Pay now to continue without interruption.`);
+      ? `Your ${planName} package expires tomorrow.`
+      : `Your ${planName} package expires in ${daysRemaining} days.`);
   return {
     level: 'expiring',
     title: isSw

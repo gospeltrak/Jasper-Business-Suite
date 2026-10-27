@@ -808,14 +808,20 @@ test('package activation uses one authoritative database-time transaction', asyn
   assert.match(subscriptionSource, /Math\.ceil\(\(authoritativeEndMs - estimatedNowMs\)/);
 });
 
-test('Tanzanite reminders are limited to 3/2/1 days and are session-deduplicated', async () => {
+test('subscription reminders are concise, server-authoritative and deduplicated across devices', async () => {
   const reminderSource = await read('src/shared/utils/subscriptionReminder.ts');
   const dashboardSource = await read('src/components/Dashboard.tsx');
+  const serverSource = await read('server.ts');
+  const contextSource = await read('src/shared/contexts/JasperNotificationContext.tsx');
   assert.match(reminderSource, /if \(daysRemaining > 3\) return null/);
-  assert.match(reminderSource, /expires in 3 days/);
-  assert.match(reminderSource, /expires in 2 days/);
+  assert.match(reminderSource, /expires in \$\{daysRemaining\} days/);
   assert.match(reminderSource, /expires tomorrow/);
+  assert.doesNotMatch(reminderSource, /expires in 3 days\. Pay now/);
   assert.match(reminderSource, /remain safely preserved/);
+  assert.match(serverSource, /app\.post\('\/api\/notifications\/subscription-reminder'/);
+  assert.match(serverSource, /idempotency_key: idempotencyKey/);
+  assert.match(serverSource, /days < 1 \|\| days > 3/);
+  assert.match(contextSource, /fetch\('\/api\/notifications\/subscription-reminder'/);
   assert.match(dashboardSource, /sessionStorage\.getItem\(subscriptionReminderKey\)/);
   assert.match(dashboardSource, /sessionStorage\.setItem\(subscriptionReminderKey, 'dismissed'\)/);
 });
