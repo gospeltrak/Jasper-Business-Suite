@@ -4,7 +4,20 @@ DECLARE n bigint;
 BEGIN
   SELECT COUNT(*) INTO n FROM public.orvix_tenant_application_state_entries;
   IF n<>6 THEN RAISE EXCEPTION 'Expected 6 typed key entries, got %',n; END IF;
+  SELECT COUNT(*) INTO n FROM public.tenant_data
+    WHERE data_key='application_state';
+  IF n<>4 THEN RAISE EXCEPTION 'Expected 4 legacy source rows, got %',n; END IF;
+  SELECT COUNT(*) INTO n FROM public.orvix_tenant_application_state_entries
+   WHERE tenant_id IN('__legacy_global__','old_admin_storage');
+  IF n<>0 THEN
+    RAISE EXCEPTION 'Legacy/global non-UUID scope was exposed as tenant entries';
+  END IF;
   SELECT COUNT(*) INTO n FROM public.orvix_tenant_application_state_status
+   WHERE tenant_id IN('__legacy_global__','old_admin_storage');
+  IF n<>0 THEN
+    RAISE EXCEPTION 'Legacy/global scope must not be marked migrated';
+  END IF;
+    SELECT COUNT(*) INTO n FROM public.orvix_tenant_application_state_status
   WHERE state='shadow';
   IF n<>2 THEN RAISE EXCEPTION 'Expected 2 inactive staging markers, got %',n; END IF;
   IF NOT EXISTS(SELECT 1 FROM public.orvix_tenant_application_state_entries
