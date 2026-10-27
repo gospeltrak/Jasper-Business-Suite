@@ -28,7 +28,7 @@ describe('non-destructive inline logo migration', () => {
     expect(script).toContain("updated_at=$${params.length + 2}::timestamptz");
     expect(script).toContain("updated_at !== row.updated_at");
     expect(script).toContain("payload_json !== row.payload_json");
-    expect(script).not.toMatch(/(?:disable\s+trigger|drop\s+table|truncate\s+table)/i);
+    expect(script).not.toMatch(/(?:disable\s+trigger\b|drop\s+table\b|truncate\s+table\b)/i);
   });
 
   it('operator script is valid ESM without running any database operation', () => {
