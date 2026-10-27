@@ -30,13 +30,14 @@ export const NotificationCenterModal: React.FC<Props> = ({ isOpen, onClose, onNa
     moduleName: string;
     subscriptionPlanName?: string;
     subscriptionDaysRemaining?: number;
+    subscriptionIsTrial?: boolean;
   }) => notification.moduleName === 'subscription'
     && notification.subscriptionPlanName
     && Number.isInteger(notification.subscriptionDaysRemaining)
     && (notification.subscriptionDaysRemaining ?? 0) >= 1
     && (notification.subscriptionDaysRemaining ?? 0) <= 3
       ? getSubscriptionReminder(
-        'paid', notification.subscriptionPlanName, notification.subscriptionDaysRemaining!, false, false, lang,
+        notification.subscriptionIsTrial ? 'trial' : 'paid', notification.subscriptionPlanName, notification.subscriptionDaysRemaining!, false, Boolean(notification.subscriptionIsTrial), lang,
       )
       : null;
 
