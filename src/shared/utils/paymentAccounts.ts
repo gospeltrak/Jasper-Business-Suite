@@ -170,9 +170,13 @@ export const getDebtCollectionPaymentChannels = (
   ))
     .filter(method => method && !/^credit$/i.test(method.trim()));
 
+  // Spelling variants such as "M-Pesa" / "Mpesa" / "M Pesa" must
+  // resolve to the SAME configured account rather than creating a second
+  // Money & Bank account for an old tenant.
+  const methodIdentity = (value: string): string => normalize(value).replace(/[\\s_-]/g, '');
   const usableMethods = methods.filter(method => {
     const matches = original.filter(channel =>
-      normalize(channel.paymentMethod || channel.name || channel.provider) === normalize(method),
+      methodIdentity(channel.paymentMethod || channel.name || channel.provider || '') === methodIdentity(method),
     );
     // An explicitly disabled mode must never be silently reactivated.
     return matches.length === 0 || matches.some(channel =>
@@ -186,7 +190,13 @@ export const getDebtCollectionPaymentChannels = (
     .filter(channel => channel.status === 'inactive' || channel.status === 'archived')
     .map(channel => channel.id));
 
-  return reconcilePaymentChannels(usableMethods, original, options).filter(channel =>
+  const aligned = original.map(channel => {
+    const matches = usableMethods.filter(method =>
+      methodIdentity(channel.paymentMethod || channel.name || channel.provider || '') === methodIdentity(method),
+    );
+    return matches.length === 1 ? { ...channel, paymentMethod: matches[0] } : channel;
+  });
+  const candidates = reconcilePaymentChannels(usableMethods, aligned, options).filter(channel =>
     !!channel.id &&
     !!channel.paymentMethod &&
     enabled.has(normalize(channel.paymentMethod)) &&
@@ -196,4 +206,10 @@ export const getDebtCollectionPaymentChannels = (
     channel.status !== 'archived' &&
     (!options.branchId || !channel.branchId || channel.branchId === options.branchId),
   );
+  // This form selects a payment METHOD, not an individual bank account.
+  // Never silently choose an arbitrary account when a tenant has multiple
+  // accounts assigned to the same method.
+  return candidates.filter(channel => candidates.filter(other =>
+    normalize(other.paymentMethod) === normalize(channel.paymentMethod)).length === 1);
+
 };
