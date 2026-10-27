@@ -1,4 +1,5 @@
 import { getSecureDataBridgeClient } from '../dataBridge/secureDataBridge';
+import { hydrateTypedOnlineState, makeTypedOnlineStateWrites, type TypedOnlineStateChange } from './normalizedOnlineState';
 
 const DATA_KEY = 'application_state';
 const values = new Map<string, string>();
@@ -10,12 +11,50 @@ let lastPersistedSnapshot = '';
 let persistenceNeeded = false;
 const HYDRATION_TIMEOUT_MS = 4000;
 const PERSIST_DEBOUNCE_MS = 1000;
+// OFF by default; a tenant must ALSO have an explicitly activated status row.
+const USE_TYPED_APP_STATE = import.meta.env.VITE_ORVIX_TYPED_APP_STATE === 'true';
+let typedStateActive = false;
+let typedStateReadFailed = false;
+let nextTypedRevision = 0;
+const typedPendingChanges = new Map<string, TypedOnlineStateChange>();
+
+const trackTypedChange = (key: string, value: string | null, isDeleted: boolean) => {
+  if (!typedStateActive) return;
+  typedPendingChanges.set(key, { value, isDeleted, revision: ++nextTypedRevision });
+};
 
 const snapshot = () => Object.fromEntries(values.entries());
 
 const persist = async () => {
   if (!tenantId || !hydrated || !navigator.onLine) return;
   const currentTenantId = tenantId;
+  // When a tenant has opted in and the DB migration status is active, send
+  // *only* keys changed since the last successful commit. This avoids
+  // rewriting the 5+ MB promotional image whenever a tiny preference changes.
+  if (typedStateActive) {
+    const changes = Array.from(typedPendingChanges.entries());
+    if (!changes.length) {
+      persistenceNeeded = false;
+      return;
+    }
+    const client: any = await getSecureDataBridgeClient();
+    const { error } = await client.from('orvix_tenant_application_state_entries')
+      .upsert(makeTypedOnlineStateWrites(currentTenantId, changes), {
+        onConflict: 'tenant_id,state_key',
+      });
+    if (error) throw error;
+    if (tenantId === currentTenantId && typedStateActive) {
+      for (const [key, captured] of changes) {
+        if (typedPendingChanges.get(key)?.revision === captured.revision) {
+          typedPendingChanges.delete(key);
+        }
+      }
+      persistenceNeeded = typedPendingChanges.size > 0;
+      if (!persistenceNeeded) lastPersistedSnapshot = JSON.stringify(snapshot());
+      else if (saveTimer === null) schedulePersist();
+    }
+    return;
+  }
   const payload = snapshot();
   const serialized = JSON.stringify(payload);
   if (serialized === lastPersistedSnapshot) {
@@ -55,6 +94,9 @@ export const onlineStorage: Storage = {
       if (persistenceNeeded && saveTimer === null) schedulePersist();
       return;
     }
+    if (typedStateActive) {
+      for (const [key, value] of values) trackTypedChange(key, value, true);
+    }
     values.clear();
     schedulePersist();
   },
@@ -69,6 +111,7 @@ export const onlineStorage: Storage = {
       if (persistenceNeeded && saveTimer === null) schedulePersist();
       return;
     }
+    if (typedStateActive) trackTypedChange(key, values.get(key)!, true);
     values.delete(key);
     schedulePersist();
   },
@@ -79,6 +122,7 @@ export const onlineStorage: Storage = {
       return;
     }
     values.set(key, nextValue);
+    trackTypedChange(key, nextValue, false);
     schedulePersist();
   },
 };
@@ -118,9 +162,50 @@ export async function configureOnlineStorage(nextTenantId: string): Promise<void
   values.clear();
   lastPersistedSnapshot = '';
   persistenceNeeded = false;
+  typedStateActive = false;
+  typedStateReadFailed = false;
+  typedPendingChanges.clear();
 
   try {
     const client: any = await getSecureDataBridgeClient();
+    if (USE_TYPED_APP_STATE) {
+      const { data: status, error: statusError } = await client
+        .from('orvix_tenant_application_state_status')
+        .select('state')
+        .eq('tenant_id', nextTenantId)
+        .maybeSingle();
+      if (tenantId !== nextTenantId) return;
+      if (statusError && !['42P01', 'PGRST205'].includes(String(statusError.code || ''))) {
+        typedStateReadFailed = true;
+        throw statusError;
+      }
+      if (!statusError && status?.state === 'active') {
+        // Status can only be activated by a reviewed server-side cutover,
+        // never by a browser. A failed typed read MUST NOT fall back to
+        // potentially stale legacy JSON and allow overwriting live values.
+        typedStateReadFailed = true;
+        const loadedRows: any[] = [];
+        for (let offset = 0; ; offset += 500) {
+          const { data: rows, error: typedError } = await client
+            .from('orvix_tenant_application_state_entries')
+            .select('state_key,state_value,is_deleted')
+            .eq('tenant_id', nextTenantId)
+            .range(offset, offset + 499);
+          if (tenantId !== nextTenantId) return;
+          if (typedError || !Array.isArray(rows)) {
+            throw typedError || new Error('Typed application state read failed');
+          }
+          loadedRows.push(...rows);
+          if (rows.length < 500) break;
+        }
+        const restored = hydrateTypedOnlineState(loadedRows);
+        values.clear();
+        for (const [key, value] of restored) values.set(key, value);
+        typedStateActive = true;
+        typedStateReadFailed = false;
+        return;
+      }
+    }
     const result: any = await Promise.race([
       Promise.resolve(
         client
@@ -135,6 +220,7 @@ export async function configureOnlineStorage(nextTenantId: string): Promise<void
         HYDRATION_TIMEOUT_MS,
       )),
     ]);
+    if (tenantId !== nextTenantId) return;
     const { data, error } = result || {};
     if (error) {
       console.warn('[onlineStorage] database load failed:', error.message);
@@ -149,7 +235,7 @@ export async function configureOnlineStorage(nextTenantId: string): Promise<void
     console.warn('[onlineStorage] continuing without preloaded data:', error?.message || error);
   } finally {
     lastPersistedSnapshot = JSON.stringify(snapshot());
-    hydrated = true;
+    hydrated = !typedStateReadFailed;
   }
 }
 
@@ -159,6 +245,9 @@ export function resetOnlineStorage(): void {
   values.clear();
   lastPersistedSnapshot = '';
   persistenceNeeded = false;
+  typedStateActive = false;
+  typedStateReadFailed = false;
+  typedPendingChanges.clear();
   if (saveTimer !== null) window.clearTimeout(saveTimer);
   saveTimer = null;
 }
