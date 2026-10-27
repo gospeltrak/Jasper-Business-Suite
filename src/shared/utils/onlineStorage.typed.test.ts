@@ -28,7 +28,7 @@ const setupClient = (status: 'active' | 'shadow', typedReadError = false) => {
   const statusTable = {
     select: vi.fn(() => ({
       eq: vi.fn(() => ({
-        maybeSingle: vi.fn().mockResolvedValue({ data: { state }, error: null }),
+        maybeSingle: vi.fn().mockResolvedValue({ data: { state: status }, error: null }),
       })),
     })),
   };
@@ -78,7 +78,6 @@ describe('typed application-state runtime rollout gate', () => {
   it('writes only the edited key when staging status has been explicitly activated', async () => {
     const { from, typedUpsert, legacyUpsert } = setupClient('active');
     const { onlineStorage } = await import('./onlineStorage');
-    await onlineStorage.length; // no-op baseline to enforce Storage API contract
     await (await import('./onlineStorage')).configureOnlineStorage('11111111-1111-1111-1111-111111111111');
 
     expect(onlineStorage.getItem('jasper_platform_banner')).toBe('data:image/png;base64,AAEC');
