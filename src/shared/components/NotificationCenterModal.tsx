@@ -1,6 +1,7 @@
 import React from 'react';
 import { useJasperNotifications } from '../contexts/JasperNotificationContext';
 import { useTranslation } from '../contexts/LanguageContext';
+import { getSubscriptionReminder } from '../utils/subscriptionReminder';
 import { Bell, Check, X, FileText, ShoppingCart, AlertCircle } from "lucide-react";
 
 interface Props {
@@ -22,6 +23,22 @@ export const NotificationCenterModal: React.FC<Props> = ({ isOpen, onClose, onNa
   const audienceLabelText = isSw
     ? (audienceLabel === 'Super Admin' ? 'Msimamizi Mkuu' : 'Msimamizi wa Biashara')
     : audienceLabel;
+
+  // The API stores authoritative plan/day metadata. Translate on display
+  // instead of persisting an English-only string for Kiswahili customers.
+  const localizedSubscription = (notification: {
+    moduleName: string;
+    subscriptionPlanName?: string;
+    subscriptionDaysRemaining?: number;
+  }) => notification.moduleName === 'subscription'
+    && notification.subscriptionPlanName
+    && Number.isInteger(notification.subscriptionDaysRemaining)
+    && (notification.subscriptionDaysRemaining ?? 0) >= 1
+    && (notification.subscriptionDaysRemaining ?? 0) <= 3
+      ? getSubscriptionReminder(
+        'paid', notification.subscriptionPlanName, notification.subscriptionDaysRemaining!, false, false, lang,
+      )
+      : null;
 
   if (!isOpen) return null;
 
@@ -105,14 +122,14 @@ export const NotificationCenterModal: React.FC<Props> = ({ isOpen, onClose, onNa
                      <div className="flex-1 min-w-0">
                         <div className="flex justify-between items-start mb-1">
                            <h4 className={`text-sm truncate pr-2 ${n.isRead ? 'font-medium text-slate-700' : 'font-bold text-slate-900'}`}>
-                              {n.title}
+                              {localizedSubscription(n)?.title || n.title}
                            </h4>
                            <span className="text-[10px] text-slate-400 whitespace-nowrap pt-1">
                               {new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                            </span>
                         </div>
                         <p className={`text-xs leading-relaxed whitespace-pre-wrap ${n.isRead ? 'text-slate-500' : 'text-slate-700'}`}>
-                           {n.message}
+                           {localizedSubscription(n)?.message || n.message}
                         </p>
                         {!n.isRead && (
                            <div className="mt-2 text-[10px] font-bold text-emerald-600 tracking-wider">
