@@ -20,9 +20,21 @@ export const mapCostingMethodToLegacy = (method?: InventoryCostingMethod): Produ
   return 'fifo';
 };
 
+/**
+ * Older tenant source_record snapshots stored `weighted_average` before
+ * the normalized costing enum standardized that mode as `average_price`.
+ * Normalize in memory, without overwriting the original customer payload.
+ * Never turn an unknown costing value into FIFO by accident.
+ */
+export const normalizeStoredCostingMethod = (value: unknown): InventoryCostingMethod | undefined => {
+  if (value === 'weighted_average') return 'average_price';
+  if (value === 'fifo' || value === 'average_price' || value === 'batch_price') return value;
+  return undefined;
+};
+
 export const getProductCostingMethod = (product: Product): InventoryCostingMethod => (
-  product.inventorySettings?.costingMethod ||
-  product.costingMethod ||
+  normalizeStoredCostingMethod(product.inventorySettings?.costingMethod) ||
+  normalizeStoredCostingMethod(product.costingMethod) ||
   mapLegacySellingMethod(product.sellingMethod)
 );
 
