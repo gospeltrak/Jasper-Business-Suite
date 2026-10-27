@@ -122,7 +122,7 @@ export async function uploadProductImage(
 export async function uploadTenantLogo(
   file: File,
   tenantId: string,
-  variant: 'light' | 'dark' | null = null
+  variant: 'light' | 'dark' | 'brand' | null = null
 ): Promise<string | null> {
   try {
     const client: any = await getSecureDataBridgeClient();
@@ -173,6 +173,15 @@ export async function uploadTenantLogo(
     console.error('[imageStorage] uploadTenantLogo exception:', err);
     return null;
   }
+}
+
+/**
+ * Store product-brand logos as immutable Storage assets, never data URLs.
+ * Names share the same RLS-safe user/tenant namespace as business branding,
+ * but get a distinct prefix and a fresh object key on every upload.
+ */
+export function uploadTenantBrandLogo(file: File, tenantId: string): Promise<string | null> {
+  return uploadTenantLogo(file, tenantId, 'brand');
 }
 
 /**
