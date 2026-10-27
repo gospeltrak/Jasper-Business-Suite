@@ -17,7 +17,7 @@ vi.mock('../dataBridge/secureDataBridge', () => ({
 
 import { uploadTenantLogo, uploadTenantBrandLogo } from './imageStorage';
 
-const svg = { type: 'image/svg+xml' } as File;
+const svg = { type: 'image/svg+xml', size: 128 } as File;
 
 describe('tenant logo storage path and failure safety', () => {
   beforeEach(() => {
@@ -62,6 +62,17 @@ describe('tenant logo storage path and failure safety', () => {
     expect(storage.upload.mock.calls[0][0]).not.toBe(storage.upload.mock.calls[1][0]);
     expect(storage.upload.mock.calls[0][2].upsert).toBe(false);
     expect(storage.upload.mock.calls[1][2].upsert).toBe(false);
+  });
+
+  it('rejects SVG logos larger than 10 KiB before Storage upload', async () => {
+    const tooLarge = { type: 'image/svg+xml', size: 11 * 1024 } as File;
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      await expect(uploadTenantLogo(tooLarge, 'tenant-A', 'light')).resolves.toBeNull();
+      expect(storage.upload).not.toHaveBeenCalled();
+    } finally {
+      consoleSpy.mockRestore();
+    }
   });
 
   it('does not attempt an upload without an authenticated uploader', async () => {
