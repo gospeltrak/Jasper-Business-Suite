@@ -165,3 +165,62 @@ SECURITY DEFINER privileges, performance/lock overhead, transaction
 rollback behavior and semantics of ALL legacy writers must first be
 measured and reviewed. The existing customer JSON and ledgers remain
 canonical until read cutover is proven safe.
+
+## Stage 3c: lossless sale-payment audit and rollback (2026-10-27)
+
+Earlier staging SQL allowed the same (tenant,sale,ordinal) typed line to be
+updated, which would overwrite the only typed copy of its former amount.
+This was corrected **before any production application**.
+
+- `scripts/sql/staging_mirror_sales_payment_breakdowns.sql` now creates
+  `orvix_sale_payment_line_history`, a tenant-RLS-protected, append-only
+  relational audit of superseded line versions. The history INSERT happens
+  in the same transaction (BEFORE UPDATE) as the typed payment edit.
+- Existing ordinal and amount edits retain all prior values, including
+  zero-amount entries, and shortening arrays marks removed ordinals
+  `is_current=false` without a DELETE. Writes to unrelated customer/sale
+  metadata no longer trigger financial mirror rewrites.
+- `scripts/sql/ci_sales_payment_mirror_assertions.sql` now checks original
+  values TSh 0, TSh 1,250.50 and TSh 540,000 remain in history after
+  successive edits, with a separate row for each superseded version.
+  Identical or non-payment edits must produce **zero** false audit changes.
+  Tombstone history and strict cross-tenant SELECT isolation are tested.
+- `scripts/sql/staging_disable_sales_payment_shadow_mirror.sql` provides
+  guarded staging rollback, retaining all typed rows, audit records and
+  protected backups; `ci_sales_payment_mirror_rollback_assertions.sql`
+  verifies trigger removal and unchanged historical evidence.
+
+**Real PostgreSQL 17 synthetic CI #765 passed both DB and frontend jobs.**
+Staging operations only; there is no assurance of production transaction
+compatibility until an isolated real-data restore verifies every writer.
+
+## Stage 4: expense financial metadata in typed columns (2026-10-27)
+
+Read-only live SQL found 92 active expenses, each with valid nonempty
+`paidFromAccountId`, `paymentMethod`, and UUID `treasuryJournalId`
+inside `source_record`. Existing normalized `expenses.amount`,
+`expenses.receipt_ref` and `expenses.receipt_image` precisely match their
+corresponding source fields in all active rows. Two expense receiptImage
+values are still inline binary payment evidence.
+
+- `scripts/sql/staging_normalize_expense_finance_fields.sql` adds three
+  explicit fields to existing normalized `public.expenses`:
+  `paid_from_account_id`, `payment_method_normalized`, and
+  `treasury_journal_id`. It validates types, guards any pre-existing typed
+  drift, fills active rows, and verifies exact parity.
+- Staging trigger `private.orvix_sync_expense_typed_finance` runs as
+  SECURITY INVOKER, derives only NEW's typed fields from previously
+  authorized source fields in the same transaction, never modifies
+  Money & Bank journals or customer receipt evidence. Inactive historical
+  rows stay untouched.
+- `ci_expense_finance_synthetic_fixture.sql` and
+  `ci_expense_finance_synthetic_assertions.sql` prove actual PG17 handling
+  of initial/imported expenses, new transaction, edited account,
+  no-op metadata edit, invalid UUID rollback, receipt preservation,
+  historical tombstones and unchanged protected backups.
+
+**GitHub CI #769 passed** both synthetic database SQL execution and
+frontend/build. No live Supabase schema changes were performed, so it is
+still **not safe to drop source_record** or claim typed expenses are
+authoritative. A verified private Storage receipt migration is required
+before the two inline receipts can be removed without loss.
