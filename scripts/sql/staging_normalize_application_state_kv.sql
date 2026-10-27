@@ -19,7 +19,6 @@ CREATE TABLE IF NOT EXISTS public.orvix_tenant_application_state_entries (
   is_deleted boolean NOT NULL DEFAULT false,
   updated_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY(tenant_id,state_key),
-  CHECK(length(state_key)>0),
   CHECK(is_deleted OR state_value IS NOT NULL)
 );
 CREATE TABLE IF NOT EXISTS public.orvix_tenant_application_state_status (
