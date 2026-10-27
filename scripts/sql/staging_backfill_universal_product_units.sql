@@ -63,15 +63,27 @@ REVOKE ALL ON public.orvix_product_pharmacy_levels FROM PUBLIC,anon,authenticate
 GRANT SELECT ON public.orvix_product_package_levels TO authenticated;
 GRANT SELECT ON public.orvix_product_selling_units TO authenticated;
 GRANT SELECT ON public.orvix_product_pharmacy_levels TO authenticated;
-DROP POLICY IF EXISTS unit_package_tenant_read ON public.orvix_product_package_levels;
-CREATE POLICY unit_package_tenant_read ON public.orvix_product_package_levels
-FOR SELECT TO authenticated USING (tenant_id=private.current_tenant_id()::text);
-DROP POLICY IF EXISTS unit_selling_tenant_read ON public.orvix_product_selling_units;
-CREATE POLICY unit_selling_tenant_read ON public.orvix_product_selling_units
-FOR SELECT TO authenticated USING (tenant_id=private.current_tenant_id()::text);
-DROP POLICY IF EXISTS unit_pharmacy_tenant_read ON public.orvix_product_pharmacy_levels;
-CREATE POLICY unit_pharmacy_tenant_read ON public.orvix_product_pharmacy_levels
-FOR SELECT TO authenticated USING (tenant_id=private.current_tenant_id()::text);
+-- Never overwrite an existing access policy. A pre-existing policy means
+-- staging may already contain migrations; require review instead of replacing it.
+DO $policies$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_policies WHERE schemaname='public'
+      AND tablename IN (
+        'orvix_product_package_levels','orvix_product_selling_units',
+        'orvix_product_pharmacy_levels'
+      )
+  ) THEN
+    RAISE EXCEPTION 'One of the new unit hierarchy tables already has a policy. Review before rerunning.';
+  END IF;
+
+  EXECUTE 'CREATE POLICY unit_package_tenant_read ON public.orvix_product_package_levels
+    FOR SELECT TO authenticated USING (tenant_id=private.current_tenant_id()::text)';
+  EXECUTE 'CREATE POLICY unit_selling_tenant_read ON public.orvix_product_selling_units
+    FOR SELECT TO authenticated USING (tenant_id=private.current_tenant_id()::text)';
+  EXECUTE 'CREATE POLICY unit_pharmacy_tenant_read ON public.orvix_product_pharmacy_levels
+    FOR SELECT TO authenticated USING (tenant_id=private.current_tenant_id()::text)';
+END $policies$;
 
 DO $validate$
 DECLARE n bigint;
