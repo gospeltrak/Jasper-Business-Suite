@@ -11,10 +11,10 @@
  *
  * Buckets:
  *   - product-images  → /{tenantId}/{productId}.jpg
- *   - tenant-logos    → /{tenantId}/logo.jpg
+ *   - tenant-logos    → /{uploaderId}/{tenantId}/logo-{variant}-{uuid}.{webp|jpg|svg}
  *
  * Why this approach:
- *   - Logos hard-capped at 10 KiB; products target 10 KiB, capped at 25 KiB
+ *   - Logos hard-capped at 10 KB; products target 10 KB, capped at 25 KB
  *   - Byte budget is enforced before Storage upload, not just assumed by quality
  *   - onlineStorage only stores a ~100-byte URL, never image data
  *   - Images never disappear because they are not subject to onlineStorage
@@ -34,8 +34,8 @@ import {
 // ─── Compression ─────────────────────────────────────────────────────────────
 
 /**
- * Backwards-compatible JPEG image compressor. Product photos target 10 KiB
- * with a 25 KiB maximum. Branch logos pass a stricter 10 KiB budget.
+ * Backwards-compatible JPEG image compressor. Product photos target 10 KB
+ * with a 25 KB maximum. Branch logos pass a stricter 10 KB budget.
  */
 export async function compressImage(
   file: File,
@@ -91,7 +91,7 @@ export async function uploadProductImage(
 
 /**
  * Upload a tenant logo to Supabase Storage.
- * Path: tenant-logos/{tenantId}/logo.jpg
+ * Path: tenant-logos/{uploaderId}/{tenantId}/logo-{variant}-{uuid}.{webp|jpg|svg}
  * Returns the permanent public URL, or null on failure.
  */
 export async function uploadTenantLogo(
