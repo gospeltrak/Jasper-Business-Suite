@@ -38,10 +38,11 @@ node scripts/migrate-workspace-inline-logos.mjs \
   --tenant-id=<TENANT_UUID> \
   --apply \
   --confirm-tenant=<SAME_TENANT_UUID> \
-  --backup-dir="$HOME/orvix-private-logo-backups"
+  --backup-dir="$HOME/orvix-private-logo-backups" \
+  --expected-project-ref=<YOUR_SUPABASE_PROJECT_REF>
 ```
 
-The CLI defaults to dry-run (requiring only DATABASE_URL) and refuses apply in CI, without a one-tenant confirmation, or without a private backup destination. Supported inline MIME: PNG, JPEG, WebP, GIF; unsupported formats fail closed without changing the database. A failed migration can leave unused, immutable Storage objects; the SQL transaction rolls back the settings update. It does **not** remove original logo values or any business tables.
+The CLI defaults to dry-run (requiring only DATABASE_URL) and refuses apply in CI, without a one-tenant confirmation, without a private backup destination, or if the provided Supabase Storage URL and Postgres connection do not match the explicitly confirmed project reference. For apply, use the standard Supabase URL and either the direct db.<project>.supabase.co host or pooler credentials with username postgres.<project>; custom routes fail closed. Supported inline MIME: PNG, JPEG, WebP, GIF; unsupported formats fail closed without changing the database. A failed migration can leave unused, immutable Storage objects; the SQL transaction rolls back the settings update. It does **not** remove original logo values or any business tables.
 
 ## Rollback principle
 
