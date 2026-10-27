@@ -15,7 +15,7 @@ vi.mock('../dataBridge/secureDataBridge', () => ({
   }),
 }));
 
-import { uploadTenantLogo } from './imageStorage';
+import { uploadTenantLogo, uploadTenantBrandLogo } from './imageStorage';
 
 const svg = { type: 'image/svg+xml' } as File;
 
@@ -44,6 +44,16 @@ describe('tenant logo storage path and failure safety', () => {
     expect(light).toContain(lightPath);
     expect(dark).toContain(darkPath);
     expect(light).not.toBe(dark);
+  });
+
+  it('stores brand marks as immutable tenant-scoped URLs, never JSON base64', async () => {
+    const logo = await uploadTenantBrandLogo(svg, 'tenant-A');
+    const path = storage.upload.mock.calls[0][0] as string;
+    expect(path).toMatch(/^user-one\\/tenant-A\\/logo-brand-[0-9a-f-]{36}\\.svg$/);
+    expect(storage.upload.mock.calls[0][2]).toEqual({ contentType: 'image/svg+xml', upsert: false });
+    expect(logo).toContain(path);
+    await uploadTenantBrandLogo(svg, 'tenant-A');
+    expect(storage.upload.mock.calls[1][0]).not.toBe(path);
   });
 
   it('gives repeat uploads distinct paths so earlier logo URLs remain valid', async () => {
