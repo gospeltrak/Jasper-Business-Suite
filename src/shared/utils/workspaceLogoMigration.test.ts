@@ -24,6 +24,8 @@ describe('non-destructive inline logo migration', () => {
     expect(script).toContain("await db.query('ROLLBACK')");
     expect(script).toMatch(/for update/i);
     expect(script).toContain("app.jasper_explicit_settings_tenant");
+    expect(script).toContain('expected-project-ref');
+    expect(script).toContain('Database and Storage project identity mismatch');
     expect(script).toMatch(/where tenant_id=\$\$\{params\.length \+ 1\}::uuid/);
     expect(script).toContain("updated_at=$${params.length + 2}::timestamptz");
     expect(script).toContain("updated_at !== row.updated_at");
