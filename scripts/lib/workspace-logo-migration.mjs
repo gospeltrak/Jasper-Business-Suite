@@ -65,6 +65,18 @@ export function readInlineImage(value) {
 
 export function collectInlineLogoCandidates(payload) {
   const paths = [...LOGO_FIELDS];
+  // Product-brand logos also live inside tenant-wide settings. They are
+  // dynamically indexed array entries; preserve order, names and other keys.
+  const productBrands = atPath(payload, ['settings', 'productStore', 'brands']);
+  if (Array.isArray(productBrands)) {
+    productBrands.forEach((brand, index) => {
+      if (brand && typeof brand === 'object' && !Array.isArray(brand) &&
+          Object.hasOwn(brand, 'logo')) {
+        paths.push(['settings', 'productStore', 'brands', String(index), 'logo']);
+      }
+    });
+  }
+
   const legacy = atPath(payload, ['settings', 'business', 'branchBranding']);
   if (legacy && typeof legacy === 'object' && !Array.isArray(legacy)) {
     for (const [storeName, branding] of Object.entries(legacy)) {
