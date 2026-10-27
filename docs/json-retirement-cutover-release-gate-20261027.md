@@ -101,3 +101,37 @@ cutover for all these new child tables and still needs mapping of 281
 legacy sale-payment breakdowns and two payment receipt binaries. Therefore
 the system is **not** yet completely free of business JSON blobs. The
 next *execution* action is restore-tested staging, **not** deleting data.
+
+## Stage 3: credit-sale paymentBreakdown (2026-10-27)
+
+**Production read-only audit (verified):** 284 active sales, 281 active
+`paymentBreakdown` arrays, **291 typed-eligible entries**. Exactly 4 active
+sales contain an explicit empty array and 3 have no field at all. One
+historical entry is a valid zero-amount payment and 2 entries explicitly
+include a `reference` property. These are *not* equivalent states and
+must not be normalized by blindly replacing missing fields with `[]` or
+filtering out zero amounts.
+
+Added:
+- `scripts/sql/staging_backfill_sales_payment_breakdowns.sql`:
+  two new parent/child typed tables, authenticated tenant-isolated RLS,
+  stage-only permission marker, exact JSON round-trip, original-reference
+  presence, line ordinal preservation and idempotent no-overwrite INSERT.
+  It **never posts a treasury journal or changes the amount of a sale**.
+- `scripts/sql/ci_sales_payment_synthetic_fixture.sql` and
+  `scripts/sql/ci_sales_payment_synthetic_assertions.sql`: actual
+  PostgreSQL 17 SQL execution, cross-tenant read isolation, zero amount,
+  missing/empty field, explicit null reference and original source hashes.
+- `scripts/sql/read_only_sales_payment_breakdown_coverage.sql`: repeatable
+  read-only production baseline. Returns no tenant, sale or payment reference
+  details. Live audit confirmed neither typed table exists in production.
+
+**CI #752: success** (frontend tests/build and synthetic PostgreSQL 17
+execution). That is not a restore-tested copy of real tenant data.
+
+**Before a production cutover:** validate this SQL on independently restored
+staging; integrate transactional writes for each saved normalized sale and
+payment replay; prove exact typed-vs-legacy parity on real tenants; verify
+cashier/branch permissions, payment audit evidence and cross-branch isolation.
+The staging shadow tables remain disconnected from the live payment flow.
+**No live sales, treasury journals, payments or backup rows changed.**
