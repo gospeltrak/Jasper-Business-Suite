@@ -56,3 +56,23 @@ Source compatibility recheck: `products` contains 484 rows / 416 non-null `sourc
 5. In separate additive migrations, map each extended `source_record` field to tested normalized columns or relations, backfill by tenant/branch and reconcile stock and payments. Only then consider retiring compatibility JSON fields.
 
 **Status:** observation only; no physical deletion, Storage migration, production rewrite or production setting changes performed.
+
+## Runtime I/O prioritization (2026-10-27)
+
+The existing **non-backup partial index** `tenant_data_active_keys_io_idx` is present on production. Its prior one-shot measured lookup improvement was **778.195 ms → 88.325 ms** for one legacy nonbusiness-key aggregation; it does not prove all requests are fast.
+
+New read-only `extensions.pg_stat_statements` inspection flags the remaining high-temp-I/O RPCs. These are **cumulative since server stats reset, not live per-second activity** and sample shapes may mix earlier code revisions:
+
+| RPC | Calls | Average execution | Temp blocks written (cumulative) |
+| --- | ---: | ---: | ---: |
+| `route_current_branch_business_data` | 556 | ~2,766 ms | 5,941,998 |
+| `save_current_branch_workspace` | 184 | ~3,530 ms | 2,387,770 |
+| `save_current_branch_expense_payment` | 32 | ~2,199 ms | 436,812 |
+| `save_current_branch_products` | 75 | ~2,531 ms | 434,410 |
+| `get_current_branch_workspace_bootstrap_v3` | 323 | ~1,039 ms | 191,379 |
+| `get_current_branch_workspace` | 198 | ~1,305 ms | 156,937 |
+| `get_current_branch_workspace_page` | 1,174 | ~446 ms | 103,346 |
+
+`pg_stat_database.temp_bytes` now reports **~92 GB cumulative**, an I/O counter — **NOT** a 92 GB disk file or current storage bill. Prior read-only checkpoint noted ~61 GB cumulative; it should not be interpreted as 31 GB produced today because the sampling windows/reset timing were not synchronized.
+
+**Next performance PR:** prioritize exactly scoped `route_current_branch_business_data` and full `save_current_branch_workspace` paths, eliminating unnecessary full-workspace JSON composition and temp sorts in favor of narrow normalized reads/writes. Use a measured before/after on staging with representative tenant data, compare nested result hashes, ledger totals, stock, branch permissions and P95 request timing. Do not optimize by deleting rows, removing backup protections, or changing a business write to non-atomic.
