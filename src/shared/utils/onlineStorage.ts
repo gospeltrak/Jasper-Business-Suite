@@ -152,6 +152,18 @@ if (typeof window !== 'undefined') {
     if (document.visibilityState === 'hidden') flushPendingPersist();
   });
   window.addEventListener('pagehide', flushPendingPersist);
+  // A save attempted while offline exits without a database write. Retain
+  // the pending state and automatically retry on reconnect, including typed
+  // key-only writes. Otherwise a user's last change can remain unsaved
+  // forever unless they edit that value again.
+  window.addEventListener('online', () => {
+    if (!tenantId || !hydrated || !persistenceNeeded) return;
+    if (saveTimer !== null) window.clearTimeout(saveTimer);
+    saveTimer = null;
+    saveChain = saveChain.then(persist).catch(error => {
+      console.warn('[onlineStorage] save after reconnect failed:', error?.message || error);
+    });
+  });
 }
 
 export async function configureOnlineStorage(nextTenantId: string): Promise<void> {
