@@ -65,6 +65,21 @@ BEGIN
  RAISE EXCEPTION 'Tenant A payment isolation failed headers % lines %',heads,lines;
  END IF;
 END $verify_tenant_a$;
+-- Being signed in must not allow users to mutate payment history via REST.
+DO $reject_mutation$
+DECLARE was_denied boolean := false;
+BEGIN
+  BEGIN
+    INSERT INTO public.orvix_sale_payment_breakdown_lines
+      (tenant_id,sale_id,source_ordinal,payment_method,amount)
+    VALUES ('11111111-1111-1111-1111-111111111111','sale-mixed',99,'Mpesa',999999);
+  EXCEPTION WHEN insufficient_privilege THEN
+    was_denied := true;
+  END;
+  IF NOT was_denied THEN
+    RAISE EXCEPTION 'Authenticated user must not be able to forge typed payment rows';
+  END IF;
+END $reject_mutation$;
 RESET ROLE;
 
 SELECT set_config('app.test_tenant_id','22222222-2222-2222-2222-222222222222',false);
