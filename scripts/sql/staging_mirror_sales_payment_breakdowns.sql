@@ -129,9 +129,14 @@ BEGIN
     RETURN NEW;
   END IF;
 
+  -- Product/customer metadata changes must not rewrite financial typed
+  -- mirrors when the actual paymentBreakdown did not change.
   IF TG_OP='UPDATE'
      AND NEW.source_active IS NOT DISTINCT FROM OLD.source_active
-     AND NEW.source_record IS NOT DISTINCT FROM OLD.source_record THEN
+     AND (NEW.source_record ? 'paymentBreakdown')
+       IS NOT DISTINCT FROM (OLD.source_record ? 'paymentBreakdown')
+     AND NEW.source_record->'paymentBreakdown'
+       IS NOT DISTINCT FROM OLD.source_record->'paymentBreakdown' THEN
     RETURN NEW;
   END IF;
 
