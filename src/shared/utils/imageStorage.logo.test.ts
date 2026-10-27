@@ -49,7 +49,7 @@ describe('tenant logo storage path and failure safety', () => {
   it('stores brand marks as immutable tenant-scoped URLs, never JSON base64', async () => {
     const logo = await uploadTenantBrandLogo(svg, 'tenant-A');
     const path = storage.upload.mock.calls[0][0] as string;
-    expect(path).toMatch(/^user-one\\/tenant-A\\/logo-brand-[0-9a-f-]{36}\\.svg$/);
+    expect(path).toMatch(/^user-one\/tenant-A\/logo-brand-[0-9a-f-]{36}\.svg$/);
     expect(storage.upload.mock.calls[0][2]).toEqual({ contentType: 'image/svg+xml', upsert: false });
     expect(logo).toContain(path);
     await uploadTenantBrandLogo(svg, 'tenant-A');
