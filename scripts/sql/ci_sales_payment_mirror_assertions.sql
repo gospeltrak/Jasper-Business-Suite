@@ -25,6 +25,65 @@ BEGIN
  IF n<>1 THEN RAISE EXCEPTION 'A changed payment field was not updated accurately'; END IF;
 END $check_updates$;
 
+-- Original Cash=0 and removed NMB=1250.50 must both survive as exact
+-- audit versions instead of being overwritten at their original ordinals.
+DO $check_audit_1$
+DECLARE n bigint;
+BEGIN
+ SELECT count(*) INTO n FROM public.orvix_sale_payment_line_history
+ WHERE sale_id='sale-mixed';
+ IF n<>2 THEN RAISE EXCEPTION 'Expected 2 original payment audit versions, got %',n; END IF;
+ IF NOT EXISTS (
+   SELECT 1 FROM public.orvix_sale_payment_line_history
+   WHERE sale_id='sale-mixed' AND source_ordinal=1
+     AND payment_method='Cash' AND amount=0 AND was_current
+ ) OR NOT EXISTS (
+   SELECT 1 FROM public.orvix_sale_payment_line_history
+   WHERE sale_id='sale-mixed' AND source_ordinal=2
+     AND payment_method='NMB' AND amount=1250.50 AND was_current
+ ) THEN RAISE EXCEPTION 'Original payment amount/reference history was lost'; END IF;
+END $check_audit_1$;
+
+-- Editing the FIRST payment replaces the typed current value while an
+-- append-only historical copy retains its original TSh 540,000 amount.
+UPDATE public.sales
+ SET source_record=jsonb_set(source_record,'{paymentBreakdown,0,amount}','500000'::jsonb)
+ WHERE legacy_id='sale-mixed';
+
+DO $check_audit_2$
+DECLARE n bigint;
+BEGIN
+ SELECT count(*) INTO n FROM public.orvix_sale_payment_line_history
+ WHERE sale_id='sale-mixed';
+ IF n<>3 THEN RAISE EXCEPTION 'Second edit should append one history version, found %',n; END IF;
+ IF NOT EXISTS (
+   SELECT 1 FROM public.orvix_sale_payment_line_history
+   WHERE sale_id='sale-mixed' AND source_ordinal=0
+     AND payment_method='Mpesa' AND amount=540000
+     AND payment_reference='TX-ABC' AND was_current
+ ) OR NOT EXISTS (
+   SELECT 1 FROM public.orvix_sale_payment_breakdown_lines
+   WHERE sale_id='sale-mixed' AND source_ordinal=0
+     AND amount=500000 AND is_current
+ ) THEN RAISE EXCEPTION 'Changed Mpesa payment overwrote history or lost current value'; END IF;
+END $check_audit_2$;
+
+-- Unrelated sale metadata updates and identical breakdown replays
+-- must not churn financial shadow records or generate fake audit events.
+UPDATE public.sales
+ SET source_record=jsonb_set(source_record,'{note}','"unrelated customer note"'::jsonb)
+ WHERE legacy_id='sale-mixed';
+UPDATE public.sales
+ SET source_record=jsonb_set(source_record,'{paymentBreakdown}',source_record->'paymentBreakdown')
+ WHERE legacy_id='sale-mixed';
+DO $check_no_audit_churn$
+DECLARE n bigint;
+BEGIN
+ SELECT count(*) INTO n FROM public.orvix_sale_payment_line_history
+ WHERE sale_id='sale-mixed';
+ IF n<>3 THEN RAISE EXCEPTION 'Unrelated or identical writes generated % history events',n; END IF;
+END $check_no_audit_churn$;
+
 -- Missing JSON key must remain missing, rather than empty [].
 UPDATE public.sales
 SET source_record=source_record-'paymentBreakdown'
@@ -90,6 +149,48 @@ BEGIN
    RAISE EXCEPTION 'Inactive sale tombstone erased payment evidence or left live mirror lines';
  END IF;
 END $check_tombstone$;
+
+DO $check_tombstone_history$
+DECLARE n bigint;
+BEGIN
+ SELECT COUNT(*) INTO n FROM public.orvix_sale_payment_line_history
+ WHERE sale_id='sale-mixed';
+ IF n<>5 THEN RAISE EXCEPTION 'Tombstone should append two more audit rows, found %',n; END IF;
+ IF NOT EXISTS (
+   SELECT 1 FROM public.orvix_sale_payment_line_history
+    WHERE sale_id='sale-mixed' AND source_ordinal=0
+      AND amount=500000 AND was_current
+ ) OR NOT EXISTS (
+   SELECT 1 FROM public.orvix_sale_payment_line_history
+    WHERE sale_id='sale-mixed' AND source_ordinal=1
+      AND amount=9000 AND was_current
+ ) THEN RAISE EXCEPTION 'Tombstone lost latest current payment versions'; END IF;
+END $check_tombstone_history$;
+
+SELECT set_config('app.test_tenant_id','11111111-1111-1111-1111-111111111111',false);
+SET ROLE authenticated;
+DO $history_tenant_a$
+DECLARE n bigint;
+BEGIN
+ SELECT count(*) INTO n FROM public.orvix_sale_payment_line_history;
+ IF n<>5 THEN RAISE EXCEPTION 'Tenant A audit history not visible correctly: %',n; END IF;
+ IF has_table_privilege('authenticated',
+       'public.orvix_sale_payment_line_history','INSERT')
+   OR has_table_privilege('authenticated',
+       'public.orvix_sale_payment_line_history','DELETE') THEN
+  RAISE EXCEPTION 'Tenant staff must not forge or erase payment history';
+ END IF;
+END $history_tenant_a$;
+RESET ROLE;
+SELECT set_config('app.test_tenant_id','22222222-2222-2222-2222-222222222222',false);
+SET ROLE authenticated;
+DO $history_tenant_b$
+DECLARE n bigint;
+BEGIN
+ SELECT count(*) INTO n FROM public.orvix_sale_payment_line_history;
+ IF n<>0 THEN RAISE EXCEPTION 'Tenant B can see another tenant payment history (%).',n; END IF;
+END $history_tenant_b$;
+RESET ROLE;
 
 -- No unrelated user data or protected backup changed during these edits.
 DO $backup_verify$
