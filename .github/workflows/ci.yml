@@ -62,4 +62,7 @@ jobs:
             -f scripts/sql/staging_extend_and_backfill_inventory_details.sql \
             -f scripts/sql/staging_backfill_historical_inventory_batches.sql \
             -f scripts/sql/staging_backfill_universal_product_units.sql \
-            -f scripts/sql/ci_inventory_synthetic_assertions.sql
+            -f scripts/sql/ci_inventory_synthetic_assertions.sql \
+            -f scripts/sql/ci_sales_payment_synthetic_fixture.sql \
+            -f scripts/sql/staging_backfill_sales_payment_breakdowns.sql \
+            -f scripts/sql/ci_sales_payment_synthetic_assertions.sql
