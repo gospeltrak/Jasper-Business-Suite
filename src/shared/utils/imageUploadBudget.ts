@@ -1,12 +1,12 @@
 /**
  * Tenant image uploads have explicit byte budgets before they reach Supabase.
- * 10 KiB is the hard limit for logos; product photos aim for 10 KiB and may
- * use up to 25 KiB when a smaller file would noticeably damage visual detail.
+ * 10 KB is the hard limit for logos; product photos aim for 10 KB and may
+ * use up to 25 KB when a smaller file would noticeably damage visual detail.
  * These limits do not apply to documents or evidence photographs.
  */
-export const LOGO_MAX_BYTES = 10 * 1024;
+export const LOGO_MAX_BYTES = 10_000;
 export const PRODUCT_TARGET_BYTES = 10 * 1024;
-export const PRODUCT_MAX_BYTES = 25 * 1024;
+export const PRODUCT_MAX_BYTES = 25_000;
 
 type ImageMime = 'image/jpeg' | 'image/webp';
 
@@ -45,12 +45,12 @@ export async function selectBudgetedImage(
       if (!candidate || !candidate.size) continue;
       if (candidate.size <= budget.targetBytes) return candidate;
       // First within the hard limit keeps more pixels and quality if an
-      // especially detailed product image cannot safely reach 10 KiB.
+      // especially detailed product image cannot safely reach 10 KB.
       if (!acceptable && candidate.size <= budget.maxBytes) acceptable = candidate;
     }
   }
   if (acceptable) return acceptable;
-  throw new ImageBudgetError(`This image could not be reduced below ${Math.floor(budget.maxBytes / 1024)} KB. Select a simpler image.`);
+  throw new ImageBudgetError(`This image could not be reduced below ${Math.floor(budget.maxBytes / 1000)} KB. Select a simpler image.`);
 }
 
 async function readImage(file: File): Promise<HTMLImageElement> {
