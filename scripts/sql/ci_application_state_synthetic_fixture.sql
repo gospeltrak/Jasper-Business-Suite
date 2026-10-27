@@ -6,7 +6,11 @@ INSERT INTO public.tenant_data(tenant_id,data_key,payload) VALUES
    "demo_empty":"",
    "literal_null":"null"}'::jsonb),
  ('22222222-2222-2222-2222-222222222222','application_state',
- '{"jasper_settings_local":"{\"theme\":\"light\"}","draft":"testing"}'::jsonb);
+ '{"jasper_settings_local":"{\"theme\":\"light\"}","draft":"testing"}'::jsonb),
+ ('__legacy_global__','application_state',
+  '{"global_banner":"data:image/png;base64,LEGACY","global_scope":"historic"}'::jsonb),
+ ('old_admin_storage','application_state',
+  '{"legacy_dashboard_setting":"keep-original"}'::jsonb);
 -- Verify original every tenant's legacy app state is never overwritten.
 CREATE TABLE public.ci_original_app_state AS
 SELECT tenant_id,md5(payload::text) payload_hash
