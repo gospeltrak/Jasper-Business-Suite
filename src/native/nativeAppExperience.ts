@@ -13,7 +13,7 @@ export function nativeEntryPath(path: string): string {
   if (url.pathname === '/' || url.pathname === '/home') {
     // A returning authenticated session will be restored by App's existing
     // /login -> dashboard redirect. Never discard OAuth or recovery callbacks.
-    return '/login';
+    return `/login${url.search}${url.hash}`;
   }
   return path;
 }
@@ -67,9 +67,9 @@ export function installNativeAppExperience(): void {
   document.documentElement.classList.add('orvix-native-app');
 
   // The packaged app's cold start is local, not the remote landing website.
-  const entry = nativeEntryPath(window.location.pathname);
-  if (entry === '/login' && ['/', '/home'].includes(window.location.pathname)) {
-    window.history.replaceState(window.history.state, '', '/login');
+  const entry = nativeEntryPath(window.location.pathname + window.location.search + window.location.hash);
+  if (entry.startsWith('/login') && ['/', '/home'].includes(window.location.pathname)) {
+    window.history.replaceState(window.history.state, '', entry);
   }
 
   if (!document.getElementById('orvix-native-layout')) {
