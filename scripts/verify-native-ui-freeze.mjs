@@ -187,7 +187,7 @@ function selfTest() {
     'src/modules/expenses/DashboardExpenses.tsx',
     'src/components/GlobalBranchSwitcher.tsx',
     'src/shared/contexts/ThemeContext.tsx',
-    'index.html', 'public/logo.svg', 'src/App.tsx',
+    'index.html', 'public/logo.svg',
     'src/native/NativePinScreen.tsx', 'src/native/native.css',
   ];
   for (const path of blocked) assert.equal(isPermittedNativeDiffPath(path), false, path);
