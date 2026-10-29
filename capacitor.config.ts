@@ -17,7 +17,7 @@ const config: CapacitorConfig = {
   server: {
     // The bundled Android WebView serves LOCAL assets at this owned HTTPS origin.
     // Cloudflare Turnstile authorizes orvix.africa subdomains, and Orvix's
-    // anti-CSRF middleware trusts this same-site origin. Never set server.url:
+    // anti-CSRF middleware trusts this same-site origin. Never use a remote server URL.
     // this remains an installed/offline-capable shell, not a remote website.
     hostname: 'app.orvix.africa',
     androidScheme: 'https',
