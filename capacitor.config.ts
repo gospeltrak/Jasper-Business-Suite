@@ -15,7 +15,11 @@ const config: CapacitorConfig = {
   appName: 'Orvix',
   webDir: 'dist/native-web',
   server: {
-    hostname: 'localhost',
+    // The bundled Android WebView serves LOCAL assets at this owned HTTPS origin.
+    // Cloudflare Turnstile authorizes orvix.africa subdomains, and Orvix's
+    // anti-CSRF middleware trusts this same-site origin. Never set server.url:
+    // this remains an installed/offline-capable shell, not a remote website.
+    hostname: 'app.orvix.africa',
     androidScheme: 'https',
     iosScheme: 'capacitor',
     cleartext: false,
