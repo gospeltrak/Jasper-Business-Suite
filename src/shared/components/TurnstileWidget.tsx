@@ -1,4 +1,5 @@
 import { useEffect, useRef, useId } from 'react';
+import { Capacitor } from '@capacitor/core';
 
 declare global {
   interface Window {
@@ -10,7 +11,11 @@ declare global {
   }
 }
 
-const TURNSTILE_SCRIPT_SRC = 'https://challenges.cloudflare.com/turnstile/v0/api.js';
+// Packaged native apps use explicit rendering to avoid racing Cloudflare's
+// automatic DOM scan; the website keeps its original script and UI behavior.
+const TURNSTILE_SCRIPT_SRC = Capacitor.isNativePlatform()
+  ? 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'
+  : 'https://challenges.cloudflare.com/turnstile/v0/api.js';
 
 let scriptLoadPromise: Promise<void> | null = null;
 function loadTurnstileScript(): Promise<void> {
