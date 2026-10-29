@@ -19,7 +19,7 @@ export function isPermittedNativeDiffPath(path) {
   if (path.startsWith('src/native/')) return path.endsWith('.ts');
   if (/^src\/server\/nativeOfflineLedger(?:\.test)?\.ts$/.test(path)) return true;
   if (path === 'src/shared/utils/nativeApiTransport.ts') return true;
-  if (path === 'src/main.tsx' || path === 'src/components/Dashboard.tsx') return true;
+  if (path === 'src/main.tsx' || path === 'src/App.tsx' || path === 'src/components/Dashboard.tsx') return true;
   if (path.startsWith('src/') || path.startsWith('public/') ||
       path === 'index.html' || /\.(?:css|scss|sass|less|svg|png|jpe?g|webp)$/i.test(path)) {
     return false;
@@ -61,16 +61,87 @@ export function expectedDashboardAfterAuthorizedPwaRemoval(baseline) {
   return result;
 }
 
+
+function literalReplacementOnce(source, oldText, newText, label) {
+  if (source.split(oldText).length !== 2) {
+    throw new Error('Native-only UI freeze anchor changed: ' + label);
+  }
+  return source.replace(oldText, newText);
+}
+
+export function expectedAppAfterNativeOnlyAdapters(baseline) {
+  const changes = [
+    [
+      "import SystemErrorPage, { type SystemErrorStatus } from './shared/components/SystemErrorPage';",
+      "import SystemErrorPage, { type SystemErrorStatus } from './shared/components/SystemErrorPage';\nimport { nativeEntryPath, isOrvixNativeApp } from './native/nativeAppExperience';",
+    ],
+    [
+      "    window.history.pushState({}, '', path);\n    setCurrentPath(normalizePath(path));",
+      "    const targetPath = nativeEntryPath(path);\n    window.history.pushState({}, '', targetPath);\n    setCurrentPath(normalizePath(targetPath));",
+    ],
+    [
+      "    const nextPath = normalizePath(path);\n    const isPublicLanding = currentPath === '/' || currentPath === '/home';",
+      "    const nextPath = normalizePath(nativeEntryPath(path));\n    const isPublicLanding = currentPath === '/' || currentPath === '/home';",
+    ],
+    [
+      "    if (!user && isPublicLanding && isAuthDestination) {",
+      "    if (!isOrvixNativeApp() && !user && isPublicLanding && isAuthDestination) {",
+    ],
+    [
+      "          logoSrc={splashRequest.mode === 'tenant' ? splashRequest.logoSrc : undefined}",
+      "          logoSrc={splashRequest.mode === 'tenant' ? splashRequest.logoSrc : isOrvixNativeApp() ? '/icon-512.png' : undefined}",
+    ],
+  ];
+  return changes.reduce((source, [oldText, newText], i) =>
+    literalReplacementOnce(source, oldText, newText, 'App.tsx #' + i), baseline);
+}
+
+export function expectedDashboardAfterNonvisualTypeFix(source) {
+  // Only the pre-existing TypeScript delivery-status narrowing correction
+  // that was already present in PR #7; never permit another visual change.
+  const changes = [
+    [
+      '    let treasuryJournalId = currentDelivery.treasuryJournalId;',
+      "    // Stable boolean prevents TypeScript's async control-flow narrowing from\n    // excluding a reachable Delivered result without changing dispatch UI.\n    const markedDelivered = status === 'Delivered';\n    let treasuryJournalId = currentDelivery.treasuryJournalId;",
+    ],
+    [
+      "const collectedAt = status === 'Delivered' ? new Date().toISOString() : undefined;",
+      "const collectedAt = markedDelivered ? new Date().toISOString() : undefined;",
+    ],
+    [
+      "deliveryPaymentStatus: status === 'Delivered'",
+      "deliveryPaymentStatus: markedDelivered",
+    ],
+    [
+      "deliveryPaymentAccountId: status === 'Delivered'",
+      "deliveryPaymentAccountId: markedDelivered",
+    ],
+    [
+      "status: status === 'Delivered' ? 'success' : 'failed',",
+      "status: markedDelivered ? 'success' : 'failed',",
+    ],
+  ];
+  return changes.reduce((current, [oldText, newText], i) =>
+    literalReplacementOnce(current, oldText, newText, 'Dashboard.tsx #' + i), source);
+}
+
 export function stripPermittedNativeShellAdapters(path, current, baseline) {
   if (path === 'src/components/Dashboard.tsx') {
     if (typeof baseline !== 'string') throw new Error('Dashboard UI baseline required.');
-    assert.equal(current, expectedDashboardAfterAuthorizedPwaRemoval(baseline),
+    assert.equal(current, expectedDashboardAfterNonvisualTypeFix(expectedDashboardAfterAuthorizedPwaRemoval(baseline)),
       'Dashboard.tsx contains unapproved changes beyond removing Install PWA');
+    return baseline;
+  }
+  if (path === 'src/App.tsx') {
+    assert.equal(current, expectedAppAfterNativeOnlyAdapters(baseline),
+      'App.tsx changed beyond the native-only entry, splash and navigation adapters');
     return baseline;
   }
   if (path === 'src/main.tsx') {
     const bootstrap =
       "import { installNativeApiTransport } from './shared/utils/nativeApiTransport';\n" +
+      "import { installNativeAppExperience } from './native/nativeAppExperience';\n" +
+      "installNativeAppExperience();\n" +
       "installNativeApiTransport();\n";
     if (!current.includes(bootstrap)) {
       throw new Error('main.tsx native shell adapter changed unexpectedly.');
@@ -93,7 +164,7 @@ function verifyAgainstBase(base) {
       failures.push(`UI or visual asset modification forbidden: ${path}`);
       continue;
     }
-    if (path !== 'src/main.tsx' && path !== 'src/components/Dashboard.tsx') continue;
+    if (path !== 'src/main.tsx' && path !== 'src/App.tsx' && path !== 'src/components/Dashboard.tsx') continue;
     try {
       const oldSource = git('show', `${baseline}:${path}`);
       const current = readFileSync(path, 'utf8');
@@ -124,7 +195,7 @@ function selfTest() {
     'src/native/offlineConflictEngine.ts', 'src/server/nativeOfflineLedger.ts',
     'src/server/nativeOfflineLedger.test.ts',
     'src/shared/utils/nativeApiTransport.ts',
-    'src/main.tsx', 'src/components/Dashboard.tsx',
+    'src/main.tsx', 'src/App.tsx', 'src/components/Dashboard.tsx',
     'docs/native-device-experience.md', 'capacitor.config.ts',
   ];
   for (const path of permitted) assert.equal(isPermittedNativeDiffPath(path), true, path);
