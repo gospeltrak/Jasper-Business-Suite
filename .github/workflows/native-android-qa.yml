@@ -63,7 +63,10 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-        run: npm run native:build:web
+          VITE_TURNSTILE_SITE_KEY: ${{ vars.VITE_TURNSTILE_SITE_KEY }}
+        run: |
+          test -n "$VITE_TURNSTILE_SITE_KEY" || { echo 'ERROR: set GitHub Actions variable VITE_TURNSTILE_SITE_KEY (Cloudflare public site key) before building native QA'; exit 1; }
+          npm run native:build:web
 
       - name: Create Android shell and sync packaged assets
         run: |
