@@ -2600,6 +2600,9 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     if (blockOfflineBusinessWrite('delivery status update')) return false;
     const currentDelivery = (deliveriesMap[activeTenant.id] || []).find(delivery => delivery.id === deliveryId);
     if (!currentDelivery || !recordBelongsToActiveBranch(currentDelivery, activeBranchSelection)) return false;
+    // Stable boolean prevents TypeScript's async control-flow narrowing from
+    // excluding a reachable Delivered result without changing dispatch UI.
+    const markedDelivered = status === 'Delivered';
     let treasuryJournalId = currentDelivery.treasuryJournalId;
     let treasuryBranchId = currentDelivery.branchId;
     let collectedAccountId = currentDelivery.deliveryPaymentAccountId;
@@ -2657,7 +2660,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
 
     setDeliveriesMap(prev => {
       const currentTenantDels = prev[activeTenant.id] || [];
-      const collectedAt = status === 'Delivered' ? new Date().toISOString() : undefined;
+      const collectedAt = markedDelivered ? new Date().toISOString() : undefined;
       return {
         ...prev,
         [activeTenant.id]: currentTenantDels.map(del => 
@@ -2667,13 +2670,13 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                   ...del,
                   status,
                   deliveredAt: collectedAt,
-                  deliveryPaymentStatus: status === 'Delivered'
+                  deliveryPaymentStatus: markedDelivered
                     ? 'collected'
                     : status === 'Cancelled'
                       ? 'cancelled'
                       : 'pending',
                   paymentCollectedAt: collectedAt,
-                  deliveryPaymentAccountId: status === 'Delivered'
+                  deliveryPaymentAccountId: markedDelivered
                     ? collectedAccountId
                     : undefined,
                   treasuryJournalId,
@@ -2688,7 +2691,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     const newLog: SyncLog = {
       id: 'l-' + Math.random().toString(36).substr(2, 9),
       type: 'product_update',
-      status: status === 'Delivered' ? 'success' : 'failed',
+      status: markedDelivered ? 'success' : 'failed',
       message: `Delivery dispatch ${deliveryId} status updated: ${status}.`,
       timestamp: new Date().toISOString()
     };
