@@ -10,6 +10,7 @@ const transport = read('src/shared/utils/nativeApiTransport.ts');
 const main = read('src/main.tsx');
 const app = read('src/App.tsx');
 const experience = read('src/native/nativeAppExperience.ts');
+const turnstileWidget = read('src/shared/components/TurnstileWidget.tsx');
 const androidWorkflow = read('.github/workflows/native-android-qa.yml');
 const iosWorkflow = read('.github/workflows/native-ios-qa.yml');
 const dashboard = read('src/components/Dashboard.tsx');
@@ -72,6 +73,10 @@ test('native-only status bar protects controls and Cloudflare key is required fo
   assert.match(experience, /--orvix-native-safe-top/);
   assert.match(experience, /#login-container[\s\S]*justify-content: safe center/);
   assert.match(experience, /#dashboard-scaffold[\s\S]*padding-top:/);
+  // Native Turnstile explicitly renders; the ordinary browser script is unchanged.
+  assert.match(turnstileWidget, /Capacitor\.isNativePlatform\(\)/);
+  assert.match(turnstileWidget, /api\.js\?render=explicit/);
+  assert.match(turnstileWidget, /:\s*'https:\/\/challenges\.cloudflare\.com\/turnstile\/v0\/api\.js'/);
   for (const workflow of [androidWorkflow, iosWorkflow]) {
     assert.match(workflow, /VITE_TURNSTILE_SITE_KEY:\s*\$\{\{ vars\.VITE_TURNSTILE_SITE_KEY \}\}/);
     assert.match(workflow, /test -n "\$VITE_TURNSTILE_SITE_KEY"/);
