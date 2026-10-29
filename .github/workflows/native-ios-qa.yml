@@ -1,0 +1,90 @@
+name: Native iOS Simulator QA (manual, no signing or release)
+
+# Manual-only by design: macOS GitHub runner minutes can be billable.
+# No simulator job will run automatically on a PR or push.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-ios-qa-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ios-simulator:
+    runs-on: macos-26
+    timeout-minutes: 45
+    env:
+      CI: 'true'
+    steps:
+      - name: Checkout reviewed native branch
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Use Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Confirm Xcode and macOS
+        run: |
+          xcodebuild -version
+          xcrun --sdk iphonesimulator --show-sdk-version
+
+      - name: Install locked project dependencies
+        run: npm ci
+
+      - name: Verify original UI has not changed
+        run: |
+          git fetch --no-tags origin main
+          node scripts/verify-native-ui-freeze.mjs --self-test
+          node scripts/verify-native-ui-freeze.mjs --base origin/main
+
+      - name: Verify native safety and iOS preparation contracts
+        run: |
+          npm run native:verify
+          node scripts/verify-native-ios-contract.mjs
+
+      - name: Validate TypeScript and bundled web code
+        run: |
+          npm run lint
+          npm run native:build:web
+
+      - name: Prepare Capacitor 8 iOS shell with Swift Package Manager
+        run: |
+          npm install --no-save --package-lock=false --ignore-scripts @capacitor/ios@8.5.3
+          npx cap add ios --packagemanager SPM
+          npx cap sync ios
+          node scripts/prepare-native-ios.mjs --apply
+          node scripts/prepare-native-ios.mjs --verify
+
+      - name: Compile iPhone/iPad simulator app without Apple signing
+        run: |
+          xcodebuild \
+            -project ios/App/App.xcodeproj \
+            -scheme App \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath ios/DerivedData \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Package unsigned simulator-only app for internal QA
+        run: |
+          test -d ios/DerivedData/Build/Products/Debug-iphonesimulator/App.app
+          ditto -c -k --sequesterRsrc --keepParent \
+            ios/DerivedData/Build/Products/Debug-iphonesimulator/App.app \
+            orvix-ios-simulator-qa.zip
+
+      - name: Retain unsigned simulator build (not App Store IPA)
+        uses: actions/upload-artifact@v4
+        with:
+          name: orvix-ios-simulator-qa-only
+          path: orvix-ios-simulator-qa.zip
+          if-no-files-found: error
+          retention-days: 7
