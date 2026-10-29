@@ -46,8 +46,9 @@
     "test:watch": "vitest",
     "native:android:init": "npx cap add android",
     "native:android:sync": "npm run native:build:web && npx cap sync android",
-    "native:ios:init": "npx cap add ios",
-    "native:ios:sync": "npm run native:build:web && npx cap sync ios",
+    "native:ios:init": "npm run native:ios:prepare",
+    "native:ios:sync": "npm run native:ios:prepare",
+    "native:ios:prepare": "node scripts/setup-native-ios.mjs",
     "native:verify": "node scripts/verify-native-contract.mjs && vitest run src/native",
     "native:build:web": "vite build --outDir dist/native-web"
   },
