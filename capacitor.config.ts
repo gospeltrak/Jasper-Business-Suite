@@ -22,6 +22,9 @@ const config: CapacitorConfig = {
   },
   plugins: {
     CapacitorHttp: { enabled: true },
+    // Capacitor 8 SystemBars (bundled with core) exposes Android 15/16 insets.
+    // Keep battery/time/data icons visible and protect menu tap targets.
+    SystemBars: { insetsHandling: 'css', style: 'LIGHT', hidden: false, initialViewportFitValueHint: 'cover' },
   },
 };
 export default config;
