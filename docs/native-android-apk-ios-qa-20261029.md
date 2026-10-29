@@ -104,3 +104,47 @@ No Apple credentials or distribution secrets are requested.
 
 No Supabase schema mutation, production data deletion, plan upgrade or
 paid Apple Developer signup happens as part of these preparation changes.
+
+## Native login & system-bar QA fixes — 2026-10-29
+
+The Android QA APK from run 40212531824 was built **before** these changes.
+Never describe that old artifact as containing the native login fixes.
+A new passing Android QA run and device testing are required.
+
+### Native-only entry and login appearance
+- Local bundled app entry at `/` or `/home` redirects to `/login`, before React renders.
+  Query and fragment parameters are preserved if supplied.
+- Startup uses the existing Orvix splash/reveal component, but native mode uses
+  the packaged `/icon-512.png` logo. Existing sessions still restore through
+  the standard secure login-to-workspace route; the public website is unchanged.
+- Native login form is centered in the visible area, uses accessible 16px input
+  text, and can scroll when the keyboard is open or the form is taller than the display.
+  Native menus/top header use `SystemBars` CSS safe insets. System status bar
+  (time/data/battery) remains visible.
+
+### Cloudflare Turnstile QA prerequisite
+- Under GitHub repository Settings > Secrets and variables > Actions > Variables,
+  configure the **public** variable `VITE_TURNSTILE_SITE_KEY` for Android/iOS QA.
+  The **private** `TURNSTILE_SECRET_KEY` remains server-side (Vercel); do not
+  place it in GitHub frontend build variables or commit it.
+- Both native QA workflows now fail clearly before bundling if the public site
+  key is missing, instead of silently shipping an app without the challenge.
+- Cloudflare Turnstile widget's hostname allowlist must accept the packaged
+  WebView origin's `localhost` hostname, or use a reviewed trusted-HTTPS
+  hosted challenge flow; do not disable server-side siteverify to work around
+  a mobile issue. Verify `challenges.cloudflare.com` requests in the actual
+  Android WebView/iOS WKWebView.
+- Google OAuth on a custom Capacitor origin still needs separate deep-link/
+  browser return-flow validation before calling mobile social sign-in released.
+
+### Android / iOS hands-on checks
+1. Cold launch, force stop and restart, with and without a cached session.
+   Watch Orvix logo reveal before login; no public marketing landing page.
+2. Login on small Android phones, tall phones, tablet, iPhone/iPad; keyboard
+   open/closed, orientation changes. Verify form center, no clipped fields.
+3. Device time/battery/data icons remain visible with correct contrast and
+   dashboard header/menu/buttons are never hidden under the status bar.
+4. Cloudflare widget appears with a real token, server accepts valid tokens,
+   and missing/expired tokens are rejected. No bypass in production.
+5. Recheck login, logout, password recovery, Android back navigation, and
+   tenant/staff role isolation. Do not delete any tenant data.
