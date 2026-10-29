@@ -1,6 +1,8 @@
 import './shared/utils/onlineStorage';
 import './shared/utils/pwaInstallPrompt';
 import { installNativeApiTransport } from './shared/utils/nativeApiTransport';
+import { installNativeAppExperience } from './native/nativeAppExperience';
+installNativeAppExperience();
 installNativeApiTransport();
 import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
