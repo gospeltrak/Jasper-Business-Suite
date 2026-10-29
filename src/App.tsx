@@ -9,6 +9,7 @@ import { pullFromCloud, pushToCloud } from './shared/utils/dbSync';
 import { configureOnlineStorage, resetOnlineStorage } from './shared/utils/onlineStorage';
 import { lazyWithReload } from './shared/utils/lazyWithReload';
 import SystemErrorPage, { type SystemErrorStatus } from './shared/components/SystemErrorPage';
+import { nativeEntryPath, isOrvixNativeApp } from './native/nativeAppExperience';
 import { resolveProfileRolePermissions } from './shared/utils/profilePermissions';
 import { loadTenantWorkspace } from './shared/utils/tenantWorkspace';
 import { preloadBranchWorkspace } from './modules/branches/BranchContext';
@@ -271,16 +272,17 @@ export default function App() {
 
   const commitNavigation = (path: string) => {
     setRedirectMessage('');
-    window.history.pushState({}, '', path);
-    setCurrentPath(normalizePath(path));
+    const targetPath = nativeEntryPath(path);
+    window.history.pushState({}, '', targetPath);
+    setCurrentPath(normalizePath(targetPath));
   };
 
   // Public landing → login/signup always gets the complete Orvix reveal.
   const navigateTo = (path: string) => {
-    const nextPath = normalizePath(path);
+    const nextPath = normalizePath(nativeEntryPath(path));
     const isPublicLanding = currentPath === '/' || currentPath === '/home';
     const isAuthDestination = nextPath === '/login' || nextPath === '/signup';
-    if (!user && isPublicLanding && isAuthDestination) {
+    if (!isOrvixNativeApp() && !user && isPublicLanding && isAuthDestination) {
       setSplashRequest({
         mode: 'generic',
         showTagline: true,
@@ -885,7 +887,7 @@ export default function App() {
     <div id="jasper-app-root" className="app-shell min-h-[100dvh] bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans antialiased selection:bg-emerald-100 selection:text-emerald-900 transition-colors duration-300">
       {splashRequest && (
         <JasperSplashScreen
-          logoSrc={splashRequest.mode === 'tenant' ? splashRequest.logoSrc : undefined}
+          logoSrc={splashRequest.mode === 'tenant' ? splashRequest.logoSrc : isOrvixNativeApp() ? '/icon-512.png' : undefined}
           duration={splashRequest.mode === 'tenant' ? 2000 : 1200}
           showTagline={splashRequest.showTagline}
           onFinish={() => {
