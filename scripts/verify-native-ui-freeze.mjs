@@ -19,6 +19,7 @@ export function isPermittedNativeDiffPath(path) {
   if (path.startsWith('src/native/')) return path.endsWith('.ts');
   if (/^src\/server\/nativeOfflineLedger(?:\.test)?\.ts$/.test(path)) return true;
   if (path === 'src/shared/utils/nativeApiTransport.ts') return true;
+  if (path === 'src/shared/components/TurnstileWidget.tsx') return true;
   if (path === 'src/main.tsx' || path === 'src/App.tsx' || path === 'src/components/Dashboard.tsx') return true;
   if (path.startsWith('src/') || path.startsWith('public/') ||
       path === 'index.html' || /\.(?:css|scss|sass|less|svg|png|jpe?g|webp)$/i.test(path)) {
@@ -125,7 +126,29 @@ export function expectedDashboardAfterNonvisualTypeFix(source) {
     literalReplacementOnce(current, oldText, newText, 'Dashboard.tsx #' + i), source);
 }
 
+export function expectedNativeTurnstileIntegration(baseline) {
+  let current = literalReplacementOnce(
+    baseline,
+    "import { useEffect, useRef, useId } from 'react';",
+    "import { useEffect, useRef, useId } from 'react';\nimport { Capacitor } from '@capacitor/core';",
+    'Turnstile native-only import',
+  );
+  current = literalReplacementOnce(
+    current,
+    "const TURNSTILE_SCRIPT_SRC = 'https://challenges.cloudflare.com/turnstile/v0/api.js';",
+    "// Packaged native apps use explicit rendering to avoid racing Cloudflare's\n// automatic DOM scan; the website keeps its original script and UI behavior.\nconst TURNSTILE_SCRIPT_SRC = Capacitor.isNativePlatform()\n  ? 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit'\n  : 'https://challenges.cloudflare.com/turnstile/v0/api.js';",
+    'Turnstile native-only explicit mode',
+  );
+  return current;
+}
+
 export function stripPermittedNativeShellAdapters(path, current, baseline) {
+  if (path === 'src/shared/components/TurnstileWidget.tsx') {
+    if (typeof baseline !== 'string') throw new Error('Turnstile UI baseline required.');
+    assert.equal(current, expectedNativeTurnstileIntegration(baseline),
+      'TurnstileWidget.tsx changed beyond native-only explicit rendering');
+    return baseline;
+  }
   if (path === 'src/components/Dashboard.tsx') {
     if (typeof baseline !== 'string') throw new Error('Dashboard UI baseline required.');
     assert.equal(current, expectedDashboardAfterNonvisualTypeFix(expectedDashboardAfterAuthorizedPwaRemoval(baseline)),
@@ -164,7 +187,7 @@ function verifyAgainstBase(base) {
       failures.push(`UI or visual asset modification forbidden: ${path}`);
       continue;
     }
-    if (path !== 'src/main.tsx' && path !== 'src/App.tsx' && path !== 'src/components/Dashboard.tsx') continue;
+    if (path !== 'src/main.tsx' && path !== 'src/App.tsx' && path !== 'src/components/Dashboard.tsx' && path !== 'src/shared/components/TurnstileWidget.tsx') continue;
     try {
       const oldSource = git('show', `${baseline}:${path}`);
       const current = readFileSync(path, 'utf8');
@@ -195,13 +218,15 @@ function selfTest() {
     'src/native/offlineConflictEngine.ts', 'src/server/nativeOfflineLedger.ts',
     'src/server/nativeOfflineLedger.test.ts',
     'src/shared/utils/nativeApiTransport.ts',
-    'src/main.tsx', 'src/App.tsx', 'src/components/Dashboard.tsx',
+    'src/main.tsx', 'src/App.tsx', 'src/components/Dashboard.tsx', 'src/shared/components/TurnstileWidget.tsx',
     'docs/native-device-experience.md', 'capacitor.config.ts',
   ];
   for (const path of permitted) assert.equal(isPermittedNativeDiffPath(path), true, path);
   assert.throws(() => stripPermittedNativeShellAdapters('src/main.tsx', 'redesigned UI'),
     /adapter changed/);
   assert.throws(() => stripPermittedNativeShellAdapters('src/components/Dashboard.tsx', 'redesigned UI'),
+    /baseline required/);
+  assert.throws(() => stripPermittedNativeShellAdapters('src/shared/components/TurnstileWidget.tsx', 'redesigned UI'),
     /baseline required/);
   console.log('Orvix UI freeze policy self-tests passed.');
 }
