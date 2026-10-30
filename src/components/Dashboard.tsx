@@ -290,6 +290,8 @@ const patchCachedTenantBusinessType = (tenantId: string, businessType: string) =
 };
 
 type SubscriptionCheckoutRenderState = {
+  checkoutStep: 'plan' | 'payment';
+  setCheckoutStep: React.Dispatch<React.SetStateAction<'plan' | 'payment'>>;
   selectedPlanId: SubscriptionPlanId;
   setSelectedPlanId: React.Dispatch<React.SetStateAction<SubscriptionPlanId>>;
   paymentMode: 'online' | 'offline';
@@ -308,8 +310,11 @@ function SubscriptionCheckoutStateBridge({
     PAID_PACKAGE_IDS.includes(normalizedInitialPlan as any) ? normalizedInitialPlan : 'diamond'
   );
   const [paymentMode, setPaymentMode] = useState<'online' | 'offline'>('online');
+  // A deliberately short two-step journey on mobile. Desktop retains the
+  // side-by-side plan and payment review without changing payment handlers.
+  const [checkoutStep, setCheckoutStep] = useState<'plan' | 'payment'>('plan');
 
-  return <>{children({ selectedPlanId, setSelectedPlanId, paymentMode, setPaymentMode })}</>;
+  return <>{children({ checkoutStep, setCheckoutStep, selectedPlanId, setSelectedPlanId, paymentMode, setPaymentMode })}</>;
 }
 
 function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggleTheme, initialTab, mirrorMode = false }: DashboardProps) {
@@ -4829,7 +4834,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       {/* Live Premium Subscription upgrade popups */}
       {subModal && subModal.show && (
         <SubscriptionCheckoutStateBridge initialPlan={manualActivationPackage}>
-          {({ selectedPlanId, setSelectedPlanId, paymentMode, setPaymentMode }) => (
+          {({ checkoutStep, setCheckoutStep, selectedPlanId, setSelectedPlanId, paymentMode, setPaymentMode }) => (
         <div className="fixed inset-0 z-[170] flex items-end justify-center bg-slate-950/55 p-0 backdrop-blur-[3px] md:items-center md:p-5 animate-in fade-in">
           <div role="dialog" aria-modal="true" aria-labelledby="subscription-title" className="relative mt-auto flex h-[92dvh] max-h-[92dvh] w-full max-w-4xl flex-col overflow-hidden rounded-t-[28px] border border-slate-200 bg-white shadow-[0_24px_80px_rgba(2,6,23,0.24)] md:mt-0 md:h-auto md:max-h-[calc(100dvh-40px)] md:rounded-[28px] animate-in slide-in-from-bottom-10 md:slide-in-from-bottom-0">
             <div className="flex justify-center pb-0.5 pt-3 md:hidden">
@@ -4839,9 +4844,9 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
             <header className="flex shrink-0 items-start justify-between gap-4 border-b border-slate-100 px-5 pb-4 pt-3 sm:px-6 md:px-8 md:pb-5 md:pt-7">
               <div>
                 <h3 id="subscription-title" className="text-[23px] font-bold leading-tight tracking-[-0.035em] text-slate-950 sm:text-[26px] md:text-[30px]">
-                  Choose your plan
+                  {checkoutStep === 'plan' ? 'Choose your plan' : 'Complete your subscription'}
                 </h3>
-                <p className="mt-1 text-xs leading-5 text-slate-500 md:text-sm">Select a package and how you want to pay.</p>
+                <p className="mt-1 text-xs leading-5 text-slate-500 md:text-sm">{checkoutStep === 'plan' ? 'Select the package that fits your business.' : 'Review and choose your payment method.'}</p>
               </div>
               <button
                 type="button"
@@ -4853,8 +4858,16 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
               </button>
             </header>
 
+            <div aria-label={`Checkout step ${checkoutStep === 'plan' ? '1' : '2'} of 2`} className="flex shrink-0 items-center gap-3 border-b border-slate-100 bg-white px-5 py-3 md:hidden">
+              <span className="text-[11px] font-semibold tracking-wide text-slate-500">STEP {checkoutStep === 'plan' ? '01' : '02'} / 02</span>
+              <div className="grid h-1 flex-1 grid-cols-2 gap-1.5" aria-hidden="true">
+                <span className="rounded-full bg-emerald-600" />
+                <span className={`rounded-full ${checkoutStep === 'payment' ? 'bg-emerald-600' : 'bg-slate-200'}`} />
+              </div>
+            </div>
+
             <div className="subscription-shell-grid min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[#fafbfc] px-4 py-4 sm:px-6 md:grid md:grid-cols-[minmax(260px,0.9fr)_minmax(0,1.1fr)] md:gap-6 md:bg-white md:px-8 md:py-7">
-              <section aria-label="Choose subscription plan" className="space-y-2.5">
+              <section aria-label="Choose subscription plan" className={`space-y-2.5 ${checkoutStep === 'payment' ? 'hidden md:block' : ''}`}>
                 {PAID_PACKAGE_IDS.map((planId) => {
                   const plan = SUBSCRIPTION_PLANS[planId];
                   const isSelected = selectedPlanId === planId;
@@ -4900,7 +4913,14 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                 })}
               </section>
 
-              <section className="mt-5 border-t border-slate-200 pt-5 md:mt-0 md:border-l md:border-t-0 md:pl-6 md:pt-0">
+              <section className={`mt-5 border-t border-slate-200 pt-5 md:mt-0 md:border-l md:border-t-0 md:pl-6 md:pt-0 ${checkoutStep === 'plan' ? 'hidden md:block' : 'mt-0 border-t-0 pt-0'}`}>
+                <button
+                  type="button"
+                  onClick={() => setCheckoutStep('plan')}
+                  className="mb-4 inline-flex min-h-10 items-center gap-1.5 text-xs font-semibold text-emerald-700 focus-visible:rounded-md focus-visible:outline-2 focus-visible:outline-emerald-500 md:hidden"
+                >
+                  <ChevronLeft className="h-4 w-4" /> Back to plans
+                </button>
                 <h4 className="mb-2.5 text-sm font-bold text-slate-900">Payment method</h4>
                 <div role="group" aria-label="Payment method" className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-1">
                   <button
@@ -5063,7 +5083,16 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
             </div>
 
             <footer className="subscription-mobile-action shrink-0 border-t border-slate-100 bg-white px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 sm:px-6">
-              {paymentMode === 'online' ? (
+              {checkoutStep === 'plan' ? (
+                <button
+                  type="button"
+                  onClick={() => setCheckoutStep('payment')}
+                  className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white shadow-[0_5px_14px_rgba(5,150,105,0.15)] transition-colors hover:bg-emerald-700 focus-visible:outline-2 focus-visible:outline-emerald-500"
+                >
+                  Continue with {SUBSCRIPTION_PLANS[selectedPlanId].name}
+                  <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                </button>
+              ) : paymentMode === 'online' ? (
                 <button
                   type="button"
                   onClick={() => startOnlineSubscriptionPayment(selectedPlanId, () => setPaymentMode('offline'))}
