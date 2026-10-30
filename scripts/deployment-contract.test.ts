@@ -761,7 +761,7 @@ test('pharmacy hierarchy is medicine-only and product edits wait for durable per
   assert.match(productSource, /activeTenant\.businessType === 'pharmacy' && editForm\.productType === 'medicine'/);
   assert.match(productSource, /const saved = await onUpdateProducts\(updated, \[editingProduct\.id\]\)/);
   assert.match(productSource, /if \(!saved\) \{\s*setEditSaveError\([^;]+;\s*return;\s*\}\s*setEditingProduct\(null\)/);
-  assert.match(dashboardSource, /const handleUpdateActiveStocks = async \(updatedProducts: Product\[\], changedProductIds\?: string\[\]\): Promise<boolean>/);
+  assert.match(dashboardSource, /const handleUpdateActiveStocks = async \(\s*updatedProducts: Product\[\],\s*changedProductIds\?: string\[\],\s*options: \{ suppressSuccessToast\?: boolean \} = \{\},\s*\): Promise<boolean>/);
   assert.match(dashboardSource, /const \{ products: syncedProducts, saved \} = persistTenantProductsNow\(nextTenantProducts, branchStockUpdates, changedProductIds\)/);
   assert.match(dashboardSource, /const didSave = await saved;/);
   assert.match(dashboardSource, /if \(!didSave\) return false;[\s\S]*const durable = readCachedWorkspace\(activeTenant\.id\)/);
@@ -1189,6 +1189,37 @@ test('POS payment options remain three readable columns on small phones', async 
   assert.match(phoneRules, /\.pos-checkout-method-check\s*\{\s*position: absolute/);
   assert.match(source, /aria-pressed={isSelected}/);
   assert.match(source, /onClick={\(\) => \{\s*setPaymentMethod\(mode\)/);
+});
+
+test('POS sale emits one localized confirmation while keeping audit and manual stock feedback', async () => {
+  const source = await read('src/components/Dashboard.tsx');
+  const posStart = source.indexOf("activeTab === 'pos' &&");
+  const posEnd = source.indexOf("activeTab === 'products' &&", posStart);
+  assert.ok(posStart >= 0 && posEnd > posStart);
+  const pos = source.slice(posStart, posEnd);
+  assert.match(pos, /onAddSale={handleAddSale}/);
+  assert.match(pos, /onUpdateStocks={\(updatedProducts\) => handleUpdateActiveStocks\(/);
+  assert.match(pos, /suppressSuccessToast: true/);
+  const stockStart = source.indexOf('const handleUpdateActiveStocks = async');
+  const stockEnd = source.indexOf('const handleUpdateSales = async', stockStart);
+  assert.ok(stockStart >= 0 && stockEnd > stockStart);
+  const stock = source.slice(stockStart, stockEnd);
+  assert.match(stock, /if \(!options\.suppressSuccessToast\) \{/);
+  assert.match(stock, /type: 'product_update'/);
+  assert.match(stock, /persistTenantProductsNow\(/);
+  const saleStart = source.indexOf('const handleAddSale = async');
+  const saleEnd = source.indexOf('const handleAddRider =', saleStart);
+  assert.ok(saleStart >= 0 && saleEnd > saleStart);
+  const sale = source.slice(saleStart, saleEnd);
+  assert.match(sale, /type: 'sale'/);
+  assert.match(sale, /saved as a manual/);
+  assert.match(sale, /setLogs\(prev => \[newLog, \.\.\.prev\]\)/);
+  const toastWatcher = source.slice(source.indexOf('const savedPosSale = latest.type'), source.indexOf('// Load and cache branch specific Settings'));
+  assert.match(toastWatcher, /confirmedPosSaleNoticeIdsRef\.current\.has\(saleId\)/);
+  assert.match(toastWatcher, /Mauzo yamekamilika na kuhifadhiwa\./);
+  assert.match(toastWatcher, /Sale completed and saved\./);
+  const match = /^Sale \(Ref: ([^)]+)\) saved as a manual /i.exec('Sale (Ref: POS-42) saved as a manual Cash record.');
+  assert.equal(match?.[1], 'POS-42');
 });
 
 test('browser gets a fresh service worker and dashboard shell after each deployment', async () => {
