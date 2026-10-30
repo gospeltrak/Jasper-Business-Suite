@@ -4101,7 +4101,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                           <p className="max-w-xl text-[13px] leading-6 text-slate-300 sm:text-sm">
                             {isTrialAccount
                               ? `Your ${trialDurationDays}-day Diamond trial has ended. Your business data is safe. Choose a plan below to restore access.`
-                              : `Your data is safe and unchanged. Renew ${expiredPlan.name} or choose a different plan below${expiredOnLabel ? ` · Expired ${expiredOnLabel}` : ''} .`}
+                              : `Your data is safe and unchanged. Renew ${expiredPlan.name} or choose a different plan below.${expiredOnLabel ? ` Expired ${expiredOnLabel}.` : ''}`}
                           </p>
                         </div>
                         <div className="subscription-stat-grid grid grid-cols-2 gap-2.5 pt-1 sm:grid-cols-3">
@@ -4830,31 +4830,31 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       {subModal && subModal.show && (
         <SubscriptionCheckoutStateBridge initialPlan={manualActivationPackage}>
           {({ selectedPlanId, setSelectedPlanId, paymentMode, setPaymentMode }) => (
-        <div className="fixed inset-0 z-[170] flex items-end justify-center bg-slate-950/65 p-0 backdrop-blur-sm md:items-center md:p-5 animate-in fade-in">
-          <div role="dialog" aria-modal="true" aria-labelledby="subscription-title" className="relative mt-auto flex h-[100dvh] w-full max-w-5xl flex-col overflow-hidden rounded-none border border-slate-200 bg-white shadow-2xl md:mt-0 md:h-auto md:max-h-[calc(100dvh-40px)] md:rounded-[2rem] animate-in slide-in-from-bottom-10 md:slide-in-from-bottom-0">
-            <div className="flex justify-center pb-1 pt-2.5 md:hidden">
+        <div className="fixed inset-0 z-[170] flex items-end justify-center bg-slate-950/55 p-0 backdrop-blur-[3px] md:items-center md:p-5 animate-in fade-in">
+          <div role="dialog" aria-modal="true" aria-labelledby="subscription-title" className="relative mt-auto flex h-[92dvh] max-h-[92dvh] w-full max-w-4xl flex-col overflow-hidden rounded-t-[28px] border border-slate-200 bg-white shadow-[0_24px_80px_rgba(2,6,23,0.24)] md:mt-0 md:h-auto md:max-h-[calc(100dvh-40px)] md:rounded-[28px] animate-in slide-in-from-bottom-10 md:slide-in-from-bottom-0">
+            <div className="flex justify-center pb-0.5 pt-3 md:hidden">
               <div className="h-1.5 w-12 rounded-full bg-slate-200" />
             </div>
 
-            <header className="flex shrink-0 items-start justify-between gap-4 border-b border-slate-100 px-5 pb-4 pt-3 md:px-8 md:pb-5 md:pt-7">
+            <header className="flex shrink-0 items-start justify-between gap-4 border-b border-slate-100 px-5 pb-4 pt-3 sm:px-6 md:px-8 md:pb-5 md:pt-7">
               <div>
-                <h3 id="subscription-title" className="text-[28px] font-black leading-tight tracking-[-0.035em] text-slate-950 md:text-4xl">
-                  Subscription
+                <h3 id="subscription-title" className="text-[23px] font-bold leading-tight tracking-[-0.035em] text-slate-950 sm:text-[26px] md:text-[30px]">
+                  Choose your plan
                 </h3>
-                <p className="mt-1 text-sm font-medium text-slate-500 md:text-base">Choose the plan that fits your business</p>
+                <p className="mt-1 text-xs leading-5 text-slate-500 md:text-sm">Select a package and how you want to pay.</p>
               </div>
               <button
                 type="button"
                 onClick={() => setSubModal(null)}
                 aria-label="Close subscription options"
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-950"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-950 focus-visible:ring-2 focus-visible:ring-emerald-500"
               >
                 <X className="h-5 w-5" strokeWidth={2.25} />
               </button>
             </header>
 
-            <div className="subscription-shell-grid min-h-0 flex-1 overflow-y-auto px-5 py-5 md:grid md:grid-cols-[minmax(260px,0.82fr)_minmax(0,1.18fr)] md:gap-8 md:px-8 md:py-7">
-              <section aria-label="Choose subscription plan" className="space-y-3">
+            <div className="subscription-shell-grid min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[#fafbfc] px-4 py-4 sm:px-6 md:grid md:grid-cols-[minmax(260px,0.9fr)_minmax(0,1.1fr)] md:gap-6 md:bg-white md:px-8 md:py-7">
+              <section aria-label="Choose subscription plan" className="space-y-2.5">
                 {PAID_PACKAGE_IDS.map((planId) => {
                   const plan = SUBSCRIPTION_PLANS[planId];
                   const isSelected = selectedPlanId === planId;
@@ -4869,21 +4869,21 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                       type="button"
                       onClick={() => setSelectedPlanId(planId)}
                       aria-pressed={isSelected}
-                      className={`flex min-h-[86px] w-full items-center gap-3 rounded-[20px] border px-4 py-3 text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 md:min-h-[112px] md:px-5 ${
+                      className={`flex min-h-[88px] w-full items-center gap-3 rounded-[18px] border px-3.5 py-3 text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 sm:px-4 md:min-h-[104px] ${
                         isSelected
-                          ? 'border-emerald-600 bg-emerald-50/70 shadow-[0_10px_30px_rgba(5,150,105,0.10)]'
+                          ? 'border-emerald-500 bg-emerald-50/70 ring-1 ring-emerald-500/25 shadow-[0_4px_14px_rgba(5,150,105,0.06)]'
                           : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/60'
                       }`}
                     >
-                      <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${planTone}`}>
+                      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${planTone}`}>
                         <CardIcon className="h-5 w-5" strokeWidth={2.2} />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p translate="no" className="text-base font-black text-slate-950 md:text-lg">{plan.name}</p>
-                        <p className="mt-0.5 text-lg font-bold tracking-tight text-slate-700 md:text-xl">
-                          {activeTenant.currency}{plan.price.toLocaleString()}
+                        <p translate="no" className="text-[14px] font-bold text-slate-950 md:text-base">{plan.name}</p>
+                        <p className="mt-0.5 text-[17px] font-bold tracking-tight text-slate-950 md:text-lg">
+                          {activeTenant.currency}{plan.price.toLocaleString()}<span className="ml-1 text-[11px] font-normal text-slate-500">/ month</span>
                         </p>
-                        <p className="mt-1 hidden text-xs font-medium leading-5 text-slate-500 md:block">
+                        <p className="mt-1 text-[10px] leading-4 text-slate-500 sm:text-xs">
                           {planId === 'ruby'
                             ? '1 branch · 2 users · 1,000 products'
                             : planId === 'diamond'
@@ -4891,29 +4891,36 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                               : '2 branches included · 15 users · unlimited products'}
                         </p>
                       </div>
-                      <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 ${isSelected ? 'border-emerald-600' : 'border-slate-300'}`}>
-                        {isSelected ? <span className="h-3 w-3 rounded-full bg-emerald-600" /> : null}
+                      <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${isSelected ? 'border-emerald-600' : 'border-slate-300'}`}>
+                        {isSelected ? <span className="h-2.5 w-2.5 rounded-full bg-emerald-600" /> : null}
                       </span>
                     </button>
                   );
                 })}
               </section>
 
-              <section className="mt-5 border-t border-slate-100 pt-5 md:mt-0 md:border-l md:border-t-0 md:pl-8 md:pt-0">
-                <div className="grid min-h-12 grid-cols-2 rounded-2xl bg-slate-100 p-1">
+              <section className="mt-5 border-t border-slate-200 pt-5 md:mt-0 md:border-l md:border-t-0 md:pl-6 md:pt-0">
+                <h4 className="mb-2.5 text-sm font-bold text-slate-900">Payment method</h4>
+                <div role="group" aria-label="Payment method" className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-1">
                   <button
                     type="button"
+                    aria-pressed={paymentMode === 'online'}
                     onClick={() => setPaymentMode('online')}
-                    className={`min-h-11 rounded-xl px-4 text-sm font-bold transition-all ${paymentMode === 'online' ? 'border border-emerald-600 bg-white text-emerald-700 shadow-sm' : 'text-slate-500'}`}
+                    className={`flex w-full items-center gap-3 rounded-2xl border px-3.5 py-3 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${paymentMode === 'online' ? 'border-emerald-500 bg-emerald-50/70' : 'border-slate-200 bg-white hover:border-slate-300'}`}
                   >
-                    Pay online
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700"><CardIcon className="h-4.5 w-4.5" /></span>
+                    <span className="min-w-0 flex-1"><span className="block text-[13px] font-bold text-slate-900">Pay online</span><span className="block text-[11px] leading-4 text-slate-500">Secure digital checkout</span></span>
+                    <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${paymentMode === 'online' ? 'border-emerald-600' : 'border-slate-300'}`}>{paymentMode === 'online' ? <span className="h-2.5 w-2.5 rounded-full bg-emerald-600" /> : null}</span>
                   </button>
                   <button
                     type="button"
+                    aria-pressed={paymentMode === 'offline'}
                     onClick={() => setPaymentMode('offline')}
-                    className={`min-h-11 rounded-xl px-4 text-sm font-bold transition-all ${paymentMode === 'offline' ? 'border border-emerald-600 bg-white text-emerald-700 shadow-sm' : 'text-slate-500'}`}
+                    className={`flex w-full items-center gap-3 rounded-2xl border px-3.5 py-3 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${paymentMode === 'offline' ? 'border-emerald-500 bg-emerald-50/70' : 'border-slate-200 bg-white hover:border-slate-300'}`}
                   >
-                    Pay offline
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700"><Receipt className="h-4.5 w-4.5" /></span>
+                    <span className="min-w-0 flex-1"><span className="block text-[13px] font-bold text-slate-900">Pay offline</span><span className="block text-[11px] leading-4 text-slate-500">Send payment proof for approval</span></span>
+                    <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${paymentMode === 'offline' ? 'border-emerald-600' : 'border-slate-300'}`}>{paymentMode === 'offline' ? <span className="h-2.5 w-2.5 rounded-full bg-emerald-600" /> : null}</span>
                   </button>
                 </div>
 
