@@ -20,6 +20,7 @@ import { normalizeSubscriptionPlanId } from '../../shared/utils/subscription';
 import { findPaymentChannel, getDebtCollectionPaymentChannels, getPaymentModeName } from '../../shared/utils/paymentAccounts';
 import { calculateSalesDocumentTotals } from './utils/salesDocumentTotals';
 import { getSaleItemLineTotal } from './utils/saleItemTotals';
+import { getOrvixNativePrinterBridge, readPosDevicePreferences, sendNativeReceipt } from '../../shared/utils/posDevices';
 import {
   createStandardCommercialDocument,
   createCrossBranchCommercialDocument,
@@ -568,6 +569,7 @@ export default function DashboardSalesList({
   // Selected Sale for visual receipt overlay
   const [selectedSale, setSelectedSale] = useState<Sale | null>(null);
   const [isReceiptPrinting, setIsReceiptPrinting] = useState(false);
+  const [receiptPrintMessage, setReceiptPrintMessage] = useState('');
   const [whatsappPhone, setWhatsappPhone] = useState('');
 
   useEffect(() => {
@@ -1108,9 +1110,23 @@ export default function DashboardSalesList({
     return s.paymentMethod === 'Credit' && totalCollectedSoFar < s.total;
   }).length;
 
-  const simulatePrint = () => {
+  const simulatePrint = async () => {
     if (!selectedSale) return;
-    // Use thermal receipt printing — works with USB and Bluetooth printers on Android/iOS/Desktop
+    setReceiptPrintMessage('');
+    if (getOrvixNativePrinterBridge()) {
+      setIsReceiptPrinting(true);
+      try {
+        const result = await sendNativeReceipt(
+          activeTenant.id, selectedSale,
+          getActiveBranchDisplayName(activeTenant, systemSettings, undefined, activeBranch),
+          receiptLanguage === 'sw' ? 'sw' : 'en', 'manual',
+        );
+        setReceiptPrintMessage(result.status === 'sent'
+          ? (receiptLanguage === 'sw' ? 'Risiti imetumwa kwa printer.' : 'Receipt sent to printer.')
+          : (receiptLanguage === 'sw' ? 'Printer haijachapisha. Angalia Settings na ujaribu tena.' : 'Printer could not print. Check Settings and retry.'));
+      } finally { setIsReceiptPrinting(false); }
+      return;
+    }
     printThermalReceipt(selectedSale);
   };
 
@@ -1249,18 +1265,18 @@ export default function DashboardSalesList({
     return `receipt-${safeBusiness}-${safeReference}.pdf`;
   };
 
-  // Print thermal receipt — works with USB and Bluetooth thermal printers
-  // On Android: triggers native print dialog (Chrome → Share → Print)
-  // On Desktop: opens print dialog with thermal paper settings
+  // Browser fallback uses the system print dialog. Native Bluetooth is handled
+  // separately by the Android/iOS bridge; no silent Bluetooth claim here.
   const printThermalReceipt = (sale: Sale) => {
+    const paperWidth = readPosDevicePreferences(activeTenant.id).paperWidthMm;
     const el = document.getElementById('sales-receipt-pdf-template');
     if (!el) return;
     const content = el.innerHTML;
 
     const thermalCSS = `
-      @page { size: 80mm auto; margin: 4mm; }
+      @page { size: ${paperWidth}mm auto; margin: 3mm; }
       * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      body { width: 72mm; font-family: 'Courier New', Courier, monospace; font-size: 11px; color: #000; background: #fff; margin: 0; padding: 0; }
+      body { width: ${paperWidth - 6}mm; font-family: 'Courier New', Courier, monospace; font-size: ${paperWidth === 58 ? 9 : 11}px; color: #000; background: #fff; margin: 0; padding: 0; }
       img { max-width: 100%; height: auto; }
       * { color: #000 !important; background: transparent !important; border-color: #888 !important; box-shadow: none !important; border-radius: 0 !important; }
       .flex { display: flex; } .justify-between { justify-content: space-between; } .justify-center { justify-content: center; } .items-center { align-items: center; } .items-start { align-items: flex-start; } .flex-col { flex-direction: column; }
@@ -1293,7 +1309,7 @@ export default function DashboardSalesList({
 
     // Create hidden iframe — works on Android Chrome without popup blocker
     const iframe = document.createElement('iframe');
-    iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:80mm;height:0;border:none;';
+    iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:' + paperWidth + 'mm;height:0;border:none;';
     document.body.appendChild(iframe);
 
     const doc = iframe.contentDocument || iframe.contentWindow?.document;
@@ -4018,6 +4034,7 @@ export default function DashboardSalesList({
                     <span>Close</span>
                   </button>
                 </div>
+                {receiptPrintMessage && <p role="status" className="text-xs font-semibold text-emerald-700">{receiptPrintMessage}</p>}
               </div>
 
             </div>
