@@ -157,14 +157,22 @@ export default function SaaSStatusAndRequests() {
     try {
       const client: any = await getSecureDataBridgeClient();
 
-      // Load payment proofs
-      const { data: proofsData, error: proofsError } = await client
-        .from('tenant_payment_proofs')
-        .select('*')
-        .order('submitted_at', { ascending: false })
-        .limit(100);
-
-      if (!proofsError && proofsData) setProofs(proofsData);
+      // Fetch all pending approvals from the authorized platform backend.
+      // Browser-side RLS SELECT previously returned [] without an error,
+      // even when a receipt had been saved and an admin alert was sent.
+      const { data: sessionData } = await client.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      if (!accessToken) throw new Error('Your admin session has expired. Sign in again.');
+      const proofsResponse = await fetch('/api/super-admin/payment-proofs', {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${accessToken}` },
+        cache: 'no-store',
+      });
+      const proofsPayload = await proofsResponse.json().catch(() => ({}));
+      if (!proofsResponse.ok || !Array.isArray(proofsPayload?.proofs)) {
+        throw new Error(proofsPayload?.error || 'Could not load payment approvals.');
+      }
+      setProofs(proofsPayload.proofs);
 
       // Load tenants for emergency override
       const { data: tenantsData, error: tenantsError } = await client
@@ -193,8 +201,8 @@ export default function SaaSStatusAndRequests() {
       if (!partnersError && partnersData) {
         setPartners(partnersData.map((p: any) => ({ id: p.id, name: p.display_name || 'Unnamed partner' })));
       }
-    } catch (e) {
-      if (!silent) setMessage({ text: 'Failed to load data. Check Supabase connection.', type: 'error' });
+    } catch (e: any) {
+      setMessage({ text: `Payment requests could not be loaded: ${e?.message || 'Connection error'}`, type: 'error' });
     } finally {
       if (!silent) setLoading(false);
     }
