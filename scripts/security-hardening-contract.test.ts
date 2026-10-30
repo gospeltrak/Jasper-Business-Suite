@@ -176,18 +176,28 @@ test('Super Admin notifications are durable and critical payment mutations stay 
   );
   assert.match(proofRoute, /adminTable\('tenant_payment_proofs'\)[\s\S]*\.insert\(proofRecord\)/);
   assert.match(proofRoute, /signatureMatches/);
+  const adminListRoute = server.slice(
+    server.indexOf("app.get('/api/super-admin/payment-proofs',"),
+    server.indexOf("app.get('/api/super-admin/payment-proofs/:proofId/receipt'", server.indexOf("app.get('/api/super-admin/payment-proofs',")),
+  );
+  assert.match(adminListRoute, /await requirePlatformAdmin\(req\)/);
+  assert.match(adminListRoute, /adminTable\('tenant_payment_proofs'\)/);
+  assert.match(adminListRoute, /'pending'/);
+  assert.match(statusRequests, /fetch\('\/api\/super-admin\/payment-proofs'/);
+  assert.doesNotMatch(statusRequests, /\.from\('tenant_payment_proofs'\)\.select/);
   assert.doesNotMatch(dashboard, /from\('tenant_payment_proofs'\)[\s\S]*\.insert/);
   assert.match(statusRequests, /\/api\/super-admin\/payment-proofs\/\$\{encodeURIComponent\(proof\.id\)\}\/reject/);
   assert.doesNotMatch(statusRequests, /from\('tenant_payment_proofs'\)[\s\S]*\.update/);
 });
 
 test('manual receipts are optimized images and payment approval cannot change the selected package', () => {
-  assert.match(dashboard, /manualActivationReceipt\.size > 2 \* 1024 \* 1024/);
-  assert.match(dashboard, /compressImageFile\(manualActivationReceipt,[\s\S]*maxWidth: 1600[\s\S]*mimeType: 'image\/webp'/);
+  assert.match(dashboard, /manualActivationReceipt\.size > 10 \* 1024 \* 1024/);
+  assert.match(dashboard, /compressPaymentReceipt\(manualActivationReceipt, 14 \* 1024\)/);
   assert.match(dashboard, /accept="image\/png,image\/jpeg,image\/webp"/);
   assert.match(dashboard, /Jina la kampuni: \$\{activeTenant\.name\}/);
   assert.match(dashboard, /Kifurushi nilicholipia: \$\{SUBSCRIPTION_PLANS\[selectedPlanId\]\.name\}/);
-  assert.match(server, /originalFileSize > 2 \* 1024 \* 1024/);
+  assert.match(server, /originalFileSize > 10 \* 1024 \* 1024/);
+  assert.match(server, /fileBuffer\.length > 14 \* 1024/);
   assert.match(server, /proof\.requested_package_id[\s\S]*!== packageId/);
   assert.match(paymentPackageLockMigration, /before update of status on public\.tenant_payment_proofs/);
   assert.match(paymentPackageLockMigration, /v_active_package_id is distinct from lower\(new\.requested_package_id\)/);
