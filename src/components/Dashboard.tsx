@@ -4083,39 +4083,39 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
             >
 
             {isSubscriptionAccessLocked ? (
-              <div className="min-h-[calc(100dvh-120px)] px-4 py-6 sm:px-6 sm:py-8">
-                <section className="mx-auto flex w-full max-w-6xl flex-col gap-5">
-                  <div className="relative overflow-hidden rounded-[2rem] border border-slate-800 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white shadow-2xl shadow-slate-950/20">
-                    <div className="pointer-events-none absolute -top-24 -right-24 h-72 w-72 rounded-full bg-emerald-500/20 blur-3xl" />
-                    <div className="pointer-events-none absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-cyan-500/10 blur-3xl" />
-                    <div className={`relative grid gap-6 p-6 md:p-8 ${isTrialAccount ? 'md:grid-cols-[1.15fr_0.85fr]' : ''}`}>
+              <div className="min-h-[calc(100dvh-120px)] px-0 py-2 sm:px-4 sm:py-8">
+                <section className="mx-auto flex w-full max-w-5xl flex-col gap-6">
+                  <div className="relative isolate overflow-hidden rounded-[24px] border border-slate-800 bg-[#0b1724] text-white shadow-[0_16px_44px_rgba(15,23,42,0.12)] sm:rounded-[28px]">
+                    <div className="pointer-events-none absolute -top-36 -right-28 h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl" />
+                    <div className="pointer-events-none absolute -bottom-32 -left-28 h-56 w-56 rounded-full bg-teal-500/5 blur-3xl" />
+                    <div className={`relative grid gap-5 p-5 sm:p-7 md:p-8 ${isTrialAccount ? 'lg:grid-cols-[1.15fr_0.85fr]' : ''}`}>
                       <div className="space-y-5">
-                        <div className="inline-flex items-center gap-2 rounded-full border border-amber-400/25 bg-amber-400/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-amber-300">
+                        <div className="inline-flex items-center gap-2 rounded-full border border-amber-300/20 bg-amber-400/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-amber-200">
                           <AlertTriangle className="h-3.5 w-3.5" />
                           {isTrialAccount ? 'Trial expired' : 'Subscription expired'}
                         </div>
                         <div className="space-y-2">
-                          <h2 className="text-3xl font-black tracking-tight md:text-4xl">
+                          <h2 className="max-w-xl text-[26px] font-bold leading-[1.16] tracking-[-0.035em] sm:text-3xl md:text-[34px]">
                             {isTrialAccount ? 'Your free trial has ended' : `Your ${expiredPlan.name} package has expired`}
                           </h2>
-                          <p className="max-w-2xl text-sm leading-6 text-slate-300">
+                          <p className="max-w-xl text-[13px] leading-6 text-slate-300 sm:text-sm">
                             {isTrialAccount
-                              ? `You used the Diamond package free for ${trialDurationDays} days. Your business data is still safe. Choose Ruby, Diamond, or Tanzanite below, pay, and send your payment proof to continue.`
-                              : `Your business data is still safe. Pay for ${expiredPlan.name}${expiredOnLabel ? ` (expired ${expiredOnLabel})` : ''} to continue as before, or choose a different package below, pay, and send your payment proof.`}
+                              ? `Your ${trialDurationDays}-day Diamond trial has ended. Your business data is safe. Choose a plan below to restore access.`
+                              : `Your data is safe and unchanged. Renew ${expiredPlan.name} or choose a different plan below${expiredOnLabel ? ` · Expired ${expiredOnLabel}` : ''} .`}
                           </p>
                         </div>
-                        <div className="subscription-stat-grid grid gap-3 sm:grid-cols-3">
-                          <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{isTrialAccount ? 'Trial package' : 'Current package'}</p>
-                            <p className="mt-1 text-lg font-black text-emerald-300">{isTrialAccount ? 'Diamond' : expiredPlan.name}</p>
+                        <div className="subscription-stat-grid grid grid-cols-2 gap-2.5 pt-1 sm:grid-cols-3">
+                          <div className="rounded-2xl border border-white/10 bg-white/[0.055] px-3 py-3.5">
+                            <p className="text-[10px] font-medium text-slate-400">{isTrialAccount ? 'Trial plan' : 'Current plan'}</p>
+                            <p className="mt-1 text-sm font-bold text-white">{isTrialAccount ? 'Diamond' : expiredPlan.name}</p>
                           </div>
-                          <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{isTrialAccount ? 'Trial length' : 'Status'}</p>
-                            <p className="mt-1 text-lg font-black text-white">{isTrialAccount ? `${trialDurationDays} days` : 'Expired'}</p>
+                          <div className="rounded-2xl border border-white/10 bg-white/[0.055] px-3 py-3.5">
+                            <p className="text-[10px] font-medium text-slate-400">{isTrialAccount ? 'Trial duration' : 'Plan status'}</p>
+                            <p className="mt-1 text-sm font-bold text-amber-200">{isTrialAccount ? `${trialDurationDays} days` : 'Expired'}</p>
                           </div>
-                          <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Data status</p>
-                            <p className="mt-1 text-lg font-black text-white">Preserved</p>
+                          <div className="col-span-2 flex items-center gap-3 rounded-2xl border border-emerald-400/15 bg-emerald-400/[0.08] px-3 py-3.5 sm:col-span-1">
+                            <Shield className="h-4 w-4 shrink-0 text-emerald-300" aria-hidden="true" />
+                            <div><p className="text-[10px] font-medium text-slate-400">Business data</p><p className="mt-0.5 text-sm font-bold text-emerald-200">Preserved</p></div>
                           </div>
                         </div>
                       </div>
@@ -4131,11 +4131,11 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                     </div>
                   </div>
 
-                  <div className="subscription-plan-grid grid gap-4 md:grid-cols-3">
+                  <div className="subscription-plan-grid grid gap-3.5 md:grid-cols-3 md:gap-4">
                     {([
-                      { id: 'ruby' as const, tag: 'Lower cost', tone: 'border-rose-200 bg-white', trialCta: 'Choose Ruby', notes: ['TZS 15,000 / month', '1,000 products', '1 store', '2 staff users'] },
-                      { id: 'diamond' as const, tag: 'Same as trial', tone: 'border-emerald-300 bg-emerald-50', trialCta: 'Keep Diamond', notes: ['TZS 30,000 / month', '5,000 products', 'Diamond Lucy AI', '5 staff users'] },
-                      { id: 'tanzanite' as const, tag: 'Full upgrade', tone: 'border-cyan-300 bg-white', trialCta: 'Upgrade Tanzanite', notes: ['TZS 50,000 / month', 'Unlimited products', 'Forecasting + higher Lucy limits', '15 staff users'] },
+                      { id: 'ruby' as const, tag: 'Essential', tone: 'border-slate-200 bg-white', trialCta: 'Choose Ruby', notes: ['1,000 products', '1 branch', '2 staff users'] },
+                      { id: 'diamond' as const, tag: 'Popular', tone: 'border-slate-200 bg-white', trialCta: 'Keep Diamond', notes: ['5,000 products', 'Diamond Lucy AI', '5 staff users'] },
+                      { id: 'tanzanite' as const, tag: 'Advanced', tone: 'border-slate-200 bg-white', trialCta: 'Upgrade Tanzanite', notes: ['Unlimited products', 'Forecasting + higher Lucy limits', '15 staff users'] },
                     ]).map((pkg) => {
                       const plan = SUBSCRIPTION_PLANS[pkg.id];
                       const isDiamond = pkg.id === 'diamond';
@@ -4143,32 +4143,32 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                       const cta = isTrialAccount ? pkg.trialCta : (isCurrentPlan ? `Renew ${plan.name}` : `Switch to ${plan.name}`);
                       const tag = isTrialAccount ? pkg.tag : (isCurrentPlan ? 'Your current plan' : pkg.tag);
                       return (
-                        <article key={pkg.id} className={`group relative flex h-full flex-col rounded-3xl border p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-xl ${pkg.tone} ${isDiamond ? 'ring-2 ring-emerald-400 md:scale-[1.03] md:hover:scale-[1.05]' : ''}`}>
+                        <article key={pkg.id} className={`group relative flex h-full flex-col rounded-[22px] border px-4 pb-4 pt-5 shadow-[0_3px_16px_rgba(15,23,42,0.035)] transition-all duration-200 hover:border-emerald-300 hover:shadow-lg sm:p-5 ${pkg.tone} ${isDiamond ? 'md:ring-1 md:ring-emerald-400/70' : ''}`}>
                           {isDiamond && (
-                            <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-emerald-600 px-3 py-1 text-[9px] font-black uppercase tracking-widest text-white shadow-md">
+                            <span className="absolute -top-2.5 right-4 rounded-full bg-emerald-600 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-wide text-white">
                               Recommended
                             </span>
                           )}
                           <div className="flex items-center justify-between gap-3">
                             <div>
-                              <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-widest ${isDiamond ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600'}`}>{tag}</span>
-                              <h3 translate="no" className="mt-3 text-2xl font-black text-slate-950">{plan.name}</h3>
+                              <span className={`inline-block rounded-full px-2.5 py-1 text-[10px] font-semibold ${isDiamond ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{tag}</span>
+                              <h3 translate="no" className="mt-2 text-xl font-bold tracking-tight text-slate-950">{plan.name}</h3>
                             </div>
                             <div className="text-right">
-                              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Monthly</p>
-                              <p className="text-lg font-black text-slate-950">{activeTenant.currency}{plan.price.toLocaleString()}</p>
+                              <p className="text-[11px] font-medium text-slate-400">per month</p>
+                              <p className="text-xl font-bold tracking-tight text-slate-950">{activeTenant.currency}{plan.price.toLocaleString()}</p>
                             </div>
                           </div>
-                          <ul className="mt-5 space-y-2 text-sm text-slate-600">
-                            {pkg.notes.map((note) => <li key={note} className="flex gap-2"><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />{note}</li>)}
+                          <ul className="mt-3 grid gap-x-2 gap-y-2 sm:mt-5 sm:space-y-2 text-xs text-slate-600 sm:text-sm">
+                            {pkg.notes.map((note) => <li key={note} className="flex gap-2"><span className="mt-1 flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-[10px] font-bold text-emerald-700">✓</span><span>{note}</span></li>)}
                           </ul>
                           {pkg.id === 'tanzanite' && (
-                            <div className="mt-4 rounded-2xl bg-cyan-50 p-3">
-                              <p className="text-[10px] font-black uppercase tracking-widest text-cyan-700">Extra vs Diamond</p>
-                              <ul className="mt-2 space-y-1.5 text-xs text-cyan-900">
+                            <details className="mt-3 rounded-xl border border-slate-100 bg-slate-50/80 p-3">
+                              <summary className="cursor-pointer text-[11px] font-semibold text-slate-600">What’s included beyond Diamond</summary>
+                              <ul className="mt-2 space-y-1.5 pl-1 text-xs leading-5 text-slate-600">
                                 {tanzaniteUpgradeNotes.slice(0, 4).map((note) => <li key={note}>+ {note}</li>)}
                               </ul>
-                            </div>
+                            </details>
                           )}
                           <button
                             type="button"
@@ -4181,7 +4181,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                                 description: `Select ${plan.name}, pay, and upload your receipt for activation.`
                               });
                             }}
-                            className={`mt-5 md:mt-auto w-full rounded-2xl px-4 py-3 text-sm font-black transition-colors ${isDiamond ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-slate-950 text-white hover:bg-slate-800'}`}
+                            className={`mt-4 min-h-11 w-full rounded-xl px-4 py-2.5 text-[13px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 md:mt-auto ${isCurrentPlan || isDiamond ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-slate-950 text-white hover:bg-slate-800'}`}
                           >
                             {cta}
                           </button>
