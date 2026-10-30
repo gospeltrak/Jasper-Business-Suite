@@ -1115,6 +1115,22 @@ test('Adjust Stock waits for the durable narrow product save before updating aud
   assert.match(dashboardSource, /const didSave = await saved;/);
 });
 
+test('product edits have one queued authoritative RPC rather than racing legacy products_map writes', async () => {
+  const dashboardSource = await read('src/components/Dashboard.tsx');
+  const start = dashboardSource.indexOf('const persistTenantProductsNow =');
+  const end = dashboardSource.indexOf('const persistSystemSettingsNow =', start);
+  assert.ok(start >= 0 && end > start);
+  const mutation = dashboardSource.slice(start, end);
+  assert.match(mutation, /saveTenantProductsOnly\(activeTenant\.id, productsToSave/);
+  assert.match(mutation, /skipNextWorkspaceSaveRef\.current = true;/);
+  assert.doesNotMatch(mutation, /saveData\(/);
+  const workspaceSource = await read('src/shared/utils/tenantWorkspace.ts');
+  const narrowStart = workspaceSource.indexOf('async function saveTenantProductsOnlyNow(');
+  const narrowEnd = workspaceSource.indexOf('export function saveTenantProductsOnly(', narrowStart);
+  assert.ok(narrowStart >= 0 && narrowEnd > narrowStart);
+  assert.match(workspaceSource.slice(narrowStart, narrowEnd), /if \(!Array\.isArray\(result\.data\?\.products\)\)/);
+});
+
 test('browser gets a fresh service worker and dashboard shell after each deployment', async () => {
   const pkg = JSON.parse(await read('package.json'));
   const verifier = await read('scripts/verify-deploy.mjs');
