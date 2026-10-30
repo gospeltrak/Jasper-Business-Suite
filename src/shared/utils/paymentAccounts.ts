@@ -147,3 +147,69 @@ export const findPaymentChannel = (
     normalize(channel.paymentMethod) === method,
   );
 };
+
+/**
+ * Receivables collection uses the same reconciled Money & Bank channels as
+ * checkout. The legacy invoice/settings screen may list "Mpesa" even when
+ * systemSettings.paymentChannels has not been initialized yet; looking only
+ * in that raw array prevents every installment from being recorded.
+ *
+ * Never invent an account for a payment method explicitly disabled in Money
+ * & Bank, reactivate an archived channel, select a different branch's
+ * account, or treat "Credit" as an incoming payment.
+ */
+export const getDebtCollectionPaymentChannels = (
+  business?: Partial<BusinessSettings>,
+  existingChannels: PaymentChannel[] = [],
+  options: { currency?: string; branchId?: string } = {},
+): PaymentChannel[] => {
+  const original = Array.isArray(existingChannels) ? existingChannels : [];
+  const configured = getTreasuryPaymentMethods(business);
+  const methods = (configured.length ? configured : original.map(
+    channel => channel.paymentMethod || channel.name || '',
+  ))
+    .filter(method => method && !/^credit$/i.test(method.trim()));
+
+  // Spelling variants such as "M-Pesa" / "Mpesa" / "M Pesa" must
+  // resolve to the SAME configured account rather than creating a second
+  // Money & Bank account for an old tenant.
+  const methodIdentity = (value: string): string => normalize(value).replace(/[\s_-]/g, '');
+  const usableMethods = methods.filter(method => {
+    const matches = original.filter(channel =>
+      methodIdentity(channel.paymentMethod || channel.name || channel.provider || '') === methodIdentity(method),
+    );
+    // An explicitly disabled mode must never be silently reactivated.
+    return matches.length === 0 || matches.some(channel =>
+      channel.status !== 'inactive' &&
+      channel.status !== 'archived' &&
+      (!options.branchId || !channel.branchId || channel.branchId === options.branchId),
+    );
+  });
+  const enabled = new Set(usableMethods.map(normalize));
+  const disabledIds = new Set(original
+    .filter(channel => channel.status === 'inactive' || channel.status === 'archived')
+    .map(channel => channel.id));
+
+  const aligned = original.map(channel => {
+    const matches = usableMethods.filter(method =>
+      methodIdentity(channel.paymentMethod || channel.name || channel.provider || '') === methodIdentity(method),
+    );
+    return matches.length === 1 ? { ...channel, paymentMethod: matches[0] } : channel;
+  });
+  const candidates = reconcilePaymentChannels(usableMethods, aligned, options).filter(channel =>
+    !!channel.id &&
+    !!channel.paymentMethod &&
+    enabled.has(normalize(channel.paymentMethod)) &&
+    !disabledIds.has(channel.id) &&
+    channel.category !== 'person' &&
+    channel.status !== 'inactive' &&
+    channel.status !== 'archived' &&
+    (!options.branchId || !channel.branchId || channel.branchId === options.branchId),
+  );
+  // This form selects a payment METHOD, not an individual bank account.
+  // Never silently choose an arbitrary account when a tenant has multiple
+  // accounts assigned to the same method.
+  return candidates.filter(channel => candidates.filter(other =>
+    normalize(other.paymentMethod) === normalize(channel.paymentMethod)).length === 1);
+
+};
