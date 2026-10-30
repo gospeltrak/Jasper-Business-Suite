@@ -2600,8 +2600,8 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       let receiptPath: string | null = null;
       let fileBuffer: Buffer | null = null;
       if (hasReceipt) {
-        if (!Number.isFinite(originalFileSize) || originalFileSize <= 0 || originalFileSize > 2 * 1024 * 1024) {
-          return res.status(413).json({ error: 'Receipt must be 2 MB or smaller.' });
+        if (!Number.isFinite(originalFileSize) || originalFileSize <= 0 || originalFileSize > 10 * 1024 * 1024) {
+          return res.status(413).json({ error: 'Original receipt must be 10 MB or smaller.' });
         }
         if (!allowedTypes.has(fileType)) {
           return res.status(400).json({ error: 'Receipt must be converted to WebP before upload.' });
@@ -2612,8 +2612,8 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         }
         const encoded = receiptBase64.slice(dataUrlPrefix.length);
         fileBuffer = Buffer.from(encoded, 'base64');
-        if (!fileBuffer.length || fileBuffer.length > 2 * 1024 * 1024) {
-          return res.status(413).json({ error: 'Optimized receipt must be 2 MB or smaller.' });
+        if (!fileBuffer.length || fileBuffer.length > 14 * 1024) {
+          return res.status(413).json({ error: 'Optimized receipt must be 14 KB or smaller.' });
         }
         const signatureMatches = fileBuffer.length >= 12
           && fileBuffer.toString('ascii', 0, 4) === 'RIFF'
@@ -2686,6 +2686,34 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       return res.status(201).json({ proof, receiptPath, fileName });
     } catch (error: any) {
       return res.status(Number(error?.status || 500)).json({ error: error?.message || 'Receipt upload failed.' });
+    }
+  });
+
+  // Platform-admin-only source of truth for Payment Approvals. Direct
+  // browser SELECT on the RLS table can silently appear empty.
+  app.get('/api/super-admin/payment-proofs', async (req, res) => {
+    res.setHeader('Cache-Control', 'private, no-store, max-age=0, must-revalidate');
+    res.setHeader('Vary', 'Authorization');
+    try {
+      await requirePlatformAdmin(req);
+      const fields = 'id, tenant_id, tenant_name, requested_package_id, requested_package_name, amount, currency, status, receipt_file_name, receipt_file_type, receipt_file_url, note, submitted_by, submitted_at, reviewed_at, reviewed_by, rejected_reason';
+      const [pending, recent] = await Promise.all([
+        adminTable('tenant_payment_proofs').select(fields).eq('status', 'pending').order('submitted_at', { ascending: false }).limit(250),
+        adminTable('tenant_payment_proofs').select(fields).order('submitted_at', { ascending: false }).limit(100),
+      ]);
+      if (pending.error) throw pending.error;
+      if (recent.error) throw recent.error;
+      const byId = new Map<string, any>();
+      for (const proof of [...(pending.data || []), ...(recent.data || [])]) {
+        byId.set(String(proof.id), proof);
+      }
+      return res.json({
+        proofs: Array.from(byId.values()).sort((a, b) =>
+          String(b.submitted_at || '').localeCompare(String(a.submitted_at || ''))),
+        pendingCount: (pending.data || []).length,
+      });
+    } catch (error: any) {
+      return platformAdminError(res, error);
     }
   });
 
