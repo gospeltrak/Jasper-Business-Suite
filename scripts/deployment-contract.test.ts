@@ -202,6 +202,15 @@ test('subscription checkout uses the native plan summary without inline mobile-m
   const serverSource = await read('server.ts');
   assert.match(dashboardSource, /Choose your plan/);
   assert.match(dashboardSource, /Payment method/);
+  // Mobile renders package selection and checkout as distinct steps.
+  // Desktop continues presenting both at once, and existing handlers stay.
+  assert.match(dashboardSource, /checkoutStep: 'plan' \| 'payment'/);
+  assert.match(dashboardSource, /setCheckoutStep\('payment'\)/);
+  assert.match(dashboardSource, /setCheckoutStep\('plan'\)/);
+  assert.match(dashboardSource, /Continue with \{SUBSCRIPTION_PLANS\[selectedPlanId\]\.name\}/);
+  assert.match(dashboardSource, /hidden md:block/);
+  assert.match(dashboardSource, /startOnlineSubscriptionPayment\(selectedPlanId/);
+  assert.match(dashboardSource, /submitManualActivationRequest\(selectedPlanId\)/);
   assert.match(dashboardSource, /Verify payment details first/);
   assert.match(dashboardSource, /Example numbers are not payment instructions/);
   assert.doesNotMatch(dashboardSource, /Lipa Namba — mfano|>123456</);
