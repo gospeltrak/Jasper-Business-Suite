@@ -4926,8 +4926,8 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
 
                 {paymentMode === 'online' ? (
                   <div className="mt-5">
-                    <h4 className="text-base font-black text-slate-950 md:text-lg">Order summary</h4>
-                    <div className="mt-3 overflow-hidden rounded-[20px] border border-slate-200 bg-white">
+                    <h4 className="text-sm font-bold text-slate-950 md:text-base">Order summary</h4>
+                    <div className="mt-3 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_3px_12px_rgba(15,23,42,0.025)]">
                       <div className="flex items-center justify-between gap-4 px-4 py-4 md:px-5">
                         <span className="text-sm font-medium text-slate-500">Selected plan</span>
                         <span translate="no" className="text-base font-black text-slate-950">
@@ -4937,7 +4937,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                       <div className="mx-4 border-t border-slate-100 md:mx-5" />
                       <div className="flex items-end justify-between gap-4 px-4 py-4 md:px-5">
                         <span className="text-sm font-medium text-slate-500">Monthly total</span>
-                        <span className="text-2xl font-black tracking-tight text-slate-950">
+                        <span className="text-[22px] font-bold tracking-tight text-slate-950">
                           {activeTenant.currency}{SUBSCRIPTION_PLANS[selectedPlanId].price.toLocaleString()}
                         </span>
                       </div>
@@ -4956,7 +4956,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                       type="button"
                       onClick={() => startOnlineSubscriptionPayment(selectedPlanId, () => setPaymentMode('offline'))}
                       disabled={onlinePaymentSubmitting}
-                      className="subscription-desktop-action mt-4 min-h-14 w-full rounded-2xl bg-emerald-600 px-5 text-sm font-black text-white shadow-[0_12px_30px_rgba(5,150,105,0.22)] transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="subscription-desktop-action mt-4 min-h-12 w-full rounded-xl bg-emerald-600 px-5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {onlinePaymentSubmitting ? 'Starting secure payment…' : 'Pay online'}
                     </button>
@@ -4973,43 +4973,52 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                   </div>
                 ) : (
                   <div className="mt-5">
-                    <div className="rounded-[20px] border border-emerald-200 bg-emerald-50 p-4 md:p-5">
-                      <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">Pay with Mixx by Yas</p>
-                      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                    <div className="rounded-[20px] border border-emerald-100 bg-emerald-50/80 p-4 md:p-5">
+                      <div className="flex items-center gap-2">
+                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-emerald-700"><Shield className="h-5 w-5" /></span>
                         <div>
-                          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Lipa Namba — mfano</p>
-                          <p className="mt-1 text-3xl font-black tracking-tight text-slate-950">123456</p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Jina — mfano</p>
-                          <p className="mt-1 text-base font-black text-slate-950">Orvix Business Suite</p>
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-emerald-800">Offline transfer</p>
+                          <h4 className="text-base font-bold tracking-tight text-slate-950">Pay with Mixx by Yas</h4>
                         </div>
                       </div>
-                      <p className="mt-4 text-xs font-medium leading-5 text-amber-800">Hizi ni taarifa za mfano. Thibitisha Lipa Namba halisi kwa deployments kabla ya kutuma malipo.</p>
+                      <div className="mt-4 rounded-xl border border-emerald-200/70 bg-white/85 px-3.5 py-3">
+                        <p className="text-[12px] font-bold text-slate-900">Verify payment details first</p>
+                        <p className="mt-1 text-xs leading-5 text-slate-600">For your security, the official Lipa Namba must be confirmed with Orvix deployments before sending any money. Example numbers are not payment instructions.</p>
+                      </div>
+                      <a
+                        href="https://wa.me/255655746552?text=Hello%20Orvix%20Deployments%2C%20please%20confirm%20the%20official%20Mixx%20by%20Yas%20Lipa%20Namba%20for%20my%20subscription."
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-xl px-1 text-xs font-bold text-emerald-800 underline-offset-4 hover:underline"
+                      >
+                        <MessageSquare className="h-4 w-4" /> Confirm official payment number <ChevronRight className="h-4 w-4" />
+                      </a>
                     </div>
 
                     <label className="mt-4 block">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Payment details</span>
+                      <span className="text-xs font-bold text-slate-900">Transaction reference</span>
                       <input
                         type="text"
                         value={manualActivationNote}
                         onChange={(event) => setManualActivationNote(event.target.value)}
-                        placeholder="Transaction reference and payment details"
-                        className="mt-1.5 min-h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-950 outline-none transition-colors focus:border-emerald-500"
+                        placeholder="Enter transaction ID or payment reference"
+                        className="mt-2 min-h-12 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-slate-950 outline-none transition-colors placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
                       />
                     </label>
 
-                    <div className="relative mt-3">
+                    <div className="relative mt-4">
+                      <p className="mb-2 text-xs font-bold text-slate-900">Payment receipt</p>
                       <input
                         type="file"
                         id="receipt-upload"
+                        aria-label="Upload your payment receipt image"
                         className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
                         accept="image/png,image/jpeg,image/webp"
                         onChange={(event) => setManualActivationReceipt(event.target.files?.[0] || null)}
                       />
-                      <div className="flex min-h-14 items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 text-slate-600">
+                      <div className="flex min-h-20 items-center justify-center gap-3 rounded-xl border border-dashed border-slate-300 bg-white px-4 py-3 text-slate-600 transition-colors hover:border-emerald-400 hover:bg-emerald-50/20">
                         <CloudLightning className="h-5 w-5" />
-                        <span className="truncate text-xs font-bold">{manualActivationReceipt ? manualActivationReceipt.name : 'Click here to upload a receipt image (PNG, JPG, or WebP, max 2 MB)'}</span>
+                        <span className="min-w-0 text-left"><span className="block truncate text-xs font-semibold text-slate-800">{manualActivationReceipt ? manualActivationReceipt.name : 'Tap to upload receipt'}</span><span className="mt-0.5 block text-[11px] text-slate-500">PNG, JPG or WebP · Max 2 MB</span></span>
                       </div>
                     </div>
 
@@ -5017,7 +5026,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                       type="button"
                       onClick={() => submitManualActivationRequest(selectedPlanId)}
                       disabled={manualActivationSubmitting}
-                      className="subscription-desktop-action mt-3 min-h-14 w-full cursor-pointer rounded-2xl bg-slate-950 px-5 text-sm font-black text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="subscription-desktop-action mt-4 min-h-12 w-full cursor-pointer rounded-xl bg-emerald-600 px-5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       {manualActivationSubmitting ? 'Sending…' : 'Submit receipt for activation'}
                     </button>
@@ -5041,13 +5050,13 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
               </section>
             </div>
 
-            <footer className="subscription-mobile-action shrink-0 border-t border-slate-100 bg-white px-5 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3">
+            <footer className="subscription-mobile-action shrink-0 border-t border-slate-100 bg-white px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 sm:px-6">
               {paymentMode === 'online' ? (
                 <button
                   type="button"
                   onClick={() => startOnlineSubscriptionPayment(selectedPlanId, () => setPaymentMode('offline'))}
                   disabled={onlinePaymentSubmitting}
-                  className="min-h-14 w-full rounded-2xl bg-emerald-600 px-5 text-sm font-black text-white shadow-[0_12px_30px_rgba(5,150,105,0.22)] transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+                  className="min-h-12 w-full rounded-xl bg-emerald-600 px-5 text-sm font-semibold text-white shadow-[0_5px_14px_rgba(5,150,105,0.15)] transition-colors disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {onlinePaymentSubmitting ? 'Starting secure payment…' : 'Pay online'}
                 </button>
@@ -5056,7 +5065,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                   type="button"
                   onClick={() => submitManualActivationRequest(selectedPlanId)}
                   disabled={manualActivationSubmitting}
-                  className="min-h-14 w-full cursor-pointer rounded-2xl bg-slate-950 px-5 text-sm font-black text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+                  className="min-h-12 w-full cursor-pointer rounded-xl bg-emerald-600 px-5 text-sm font-semibold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {manualActivationSubmitting ? 'Sending…' : 'Submit receipt for activation'}
                 </button>
