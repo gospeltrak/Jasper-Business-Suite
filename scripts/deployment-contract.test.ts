@@ -206,6 +206,13 @@ test('subscription checkout uses the native plan summary without inline mobile-m
   assert.match(dashboardSource, /Example numbers are not payment instructions/);
   assert.doesNotMatch(dashboardSource, /Lipa Namba — mfano|>123456</);
   assert.match(dashboardSource, /Order summary/);
+  // Pay offline must show the same actual plan amount as online; never use
+  // a fake Lipa Namba. Accessibility feedback and receipts are not optional.
+  assert.match(dashboardSource, /Amount due · monthly/);
+  assert.match(dashboardSource, /Selected package/);
+  assert.match(dashboardSource, /aria-live="polite"/);
+  assert.match(dashboardSource, /aria-describedby="receipt-upload-hint"/);
+  assert.match(dashboardSource, /accept="image\/png,image\/jpeg,image\/webp"/);
   assert.match(dashboardSource, /Secure payment\. Access activates after payment confirmation\./);
   assert.match(dashboardSource, /Need help\? Contact deployments/);
   assert.doesNotMatch(dashboardSource, /Secure mobile-money checkout/);
