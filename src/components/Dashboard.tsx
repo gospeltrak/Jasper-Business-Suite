@@ -4836,53 +4836,43 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
         <SubscriptionCheckoutStateBridge initialPlan={manualActivationPackage}>
           {({ checkoutStep, setCheckoutStep, selectedPlanId, setSelectedPlanId, paymentMode, setPaymentMode }) => (
         <div className="fixed inset-0 z-[170] flex items-end justify-center bg-slate-950/55 p-0 backdrop-blur-[3px] md:items-center md:p-5 animate-in fade-in">
-          <div role="dialog" aria-modal="true" aria-labelledby="subscription-title" className={`relative mt-auto flex max-h-[92dvh] w-full max-w-4xl flex-col overflow-hidden rounded-t-[30px] border border-slate-200 bg-white shadow-[0_28px_90px_rgba(2,6,23,0.26)] md:mt-0 md:h-auto md:max-h-[calc(100dvh-40px)] md:rounded-[28px] animate-in slide-in-from-bottom-10 md:slide-in-from-bottom-0 ${checkoutStep === 'plan' ? 'h-auto' : 'h-[92dvh]'}`}>
+          <div role="dialog" aria-modal="true" aria-labelledby="subscription-title" className={`relative mt-auto flex max-h-[92dvh] w-full max-w-4xl flex-col overflow-hidden rounded-t-[24px] border border-slate-200 bg-white shadow-[0_24px_64px_rgba(15,23,42,0.18)] md:mt-0 md:h-auto md:max-h-[calc(100dvh-40px)] md:rounded-[20px] animate-in slide-in-from-bottom-10 md:slide-in-from-bottom-0 ${checkoutStep === 'plan' ? 'h-auto' : 'h-[92dvh]'}`}>
             <div className="flex justify-center pb-0.5 pt-3 md:hidden">
-              <div className="h-1.5 w-12 rounded-full bg-slate-200" />
+              <div className="h-1 w-10 rounded-full bg-slate-200" />
             </div>
 
-            <header className="flex shrink-0 items-start justify-between gap-4 border-b border-slate-100 bg-gradient-to-br from-[#f2faf6] via-white to-white px-5 pb-5 pt-4 sm:px-6 md:px-8 md:pb-6 md:pt-7">
+            <header className="flex shrink-0 items-start justify-between gap-4 border-b border-slate-100 bg-white px-5 pb-4 pt-4 sm:px-6 md:px-8 md:py-6">
               <div className="min-w-0">
-                <p className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-700"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />Orvix subscriptions</p>
-                <h3 id="subscription-title" className="text-[24px] font-semibold leading-[1.12] tracking-[-0.045em] text-[#091b29] sm:text-[27px] md:text-[32px]">
+                <h3 id="subscription-title" className="text-[23px] font-semibold leading-tight tracking-[-0.035em] text-slate-950 sm:text-[26px] md:text-[28px]">
                   {checkoutStep === 'plan' ? 'Choose your plan' : 'Complete your subscription'}
                 </h3>
-                <p className="mt-2 max-w-sm text-xs leading-5 text-slate-500 md:text-sm">{checkoutStep === 'plan' ? 'Choose the right tools for your next stage of growth.' : 'Review your plan and choose how to pay securely.'}</p>
+                <p className="mt-1.5 max-w-sm text-[12px] leading-5 text-slate-500 md:text-sm">{checkoutStep === 'plan' ? 'Monthly plans for your business.' : 'Choose a payment method to continue.'}</p>
               </div>
               <button
                 type="button"
                 onClick={() => setSubModal(null)}
                 aria-label="Close subscription options"
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-950 focus-visible:ring-2 focus-visible:ring-emerald-500"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-transparent bg-transparent text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-950 focus-visible:ring-2 focus-visible:ring-emerald-500"
               >
-                <X className="h-5 w-5" strokeWidth={2.25} />
+                <X className="h-5 w-5" strokeWidth={1.8} />
               </button>
             </header>
 
-            <div aria-label={`Checkout step ${checkoutStep === 'plan' ? '1' : '2'} of 2`} className="flex shrink-0 items-center gap-3 border-b border-slate-100 bg-white px-5 py-3 md:hidden">
-              <span className="text-[11px] font-semibold tracking-wide text-slate-500">STEP {checkoutStep === 'plan' ? '01' : '02'} / 02</span>
+            <div aria-label={`Checkout step ${checkoutStep === 'plan' ? '1' : '2'} of 2`} className="flex shrink-0 items-center gap-3 border-b border-slate-100 bg-white px-5 py-2.5 md:hidden">
+              <span className="text-[11px] font-medium text-slate-500">{checkoutStep === 'plan' ? '1 of 2 · Plan' : '2 of 2 · Payment'}</span>
               <div className="grid h-1 flex-1 grid-cols-2 gap-1.5" aria-hidden="true">
                 <span className="rounded-full bg-emerald-600" />
                 <span className={`rounded-full ${checkoutStep === 'payment' ? 'bg-emerald-600' : 'bg-slate-200'}`} />
               </div>
             </div>
 
-            <div className="subscription-shell-grid min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[#f8faf9] px-4 py-4 sm:px-6 md:grid md:grid-cols-[minmax(260px,0.9fr)_minmax(0,1.1fr)] md:gap-6 md:bg-white md:px-8 md:py-7">
+            <div className="subscription-shell-grid min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[#fafbfc] px-4 py-4 sm:px-6 md:grid md:grid-cols-[minmax(260px,0.9fr)_minmax(0,1.1fr)] md:gap-6 md:bg-white md:px-8 md:py-6">
               <section aria-label="Choose subscription plan" className={`space-y-2.5 ${checkoutStep === 'payment' ? 'hidden md:block' : ''}`}>
-                <div className="mb-4 flex items-end justify-between gap-2 px-1">
-                  <div><p className="text-[11px] font-bold uppercase tracking-[0.12em] text-emerald-700">Plans & pricing</p><p className="mt-1 text-xs leading-5 text-slate-500">One clear monthly price. No surprises.</p></div>
-                  <span className="shrink-0 rounded-full border border-emerald-100 bg-white px-2.5 py-1 text-[10px] font-semibold text-emerald-700">Flexible</span>
-                </div>
+                <div className="mb-3 px-0.5"><p className="text-xs font-medium text-slate-500">Select a monthly subscription</p></div>
                 {PAID_PACKAGE_IDS.map((planId) => {
                   const plan = SUBSCRIPTION_PLANS[planId];
                   const isSelected = selectedPlanId === planId;
-                  const PlanIcon = planId === 'ruby' ? Gem : planId === 'diamond' ? Sparkles : Crown;
                   const isActivePlan = !isTrialAccount && planId === expiredPlanId;
-                  const planTone = planId === 'ruby'
-                    ? 'bg-[#fff1f3] text-rose-600'
-                    : planId === 'diamond'
-                      ? 'bg-[#eef6ff] text-sky-600'
-                      : 'bg-[#f4f0ff] text-violet-600';
                   return (
                     <button
                       key={planId}
@@ -4890,30 +4880,32 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                       onClick={() => setSelectedPlanId(planId)}
                       aria-pressed={isSelected}
                       aria-label={`${plan.name}, ${activeTenant.currency}${plan.price.toLocaleString()} per month${isSelected ? ', selected' : ''}`}
-                      className={`group relative flex min-h-[108px] w-full items-center gap-3.5 rounded-[21px] border px-4 py-4 text-left shadow-[0_3px_12px_rgba(15,23,42,0.025)] transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 sm:px-5 md:min-h-[112px] ${
+                      className={`group flex min-h-[86px] w-full items-center gap-3 rounded-2xl border bg-white px-4 py-3.5 text-left transition-[border-color,box-shadow] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 sm:px-5 ${
                         isSelected
-                          ? 'border-[#16a378] bg-[#eefbf5] ring-1 ring-emerald-400/30 shadow-[0_12px_28px_rgba(5,150,105,0.10)]'
-                          : 'border-slate-200/90 bg-white hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-[0_10px_24px_rgba(15,23,42,0.06)]'
+                          ? 'border-emerald-600 shadow-[0_0_0_1px_rgba(5,150,105,0.25)]'
+                          : 'border-slate-200 shadow-[0_2px_8px_rgba(15,23,42,0.025)] hover:border-slate-300'
                       }`}
                     >
-                      <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${planTone}`}>
-                        <PlanIcon className="h-5 w-5" strokeWidth={1.9} aria-hidden="true" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2"><p translate="no" className="text-[15px] font-semibold tracking-tight text-[#0b1727] md:text-base">{plan.name}</p>{isActivePlan ? <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[9px] font-bold text-emerald-800">Current plan</span> : planId === 'diamond' ? <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[9px] font-semibold text-sky-700">Popular</span> : null}</div>
-                        <p className="mt-1 text-[21px] font-bold leading-tight tracking-[-0.04em] text-[#0b1727] md:text-[22px]">
-                          {activeTenant.currency}{plan.price.toLocaleString()}<span className="ml-1 text-[11px] font-medium tracking-normal text-slate-500">/ month</span>
-                        </p>
-                        <p className="mt-2 text-[11px] leading-[1.5] text-slate-500 sm:text-xs">
+                      <span className="min-w-0 flex-1">
+                        <span className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                          <span translate="no" className="text-[15px] font-semibold tracking-[-0.015em] text-slate-950">{plan.name}</span>
+                          {isActivePlan ? <span className="text-[10px] font-medium text-slate-500">Current plan</span> : null}
+                        </span>
+                        <span className="mt-0.5 block text-[18px] font-semibold leading-snug tracking-[-0.025em] text-slate-950">
+                          {activeTenant.currency}{plan.price.toLocaleString()}<span className="ml-1 text-[11px] font-normal tracking-normal text-slate-500">/ month</span>
+                        </span>
+                        <span className="mt-1 block text-[11px] leading-[1.45] text-slate-500">
                           {planId === 'ruby'
                             ? '1 branch · 2 users · 1,000 products'
                             : planId === 'diamond'
                               ? '1 branch · 5 users · 5,000 products'
-                              : '2 branches included · 15 users · unlimited products'}
-                        </p>
-                      </div>
-                      <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 bg-white ${isSelected ? 'border-emerald-600' : 'border-slate-300'}`}>
-                        {isSelected ? <span className="h-3 w-3 rounded-full bg-emerald-600" /> : null}
+                              : '2 branches · 15 users · unlimited products'}
+                        </span>
+                      </span>
+                      <span aria-hidden="true" className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-[1.5px] ${
+                        isSelected ? 'border-emerald-600' : 'border-slate-300'
+                      }`}>
+                        {isSelected ? <span className="h-2.5 w-2.5 rounded-full bg-emerald-600" /> : null}
                       </span>
                     </button>
                   );
@@ -5102,12 +5094,12 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
               </section>
             </div>
 
-            <footer className="subscription-mobile-action shrink-0 border-t border-slate-100 bg-white px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 sm:px-6">
+            <footer className="subscription-checkout-footer shrink-0 border-t border-slate-100 bg-white px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 sm:px-6 md:pb-5">
               {checkoutStep === 'plan' ? (
                 <button
                   type="button"
                   onClick={() => setCheckoutStep('payment')}
-                  className="flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#008961] to-[#03a578] px-4 text-sm font-semibold text-white shadow-[0_9px_24px_rgba(0,137,97,0.20)] transition-all hover:brightness-95 focus-visible:outline-2 focus-visible:outline-emerald-500"
+                  className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 text-sm font-semibold text-white shadow-[0_3px_8px_rgba(6,95,70,0.12)] transition-colors hover:bg-emerald-800 focus-visible:outline-2 focus-visible:outline-emerald-500 md:hidden"
                 >
                   Continue with {SUBSCRIPTION_PLANS[selectedPlanId].name}
                   <ChevronRight className="h-4 w-4" aria-hidden="true" />
@@ -5124,7 +5116,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                   }}
                   disabled={paymentMode === 'offline' ? manualActivationSubmitting : onlinePaymentSubmitting}
                   aria-label={paymentMode === 'offline' ? 'Pay offline — submit payment proof for approval' : 'Pay online — open secure checkout'}
-                  className="min-h-14 w-full rounded-2xl bg-gradient-to-r from-[#008961] to-[#03a578] px-5 text-sm font-semibold text-white shadow-[0_8px_20px_rgba(0,137,97,0.18)] transition-all hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="min-h-12 w-full rounded-xl bg-emerald-700 px-5 text-sm font-semibold text-white shadow-[0_3px_8px_rgba(6,95,70,0.12)] transition-colors hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {paymentMode === 'offline'
                     ? (manualActivationSubmitting ? 'Sending…' : 'Pay offline')
