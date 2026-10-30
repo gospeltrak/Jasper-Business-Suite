@@ -1191,6 +1191,30 @@ test('POS payment options remain three readable columns on small phones', async 
   assert.match(source, /onClick={\(\) => \{\s*setPaymentMethod\(mode\)/);
 });
 
+test('POS sale emits one confirmation while manual stock adjustments still notify', async () => {
+  const source = await read('src/components/Dashboard.tsx');
+  const posStart = source.indexOf("activeTab === 'pos' &&");
+  const posEnd = source.indexOf("activeTab === 'products' &&", posStart);
+  assert.ok(posStart >= 0 && posEnd > posStart);
+  const pos = source.slice(posStart, posEnd);
+  assert.match(pos, /onAddSale={handleAddSale}/);
+  assert.match(pos, /onUpdateStocks={\(updatedProducts\) => handleUpdateActiveStocks\(/);
+  assert.match(pos, /suppressSuccessToast: true/);
+  const stockStart = source.indexOf('const handleUpdateActiveStocks = async');
+  const stockEnd = source.indexOf('const handleUpdateSales = async', stockStart);
+  assert.ok(stockStart >= 0 && stockEnd > stockStart);
+  const stock = source.slice(stockStart, stockEnd);
+  assert.match(stock, /if \(!options\.suppressSuccessToast\) \{/);
+  assert.match(stock, /type: 'product_update'/);
+  assert.match(stock, /persistTenantProductsNow\(/);
+  const saleStart = source.indexOf('const handleAddSale = async');
+  const saleEnd = source.indexOf('const handleAddRider =', saleStart);
+  assert.ok(saleStart >= 0 && saleEnd > saleStart);
+  const sale = source.slice(saleStart, saleEnd);
+  assert.match(sale, /type: 'sale'/);
+  assert.match(sale, /setLogs\(prev => \[newLog, \.\.\.prev\]\)/);
+});
+
 test('browser gets a fresh service worker and dashboard shell after each deployment', async () => {
   const pkg = JSON.parse(await read('package.json'));
   const verifier = await read('scripts/verify-deploy.mjs');
