@@ -34,6 +34,7 @@ const DashboardSalesList = lazyWithReload('DashboardSalesList', () => import('..
 const DashboardForecasting = lazyWithReload('DashboardForecasting', () => import('../modules/forecasting/DashboardForecasting'));
 const DashboardCashBank = lazyWithReload('DashboardCashBank', () => import('../modules/cash-bank/DashboardCashBank'));
 import { saveData } from '../shared/utils/dbSync';
+import { findBatchBarcodeConflict } from '../modules/products/utils/barcodeUniqueness';
 const DashboardPurchases = lazyWithReload('DashboardPurchases', () => import('../modules/purchases/DashboardPurchases'));
 const DashboardDeliveries = lazyWithReload('DashboardDeliveries', () => import('../modules/deliveries/DashboardDeliveries'));
 const DashboardSandboxVerticals = lazyWithReload('DashboardSandboxVerticals', () => import('../modules/verticals/DashboardSandboxVerticals'));
@@ -2832,17 +2833,21 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
   const handleCreateProducts = (newProducts: Product[]) => {
     if (!currentPermissions?.products?.write && activeRoleName !== 'SuperAdmin') {
       notifyPermissionDenied();
-      return;
+      return Promise.resolve(false);
     }
-    if (blockOfflineBusinessWrite('product creation')) return;
-
-    if (newProducts.length === 0) return;
+    if (blockOfflineBusinessWrite('product creation')) return Promise.resolve(false);
+    if (newProducts.length === 0) return Promise.resolve(false);
+    const collision = findBatchBarcodeConflict(productsMap[activeTenant.id] || [], newProducts);
+    if (collision) {
+      addToast(`Barcode "${collision.barcode}" is already assigned to "${collision.product.name}". Choose another barcode or edit that product.`, 'error');
+      return Promise.resolve(false);
+    }
     const branchScopedProducts = newProducts.map(newProd => ({
       ...newProd,
       branchId: activeBranchSelection.activeBranchId || undefined,
     }));
     const updatedProducts = [...branchScopedProducts, ...(productsMap[activeTenant.id] || [])];
-    const { products: syncedProducts } = persistTenantProductsNow(updatedProducts);
+    const { products: syncedProducts, saved } = persistTenantProductsNow(updatedProducts);
     setProductsMap(prev => {
       return {
         ...prev,
@@ -2862,11 +2867,12 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       message: `Registered ${branchScopedProducts.length} catalog item${branchScopedProducts.length === 1 ? '' : 's'} at branch ${activeTenant.name}.`,
       timestamp: new Date().toISOString()
     };
-    setLogs(prev => [newLog, ...prev]);
+    void saved.then(didSave => { if (didSave) setLogs(prev => [newLog, ...prev]); });
+    return saved;
   };
 
   const handleCreateProduct = (newProd: Product) => {
-    handleCreateProducts([newProd]);
+    return handleCreateProducts([newProd]);
   };
 
   const handleDeleteProduct = (id: string) => {
