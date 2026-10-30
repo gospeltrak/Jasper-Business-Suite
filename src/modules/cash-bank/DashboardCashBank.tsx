@@ -19,6 +19,7 @@ interface DashboardCashBankProps {
   systemSettings?: SystemSettings;
   onUpdateSystemSettings?: (updated: SystemSettings) => void;
   branchScopeKey?: string;
+  canTransfer?: boolean;
 }
 
 export default function DashboardCashBank({ 
@@ -31,6 +32,7 @@ export default function DashboardCashBank({
   systemSettings,
   onUpdateSystemSettings,
   branchScopeKey = 'default',
+  canTransfer = false,
 }: DashboardCashBankProps) {
   const hasDemoSeedData = isDemoTenant(activeTenant.id);
   // Date interval settings state with user-friendly names
@@ -290,6 +292,7 @@ export default function DashboardCashBank({
   // Carry out safe transfer action between registers and accounts/wallets
   const handleExecuteSettleTill = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canTransfer) { setSettleError('Your role does not allow treasury transfers.'); return; }
     if (isTransferSubmitting) return;
     setSettleError(null);
     const amountVal = parseFloat(settleAmount);
@@ -786,7 +789,7 @@ export default function DashboardCashBank({
             {id:'accounts', label:'Accounts', icon:<Landmark className="w-4 h-4"/>},
             {id:'transfer', label:'Transfer', icon:<Send className="w-4 h-4"/>},
             {id:'audit',    label:'History',  icon:<Clock className="w-4 h-4"/>},
-          ] as const).map(tab => {
+          ] as const).filter(tab => tab.id !== 'transfer' || canTransfer).map(tab => {
             const active = mobileSectionTab === tab.id;
             return (
               <button key={tab.id} type="button" onClick={() => setMobileSectionTab(tab.id)}
@@ -833,7 +836,7 @@ export default function DashboardCashBank({
                       onClick={() => { setSelectedChannelId(chan.id); setMobileSectionTab('accounts'); }}>
                       <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{background:iconBg,color:iconColor}}>{icon}</div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-[12px] font-bold text-slate-900 truncate">{chan.name}</p>
+                        <p translate="no" className="text-[12px] font-bold text-slate-900 truncate">{chan.name}</p>
                         <p className="text-[9px] text-slate-400 font-mono mt-0.5 capitalize">{chan.category}</p>
                       </div>
                       <p className={`text-[13px] font-black font-mono shrink-0 ${bal >= 0 ? 'text-slate-900' : 'text-rose-600'}`}>{formatCurrency(bal)}</p>
@@ -879,7 +882,7 @@ export default function DashboardCashBank({
                     <div className="px-4 pt-4 pb-3 flex items-center gap-3">
                       <div className="w-11 h-11 rounded-xl flex items-center justify-center text-white shrink-0" style={{background:grad}}>{icon}</div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-[13px] font-extrabold text-slate-900 truncate">{chan.name}</p>
+                        <p translate="no" className="text-[13px] font-extrabold text-slate-900 truncate">{chan.name}</p>
                         <p className="text-[10px] text-slate-400">{chan.category === 'bank' ? 'Bank' : chan.category === 'telco' ? 'Mobile' : 'Cash'} · {chan.provider || 'Account'}</p>
                       </div>
                       <div className="text-right shrink-0">
@@ -1036,7 +1039,7 @@ export default function DashboardCashBank({
                   </div>
                 )}
 
-                <button type="submit" disabled={isTransferSubmitting}
+                <button type="submit" disabled={isTransferSubmitting || !canTransfer}
                   className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-black rounded-2xl transition-colors flex items-center justify-center gap-2">
                   <Send className="w-4 h-4"/> {isTransferSubmitting ? 'Posting Transfer…' : 'Execute Transfer'}
                 </button>
@@ -1087,7 +1090,7 @@ export default function DashboardCashBank({
                 All Accounts
               </button>
               {channels.filter(c => c.category !== 'person').map(c => (
-                <button key={c.id} type="button" onClick={() => setSelectedChannelId(c.id)}
+                <button translate="no" key={c.id} type="button" onClick={() => setSelectedChannelId(c.id)}
                   className="shrink-0 px-3 py-1.5 rounded-xl text-[10px] font-bold"
                   style={{background:selectedChannelId===c.id?'#0f172a':'#f1f5f9',color:selectedChannelId===c.id?'#fff':'#475569'}}>
                   {c.name}
@@ -1302,7 +1305,7 @@ export default function DashboardCashBank({
                   {iconOfChan}
                 </div>
                 <div className="text-left">
-                  <span className={`block font-black tracking-tight leading-tight truncate max-w-[140px] ${isSelected ? '' : 'text-slate-800'}`}>{chan.name}</span>
+                  <span translate="no" className={`block font-black tracking-tight leading-tight truncate max-w-[140px] ${isSelected ? '' : 'text-slate-800'}`}>{chan.name}</span>
                 </div>
               </button>
             );
@@ -1398,7 +1401,7 @@ export default function DashboardCashBank({
                              <Coins className="w-5 h-5" />}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <h4 className="font-extrabold text-slate-900 text-xs truncate" title={chan.name}>{chan.name}</h4>
+                            <h4 translate="no" className="font-extrabold text-slate-900 text-xs truncate" title={chan.name}>{chan.name}</h4>
                             <span className="text-[9.5px] font-mono text-slate-400 block mt-0.5 truncate">{chan.provider}</span>
                           </div>
                         </div>
@@ -1686,7 +1689,7 @@ export default function DashboardCashBank({
                 )}
                 <button
                   type="submit"
-                  disabled={isTransferSubmitting}
+                  disabled={isTransferSubmitting || !canTransfer}
                   className="w-full bg-slate-900 hover:bg-slate-800 text-white font-extrabold py-3 px-3 rounded-2xl sm:rounded-xl text-xs transition-all cursor-pointer shadow-sm flex items-center justify-center space-x-1 border-none min-h-[50px] sm:min-h-0"
                 >
                   <PlusCircle className="w-3.5 h-3.5 text-emerald-400" />
@@ -1792,7 +1795,7 @@ export default function DashboardCashBank({
                     </div>
                     <div>
                       <span className="text-[10px] uppercase tracking-wider font-extrabold text-slate-400 block font-mono pb-0.5">SELECTED PAYMENT MODE DETAILS</span>
-                      <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">{chan.name}</h2>
+                      <h2 translate="no" className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">{chan.name}</h2>
                       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500 mt-1 font-medium">
                         <span>Provider: <strong className="text-slate-700">{chan.provider}</strong></span>
                         <span>Category: <strong className="text-slate-705 capitalize">{chan.category} Operational</strong></span>
@@ -1849,7 +1852,7 @@ export default function DashboardCashBank({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
                   <div>
                     <p className="text-xs text-slate-500 leading-relaxed font-sans">
-                      Move money from <strong>{chan.name}</strong>.
+                      Move money from <strong translate="no">{chan.name}</strong>.
                     </p>
                   </div>
                   <div className="flex justify-start md:justify-end">
@@ -2139,4 +2142,5 @@ export default function DashboardCashBank({
     </div>
   );
 }
+
 
