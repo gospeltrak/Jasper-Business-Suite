@@ -200,7 +200,11 @@ test('branch contact settings are tenant-scoped and non-destructive', async () =
 test('subscription checkout uses the native plan summary without inline mobile-money fields', async () => {
   const dashboardSource = await read('src/components/Dashboard.tsx');
   const serverSource = await read('server.ts');
-  assert.match(dashboardSource, /Choose the plan that fits your business/);
+  assert.match(dashboardSource, /Choose your plan/);
+  assert.match(dashboardSource, /Payment method/);
+  assert.match(dashboardSource, /Verify payment details first/);
+  assert.match(dashboardSource, /Example numbers are not payment instructions/);
+  assert.doesNotMatch(dashboardSource, /Lipa Namba — mfano|>123456</);
   assert.match(dashboardSource, /Order summary/);
   assert.match(dashboardSource, /Secure payment\. Access activates after payment confirmation\./);
   assert.match(dashboardSource, /Need help\? Contact deployments/);
