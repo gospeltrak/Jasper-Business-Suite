@@ -33,6 +33,15 @@ const walk = async (directory) => {
 if (artifactMode) {
   await assertFile('dist/index.html', 500);
   await assertFile('dist/server.cjs', 10_000);
+  await assertFile('dist/sw.js', 150);
+  try {
+    const sw = await readFile(join(projectRoot, 'dist/sw.js'), 'utf8');
+    if (sw.includes('__ORVIX_BUILD_VERSION__') || !/const ORVIX_BUILD_VERSION = '[^']{7,}'/.test(sw)) {
+      fail('dist/sw.js must contain a concrete release version; old tabs will otherwise miss deployments.');
+    }
+  } catch {
+    fail('Cannot verify stamped service worker.');
+  }
   const assetFiles = await walk('dist/assets').catch(() => []);
   if (!assetFiles.some((file) => /\.(js|css)$/.test(file))) {
     fail('dist/assets does not contain compiled JavaScript or CSS.');
