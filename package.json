@@ -49,7 +49,7 @@
     "native:ios:init": "npm run native:ios:prepare",
     "native:ios:sync": "npm run native:ios:prepare",
     "native:ios:prepare": "node scripts/setup-native-ios.mjs",
-    "native:verify": "node scripts/verify-native-contract.mjs && node scripts/verify-native-ios-contract.mjs && vitest run src/native",
+    "native:verify": "node scripts/verify-native-contract.mjs && node scripts/verify-native-ios-contract.mjs && node scripts/verify-native-printer-contract.mjs && vitest run src/native",
     "native:build:web": "vite build --outDir dist/native-web"
   },
   "dependencies": {
