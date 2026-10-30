@@ -77,6 +77,11 @@ test('native-only status bar protects controls and Cloudflare key is required fo
   assert.match(turnstileWidget, /Capacitor\.isNativePlatform\(\)/);
   assert.match(turnstileWidget, /api\.js\?render=explicit/);
   assert.match(turnstileWidget, /:\s*'https:\/\/challenges\.cloudflare\.com\/turnstile\/v0\/api\.js'/);
+  // A fresh GitHub runner generates a new debug signer unless this
+  // keystore is restored. Keep QA upgrades possible without release keys.
+  assert.match(androidWorkflow, /uses: actions\/cache@v4/);
+  assert.match(androidWorkflow, /path:\s*~\/\.android\/debug\.keystore/);
+  assert.match(androidWorkflow, /orvix-android-qa-debug-signing/);
   for (const workflow of [androidWorkflow, iosWorkflow]) {
     assert.match(workflow, /VITE_TURNSTILE_SITE_KEY:\s*\$\{\{ vars\.VITE_TURNSTILE_SITE_KEY \}\}/);
     assert.match(workflow, /test -n "\$VITE_TURNSTILE_SITE_KEY"/);
