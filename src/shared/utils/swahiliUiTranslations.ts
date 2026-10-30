@@ -1,5 +1,7 @@
 /** Full Swahili phrases take priority over word substitutions. Product and business names are excluded in the UI. */
 export const SWAHILI_UI_TRANSLATIONS: Record<string, string> = {
+  "this barcode is already registered to another product. choose a different barcode or edit the existing product.": "Barcode hii tayari imesajiliwa kwa bidhaa nyingine. Tumia barcode tofauti au hariri bidhaa iliyopo.",
+  "product registration could not be confirmed. check your connection or barcode and try again.": "Usajili wa bidhaa haujathibitishwa. Kagua muunganisho au barcode kisha ujaribu tena.",
   "your role does not allow this operation in the selected branch. ask the business owner to check roles & access.": "Jukumu lako haliruhusu kitendo hiki kwenye tawi lililochaguliwa. Mwombe mmiliki akague Majukumu na ruhusa.",
   "this record has changed or already exists. refresh and check its payment history before retrying.": "Kumbukumbu hii imebadilika au ipo tayari. Pakia upya na ukague historia ya malipo kabla ya kujaribu tena.",
   "check the amount, outstanding balance and active payment account. historical expense funding must be reconciled before changing its amount or account.": "Kagua kiasi, deni lililobaki na akaunti inayotumika ya malipo. Malipo ya matumizi ya zamani yanahitaji kulinganishwa kabla ya kubadilisha kiasi au akaunti yake.",
