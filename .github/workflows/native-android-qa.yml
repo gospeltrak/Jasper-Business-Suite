@@ -86,15 +86,25 @@ jobs:
       - name: Install Android camera permission recovery
         run: node scripts/setup-native-android-camera.mjs
 
-      # AssembleDebug signs with ~/.android/debug.keystore. Without restoring it,
-      # every fresh GitHub runner generates a different signer and Android refuses
-      # to update the previous QA APK (INSTALL_FAILED_UPDATE_INCOMPATIBLE).
-      # Scoped to this workflow ref; QA only, never use for Play Store releases.
+      # Stable *internal QA only* signing, not for release/Play Store.
+      # Cache the explicit workspace file. The prior ~/.android path did not
+      # exist at cache-save time, silently changing signers between builds.
       - name: Reuse Android QA debug signing key across builds
         uses: actions/cache@v4
         with:
-          path: ~/.android/debug.keystore
-          key: orvix-android-qa-debug-signing-${{ runner.os }}-${{ github.ref }}-v1
+          path: android/app/orvix-qa-debug.keystore
+          key: orvix-android-qa-debug-signing-${{ runner.os }}-${{ github.ref }}-v2
+
+      - name: Initialize Android QA debug signer
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p android/app "$HOME/.android"
+          if [ ! -f android/app/orvix-qa-debug.keystore ]; then
+            keytool -genkeypair -v -keystore android/app/orvix-qa-debug.keystore -storepass android -alias androiddebugkey -keypass android -dname "CN=Android Debug,O=Android,C=US" -keyalg RSA -keysize 2048 -validity 10000 -noprompt
+          fi
+          cp android/app/orvix-qa-debug.keystore "$HOME/.android/debug.keystore"
+          test -s "$HOME/.android/debug.keystore"
 
       - name: Compile signed QA/debug APK
         working-directory: android
