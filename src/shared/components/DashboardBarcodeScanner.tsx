@@ -8,6 +8,7 @@ import {
 import { Html5Qrcode } from 'html5-qrcode';
 import { useTranslation } from '../contexts/LanguageContext';
 import { findBarcodeProduct, getBarcodeScanBox } from '../utils/barcodeScan';
+import type { ScannerMode } from '../utils/posDevices';
 
 type CameraErrorCode = 'permission' | 'not-found' | 'in-use' | 'generic';
 
@@ -37,6 +38,8 @@ interface DashboardBarcodeScannerProps {
    * overlay -- used by the POS screen so the real cart stays visible right
    * next to/below the scanner instead of being hidden behind a dialog. */
   inline?: boolean;
+  mode?: ScannerMode;
+  scanFeedback?: boolean;
 }
 
 export default function DashboardBarcodeScanner({
@@ -44,10 +47,12 @@ export default function DashboardBarcodeScanner({
   onClose,
   products,
   onScanSuccess,
-  inline = false
+  inline = false,
+  mode = 'auto',
+  scanFeedback = true,
 }: DashboardBarcodeScannerProps) {
   const { lang } = useTranslation();
-  const [useBeep] = useState(true);
+  const useBeep = scanFeedback;
   const [scanSuccessAnim, setScanSuccessAnim] = useState<string | null>(null);
   const [cameraErrorCode, setCameraErrorCode] = useState<CameraErrorCode | null>(null);
   const [cameraRetrying, setCameraRetrying] = useState(false);
@@ -113,7 +118,7 @@ export default function DashboardBarcodeScanner({
   // Camera Lifecycle
   useEffect(() => {
     closedRef.current = false;
-    if (isOpen && scannerContainerRef.current) {
+    if (isOpen && mode !== 'hardware' && scannerContainerRef.current) {
       startCamera();
     }
     return () => {
@@ -122,13 +127,13 @@ export default function DashboardBarcodeScanner({
       feedbackTimersRef.current.clear();
       stopCamera();
     };
-  }, [isOpen, inline]);
+  }, [isOpen, inline, mode]);
 
   // When a user changes site camera permission in the browser and returns,
   // retry once automatically. Where Permissions API is unsupported, the
   // explicit Retry button is always available.
   useEffect(() => {
-    if (!isOpen || cameraErrorCode !== 'permission') return;
+    if (!isOpen || mode === 'hardware' || cameraErrorCode !== 'permission') return;
     let cancelled = false;
     const retryIfGranted = async () => {
       if (document.visibilityState !== 'visible' || !navigator.permissions?.query) return;
@@ -144,7 +149,7 @@ export default function DashboardBarcodeScanner({
       document.removeEventListener('visibilitychange', retryIfGranted);
       window.removeEventListener('focus', retryIfGranted);
     };
-  }, [isOpen, cameraErrorCode]);
+  }, [isOpen, cameraErrorCode, mode]);
 
   const startCamera = () => queueCameraOp(async () => {
     if (closedRef.current) return;
@@ -233,7 +238,7 @@ export default function DashboardBarcodeScanner({
 
   // Hardware Scanner Listener (HID Keyboard Emulation)
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || mode === 'camera') return;
 
     let buffer = '';
     let lastKeyTime = 0;
@@ -258,7 +263,7 @@ export default function DashboardBarcodeScanner({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, inline]);
+  }, [isOpen, inline, mode]);
 
   if (!isOpen) return null;
 
@@ -299,11 +304,18 @@ export default function DashboardBarcodeScanner({
               </div>
             )}
 
-            <div
-              id="reader"
-              ref={scannerContainerRef}
-              className="absolute inset-0 w-full h-full [&_video]:absolute [&_video]:inset-0 [&_video]:w-full [&_video]:h-full [&_video]:object-cover"
-            />
+            {mode === 'hardware' ? (
+              <div className="px-6 text-center text-white">
+                <p className="text-sm font-bold">{lang === 'sw' ? 'Scanner ya USB / Bluetooth iko tayari' : 'USB / Bluetooth scanner ready'}</p>
+                <p className="mt-2 text-xs text-slate-300">{lang === 'sw' ? 'Scan barcode kwa kifaa kilichopairiwa. Bonyeza Funga ukimaliza.' : 'Scan a barcode with your paired device. Close when finished.'}</p>
+              </div>
+            ) : (
+              <div
+                id="reader"
+                ref={scannerContainerRef}
+                className="absolute inset-0 w-full h-full [&_video]:absolute [&_video]:inset-0 [&_video]:w-full [&_video]:h-full [&_video]:object-cover"
+              />
+            )}
 
             {errorCopy && (
               <div className="absolute inset-0 z-10 bg-slate-950 flex flex-col items-center justify-center p-4 text-center text-slate-400 space-y-2">
