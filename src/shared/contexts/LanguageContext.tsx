@@ -59,6 +59,7 @@ const BUSINESS_DICTIONARY: Record<string, Record<string, string>> = {
     "discard": "Cancel"
   },
   sw: {
+    "this barcode is already registered to another product. choose a different barcode or edit the existing product.": "Barcode hii tayari imesajiliwa kwa bidhaa nyingine. Tumia barcode tofauti au hariri bidhaa iliyopo.",
     "account identifier": "Namba ya simu au barua pepe",
     "active stock": "Bidhaa zilizopo",
     "aggregate outflow": "Jumla ya matumizi",
