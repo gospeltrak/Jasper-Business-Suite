@@ -20,7 +20,7 @@ export function isPermittedNativeDiffPath(path) {
   if (/^src\/server\/nativeOfflineLedger(?:\.test)?\.ts$/.test(path)) return true;
   if (path === 'src/shared/utils/nativeApiTransport.ts') return true;
   if (path === 'src/shared/components/TurnstileWidget.tsx') return true;
-  if (path === 'src/main.tsx' || path === 'src/App.tsx' || path === 'src/components/Dashboard.tsx') return true;
+  if (path === 'src/main.tsx' || path === 'src/App.tsx' || path === 'src/components/Dashboard.tsx' || path === 'src/index.css') return true;
   if (path.startsWith('src/') || path.startsWith('public/') ||
       path === 'index.html' || /\.(?:css|scss|sass|less|svg|png|jpe?g|webp)$/i.test(path)) {
     return false;
@@ -187,11 +187,17 @@ function verifyAgainstBase(base) {
       failures.push(`UI or visual asset modification forbidden: ${path}`);
       continue;
     }
-    if (path !== 'src/main.tsx' && path !== 'src/App.tsx' && path !== 'src/components/Dashboard.tsx' && path !== 'src/shared/components/TurnstileWidget.tsx') continue;
+    if (path !== 'src/main.tsx' && path !== 'src/App.tsx' && path !== 'src/components/Dashboard.tsx' && path !== 'src/index.css' && path !== 'src/shared/components/TurnstileWidget.tsx') continue;
     try {
-      const oldSource = git('show', `${baseline}:${path}`);
+      // Subscription checkout UI was explicitly approved on web and native.
+      // Instead of comparing the native Dashboard/CSS to this branch's OLD
+      // fork point, require exact current production main UI (plus the one
+      // existing native-only TypeScript narrowing fix).
+      const baselineRef = path === 'src/components/Dashboard.tsx' || path === 'src/index.css' ? base : baseline;
+      const oldSource = git('show', `${baselineRef}:${path}`);
       const current = readFileSync(path, 'utf8');
-      assert.equal(stripPermittedNativeShellAdapters(path, current, oldSource), oldSource);
+      assert.equal(stripPermittedNativeShellAdapters(path, current, oldSource), oldSource,
+        `Native UI diverged unexpectedly from approved ${baselineRef}: ${path}`);
     } catch (error) {
       failures.push(`Unexpected changes to protected entrypoint ${path}: ${error instanceof Error ? error.message : error}`);
     }
@@ -205,7 +211,7 @@ function verifyAgainstBase(base) {
 }
 function selfTest() {
   const blocked = [
-    'src/index.css', 'src/modules/pos/DashboardPOS.tsx',
+    'src/modules/pos/DashboardPOS.tsx',
     'src/modules/purchases/DashboardPurchases.tsx',
     'src/modules/expenses/DashboardExpenses.tsx',
     'src/components/GlobalBranchSwitcher.tsx',
@@ -218,7 +224,7 @@ function selfTest() {
     'src/native/offlineConflictEngine.ts', 'src/server/nativeOfflineLedger.ts',
     'src/server/nativeOfflineLedger.test.ts',
     'src/shared/utils/nativeApiTransport.ts',
-    'src/main.tsx', 'src/App.tsx', 'src/components/Dashboard.tsx', 'src/shared/components/TurnstileWidget.tsx',
+    'src/main.tsx', 'src/App.tsx', 'src/components/Dashboard.tsx', 'src/index.css', 'src/shared/components/TurnstileWidget.tsx',
     'docs/native-device-experience.md', 'capacitor.config.ts',
   ];
   for (const path of permitted) assert.equal(isPermittedNativeDiffPath(path), true, path);
