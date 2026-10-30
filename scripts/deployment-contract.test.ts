@@ -211,12 +211,26 @@ test('subscription checkout uses the native plan summary without inline mobile-m
   assert.match(dashboardSource, /hidden md:block/);
   assert.match(dashboardSource, /startOnlineSubscriptionPayment\(selectedPlanId/);
   assert.match(dashboardSource, /submitManualActivationRequest\(selectedPlanId\)/);
-  assert.match(dashboardSource, /Verify payment details first/);
-  assert.match(dashboardSource, /Example numbers are not payment instructions/);
+  // Example payment details are unmistakably marked DEMO, not a live
+  // destination. Never silently turn a placeholder into a payable number.
+  assert.match(dashboardSource, /Mixx by Yas · Lipa Namba/);
+  assert.match(dashboardSource, /Orvix Pos/);
+  assert.match(dashboardSource, /Demo only/);
+  assert.match(dashboardSource, /Example only — do not pay this number/);
+  assert.match(dashboardSource, />000000<\/p>/);
   assert.doesNotMatch(dashboardSource, /Lipa Namba — mfano|>123456</);
+  // The footer action must come from the SAME paymentMode as the selected
+  // method, with the exact correct handler for both choices.
+  const checkoutFooter = dashboardSource.slice(dashboardSource.indexOf('<footer className="subscription-mobile-action'), dashboardSource.indexOf('</footer>', dashboardSource.indexOf('<footer className="subscription-mobile-action')));
+  assert.match(checkoutFooter, /paymentMode === 'offline'/);
+  assert.match(checkoutFooter, /manualActivationSubmitting \? 'Sending…' : 'Pay offline'/);
+  assert.match(checkoutFooter, /onlinePaymentSubmitting \? 'Starting secure payment…' : 'Pay online'/);
+  assert.match(checkoutFooter, /void submitManualActivationRequest\(selectedPlanId\)/);
+  assert.match(checkoutFooter, /void startOnlineSubscriptionPayment\(selectedPlanId/);
+  assert.match(dashboardSource, /checkoutStep === 'plan' \? 'h-auto' : 'h-\[92dvh\]'/);
   assert.match(dashboardSource, /Order summary/);
-  // Pay offline must show the same actual plan amount as online; never use
-  // a fake Lipa Namba. Accessibility feedback and receipts are not optional.
+  // Pay offline still shows the actual plan amount. The Lipa Namba is explicitly
+  // a non-payable example. Accessibility feedback and receipts are essential.
   assert.match(dashboardSource, /Amount due · monthly/);
   assert.match(dashboardSource, /Selected package/);
   assert.match(dashboardSource, /aria-live="polite"/);
