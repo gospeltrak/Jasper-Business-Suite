@@ -7,11 +7,12 @@ import {
 } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { useTranslation } from '../contexts/LanguageContext';
+import { findBarcodeProduct, getBarcodeScanBox } from '../utils/barcodeScan';
 import {
   checkNativeCameraPermission,
   isNativeAndroidScanner,
   openNativeCameraSettings,
-  requestNativeCameraPermission
+  requestNativeCameraPermission,
 } from '../../native/cameraPermissions';
 
 type CameraErrorCode = 'permission' | 'not-found' | 'in-use' | 'generic';
@@ -55,12 +56,15 @@ export default function DashboardBarcodeScanner({
   const [useBeep] = useState(true);
   const [scanSuccessAnim, setScanSuccessAnim] = useState<string | null>(null);
   const [cameraErrorCode, setCameraErrorCode] = useState<CameraErrorCode | null>(null);
-  const [cameraPermissionBlocked, setCameraPermissionBlocked] = useState(false);
   const [cameraRetrying, setCameraRetrying] = useState(false);
+  const [cameraPermissionBlocked, setCameraPermissionBlocked] = useState(false);
 
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const scannerContainerRef = useRef<HTMLDivElement>(null);
   const lastScanRef = useRef<{ value: string; at: number }>({ value: '', at: 0 });
+  const scanHandlersRef = useRef({ products, onScanSuccess });
+  scanHandlersRef.current = { products, onScanSuccess };
+  const feedbackTimersRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
   // Set on unmount so a start() still awaiting the queue (or the camera
   // permission prompt) releases the camera immediately once it does get a
   // stream, instead of leaving it open after the user already closed.
@@ -92,19 +96,26 @@ export default function DashboardBarcodeScanner({
   // Unified Trigger Logic (Camera, Manual, Hardware)
   const handleItemBarcodeTrigger = (codeHex: string) => {
     const trimmed = codeHex.trim();
-    if (!trimmed) return;
+    if (!trimmed || closedRef.current) return;
+    const foundProduct = findBarcodeProduct(scanHandlersRef.current.products, trimmed);
 
-    const foundProduct = products.find(
-      p => String(p.barcode || '').trim() === trimmed || String(p.sku || '').toUpperCase() === trimmed.toUpperCase()
-    ) || null;
+    // POS owns acceptance, stock feedback and its success/error sounds.
+    // Do not show a green success overlay before the cart accepts the item.
+    if (inline) {
+      scanHandlersRef.current.onScanSuccess(trimmed, foundProduct);
+      return;
+    }
 
     setScanSuccessAnim(foundProduct ? foundProduct.name : `Barcode: ${trimmed}`);
     playBeep();
 
-    setTimeout(() => {
+    const timer = setTimeout(() => {
+      feedbackTimersRef.current.delete(timer);
+      if (closedRef.current) return;
       setScanSuccessAnim(null);
-      onScanSuccess(trimmed, foundProduct);
+      scanHandlersRef.current.onScanSuccess(trimmed, findBarcodeProduct(scanHandlersRef.current.products, trimmed));
     }, 450);
+    feedbackTimersRef.current.add(timer);
   };
 
   // Camera Lifecycle
@@ -115,12 +126,36 @@ export default function DashboardBarcodeScanner({
     }
     return () => {
       closedRef.current = true;
+      feedbackTimersRef.current.forEach(timer => clearTimeout(timer));
+      feedbackTimersRef.current.clear();
       stopCamera();
     };
-  }, [isOpen]);
+  }, [isOpen, inline]);
 
-  // Once the user enables Camera in Android Settings, reopen the scanner
-  // without forcing an uninstall or retaining the previous denied state.
+  // When a user changes site camera permission in the browser and returns,
+  // retry once automatically. Where Permissions API is unsupported, the
+  // explicit Retry button is always available.
+  useEffect(() => {
+    if (!isOpen || cameraErrorCode !== 'permission' || isNativeAndroidScanner()) return;
+    let cancelled = false;
+    const retryIfGranted = async () => {
+      if (document.visibilityState !== 'visible' || !navigator.permissions?.query) return;
+      try {
+        const permission = await navigator.permissions.query({ name: 'camera' as PermissionName });
+        if (!cancelled && permission.state === 'granted') void startCamera();
+      } catch { /* Safari may not support camera permission queries */ }
+    };
+    document.addEventListener('visibilitychange', retryIfGranted);
+    window.addEventListener('focus', retryIfGranted);
+    return () => {
+      cancelled = true;
+      document.removeEventListener('visibilitychange', retryIfGranted);
+      window.removeEventListener('focus', retryIfGranted);
+    };
+  }, [isOpen, cameraErrorCode]);
+
+  // The installed Android app has an OS-level camera permission in addition
+  // to WebView media access. Refresh it when the user returns from Settings.
   useEffect(() => {
     if (!isOpen || !isNativeAndroidScanner()) return;
     const onReturn = () => {
@@ -150,27 +185,26 @@ export default function DashboardBarcodeScanner({
     try {
       setCameraRetrying(true);
       setCameraErrorCode(null);
-      // Capacitor's WebChromeClient handles the WebView camera request.
-      // Android CAMERA is a separate runtime permission: ask on scan, never
-      // automatically retry after permanent denial.
-      let status = await checkNativeCameraPermission();
-      if (status === 'prompt' || status === 'prompt-with-rationale') {
-        status = await requestNativeCameraPermission();
+      // Android requires its own CAMERA runtime grant as well as the WebView
+      // media grant. Do not repeatedly show a prompt after a hard denial.
+      let nativeStatus = await checkNativeCameraPermission();
+      if (nativeStatus === 'prompt' || nativeStatus === 'prompt-with-rationale') {
+        nativeStatus = await requestNativeCameraPermission();
       }
       if (closedRef.current) return;
-      if (status && status !== 'granted') {
-        setCameraPermissionBlocked(status === 'denied');
+      if (nativeStatus && nativeStatus !== 'granted') {
+        setCameraPermissionBlocked(nativeStatus === 'denied');
         setCameraErrorCode('permission');
         return;
       }
       setCameraPermissionBlocked(false);
-      // A previous failed start may have left html5-qrcode's DOM intact.
-      // Release it before another attempt; cameraOpQueue prevents races.
+      // Clean up an unsuccessful previous start before reopening the camera.
+      // All operations remain in the global queue to avoid hardware races.
       if (scannerRef.current) {
         try {
           if (scannerRef.current.isScanning) await scannerRef.current.stop();
           await scannerRef.current.clear();
-        } catch { /* stale instance; new start still gets a chance */ }
+        } catch { /* recover from an old failed start */ }
         scannerRef.current = null;
       }
       const html5QrCode = new Html5Qrcode("reader");
@@ -178,10 +212,9 @@ export default function DashboardBarcodeScanner({
 
       const config = {
         fps: 10,
-        // Sized to fit the shorter viewfinder box below -- this is the
-        // library's own shaded-overlay scan guide (the open rectangle the
-        // user sees), not a custom one drawn on top of it.
-        qrbox: { width: 230, height: 110 },
+        // Expand the actual clear decoding area in POS, including the
+        // library's shaded guide; keep it inside the live camera dimensions.
+        qrbox: (width: number, height: number) => getBarcodeScanBox(width, height, inline),
         aspectRatio: 1.333334
       };
 
@@ -189,6 +222,7 @@ export default function DashboardBarcodeScanner({
         { facingMode: "environment" },
         config,
         (decodedText) => {
+          if (closedRef.current) return;
           const now = Date.now();
           // Debounce: Same barcode must wait 1.8s to be scanned again
           if (lastScanRef.current.value !== decodedText || now - lastScanRef.current.at > 1800) {
@@ -271,17 +305,17 @@ export default function DashboardBarcodeScanner({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, products]);
+  }, [isOpen, inline]);
 
   if (!isOpen) return null;
 
   const errorCopy = cameraErrorCode ? (lang === 'sw' ? {
-    permission: { title: 'Ruhusa ya kamera imezuiwa', message: isNativeAndroidScanner() ? 'Ruhusu kamera kwa Orvix katika mipangilio ya programu, kisha rudi ujaribu tena.' : 'Ruhusu kamera katika mipangilio ya kivinjari, kisha jaribu tena.' },
+    permission: { title: 'Ruhusa ya kamera imezuiwa', message: isNativeAndroidScanner() ? 'Ruhusu kamera kwa Orvix kwenye mipangilio ya programu, kisha rudi ujaribu tena.' : 'Ruhusu Kamera kwenye ruhusa za tovuti hii katika kivinjari, kisha bonyeza Jaribu tena.' },
     'not-found': { title: 'Hakuna kamera iliyopatikana', message: 'Kifaa hiki hakina kamera inayoweza kutumika kuscan. Tumia scanner ya USB au Bluetooth.' },
     'in-use': { title: 'Kamera inatumika', message: 'Programu nyingine kwenye kifaa hiki inatumia kamera. Ifunge kisha jaribu tena.' },
     generic: { title: 'Hakuna connection ya kamera', message: 'Imeshindikana kuunganisha kamera. Jaribu tena, au tumia scanner ya USB au Bluetooth.' },
   }[cameraErrorCode] : {
-    permission: { title: 'Camera access is off', message: isNativeAndroidScanner() ? 'Allow Camera for Orvix in app settings, then return to scan.' : 'Allow Camera in browser settings, then try again.' },
+    permission: { title: 'Camera access is off', message: isNativeAndroidScanner() ? 'Allow Camera for Orvix in Android App Settings, then return to scan.' : 'Allow Camera in this site’s browser permissions, then tap Try again.' },
     'not-found': { title: 'No camera found', message: 'This device has no usable camera. Use a USB or Bluetooth scanner instead.' },
     'in-use': { title: 'Camera already in use', message: 'Another app on this device is using the camera. Close it and try again.' },
     generic: { title: 'No camera connection', message: 'Could not connect to the camera. Try again, or use a USB or Bluetooth scanner.' },
@@ -290,15 +324,14 @@ export default function DashboardBarcodeScanner({
   const content = (
     <>
         <div className="p-2">
-          {/* Camera scan target -- short, wide, like a real barcode-scanner
-             viewport. The open centre rectangle is the library's own
-             shaded-overlay scan guide (see qrbox in startCamera); it stays
+          {/* The open centre rectangle is the library's actual enlarged
+             shaded-overlay decoding guide (see qrbox in startCamera); it stays
              empty/clear so the live camera feed shows through while it
              works, and turns into the error panel below only on failure. */}
-          <div className="relative w-full h-40 bg-slate-950 rounded-2xl overflow-hidden flex items-center justify-center">
+          <div className={`relative w-full ${inline ? 'h-64 sm:h-72 lg:h-80' : 'h-40'} bg-slate-950 rounded-2xl overflow-hidden flex items-center justify-center`}>
             <button
               onClick={onClose}
-              aria-label="Close scanner"
+              aria-label={lang === 'sw' ? 'Funga skana' : 'Close scanner'}
               className="absolute top-2 right-2 z-30 p-1.5 bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-white rounded-full transition-colors cursor-pointer"
             >
               <X className="w-4 h-4" />
@@ -330,7 +363,7 @@ export default function DashboardBarcodeScanner({
             )}
           </div>
           {errorCopy && (
-            <div className="flex flex-wrap items-center justify-center gap-2 px-2 pb-2 pt-3">
+            <div className="flex items-center justify-center gap-2 px-2 pb-2 pt-3">
               <button
                 type="button"
                 disabled={cameraRetrying}
@@ -354,9 +387,7 @@ export default function DashboardBarcodeScanner({
                 </button>
               )}
               {cameraErrorCode === 'permission' && isNativeAndroidScanner() && cameraPermissionBlocked && (
-                <span className="w-full text-center text-[10px] text-slate-500">
-                  {lang === 'sw' ? 'Permissions → Camera → Allow' : 'Permissions → Camera → Allow'}
-                </span>
+                <span className="w-full text-center text-[10px] text-slate-500">Permissions → Camera → Allow</span>
               )}
             </div>
           )}
@@ -380,3 +411,4 @@ export default function DashboardBarcodeScanner({
     </div>
   );
 }
+
