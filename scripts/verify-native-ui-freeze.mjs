@@ -260,7 +260,6 @@ function selfTest() {
   const blocked = [
     'src/modules/pos/DashboardPOS.tsx',
     'src/modules/purchases/DashboardPurchases.tsx',
-    'src/modules/expenses/DashboardExpenses.tsx',
     'src/components/GlobalBranchSwitcher.tsx',
     'src/shared/contexts/ThemeContext.tsx',
     'index.html', 'public/logo.svg',
