@@ -2,7 +2,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Receipt, Plus, Trash2, Calendar, Upload, FileText, Check, FolderKanban, PlusCircle, Download, AlertCircle, TrendingDown, X, MoreVertical, Eye, Edit, ChevronRight } from "lucide-react";
 import { ResponsiveContainer, ComposedChart, Area, XAxis, YAxis, Tooltip, Line } from "recharts";
-import { Tenant, Expense, Sale, SystemSettings } from "../../types";
+import { Tenant, Expense, Sale, SystemSettings, CustomRole } from "../../types";
 import { safeSetJsonItem } from '../../shared/utils/dataSafety';
 import { getMaskedAccountReference, getTreasuryPaymentMethods, reconcilePaymentChannels } from '../../shared/utils/paymentAccounts';
 import { formatLocalDate, localDateToIso, timestampToLocalDate } from '../../shared/utils/localDate';
@@ -14,6 +14,7 @@ interface DashboardExpensesProps {
   onAddExpense: (expense: Expense) => void | boolean | Promise<void | boolean>;
   onDeleteExpense?: (id: string) => void | boolean | Promise<void | boolean>;
   onUpdateExpense?: (expense: Expense) => Promise<boolean> | boolean;
+  rolePermissions?: CustomRole['permissions'];
   userName?: string;
   sales?: Sale[];
   systemSettings: SystemSettings;
@@ -26,11 +27,17 @@ export default function DashboardExpenses({
   onAddExpense,
   onDeleteExpense,
   onUpdateExpense,
+  rolePermissions,
   userName = 'Admin',
   sales = [],
   systemSettings,
   onUpdateSystemSettings,
 }: DashboardExpensesProps) {
+  const canCreate = rolePermissions?.expenses?.write !== false;
+  const canEdit = rolePermissions?.expenses?.edit !== false;
+  const expenseSubmittingRef = useRef(false);
+  const expenseAttemptRef = useRef<{ fingerprint: string; id: string } | null>(null);
+  const [expenseSubmitting, setExpenseSubmitting] = useState(false);
   const currency = activeTenant.currencyCode || 'TSh';
 
   // State for submenu nav tabs: 'list' | 'categories' | 'add'
@@ -313,6 +320,7 @@ export default function DashboardExpenses({
   // Handle Book Expense Submit
   const handleBookExpense = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (expenseSubmittingRef.current) return;
     setFormError('');
     setFormSuccess('');
 
@@ -340,17 +348,8 @@ export default function DashboardExpenses({
 
     const cleanDate = formDate || formatLocalDate();
 
-    let uniqueId = '';
-    let isUnique = false;
-    while (!isUnique) {
-      // generates a random integer between 100 and 9999 (3 or 4 digits)
-      const randomNum = Math.floor(100 + Math.random() * 9900);
-      uniqueId = `exp-${randomNum}`;
-      isUnique = !expenses.some(e => e.id === uniqueId);
-    }
-
     const newExpense: Expense = {
-      id: uniqueId,
+      id: `exp-${crypto.randomUUID()}`,
       category: formCategory,
       amount: Number(formAmount),
       timestamp: localDateToIso(cleanDate, new Date(), 12),
@@ -365,13 +364,23 @@ export default function DashboardExpenses({
       paidFromAccountId: paidFromAccount.id,
     };
 
-    const saved = await onAddExpense(newExpense);
+    if (!canCreate) { setFormError('Your role does not allow new expenses.'); return; }
+    const fingerprint = JSON.stringify({ ...newExpense, id: undefined });
+    if (expenseAttemptRef.current?.fingerprint !== fingerprint) expenseAttemptRef.current = { fingerprint, id: newExpense.id };
+    newExpense.id = expenseAttemptRef.current.id;
+    expenseSubmittingRef.current = true;
+    setExpenseSubmitting(true);
+    let saved: void | boolean;
+    try { saved = await onAddExpense(newExpense); }
+    catch { setFormError('Expense payment could not be confirmed. Refresh Expenses before retrying.'); return; }
+    finally { expenseSubmittingRef.current = false; setExpenseSubmitting(false); }
     if (saved === false) {
       setFormError('Expense payment was not posted. No expense record was created.');
       return;
     }
 
     setFormSuccess(`Expense logged successfully! Added TSh ${Number(formAmount).toLocaleString()}`);
+    expenseAttemptRef.current = null;
     
     // Reset Form fields
     setFormDescription('');
@@ -774,7 +783,7 @@ export default function DashboardExpenses({
                           <Eye className="w-3.5 h-3.5" />
                         </button>
                         <button type="button" title="Edit"
-                          onClick={() => { setEditExpenseError(''); setEditingExpense(e); setEditForm({description: e.description, amount: String(e.amount), category: e.category, note: e.note || '', paidFromAccountId: e.paidFromAccountId || '', date: timestampToLocalDate(e.timestamp)}); }}
+                          disabled={!canEdit} onClick={() => { setEditExpenseError(''); setEditingExpense(e); setEditForm({description: e.description, amount: String(e.amount), category: e.category, note: e.note || '', paidFromAccountId: e.paidFromAccountId || '', date: timestampToLocalDate(e.timestamp)}); }}
                           className="p-1.5 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-500/10 text-slate-400 hover:text-amber-600 transition-colors cursor-pointer bg-transparent border-none"
                         >
                           <Edit className="w-3.5 h-3.5" />
@@ -824,7 +833,7 @@ export default function DashboardExpenses({
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
                       <span className="text-xs font-mono font-bold text-slate-400">{String(i + 1).padStart(2, '0')}</span>
-                      <h4 className="text-xs font-bold text-slate-900 dark:text-white">{cat.name}</h4>
+                      <h4 translate="no" className="text-xs font-bold text-slate-900 dark:text-white">{cat.name}</h4>
                       <span className="text-[9px] font-bold text-slate-400 bg-slate-100 dark:bg-slate-800/80 px-1.5 py-0.5 rounded-sm font-mono">
                         {cat.count} files
                       </span>
@@ -1118,11 +1127,12 @@ export default function DashboardExpenses({
 
             {/* Submit Ledger Button */}
             <button
+              disabled={!canCreate || expenseSubmitting}
               type="submit"
               className="w-full py-3 bg-emerald-500 text-slate-950 hover:bg-emerald-600 hover:shadow-lg hover:shadow-emerald-500/10 active:scale-95 text-xs font-black uppercase tracking-widest rounded-2xl transition-all font-mono flex items-center justify-center space-x-2 cursor-pointer"
             >
               
-              <span>Add Expense</span>
+              <span>{expenseSubmitting ? 'Saving…' : 'Add Expense'}</span>
             </button>
           </form>
         </div>
@@ -1216,7 +1226,7 @@ export default function DashboardExpenses({
                 )}
                 <button
                   type="button"
-                  onClick={() => { setEditingExpense(expenseActionItem); setEditForm({description: expenseActionItem.description, amount: String(expenseActionItem.amount), category: expenseActionItem.category, note: expenseActionItem.note || '', paidFromAccountId: expenseActionItem.paidFromAccountId || '', date: timestampToLocalDate(expenseActionItem.timestamp)}); setExpenseActionItem(null); }}
+                  disabled={!canEdit} onClick={() => { setEditingExpense(expenseActionItem); setEditForm({description: expenseActionItem.description, amount: String(expenseActionItem.amount), category: expenseActionItem.category, note: expenseActionItem.note || '', paidFromAccountId: expenseActionItem.paidFromAccountId || '', date: timestampToLocalDate(expenseActionItem.timestamp)}); setExpenseActionItem(null); }}
                   className="w-full h-14 min-h-[52px] bg-white dark:bg-slate-800 hover:bg-slate-50 flex items-center justify-between px-3.5 py-2.5 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-xs cursor-pointer text-left transition-colors"
                 >
                   <div className="flex items-center space-x-3.5">
@@ -1397,7 +1407,7 @@ export default function DashboardExpenses({
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide block mb-1">Paid From Account</label>
                 <select value={editForm.paidFromAccountId} onChange={e => setEditForm(p => ({...p, paidFromAccountId: e.target.value}))}
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-sm text-slate-800 dark:text-white outline-none focus:border-emerald-500 cursor-pointer">
-                  {paymentAccounts.map(account => <option key={account.id} value={account.id}>{account.name}</option>)}
+                  {paymentAccounts.map(account => <option translate="no" key={account.id} value={account.id}>{account.name}</option>)}
                 </select>
               </div>
               <div className="flex gap-2 pt-1">
@@ -1408,6 +1418,7 @@ export default function DashboardExpenses({
                 <button type="button"
                    onClick={async () => {
                     setEditExpenseError('');
+                    if (!canEdit) { setEditExpenseError('Your role does not allow expense edits.'); return; }
                     if (!editForm.description || !editForm.amount) {
                       setEditExpenseError('Description and amount are required.');
                       return;
@@ -1415,16 +1426,6 @@ export default function DashboardExpenses({
                     const account = paymentAccounts.find(candidate => candidate.id === editForm.paidFromAccountId);
                     if (editForm.paidFromAccountId && !account) {
                       setEditExpenseError('The selected Money & Bank account is no longer active.');
-                      return;
-                    }
-                    if (
-                      editingExpense.treasuryJournalId
-                      && (
-                        Number(editForm.amount) !== Number(editingExpense.amount)
-                        || editForm.paidFromAccountId !== (editingExpense.paidFromAccountId || '')
-                      )
-                    ) {
-                      setEditExpenseError('A posted payment cannot be silently changed. Reverse/delete it, then record the corrected expense.');
                       return;
                     }
                     const nextTimestamp = editForm.date ? localDateToIso(editForm.date, new Date(editingExpense.timestamp), 12) : editingExpense.timestamp;
@@ -1452,4 +1453,5 @@ export default function DashboardExpenses({
     </div>
   );
 }
+
 
