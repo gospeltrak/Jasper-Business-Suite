@@ -81,7 +81,7 @@ import { isPurchaseFundingBalanced, registeredPurchaseFunding } from '../modules
 import { getSubscriptionReminder, getSubscriptionReminderKey } from '../shared/utils/subscriptionReminder';
 import { compressImageFile } from '../shared/utils/imageCompression';
 import { formatLocalDate } from '../shared/utils/localDate';
-import { Shield, AlertTriangle, CreditCard as CardIcon, Bell, Gem, Sparkles, Crown } from "lucide-react";
+import { Shield, AlertTriangle, CreditCard as CardIcon, Bell } from "lucide-react";
 import { 
   getSubscriptionState, 
   checkSubscriptionStatus, 
