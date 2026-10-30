@@ -2,6 +2,16 @@ name: Native Android QA (no production release)
 
 on:
   workflow_dispatch:
+  # Build a fresh internal QA APK when the native development branch changes.
+  push:
+    branches: [feature/orvix-native-offline-v1]
+    paths:
+      - 'src/**'
+      - 'scripts/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'supabase/migrations/**'
+      - '.github/workflows/native-android-qa.yml'
   pull_request:
     branches: [main]
     paths:
