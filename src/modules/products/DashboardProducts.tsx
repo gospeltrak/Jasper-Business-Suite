@@ -19,6 +19,7 @@ import { classifyUniversalImportRows, downloadableUniversalTemplate, exportProdu
 import { downloadExcelFileFromRows, readExcelFileAsCsvText } from '../../shared/utils/excelExport';
 import { compressImageFile } from '../../shared/utils/imageCompression';
 import { safeSetJsonItem } from '../../shared/utils/dataSafety';
+import { prepareManualStockAdjustment } from './utils/manualStockAdjustment';
 import { generateUniqueEan13Barcode } from './barcode';
 import { findProductBarcodeConflict, findBatchBarcodeConflict } from './utils/barcodeUniqueness';
 import { calculateFractionSalePacketPrice } from '../sales/utils/fractionSale';
@@ -193,6 +194,9 @@ export default function DashboardProducts({
   const [adjustProduct, setAdjustProduct] = useState<Product | null>(null);
   const [adjustQty, setAdjustQty] = useState<number | ''>('');
   const [adjustReason, setAdjustReason] = useState<string>('');
+  const [isSavingAdjustment, setIsSavingAdjustment] = useState(false);
+  const [adjustSaveError, setAdjustSaveError] = useState<string | null>(null);
+  const adjustSaveInFlightRef = useRef(false);
   const [adjustSearch, setAdjustSearch] = useState<string>('');
   const [adjustSearchResults, setAdjustSearchResults] = useState<Product[]>([]);
   const [adjustShowSearch, setAdjustShowSearch] = useState(false);
@@ -341,7 +345,6 @@ export default function DashboardProducts({
     };
     setEditingProduct(prod);
     setEditSaveError(null);
-    setIsEditScannerOpen(false);
     setEditForm({ ...prod });
     setEditStockDraft({
       shop: editDraftNumber(prod.shopStockQty),
@@ -768,48 +771,63 @@ export default function DashboardProducts({
     setAdjustSearchResults(results);
   };
 
-  const handleAdjustStock = (type: 'add' | 'deduct') => {
-    if (!adjustProduct || !adjustQty || Number(adjustQty) <= 0) return;
-    const qty = Number(adjustQty);
-    const currentStock = adjustProduct.shopStockQty ?? adjustProduct.stockQty ?? 0;
-    const newStock = type === 'add' ? currentStock + qty : Math.max(0, currentStock - qty);
-
-    const updatedProduct: Product = {
-      ...adjustProduct,
-      stockQty: newStock,
-      shopStockQty: newStock,
-    };
-    onUpdateProducts(products.map(p => p.id === adjustProduct.id ? updatedProduct : p));
-
-    // Log the adjustment for reporting
-    const log = {
-      id: `adj-${Date.now()}`,
-      productId: adjustProduct.id,
-      productName: adjustProduct.name,
-      sku: adjustProduct.sku || '',
-      type,
-      qty,
-      previousStock: currentStock,
-      newStock,
-      reason: adjustReason || (type === 'add' ? 'Manual addition' : 'Manual deduction'),
-      adjustedAt: new Date().toISOString(),
-      tenantId: (activeTenant as any)?.id || '',
-    };
-    const existing = JSON.parse(onlineStorage.getItem('jasper_stock_adjustments') || '[]');
-    existing.unshift(log);
-    safeSetJsonItem('jasper_stock_adjustments', existing.slice(0, 1000), {
-      tenantId: (activeTenant as any)?.id || '',
-      dataKey: 'stock_adjustments',
-      logLabel: `${(activeTenant as any)?.id || 'global'}/stock-adjustments`,
-    });
-
-    // Reset
-    setAdjustProduct(null);
-    setAdjustQty('');
-    setAdjustReason('');
-    setAdjustSearch('');
-    setAdjustSearchResults([]);
-    setAdjustShowSearch(false);
+  const handleAdjustStock = async (type: 'add' | 'deduct') => {
+    // Prevent duplicate taps, stale snapshots and false success on failed writes.
+    if (!adjustProduct || adjustSaveInFlightRef.current) return;
+    adjustSaveInFlightRef.current = true;
+    setIsSavingAdjustment(true);
+    setAdjustSaveError(null);
+    try {
+      const freshProduct = products.find(product => product.id === adjustProduct.id);
+      if (!freshProduct) throw new Error('This product is no longer available. Refresh the stock list.');
+      const qty = Number(adjustQty);
+      const adjustment = prepareManualStockAdjustment(freshProduct, type, qty);
+      // Only one product ID is changed; avoid rewriting every branch's stock.
+      const saved = await onUpdateProducts(
+        products.map(product => product.id === freshProduct.id ? adjustment.product : product),
+        [freshProduct.id],
+      );
+      if (!saved) {
+        setAdjustSaveError('Stock changes were not saved. Please check your connection and try again.');
+        return;
+      }
+      // A failed audit cache must never cause a second stock mutation.
+      const log = {
+        id: `adj-${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`}`,
+        productId: freshProduct.id,
+        productName: freshProduct.name,
+        sku: freshProduct.sku || '',
+        type, qty,
+        previousStock: adjustment.previousShopStock,
+        newStock: adjustment.nextShopStock,
+        reason: adjustReason || (type === 'add' ? 'Manual addition' : 'Manual deduction'),
+        adjustedAt: new Date().toISOString(),
+        tenantId: activeTenant.id,
+        branchId: freshProduct.branchId || undefined,
+      };
+      try {
+        const existing = JSON.parse(onlineStorage.getItem('jasper_stock_adjustments') || '[]');
+        safeSetJsonItem('jasper_stock_adjustments', [log, ...(Array.isArray(existing) ? existing : [])].slice(0, 1000), {
+          tenantId: activeTenant.id,
+          dataKey: 'stock_adjustments',
+          logLabel: `${activeTenant.id}/stock-adjustments`,
+        });
+      } catch (logError) {
+        console.warn('[AdjustStock] Inventory saved, audit view cache unavailable:', logError);
+      }
+      setAdjustProduct(null);
+      setAdjustQty('');
+      setAdjustReason('');
+      setAdjustSearch('');
+      setAdjustSearchResults([]);
+      setAdjustShowSearch(false);
+    } catch (error) {
+      console.warn('[AdjustStock] Save failed:', error);
+      setAdjustSaveError(error instanceof Error ? error.message : 'Stock changes could not be saved. Please try again.');
+    } finally {
+      adjustSaveInFlightRef.current = false;
+      setIsSavingAdjustment(false);
+    }
   };
 
   const handleBrandLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -3680,7 +3698,7 @@ export default function DashboardProducts({
 
                         {/* Name + meta */}
                         <div className="flex-1 min-w-0">
-                          <p className="font-bold text-slate-900 dark:text-white text-[13px] leading-snug truncate">{prod.name}</p>
+                          <p translate="no" className="font-bold text-slate-900 dark:text-white text-[13px] leading-snug truncate">{prod.name}</p>
                           <div className="flex items-center gap-1.5 mt-0.5">
                             {prod.category && <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 truncate max-w-[100px]">{prod.category}</span>}
                             {prod.brand && <><span className="text-slate-200 dark:text-slate-700">·</span><span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 truncate max-w-[80px]">{prod.brand}</span></>}
@@ -3815,7 +3833,7 @@ export default function DashboardProducts({
                             </div>
                           </div>
                         </td>
-                        <td className="py-4 px-4 font-mono font-bold text-slate-700 tracking-wide text-[11px]">
+                        <td translate="no" className="py-4 px-4 font-mono font-bold text-slate-700 tracking-wide text-[11px]">
                           {prod.barcode}
                         </td>
                         <td className="py-4 px-4 font-bold text-[10px] tracking-wider text-slate-400 select-none uppercase font-mono">
@@ -4071,7 +4089,7 @@ export default function DashboardProducts({
                           className="p-3 hover:bg-slate-50/80 flex items-center justify-between cursor-pointer transition-colors"
                         >
                           <div className="space-y-0.5 text-left">
-                            <p className="font-bold text-slate-800 text-xs">{p.name}</p>
+                            <p translate="no" className="font-bold text-slate-800 text-xs">{p.name}</p>
                             <span className="font-mono text-[9px] text-slate-400">Barcode: {p.barcode}</span>
                           </div>
                           <button
@@ -4110,7 +4128,7 @@ export default function DashboardProducts({
                         >
                           <div className="flex items-center space-x-3 max-w-[55%]">
                             <div className="space-y-0.5 truncate text-left">
-                              <p className="font-bold text-slate-800 truncate text-[12px]">{p.name}</p>
+                              <p translate="no" className="font-bold text-slate-800 truncate text-[12px]">{p.name}</p>
                               <span className="font-mono text-[9px] text-slate-400 block">Barcode: {p.barcode}</span>
                             </div>
                           </div>
@@ -4342,13 +4360,13 @@ export default function DashboardProducts({
                       {printLayoutOption === 'only_barcode' ? (
                         <div className="py-1 flex flex-col items-center justify-center space-y-0.5 bg-white">
                           {renderDynamicCssBarcode(p.barcode)}
-                          <p className="font-mono text-[9.5px] font-bold text-slate-700">{p.barcode}</p>
+                          <p translate="no" className="font-mono text-[9.5px] font-bold text-slate-700">{p.barcode}</p>
                         </div>
                       ) : (
                         <>
                           {/* Product Name placed centered in the middle */}
                           <div className="text-center font-sans">
-                            <p className="font-extrabold text-slate-800 truncate text-[11px] leading-tight">{p.name}</p>
+                            <p translate="no" className="font-extrabold text-slate-800 truncate text-[11px] leading-tight">{p.name}</p>
                           </div>
 
                           {/* Price display if selected, placed below product name */}
@@ -4363,7 +4381,7 @@ export default function DashboardProducts({
                           {/* Visual Barcode bars details */}
                           <div className="pt-0.5 text-center space-y-0.5 bg-white select-none pointer-events-none">
                             {renderDynamicCssBarcode(p.barcode)}
-                            <p className="font-mono text-[8.5px] font-bold text-slate-600">{p.barcode}</p>
+                            <p translate="no" className="font-mono text-[8.5px] font-bold text-slate-600">{p.barcode}</p>
                           </div>
                         </>
                       )}
@@ -4413,13 +4431,13 @@ export default function DashboardProducts({
                         {printLayoutOption === 'only_barcode' ? (
                           <div className="py-1 flex flex-col items-center justify-center space-y-0.5 bg-white h-full min-h-[85px]">
                             {renderDynamicCssBarcode(p.barcode)}
-                            <p className="font-mono text-[8.5px] text-slate-800 font-bold">{p.barcode}</p>
+                            <p translate="no" className="font-mono text-[8.5px] text-slate-800 font-bold">{p.barcode}</p>
                           </div>
                         ) : (
                           <>
                             {/* Product name centered in the middle */}
                             <div className="text-center truncate">
-                              <p className="font-bold text-slate-800 truncate text-[10px] leading-tight">{p.name}</p>
+                              <p translate="no" className="font-bold text-slate-800 truncate text-[10px] leading-tight">{p.name}</p>
                             </div>
 
                             {/* Price display below product name, if selected */}
@@ -4434,7 +4452,7 @@ export default function DashboardProducts({
                             {/* Centered Barcode bars and code */}
                             <div className="pt-0.5 text-center bg-white space-y-0.5 select-none pointer-events-none">
                               {renderDynamicCssBarcode(p.barcode)}
-                              <p className="font-mono text-[7.5px] text-slate-500 font-bold">{p.barcode}</p>
+                              <p translate="no" className="font-mono text-[7.5px] text-slate-500 font-bold">{p.barcode}</p>
                             </div>
                           </>
                         )}
@@ -4575,7 +4593,7 @@ export default function DashboardProducts({
               {/* Product Info */}
               <div className="space-y-0.5 normal-case font-medium">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{transferProduct.category}</p>
-                <h5 className="text-xs font-bold text-slate-900 leading-snug">{transferProduct.name}</h5>
+                <h5 translate="no" className="text-xs font-bold text-slate-900 leading-snug">{transferProduct.name}</h5>
                 <p className="text-[10px] font-mono text-slate-500">Barcode: {transferProduct.barcode}</p>
               </div>
 
@@ -4641,8 +4659,8 @@ export default function DashboardProducts({
 
                   {transferDirection === 'branch_to_branch' && (
                     <div className="grid grid-cols-1 gap-3 normal-case">
-                      <label className="space-y-1"><span className="text-[10px] font-bold text-slate-500">Source branch</span><select value={transferSourceBranchId} onChange={e => setTransferSourceBranchId(e.target.value)} className="w-full min-h-[44px] rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold">{transferBranches.map(branch => <option key={branch.id || branch.branchCode} value={branch.id || ''}>{branch.businessName || branch.branchName}</option>)}</select></label>
-                      <label className="space-y-1"><span className="text-[10px] font-bold text-slate-500">Destination branch</span><select value={transferDestinationBranchId} onChange={e => setTransferDestinationBranchId(e.target.value)} className="w-full min-h-[44px] rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold"><option value="">Choose destination</option>{transferBranches.filter(branch => branch.id !== transferSourceBranchId).map(branch => <option key={branch.id || branch.branchCode} value={branch.id || ''}>{branch.businessName || branch.branchName}</option>)}</select></label>
+                      <label className="space-y-1"><span className="text-[10px] font-bold text-slate-500">Source branch</span><select value={transferSourceBranchId} onChange={e => setTransferSourceBranchId(e.target.value)} className="w-full min-h-[44px] rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold">{transferBranches.map(branch => <option translate="no" key={branch.id || branch.branchCode} value={branch.id || ''}>{branch.businessName || branch.branchName}</option>)}</select></label>
+                      <label className="space-y-1"><span className="text-[10px] font-bold text-slate-500">Destination branch</span><select value={transferDestinationBranchId} onChange={e => setTransferDestinationBranchId(e.target.value)} className="w-full min-h-[44px] rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold"><option value="">Choose destination</option>{transferBranches.filter(branch => branch.id !== transferSourceBranchId).map(branch => <option translate="no" key={branch.id || branch.branchCode} value={branch.id || ''}>{branch.businessName || branch.branchName}</option>)}</select></label>
                     </div>
                   )}
 
@@ -4883,7 +4901,7 @@ export default function DashboardProducts({
                           }
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="font-bold text-slate-800 text-[12.5px] leading-snug truncate">{prod.name}</p>
+                          <p translate="no" className="font-bold text-slate-800 text-[12.5px] leading-snug truncate">{prod.name}</p>
                           <div className="flex items-center gap-1.5 mt-0.5">
                             {prod.brand && <span className="text-[10px] font-semibold text-slate-400 truncate max-w-[90px]">{prod.brand}</span>}
                             {prod.unit && <><span className="text-slate-200">·</span><span className="text-[10px] font-mono font-semibold text-slate-400">{prod.unit}</span></>}
@@ -5068,7 +5086,7 @@ export default function DashboardProducts({
                               {initials}
                             </span>
                           )}
-                          <span className="truncate pr-1">{b.name}</span>
+                          <span translate="no" className="truncate pr-1">{b.name}</span>
                         </div>
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono leading-none flex-shrink-0 ${
                           selectedBrandFilter?.toLowerCase() === b.name.toLowerCase() ? 'bg-emerald-600 text-white font-bold' : 'bg-slate-200 text-slate-700 font-semibold'
@@ -5147,7 +5165,7 @@ export default function DashboardProducts({
                           }
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="font-bold text-slate-800 text-[12.5px] leading-snug truncate">{prod.name}</p>
+                          <p translate="no" className="font-bold text-slate-800 text-[12.5px] leading-snug truncate">{prod.name}</p>
                           <div className="flex items-center gap-1.5 mt-0.5">
                             {prod.category && <span className="text-[10px] font-semibold text-slate-400 truncate max-w-[90px]">{prod.category}</span>}
                             {prod.unit && <><span className="text-slate-200">·</span><span className="text-[10px] font-mono font-semibold text-slate-400">{prod.unit}</span></>}
@@ -5227,7 +5245,7 @@ export default function DashboardProducts({
                   
                   <div className="space-y-1.5 normal-case font-semibold text-xs">
                     <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Product Name / Title</label>
-                    <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 font-bold">
+                    <div translate="no" className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 font-bold">
                       {viewingProduct.name}
                     </div>
                   </div>
@@ -5266,7 +5284,7 @@ export default function DashboardProducts({
                   
                   <div className="space-y-1.5 font-mono">
                     <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Retail barcode (SKU)</label>
-                    <div className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 font-bold font-mono tracking-wide">
+                    <div translate="no" className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-slate-800 font-bold font-mono tracking-wide">
                       {viewingProduct.barcode}
                     </div>
                   </div>
@@ -5799,7 +5817,7 @@ export default function DashboardProducts({
                     />
                   </div>
 
-                  <div className="grid gap-3 pt-1" style={{ display: 'grid', gridTemplateColumns: `repeat(${activeTenant.businessType === 'pharmacy' ? 1 : 2}, minmax(0, 1fr))`, gap: '0.75rem' }}>
+                  <div className="grid gap-3 pt-1" style={{ display: 'grid', gridTemplateColumns: `repeat(${activeTenant.businessType !== 'pharmacy' && editForm.isBulkProduct ? 2 : 1}, minmax(0, 1fr))`, gap: '0.75rem' }}>
                     <label className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 uppercase">
                       <input
                         type="checkbox"
@@ -5824,7 +5842,7 @@ export default function DashboardProducts({
                       />
                       POS Override
                     </label>
-                    {(activeTenant.businessType !== 'pharmacy' || editForm.productType !== 'medicine') && (
+                    {((activeTenant.businessType === 'pharmacy' && editForm.productType !== 'medicine') || (activeTenant.businessType !== 'pharmacy' && editForm.isBulkProduct)) && (
                       <label className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-bold text-slate-600 uppercase">
                         <input
                           type="checkbox"
@@ -5850,7 +5868,7 @@ export default function DashboardProducts({
                     )}
                   </div>
 
-                  {activeTenant.businessType !== 'pharmacy' && (
+                  {activeTenant.businessType !== 'pharmacy' && editForm.isBulkProduct && (
                     <div className="grid gap-3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '0.75rem' }}>
                       <div className="space-y-1">
                         <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Package Name</label>
@@ -5979,6 +5997,7 @@ export default function DashboardProducts({
 
               {/* Edit Bidhaa ya Jumla / Bulk Product SECTION — driven by the single
                   "Fraction Sale" toggle above, not a second switch. */}
+              {editForm.isBulkProduct && (
               <div className="px-5 pb-5">
                 <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
                   <div className="bg-slate-50 border-b border-slate-200 px-4 py-2.5 flex items-center space-x-2">
@@ -6152,6 +6171,7 @@ export default function DashboardProducts({
                   )}
                 </div>
               </div>
+              )}
             </div>
 
             <div className="tenant-form-footer sticky bottom-0 z-10 bg-slate-50 p-3 sm:p-4 flex gap-2 border-t border-slate-200 shrink-0">
@@ -6193,7 +6213,7 @@ export default function DashboardProducts({
                   <X className="w-4 h-4" />
                 </button>
               </div>
-              <p className="text-xs text-slate-500">Adding new purchases for <span className="font-bold text-slate-800">{replenishProduct.name}</span></p>
+              <p className="text-xs text-slate-500">Adding new purchases for <span translate="no" className="font-bold text-slate-800">{replenishProduct.name}</span></p>
             </div>
 
             <div className="tenant-form-body p-6 space-y-5 overflow-y-auto overflow-x-hidden min-h-0">
@@ -6367,9 +6387,9 @@ export default function DashboardProducts({
                       : mobileProductMenu.name.charAt(0).toUpperCase()}
                   </div>
                   <div className="min-w-0">
-                    <p className="text-[15px] font-extrabold text-slate-900 leading-tight truncate">{mobileProductMenu.name}</p>
+                    <p translate="no" className="text-[15px] font-extrabold text-slate-900 leading-tight truncate">{mobileProductMenu.name}</p>
                     <p className="text-[11px] text-slate-400 mt-0.5 font-mono">
-                      {mobileProductMenu.sku && <span>{mobileProductMenu.sku}</span>}
+                      {mobileProductMenu.sku && <span translate="no">{mobileProductMenu.sku}</span>}
                       {mobileProductMenu.category && <span className="ml-1 text-slate-300">· {mobileProductMenu.category}</span>}
                     </p>
                   </div>
@@ -6515,7 +6535,7 @@ export default function DashboardProducts({
               </div>
               <div className="space-y-4 px-5 py-5">
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-sm font-black text-slate-900">{productToDelete.name}</p>
+                  <p translate="no" className="text-sm font-black text-slate-900">{productToDelete.name}</p>
                   <p className="mt-1 text-[11px] text-slate-500">
                     {productToDelete.barcode || productToDelete.sku || 'No barcode'} • Stock {getTotalStockQty(productToDelete.shopStockQty || 0, productToDelete.storeStockQty || 0)}
                   </p>
@@ -6559,7 +6579,7 @@ export default function DashboardProducts({
             key="adjust-modal-backdrop"
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="tenant-modal-overlay fixed inset-0 z-[110] bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4"
-            onClick={(e) => { if (e.target === e.currentTarget) { setAdjustProduct(null); setAdjustQty(''); setAdjustReason(''); setAdjustSearch(''); setAdjustSearchResults([]); setAdjustShowSearch(false); } }}
+            onClick={(e) => { if (e.target === e.currentTarget && !adjustSaveInFlightRef.current) { setAdjustProduct(null); setAdjustQty(''); setAdjustReason(''); setAdjustSearch(''); setAdjustSearchResults([]); setAdjustShowSearch(false); setAdjustSaveError(null); } }}
           >
             <motion.div
               key="adjust-modal"
@@ -6582,7 +6602,7 @@ export default function DashboardProducts({
                 </div>
                 <button
                   type="button"
-                  onClick={() => { setAdjustProduct(null); setAdjustQty(''); setAdjustReason(''); setAdjustSearch(''); setAdjustSearchResults([]); setAdjustShowSearch(false); }}
+                  onClick={() => { if (adjustSaveInFlightRef.current) return; setAdjustProduct(null); setAdjustQty(''); setAdjustReason(''); setAdjustSearch(''); setAdjustSearchResults([]); setAdjustShowSearch(false); setAdjustSaveError(null); }}
                   className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center cursor-pointer border-none transition-colors"
                 >
                   <X className="w-4 h-4 text-slate-500" />
@@ -6612,7 +6632,7 @@ export default function DashboardProducts({
                             className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-blue-50 text-left cursor-pointer border-none bg-transparent transition-colors"
                           >
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-bold text-slate-800 truncate">{p.name}</p>
+                              <p translate="no" className="text-sm font-bold text-slate-800 truncate">{p.name}</p>
                               <p className="text-[10px] text-slate-400">{p.barcode || p.sku || 'No barcode'} · Stock: {(p as any).shopStockQty ?? (p as any).stockQty ?? 0}</p>
                             </div>
                           </button>
@@ -6671,11 +6691,14 @@ export default function DashboardProducts({
                   </div>
                 )}
 
+                {adjustSaveError && (
+                  <p role="alert" className="text-xs font-semibold text-rose-600">{t(adjustSaveError)}</p>
+                )}
                 {/* Action buttons */}
                 <div className="tenant-form-footer grid grid-cols-2 gap-3 pt-1 pb-2">
                   <button
                     type="button"
-                    disabled={qty <= 0}
+                    disabled={qty <= 0 || isSavingAdjustment}
                     onClick={() => handleAdjustStock('add')}
                     className="flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 active:bg-emerald-600 disabled:opacity-40 text-white font-black text-sm transition-colors cursor-pointer border-none"
                   >
@@ -6683,7 +6706,7 @@ export default function DashboardProducts({
                   </button>
                   <button
                     type="button"
-                    disabled={qty <= 0}
+                    disabled={qty <= 0 || isSavingAdjustment}
                     onClick={() => handleAdjustStock('deduct')}
                     className="flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-rose-500 hover:bg-rose-400 active:bg-rose-600 disabled:opacity-40 text-white font-black text-sm transition-colors cursor-pointer border-none"
                   >
@@ -6705,5 +6728,6 @@ export default function DashboardProducts({
   );
 
 }
+
 
 
