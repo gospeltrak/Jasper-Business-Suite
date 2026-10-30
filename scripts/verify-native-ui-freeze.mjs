@@ -36,6 +36,9 @@ const APPROVED_PRODUCTION_PARITY_FILES = new Set([
   'src/modules/sales/DashboardSalesList.tsx',
   'src/modules/expenses/DashboardExpenses.tsx',
   'src/modules/cash-bank/DashboardCashBank.tsx',
+  'src/modules/cash-bank/utils/treasuryBranchAccounts.ts',
+  'src/modules/sales/utils/salePaymentTotals.ts',
+  'src/shared/utils/posReceiptI18n.ts',
 ]);
 
 export function isPermittedNativeDiffPath(path) {
