@@ -1191,7 +1191,7 @@ test('POS payment options remain three readable columns on small phones', async 
   assert.match(source, /onClick={\(\) => \{\s*setPaymentMethod\(mode\)/);
 });
 
-test('POS sale emits one confirmation while manual stock adjustments still notify', async () => {
+test('POS sale emits one localized confirmation while keeping audit and manual stock feedback', async () => {
   const source = await read('src/components/Dashboard.tsx');
   const posStart = source.indexOf("activeTab === 'pos' &&");
   const posEnd = source.indexOf("activeTab === 'products' &&", posStart);
@@ -1212,7 +1212,14 @@ test('POS sale emits one confirmation while manual stock adjustments still notif
   assert.ok(saleStart >= 0 && saleEnd > saleStart);
   const sale = source.slice(saleStart, saleEnd);
   assert.match(sale, /type: 'sale'/);
+  assert.match(sale, /saved as a manual/);
   assert.match(sale, /setLogs\(prev => \[newLog, \.\.\.prev\]\)/);
+  const toastWatcher = source.slice(source.indexOf('const savedPosSale = latest.type'), source.indexOf('// Load and cache branch specific Settings'));
+  assert.match(toastWatcher, /confirmedPosSaleNoticeIdsRef\.current\.has\(saleId\)/);
+  assert.match(toastWatcher, /Mauzo yamekamilika na kuhifadhiwa\./);
+  assert.match(toastWatcher, /Sale completed and saved\./);
+  const match = /^Sale \(Ref: ([^)]+)\) saved as a manual /i.exec('Sale (Ref: POS-42) saved as a manual Cash record.');
+  assert.equal(match?.[1], 'POS-42');
 });
 
 test('browser gets a fresh service worker and dashboard shell after each deployment', async () => {
