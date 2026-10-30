@@ -2663,8 +2663,14 @@ button:active:not(:disabled),
   letter-spacing: -0.025em;
   font-variant-numeric: tabular-nums;
 }
+/* Payment options are always three balanced cards per row, including phones.
+   The dashboard's general mobile grid fallback must never flatten this grid. */
 #dashboard-scaffold .pos-checkout-method-grid {
+  display: grid !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 10px;
   margin-top: 1px;
+  align-items: stretch;
 }
 #dashboard-scaffold .pos-checkout-method {
   position: relative;
@@ -2815,9 +2821,41 @@ button:active:not(:disabled),
   cursor: not-allowed;
   box-shadow: none;
 }
-@media (min-width: 640px) {
+/* On phones, icons sit above text so three narrow columns remain readable.
+   This is presentation only; the same selection state and payment handlers run. */
+@media (max-width: 639px) {
   #dashboard-scaffold .pos-checkout-method-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 10px;
+  }
+  #dashboard-scaffold .pos-checkout-method {
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 87px;
+    padding: 11px 5px 9px;
+    gap: 7px;
+    text-align: center;
+  }
+  #dashboard-scaffold .pos-checkout-method-name {
+    flex: none;
+    width: 100%;
+    font-size: 10.5px;
+    font-weight: 700;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+  }
+  #dashboard-scaffold .pos-checkout-method-icon {
+    width: 33px;
+    height: 33px;
+    flex: none;
+  }
+  #dashboard-scaffold .pos-checkout-method-check {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    width: 15px;
+    height: 15px;
   }
 }
 @media (max-width: 479px) {
@@ -2865,15 +2903,15 @@ button:active:not(:disabled),
     text-overflow: ellipsis;
   }
   #dashboard-scaffold .pos-checkout-method {
-    padding: 8px 9px;
+    padding: 11px 4px 9px;
     gap: 7px;
   }
   #dashboard-scaffold .pos-checkout-method-name {
-    font-size: 10.5px;
+    font-size: 10px;
   }
   #dashboard-scaffold .pos-checkout-method-icon {
-    width: 30px;
-    height: 30px;
+    width: 32px;
+    height: 32px;
   }
   #dashboard-scaffold .pos-checkout-footer {
     padding: 10px 15px 15px;
