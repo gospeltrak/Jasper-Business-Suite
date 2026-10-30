@@ -73,6 +73,13 @@ test('native-only status bar protects controls and Cloudflare key is required fo
   assert.match(experience, /--orvix-native-safe-top/);
   assert.match(experience, /#login-container[\s\S]*justify-content: safe center/);
   assert.match(experience, /#dashboard-scaffold[\s\S]*padding-top:/);
+  // Dashboard shell owns the Android status-bar clearance. The website's
+  // header also adds env(safe-area-inset-top), so the native-only override must
+  // remove that duplicated gap without moving icons under the system bar.
+  assert.match(experience, /header\[class\*="h-\[calc\(60px\+env\(safe-area-inset-top\)\)\]"\]/);
+  assert.match(experience, /height: 60px !important;\s*padding-top: 0 !important;/);
+  assert.match(experience, /padding-top: var\(--orvix-native-safe-top\)/);
+  assert.match(dashboard, /h-\[calc\(60px\+env\(safe-area-inset-top\)\)\]/);
   // Native Turnstile explicitly renders; the ordinary browser script is unchanged.
   assert.match(turnstileWidget, /Capacitor\.isNativePlatform\(\)/);
   assert.match(turnstileWidget, /api\.js\?render=explicit/);
