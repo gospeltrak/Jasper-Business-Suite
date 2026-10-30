@@ -2047,25 +2047,15 @@ button:active:not(:disabled),
   }
 }
 
-.subscription-mobile-action {
-  display: none;
-}
-
-.subscription-desktop-action {
+/* Subscription checkout has ONE authoritative footer action across screen
+   sizes. Payment method and button text/handler are derived from the same
+   React state, so hidden duplicate desktop buttons cannot surface on phone. */
+#dashboard-scaffold .subscription-checkout-footer {
   display: block;
 }
-
 @media (max-width: 767px) {
   #dashboard-scaffold .subscription-shell-grid {
     display: block !important;
-  }
-
-  #dashboard-scaffold .subscription-mobile-action {
-    display: block !important;
-  }
-
-  #dashboard-scaffold .subscription-desktop-action {
-    display: none !important;
   }
 }
 
