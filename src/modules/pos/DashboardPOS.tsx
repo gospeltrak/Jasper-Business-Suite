@@ -44,6 +44,7 @@ import { findBarcodeProduct, fitsPosShopStock, getPosShopStock, posBarcodeMessag
 import CachedImage from '../../shared/components/CachedImage';
 import { downloadPdfFromElement, shareElementPdfToWhatsApp } from '../../shared/utils/pdfShare';
 import { localDateToIso, timestampToLocalDate } from '../../shared/utils/localDate';
+import { getOrvixNativePrinterBridge, readPosDevicePreferences, sendNativeReceipt, subscribePosDevicePreferences, type PrinterResult } from '../../shared/utils/posDevices';
 import { getPharmacyDoseConfig, resolvePharmacyPosLine } from '../verticals/utils/pharmacyPosPricing';
 import {
   calculateFractionSaleLine,
@@ -192,6 +193,12 @@ export default function DashboardPOS({
 }: DashboardPOSProps) {
   const { lang: receiptLanguage } = useTranslation();
   const showProductImages = systemSettings?.posSettings?.showProductImages !== false;
+  const [posDevicePreferences, setPosDevicePreferences] = useState(() => readPosDevicePreferences(activeTenant.id));
+  useEffect(() => {
+    const refresh = () => setPosDevicePreferences(readPosDevicePreferences(activeTenant.id));
+    refresh();
+    return subscribePosDevicePreferences(activeTenant.id, refresh);
+  }, [activeTenant.id]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [cart, setCartState] = useState<Array<{ 
@@ -298,16 +305,16 @@ export default function DashboardPOS({
     // or the product snapshot captured when the camera was opened.
     const product = findBarcodeProduct(latestProductsRef.current, scannedCode);
     if (!product) {
-      playErrorBeep();
+      if (posDevicePreferences.scannerFeedback) playErrorBeep();
       addScanToast('error', posBarcodeMessage('not-found', receiptLanguage, scannedCode));
       return;
     }
     const outcome = addToCart(product);
     if (outcome === 'added') {
       addScanToast('success', posBarcodeMessage('added', receiptLanguage, product.name));
-      playCartSuccessBeepAfterPaint();
+      if (posDevicePreferences.scannerFeedback) playCartSuccessBeepAfterPaint();
     } else {
-      playWarningBeep();
+      if (posDevicePreferences.scannerFeedback) playWarningBeep();
       addScanToast('warning', posBarcodeMessage(outcome, receiptLanguage, product.name));
     }
     // Keep the scanner open; rejected scans never emit an added/success signal.
@@ -331,6 +338,15 @@ export default function DashboardPOS({
   const [receiptResult, setReceiptResult] = useState<Sale | null>(null);
   const [recipientWhatsApp, setRecipientWhatsApp] = useState('');
   const [receiptPdfStatus, setReceiptPdfStatus] = useState<string | null>(null);
+  const [printNotice, setPrintNotice] = useState<string | null>(null);
+  const getPrintNotice = (result: PrinterResult): string => {
+    if (result.status === 'sent') return receiptLanguage === 'sw' ? 'Risiti imetumwa kwa printer.' : 'Receipt sent to printer.';
+    if (result.status === 'already-sent') return receiptLanguage === 'sw' ? 'Risiti tayari imetumwa.' : 'Receipt was already sent.';
+    if (result.status === 'not-supported') return receiptLanguage === 'sw' ? 'Mauzo yamehifadhiwa. Bluetooth printing inahitaji Android printer driver. Tumia Print Receipt.' : 'Sale saved. Bluetooth printing requires the Android printer driver. Use Print Receipt.';
+    if (result.status === 'not-connected') return receiptLanguage === 'sw' ? 'Mauzo yamehifadhiwa. Unganisha printer kwenye Settings na ujaribu tena.' : 'Sale saved. Connect a printer in Settings and retry.';
+    if (result.status === 'busy') return receiptLanguage === 'sw' ? 'Risiti inatumwa, tafadhali subiri.' : 'Receipt is already being sent.';
+    return receiptLanguage === 'sw' ? 'Mauzo yamehifadhiwa, lakini printing imeshindikana. Jaribu tena.' : 'Sale saved, but printing failed. Please retry.';
+  };
 
   // Checkout modal mobile/tablet-only layout gate (desktop stays pixel-identical)
   const [isDesktopCheckoutLayout, setIsDesktopCheckoutLayout] = useState<boolean>(() =>
@@ -413,18 +429,29 @@ export default function DashboardPOS({
     }
   };
 
-  const printPosReceiptPdfHandler = () => {
+  const printPosReceiptPdfHandler = async () => {
     if (!receiptResult) return;
+    setPrintNotice(null);
+    if (getOrvixNativePrinterBridge()) {
+      const result = await sendNativeReceipt(
+        activeTenant.id, receiptResult,
+        getActiveBranchDisplayName(activeTenant, systemSettings, userName, activeBranch),
+        receiptLanguage === 'sw' ? 'sw' : 'en', 'manual',
+      );
+      setPrintNotice(getPrintNotice(result));
+      return;
+    }
+    const paperWidth = readPosDevicePreferences(activeTenant.id).paperWidthMm;
     const el = document.getElementById('pos-receipt-pdf-template');
     if (!el) return;
     const content = el.innerHTML;
 
     // Real thermal-printer stylesheet — mirrors DashboardSalesList's POS
-    // Receipt print exactly, since it targets the same 80mm till paper.
+    // Receipt print with the selected 58mm / 80mm paper width.
     const thermalCSS = `
-      @page { size: 80mm auto; margin: 4mm; }
+      @page { size: ${paperWidth}mm auto; margin: 3mm; }
       * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      body { width: 72mm; font-family: 'Courier New', Courier, monospace; font-size: 11px; color: #000; background: #fff; margin: 0; padding: 0; }
+      body { width: ${paperWidth - 6}mm; font-family: 'Courier New', Courier, monospace; font-size: ${paperWidth === 58 ? 9 : 11}px; color: #000; background: #fff; margin: 0; padding: 0; }
       img { max-width: 100%; height: auto; }
       * { color: #000 !important; background: transparent !important; border-color: #888 !important; box-shadow: none !important; border-radius: 0 !important; }
       .flex { display: flex; } .justify-between { justify-content: space-between; } .justify-center { justify-content: center; } .items-center { align-items: center; } .items-start { align-items: flex-start; } .flex-col { flex-direction: column; }
@@ -447,7 +474,7 @@ export default function DashboardPOS({
     `;
 
     const iframe = document.createElement('iframe');
-    iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:80mm;height:0;border:none;';
+    iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:' + paperWidth + 'mm;height:0;border:none;';
     document.body.appendChild(iframe);
 
     const doc = iframe.contentDocument || iframe.contentWindow?.document;
@@ -1347,6 +1374,15 @@ export default function DashboardPOS({
     const saved = await onAddSale(newSale);
     if (saved === false) return;
     onUpdateStocks(updatedProducts);
+    setPrintNotice(null);
+    if (readPosDevicePreferences(activeTenant.id).automaticPrinting) {
+      // Best-effort: a printing failure never rolls back a saved sale or stock.
+      void sendNativeReceipt(
+        activeTenant.id, newSale,
+        getActiveBranchDisplayName(activeTenant, systemSettings, userName, activeBranch),
+        receiptLanguage === 'sw' ? 'sw' : 'en', 'automatic',
+      ).then(result => setPrintNotice(getPrintNotice(result)));
+    }
     setReceiptResult(newSale);
     setRecipientWhatsApp(customerPhone || '');
     setPaymentStatus('completed');
@@ -1415,6 +1451,8 @@ export default function DashboardPOS({
               onClose={() => setIsScannerOpen(false)}
               products={products}
               onScanSuccess={handleScanSuccess}
+              mode={posDevicePreferences.scannerMode}
+              scanFeedback={posDevicePreferences.scannerFeedback}
             />
           ) : (
           <>
@@ -1579,7 +1617,7 @@ export default function DashboardPOS({
                   onClick={() => {
                     if (!isOut) {
                       addToCart(prod);
-                      playCartSuccessBeepAfterPaint();
+                      if (posDevicePreferences.scannerFeedback) playCartSuccessBeepAfterPaint();
                     } else {
                       playOutOfStockBeep();
                     }
@@ -2780,6 +2818,7 @@ export default function DashboardPOS({
                       Finish Sale
                     </button>
                   </div>
+                  {printNotice && <p role="status" className="rounded-xl bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800">{printNotice}</p>}
                 </div>
               </div>
             )}
