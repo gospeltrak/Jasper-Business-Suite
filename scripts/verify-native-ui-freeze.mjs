@@ -17,7 +17,7 @@ import assert from 'node:assert/strict';
 // Only files matching the *current production main* may change here.
 // Newly approved barcode UI/product-save functionality is reused unchanged
 // on Android; other screens remain frozen.
-const APPROVED_PRODUCT_PARITY_FILES = new Set([
+const APPROVED_PRODUCTION_PARITY_FILES = new Set([
   'src/modules/products/DashboardProducts.tsx',
   'src/modules/products/utils/manualStockAdjustment.ts',
   'src/modules/products/utils/barcodeUniqueness.ts',
@@ -26,10 +26,20 @@ const APPROVED_PRODUCT_PARITY_FILES = new Set([
   'src/shared/utils/swahiliUiTranslations.ts',
   'src/shared/utils/tenantWorkspace.ts',
   'src/shared/utils/tenantWorkspace.productEdits.test.ts',
+  'src/shared/utils/actionNoticePolicy.ts',
+  'src/shared/utils/paymentAccounts.ts',
+  'src/modules/cash-bank/utils/operationPayments.ts',
+  'src/modules/cash-bank/DashboardFundsTransfer.tsx',
+  'src/modules/cash-bank/utils/treasuryApi.ts',
+  'src/shared/utils/barcodeScan.ts',
+  'src/types.ts',
+  'src/modules/sales/DashboardSalesList.tsx',
+  'src/modules/expenses/DashboardExpenses.tsx',
+  'src/modules/cash-bank/DashboardCashBank.tsx',
 ]);
 
 export function isPermittedNativeDiffPath(path) {
-  if (APPROVED_PRODUCT_PARITY_FILES.has(path)) return true;
+  if (APPROVED_PRODUCTION_PARITY_FILES.has(path)) return true;
   // New native services/tests are allowed; new JSX/styles are NOT implicit UI approvals.
   if (path.startsWith('src/native/')) return path.endsWith('.ts');
   if (/^src\/server\/nativeOfflineLedger(?:\.test)?\.ts$/.test(path)) return true;
@@ -159,9 +169,9 @@ export function expectedNativeTurnstileIntegration(baseline) {
 }
 
 export function stripPermittedNativeShellAdapters(path, current, baseline) {
-  if (APPROVED_PRODUCT_PARITY_FILES.has(path)) {
+  if (APPROVED_PRODUCTION_PARITY_FILES.has(path)) {
     assert.equal(current, baseline,
-      'Barcode and normalized-product changes must exactly match approved production main: ' + path);
+      'Authorized Android source changes must exactly match production main: ' + path);
     return baseline;
   }
   if (path === 'src/shared/components/DashboardBarcodeScanner.tsx') {
@@ -224,13 +234,13 @@ function verifyAgainstBase(base) {
       failures.push(`UI or visual asset modification forbidden: ${path}`);
       continue;
     }
-    if (!APPROVED_PRODUCT_PARITY_FILES.has(path) && path !== 'src/main.tsx' && path !== 'src/App.tsx' && path !== 'src/components/Dashboard.tsx' && path !== 'src/index.css' && path !== 'src/shared/utils/imageCompression.ts' && path !== 'src/modules/platform-admin/components/SaaSStatusAndRequests.tsx' && path !== 'src/shared/components/TurnstileWidget.tsx' && path !== 'src/shared/components/DashboardBarcodeScanner.tsx') continue;
+    if (!APPROVED_PRODUCTION_PARITY_FILES.has(path) && path !== 'src/main.tsx' && path !== 'src/App.tsx' && path !== 'src/components/Dashboard.tsx' && path !== 'src/index.css' && path !== 'src/shared/utils/imageCompression.ts' && path !== 'src/modules/platform-admin/components/SaaSStatusAndRequests.tsx' && path !== 'src/shared/components/TurnstileWidget.tsx' && path !== 'src/shared/components/DashboardBarcodeScanner.tsx') continue;
     try {
       // Subscription checkout UI was explicitly approved on web and native.
       // Instead of comparing the native Dashboard/CSS to this branch's OLD
       // fork point, require exact current production main UI (plus the one
       // existing native-only TypeScript narrowing fix).
-      const baselineRef = (APPROVED_PRODUCT_PARITY_FILES.has(path) || ['src/components/Dashboard.tsx', 'src/index.css', 'src/shared/utils/imageCompression.ts', 'src/modules/platform-admin/components/SaaSStatusAndRequests.tsx'].includes(path)) ? base : baseline;
+      const baselineRef = (APPROVED_PRODUCTION_PARITY_FILES.has(path) || ['src/components/Dashboard.tsx', 'src/index.css', 'src/shared/utils/imageCompression.ts', 'src/modules/platform-admin/components/SaaSStatusAndRequests.tsx'].includes(path)) ? base : baseline;
       const oldSource = git('show', `${baselineRef}:${path}`);
       const current = readFileSync(path, 'utf8');
       assert.equal(stripPermittedNativeShellAdapters(path, current, oldSource), oldSource,
@@ -263,7 +273,7 @@ function selfTest() {
     'src/shared/utils/nativeApiTransport.ts',
     'src/main.tsx', 'src/App.tsx', 'src/components/Dashboard.tsx', 'src/index.css', 'src/shared/utils/imageCompression.ts', 'src/modules/platform-admin/components/SaaSStatusAndRequests.tsx', 'src/shared/components/TurnstileWidget.tsx', 'src/shared/components/DashboardBarcodeScanner.tsx',
     'docs/native-device-experience.md', 'capacitor.config.ts',
-    ...APPROVED_PRODUCT_PARITY_FILES,
+    ...APPROVED_PRODUCTION_PARITY_FILES,
   ];
   for (const path of permitted) assert.equal(isPermittedNativeDiffPath(path), true, path);
   assert.throws(() => stripPermittedNativeShellAdapters('src/main.tsx', 'redesigned UI'),
