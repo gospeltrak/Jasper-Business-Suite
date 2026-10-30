@@ -3377,13 +3377,13 @@ export default function DashboardProducts({
                         onChange={(e) => { setBarcode(e.target.value); setFormError(null); }}
                         className="min-w-0 w-full bg-white border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 text-xs px-3 py-3 rounded-xl text-slate-800 font-mono tracking-wide transition-all outline-none"
                       />
-                      <div className="grid grid-cols-2 gap-2.5" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
-                        <button type="button" onClick={generateManualBarcodeValue} className="flex min-w-0 h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-2 text-[10.5px] font-semibold normal-case text-slate-700 shadow-sm transition-colors hover:border-slate-300 hover:bg-slate-50 active:bg-slate-100">
-                          <RefreshCw className="h-4 w-4 shrink-0 text-slate-500" />
+                      <div className="orvix-barcode-actions" role="group" aria-label="Barcode actions">
+                        <button type="button" onClick={generateManualBarcodeValue} className="orvix-barcode-action orvix-barcode-action-generate flex min-w-0 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-1.5 text-[10px] font-semibold normal-case text-slate-700 shadow-sm transition-colors hover:border-slate-300 hover:bg-slate-50 active:bg-slate-100">
+                          <RefreshCw className="h-3.5 w-3.5 shrink-0 text-slate-500" />
                           <span className="whitespace-nowrap">Generate Barcode</span>
                         </button>
-                        <button type="button" onClick={() => setIsFormScannerOpen(true)} className="flex min-w-0 h-11 items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50/80 px-2 text-[10.5px] font-semibold normal-case text-emerald-800 transition-colors hover:border-emerald-300 hover:bg-emerald-100 active:bg-emerald-100">
-                          <Camera className="h-4 w-4 shrink-0 text-emerald-700" />
+                        <button type="button" onClick={() => setIsFormScannerOpen(true)} className="orvix-barcode-action orvix-barcode-action-scan flex min-w-0 items-center justify-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50/80 px-1.5 text-[10px] font-semibold normal-case text-emerald-800 transition-colors hover:border-emerald-300 hover:bg-emerald-100 active:bg-emerald-100">
+                          <Camera className="h-3.5 w-3.5 shrink-0 text-emerald-700" />
                           <span className="whitespace-nowrap">Scan Barcode</span>
                         </button>
                       </div>
@@ -5610,23 +5610,23 @@ export default function DashboardProducts({
                         aria-label="Retail barcode"
                         className="min-w-0 flex-1 bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-855 font-bold outline-none font-mono tracking-wide"
                       />
-                      <div className="grid grid-cols-2 gap-2.5" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
+                      <div className="orvix-barcode-actions" role="group" aria-label="Barcode actions">
                         <button
                           type="button"
                           onClick={handleGenerateEditBarcode}
                           disabled={isSavingProductEdit}
-                          className="flex min-w-0 h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-2 text-[10.5px] font-semibold normal-case text-slate-700 shadow-sm transition-colors hover:border-slate-300 hover:bg-slate-50 active:bg-slate-100 disabled:opacity-50"
+                          className="orvix-barcode-action orvix-barcode-action-generate flex min-w-0 items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-1.5 text-[10px] font-semibold normal-case text-slate-700 shadow-sm transition-colors hover:border-slate-300 hover:bg-slate-50 active:bg-slate-100 disabled:opacity-50"
                         >
-                          <RefreshCw className="h-4 w-4 shrink-0 text-slate-500" />
+                          <RefreshCw className="h-3.5 w-3.5 shrink-0 text-slate-500" />
                           <span className="whitespace-nowrap">Generate Barcode</span>
                         </button>
                         <button
                           type="button"
                           disabled={isSavingProductEdit}
                           onClick={() => setIsEditScannerOpen(true)}
-                          className="flex min-w-0 h-11 items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50/80 px-2 text-[10.5px] font-semibold normal-case text-emerald-800 transition-colors hover:border-emerald-300 hover:bg-emerald-100 active:bg-emerald-100 disabled:opacity-50"
+                          className="orvix-barcode-action orvix-barcode-action-scan flex min-w-0 items-center justify-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50/80 px-1.5 text-[10px] font-semibold normal-case text-emerald-800 transition-colors hover:border-emerald-300 hover:bg-emerald-100 active:bg-emerald-100 disabled:opacity-50"
                         >
-                          <Camera className="h-4 w-4 shrink-0 text-emerald-700" />
+                          <Camera className="h-3.5 w-3.5 shrink-0 text-emerald-700" />
                           <span className="whitespace-nowrap">Scan Barcode</span>
                         </button>
                       </div>
