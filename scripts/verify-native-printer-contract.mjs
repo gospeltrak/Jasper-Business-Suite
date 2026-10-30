@@ -1,0 +1,31 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+
+const read = path => readFileSync(path, 'utf8');
+const native = read('scripts/native-android-printer/OrvixPrinter.java');
+const setup = read('scripts/setup-native-android-printer.mjs');
+const bridge = read('src/native/printerBridge.ts');
+const shared = read('src/shared/utils/posDevices.ts');
+const settings = read('src/modules/settings/DashboardScannerPrinterSettings.tsx');
+const workflow = read('.github/workflows/native-android-qa.yml');
+
+assert.match(native, /BluetoothSocket/);
+assert.match(native, /createRfcommSocketToServiceRecord\(SPP_UUID\)/);
+assert.match(native, /getBondedDevices\(\)/);
+assert.match(native, /BLUETOOTH_CONNECT/);
+assert.match(native, /Executors\.newSingleThreadExecutor\(\)/);
+assert.match(native, /@PluginMethod[\s\S]*?void printText/);
+assert.match(native, /acceptedJobs\.contains\(jobId\)/);
+assert.match(native, /Math\.max\(1, Math\.min\(3/);
+assert.match(setup, /android\.permission\.BLUETOOTH_CONNECT/);
+assert.match(setup, /registerPlugin\(OrvixPrinter\.class\)/);
+assert.match(workflow, /node scripts\/setup-native-android-camera\.mjs[\s\S]*node scripts\/setup-native-android-printer\.mjs/);
+assert.match(bridge, /registerPlugin<NativePrinterPlugin>\('OrvixPrinter'\)/);
+assert.match(shared, /automaticPrinting: false/);
+assert.match(shared, /paperWidthMm: 58/);
+assert.match(shared, /paperWidthMm: input\.paperWidthMm === 80 \? 80 : 58/);
+assert.match(settings, /'58mm'/);
+assert.match(settings, /'80mm'/);
+assert.doesNotMatch(settings, /'50mm'/);
+
+console.log('Orvix Scanner & Printer static native contract passed; hardware QA is still required.');
