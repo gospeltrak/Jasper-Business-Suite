@@ -86,6 +86,9 @@ jobs:
       - name: Install Android camera permission recovery
         run: node scripts/setup-native-android-camera.mjs
 
+      - name: Install native Bluetooth printer support
+        run: node scripts/setup-native-android-printer.mjs
+
       # Stable *internal QA only* signing, not for release/Play Store.
       # Cache the explicit workspace file. The prior ~/.android path did not
       # exist at cache-save time, silently changing signers between builds.
