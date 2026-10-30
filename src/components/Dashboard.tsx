@@ -690,7 +690,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     if (!latest?.message) return;
 
     const savedPosSale = latest.type === 'sale' && latest.status === 'success'
-      ? /^Sale \\(Ref: ([^)]+)\\) saved as a manual /i.exec(latest.message)
+      ? /^Sale \(Ref: ([^)]+)\) saved as a manual /i.exec(latest.message)
       : null;
     if (savedPosSale) {
       const saleId = savedPosSale[1];
