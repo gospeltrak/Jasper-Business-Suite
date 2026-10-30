@@ -1720,7 +1720,7 @@ export default function DashboardProducts({
     setCsvUploadError(null);
     setCsvUploadSuccess(null);
 
-    const processText = (text: string) => {
+    const processText = async (text: string) => {
       try {
         const summary = classifyUniversalImportRows(text);
 
@@ -1743,7 +1743,15 @@ export default function DashboardProducts({
           }
         }
 
-        onAddProducts(summary.readyProducts);
+        const collision = findBatchBarcodeConflict(products, summary.readyProducts);
+        if (collision) {
+          setCsvUploadError(`Barcode "${collision.barcode}" already belongs to "${collision.product.name}". Fix the spreadsheet before importing.`);
+          return;
+        }
+        if (!(await onAddProducts(summary.readyProducts))) {
+          setCsvUploadError('Product import was not saved. Check the barcode values and try again.');
+          return;
+        }
         registerImportedCategories(summary.readyProducts);
 
         const errorNote = summary.error > 0
@@ -1759,7 +1767,7 @@ export default function DashboardProducts({
 
     if (/\.(xlsx|xls)$/i.test(file.name)) {
       try {
-        processText(await readExcelFileAsCsvText(file));
+        await processText(await readExcelFileAsCsvText(file));
       } catch (err: any) {
         setCsvUploadError(err?.message || 'Failed to read the selected Excel file.');
       }
@@ -1767,7 +1775,7 @@ export default function DashboardProducts({
     }
 
     const reader = new FileReader();
-    reader.onload = (evt) => processText(evt.target?.result as string);
+    reader.onload = (evt) => { void processText(evt.target?.result as string); };
     reader.readAsText(file);
   };
 
@@ -1787,7 +1795,7 @@ export default function DashboardProducts({
     setCsvUploadError(null);
     setCsvUploadSuccess(null);
 
-    const processText = (text: string) => {
+    const processText = async (text: string) => {
       try {
         if (file.name.toLowerCase().endsWith('.json')) {
           const backup = parseProductCatalogueBackup(text);
@@ -1802,7 +1810,15 @@ export default function DashboardProducts({
               return;
             }
           }
-          onAddProducts(importedItems);
+          const collision = findBatchBarcodeConflict(products, importedItems);
+          if (collision) {
+            setCsvUploadError(`Barcode "${collision.barcode}" already belongs to "${collision.product.name}". Resolve the duplicate before importing.`);
+            return;
+          }
+          if (!(await onAddProducts(importedItems))) {
+            setCsvUploadError('Catalogue restore was not confirmed. Check the barcode values and try again.');
+            return;
+          }
           setCsvUploadSuccess(`Catalogue restored successfully! Imported ${importedItems.length} products; matching barcodes were safely skipped.`);
           if (csvInputRef.current) csvInputRef.current.value = '';
           return;
@@ -1885,8 +1901,16 @@ export default function DashboardProducts({
           }
         }
 
-        // Add imports directly to the system
-        onAddProducts(importedItems);
+        // Check duplicates inside this file and against the existing catalogue.
+        const collision = findBatchBarcodeConflict(products, importedItems);
+        if (collision) {
+          setCsvUploadError(`Barcode "${collision.barcode}" already belongs to "${collision.product.name}". Fix the spreadsheet before importing.`);
+          return;
+        }
+        if (!(await onAddProducts(importedItems))) {
+          setCsvUploadError('Product import was not saved. Check the barcode values and try again.');
+          return;
+        }
 
         // Auto-register any new categories from the spreadsheet into settings
         // so they appear in the POS category filter immediately after import.
@@ -1923,7 +1947,7 @@ export default function DashboardProducts({
 
     if (/\.(xlsx|xls)$/i.test(file.name)) {
       try {
-        processText(await readExcelFileAsCsvText(file));
+        await processText(await readExcelFileAsCsvText(file));
       } catch (err: any) {
         setCsvUploadError(err?.message || 'Failed to read the selected Excel file.');
       }
@@ -1931,7 +1955,7 @@ export default function DashboardProducts({
     }
 
     const reader = new FileReader();
-    reader.onload = (evt) => processText(evt.target?.result as string);
+    reader.onload = (evt) => { void processText(evt.target?.result as string); };
     reader.readAsText(file);
   };
 
