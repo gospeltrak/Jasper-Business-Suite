@@ -7,6 +7,12 @@ import {
 } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { useTranslation } from '../contexts/LanguageContext';
+import {
+  checkNativeCameraPermission,
+  isNativeAndroidScanner,
+  openNativeCameraSettings,
+  requestNativeCameraPermission
+} from '../../native/cameraPermissions';
 
 type CameraErrorCode = 'permission' | 'not-found' | 'in-use' | 'generic';
 
@@ -49,6 +55,8 @@ export default function DashboardBarcodeScanner({
   const [useBeep] = useState(true);
   const [scanSuccessAnim, setScanSuccessAnim] = useState<string | null>(null);
   const [cameraErrorCode, setCameraErrorCode] = useState<CameraErrorCode | null>(null);
+  const [cameraPermissionBlocked, setCameraPermissionBlocked] = useState(false);
+  const [cameraRetrying, setCameraRetrying] = useState(false);
 
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const scannerContainerRef = useRef<HTMLDivElement>(null);
@@ -57,6 +65,7 @@ export default function DashboardBarcodeScanner({
   // permission prompt) releases the camera immediately once it does get a
   // stream, instead of leaving it open after the user already closed.
   const closedRef = useRef(false);
+  const settingsOpenedRef = useRef(false);
 
   // Web Audio BEEP generator
   const playBeep = () => {
@@ -110,10 +119,60 @@ export default function DashboardBarcodeScanner({
     };
   }, [isOpen]);
 
+  // Once the user enables Camera in Android Settings, reopen the scanner
+  // without forcing an uninstall or retaining the previous denied state.
+  useEffect(() => {
+    if (!isOpen || !isNativeAndroidScanner()) return;
+    const onReturn = () => {
+      if (!settingsOpenedRef.current || document.visibilityState !== 'visible') return;
+      settingsOpenedRef.current = false;
+      void checkNativeCameraPermission().then(status => {
+        if (closedRef.current) return;
+        if (status === 'granted') {
+          setCameraPermissionBlocked(false);
+          void startCamera();
+        } else {
+          setCameraErrorCode('permission');
+          setCameraPermissionBlocked(status === 'denied');
+        }
+      });
+    };
+    document.addEventListener('visibilitychange', onReturn);
+    window.addEventListener('focus', onReturn);
+    return () => {
+      document.removeEventListener('visibilitychange', onReturn);
+      window.removeEventListener('focus', onReturn);
+    };
+  }, [isOpen]);
+
   const startCamera = () => queueCameraOp(async () => {
     if (closedRef.current) return;
     try {
+      setCameraRetrying(true);
       setCameraErrorCode(null);
+      // Capacitor's WebChromeClient handles the WebView camera request.
+      // Android CAMERA is a separate runtime permission: ask on scan, never
+      // automatically retry after permanent denial.
+      let status = await checkNativeCameraPermission();
+      if (status === 'prompt' || status === 'prompt-with-rationale') {
+        status = await requestNativeCameraPermission();
+      }
+      if (closedRef.current) return;
+      if (status && status !== 'granted') {
+        setCameraPermissionBlocked(status === 'denied');
+        setCameraErrorCode('permission');
+        return;
+      }
+      setCameraPermissionBlocked(false);
+      // A previous failed start may have left html5-qrcode's DOM intact.
+      // Release it before another attempt; cameraOpQueue prevents races.
+      if (scannerRef.current) {
+        try {
+          if (scannerRef.current.isScanning) await scannerRef.current.stop();
+          await scannerRef.current.clear();
+        } catch { /* stale instance; new start still gets a chance */ }
+        scannerRef.current = null;
+      }
       const html5QrCode = new Html5Qrcode("reader");
       scannerRef.current = html5QrCode;
 
@@ -159,7 +218,7 @@ export default function DashboardBarcodeScanner({
       // name appearing inside the stringified error -- there is no .name
       // property to read directly here.
       const text = String(err?.message ?? err ?? '');
-      if (/NotAllowedError|PermissionDeniedError|SecurityError/i.test(text)) {
+      if (/NotAllowedError|PermissionDeniedError|SecurityError|Permission denied/i.test(text)) {
         setCameraErrorCode('permission');
       } else if (/NotFoundError|DevicesNotFoundError/i.test(text)) {
         setCameraErrorCode('not-found');
@@ -168,6 +227,8 @@ export default function DashboardBarcodeScanner({
       } else {
         setCameraErrorCode('generic');
       }
+    } finally {
+      if (!closedRef.current) setCameraRetrying(false);
     }
   });
 
@@ -215,12 +276,12 @@ export default function DashboardBarcodeScanner({
   if (!isOpen) return null;
 
   const errorCopy = cameraErrorCode ? (lang === 'sw' ? {
-    permission: { title: 'Ruhusa ya kamera imekataliwa', message: 'Ruhusu matumizi ya kamera kwenye mipangilio ya kivinjari chako kisha jaribu tena. Unaweza pia kutumia scanner ya USB au Bluetooth.' },
+    permission: { title: 'Ruhusa ya kamera imezuiwa', message: isNativeAndroidScanner() ? 'Ruhusu kamera kwa Orvix katika mipangilio ya programu, kisha rudi ujaribu tena.' : 'Ruhusu kamera katika mipangilio ya kivinjari, kisha jaribu tena.' },
     'not-found': { title: 'Hakuna kamera iliyopatikana', message: 'Kifaa hiki hakina kamera inayoweza kutumika kuscan. Tumia scanner ya USB au Bluetooth.' },
     'in-use': { title: 'Kamera inatumika', message: 'Programu nyingine kwenye kifaa hiki inatumia kamera. Ifunge kisha jaribu tena.' },
     generic: { title: 'Hakuna connection ya kamera', message: 'Imeshindikana kuunganisha kamera. Jaribu tena, au tumia scanner ya USB au Bluetooth.' },
   }[cameraErrorCode] : {
-    permission: { title: 'Camera permission denied', message: 'Allow camera access in your browser settings, then try again. You can also use a USB or Bluetooth scanner.' },
+    permission: { title: 'Camera access is off', message: isNativeAndroidScanner() ? 'Allow Camera for Orvix in app settings, then return to scan.' : 'Allow Camera in browser settings, then try again.' },
     'not-found': { title: 'No camera found', message: 'This device has no usable camera. Use a USB or Bluetooth scanner instead.' },
     'in-use': { title: 'Camera already in use', message: 'Another app on this device is using the camera. Close it and try again.' },
     generic: { title: 'No camera connection', message: 'Could not connect to the camera. Try again, or use a USB or Bluetooth scanner.' },
@@ -268,6 +329,37 @@ export default function DashboardBarcodeScanner({
               </div>
             )}
           </div>
+          {errorCopy && (
+            <div className="flex flex-wrap items-center justify-center gap-2 px-2 pb-2 pt-3">
+              <button
+                type="button"
+                disabled={cameraRetrying}
+                onClick={() => { void startCamera(); }}
+                className="min-h-10 rounded-lg border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-800 shadow-sm hover:bg-slate-50 disabled:opacity-50"
+              >
+                {cameraRetrying ? (lang === 'sw' ? 'Inajaribu…' : 'Retrying…') : (lang === 'sw' ? 'Jaribu tena' : 'Try again')}
+              </button>
+              {cameraErrorCode === 'permission' && isNativeAndroidScanner() && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    settingsOpenedRef.current = true;
+                    void openNativeCameraSettings().then(opened => {
+                      if (!opened) settingsOpenedRef.current = false;
+                    });
+                  }}
+                  className="min-h-10 rounded-lg bg-emerald-700 px-4 text-xs font-semibold text-white hover:bg-emerald-800"
+                >
+                  {lang === 'sw' ? 'Fungua mipangilio ya kamera' : 'Open app settings'}
+                </button>
+              )}
+              {cameraErrorCode === 'permission' && isNativeAndroidScanner() && cameraPermissionBlocked && (
+                <span className="w-full text-center text-[10px] text-slate-500">
+                  {lang === 'sw' ? 'Permissions → Camera → Allow' : 'Permissions → Camera → Allow'}
+                </span>
+              )}
+            </div>
+          )}
         </div>
     </>
   );
