@@ -4,8 +4,9 @@ import { useTheme } from '../../shared/contexts/ThemeContext';
 import { useTranslation } from '../../shared/contexts/LanguageContext';
 
 import { getPaymentModeName } from '../../shared/utils/paymentAccounts';
-import { Settings as SettingsIcon, Building, Building2, Package, Users, Check, Trash2, Plus, Upload, CreditCard, Store, Tag, Sliders, Sun, Moon, Bell, CheckCircle, FileText, ShieldCheck, Lock, X, Activity, DollarSign, Truck, ArrowLeft, ChevronRight, Search } from "lucide-react";
+import { Settings as SettingsIcon, Building, Building2, Package, Users, Check, Trash2, Plus, Upload, CreditCard, Store, Tag, Sliders, Sun, Moon, Bell, CheckCircle, FileText, ShieldCheck, Lock, X, Activity, DollarSign, Truck, ArrowLeft, ChevronRight, Search, ScanBarcode } from "lucide-react";
 import { DashboardNotificationsSettings } from '../notifications-settings/DashboardNotificationsSettings';
+import DashboardScannerPrinterSettings from './DashboardScannerPrinterSettings';
 import { getSecureDataBridgeClient } from '../../shared/dataBridge/secureDataBridge';
 import { compressImageFile } from '../../shared/utils/imageCompression';
 import { getTreasuryPaymentMethods, reconcilePaymentChannels } from '../../shared/utils/paymentAccounts';
@@ -25,7 +26,7 @@ interface DashboardSettingsProps {
   sales?: Sale[];
   expenses?: Expense[];
   deliveries?: Delivery[];
-  initialSubTab?: 'account' | 'product-store' | 'invoice-settings' | 'roles' | 'notifications' | 'branches';
+  initialSubTab?: 'account' | 'product-store' | 'invoice-settings' | 'roles' | 'notifications' | 'branches' | 'scanner-printer';
 }
 
 const DEFAULT_BUSINESS_SETTINGS: BusinessSettings = {
@@ -121,7 +122,7 @@ export default function DashboardSettings({
   const incomingSettingsSyncRef = useRef(false);
   const settingsDraftTouchedAtRef = useRef(0);
   // Navigation tabs for Settings
-  const [activeSubTab, setActiveSubTab] = useState<'account' | 'product-store' | 'invoice-settings' | 'roles' | 'notifications' | 'branches'>(initialSubTab || 'account');
+  const [activeSubTab, setActiveSubTab] = useState<'account' | 'product-store' | 'invoice-settings' | 'roles' | 'notifications' | 'branches' | 'scanner-printer'>(initialSubTab || 'account');
   const [isMobileSettingsMenuOpen, setIsMobileSettingsMenuOpen] = useState(true);
   const [settingsSearchTerm, setSettingsSearchTerm] = useState('');
   
@@ -736,6 +737,7 @@ export default function DashboardSettings({
     { id: 'invoice-settings', label: 'Invoice Settings', shortLabel: 'Invoice', description: 'Receipt branding and invoice fields', icon: FileText },
     { id: 'roles', label: 'Staff Roles & Access', shortLabel: 'Access', description: 'Permissions and private role presets', icon: ShieldCheck },
     { id: 'notifications', label: 'Alerts & Reports', shortLabel: 'Alerts', description: 'Notification channels and reports', icon: Bell },
+    { id: 'scanner-printer', label: 'Scanner & Printer', shortLabel: 'Devices', description: 'Barcode scanning, Bluetooth printer, 58mm / 80mm receipts', icon: ScanBarcode },
     { id: 'branches', label: 'Branches', shortLabel: 'Branches', description: 'Independent branch workspaces and access', icon: Building2, premium: true }
   ];
 
@@ -824,7 +826,7 @@ export default function DashboardSettings({
             <span className="font-black text-slate-700">{activeSettingsTab.label}</span>
             <span className="hidden sm:inline"> · {activeSettingsTab.description}</span>
           </div>
-          {activeSubTab !== 'branches' ? (
+          {activeSubTab !== 'branches' && activeSubTab !== 'scanner-printer' ? (
             <button
               type="button"
               onClick={triggerSaveAll}
@@ -866,7 +868,7 @@ export default function DashboardSettings({
               <p className="mt-0.5 truncate text-[11px] font-medium text-slate-500 dark:text-slate-400">{activeSettingsTab.description}</p>
             </div>
           )}
-          {activeSubTab !== 'branches' ? (
+          {activeSubTab !== 'branches' && activeSubTab !== 'scanner-printer' ? (
             <button
               type="button"
               onClick={triggerSaveAll}
@@ -2306,6 +2308,11 @@ export default function DashboardSettings({
               </div>
             );
           })()}
+
+          {/* Local per-device POS peripherals: no tenant settings save or workspace mutation. */}
+          {activeSubTab === 'scanner-printer' && (
+            <DashboardScannerPrinterSettings tenantId={activeTenant.id} isSw={isSw} />
+          )}
 
           {/* TAB 6: NOTIFICATIONS & AUTO REPORTS */}
           {activeSubTab === 'notifications' && (
