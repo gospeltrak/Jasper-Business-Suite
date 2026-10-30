@@ -761,7 +761,7 @@ test('pharmacy hierarchy is medicine-only and product edits wait for durable per
   assert.match(productSource, /activeTenant\.businessType === 'pharmacy' && editForm\.productType === 'medicine'/);
   assert.match(productSource, /const saved = await onUpdateProducts\(updated, \[editingProduct\.id\]\)/);
   assert.match(productSource, /if \(!saved\) \{\s*setEditSaveError\([^;]+;\s*return;\s*\}\s*setEditingProduct\(null\)/);
-  assert.match(dashboardSource, /const handleUpdateActiveStocks = async \(updatedProducts: Product\[\], changedProductIds\?: string\[\]\): Promise<boolean>/);
+  assert.match(dashboardSource, /const handleUpdateActiveStocks = async \(\s*updatedProducts: Product\[\],\s*changedProductIds\?: string\[\],\s*options: \{ suppressSuccessToast\?: boolean \} = \{\},\s*\): Promise<boolean>/);
   assert.match(dashboardSource, /const \{ products: syncedProducts, saved \} = persistTenantProductsNow\(nextTenantProducts, branchStockUpdates, changedProductIds\)/);
   assert.match(dashboardSource, /const didSave = await saved;/);
   assert.match(dashboardSource, /if \(!didSave\) return false;[\s\S]*const durable = readCachedWorkspace\(activeTenant\.id\)/);
