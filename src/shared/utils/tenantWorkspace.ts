@@ -1177,7 +1177,7 @@ async function saveTenantDeliveriesOnlyNow(
   }
   try {
     if (typeof client.rpc === 'function') {
-      const result = await client.rpc('save_current_branch_deliveries', tombstones ? { p_deliveries: deliveries, p_delivery_tombstones: tombstones } : { p_deliveries: deliveries });
+      const result = await client.rpc('save_current_branch_deliveries', { p_deliveries: deliveries, p_delivery_tombstones: tombstones || {} });
       const missingRpc = ['PGRST202', '42883'].includes(String(result.error?.code || ''));
       if (!result.error) {
         const mergedDeliveries = Array.isArray(result.data?.deliveries)
@@ -1322,7 +1322,7 @@ export function addTenantPurchasePayment(
     });
     if (result.error || !result.data?.purchase?.id) {
       if (result.error?.code === '23514') throw new Error('Check the outstanding amount, account balance and account currency. No payment was recorded.');
-      if (result.error?.code === '42501') throw new Error('Select the purchase branch and check your purchase and Money & Bank permissions.');
+      if (result.error?.code === '42501') throw new Error('Select the purchase branch and ask the owner to check Purchases and Supplier Bill Payments (Pay-Out) permissions.');
       throw new Error('Payment was not confirmed. Refresh purchase history before trying another payment.');
     }
     const purchase = result.data.purchase as Purchase;
@@ -1563,5 +1563,7 @@ export async function initializeNewTenantWorkspace(tenantId: string, settings?: 
   const workspace = emptyWorkspace(settings);
   await saveTenantWorkspace(tenantId, workspace);
 }
+
+
 
 
