@@ -79,7 +79,7 @@ import { collectDeliveryPayment, syncTreasuryPaymentAccounts, postTreasurySplitI
 import { reversePurchaseInventory } from '../shared/utils/inventoryCosting';
 import { isPurchaseFundingBalanced, registeredPurchaseFunding } from '../modules/purchases/utils/purchaseFunding';
 import { getSubscriptionReminder, getSubscriptionReminderKey } from '../shared/utils/subscriptionReminder';
-import { compressImageFile } from '../shared/utils/imageCompression';
+import { compressPaymentReceipt } from '../shared/utils/imageCompression';
 import { formatLocalDate } from '../shared/utils/localDate';
 import { Shield, AlertTriangle, CreditCard as CardIcon, Bell } from "lucide-react";
 import { 
@@ -1546,6 +1546,8 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
   const [manualActivationReceipt, setManualActivationReceipt] = useState<File | null>(null);
   const [manualActivationNote, setManualActivationNote] = useState('');
   const [manualActivationSubmitting, setManualActivationSubmitting] = useState(false);
+  const manualActivationInFlightRef = useRef(false);
+  const [manualActivationSubmittedProofId, setManualActivationSubmittedProofId] = useState<string | null>(null);
   const [manualActivationMessage, setManualActivationMessage] = useState<string | null>(null);
   const [onlinePaymentSubmitting, setOnlinePaymentSubmitting] = useState(false);
   const [onlinePaymentMessage, setOnlinePaymentMessage] = useState<string | null>(null);
@@ -1607,6 +1609,9 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
   }, [activeTenant.id]);
 
   const submitManualActivationRequest = async (requestedPlanId: SubscriptionPlanId = manualActivationPackage) => {
+    // Lock synchronously, before React can rerender, so double taps cannot
+    // upload two receipts or create duplicate admin notifications.
+    if (manualActivationInFlightRef.current || manualActivationSubmittedProofId) return;
     const selectedPlanId = normalizeSubscriptionPlanId(requestedPlanId);
     if (selectedPlanId === 'trial') {
       setManualActivationMessage('Please choose Ruby, Diamond, or Tanzanite before submitting.');
@@ -1617,8 +1622,8 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       return;
     }
     if (manualActivationReceipt) {
-      if (manualActivationReceipt.size > 2 * 1024 * 1024) {
-        setManualActivationMessage('Receipt must be 2 MB or smaller.');
+      if (manualActivationReceipt.size > 10 * 1024 * 1024) {
+        setManualActivationMessage('Choose a receipt image smaller than 10 MB; it will be compressed to 14 KB.');
         return;
       }
       const allowedReceiptTypes = ['image/jpeg', 'image/png', 'image/webp'];
@@ -1628,6 +1633,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       }
     }
 
+    manualActivationInFlightRef.current = true;
     setManualActivationSubmitting(true);
     setManualActivationMessage(null);
     const selectedPlan = SUBSCRIPTION_PLANS[selectedPlanId];
@@ -1637,14 +1643,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       const { data: sessionData } = await client.auth.getSession();
       const token = sessionData?.session?.access_token;
       if (!token) throw new Error('Your secure session has expired. Sign in again.');
-      const receiptBase64 = manualActivationReceipt
-        ? await compressImageFile(manualActivationReceipt, {
-            maxWidth: 1600,
-            maxHeight: 1600,
-            quality: 0.85,
-            mimeType: 'image/webp',
-          })
-        : null;
+      const receiptBase64 = await compressPaymentReceipt(manualActivationReceipt, 14 * 1024);
       const trimmedNote = manualActivationNote.trim();
       const uploadResponse = await fetch('/api/subscriptions/payment-proof-file', {
         method: 'POST',
@@ -1666,7 +1665,8 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       if (!uploadResponse.ok || !uploadPayload?.proof?.id) {
         throw new Error(uploadPayload?.error || 'Receipt upload failed.');
       }
-      setManualActivationMessage(`Your ${selectedPlan.name} activation request has been sent. Please wait about 5 minutes, then log in again. If it still hasn't activated, contact Orvix Deployments using the WhatsApp button below.`);
+      setManualActivationSubmittedProofId(String(uploadPayload.proof.id));
+      setManualActivationMessage('Your request is being processed. If your dashboard is still locked after 5 minutes, contact Deployments using the link below.');
       setManualActivationReceipt(null);
       setManualActivationNote('');
     } catch (err: any) {
@@ -1676,6 +1676,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
           : 'Internet is required to submit activation requests. Nothing was saved offline.'
       );
     } finally {
+      manualActivationInFlightRef.current = false;
       setManualActivationSubmitting(false);
     }
   };
@@ -5048,29 +5049,33 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                         aria-describedby="receipt-upload-hint"
                         className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
                         accept="image/png,image/jpeg,image/webp"
-                        onChange={(event) => setManualActivationReceipt(event.target.files?.[0] || null)}
+                        onChange={(event) => {
+                          if (manualActivationSubmittedProofId) return; // request already submitted for review
+                          setManualActivationReceipt(event.target.files?.[0] || null);
+                          setManualActivationMessage(null);
+                        }}
                       />
                       <div className="flex min-h-20 items-center justify-center gap-3 rounded-xl border border-dashed border-slate-300 bg-white px-4 py-3 text-slate-600 transition-colors hover:border-emerald-400 hover:bg-emerald-50/20">
                         <CloudLightning className="h-5 w-5" />
-                        <span className="min-w-0 text-left"><span className="block truncate text-xs font-semibold text-slate-800">{manualActivationReceipt ? manualActivationReceipt.name : 'Tap to upload receipt'}</span><span id="receipt-upload-hint" className="mt-0.5 block text-[11px] text-slate-500">PNG, JPG or WebP · Max 2 MB</span></span>
+                        <span className="min-w-0 text-left"><span className="block truncate text-xs font-semibold text-slate-800">{manualActivationReceipt ? manualActivationReceipt.name : 'Tap to upload receipt'}</span><span id="receipt-upload-hint" className="mt-0.5 block text-[11px] text-slate-500">PNG, JPG or WebP · Optimized to 14 KB</span></span>
                       </div>
                     </div>
 
 
 
                     {manualActivationMessage ? (
-                      <p role="status" aria-live="polite" className={`mt-3 rounded-2xl px-4 py-3 text-xs font-semibold leading-5 ${manualActivationMessage.includes('has been sent') ? 'border border-emerald-200 bg-emerald-50 text-emerald-800' : 'border border-amber-200 bg-amber-50 text-amber-800'}`}>{manualActivationMessage}</p>
+                      <p role="status" aria-live="polite" className={`mt-3 rounded-xl border px-4 py-3 text-xs font-medium leading-5 ${manualActivationSubmittedProofId ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-amber-200 bg-amber-50 text-amber-800'}`}>{manualActivationMessage}</p>
                     ) : null}
 
                     <a
                       href={`https://wa.me/255655746552?text=${encodeURIComponent(`Habari Orvix, activation yangu imechelewa. Jina la kampuni: ${activeTenant.name}. Kifurushi nilicholipia: ${SUBSCRIPTION_PLANS[selectedPlanId].name}. Naomba msaada.`)}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      aria-label="Contact Orvix deployments on WhatsApp"
-                      className="mt-3 flex min-h-12 items-center justify-center gap-2 rounded-2xl text-sm font-bold text-emerald-700 transition-colors hover:bg-emerald-50"
+                      aria-label="Contact Orvix Deployments"
+                      className="mt-3 flex min-h-12 items-center justify-center gap-2 rounded-2xl text-sm font-semibold text-emerald-700 transition-colors hover:bg-emerald-50"
                     >
                       <MessageSquare className="h-4 w-4" />
-                      Activation delayed? WhatsApp us
+                      Contact Deployments
                     </a>
                   </div>
                 )}
@@ -5101,22 +5106,14 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                     void startOnlineSubscriptionPayment(selectedPlanId);
                   }
                 }}
-                disabled={manualActivationSubmitting || onlinePaymentSubmitting}
+                disabled={manualActivationSubmitting || onlinePaymentSubmitting || (paymentMode === 'offline' && !!manualActivationSubmittedProofId)}
                 aria-label={paymentMode === 'offline' ? 'Pay offline — submit payment receipt for review' : 'Pay online — open secure checkout'}
                 className={`${checkoutStep === 'plan' ? 'hidden md:flex' : 'flex'} min-h-12 w-full items-center justify-center rounded-xl bg-emerald-700 px-5 text-sm font-semibold text-white shadow-[0_3px_8px_rgba(6,95,70,0.12)] transition-colors hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60`}
               >
                 {paymentMode === 'offline'
-                  ? (manualActivationSubmitting ? 'Sending receipt…' : 'Pay offline')
-                  : (onlinePaymentSubmitting ? 'Opening secure checkout…' : 'Pay online')}
+                  ? (manualActivationSubmittedProofId ? 'Request sent' : manualActivationSubmitting ? 'Sending…' : 'Pay')
+                  : (onlinePaymentSubmitting ? 'Opening checkout…' : 'Pay')}
               </button>
-              {checkoutStep === 'payment' && paymentMode === 'offline' && !manualActivationReceipt && !manualActivationMessage ? (
-                <p className="mt-2 text-center text-[11px] text-slate-500 md:text-xs">Attach your payment receipt before submitting.</p>
-              ) : null}
-              {checkoutStep === 'payment' && (paymentMode === 'offline' ? manualActivationMessage : onlinePaymentMessage) ? (
-                <p role="status" aria-live="polite" className="mt-2 text-center text-xs leading-5 text-slate-700">
-                  {paymentMode === 'offline' ? manualActivationMessage : onlinePaymentMessage}
-                </p>
-              ) : null}
             </footer>
           </div>
         </div>

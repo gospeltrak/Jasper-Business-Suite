@@ -229,10 +229,16 @@ test('subscription checkout uses the native plan summary without inline mobile-m
   assert.doesNotMatch(checkout, /subscription-desktop-action|subscription-mobile-action/);
   assert.match(checkoutFooter, /data-payment-mode=\{paymentMode\}/);
   assert.match(checkoutFooter, /if \(paymentMode === 'offline'\)/);
-  assert.match(checkoutFooter, /manualActivationSubmitting \? 'Sending receipt…' : 'Pay offline'/);
-  assert.match(checkoutFooter, /onlinePaymentSubmitting \? 'Opening secure checkout…' : 'Pay online'/);
+  assert.match(checkoutFooter, /manualActivationSubmittedProofId \? 'Request sent' : manualActivationSubmitting \? 'Sending…' : 'Pay'/);
+  assert.match(checkoutFooter, /onlinePaymentSubmitting \? 'Opening checkout…' : 'Pay'/);
   assert.match(checkoutFooter, /void submitManualActivationRequest\(selectedPlanId\)/);
   assert.match(checkoutFooter, /void startOnlineSubscriptionPayment\(selectedPlanId\)/);
+  assert.match(checkoutFooter, /manualActivationSubmittedProofId/);
+  assert.doesNotMatch(checkoutFooter, /manualActivationMessage \: onlinePaymentMessage/);
+  assert.doesNotMatch(checkoutFooter, /role="status"/);
+  assert.match(dashboardSource, /compressPaymentReceipt\(manualActivationReceipt, 14 \* 1024\)/);
+  assert.match(dashboardSource, /Your request is being processed\./);
+  assert.doesNotMatch(dashboardSource, /contact Orvix Deployments using the WhatsApp button below/);
   assert.match(dashboardSource, /if \(!manualActivationReceipt\) \{[\s\S]*?Attach a payment receipt image before submitting/);
   // A failed online payment may show offline as an option, but cannot switch
   // the user's chosen payment method without a selection.
