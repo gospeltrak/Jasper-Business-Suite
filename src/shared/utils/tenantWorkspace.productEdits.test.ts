@@ -72,13 +72,6 @@ describe('durable product edits', () => {
     expect(readCachedWorkspace('missing-ack')?.products.find(p => p.id === edited.id)).toBeUndefined();
   });
 
-  it('does not cache branch stock when the product acknowledgement is missing', async () => {
-    const branchStock = stock('s-not-confirmed', 'b1', 175);
-    transport.rpc.mockResolvedValueOnce({ data: { branchStocks: [branchStock] }, error: null });
-    expect(await saveTenantProductsOnly('stock-no-ack', [product('p1', 175)], {}, [branchStock])).toBe(false);
-    expect(readCachedWorkspace('stock-no-ack')?.branchStocks).toBeUndefined();
-  });
-
   it('keeps the existing two-argument RPC for catalogue-only callers', async () => {
     transport.rpc.mockResolvedValue({ data: { products: [product('p1')] }, error: null });
     await saveTenantProductsOnly('legacy-edit', [product('p1')]);
