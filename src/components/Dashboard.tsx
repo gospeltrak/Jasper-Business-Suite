@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from '../shared/contexts/LanguageContext';
+import { confirmConnectivityLoss, normalizeActionNotice, permissionNotice, offlineNotice, OFFLINE_CONFIRMATION_MS } from '../shared/utils/actionNoticePolicy';
 import { useTenantLogo } from '../shared/contexts/TenantLogoContext';
 import { useTheme } from '../shared/contexts/ThemeContext';
 import { useJasperNotifications } from '../shared/contexts/JasperNotificationContext';
@@ -48,7 +49,7 @@ import { savePendingSaleOffline } from '../shared/utils/offlineDb';
 import { createCleanTenantSettings, isDemoTenant } from '../shared/utils/tenantIsolation';
 import { addTenantPurchasePayment, flushPendingTenantWorkspace, hasPendingTenantWorkspaceSave, loadTenantProductFresh, loadTenantWorkspace, loadTenantWorkspaceCore, markTenantProductsUpdated, readCachedWorkspace, reloadTenantWorkspace, saveTenantDeliveriesOnly, saveTenantExpensesOnly, saveTenantProductsOnly, saveTenantPurchasesOnly, saveTenantSalesOnly, saveTenantSettings, scheduleTenantWorkspaceSave, subscribeToTenantBusinessType, subscribeToTenantWorkspace, TenantWorkspace, waitForTenantWorkspaceLoad, workspaceHasBusinessData } from '../shared/utils/tenantWorkspace';
 import { safeSetJsonItem, safeSetTenantMapItem } from '../shared/utils/dataSafety';
-import { findPaymentChannel, getTreasuryPaymentMethods, reconcilePaymentChannels } from '../shared/utils/paymentAccounts';
+import { findPaymentChannel, getDebtCollectionPaymentChannels, getTreasuryPaymentMethods, reconcilePaymentChannels } from '../shared/utils/paymentAccounts';
 import { attachPayloadProductTombstones, markLocalProductTombstones, mergeProductTombstones, mergeProductsForSync, readLocalProductTombstones, stampProductsForSync, writeLocalProductTombstones } from '../modules/products/utils/productSync';
 import { pharmacyHierarchyMatches } from '../modules/verticals/utils/pharmacyHierarchyPersistence';
 import {
@@ -72,7 +73,9 @@ import {
 } from '../modules/branches/branchScope';
 import { ONLINE_ONLY_WRITE_MESSAGE, canWriteBusinessDataOnline } from '../shared/utils/onlineOnly';
 import { getSecureDataBridgeClient, isPlaceholderSecureDataBridgeClient } from '../shared/dataBridge/secureDataBridge';
-import { syncTreasuryPaymentAccounts, postTreasuryEntry, postTreasurySplitIncome, postTreasurySplitOutgoing, reverseTreasuryEntry } from '../modules/cash-bank/utils/treasuryApi';
+import { saveExpensePayment, saveFundedPurchase, addSalePayment } from '../modules/cash-bank/utils/operationPayments';
+import DashboardFundsTransfer from '../modules/cash-bank/DashboardFundsTransfer';
+import { collectDeliveryPayment, syncTreasuryPaymentAccounts, postTreasurySplitIncome, reverseTreasuryEntry } from '../modules/cash-bank/utils/treasuryApi';
 import { reversePurchaseInventory } from '../shared/utils/inventoryCosting';
 import { isPurchaseFundingBalanced, registeredPurchaseFunding } from '../modules/purchases/utils/purchaseFunding';
 import { getSubscriptionReminder, getSubscriptionReminderKey } from '../shared/utils/subscriptionReminder';
@@ -287,6 +290,8 @@ const patchCachedTenantBusinessType = (tenantId: string, businessType: string) =
 };
 
 type SubscriptionCheckoutRenderState = {
+  checkoutStep: 'plan' | 'payment';
+  setCheckoutStep: React.Dispatch<React.SetStateAction<'plan' | 'payment'>>;
   selectedPlanId: SubscriptionPlanId;
   setSelectedPlanId: React.Dispatch<React.SetStateAction<SubscriptionPlanId>>;
   paymentMode: 'online' | 'offline';
@@ -305,8 +310,11 @@ function SubscriptionCheckoutStateBridge({
     PAID_PACKAGE_IDS.includes(normalizedInitialPlan as any) ? normalizedInitialPlan : 'diamond'
   );
   const [paymentMode, setPaymentMode] = useState<'online' | 'offline'>('online');
+  // A deliberately short two-step journey on mobile. Desktop retains the
+  // side-by-side plan and payment review without changing payment handlers.
+  const [checkoutStep, setCheckoutStep] = useState<'plan' | 'payment'>('plan');
 
-  return <>{children({ selectedPlanId, setSelectedPlanId, paymentMode, setPaymentMode })}</>;
+  return <>{children({ checkoutStep, setCheckoutStep, selectedPlanId, setSelectedPlanId, paymentMode, setPaymentMode })}</>;
 }
 
 function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggleTheme, initialTab, mirrorMode = false }: DashboardProps) {
@@ -633,20 +641,27 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
   // the effect below fires for logs[0] on mount.
   const [logs, setLogs] = useState<SyncLog[]>(() => []);
 
-  // Modern Toast notification array state and dispatcher
+  // The existing toast UI is unchanged. Short mobile-network flaps are quiet,
+  // and genuine staff authorization failures use one localized message.
   const [toasts, setToasts] = useState<UI_Toast[]>([]);
-
+  const confirmedOfflineRef = useRef(false);
+  const recentNoticesRef = useRef<Map<string, number>>(new Map());
   const addToast = (message: string, type: 'success' | 'error' | 'warning' | 'info' = 'success') => {
+    const localized = normalizeActionNotice(message, lang === 'sw' ? 'sw' : 'en', confirmedOfflineRef.current);
+    if (!localized) return;
+    const now = Date.now();
+    const lastShown = recentNoticesRef.current.get(localized) || 0;
+    const delay = localized === offlineNotice(lang === 'sw' ? 'sw' : 'en') ? 30_000 : 1800;
+    if (now - lastShown < delay) return;
+    recentNoticesRef.current.set(localized, now);
+    if (recentNoticesRef.current.size > 40) {
+      for (const [key, at] of recentNoticesRef.current) if (now - at > 35_000) recentNoticesRef.current.delete(key);
+    }
     const id = Math.random().toString(36).substr(2, 9);
-    setToasts(prev => {
-      const list = [...prev, { id, type, message }];
-      if (list.length > 3) list.shift();
-      return list;
-    });
-    setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id));
-    }, 3500);
+    setToasts(prev => [...prev, { id, type, message: localized }].slice(-3));
+    window.setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3500);
   };
+  const notifyPermissionDenied = () => addToast(permissionNotice(lang === 'sw' ? 'sw' : 'en'), 'warning');
 
   const blockOfflineBusinessWrite = (action: string) => {
     if (canWriteBusinessDataOnline()) return false;
@@ -1289,23 +1304,9 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
 
       navigator.serviceWorker.addEventListener('message', handleServiceWorkerMessage);
 
-      // Handle standard browser offline -> online transition
-      const handleOnlineStatus = () => {
-        const newLog: SyncLog = {
-          id: 'l-' + Math.random().toString(36).substr(2, 9),
-          type: 'inventory_audit',
-          status: 'warning',
-          message: 'Internet connection restored.',
-          timestamp: new Date().toISOString()
-        };
-        setLogs(prev => [newLog, ...prev]);
-      };
-
-      window.addEventListener('online', handleOnlineStatus);
-
+      // Never log/toast "connected" for every Wi-Fi-to-mobile handoff.
       return () => {
         navigator.serviceWorker.removeEventListener('message', handleServiceWorkerMessage);
-        window.removeEventListener('online', handleOnlineStatus);
       };
     }
   }, []);
@@ -1348,6 +1349,10 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
         reportsSalesExpenses: { read: true, write: true, edit: true },
         reportsProfitCogs: { read: true, write: true, edit: true },
         sync: { read: true, write: true, edit: true },
+        cashAndBank: { read: true, write: true, edit: true },
+        fundTransfers: { read: true, write: true, edit: true },
+        paymentIn: { read: true, write: true, edit: true },
+        paymentOut: { read: true, write: true, edit: true },
         settings: { read: true, write: true, edit: true }
       };
     }
@@ -1438,6 +1443,8 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
         return perms.purchases?.read;
       case 'deliveries':
         return perms.pos?.read;
+      case 'cash-bank-matrix':
+        return Boolean(perms.cashAndBank?.read || perms.fundTransfers?.write);
       case 'expenses':
         return perms.expenses?.read;
       case 'inventory':
@@ -1465,21 +1472,48 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     }
   };
 
-  // Simulated connection states
+  // The dot updates immediately, but a toast requires continuous disconnection
+  // plus a failed same-origin health probe. HTTP errors are not "no internet".
   const [isOfflineMode, setIsOfflineMode] = useState(!navigator.onLine);
-
   useEffect(() => {
-    const handleOffline = () => setIsOfflineMode(true);
-    const handleOnline = () => setIsOfflineMode(false);
-    
+    let active = true;
+    let timer: number | undefined;
+    const clear = () => { if (timer !== undefined) window.clearTimeout(timer); timer = undefined; };
+    const handleOnline = () => {
+      clear();
+      confirmedOfflineRef.current = false;
+      setIsOfflineMode(false);
+    };
+    const handleOffline = () => {
+      setIsOfflineMode(true);
+      clear();
+      timer = window.setTimeout(async () => {
+        const offline = await confirmConnectivityLoss(() => !navigator.onLine, async () => {
+          const controller = new AbortController();
+          const abortTimer = window.setTimeout(() => controller.abort(), 4500);
+          try {
+            await fetch('/api/health', { method: 'GET', cache: 'no-store', signal: controller.signal });
+            return true; // Any HTTP response proves connectivity.
+          } finally {
+            window.clearTimeout(abortTimer);
+          }
+        });
+        if (active && offline && !confirmedOfflineRef.current) {
+          confirmedOfflineRef.current = true;
+          addToast(offlineNotice(lang === 'sw' ? 'sw' : 'en'), 'warning');
+        }
+      }, OFFLINE_CONFIRMATION_MS);
+    };
     window.addEventListener('offline', handleOffline);
     window.addEventListener('online', handleOnline);
-    
+    if (!navigator.onLine) handleOffline();
     return () => {
+      active = false;
+      clear();
       window.removeEventListener('offline', handleOffline);
       window.removeEventListener('online', handleOnline);
     };
-  }, []);
+  }, [lang]);
 
   // Multi-tenant pivot controller keys
   const currentTenantId = user.activeTenant || user.tenantId;
@@ -1578,8 +1612,8 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       setManualActivationMessage('Please choose Ruby, Diamond, or Tanzanite before submitting.');
       return;
     }
-    if (!manualActivationReceipt && !manualActivationNote.trim()) {
-      setManualActivationMessage('Attach a receipt image or add the transaction reference/payment details.');
+    if (!manualActivationReceipt) {
+      setManualActivationMessage('Attach a payment receipt image before submitting the offline request.');
       return;
     }
     if (manualActivationReceipt) {
@@ -1895,6 +1929,10 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
   };
 
   const handleAddExpense = async (expense: Expense) => {
+    if (!currentPermissions?.expenses?.write && activeRoleName !== 'SuperAdmin') {
+      notifyPermissionDenied();
+      return false;
+    }
     if (blockOfflineBusinessWrite('expense entry')) return false;
 
     localWorkspaceChangedAtRef.current = Date.now();
@@ -1912,31 +1950,8 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     }
 
     try {
-      const posted = await postTreasuryEntry({
-        channels: systemSettings.paymentChannels || [],
-        sourceAccountKey: String(expense.paidFromAccountId || ''),
-        amount: expense.amount,
-        direction: 'out',
-        sourceType: expense.payrollPaymentType ? 'payroll' : 'expense',
-        sourceId: expense.id,
-        description: expense.description,
-        openingBalances: getTreasuryOpeningBalances(),
-        metadata: {
-          category: expense.category,
-          staffId: expense.staffId || null,
-          staffName: expense.staffName,
-          payrollPaymentType: expense.payrollPaymentType || null,
-          payrollPeriodStart: expense.payrollPeriodStart || null,
-          payrollPeriodEnd: expense.payrollPeriodEnd || null,
-          reference: expense.payrollReference || expense.receiptRef || null,
-          attachmentName: expense.payrollAttachmentName || null,
-        },
-      });
-      expense = {
-        ...expense,
-        branchId: posted.branchId,
-        treasuryJournalId: posted.journalId,
-      };
+      await syncTreasuryPaymentAccounts(systemSettings.paymentChannels || [], getTreasuryOpeningBalances());
+      expense = await saveExpensePayment(expense);
     } catch (error: any) {
       addToast(error?.message || 'Money & Bank could not post this expense safely.', 'error');
       return false;
@@ -1999,18 +2014,16 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     if (blockOfflineBusinessWrite('expense update')) return false;
     const existingExpense = (expensesMap[activeTenant.id] || []).find(item => item.id === updatedExpense.id);
     if (!existingExpense || !recordBelongsToActiveBranch(existingExpense, activeBranchSelection)) return false;
-    const nextExpenses = (expensesMap[activeTenant.id] || []).map(expense => (
-      expense.id === updatedExpense.id
-        ? { ...updatedExpense, branchId: existingExpense.branchId, syncUpdatedAt: new Date().toISOString() }
-        : expense
-    ));
-    localWorkspaceChangedAtRef.current = Date.now();
-    // Narrow save: only the `expenses` key changes here, so only it needs
-    // to travel to the server -- see saveTenantExpensesOnly.
-    const saved = await saveTenantExpensesOnly(activeTenant.id, nextExpenses);
-    if (!saved) return false;
-    setExpensesMap(prev => ({ ...prev, [activeTenant.id]: nextExpenses }));
-    return true;
+    try {
+      await syncTreasuryPaymentAccounts(systemSettings.paymentChannels || [], getTreasuryOpeningBalances());
+      const savedExpense = await saveExpensePayment(updatedExpense, existingExpense);
+      localWorkspaceChangedAtRef.current = Date.now();
+      setExpensesMap(prev => ({ ...prev, [activeTenant.id]: (prev[activeTenant.id] || []).map(item => item.id === savedExpense.id ? savedExpense : item) }));
+      return true;
+    } catch (error: any) {
+      addToast(error?.message || 'Expense changes could not be saved safely.', 'error');
+      return false;
+    }
   };
 
   // Returns both the optimistically-applied products (for callers that need
@@ -2376,6 +2389,10 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
   };
 
   const handleAddSale = async (sale: Sale) => {
+    if (!currentPermissions?.pos?.write && activeRoleName !== 'SuperAdmin') {
+      notifyPermissionDenied();
+      return false;
+    }
     if (blockOfflineBusinessWrite('POS sale')) return false;
 
     localWorkspaceChangedAtRef.current = Date.now();
@@ -2387,6 +2404,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       syncUpdatedAt,
     } as Sale;
     let postedTreasuryJournalId = '';
+    let saleSavedAtomically = false;
     const saleIncome = Math.max(0, Number(sale.total || 0) - Number(sale.deliveryCost || 0));
     const collectedAmount = sale.paymentStatus === 'unpaid'
       ? 0
@@ -2433,6 +2451,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
           channels,
           lines: paymentLines,
           sourceType: 'sale',
+          sale: saleToStore,
           sourceId: sale.id,
           description: `Sale payment ${sale.reference || sale.id}`,
           openingBalances: getTreasuryOpeningBalances(),
@@ -2449,6 +2468,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
           treasuryJournalId: posted.journalId,
         };
         postedTreasuryJournalId = posted.journalId;
+        saleSavedAtomically = true;
       } catch (error: any) {
         addToast(error?.message || 'Money & Bank could not post this sale safely.', 'error');
         return false;
@@ -2458,10 +2478,11 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       saleToStore,
       ...(salesMap[activeTenant.id] || []).filter(existing => existing.id !== saleToStore.id),
     ];
-    // Narrow save: only the `sales` key changes here -- stock is deducted
-    // via a separate onUpdateStocks() call right after this succeeds
-    // (DashboardPOS.tsx), exactly as before this change.
-    const saleSaved = await saveTenantSalesOnly(
+    // Paid POS sales were already saved atomically with their Money & Bank
+    // journal by post_current_branch_pos_sale. Saving again would risk a
+    // redundant write; unpaid/local-demo sales retain the existing path.
+    // Stock updates still use the existing onUpdateStocks pipeline.
+    const saleSaved = saleSavedAtomically || await saveTenantSalesOnly(
       activeTenant.id,
       nextTenantSales,
       readLocalSaleTombstones(activeTenant.id),
@@ -2608,39 +2629,37 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     let collectedAccountId = currentDelivery.deliveryPaymentAccountId;
 
     const deliveryIncomeAmount = Math.max(0, Number(currentDelivery.deliveryCost || 0));
-    if (
-      status === 'Delivered'
-      && currentDelivery.deliveryPaymentStatus !== 'collected'
-      && deliveryIncomeAmount > 0
-    ) {
-      const account = findPaymentChannel(
+    if (status === 'Delivered') {
+      const channels = reconcilePaymentChannels(
+        getTreasuryPaymentMethods(systemSettings.business),
         systemSettings.paymentChannels || [],
-        currentDelivery.deliveryPaymentMethod || 'Cash',
+        { currency: activeTenant.currencyCode },
       );
-      if (!account) {
+      const account = deliveryIncomeAmount > 0
+        ? findPaymentChannel(channels, currentDelivery.deliveryPaymentMethod || 'Cash')
+        : undefined;
+      if (deliveryIncomeAmount > 0 && !account) {
         addToast('Select an active delivery payment account before marking this delivery as collected.', 'error');
         return false;
       }
       try {
-        const posted = await postTreasuryEntry({
-          channels: systemSettings.paymentChannels || [],
-          sourceAccountKey: account.id,
-          amount: deliveryIncomeAmount,
-          direction: 'in',
-          sourceType: 'delivery',
-          sourceId: currentDelivery.id,
-          description: `Collected delivery income for ${currentDelivery.id}`,
-          openingBalances: getTreasuryOpeningBalances(),
-          metadata: {
-            saleId: currentDelivery.saleId,
-            customerName: currentDelivery.customerName,
-          },
-        });
-        treasuryJournalId = posted.journalId;
-        treasuryBranchId = posted.branchId;
-        collectedAccountId = account.id;
+        const committed = await collectDeliveryPayment(currentDelivery.id, account?.id);
+        localWorkspaceChangedAtRef.current = Date.now();
+        cloudWorkspaceLoadedRef.current = true;
+        setDeliveriesMap(previous => ({
+          ...previous,
+          [activeTenant.id]: (previous[activeTenant.id] || []).map(delivery => delivery.id === committed.id ? committed : delivery),
+        }));
+        setLogs(previous => [{
+          id: 'delivery-payment-' + Math.random().toString(36).slice(2, 9),
+          type: 'product_update',
+          status: 'success',
+          message: `Delivery dispatch ${deliveryId} status updated: Delivered.`,
+          timestamp: new Date().toISOString(),
+        }, ...previous]);
+        return true;
       } catch (error: any) {
-        addToast(error?.message || 'Money & Bank could not post this delivery income safely.', 'error');
+        addToast(error?.message || 'Delivery payment could not be saved safely.', 'error');
         return false;
       }
     }
@@ -2814,6 +2833,10 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
   };
 
   const handleCreateProducts = (newProducts: Product[]) => {
+    if (!currentPermissions?.products?.write && activeRoleName !== 'SuperAdmin') {
+      notifyPermissionDenied();
+      return;
+    }
     if (blockOfflineBusinessWrite('product creation')) return;
 
     if (newProducts.length === 0) return;
@@ -2850,6 +2873,10 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
   };
 
   const handleDeleteProduct = (id: string) => {
+    if (!currentPermissions?.products?.edit && activeRoleName !== 'SuperAdmin') {
+      notifyPermissionDenied();
+      return;
+    }
     if (blockOfflineBusinessWrite('product delete/archive')) return;
 
     const tenantProducts = productsMap[activeTenant.id] || [];
@@ -2934,6 +2961,10 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
   };
 
   const handleAddPurchase = async (purchase: Purchase, updatedProducts?: Product[]) => {
+    if (!currentPermissions?.purchases?.write && activeRoleName !== 'SuperAdmin') {
+      notifyPermissionDenied();
+      return false;
+    }
     if (blockOfflineBusinessWrite('purchase entry')) return false;
 
     localWorkspaceChangedAtRef.current = Date.now();
@@ -2969,44 +3000,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       addToast('Every registered purchase funding row must use an active Money & Bank account.', 'error');
       return false;
     }
-    if (registeredAllocations.length > 0) {
-      try {
-        const posted = await postTreasurySplitOutgoing({
-          channels: systemSettings.paymentChannels || [],
-          lines: registeredAllocations.map(allocation => ({
-            sourceAccountKey: String(allocation.sourceKey),
-            amount: allocation.amount,
-          })),
-          sourceType: 'purchase',
-          sourceId: purchase.id,
-          description: `Purchase payment to ${purchase.supplierName}`,
-          openingBalances: getTreasuryOpeningBalances(),
-          cacheKey: `${activeBranchSelection.activeScope}:${activeBranchSelection.activeBranchId || 'all'}`,
-          metadata: {
-            supplierId: purchase.supplierId,
-            supplierName: purchase.supplierName,
-            totalAmount: purchase.totalAmount,
-            fundingAllocations: paymentAllocations,
-          },
-        });
-        purchase = {
-          ...purchase,
-          branchId: posted.branchId,
-          treasuryJournalId: posted.journalId,
-          paymentAllocations: paymentAllocations.map(allocation => ({
-            ...allocation,
-            treasuryJournalId: posted.journalId,
-          })),
-        };
-      } catch (error: any) {
-        addToast(error?.message || 'Money & Bank could not post this purchase safely.', 'error');
-        return false;
-      }
-    } else if (paymentAllocations.length > 0) {
-      purchase = { ...purchase, paymentAllocations };
-    }
-    const currentTenantPurchases = purchasesMap[activeTenant.id] || [];
-    const updatedPurchases = [purchase, ...currentTenantPurchases];
+    purchase = { ...purchase, paymentAllocations };
     const tenantProducts = productsMap[activeTenant.id] || [];
     const nextProducts = updatedProducts ? mergeScopedProducts(tenantProducts, updatedProducts) : tenantProducts;
     const nextBranchStocks = activeBranchSelection.activeScope === 'branch' && activeBranchSelection.activeBranchId && updatedProducts
@@ -3042,37 +3036,20 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     // Narrow save: purchases always changes; products/branchStocks only
     // travel when this purchase actually adjusted stock, matching the
     // nextProducts/nextBranchStocks computation above exactly.
-    const saved = await saveTenantPurchasesOnly(
-      activeTenant.id,
-      updatedPurchases,
-      updatedProducts ? nextProducts : undefined,
-      (activeBranchSelection.activeScope === 'branch' && activeBranchSelection.activeBranchId && updatedProducts)
-        ? nextBranchStocks
-        : undefined,
-    );
-    if (!saved) {
-      let accountPaymentReversed = !purchase.treasuryJournalId;
-      if (purchase.treasuryJournalId) {
-        try {
-          await reverseTreasuryEntry(
-            purchase.treasuryJournalId,
-            purchase.id,
-            'Purchase workspace save failed',
-          );
-          accountPaymentReversed = true;
-        } catch (error) {
-          console.error('Failed to reverse treasury entry after purchase save failure', error);
-        }
+    try {
+      if (registeredAllocations.length > 0) {
+        await syncTreasuryPaymentAccounts(systemSettings.paymentChannels || [], getTreasuryOpeningBalances());
       }
-      addToast(accountPaymentReversed
-        ? 'Purchase could not be saved. Any account payment was reversed safely.'
-        : 'Purchase could not be saved and the account payment could not be reversed. Check Money & Bank payment history before retrying.', 'error');
+      purchase = await saveFundedPurchase(purchase, updatedProducts ? nextProducts : undefined,
+        activeBranchSelection.activeScope === 'branch' && updatedProducts ? nextBranchStocks : undefined);
+    } catch (error: any) {
+      addToast(error?.message || 'Purchase could not be saved safely. No partial payment was recorded.', 'error');
       return false;
     }
     
     setPurchasesMap(prev => ({
       ...prev,
-      [activeTenant.id]: readCachedWorkspace(activeTenant.id)?.purchases || updatedPurchases
+      [activeTenant.id]: [purchase, ...(prev[activeTenant.id] || []).filter(item => item.id !== purchase.id)]
     }));
     if (updatedProducts) {
       setProductsMap(prev => ({ ...prev, [activeTenant.id]: nextProducts }));
@@ -3088,6 +3065,34 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     };
     setLogs(prev => [newLog, ...prev]);
     return true;
+  };
+
+  const handleAddSalePayment = async (saleId: string, paymentId: string, amount: number, sourceKey: string, paidAt?: string): Promise<Sale> => {
+    if (blockOfflineBusinessWrite('customer payment')) throw new Error('Connect to the internet to record a payment.');
+    if (activeBranchSelection.activeScope !== 'branch' || !activeBranchSelection.activeBranchId) {
+      throw new Error('Select the sale branch before recording a payment.');
+    }
+    const availableAccounts = getDebtCollectionPaymentChannels(
+      systemSettings.business,
+      systemSettings.paymentChannels || [],
+      { currency: activeTenant.currencyCode, branchId: activeBranchSelection.activeBranchId },
+    );
+    if (!availableAccounts.some(account => account.id === sourceKey)) {
+      throw new Error('This Money & Bank payment account is not active in the selected branch. Refresh Sales and try again.');
+    }
+    // Synchronize the SAME resolved channel selected on the debt form, then
+    // confirm the server recognizes its source key in this branch before
+    // posting an idempotent, ledger-backed installment.
+    const synced = await syncTreasuryPaymentAccounts(availableAccounts, getTreasuryOpeningBalances());
+    if (!synced.some(account => account.sourceKey === sourceKey
+      && account.accountId && account.branchId === activeBranchSelection.activeBranchId)) {
+      throw new Error('The selected Money & Bank account could not be verified for this branch. Check Settings before retrying.');
+    }
+    const sale = await addSalePayment(saleId, paymentId, amount, sourceKey, paidAt);
+    localWorkspaceChangedAtRef.current = Date.now();
+    cloudWorkspaceLoadedRef.current = true;
+    setSalesMap(prev => ({ ...prev, [activeTenant.id]: (prev[activeTenant.id] || []).map(item => item.id === sale.id ? sale : item) }));
+    return sale;
   };
 
   const handleAddPurchasePayment = async (purchaseId: string, paymentId: string, amount: number, fundingType: 'registered' | 'external', sourceKey?: string): Promise<Purchase> => {
@@ -3513,7 +3518,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                   )}
                 </div>
                 <div className="text-left leading-tight min-w-0 transition-opacity duration-300">
-                  <div className="font-extrabold text-sm text-white truncate max-w-[140px] tracking-tight">{user.name}</div>
+                  <div translate="no" className="font-extrabold text-sm text-white truncate max-w-[140px] tracking-tight">{user.name}</div>
                   <div className="text-[10px] text-slate-400 capitalize truncate max-w-[140px]">{user.role} Profile</div>
                 </div>
               </div>
@@ -3594,7 +3599,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
             </div>
             {!sidebarCollapsed && (
               <div className="space-y-0.5 leading-none min-w-0 text-left transition-opacity duration-300">
-                <p className="text-xs font-bold text-white leading-tight truncate">{user.name}</p>
+                <p translate="no" className="text-xs font-bold text-white leading-tight truncate">{user.name}</p>
                 <span className="text-[9px] font-mono text-slate-550 uppercase tracking-widest leading-none block mt-0.5 truncate">{activeRoleName}</span>
               </div>
             )}
@@ -3767,7 +3772,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                     <div className="absolute right-0 mt-2 w-52 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-xl z-50 overflow-hidden animate-fade-in">
                       {/* User info header */}
                       <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800">
-                        <p className="text-xs font-black text-slate-800 dark:text-white truncate">{user.name}</p>
+                        <p translate="no" className="text-xs font-black text-slate-800 dark:text-white truncate">{user.name}</p>
                         <p className="text-[10px] text-slate-400 capitalize mt-0.5">{user.role}</p>
                       </div>
                       {/* Menu items */}
@@ -4086,39 +4091,39 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
             >
 
             {isSubscriptionAccessLocked ? (
-              <div className="min-h-[calc(100dvh-120px)] px-4 py-6 sm:px-6 sm:py-8">
-                <section className="mx-auto flex w-full max-w-6xl flex-col gap-5">
-                  <div className="relative overflow-hidden rounded-[2rem] border border-slate-800 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white shadow-2xl shadow-slate-950/20">
-                    <div className="pointer-events-none absolute -top-24 -right-24 h-72 w-72 rounded-full bg-emerald-500/20 blur-3xl" />
-                    <div className="pointer-events-none absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-cyan-500/10 blur-3xl" />
-                    <div className={`relative grid gap-6 p-6 md:p-8 ${isTrialAccount ? 'md:grid-cols-[1.15fr_0.85fr]' : ''}`}>
+              <div className="min-h-[calc(100dvh-120px)] px-0 py-2 sm:px-4 sm:py-8">
+                <section className="mx-auto flex w-full max-w-5xl flex-col gap-6">
+                  <div className="relative isolate overflow-hidden rounded-[24px] border border-slate-800 bg-[#0b1724] text-white shadow-[0_16px_44px_rgba(15,23,42,0.12)] sm:rounded-[28px]">
+                    <div className="pointer-events-none absolute -top-36 -right-28 h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl" />
+                    <div className="pointer-events-none absolute -bottom-32 -left-28 h-56 w-56 rounded-full bg-teal-500/5 blur-3xl" />
+                    <div className={`relative grid gap-5 p-5 sm:p-7 md:p-8 ${isTrialAccount ? 'lg:grid-cols-[1.15fr_0.85fr]' : ''}`}>
                       <div className="space-y-5">
-                        <div className="inline-flex items-center gap-2 rounded-full border border-amber-400/25 bg-amber-400/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-amber-300">
+                        <div className="inline-flex items-center gap-2 rounded-full border border-amber-300/20 bg-amber-400/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-amber-200">
                           <AlertTriangle className="h-3.5 w-3.5" />
                           {isTrialAccount ? 'Trial expired' : 'Subscription expired'}
                         </div>
                         <div className="space-y-2">
-                          <h2 className="text-3xl font-black tracking-tight md:text-4xl">
+                          <h2 className="max-w-xl text-[26px] font-bold leading-[1.16] tracking-[-0.035em] sm:text-3xl md:text-[34px]">
                             {isTrialAccount ? 'Your free trial has ended' : `Your ${expiredPlan.name} package has expired`}
                           </h2>
-                          <p className="max-w-2xl text-sm leading-6 text-slate-300">
+                          <p className="max-w-xl text-[13px] leading-6 text-slate-300 sm:text-sm">
                             {isTrialAccount
-                              ? `You used the Diamond package free for ${trialDurationDays} days. Your business data is still safe. Choose Ruby, Diamond, or Tanzanite below, pay, and send your payment proof to continue.`
-                              : `Your business data is still safe. Pay for ${expiredPlan.name}${expiredOnLabel ? ` (expired ${expiredOnLabel})` : ''} to continue as before, or choose a different package below, pay, and send your payment proof.`}
+                              ? `Your ${trialDurationDays}-day Diamond trial has ended. Your business data is safe. Choose a plan below to restore access.`
+                              : `Your data is safe and unchanged. Renew ${expiredPlan.name} or choose a different plan below.${expiredOnLabel ? ` Expired ${expiredOnLabel}.` : ''}`}
                           </p>
                         </div>
-                        <div className="subscription-stat-grid grid gap-3 sm:grid-cols-3">
-                          <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{isTrialAccount ? 'Trial package' : 'Current package'}</p>
-                            <p className="mt-1 text-lg font-black text-emerald-300">{isTrialAccount ? 'Diamond' : expiredPlan.name}</p>
+                        <div className="subscription-stat-grid grid grid-cols-2 gap-2.5 pt-1 sm:grid-cols-3">
+                          <div className="rounded-2xl border border-white/10 bg-white/[0.055] px-3 py-3.5">
+                            <p className="text-[10px] font-medium text-slate-400">{isTrialAccount ? 'Trial plan' : 'Current plan'}</p>
+                            <p className="mt-1 text-sm font-bold text-white">{isTrialAccount ? 'Diamond' : expiredPlan.name}</p>
                           </div>
-                          <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">{isTrialAccount ? 'Trial length' : 'Status'}</p>
-                            <p className="mt-1 text-lg font-black text-white">{isTrialAccount ? `${trialDurationDays} days` : 'Expired'}</p>
+                          <div className="rounded-2xl border border-white/10 bg-white/[0.055] px-3 py-3.5">
+                            <p className="text-[10px] font-medium text-slate-400">{isTrialAccount ? 'Trial duration' : 'Plan status'}</p>
+                            <p className="mt-1 text-sm font-bold text-amber-200">{isTrialAccount ? `${trialDurationDays} days` : 'Expired'}</p>
                           </div>
-                          <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
-                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Data status</p>
-                            <p className="mt-1 text-lg font-black text-white">Preserved</p>
+                          <div className="col-span-2 flex items-center gap-3 rounded-2xl border border-emerald-400/15 bg-emerald-400/[0.08] px-3 py-3.5 sm:col-span-1">
+                            <Shield className="h-4 w-4 shrink-0 text-emerald-300" aria-hidden="true" />
+                            <div><p className="text-[10px] font-medium text-slate-400">Business data</p><p className="mt-0.5 text-sm font-bold text-emerald-200">Preserved</p></div>
                           </div>
                         </div>
                       </div>
@@ -4134,11 +4139,11 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                     </div>
                   </div>
 
-                  <div className="subscription-plan-grid grid gap-4 md:grid-cols-3">
+                  <div className="subscription-plan-grid grid gap-3.5 md:grid-cols-3 md:gap-4">
                     {([
-                      { id: 'ruby' as const, tag: 'Lower cost', tone: 'border-rose-200 bg-white', trialCta: 'Choose Ruby', notes: ['TZS 15,000 / month', '1,000 products', '1 store', '2 staff users'] },
-                      { id: 'diamond' as const, tag: 'Same as trial', tone: 'border-emerald-300 bg-emerald-50', trialCta: 'Keep Diamond', notes: ['TZS 30,000 / month', '5,000 products', 'Diamond Lucy AI', '5 staff users'] },
-                      { id: 'tanzanite' as const, tag: 'Full upgrade', tone: 'border-cyan-300 bg-white', trialCta: 'Upgrade Tanzanite', notes: ['TZS 50,000 / month', 'Unlimited products', 'Forecasting + higher Lucy limits', '15 staff users'] },
+                      { id: 'ruby' as const, tag: 'Essential', tone: 'border-slate-200 bg-white', trialCta: 'Choose Ruby', notes: ['1,000 products', '1 branch', '2 staff users'] },
+                      { id: 'diamond' as const, tag: 'Popular', tone: 'border-slate-200 bg-white', trialCta: 'Keep Diamond', notes: ['5,000 products', 'Diamond Lucy AI', '5 staff users'] },
+                      { id: 'tanzanite' as const, tag: 'Advanced', tone: 'border-slate-200 bg-white', trialCta: 'Upgrade Tanzanite', notes: ['Unlimited products', 'Forecasting + higher Lucy limits', '15 staff users'] },
                     ]).map((pkg) => {
                       const plan = SUBSCRIPTION_PLANS[pkg.id];
                       const isDiamond = pkg.id === 'diamond';
@@ -4146,32 +4151,32 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                       const cta = isTrialAccount ? pkg.trialCta : (isCurrentPlan ? `Renew ${plan.name}` : `Switch to ${plan.name}`);
                       const tag = isTrialAccount ? pkg.tag : (isCurrentPlan ? 'Your current plan' : pkg.tag);
                       return (
-                        <article key={pkg.id} className={`group relative flex h-full flex-col rounded-3xl border p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-xl ${pkg.tone} ${isDiamond ? 'ring-2 ring-emerald-400 md:scale-[1.03] md:hover:scale-[1.05]' : ''}`}>
+                        <article key={pkg.id} className={`group relative flex h-full flex-col rounded-[22px] border px-4 pb-4 pt-5 shadow-[0_3px_16px_rgba(15,23,42,0.035)] transition-all duration-200 hover:border-emerald-300 hover:shadow-lg sm:p-5 ${pkg.tone} ${isDiamond ? 'md:ring-1 md:ring-emerald-400/70' : ''}`}>
                           {isDiamond && (
-                            <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-emerald-600 px-3 py-1 text-[9px] font-black uppercase tracking-widest text-white shadow-md">
+                            <span className="absolute -top-2.5 right-4 rounded-full bg-emerald-600 px-2.5 py-1 text-[9px] font-semibold uppercase tracking-wide text-white">
                               Recommended
                             </span>
                           )}
                           <div className="flex items-center justify-between gap-3">
                             <div>
-                              <span className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-widest ${isDiamond ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600'}`}>{tag}</span>
-                              <h3 className="mt-3 text-2xl font-black text-slate-950">{plan.name}</h3>
+                              <span className={`inline-block rounded-full px-2.5 py-1 text-[10px] font-semibold ${isDiamond ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{tag}</span>
+                              <h3 translate="no" className="mt-2 text-xl font-bold tracking-tight text-slate-950">{plan.name}</h3>
                             </div>
                             <div className="text-right">
-                              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Monthly</p>
-                              <p className="text-lg font-black text-slate-950">{activeTenant.currency}{plan.price.toLocaleString()}</p>
+                              <p className="text-[11px] font-medium text-slate-400">per month</p>
+                              <p className="text-xl font-bold tracking-tight text-slate-950">{activeTenant.currency}{plan.price.toLocaleString()}</p>
                             </div>
                           </div>
-                          <ul className="mt-5 space-y-2 text-sm text-slate-600">
-                            {pkg.notes.map((note) => <li key={note} className="flex gap-2"><span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />{note}</li>)}
+                          <ul className="mt-3 grid gap-x-2 gap-y-2 sm:mt-5 sm:space-y-2 text-xs text-slate-600 sm:text-sm">
+                            {pkg.notes.map((note) => <li key={note} className="flex gap-2"><span className="mt-1 flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-[10px] font-bold text-emerald-700">✓</span><span>{note}</span></li>)}
                           </ul>
                           {pkg.id === 'tanzanite' && (
-                            <div className="mt-4 rounded-2xl bg-cyan-50 p-3">
-                              <p className="text-[10px] font-black uppercase tracking-widest text-cyan-700">Extra vs Diamond</p>
-                              <ul className="mt-2 space-y-1.5 text-xs text-cyan-900">
+                            <details className="mt-3 rounded-xl border border-slate-100 bg-slate-50/80 p-3">
+                              <summary className="cursor-pointer text-[11px] font-semibold text-slate-600">What’s included beyond Diamond</summary>
+                              <ul className="mt-2 space-y-1.5 pl-1 text-xs leading-5 text-slate-600">
                                 {tanzaniteUpgradeNotes.slice(0, 4).map((note) => <li key={note}>+ {note}</li>)}
                               </ul>
-                            </div>
+                            </details>
                           )}
                           <button
                             type="button"
@@ -4184,7 +4189,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                                 description: `Select ${plan.name}, pay, and upload your receipt for activation.`
                               });
                             }}
-                            className={`mt-5 md:mt-auto w-full rounded-2xl px-4 py-3 text-sm font-black transition-colors ${isDiamond ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-slate-950 text-white hover:bg-slate-800'}`}
+                            className={`mt-4 min-h-11 w-full rounded-xl px-4 py-2.5 text-[13px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 md:mt-auto ${isCurrentPlan || isDiamond ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-slate-950 text-white hover:bg-slate-800'}`}
                           >
                             {cta}
                           </button>
@@ -4386,6 +4391,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
               activeTenant={activeTenant}
               sales={activeSales}
               onUpdateSales={handleUpdateSales}
+              onAddPayment={handleAddSalePayment}
               onDeleteSale={handleDeleteSale}
               rolePermissions={currentPermissions}
               products={activeProducts}
@@ -4410,6 +4416,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
               onAddExpense={handleAddExpense}
               onDeleteExpense={handleDeleteExpense}
               onUpdateExpense={handleUpdateExpense}
+              rolePermissions={currentPermissions}
               userName={user.name}
               sales={activeSales}
               systemSettings={systemSettings}
@@ -4450,7 +4457,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
           )}
 
           {/* TAB ROOT: Money & Bank Balance Matrix (Double-Entry Treasury Ledger) */}
-          {activeTab === 'cash-bank-matrix' && (
+          {activeTab === 'cash-bank-matrix' && (currentPermissions?.cashAndBank?.read ? (
             <DashboardCashBank
               key={`${activeTenant.id}:${activeBranchSelection.activeScope}:${activeBranchSelection.activeBranchId || 'all'}`}
               activeTenant={activeTenant}
@@ -4460,10 +4467,13 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
               purchases={activePurchases}
               user={user}
               systemSettings={systemSettings}
+              canTransfer={Boolean(currentPermissions?.fundTransfers?.write)}
               branchScopeKey={`${activeBranchSelection.activeScope}:${activeBranchSelection.activeBranchId || 'all'}`}
               onUpdateSystemSettings={persistSystemSettingsNow}
             />
-          )}
+          ) : (
+            <DashboardFundsTransfer key={`${activeTenant.id}:${activeBranchSelection.activeBranchId || 'all'}`} channels={systemSettings.paymentChannels || []} canTransfer={Boolean(currentPermissions?.fundTransfers?.write)} />
+          ))}
 
           {/* TAB ROOT: Agency White-Label Branding Studio */}
           {activeTab === 'whitelabel' && (
@@ -4638,6 +4648,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                     key={tab.id}
                     onClick={() => {
                       if (isMore) { setMoreMenuOpen(true); }
+                      else if (!isTabAllowed(tab.id)) { notifyPermissionDenied(); }
                       else { setActiveTab(tab.id as any); setMoreMenuOpen(false); }
                     }}
                     className="flex-1 flex flex-col items-center justify-center relative transition-all duration-150 active:scale-90 cursor-pointer bg-transparent border-none outline-none"
@@ -4733,7 +4744,11 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                   const Icon = item.icon;
                   return (
                     <button key={item.id} type="button"
-                      onClick={() => { setActiveTab(item.id as any); setMoreMenuOpen(false); }}
+                      onClick={() => {
+                        if (!isTabAllowed(item.id)) { notifyPermissionDenied(); return; }
+                        setActiveTab(item.id as any);
+                        setMoreMenuOpen(false);
+                      }}
                       className="flex flex-col items-center gap-1.5 active:scale-90 transition-all duration-150 cursor-pointer bg-transparent border-none outline-none">
                       <div className={`w-14 h-14 rounded-2xl ${item.bg} flex items-center justify-center shadow-sm`}>
                         <Icon className="w-6 h-6 text-white" strokeWidth={2} />
@@ -4769,6 +4784,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                             description: 'Manage active subscriptions and premium account plans.',
                           });
                         } else {
+                          if (!isTabAllowed(item.id)) { notifyPermissionDenied(); return; }
                           setActiveTab(item.id as any);
                         }
                         setMoreMenuOpen(false);
@@ -4800,7 +4816,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-semibold text-rose-600 leading-tight">Sign Out</p>
-                  <p className="text-xs text-slate-400 dark:text-slate-500 leading-tight mt-0.5">{user.name}</p>
+                  <p translate="no" className="text-xs text-slate-400 dark:text-slate-500 leading-tight mt-0.5">{user.name}</p>
                 </div>
               </button>
             </div>
@@ -4821,130 +4837,143 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       {/* Live Premium Subscription upgrade popups */}
       {subModal && subModal.show && (
         <SubscriptionCheckoutStateBridge initialPlan={manualActivationPackage}>
-          {({ selectedPlanId, setSelectedPlanId, paymentMode, setPaymentMode }) => (
-        <div className="fixed inset-0 z-[170] flex items-end justify-center bg-slate-950/65 p-0 backdrop-blur-sm md:items-center md:p-5 animate-in fade-in">
-          <div role="dialog" aria-modal="true" aria-labelledby="subscription-title" className="relative mt-auto flex h-[100dvh] w-full max-w-5xl flex-col overflow-hidden rounded-none border border-slate-200 bg-white shadow-2xl md:mt-0 md:h-auto md:max-h-[calc(100dvh-40px)] md:rounded-[2rem] animate-in slide-in-from-bottom-10 md:slide-in-from-bottom-0">
-            <div className="flex justify-center pb-1 pt-2.5 md:hidden">
-              <div className="h-1.5 w-12 rounded-full bg-slate-200" />
+          {({ checkoutStep, setCheckoutStep, selectedPlanId, setSelectedPlanId, paymentMode, setPaymentMode }) => (
+        <div className="fixed inset-0 z-[170] flex items-end justify-center bg-slate-950/55 p-0 backdrop-blur-[3px] md:items-center md:p-5 animate-in fade-in">
+          <div role="dialog" aria-modal="true" aria-labelledby="subscription-title" className={`relative mt-auto flex max-h-[92dvh] w-full max-w-4xl flex-col overflow-hidden rounded-t-[24px] border border-slate-200 bg-white shadow-[0_24px_64px_rgba(15,23,42,0.18)] md:mt-0 md:h-auto md:max-h-[calc(100dvh-40px)] md:rounded-[20px] animate-in slide-in-from-bottom-10 md:slide-in-from-bottom-0 ${checkoutStep === 'plan' ? 'h-auto' : 'h-[92dvh]'}`}>
+            <div className="flex justify-center pb-0.5 pt-3 md:hidden">
+              <div className="h-1 w-10 rounded-full bg-slate-200" />
             </div>
 
-            <header className="flex shrink-0 items-start justify-between gap-4 border-b border-slate-100 px-5 pb-4 pt-3 md:px-8 md:pb-5 md:pt-7">
-              <div>
-                <h3 id="subscription-title" className="text-[28px] font-black leading-tight tracking-[-0.035em] text-slate-950 md:text-4xl">
-                  Subscription
+            <header className="flex shrink-0 items-start justify-between gap-4 border-b border-slate-100 bg-white px-5 pb-4 pt-4 sm:px-6 md:px-8 md:py-6">
+              <div className="min-w-0">
+                <h3 id="subscription-title" className="text-[23px] font-semibold leading-tight tracking-[-0.035em] text-slate-950 sm:text-[26px] md:text-[28px]">
+                  {checkoutStep === 'plan' ? 'Choose your plan' : 'Complete your subscription'}
                 </h3>
-                <p className="mt-1 text-sm font-medium text-slate-500 md:text-base">Choose the plan that fits your business</p>
+                <p className="mt-1.5 max-w-sm text-[12px] leading-5 text-slate-500 md:text-sm">{checkoutStep === 'plan' ? 'Monthly plans for your business.' : 'Choose a payment method to continue.'}</p>
               </div>
               <button
                 type="button"
                 onClick={() => setSubModal(null)}
                 aria-label="Close subscription options"
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-950"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-transparent bg-transparent text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-950 focus-visible:ring-2 focus-visible:ring-emerald-500"
               >
-                <X className="h-5 w-5" strokeWidth={2.25} />
+                <X className="h-5 w-5" strokeWidth={1.8} />
               </button>
             </header>
 
-            <div className="subscription-shell-grid min-h-0 flex-1 overflow-y-auto px-5 py-5 md:grid md:grid-cols-[minmax(260px,0.82fr)_minmax(0,1.18fr)] md:gap-8 md:px-8 md:py-7">
-              <section aria-label="Choose subscription plan" className="space-y-3">
+            <div aria-label={`Checkout step ${checkoutStep === 'plan' ? '1' : '2'} of 2`} className="flex shrink-0 items-center gap-3 border-b border-slate-100 bg-white px-5 py-2.5 md:hidden">
+              <span className="text-[11px] font-medium text-slate-500">{checkoutStep === 'plan' ? '1 of 2 · Plan' : '2 of 2 · Payment'}</span>
+              <div className="grid h-1 flex-1 grid-cols-2 gap-1.5" aria-hidden="true">
+                <span className="rounded-full bg-emerald-600" />
+                <span className={`rounded-full ${checkoutStep === 'payment' ? 'bg-emerald-600' : 'bg-slate-200'}`} />
+              </div>
+            </div>
+
+            <div className="subscription-shell-grid min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[#fafbfc] px-4 py-4 sm:px-6 md:grid md:grid-cols-[minmax(260px,0.9fr)_minmax(0,1.1fr)] md:gap-6 md:bg-white md:px-8 md:py-6">
+              <section aria-label="Choose subscription plan" className={`space-y-2.5 ${checkoutStep === 'payment' ? 'hidden md:block' : ''}`}>
+                <div className="mb-3 px-0.5"><p className="text-xs font-medium text-slate-500">Select a monthly subscription</p></div>
                 {PAID_PACKAGE_IDS.map((planId) => {
                   const plan = SUBSCRIPTION_PLANS[planId];
                   const isSelected = selectedPlanId === planId;
-                  const planTone = planId === 'ruby'
-                    ? 'bg-rose-50 text-rose-600'
-                    : planId === 'diamond'
-                      ? 'bg-sky-50 text-sky-600'
-                      : 'bg-violet-50 text-violet-600';
+                  const isActivePlan = !isTrialAccount && planId === expiredPlanId;
                   return (
                     <button
                       key={planId}
                       type="button"
                       onClick={() => setSelectedPlanId(planId)}
                       aria-pressed={isSelected}
-                      className={`flex min-h-[86px] w-full items-center gap-3 rounded-[20px] border px-4 py-3 text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 md:min-h-[112px] md:px-5 ${
+                      aria-label={`${plan.name}, ${activeTenant.currency}${plan.price.toLocaleString()} per month${isSelected ? ', selected' : ''}`}
+                      className={`group flex min-h-[86px] w-full items-center gap-3 rounded-2xl border bg-white px-4 py-3.5 text-left transition-[border-color,box-shadow] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 sm:px-5 ${
                         isSelected
-                          ? 'border-emerald-600 bg-emerald-50/70 shadow-[0_10px_30px_rgba(5,150,105,0.10)]'
-                          : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/60'
+                          ? 'border-emerald-600 shadow-[0_0_0_1px_rgba(5,150,105,0.25)]'
+                          : 'border-slate-200 shadow-[0_2px_8px_rgba(15,23,42,0.025)] hover:border-slate-300'
                       }`}
                     >
-                      <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${planTone}`}>
-                        <CardIcon className="h-5 w-5" strokeWidth={2.2} />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-base font-black text-slate-950 md:text-lg">{plan.name}</p>
-                        <p className="mt-0.5 text-lg font-bold tracking-tight text-slate-700 md:text-xl">
-                          {activeTenant.currency}{plan.price.toLocaleString()}
-                        </p>
-                        <p className="mt-1 hidden text-xs font-medium leading-5 text-slate-500 md:block">
+                      <span className="min-w-0 flex-1">
+                        <span className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                          <span translate="no" className="text-[15px] font-semibold tracking-[-0.015em] text-slate-950">{plan.name}</span>
+                          {isActivePlan ? <span className="text-[10px] font-medium text-slate-500">Current plan</span> : null}
+                        </span>
+                        <span className="mt-0.5 block text-[18px] font-semibold leading-snug tracking-[-0.025em] text-slate-950">
+                          {activeTenant.currency}{plan.price.toLocaleString()}<span className="ml-1 text-[11px] font-normal tracking-normal text-slate-500">/ month</span>
+                        </span>
+                        <span className="mt-1 block text-[11px] leading-[1.45] text-slate-500">
                           {planId === 'ruby'
                             ? '1 branch · 2 users · 1,000 products'
                             : planId === 'diamond'
                               ? '1 branch · 5 users · 5,000 products'
-                              : '2 branches included · 15 users · unlimited products'}
-                        </p>
-                      </div>
-                      <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 ${isSelected ? 'border-emerald-600' : 'border-slate-300'}`}>
-                        {isSelected ? <span className="h-3 w-3 rounded-full bg-emerald-600" /> : null}
+                              : '2 branches · 15 users · unlimited products'}
+                        </span>
+                      </span>
+                      <span aria-hidden="true" className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-[1.5px] ${
+                        isSelected ? 'border-emerald-600' : 'border-slate-300'
+                      }`}>
+                        {isSelected ? <span className="h-2.5 w-2.5 rounded-full bg-emerald-600" /> : null}
                       </span>
                     </button>
                   );
                 })}
               </section>
 
-              <section className="mt-5 border-t border-slate-100 pt-5 md:mt-0 md:border-l md:border-t-0 md:pl-8 md:pt-0">
-                <div className="grid min-h-12 grid-cols-2 rounded-2xl bg-slate-100 p-1">
+              <section className={`mt-5 border-t border-slate-200 pt-5 md:mt-0 md:border-l md:border-t-0 md:pl-6 md:pt-0 ${checkoutStep === 'plan' ? 'hidden md:block' : 'mt-0 border-t-0 pt-0'}`}>
+                <button
+                  type="button"
+                  onClick={() => setCheckoutStep('plan')}
+                  className="mb-3 inline-flex min-h-9 items-center gap-1.5 text-xs font-medium text-slate-600 focus-visible:rounded-md focus-visible:outline-2 focus-visible:outline-emerald-500 md:hidden"
+                >
+                  <ChevronLeft className="h-4 w-4" /> Back to plans
+                </button>
+                <h4 className="mb-2.5 text-[13px] font-semibold text-slate-950">Payment method</h4>
+                <div role="group" aria-label="Payment method" className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-1">
                   <button
                     type="button"
+                    aria-pressed={paymentMode === 'online'}
                     onClick={() => setPaymentMode('online')}
-                    className={`min-h-11 rounded-xl px-4 text-sm font-bold transition-all ${paymentMode === 'online' ? 'border border-emerald-600 bg-white text-emerald-700 shadow-sm' : 'text-slate-500'}`}
+                    className={`flex w-full items-center gap-3 rounded-xl border bg-white px-4 py-3.5 text-left transition-[border-color,box-shadow] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${paymentMode === 'online' ? 'border-emerald-600 shadow-[0_0_0_1px_rgba(5,150,105,0.2)]' : 'border-slate-200 hover:border-slate-300'}`}
                   >
-                    Pay online
+                    <span className="min-w-0 flex-1"><span className="block text-[13px] font-bold text-slate-900">Pay online</span><span className="block text-[11px] leading-4 text-slate-500">Secure digital checkout</span></span>
+                    <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${paymentMode === 'online' ? 'border-emerald-600' : 'border-slate-300'}`}>{paymentMode === 'online' ? <span className="h-2.5 w-2.5 rounded-full bg-emerald-600" /> : null}</span>
                   </button>
                   <button
                     type="button"
+                    aria-pressed={paymentMode === 'offline'}
                     onClick={() => setPaymentMode('offline')}
-                    className={`min-h-11 rounded-xl px-4 text-sm font-bold transition-all ${paymentMode === 'offline' ? 'border border-emerald-600 bg-white text-emerald-700 shadow-sm' : 'text-slate-500'}`}
+                    className={`flex w-full items-center gap-3 rounded-xl border bg-white px-4 py-3.5 text-left transition-[border-color,box-shadow] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${paymentMode === 'offline' ? 'border-emerald-600 shadow-[0_0_0_1px_rgba(5,150,105,0.2)]' : 'border-slate-200 hover:border-slate-300'}`}
                   >
-                    Pay offline
+                    <span className="min-w-0 flex-1"><span className="block text-[13px] font-bold text-slate-900">Pay offline</span><span className="block text-[11px] leading-4 text-slate-500">Send payment proof for approval</span></span>
+                    <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${paymentMode === 'offline' ? 'border-emerald-600' : 'border-slate-300'}`}>{paymentMode === 'offline' ? <span className="h-2.5 w-2.5 rounded-full bg-emerald-600" /> : null}</span>
                   </button>
                 </div>
 
                 {paymentMode === 'online' ? (
                   <div className="mt-5">
-                    <h4 className="text-base font-black text-slate-950 md:text-lg">Order summary</h4>
-                    <div className="mt-3 overflow-hidden rounded-[20px] border border-slate-200 bg-white">
+                    <h4 className="text-sm font-bold text-slate-950 md:text-base">Order summary</h4>
+                    <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white">
                       <div className="flex items-center justify-between gap-4 px-4 py-4 md:px-5">
                         <span className="text-sm font-medium text-slate-500">Selected plan</span>
-                        <span className="text-base font-black text-slate-950">
+                        <span translate="no" className="text-base font-black text-slate-950">
                           {SUBSCRIPTION_PLANS[selectedPlanId].name}
                         </span>
                       </div>
                       <div className="mx-4 border-t border-slate-100 md:mx-5" />
                       <div className="flex items-end justify-between gap-4 px-4 py-4 md:px-5">
                         <span className="text-sm font-medium text-slate-500">Monthly total</span>
-                        <span className="text-2xl font-black tracking-tight text-slate-950">
+                        <span className="text-[22px] font-bold tracking-tight text-slate-950">
                           {activeTenant.currency}{SUBSCRIPTION_PLANS[selectedPlanId].price.toLocaleString()}
                         </span>
                       </div>
                     </div>
 
-                    <div className="mt-4 flex items-start gap-3 rounded-2xl bg-emerald-50 px-4 py-3 text-emerald-900">
-                      <Shield className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" strokeWidth={2.25} />
+                    <div className="mt-4 flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-700">
+                      <Shield className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" strokeWidth={1.8} />
                       <p className="text-xs font-semibold leading-5">Secure payment. Access activates after payment confirmation.</p>
                     </div>
 
                     {onlinePaymentMessage ? (
-                      <p className={`mt-3 rounded-2xl border px-4 py-3 text-xs font-semibold leading-5 ${onlinePaymentMessage.startsWith('Processing your payment') ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-amber-200 bg-amber-50 text-amber-800'}`}>{onlinePaymentMessage}</p>
+                      <p role="status" aria-live="polite" className={`mt-3 rounded-2xl border px-4 py-3 text-xs font-semibold leading-5 ${onlinePaymentMessage.startsWith('Processing your payment') ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-amber-200 bg-amber-50 text-amber-800'}`}>{onlinePaymentMessage}</p>
                     ) : null}
 
-                    <button
-                      type="button"
-                      onClick={() => startOnlineSubscriptionPayment(selectedPlanId, () => setPaymentMode('offline'))}
-                      disabled={onlinePaymentSubmitting}
-                      className="subscription-desktop-action mt-4 min-h-14 w-full rounded-2xl bg-emerald-600 px-5 text-sm font-black text-white shadow-[0_12px_30px_rgba(5,150,105,0.22)] transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {onlinePaymentSubmitting ? 'Starting secure payment…' : 'Pay online'}
-                    </button>
+
 
                     <a
                       href="https://wa.me/255655746552?text=Hello%20Orvix%20Deployments%2C%20I%20need%20help%20with%20subscription%20payment."
@@ -4958,57 +4987,82 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                   </div>
                 ) : (
                   <div className="mt-5">
-                    <div className="rounded-[20px] border border-emerald-200 bg-emerald-50 p-4 md:p-5">
-                      <p className="text-xs font-black uppercase tracking-[0.14em] text-emerald-700">Pay with Mixx by Yas</p>
-                      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                    <div className="rounded-2xl border border-slate-200 bg-white p-4 md:p-5">
+                      <div className="flex items-center gap-2">
                         <div>
-                          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Lipa Namba — mfano</p>
-                          <p className="mt-1 text-3xl font-black tracking-tight text-slate-950">123456</p>
-                        </div>
-                        <div>
-                          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Jina — mfano</p>
-                          <p className="mt-1 text-base font-black text-slate-950">Orvix Business Suite</p>
+                          <p className="text-[11px] font-medium text-slate-500">Offline transfer</p>
+                          <h4 className="text-base font-bold tracking-tight text-slate-950">Pay with Mixx by Yas</h4>
                         </div>
                       </div>
-                      <p className="mt-4 text-xs font-medium leading-5 text-amber-800">Hizi ni taarifa za mfano. Thibitisha Lipa Namba halisi kwa deployments kabla ya kutuma malipo.</p>
+                      <div className="mt-4 flex flex-wrap items-end justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-3">
+                        <div>
+                          <p className="text-[11px] font-medium text-slate-500">Selected package</p>
+                          <p translate="no" className="mt-0.5 text-sm font-bold text-slate-900">{SUBSCRIPTION_PLANS[selectedPlanId].name}</p>
+                        </div>
+                        <div className="text-left sm:text-right">
+                          <p className="text-[11px] font-medium text-slate-500">Amount due · monthly</p>
+                          <p className="mt-0.5 text-lg font-bold tracking-tight text-slate-950">{activeTenant.currency}{SUBSCRIPTION_PLANS[selectedPlanId].price.toLocaleString()}</p>
+                        </div>
+                      </div>
+                      <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white">
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-slate-50 px-4 py-3">
+                          <span className="text-[11px] font-semibold tracking-wide text-slate-700">Mixx by Yas · Lipa Namba</span>
+                          <span className="rounded-md border border-slate-200 px-2 py-0.5 text-[10px] font-medium text-slate-600">Demo only</span>
+                        </div>
+                        <div className="px-4 pb-4 pt-3.5">
+                          <p className="text-xs font-medium text-slate-500">Lipa Namba · No.</p>
+                          <p className="mt-1 font-mono text-[24px] font-semibold leading-none tracking-[0.03em] text-slate-950" aria-label="Demo Lipa Namba: zero zero zero zero zero zero">000000</p>
+                          <div className="mt-3 border-t border-slate-100 pt-3">
+                            <p className="text-[11px] font-medium text-slate-500">Account name</p>
+                            <p className="mt-0.5 text-sm font-bold tracking-tight text-slate-900">Orvix Pos</p>
+                          </div>
+                        </div>
+                      </div>
+                      <p className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs leading-5 text-slate-700">
+                        <strong>Example only — do not pay this number.</strong> Ask Orvix deployments for the official Lipa Namba before transferring money.
+                      </p>
+                      <a
+                        href="https://wa.me/255655746552?text=Hello%20Orvix%20Deployments%2C%20please%20confirm%20the%20official%20Mixx%20by%20Yas%20Lipa%20Namba%20for%20my%20subscription."
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-xl px-1 text-xs font-bold text-emerald-800 underline-offset-4 hover:underline"
+                      >
+                        <MessageSquare className="h-4 w-4" /> Confirm official payment number <ChevronRight className="h-4 w-4" />
+                      </a>
                     </div>
 
                     <label className="mt-4 block">
-                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Payment details</span>
+                      <span className="text-xs font-bold text-slate-900">Transaction reference</span>
                       <input
                         type="text"
                         value={manualActivationNote}
                         onChange={(event) => setManualActivationNote(event.target.value)}
-                        placeholder="Transaction reference and payment details"
-                        className="mt-1.5 min-h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-950 outline-none transition-colors focus:border-emerald-500"
+                        placeholder="Enter transaction ID or payment reference"
+                        className="mt-2 min-h-12 w-full rounded-xl border border-slate-200 bg-white px-3.5 text-sm text-slate-950 outline-none transition-colors placeholder:text-slate-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
                       />
                     </label>
 
-                    <div className="relative mt-3">
+                    <div className="relative mt-4">
+                      <p className="mb-2 text-xs font-bold text-slate-900">Payment receipt</p>
                       <input
                         type="file"
                         id="receipt-upload"
+                        aria-label="Upload your payment receipt image"
+                        aria-describedby="receipt-upload-hint"
                         className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
                         accept="image/png,image/jpeg,image/webp"
                         onChange={(event) => setManualActivationReceipt(event.target.files?.[0] || null)}
                       />
-                      <div className="flex min-h-14 items-center justify-center gap-2 rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 text-slate-600">
+                      <div className="flex min-h-20 items-center justify-center gap-3 rounded-xl border border-dashed border-slate-300 bg-white px-4 py-3 text-slate-600 transition-colors hover:border-emerald-400 hover:bg-emerald-50/20">
                         <CloudLightning className="h-5 w-5" />
-                        <span className="truncate text-xs font-bold">{manualActivationReceipt ? manualActivationReceipt.name : 'Click here to upload a receipt image (PNG, JPG, or WebP, max 2 MB)'}</span>
+                        <span className="min-w-0 text-left"><span className="block truncate text-xs font-semibold text-slate-800">{manualActivationReceipt ? manualActivationReceipt.name : 'Tap to upload receipt'}</span><span id="receipt-upload-hint" className="mt-0.5 block text-[11px] text-slate-500">PNG, JPG or WebP · Max 2 MB</span></span>
                       </div>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => submitManualActivationRequest(selectedPlanId)}
-                      disabled={manualActivationSubmitting}
-                      className="subscription-desktop-action mt-3 min-h-14 w-full cursor-pointer rounded-2xl bg-slate-950 px-5 text-sm font-black text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {manualActivationSubmitting ? 'Sending…' : 'Submit receipt for activation'}
-                    </button>
+
 
                     {manualActivationMessage ? (
-                      <p className={`mt-3 rounded-2xl px-4 py-3 text-xs font-semibold leading-5 ${manualActivationMessage.includes('has been sent') ? 'border border-emerald-200 bg-emerald-50 text-emerald-800' : 'border border-amber-200 bg-amber-50 text-amber-800'}`}>{manualActivationMessage}</p>
+                      <p role="status" aria-live="polite" className={`mt-3 rounded-2xl px-4 py-3 text-xs font-semibold leading-5 ${manualActivationMessage.includes('has been sent') ? 'border border-emerald-200 bg-emerald-50 text-emerald-800' : 'border border-amber-200 bg-amber-50 text-amber-800'}`}>{manualActivationMessage}</p>
                     ) : null}
 
                     <a
@@ -5026,26 +5080,46 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
               </section>
             </div>
 
-            <footer className="subscription-mobile-action shrink-0 border-t border-slate-100 bg-white px-5 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3">
-              {paymentMode === 'online' ? (
+            <footer className="subscription-checkout-footer shrink-0 border-t border-slate-100 bg-white px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 sm:px-6 md:pb-5">
+              {checkoutStep === 'plan' ? (
                 <button
                   type="button"
-                  onClick={() => startOnlineSubscriptionPayment(selectedPlanId, () => setPaymentMode('offline'))}
-                  disabled={onlinePaymentSubmitting}
-                  className="min-h-14 w-full rounded-2xl bg-emerald-600 px-5 text-sm font-black text-white shadow-[0_12px_30px_rgba(5,150,105,0.22)] transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+                  onClick={() => setCheckoutStep('payment')}
+                  className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 text-sm font-semibold text-white shadow-[0_3px_8px_rgba(6,95,70,0.12)] transition-colors hover:bg-emerald-800 focus-visible:outline-2 focus-visible:outline-emerald-500 md:hidden"
                 >
-                  {onlinePaymentSubmitting ? 'Starting secure payment…' : 'Pay online'}
+                  Continue with {SUBSCRIPTION_PLANS[selectedPlanId].name}
+                  <ChevronRight className="h-4 w-4" aria-hidden="true" />
                 </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => submitManualActivationRequest(selectedPlanId)}
-                  disabled={manualActivationSubmitting}
-                  className="min-h-14 w-full cursor-pointer rounded-2xl bg-slate-950 px-5 text-sm font-black text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {manualActivationSubmitting ? 'Sending…' : 'Submit receipt for activation'}
-                </button>
-              )}
+              ) : null}
+              {/* ONE final payment action on both mobile and desktop, always
+                  using the very same paymentMode as the selected method. */}
+              <button
+                type="button"
+                data-testid="subscription-final-payment"
+                data-payment-mode={paymentMode}
+                onClick={() => {
+                  if (paymentMode === 'offline') {
+                    void submitManualActivationRequest(selectedPlanId);
+                  } else {
+                    void startOnlineSubscriptionPayment(selectedPlanId);
+                  }
+                }}
+                disabled={manualActivationSubmitting || onlinePaymentSubmitting}
+                aria-label={paymentMode === 'offline' ? 'Pay offline — submit payment receipt for review' : 'Pay online — open secure checkout'}
+                className={`${checkoutStep === 'plan' ? 'hidden md:flex' : 'flex'} min-h-12 w-full items-center justify-center rounded-xl bg-emerald-700 px-5 text-sm font-semibold text-white shadow-[0_3px_8px_rgba(6,95,70,0.12)] transition-colors hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60`}
+              >
+                {paymentMode === 'offline'
+                  ? (manualActivationSubmitting ? 'Sending receipt…' : 'Pay offline')
+                  : (onlinePaymentSubmitting ? 'Opening secure checkout…' : 'Pay online')}
+              </button>
+              {checkoutStep === 'payment' && paymentMode === 'offline' && !manualActivationReceipt && !manualActivationMessage ? (
+                <p className="mt-2 text-center text-[11px] text-slate-500 md:text-xs">Attach your payment receipt before submitting.</p>
+              ) : null}
+              {checkoutStep === 'payment' && (paymentMode === 'offline' ? manualActivationMessage : onlinePaymentMessage) ? (
+                <p role="status" aria-live="polite" className="mt-2 text-center text-xs leading-5 text-slate-700">
+                  {paymentMode === 'offline' ? manualActivationMessage : onlinePaymentMessage}
+                </p>
+              ) : null}
             </footer>
           </div>
         </div>
@@ -5146,5 +5220,7 @@ function TenantDashboardGate(props: DashboardProps) {
   }
   return <DashboardContent {...props} />;
 }
+
+
 
 
