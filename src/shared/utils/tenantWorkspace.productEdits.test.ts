@@ -65,6 +65,13 @@ describe('durable product edits', () => {
     expect(readCachedWorkspace('rejected-edit')?.branchStocks).toEqual([before]);
   });
 
+  it('does not mistake an empty RPC response for a completed save', async () => {
+    transport.rpc.mockResolvedValueOnce({ data: null, error: null });
+    const edited = product('p-no-ack', 150);
+    expect(await saveTenantProductsOnly('missing-ack', [edited])).toBe(false);
+    expect(readCachedWorkspace('missing-ack')?.products.find(p => p.id === edited.id)).toBeUndefined();
+  });
+
   it('keeps the existing two-argument RPC for catalogue-only callers', async () => {
     transport.rpc.mockResolvedValue({ data: { products: [product('p1')] }, error: null });
     await saveTenantProductsOnly('legacy-edit', [product('p1')]);
