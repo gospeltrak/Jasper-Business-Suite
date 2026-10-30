@@ -4869,6 +4869,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                       type="button"
                       onClick={() => setSelectedPlanId(planId)}
                       aria-pressed={isSelected}
+                      aria-label={`${plan.name}, ${activeTenant.currency}${plan.price.toLocaleString()} per month${isSelected ? ', selected' : ''}`}
                       className={`flex min-h-[88px] w-full items-center gap-3 rounded-[18px] border px-3.5 py-3 text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 sm:px-4 md:min-h-[104px] ${
                         isSelected
                           ? 'border-emerald-500 bg-emerald-50/70 ring-1 ring-emerald-500/25 shadow-[0_4px_14px_rgba(5,150,105,0.06)]'
@@ -4883,7 +4884,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                         <p className="mt-0.5 text-[17px] font-bold tracking-tight text-slate-950 md:text-lg">
                           {activeTenant.currency}{plan.price.toLocaleString()}<span className="ml-1 text-[11px] font-normal text-slate-500">/ month</span>
                         </p>
-                        <p className="mt-1 text-[10px] leading-4 text-slate-500 sm:text-xs">
+                        <p className="mt-1 text-[11px] leading-4 text-slate-500 sm:text-xs">
                           {planId === 'ruby'
                             ? '1 branch · 2 users · 1,000 products'
                             : planId === 'diamond'
@@ -4949,7 +4950,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                     </div>
 
                     {onlinePaymentMessage ? (
-                      <p className={`mt-3 rounded-2xl border px-4 py-3 text-xs font-semibold leading-5 ${onlinePaymentMessage.startsWith('Processing your payment') ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-amber-200 bg-amber-50 text-amber-800'}`}>{onlinePaymentMessage}</p>
+                      <p role="status" aria-live="polite" className={`mt-3 rounded-2xl border px-4 py-3 text-xs font-semibold leading-5 ${onlinePaymentMessage.startsWith('Processing your payment') ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-amber-200 bg-amber-50 text-amber-800'}`}>{onlinePaymentMessage}</p>
                     ) : null}
 
                     <button
@@ -4981,7 +4982,17 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                           <h4 className="text-base font-bold tracking-tight text-slate-950">Pay with Mixx by Yas</h4>
                         </div>
                       </div>
-                      <div className="mt-4 rounded-xl border border-emerald-200/70 bg-white/85 px-3.5 py-3">
+                      <div className="mt-4 flex flex-wrap items-end justify-between gap-2 rounded-xl border border-emerald-200/70 bg-white px-3.5 py-3">
+                        <div>
+                          <p className="text-[11px] font-medium text-slate-500">Selected package</p>
+                          <p translate="no" className="mt-0.5 text-sm font-bold text-slate-900">{SUBSCRIPTION_PLANS[selectedPlanId].name}</p>
+                        </div>
+                        <div className="text-left sm:text-right">
+                          <p className="text-[11px] font-medium text-slate-500">Amount due · monthly</p>
+                          <p className="mt-0.5 text-lg font-bold tracking-tight text-slate-950">{activeTenant.currency}{SUBSCRIPTION_PLANS[selectedPlanId].price.toLocaleString()}</p>
+                        </div>
+                      </div>
+                      <div className="mt-3 rounded-xl border border-emerald-200/70 bg-white/85 px-3.5 py-3">
                         <p className="text-[12px] font-bold text-slate-900">Verify payment details first</p>
                         <p className="mt-1 text-xs leading-5 text-slate-600">For your security, the official Lipa Namba must be confirmed with Orvix deployments before sending any money. Example numbers are not payment instructions.</p>
                       </div>
@@ -5012,13 +5023,14 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                         type="file"
                         id="receipt-upload"
                         aria-label="Upload your payment receipt image"
+                        aria-describedby="receipt-upload-hint"
                         className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
                         accept="image/png,image/jpeg,image/webp"
                         onChange={(event) => setManualActivationReceipt(event.target.files?.[0] || null)}
                       />
                       <div className="flex min-h-20 items-center justify-center gap-3 rounded-xl border border-dashed border-slate-300 bg-white px-4 py-3 text-slate-600 transition-colors hover:border-emerald-400 hover:bg-emerald-50/20">
                         <CloudLightning className="h-5 w-5" />
-                        <span className="min-w-0 text-left"><span className="block truncate text-xs font-semibold text-slate-800">{manualActivationReceipt ? manualActivationReceipt.name : 'Tap to upload receipt'}</span><span className="mt-0.5 block text-[11px] text-slate-500">PNG, JPG or WebP · Max 2 MB</span></span>
+                        <span className="min-w-0 text-left"><span className="block truncate text-xs font-semibold text-slate-800">{manualActivationReceipt ? manualActivationReceipt.name : 'Tap to upload receipt'}</span><span id="receipt-upload-hint" className="mt-0.5 block text-[11px] text-slate-500">PNG, JPG or WebP · Max 2 MB</span></span>
                       </div>
                     </div>
 
@@ -5032,7 +5044,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                     </button>
 
                     {manualActivationMessage ? (
-                      <p className={`mt-3 rounded-2xl px-4 py-3 text-xs font-semibold leading-5 ${manualActivationMessage.includes('has been sent') ? 'border border-emerald-200 bg-emerald-50 text-emerald-800' : 'border border-amber-200 bg-amber-50 text-amber-800'}`}>{manualActivationMessage}</p>
+                      <p role="status" aria-live="polite" className={`mt-3 rounded-2xl px-4 py-3 text-xs font-semibold leading-5 ${manualActivationMessage.includes('has been sent') ? 'border border-emerald-200 bg-emerald-50 text-emerald-800' : 'border border-amber-200 bg-amber-50 text-amber-800'}`}>{manualActivationMessage}</p>
                     ) : null}
 
                     <a
