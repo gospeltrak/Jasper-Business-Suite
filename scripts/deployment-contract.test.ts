@@ -1131,6 +1131,21 @@ test('product edits have one queued authoritative RPC rather than racing legacy 
   assert.match(workspaceSource.slice(narrowStart, narrowEnd), /if \(!Array\.isArray\(result\.data\?\.products\)\)/);
 });
 
+test('barcode actions stay side-by-side and product forms check duplicate codes before upload', async () => {
+  const source = await read('src/modules/products/DashboardProducts.tsx');
+  const parent = await read('src/components/Dashboard.tsx');
+  const migration = await read('supabase/migrations/20261030150717_prevent_new_duplicate_product_barcodes_without_touching_legacy.sql');
+  assert.match(source, /findProductBarcodeConflict\(products, finalizedBarcode\)/);
+  assert.match(source, /findProductBarcodeConflict\(products, finalizedEditBarcode, editingProduct\.id\)/);
+  assert.match(source, /findBatchBarcodeConflict\(products, importedItems\)/);
+  assert.match(parent, /findBatchBarcodeConflict\(productsMap\[activeTenant\.id\] \|\| \[\], newProducts\)/);
+  const horizontal = source.match(/gridTemplateColumns: 'repeat\(2, minmax\(0, 1fr\)\)'/g) || [];
+  assert.ok(horizontal.length >= 2, 'Both new-product and edit-product barcode actions must be horizontal');
+  assert.match(migration, /products_reject_new_duplicate_barcodes/);
+  assert.match(migration, /pg_advisory_xact_lock/);
+  assert.doesNotMatch(migration, /delete from public\.products|truncate table public\.products/i);
+});
+
 test('browser gets a fresh service worker and dashboard shell after each deployment', async () => {
   const pkg = JSON.parse(await read('package.json'));
   const verifier = await read('scripts/verify-deploy.mjs');
