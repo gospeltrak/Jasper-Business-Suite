@@ -1037,10 +1037,14 @@ async function saveTenantProductsOnlyNow(
       });
       const missingRpc = ['PGRST202', '42883'].includes(String(result.error?.code || ''));
       if (!result.error) {
+        // A 200 without authoritative products is NOT proof of a durable write.
+        // Never accept the submitted draft as if it had been committed.
+        if (!Array.isArray(result.data?.products)) {
+          console.warn('[workspace] products-only save returned no confirmed products');
+          return false;
+        }
         const cached = readCachedWorkspace(tenantId);
-        const mergedProducts = Array.isArray(result.data?.products)
-          ? result.data.products as Product[]
-          : mergeProductsForSync(products, cached?.products, productTombstones);
+        const mergedProducts = result.data.products as Product[];
         const mergedTombstones = (result.data?.productTombstones || productTombstones) as Record<string, string>;
         cacheWorkspace(tenantId, {
           ...(cached || emptyWorkspace()),
