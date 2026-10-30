@@ -18,6 +18,8 @@ import assert from 'node:assert/strict';
 // Newly approved barcode UI/product-save functionality is reused unchanged
 // on Android; other screens remain frozen.
 const APPROVED_PRODUCTION_PARITY_FILES = new Set([
+  // POS checkout redesign explicitly requested and already verified on main.
+  'src/modules/pos/DashboardPOS.tsx',
   'src/modules/products/DashboardProducts.tsx',
   'src/modules/products/utils/manualStockAdjustment.ts',
   'src/modules/products/utils/barcodeUniqueness.ts',
@@ -261,7 +263,6 @@ function verifyAgainstBase(base) {
 }
 function selfTest() {
   const blocked = [
-    'src/modules/pos/DashboardPOS.tsx',
     'src/modules/purchases/DashboardPurchases.tsx',
     'src/components/GlobalBranchSwitcher.tsx',
     'src/shared/contexts/ThemeContext.tsx',
