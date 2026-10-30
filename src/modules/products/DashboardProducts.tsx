@@ -20,6 +20,7 @@ import { downloadExcelFileFromRows, readExcelFileAsCsvText } from '../../shared/
 import { compressImageFile } from '../../shared/utils/imageCompression';
 import { safeSetJsonItem } from '../../shared/utils/dataSafety';
 import { generateUniqueEan13Barcode } from './barcode';
+import { findProductBarcodeConflict, findBatchBarcodeConflict } from './utils/barcodeUniqueness';
 import { calculateFractionSalePacketPrice } from '../sales/utils/fractionSale';
 import ModernSelect, { ModernSelectOption } from '../../shared/components/ModernSelect';
 import DashboardBarcodeScanner from '../../shared/components/DashboardBarcodeScanner';
@@ -43,8 +44,8 @@ interface DashboardProductsProps {
   products: Product[];
   systemSettings?: SystemSettings;
   onUpdateSettings: (settings: SystemSettings) => void;
-  onAddProduct: (prod: Product) => void;
-  onAddProducts: (products: Product[]) => void;
+  onAddProduct: (prod: Product) => Promise<boolean>;
+  onAddProducts: (products: Product[]) => Promise<boolean>;
   onDeleteProduct: (id: string) => void;
   onUpdateProducts: (updatedProducts: Product[], changedProductIds?: string[]) => Promise<boolean>;
   subscriptionStatus?: any;
@@ -176,6 +177,7 @@ export default function DashboardProducts({
   const [editImageFile, setEditImageFile] = useState<File | null>(null);
   const [editForm, setEditForm] = useState<Partial<Product>>({});
   const [editSaveError, setEditSaveError] = useState<string | null>(null);
+  const [isEditScannerOpen, setIsEditScannerOpen] = useState(false);
   const getTotalStockQty = (shopQty: number, storeQty: number) => Number((Number(shopQty || 0) + Number(storeQty || 0)).toFixed(3));
   
   // Smart Batch Pricing & Restock
@@ -339,6 +341,7 @@ export default function DashboardProducts({
     };
     setEditingProduct(prod);
     setEditSaveError(null);
+    setIsEditScannerOpen(false);
     setEditForm({ ...prod });
     setEditStockDraft({
       shop: editDraftNumber(prod.shopStockQty),
@@ -407,6 +410,11 @@ export default function DashboardProducts({
       const finalizedEditBarcode = enteredBarcode || generateUniqueEan13Barcode(
         products.flatMap(product => [product.barcode, product.sku]),
       );
+      const existingBarcodeProduct = findProductBarcodeConflict(products, finalizedEditBarcode, editingProduct.id);
+      if (existingBarcodeProduct) {
+        setEditSaveError(`${t('This barcode is already registered to another product. Choose a different barcode or edit the existing product.')} (${existingBarcodeProduct.name})`);
+        return;
+      }
 
       // Upload new image to Supabase Storage if a new image was selected.
       // editForm.image = compressed base64 preview from the canvas.
@@ -618,6 +626,14 @@ export default function DashboardProducts({
       products.flatMap(product => [product.barcode, product.sku]),
     );
     setEditForm(prev => ({ ...prev, barcode: generatedBarcode }));
+  };
+
+  const handleScanEditBarcode = (scannedText: string) => {
+    const barcode = scannedText.trim();
+    if (!editingProduct || !barcode) return;
+    setEditForm(prev => ({ ...prev, barcode }));
+    setEditSaveError(null);
+    setIsEditScannerOpen(false);
   };
 
   const getReplenishPricingPreview = (
@@ -1223,8 +1239,8 @@ export default function DashboardProducts({
 
   // 2. BARCODE VALUE GENERATOR OR SCAN ACTIONS
   const generateManualBarcodeValue = () => {
-    const random8 = Math.floor(10000000 + Math.random() * 90000000);
-    setBarcode(`${random8}`);
+    setBarcode(generateUniqueEan13Barcode(products.flatMap(product => [product.barcode, product.sku])));
+    setFormError(null);
   };
 
   // Handle Create Product
@@ -1293,6 +1309,11 @@ export default function DashboardProducts({
     const finalizedBarcode = barcode.trim() || generateUniqueEan13Barcode(
       products.flatMap(product => [product.barcode, product.sku]),
     );
+    const existingBarcodeProduct = findProductBarcodeConflict(products, finalizedBarcode);
+    if (existingBarcodeProduct) {
+      setFormError(`${t('This barcode is already registered to another product. Choose a different barcode or edit the existing product.')} (${existingBarcodeProduct.name})`);
+      return;
+    }
     const hierarchy = buildPharmacyHierarchy(
       pharmacyProductType,
       pharmacyHierarchyStart,
@@ -1502,7 +1523,10 @@ export default function DashboardProducts({
       image: finalImageUrl,
       batches: openingStockBatch ? [openingStockBatch] : newProd.batches,
     };
-    onAddProduct(finalProd);
+    if (!(await onAddProduct(finalProd))) {
+      setFormError('Product registration could not be confirmed. Check your connection or barcode and try again.');
+      return;
+    }
     setFormSuccess(true);
     
     setTimeout(() => {
@@ -3303,25 +3327,30 @@ export default function DashboardProducts({
                   <div className="space-y-1.5">
                     <label className="text-[10px] text-slate-500 uppercase block font-bold">Product Code (Acts as SKU / Item Code)</label>
 
-                    <div className="flex flex-col gap-2 sm:flex-row">
+                    <div className="flex flex-col gap-2.5">
                       <input
                         type="text"
-                        placeholder="e.g. 615010291402 or Generate"
+                        placeholder="Enter, generate or scan a barcode"
                         value={barcode}
-                        onChange={(e) => setBarcode(e.target.value)}
-                        className="min-w-0 flex-1 bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-800 font-mono tracking-wide transition-all outline-none"
+                        onChange={(e) => { setBarcode(e.target.value); setFormError(null); }}
+                        className="min-w-0 w-full bg-white border border-slate-200 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 text-xs px-3 py-3 rounded-xl text-slate-800 font-mono tracking-wide transition-all outline-none"
                       />
-                      <div className="flex gap-2">
-                        <button type="button" onClick={generateManualBarcodeValue} className="flex flex-1 shrink-0 items-center justify-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-[10px] font-black text-emerald-700 transition-colors hover:border-emerald-300 hover:bg-emerald-100 active:bg-emerald-200 sm:flex-initial">
-                          <RefreshCw className="h-3.5 w-3.5" />
-                          <span>Generate</span>
+                      <div className="grid grid-cols-2 gap-2.5" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
+                        <button type="button" onClick={generateManualBarcodeValue} className="flex min-w-0 h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-2 text-[10.5px] font-semibold normal-case text-slate-700 shadow-sm transition-colors hover:border-slate-300 hover:bg-slate-50 active:bg-slate-100">
+                          <RefreshCw className="h-4 w-4 shrink-0 text-slate-500" />
+                          <span className="whitespace-nowrap">Generate Barcode</span>
                         </button>
-                        <button type="button" onClick={() => setIsFormScannerOpen(true)} className="flex flex-1 shrink-0 items-center justify-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-[10px] font-black text-emerald-700 transition-colors hover:border-emerald-300 hover:bg-emerald-100 active:bg-emerald-200 sm:flex-initial">
-                          <Camera className="h-3.5 w-3.5" />
-                          <span>Scan</span>
+                        <button type="button" onClick={() => setIsFormScannerOpen(true)} className="flex min-w-0 h-11 items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50/80 px-2 text-[10.5px] font-semibold normal-case text-emerald-800 transition-colors hover:border-emerald-300 hover:bg-emerald-100 active:bg-emerald-100">
+                          <Camera className="h-4 w-4 shrink-0 text-emerald-700" />
+                          <span className="whitespace-nowrap">Scan Barcode</span>
                         </button>
                       </div>
                     </div>
+                    {findProductBarcodeConflict(products, barcode) && (
+                      <p role="alert" className="text-[11px] normal-case font-semibold text-rose-700">
+                        {t('This barcode is already registered to another product. Choose a different barcode or edit the existing product.')}
+                      </p>
+                    )}
                     <p className="text-[9px] text-slate-400">Leave empty to auto-create.</p>
                   </div>
 
@@ -4418,6 +4447,17 @@ export default function DashboardProducts({
           setIsFormScannerOpen(false);
         }}
       />
+
+      {isEditScannerOpen && editingProduct && (
+        <div className="fixed inset-0 z-[250]">
+          <DashboardBarcodeScanner
+            isOpen
+            onClose={() => setIsEditScannerOpen(false)}
+            products={products}
+            onScanSuccess={handleScanEditBarcode}
+          />
+        </div>
+      )}
 
       {/* MODAL II: THERMAL HARDWARE SUCCESS DIAGNOSTIC TEST PAGE */}
       {showTestPrintModal && (
@@ -5519,25 +5559,42 @@ export default function DashboardProducts({
 
                   <div className="space-y-1.5 font-mono">
                     <label className="text-[9.5px] font-bold text-slate-500 uppercase block">Retail barcode (SKU)</label>
-                    <div className="flex flex-col gap-2 sm:flex-row">
+                    <div className="flex flex-col gap-2">
                       <input
                         type="text"
                         value={editForm.barcode || ''}
-                        onChange={(e) => setEditForm(prev => ({ ...prev, barcode: e.target.value }))}
+                        onChange={(e) => { setEditForm(prev => ({ ...prev, barcode: e.target.value })); setEditSaveError(null); }}
                         placeholder="Enter or generate barcode"
                         aria-label="Retail barcode"
                         className="min-w-0 flex-1 bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-855 font-bold outline-none font-mono tracking-wide"
                       />
-                      <button
-                        type="button"
-                        onClick={handleGenerateEditBarcode}
-                        className="flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-[10px] font-black text-emerald-700 transition-colors hover:border-emerald-300 hover:bg-emerald-100 active:bg-emerald-200"
-                      >
-                        <RefreshCw className="h-3.5 w-3.5" />
-                        <span>Generate Barcode</span>
-                      </button>
+                      <div className="grid grid-cols-2 gap-2.5" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
+                        <button
+                          type="button"
+                          onClick={handleGenerateEditBarcode}
+                          disabled={isSavingProductEdit}
+                          className="flex min-w-0 h-11 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-2 text-[10.5px] font-semibold normal-case text-slate-700 shadow-sm transition-colors hover:border-slate-300 hover:bg-slate-50 active:bg-slate-100 disabled:opacity-50"
+                        >
+                          <RefreshCw className="h-4 w-4 shrink-0 text-slate-500" />
+                          <span className="whitespace-nowrap">Generate Barcode</span>
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isSavingProductEdit}
+                          onClick={() => setIsEditScannerOpen(true)}
+                          className="flex min-w-0 h-11 items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50/80 px-2 text-[10.5px] font-semibold normal-case text-emerald-800 transition-colors hover:border-emerald-300 hover:bg-emerald-100 active:bg-emerald-100 disabled:opacity-50"
+                        >
+                          <Camera className="h-4 w-4 shrink-0 text-emerald-700" />
+                          <span className="whitespace-nowrap">Scan Barcode</span>
+                        </button>
+                      </div>
+                      {findProductBarcodeConflict(products, editForm.barcode, editingProduct.id) && (
+                        <p role="alert" className="text-[11px] normal-case font-semibold text-rose-700">
+                          {t('This barcode is already registered to another product. Choose a different barcode or edit the existing product.')}
+                        </p>
+                      )}
                     </div>
-                    <p className="text-[9.5px] text-slate-400 font-sans">Enter a barcode, or tap Generate Barcode to create one.</p>
+                    <p className="text-[9.5px] text-slate-400 font-sans">Enter, generate or scan a barcode, then save your changes.</p>
                   </div>
 
                   <div className="grid gap-3 pb-1 font-mono" style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.75rem' }}>
