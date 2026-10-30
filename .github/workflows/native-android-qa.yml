@@ -73,6 +73,9 @@ jobs:
           npx cap add android
           npx cap sync android
 
+      - name: Install Android camera permission recovery
+        run: node scripts/setup-native-android-camera.mjs
+
       # AssembleDebug signs with ~/.android/debug.keystore. Without restoring it,
       # every fresh GitHub runner generates a different signer and Android refuses
       # to update the previous QA APK (INSTALL_FAILED_UPDATE_INCOMPATIBLE).
