@@ -5019,10 +5019,23 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                           <p className="mt-0.5 text-lg font-bold tracking-tight text-slate-950">{activeTenant.currency}{SUBSCRIPTION_PLANS[selectedPlanId].price.toLocaleString()}</p>
                         </div>
                       </div>
-                      <div className="mt-3 rounded-xl border border-emerald-200/70 bg-white/85 px-3.5 py-3">
-                        <p className="text-[12px] font-bold text-slate-900">Verify payment details first</p>
-                        <p className="mt-1 text-xs leading-5 text-slate-600">For your security, the official Lipa Namba must be confirmed with Orvix deployments before sending any money. Example numbers are not payment instructions.</p>
+                      <div className="mt-3 overflow-hidden rounded-2xl border border-emerald-200 bg-white">
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-emerald-100 bg-[#f7fcf9] px-4 py-3">
+                          <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-emerald-800">Mixx by Yas · Lipa Namba</span>
+                          <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider text-amber-800">Demo only</span>
+                        </div>
+                        <div className="px-4 pb-4 pt-3.5">
+                          <p className="text-xs font-medium text-slate-500">Lipa Namba · No.</p>
+                          <p className="mt-1 font-mono text-[30px] font-bold leading-none tracking-[0.06em] text-slate-950" aria-label="Demo Lipa Namba: zero zero zero zero zero zero">000000</p>
+                          <div className="mt-3 border-t border-slate-100 pt-3">
+                            <p className="text-[11px] font-medium text-slate-500">Account name</p>
+                            <p className="mt-0.5 text-sm font-bold tracking-tight text-slate-900">Orvix Pos</p>
+                          </div>
+                        </div>
                       </div>
+                      <p className="mt-3 rounded-xl border border-amber-200/80 bg-amber-50 px-3 py-2.5 text-xs leading-5 text-amber-950">
+                        <strong>Example only — do not pay this number.</strong> Ask Orvix deployments for the official Lipa Namba before transferring money.
+                      </p>
                       <a
                         href="https://wa.me/255655746552?text=Hello%20Orvix%20Deployments%2C%20please%20confirm%20the%20official%20Mixx%20by%20Yas%20Lipa%20Namba%20for%20my%20subscription."
                         target="_blank"
@@ -5067,7 +5080,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                       disabled={manualActivationSubmitting}
                       className="subscription-desktop-action mt-4 min-h-12 w-full cursor-pointer rounded-xl bg-emerald-600 px-5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      {manualActivationSubmitting ? 'Sending…' : 'Submit receipt for activation'}
+                      {manualActivationSubmitting ? 'Sending…' : 'Pay offline'}
                     </button>
 
                     {manualActivationMessage ? (
@@ -5099,23 +5112,23 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                   Continue with {SUBSCRIPTION_PLANS[selectedPlanId].name}
                   <ChevronRight className="h-4 w-4" aria-hidden="true" />
                 </button>
-              ) : paymentMode === 'online' ? (
-                <button
-                  type="button"
-                  onClick={() => startOnlineSubscriptionPayment(selectedPlanId, () => setPaymentMode('offline'))}
-                  disabled={onlinePaymentSubmitting}
-                  className="min-h-12 w-full rounded-xl bg-emerald-600 px-5 text-sm font-semibold text-white shadow-[0_5px_14px_rgba(5,150,105,0.15)] transition-colors disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {onlinePaymentSubmitting ? 'Starting secure payment…' : 'Pay online'}
-                </button>
               ) : (
                 <button
                   type="button"
-                  onClick={() => submitManualActivationRequest(selectedPlanId)}
-                  disabled={manualActivationSubmitting}
-                  className="min-h-12 w-full cursor-pointer rounded-xl bg-emerald-600 px-5 text-sm font-semibold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+                  onClick={() => {
+                    if (paymentMode === 'offline') {
+                      void submitManualActivationRequest(selectedPlanId);
+                    } else {
+                      void startOnlineSubscriptionPayment(selectedPlanId, () => setPaymentMode('offline'));
+                    }
+                  }}
+                  disabled={paymentMode === 'offline' ? manualActivationSubmitting : onlinePaymentSubmitting}
+                  aria-label={paymentMode === 'offline' ? 'Pay offline — submit payment proof for approval' : 'Pay online — open secure checkout'}
+                  className="min-h-14 w-full rounded-2xl bg-gradient-to-r from-[#008961] to-[#03a578] px-5 text-sm font-semibold text-white shadow-[0_8px_20px_rgba(0,137,97,0.18)] transition-all hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {manualActivationSubmitting ? 'Sending…' : 'Submit receipt for activation'}
+                  {paymentMode === 'offline'
+                    ? (manualActivationSubmitting ? 'Sending…' : 'Pay offline')
+                    : (onlinePaymentSubmitting ? 'Starting secure payment…' : 'Pay online')}
                 </button>
               )}
             </footer>
