@@ -1091,3 +1091,28 @@ test('Adjust Stock waits for the durable narrow product save before updating aud
   assert.match(dashboardSource, /const \{ products: syncedProducts, saved \} = persistTenantProductsNow\(nextTenantProducts, branchStockUpdates, changedProductIds\)/);
   assert.match(dashboardSource, /const didSave = await saved;/);
 });
+
+test('browser gets a fresh service worker and dashboard shell after each deployment', async () => {
+  const pkg = JSON.parse(await read('package.json'));
+  const verifier = await read('scripts/verify-deploy.mjs');
+  const stamp = await read('scripts/stamp-service-worker.mjs');
+  const sw = await read('public/sw.js');
+  const html = await read('index.html');
+  const vercel = JSON.parse(await read('vercel.json'));
+  assert.match(pkg.scripts.build, /vite build && node scripts\/stamp-service-worker\.mjs && esbuild/);
+  assert.match(stamp, /VERCEL_GIT_COMMIT_SHA/);
+  assert.match(stamp, /replaceAll\(marker, version\)/);
+  assert.match(verifier, /dist\/sw\.js/);
+  assert.match(verifier, /__ORVIX_BUILD_VERSION__/);
+  assert.match(sw, /const ORVIX_BUILD_VERSION = '__ORVIX_BUILD_VERSION__'/);
+  assert.match(sw, /self\.skipWaiting\(\)/);
+  assert.match(sw, /self\.clients\.claim\(\)/);
+  assert.match(html, /registration\.update\(\)/);
+  assert.match(html, /controllerchange/);
+  for (const route of ['/sw.js', '/index.html', '/dashboard', '/dashboard/:path*']) {
+    const rule = vercel.headers.find((item: { source: string }) => item.source === route);
+    assert.ok(rule, `Missing no-store header for ${route}`);
+    assert.ok(rule.headers.some((item: { key: string, value: string }) =>
+      item.key.toLowerCase() === 'cache-control' && item.value.includes('no-store')));
+  }
+});
