@@ -1,4 +1,5 @@
 import type { Sale } from '../../types';
+import { getCapacitorPrinterBridge } from '../../native/printerBridge';
 
 // Device preferences are local to this tablet/phone/browser and tenant. They are
 // intentionally NOT written to the tenant workspace JSON or the database.
@@ -99,6 +100,7 @@ export interface OrvixNativePrinterBridge {
   listPrinters(): Promise<PrinterDevice[]>;
   connectPrinter(id: string): Promise<{ connected: boolean }>;
   disconnectPrinter(): Promise<void>;
+  openBluetoothSettings?(): Promise<void>;
   getStatus(): Promise<{ connected: boolean; printerId?: string }>;
   printText(args: {
     printerId: string;
@@ -112,6 +114,8 @@ export interface OrvixNativePrinterBridge {
 
 export function getOrvixNativePrinterBridge(): OrvixNativePrinterBridge | null {
   if (typeof window === 'undefined') return null;
+  const capacitorBridge = getCapacitorPrinterBridge();
+  if (capacitorBridge) return capacitorBridge;
   const bridge = (window as Window & { OrvixPrinter?: OrvixNativePrinterBridge }).OrvixPrinter;
   return bridge && typeof bridge.listPrinters === 'function'
     && typeof bridge.connectPrinter === 'function'
