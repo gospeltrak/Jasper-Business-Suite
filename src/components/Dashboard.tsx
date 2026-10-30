@@ -647,6 +647,9 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
   const [toasts, setToasts] = useState<UI_Toast[]>([]);
   const confirmedOfflineRef = useRef(false);
   const recentNoticesRef = useRef<Map<string, number>>(new Map());
+  // Never announce the same persisted POS sale twice, including if the log
+  // list is reloaded or another state update replays the latest log.
+  const confirmedPosSaleNoticeIdsRef = useRef<Set<string>>(new Set());
   const addToast = (message: string, type: 'success' | 'error' | 'warning' | 'info' = 'success') => {
     const localized = normalizeActionNotice(message, lang === 'sw' ? 'sw' : 'en', confirmedOfflineRef.current);
     if (!localized) return;
@@ -678,15 +681,29 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     return true;
   };
 
-  // Monitor logs to trigger native responsive toast automatically on actions
+  // Monitor logs for normal action toasts. For a successful POS sale, keep
+  // the detailed audit log (receipt reference, payment method) but show ONE
+  // short, localized confirmation. Stock deduction's success notice is
+  // suppressed only in the POS callback, not for manual stock adjustments.
   useEffect(() => {
-    if (logs.length > 0) {
-      const latest = logs[0];
-      if (latest && latest.message) {
-        // Find if this specific message was already toasted to avoid repeat
-        addToast(latest.message, latest.status === 'error' ? 'error' : latest.status === 'warning' ? 'warning' : 'success');
-      }
+    const latest = logs[0];
+    if (!latest?.message) return;
+
+    const savedPosSale = latest.type === 'sale' && latest.status === 'success'
+      ? /^Sale \\(Ref: ([^)]+)\\) saved as a manual /i.exec(latest.message)
+      : null;
+    if (savedPosSale) {
+      const saleId = savedPosSale[1];
+      if (confirmedPosSaleNoticeIdsRef.current.has(saleId)) return;
+      const seen = confirmedPosSaleNoticeIdsRef.current;
+      seen.add(saleId);
+      if (seen.size > 120) seen.delete(seen.values().next().value!);
+      addToast(lang === 'sw'
+        ? 'Mauzo yamekamilika na kuhifadhiwa.'
+        : 'Sale completed and saved.', 'success');
+      return;
     }
+    addToast(latest.message, latest.status === 'error' ? 'error' : latest.status === 'warning' ? 'warning' : 'success');
   }, [logs]);
 
   // Load and cache branch specific Settings
