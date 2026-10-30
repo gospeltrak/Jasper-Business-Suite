@@ -2053,15 +2053,11 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     const productsToSave = changedIds ? syncedProducts.filter(product => changedIds.has(product.id)) : syncedProducts;
 
     markTenantProductsUpdated(activeTenant.id, syncUpdatedAt);
-    saveData(
-      activeTenant.id,
-      'products_map',
-      attachPayloadProductTombstones(
-        { [activeTenant.id]: syncedProducts },
-        activeTenant.id,
-        readLocalProductTombstones(activeTenant.id),
-      ),
-    );
+    // This is an explicit, queued narrow RPC write. Do NOT also launch
+    // fire-and-forget products_map or a render-driven full-workspace autosave:
+    // both race the same normalized product rows and can restore stale stock.
+    // The narrow RPC is the single authoritative write for this mutation.
+    skipNextWorkspaceSaveRef.current = true;
     localWorkspaceChangedAtRef.current = Date.now();
     cloudWorkspaceLoadedRef.current = true;
 
