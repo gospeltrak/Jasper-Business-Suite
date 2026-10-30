@@ -27,7 +27,19 @@ html.orvix-native-app {
 }
 html.orvix-native-app #dashboard-scaffold {
   box-sizing: border-box;
+  /* ONE status-bar clearance at the shell boundary, never again in the header. */
   padding-top: var(--orvix-native-safe-top);
+}
+/* The shared web header already has its own env(safe-area-inset-top)
+   padding AND adds that inset to its height. In the native app that stacks
+   with the shell's safe-area clearance and creates a blank 40px+ gap above
+   the logo and Switch Branch. Keep the status bar protected by the shell,
+   then render the standard 60px toolbar immediately below it.
+   Match the *existing* toolbar class; do not modify the website, login,
+   Android system icons, or any other nested header. */
+html.orvix-native-app #dashboard-scaffold header[class*="h-[calc(60px+env(safe-area-inset-top))]"] {
+  height: 60px !important;
+  padding-top: 0 !important;
 }
 html.orvix-native-app #dashboard-mobile-nav {
   padding-bottom: calc(var(--orvix-native-safe-bottom) + var(--browser-bottom-inset, 0px));
