@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Bluetooth, Check, CheckCircle2, Camera, ChevronDown, CircleHelp, Printer, RefreshCw, ScanBarcode, Settings2, Usb, XCircle } from 'lucide-react';
+import { Bluetooth, Check, CheckCircle2, Camera, ChevronDown, CircleHelp, Printer, ScanBarcode, Settings2, XCircle } from 'lucide-react';
 import {
   getOrvixNativePrinterBridge, readPosDevicePreferences, savePosDevicePreferences,
   type PosDevicePreferences, type PrinterDevice, type ScannerMode,
@@ -204,12 +204,13 @@ export default function DashboardScannerPrinterSettings({ tenantId, isSw }: Prop
           <>
             <div className="mt-3 flex flex-wrap gap-2">
               <button className={button + ' flex-1'} type="button" disabled={busy} onClick={findPrinters}>
-                <Bluetooth className="h-4 w-4" />{busy ? tr('Inatafuta...', 'Working...') : tr('Tafuta Printer', 'Find Printer')}
+                <Bluetooth className="h-4 w-4" />{busy ? tr('Inatafuta...', 'Working...') : tr('Tafuta Printer Zilizopairiwa', 'Find Paired Printers')}
               </button>
               <button className={button + ' flex-1'} type="button" disabled={busy || !connected} onClick={testPrinter}>
                 <Printer className="h-4 w-4" />{tr('Test Print', 'Test Print')}
               </button>
             </div>
+            {native.openBluetoothSettings && <button type="button" onClick={() => void native.openBluetoothSettings?.()} className="mt-2 text-[11px] font-semibold text-emerald-700 underline underline-offset-2 dark:text-emerald-300">{tr('Pair printer kwenye Android Bluetooth Settings', 'Pair printer in Android Bluetooth Settings')}</button>}
             {devices.length > 0 && <div className="mt-3 space-y-2">
               {devices.map(device => <button key={device.id} type="button" disabled={busy}
                 onClick={() => connectPrinter(device)}
