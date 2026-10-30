@@ -2238,7 +2238,7 @@ export default function DashboardPOS({
                       <span>Customer name</span>
                       <input
                         type="text"
-                        placeholder="Enter customer name"
+                        placeholder="Customer name"
                         autoComplete="name"
                         value={customerName}
                         onChange={(e) => setCustomerName(e.target.value)}
@@ -2439,37 +2439,38 @@ export default function DashboardPOS({
                         <p>Record the amount received</p>
                       </div>
                     </div>
+                    {/* Amount spans the sheet; the two optional fields share one equal-width row. */}
+                    <label className="pos-checkout-field pos-checkout-amount-field">
+                      <span>Amount paid ({currency})</span>
+                      <input
+                        type="number"
+                        min="0"
+                        inputMode="decimal"
+                        value={amountPaid}
+                        onChange={(e) => setAmountPaid(Math.max(0, parseFloat(e.target.value) || 0))}
+                        className="pos-checkout-amount-input"
+                      />
+                    </label>
                     <div className="pos-checkout-payment-grid">
                       <label className="pos-checkout-field">
-                        <span>Amount paid ({currency})</span>
-                        <input
-                          type="number"
-                          min="0"
-                          inputMode="decimal"
-                          value={amountPaid}
-                          onChange={(e) => setAmountPaid(Math.max(0, parseFloat(e.target.value) || 0))}
-                          className="pos-checkout-amount-input"
-                        />
-                      </label>
-                      <label className="pos-checkout-field">
-                        <span>Transaction reference <span className="pos-checkout-optional">(optional)</span></span>
+                        <span>Transaction ref. <span className="pos-checkout-optional">(optional)</span></span>
                         <input
                           type="text"
                           value={referenceCode}
                           onChange={(e) => setReferenceCode(e.target.value)}
-                          placeholder="SMS or bank reference"
+                          placeholder="SMS / bank ref."
+                        />
+                      </label>
+                      <label className="pos-checkout-field">
+                        <span>Payment note <span className="pos-checkout-optional">(optional)</span></span>
+                        <input
+                          type="text"
+                          value={paymentNote}
+                          onChange={(e) => setPaymentNote(e.target.value)}
+                          placeholder="Add a note"
                         />
                       </label>
                     </div>
-                    <label className="pos-checkout-field">
-                      <span>Payment note <span className="pos-checkout-optional">(optional)</span></span>
-                      <input
-                        type="text"
-                        value={paymentNote}
-                        onChange={(e) => setPaymentNote(e.target.value)}
-                        placeholder="Add a note, if needed"
-                      />
-                    </label>
                     <div aria-live="polite" className={`pos-checkout-balance ${
                       amountPaid >= grandTotal ? 'pos-checkout-balance-paid'
                         : amountPaid > 0 ? 'pos-checkout-balance-partial'
