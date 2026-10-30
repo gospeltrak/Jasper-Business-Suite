@@ -200,8 +200,28 @@ test('branch contact settings are tenant-scoped and non-destructive', async () =
 test('subscription checkout uses the native plan summary without inline mobile-money fields', async () => {
   const dashboardSource = await read('src/components/Dashboard.tsx');
   const serverSource = await read('server.ts');
-  assert.match(dashboardSource, /Choose the plan that fits your business/);
+  assert.match(dashboardSource, /Choose your plan/);
+  assert.match(dashboardSource, /Payment method/);
+  // Mobile renders package selection and checkout as distinct steps.
+  // Desktop continues presenting both at once, and existing handlers stay.
+  assert.match(dashboardSource, /checkoutStep: 'plan' \| 'payment'/);
+  assert.match(dashboardSource, /setCheckoutStep\('payment'\)/);
+  assert.match(dashboardSource, /setCheckoutStep\('plan'\)/);
+  assert.match(dashboardSource, /Continue with \{SUBSCRIPTION_PLANS\[selectedPlanId\]\.name\}/);
+  assert.match(dashboardSource, /hidden md:block/);
+  assert.match(dashboardSource, /startOnlineSubscriptionPayment\(selectedPlanId/);
+  assert.match(dashboardSource, /submitManualActivationRequest\(selectedPlanId\)/);
+  assert.match(dashboardSource, /Verify payment details first/);
+  assert.match(dashboardSource, /Example numbers are not payment instructions/);
+  assert.doesNotMatch(dashboardSource, /Lipa Namba — mfano|>123456</);
   assert.match(dashboardSource, /Order summary/);
+  // Pay offline must show the same actual plan amount as online; never use
+  // a fake Lipa Namba. Accessibility feedback and receipts are not optional.
+  assert.match(dashboardSource, /Amount due · monthly/);
+  assert.match(dashboardSource, /Selected package/);
+  assert.match(dashboardSource, /aria-live="polite"/);
+  assert.match(dashboardSource, /aria-describedby="receipt-upload-hint"/);
+  assert.match(dashboardSource, /accept="image\/png,image\/jpeg,image\/webp"/);
   assert.match(dashboardSource, /Secure payment\. Access activates after payment confirmation\./);
   assert.match(dashboardSource, /Need help\? Contact deployments/);
   assert.doesNotMatch(dashboardSource, /Secure mobile-money checkout/);
