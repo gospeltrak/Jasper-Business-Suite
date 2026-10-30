@@ -81,7 +81,7 @@ import { isPurchaseFundingBalanced, registeredPurchaseFunding } from '../modules
 import { getSubscriptionReminder, getSubscriptionReminderKey } from '../shared/utils/subscriptionReminder';
 import { compressImageFile } from '../shared/utils/imageCompression';
 import { formatLocalDate } from '../shared/utils/localDate';
-import { Shield, AlertTriangle, CreditCard as CardIcon, Bell, Gem, Sparkles, Crown } from "lucide-react";
+import { Shield, AlertTriangle, CreditCard as CardIcon, Bell } from "lucide-react";
 import { 
   getSubscriptionState, 
   checkSubscriptionStatus, 
@@ -1612,8 +1612,8 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       setManualActivationMessage('Please choose Ruby, Diamond, or Tanzanite before submitting.');
       return;
     }
-    if (!manualActivationReceipt && !manualActivationNote.trim()) {
-      setManualActivationMessage('Attach a receipt image or add the transaction reference/payment details.');
+    if (!manualActivationReceipt) {
+      setManualActivationMessage('Attach a payment receipt image before submitting the offline request.');
       return;
     }
     if (manualActivationReceipt) {
@@ -4836,53 +4836,43 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
         <SubscriptionCheckoutStateBridge initialPlan={manualActivationPackage}>
           {({ checkoutStep, setCheckoutStep, selectedPlanId, setSelectedPlanId, paymentMode, setPaymentMode }) => (
         <div className="fixed inset-0 z-[170] flex items-end justify-center bg-slate-950/55 p-0 backdrop-blur-[3px] md:items-center md:p-5 animate-in fade-in">
-          <div role="dialog" aria-modal="true" aria-labelledby="subscription-title" className={`relative mt-auto flex max-h-[92dvh] w-full max-w-4xl flex-col overflow-hidden rounded-t-[30px] border border-slate-200 bg-white shadow-[0_28px_90px_rgba(2,6,23,0.26)] md:mt-0 md:h-auto md:max-h-[calc(100dvh-40px)] md:rounded-[28px] animate-in slide-in-from-bottom-10 md:slide-in-from-bottom-0 ${checkoutStep === 'plan' ? 'h-auto' : 'h-[92dvh]'}`}>
+          <div role="dialog" aria-modal="true" aria-labelledby="subscription-title" className={`relative mt-auto flex max-h-[92dvh] w-full max-w-4xl flex-col overflow-hidden rounded-t-[24px] border border-slate-200 bg-white shadow-[0_24px_64px_rgba(15,23,42,0.18)] md:mt-0 md:h-auto md:max-h-[calc(100dvh-40px)] md:rounded-[20px] animate-in slide-in-from-bottom-10 md:slide-in-from-bottom-0 ${checkoutStep === 'plan' ? 'h-auto' : 'h-[92dvh]'}`}>
             <div className="flex justify-center pb-0.5 pt-3 md:hidden">
-              <div className="h-1.5 w-12 rounded-full bg-slate-200" />
+              <div className="h-1 w-10 rounded-full bg-slate-200" />
             </div>
 
-            <header className="flex shrink-0 items-start justify-between gap-4 border-b border-slate-100 bg-gradient-to-br from-[#f2faf6] via-white to-white px-5 pb-5 pt-4 sm:px-6 md:px-8 md:pb-6 md:pt-7">
+            <header className="flex shrink-0 items-start justify-between gap-4 border-b border-slate-100 bg-white px-5 pb-4 pt-4 sm:px-6 md:px-8 md:py-6">
               <div className="min-w-0">
-                <p className="mb-2 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.16em] text-emerald-700"><span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />Orvix subscriptions</p>
-                <h3 id="subscription-title" className="text-[24px] font-semibold leading-[1.12] tracking-[-0.045em] text-[#091b29] sm:text-[27px] md:text-[32px]">
+                <h3 id="subscription-title" className="text-[23px] font-semibold leading-tight tracking-[-0.035em] text-slate-950 sm:text-[26px] md:text-[28px]">
                   {checkoutStep === 'plan' ? 'Choose your plan' : 'Complete your subscription'}
                 </h3>
-                <p className="mt-2 max-w-sm text-xs leading-5 text-slate-500 md:text-sm">{checkoutStep === 'plan' ? 'Choose the right tools for your next stage of growth.' : 'Review your plan and choose how to pay securely.'}</p>
+                <p className="mt-1.5 max-w-sm text-[12px] leading-5 text-slate-500 md:text-sm">{checkoutStep === 'plan' ? 'Monthly plans for your business.' : 'Choose a payment method to continue.'}</p>
               </div>
               <button
                 type="button"
                 onClick={() => setSubModal(null)}
                 aria-label="Close subscription options"
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-950 focus-visible:ring-2 focus-visible:ring-emerald-500"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-transparent bg-transparent text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-950 focus-visible:ring-2 focus-visible:ring-emerald-500"
               >
-                <X className="h-5 w-5" strokeWidth={2.25} />
+                <X className="h-5 w-5" strokeWidth={1.8} />
               </button>
             </header>
 
-            <div aria-label={`Checkout step ${checkoutStep === 'plan' ? '1' : '2'} of 2`} className="flex shrink-0 items-center gap-3 border-b border-slate-100 bg-white px-5 py-3 md:hidden">
-              <span className="text-[11px] font-semibold tracking-wide text-slate-500">STEP {checkoutStep === 'plan' ? '01' : '02'} / 02</span>
+            <div aria-label={`Checkout step ${checkoutStep === 'plan' ? '1' : '2'} of 2`} className="flex shrink-0 items-center gap-3 border-b border-slate-100 bg-white px-5 py-2.5 md:hidden">
+              <span className="text-[11px] font-medium text-slate-500">{checkoutStep === 'plan' ? '1 of 2 · Plan' : '2 of 2 · Payment'}</span>
               <div className="grid h-1 flex-1 grid-cols-2 gap-1.5" aria-hidden="true">
                 <span className="rounded-full bg-emerald-600" />
                 <span className={`rounded-full ${checkoutStep === 'payment' ? 'bg-emerald-600' : 'bg-slate-200'}`} />
               </div>
             </div>
 
-            <div className="subscription-shell-grid min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[#f8faf9] px-4 py-4 sm:px-6 md:grid md:grid-cols-[minmax(260px,0.9fr)_minmax(0,1.1fr)] md:gap-6 md:bg-white md:px-8 md:py-7">
+            <div className="subscription-shell-grid min-h-0 flex-1 overflow-y-auto overscroll-contain bg-[#fafbfc] px-4 py-4 sm:px-6 md:grid md:grid-cols-[minmax(260px,0.9fr)_minmax(0,1.1fr)] md:gap-6 md:bg-white md:px-8 md:py-6">
               <section aria-label="Choose subscription plan" className={`space-y-2.5 ${checkoutStep === 'payment' ? 'hidden md:block' : ''}`}>
-                <div className="mb-4 flex items-end justify-between gap-2 px-1">
-                  <div><p className="text-[11px] font-bold uppercase tracking-[0.12em] text-emerald-700">Plans & pricing</p><p className="mt-1 text-xs leading-5 text-slate-500">One clear monthly price. No surprises.</p></div>
-                  <span className="shrink-0 rounded-full border border-emerald-100 bg-white px-2.5 py-1 text-[10px] font-semibold text-emerald-700">Flexible</span>
-                </div>
+                <div className="mb-3 px-0.5"><p className="text-xs font-medium text-slate-500">Select a monthly subscription</p></div>
                 {PAID_PACKAGE_IDS.map((planId) => {
                   const plan = SUBSCRIPTION_PLANS[planId];
                   const isSelected = selectedPlanId === planId;
-                  const PlanIcon = planId === 'ruby' ? Gem : planId === 'diamond' ? Sparkles : Crown;
                   const isActivePlan = !isTrialAccount && planId === expiredPlanId;
-                  const planTone = planId === 'ruby'
-                    ? 'bg-[#fff1f3] text-rose-600'
-                    : planId === 'diamond'
-                      ? 'bg-[#eef6ff] text-sky-600'
-                      : 'bg-[#f4f0ff] text-violet-600';
                   return (
                     <button
                       key={planId}
@@ -4890,30 +4880,32 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                       onClick={() => setSelectedPlanId(planId)}
                       aria-pressed={isSelected}
                       aria-label={`${plan.name}, ${activeTenant.currency}${plan.price.toLocaleString()} per month${isSelected ? ', selected' : ''}`}
-                      className={`group relative flex min-h-[108px] w-full items-center gap-3.5 rounded-[21px] border px-4 py-4 text-left shadow-[0_3px_12px_rgba(15,23,42,0.025)] transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-2 sm:px-5 md:min-h-[112px] ${
+                      className={`group flex min-h-[86px] w-full items-center gap-3 rounded-2xl border bg-white px-4 py-3.5 text-left transition-[border-color,box-shadow] duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600 focus-visible:ring-offset-2 sm:px-5 ${
                         isSelected
-                          ? 'border-[#16a378] bg-[#eefbf5] ring-1 ring-emerald-400/30 shadow-[0_12px_28px_rgba(5,150,105,0.10)]'
-                          : 'border-slate-200/90 bg-white hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-[0_10px_24px_rgba(15,23,42,0.06)]'
+                          ? 'border-emerald-600 shadow-[0_0_0_1px_rgba(5,150,105,0.25)]'
+                          : 'border-slate-200 shadow-[0_2px_8px_rgba(15,23,42,0.025)] hover:border-slate-300'
                       }`}
                     >
-                      <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${planTone}`}>
-                        <PlanIcon className="h-5 w-5" strokeWidth={1.9} aria-hidden="true" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2"><p translate="no" className="text-[15px] font-semibold tracking-tight text-[#0b1727] md:text-base">{plan.name}</p>{isActivePlan ? <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[9px] font-bold text-emerald-800">Current plan</span> : planId === 'diamond' ? <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[9px] font-semibold text-sky-700">Popular</span> : null}</div>
-                        <p className="mt-1 text-[21px] font-bold leading-tight tracking-[-0.04em] text-[#0b1727] md:text-[22px]">
-                          {activeTenant.currency}{plan.price.toLocaleString()}<span className="ml-1 text-[11px] font-medium tracking-normal text-slate-500">/ month</span>
-                        </p>
-                        <p className="mt-2 text-[11px] leading-[1.5] text-slate-500 sm:text-xs">
+                      <span className="min-w-0 flex-1">
+                        <span className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                          <span translate="no" className="text-[15px] font-semibold tracking-[-0.015em] text-slate-950">{plan.name}</span>
+                          {isActivePlan ? <span className="text-[10px] font-medium text-slate-500">Current plan</span> : null}
+                        </span>
+                        <span className="mt-0.5 block text-[18px] font-semibold leading-snug tracking-[-0.025em] text-slate-950">
+                          {activeTenant.currency}{plan.price.toLocaleString()}<span className="ml-1 text-[11px] font-normal tracking-normal text-slate-500">/ month</span>
+                        </span>
+                        <span className="mt-1 block text-[11px] leading-[1.45] text-slate-500">
                           {planId === 'ruby'
                             ? '1 branch · 2 users · 1,000 products'
                             : planId === 'diamond'
                               ? '1 branch · 5 users · 5,000 products'
-                              : '2 branches included · 15 users · unlimited products'}
-                        </p>
-                      </div>
-                      <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 bg-white ${isSelected ? 'border-emerald-600' : 'border-slate-300'}`}>
-                        {isSelected ? <span className="h-3 w-3 rounded-full bg-emerald-600" /> : null}
+                              : '2 branches · 15 users · unlimited products'}
+                        </span>
+                      </span>
+                      <span aria-hidden="true" className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-[1.5px] ${
+                        isSelected ? 'border-emerald-600' : 'border-slate-300'
+                      }`}>
+                        {isSelected ? <span className="h-2.5 w-2.5 rounded-full bg-emerald-600" /> : null}
                       </span>
                     </button>
                   );
@@ -4924,19 +4916,18 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                 <button
                   type="button"
                   onClick={() => setCheckoutStep('plan')}
-                  className="mb-4 inline-flex min-h-10 items-center gap-1.5 text-xs font-semibold text-emerald-700 focus-visible:rounded-md focus-visible:outline-2 focus-visible:outline-emerald-500 md:hidden"
+                  className="mb-3 inline-flex min-h-9 items-center gap-1.5 text-xs font-medium text-slate-600 focus-visible:rounded-md focus-visible:outline-2 focus-visible:outline-emerald-500 md:hidden"
                 >
                   <ChevronLeft className="h-4 w-4" /> Back to plans
                 </button>
-                <h4 className="mb-2.5 text-sm font-bold text-slate-900">Payment method</h4>
+                <h4 className="mb-2.5 text-[13px] font-semibold text-slate-950">Payment method</h4>
                 <div role="group" aria-label="Payment method" className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-1">
                   <button
                     type="button"
                     aria-pressed={paymentMode === 'online'}
                     onClick={() => setPaymentMode('online')}
-                    className={`flex w-full items-center gap-3 rounded-2xl border px-3.5 py-3 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${paymentMode === 'online' ? 'border-emerald-500 bg-emerald-50/70' : 'border-slate-200 bg-white hover:border-slate-300'}`}
+                    className={`flex w-full items-center gap-3 rounded-xl border bg-white px-4 py-3.5 text-left transition-[border-color,box-shadow] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${paymentMode === 'online' ? 'border-emerald-600 shadow-[0_0_0_1px_rgba(5,150,105,0.2)]' : 'border-slate-200 hover:border-slate-300'}`}
                   >
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700"><CardIcon className="h-4.5 w-4.5" /></span>
                     <span className="min-w-0 flex-1"><span className="block text-[13px] font-bold text-slate-900">Pay online</span><span className="block text-[11px] leading-4 text-slate-500">Secure digital checkout</span></span>
                     <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${paymentMode === 'online' ? 'border-emerald-600' : 'border-slate-300'}`}>{paymentMode === 'online' ? <span className="h-2.5 w-2.5 rounded-full bg-emerald-600" /> : null}</span>
                   </button>
@@ -4944,9 +4935,8 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                     type="button"
                     aria-pressed={paymentMode === 'offline'}
                     onClick={() => setPaymentMode('offline')}
-                    className={`flex w-full items-center gap-3 rounded-2xl border px-3.5 py-3 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${paymentMode === 'offline' ? 'border-emerald-500 bg-emerald-50/70' : 'border-slate-200 bg-white hover:border-slate-300'}`}
+                    className={`flex w-full items-center gap-3 rounded-xl border bg-white px-4 py-3.5 text-left transition-[border-color,box-shadow] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 ${paymentMode === 'offline' ? 'border-emerald-600 shadow-[0_0_0_1px_rgba(5,150,105,0.2)]' : 'border-slate-200 hover:border-slate-300'}`}
                   >
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700"><Receipt className="h-4.5 w-4.5" /></span>
                     <span className="min-w-0 flex-1"><span className="block text-[13px] font-bold text-slate-900">Pay offline</span><span className="block text-[11px] leading-4 text-slate-500">Send payment proof for approval</span></span>
                     <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${paymentMode === 'offline' ? 'border-emerald-600' : 'border-slate-300'}`}>{paymentMode === 'offline' ? <span className="h-2.5 w-2.5 rounded-full bg-emerald-600" /> : null}</span>
                   </button>
@@ -4955,7 +4945,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                 {paymentMode === 'online' ? (
                   <div className="mt-5">
                     <h4 className="text-sm font-bold text-slate-950 md:text-base">Order summary</h4>
-                    <div className="mt-3 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_3px_12px_rgba(15,23,42,0.025)]">
+                    <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white">
                       <div className="flex items-center justify-between gap-4 px-4 py-4 md:px-5">
                         <span className="text-sm font-medium text-slate-500">Selected plan</span>
                         <span translate="no" className="text-base font-black text-slate-950">
@@ -4971,8 +4961,8 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                       </div>
                     </div>
 
-                    <div className="mt-4 flex items-start gap-3 rounded-2xl bg-emerald-50 px-4 py-3 text-emerald-900">
-                      <Shield className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" strokeWidth={2.25} />
+                    <div className="mt-4 flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-700">
+                      <Shield className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" strokeWidth={1.8} />
                       <p className="text-xs font-semibold leading-5">Secure payment. Access activates after payment confirmation.</p>
                     </div>
 
@@ -4980,14 +4970,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                       <p role="status" aria-live="polite" className={`mt-3 rounded-2xl border px-4 py-3 text-xs font-semibold leading-5 ${onlinePaymentMessage.startsWith('Processing your payment') ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-amber-200 bg-amber-50 text-amber-800'}`}>{onlinePaymentMessage}</p>
                     ) : null}
 
-                    <button
-                      type="button"
-                      onClick={() => startOnlineSubscriptionPayment(selectedPlanId, () => setPaymentMode('offline'))}
-                      disabled={onlinePaymentSubmitting}
-                      className="subscription-desktop-action mt-4 min-h-12 w-full rounded-xl bg-emerald-600 px-5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {onlinePaymentSubmitting ? 'Starting secure payment…' : 'Pay online'}
-                    </button>
+
 
                     <a
                       href="https://wa.me/255655746552?text=Hello%20Orvix%20Deployments%2C%20I%20need%20help%20with%20subscription%20payment."
@@ -5001,15 +4984,14 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                   </div>
                 ) : (
                   <div className="mt-5">
-                    <div className="rounded-[20px] border border-emerald-100 bg-emerald-50/80 p-4 md:p-5">
+                    <div className="rounded-2xl border border-slate-200 bg-white p-4 md:p-5">
                       <div className="flex items-center gap-2">
-                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-emerald-700"><Shield className="h-5 w-5" /></span>
                         <div>
-                          <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-emerald-800">Offline transfer</p>
+                          <p className="text-[11px] font-medium text-slate-500">Offline transfer</p>
                           <h4 className="text-base font-bold tracking-tight text-slate-950">Pay with Mixx by Yas</h4>
                         </div>
                       </div>
-                      <div className="mt-4 flex flex-wrap items-end justify-between gap-2 rounded-xl border border-emerald-200/70 bg-white px-3.5 py-3">
+                      <div className="mt-4 flex flex-wrap items-end justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 py-3">
                         <div>
                           <p className="text-[11px] font-medium text-slate-500">Selected package</p>
                           <p translate="no" className="mt-0.5 text-sm font-bold text-slate-900">{SUBSCRIPTION_PLANS[selectedPlanId].name}</p>
@@ -5019,21 +5001,21 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                           <p className="mt-0.5 text-lg font-bold tracking-tight text-slate-950">{activeTenant.currency}{SUBSCRIPTION_PLANS[selectedPlanId].price.toLocaleString()}</p>
                         </div>
                       </div>
-                      <div className="mt-3 overflow-hidden rounded-2xl border border-emerald-200 bg-white">
-                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-emerald-100 bg-[#f7fcf9] px-4 py-3">
-                          <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-emerald-800">Mixx by Yas · Lipa Namba</span>
-                          <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[9px] font-bold uppercase tracking-wider text-amber-800">Demo only</span>
+                      <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white">
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-slate-50 px-4 py-3">
+                          <span className="text-[11px] font-semibold tracking-wide text-slate-700">Mixx by Yas · Lipa Namba</span>
+                          <span className="rounded-md border border-slate-200 px-2 py-0.5 text-[10px] font-medium text-slate-600">Demo only</span>
                         </div>
                         <div className="px-4 pb-4 pt-3.5">
                           <p className="text-xs font-medium text-slate-500">Lipa Namba · No.</p>
-                          <p className="mt-1 font-mono text-[30px] font-bold leading-none tracking-[0.06em] text-slate-950" aria-label="Demo Lipa Namba: zero zero zero zero zero zero">000000</p>
+                          <p className="mt-1 font-mono text-[24px] font-semibold leading-none tracking-[0.03em] text-slate-950" aria-label="Demo Lipa Namba: zero zero zero zero zero zero">000000</p>
                           <div className="mt-3 border-t border-slate-100 pt-3">
                             <p className="text-[11px] font-medium text-slate-500">Account name</p>
                             <p className="mt-0.5 text-sm font-bold tracking-tight text-slate-900">Orvix Pos</p>
                           </div>
                         </div>
                       </div>
-                      <p className="mt-3 rounded-xl border border-amber-200/80 bg-amber-50 px-3 py-2.5 text-xs leading-5 text-amber-950">
+                      <p className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs leading-5 text-slate-700">
                         <strong>Example only — do not pay this number.</strong> Ask Orvix deployments for the official Lipa Namba before transferring money.
                       </p>
                       <a
@@ -5074,14 +5056,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                       </div>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => submitManualActivationRequest(selectedPlanId)}
-                      disabled={manualActivationSubmitting}
-                      className="subscription-desktop-action mt-4 min-h-12 w-full cursor-pointer rounded-xl bg-emerald-600 px-5 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      {manualActivationSubmitting ? 'Sending…' : 'Pay offline'}
-                    </button>
+
 
                     {manualActivationMessage ? (
                       <p role="status" aria-live="polite" className={`mt-3 rounded-2xl px-4 py-3 text-xs font-semibold leading-5 ${manualActivationMessage.includes('has been sent') ? 'border border-emerald-200 bg-emerald-50 text-emerald-800' : 'border border-amber-200 bg-amber-50 text-amber-800'}`}>{manualActivationMessage}</p>
@@ -5102,35 +5077,46 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
               </section>
             </div>
 
-            <footer className="subscription-mobile-action shrink-0 border-t border-slate-100 bg-white px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 sm:px-6">
+            <footer className="subscription-checkout-footer shrink-0 border-t border-slate-100 bg-white px-4 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-3 sm:px-6 md:pb-5">
               {checkoutStep === 'plan' ? (
                 <button
                   type="button"
                   onClick={() => setCheckoutStep('payment')}
-                  className="flex min-h-14 w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#008961] to-[#03a578] px-4 text-sm font-semibold text-white shadow-[0_9px_24px_rgba(0,137,97,0.20)] transition-all hover:brightness-95 focus-visible:outline-2 focus-visible:outline-emerald-500"
+                  className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 text-sm font-semibold text-white shadow-[0_3px_8px_rgba(6,95,70,0.12)] transition-colors hover:bg-emerald-800 focus-visible:outline-2 focus-visible:outline-emerald-500 md:hidden"
                 >
                   Continue with {SUBSCRIPTION_PLANS[selectedPlanId].name}
                   <ChevronRight className="h-4 w-4" aria-hidden="true" />
                 </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (paymentMode === 'offline') {
-                      void submitManualActivationRequest(selectedPlanId);
-                    } else {
-                      void startOnlineSubscriptionPayment(selectedPlanId, () => setPaymentMode('offline'));
-                    }
-                  }}
-                  disabled={paymentMode === 'offline' ? manualActivationSubmitting : onlinePaymentSubmitting}
-                  aria-label={paymentMode === 'offline' ? 'Pay offline — submit payment proof for approval' : 'Pay online — open secure checkout'}
-                  className="min-h-14 w-full rounded-2xl bg-gradient-to-r from-[#008961] to-[#03a578] px-5 text-sm font-semibold text-white shadow-[0_8px_20px_rgba(0,137,97,0.18)] transition-all hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {paymentMode === 'offline'
-                    ? (manualActivationSubmitting ? 'Sending…' : 'Pay offline')
-                    : (onlinePaymentSubmitting ? 'Starting secure payment…' : 'Pay online')}
-                </button>
-              )}
+              ) : null}
+              {/* ONE final payment action on both mobile and desktop, always
+                  using the very same paymentMode as the selected method. */}
+              <button
+                type="button"
+                data-testid="subscription-final-payment"
+                data-payment-mode={paymentMode}
+                onClick={() => {
+                  if (paymentMode === 'offline') {
+                    void submitManualActivationRequest(selectedPlanId);
+                  } else {
+                    void startOnlineSubscriptionPayment(selectedPlanId);
+                  }
+                }}
+                disabled={manualActivationSubmitting || onlinePaymentSubmitting}
+                aria-label={paymentMode === 'offline' ? 'Pay offline — submit payment receipt for review' : 'Pay online — open secure checkout'}
+                className={`${checkoutStep === 'plan' ? 'hidden md:flex' : 'flex'} min-h-12 w-full items-center justify-center rounded-xl bg-emerald-700 px-5 text-sm font-semibold text-white shadow-[0_3px_8px_rgba(6,95,70,0.12)] transition-colors hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60`}
+              >
+                {paymentMode === 'offline'
+                  ? (manualActivationSubmitting ? 'Sending receipt…' : 'Pay offline')
+                  : (onlinePaymentSubmitting ? 'Opening secure checkout…' : 'Pay online')}
+              </button>
+              {checkoutStep === 'payment' && paymentMode === 'offline' && !manualActivationReceipt && !manualActivationMessage ? (
+                <p className="mt-2 text-center text-[11px] text-slate-500 md:text-xs">Attach your payment receipt before submitting.</p>
+              ) : null}
+              {checkoutStep === 'payment' && (paymentMode === 'offline' ? manualActivationMessage : onlinePaymentMessage) ? (
+                <p role="status" aria-live="polite" className="mt-2 text-center text-xs leading-5 text-slate-700">
+                  {paymentMode === 'offline' ? manualActivationMessage : onlinePaymentMessage}
+                </p>
+              ) : null}
             </footer>
           </div>
         </div>
