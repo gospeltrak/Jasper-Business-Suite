@@ -1146,6 +1146,29 @@ test('barcode actions stay side-by-side and product forms check duplicate codes 
   assert.doesNotMatch(migration, /delete from public\.products|truncate table public\.products/i);
 });
 
+test('POS checkout keeps customer and optional payment inputs in balanced mobile rows', async () => {
+  const source = await read('src/modules/pos/DashboardPOS.tsx');
+  const css = await read('src/index.css');
+  const customerStart = source.indexOf('<div className="pos-checkout-customer-grid">');
+  const customerEnd = source.indexOf('</div>', customerStart);
+  const paymentStart = source.indexOf('<div className="pos-checkout-payment-grid">');
+  const paymentEnd = source.indexOf('</div>', paymentStart);
+  assert.ok(customerStart > -1 && customerEnd > customerStart);
+  assert.ok(paymentStart > -1 && paymentEnd > paymentStart);
+  const customerRow = source.slice(customerStart, customerEnd);
+  const paymentRow = source.slice(paymentStart, paymentEnd);
+  assert.match(customerRow, /value={customerName}/);
+  assert.match(customerRow, /value={customerPhone}/);
+  assert.match(paymentRow, /value={referenceCode}/);
+  assert.match(paymentRow, /value={paymentNote}/);
+  assert.doesNotMatch(paymentRow, /value={amountPaid}/);
+  assert.match(source.slice(paymentStart - 1000, paymentStart), /pos-checkout-amount-field/);
+  const narrowPhoneCss = css.slice(css.lastIndexOf('@media (max-width: 479px)'));
+  assert.match(narrowPhoneCss, /\.pos-checkout-customer-grid,/);
+  assert.match(narrowPhoneCss, /\.pos-checkout-payment-grid\s*\{\s*display: grid !important;\s*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\) !important;/);
+  assert.doesNotMatch(narrowPhoneCss, /\.pos-checkout-payment-grid\s*\{\s*grid-template-columns: minmax\(0, 1fr\)/);
+});
+
 test('browser gets a fresh service worker and dashboard shell after each deployment', async () => {
   const pkg = JSON.parse(await read('package.json'));
   const verifier = await read('scripts/verify-deploy.mjs');
