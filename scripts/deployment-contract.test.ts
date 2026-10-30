@@ -1169,6 +1169,23 @@ test('POS checkout keeps customer and optional payment inputs in balanced mobile
   assert.doesNotMatch(narrowPhoneCss, /\.pos-checkout-payment-grid\s*\{\s*grid-template-columns: minmax\(0, 1fr\)/);
 });
 
+test('POS payment options remain three readable columns on small phones', async () => {
+  const css = await read('src/index.css');
+  const source = await read('src/modules/pos/DashboardPOS.tsx');
+  const gridStart = css.indexOf('#dashboard-scaffold .pos-checkout-method-grid {\n  display: grid !important;');
+  assert.ok(gridStart > -1, 'POS checkout needs a specifically scoped grid rule');
+  const gridRules = css.slice(gridStart, css.indexOf('}', gridStart) + 1);
+  assert.match(gridRules, /grid-template-columns: repeat\(3, minmax\(0, 1fr\)\) !important/);
+  const phoneStart = css.indexOf('@media (max-width: 639px)');
+  const phoneRules = css.slice(phoneStart, css.indexOf('@media (max-width: 479px)', phoneStart));
+  assert.match(phoneRules, /grid-template-columns: repeat\(3, minmax\(0, 1fr\)\) !important/);
+  assert.match(phoneRules, /flex-direction: column/);
+  assert.match(phoneRules, /text-align: center/);
+  assert.match(phoneRules, /\.pos-checkout-method-check\s*\{\s*position: absolute/);
+  assert.match(source, /aria-pressed={isSelected}/);
+  assert.match(source, /onClick={\(\) => \{\s*setPaymentMethod\(mode\)/);
+});
+
 test('browser gets a fresh service worker and dashboard shell after each deployment', async () => {
   const pkg = JSON.parse(await read('package.json'));
   const verifier = await read('scripts/verify-deploy.mjs');
