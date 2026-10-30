@@ -1139,3 +1139,20 @@ test('browser gets a fresh service worker and dashboard shell after each deploym
       item.key.toLowerCase() === 'cache-control' && item.value.includes('no-store')));
   }
 });
+
+test('web barcode scanning recovers from a dismissed camera permission prompt', async () => {
+  const scanner = await read('src/shared/components/DashboardBarcodeScanner.tsx');
+  assert.match(scanner, /setCameraErrorCode\('permission'\)/);
+  assert.match(scanner, /queueCameraOp\(async \(\) =>/);
+  assert.match(scanner, /scannerRef\.current\.clear\(\)/);
+  assert.match(scanner, /navigator\.permissions\.query/);
+  assert.match(scanner, /visibilitychange/);
+  assert.match(scanner, /permission\.state === 'granted'/);
+  assert.match(scanner, /void startCamera\(\)/);
+  assert.match(scanner, /Jaribu tena/);
+  assert.match(scanner, /Try again/);
+  assert.match(scanner, /cameraRetrying/);
+  assert.match(scanner, /USB or Bluetooth scanner/);
+  assert.match(scanner, /getBarcodeScanBox/);
+  assert.match(scanner, /findBarcodeProduct/);
+});

@@ -50,6 +50,7 @@ export default function DashboardBarcodeScanner({
   const [useBeep] = useState(true);
   const [scanSuccessAnim, setScanSuccessAnim] = useState<string | null>(null);
   const [cameraErrorCode, setCameraErrorCode] = useState<CameraErrorCode | null>(null);
+  const [cameraRetrying, setCameraRetrying] = useState(false);
 
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const scannerContainerRef = useRef<HTMLDivElement>(null);
@@ -123,10 +124,42 @@ export default function DashboardBarcodeScanner({
     };
   }, [isOpen, inline]);
 
+  // When a user changes site camera permission in the browser and returns,
+  // retry once automatically. Where Permissions API is unsupported, the
+  // explicit Retry button is always available.
+  useEffect(() => {
+    if (!isOpen || cameraErrorCode !== 'permission') return;
+    let cancelled = false;
+    const retryIfGranted = async () => {
+      if (document.visibilityState !== 'visible' || !navigator.permissions?.query) return;
+      try {
+        const permission = await navigator.permissions.query({ name: 'camera' as PermissionName });
+        if (!cancelled && permission.state === 'granted') void startCamera();
+      } catch { /* Safari may not support camera permission queries */ }
+    };
+    document.addEventListener('visibilitychange', retryIfGranted);
+    window.addEventListener('focus', retryIfGranted);
+    return () => {
+      cancelled = true;
+      document.removeEventListener('visibilitychange', retryIfGranted);
+      window.removeEventListener('focus', retryIfGranted);
+    };
+  }, [isOpen, cameraErrorCode]);
+
   const startCamera = () => queueCameraOp(async () => {
     if (closedRef.current) return;
     try {
+      setCameraRetrying(true);
       setCameraErrorCode(null);
+      // Clean up an unsuccessful previous start before reopening the camera.
+      // All operations remain in the global queue to avoid hardware races.
+      if (scannerRef.current) {
+        try {
+          if (scannerRef.current.isScanning) await scannerRef.current.stop();
+          await scannerRef.current.clear();
+        } catch { /* recover from an old failed start */ }
+        scannerRef.current = null;
+      }
       const html5QrCode = new Html5Qrcode("reader");
       scannerRef.current = html5QrCode;
 
@@ -172,7 +205,7 @@ export default function DashboardBarcodeScanner({
       // name appearing inside the stringified error -- there is no .name
       // property to read directly here.
       const text = String(err?.message ?? err ?? '');
-      if (/NotAllowedError|PermissionDeniedError|SecurityError/i.test(text)) {
+      if (/NotAllowedError|PermissionDeniedError|SecurityError|Permission denied/i.test(text)) {
         setCameraErrorCode('permission');
       } else if (/NotFoundError|DevicesNotFoundError/i.test(text)) {
         setCameraErrorCode('not-found');
@@ -181,6 +214,8 @@ export default function DashboardBarcodeScanner({
       } else {
         setCameraErrorCode('generic');
       }
+    } finally {
+      if (!closedRef.current) setCameraRetrying(false);
     }
   });
 
@@ -228,12 +263,12 @@ export default function DashboardBarcodeScanner({
   if (!isOpen) return null;
 
   const errorCopy = cameraErrorCode ? (lang === 'sw' ? {
-    permission: { title: 'Ruhusa ya kamera imekataliwa', message: 'Ruhusu matumizi ya kamera kwenye mipangilio ya kivinjari chako kisha jaribu tena. Unaweza pia kutumia scanner ya USB au Bluetooth.' },
+    permission: { title: 'Ruhusa ya kamera imezuiwa', message: 'Ruhusu Kamera kwenye ruhusa za tovuti hii katika kivinjari, kisha bonyeza Jaribu tena. Pia unaweza kutumia scanner ya USB au Bluetooth.' },
     'not-found': { title: 'Hakuna kamera iliyopatikana', message: 'Kifaa hiki hakina kamera inayoweza kutumika kuscan. Tumia scanner ya USB au Bluetooth.' },
     'in-use': { title: 'Kamera inatumika', message: 'Programu nyingine kwenye kifaa hiki inatumia kamera. Ifunge kisha jaribu tena.' },
     generic: { title: 'Hakuna connection ya kamera', message: 'Imeshindikana kuunganisha kamera. Jaribu tena, au tumia scanner ya USB au Bluetooth.' },
   }[cameraErrorCode] : {
-    permission: { title: 'Camera permission denied', message: 'Allow camera access in your browser settings, then try again. You can also use a USB or Bluetooth scanner.' },
+    permission: { title: 'Camera access is off', message: 'Allow Camera in this site’s browser permissions, then tap Try again. You can also use a USB or Bluetooth scanner.' },
     'not-found': { title: 'No camera found', message: 'This device has no usable camera. Use a USB or Bluetooth scanner instead.' },
     'in-use': { title: 'Camera already in use', message: 'Another app on this device is using the camera. Close it and try again.' },
     generic: { title: 'No camera connection', message: 'Could not connect to the camera. Try again, or use a USB or Bluetooth scanner.' },
@@ -280,6 +315,18 @@ export default function DashboardBarcodeScanner({
               </div>
             )}
           </div>
+          {errorCopy && (
+            <div className="flex items-center justify-center gap-2 px-2 pb-2 pt-3">
+              <button
+                type="button"
+                disabled={cameraRetrying}
+                onClick={() => { void startCamera(); }}
+                className="min-h-10 rounded-lg border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-800 shadow-sm hover:bg-slate-50 disabled:opacity-50"
+              >
+                {cameraRetrying ? (lang === 'sw' ? 'Inajaribu…' : 'Retrying…') : (lang === 'sw' ? 'Jaribu tena' : 'Try again')}
+              </button>
+            </div>
+          )}
         </div>
     </>
   );
