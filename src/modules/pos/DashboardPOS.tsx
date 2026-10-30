@@ -2189,66 +2189,84 @@ export default function DashboardPOS({
 
       {/* CHECKOUT MODAL SYSTEM */}
       {isCheckoutOpen && (
-        <div className="fixed inset-0 z-[110] flex items-end md:items-center justify-center p-0 md:p-4 bg-slate-950/70" style={{paddingBottom: 'calc(var(--dashboard-bottom-nav-height, 0px) + env(safe-area-inset-bottom))'}}>
-          <div className={`pos-tablet-checkout-modal ${paymentStatus === 'completed' ? 'pos-tablet-receipt-modal' : ''} relative bg-white border border-slate-200 md:rounded-3xl rounded-t-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col`} style={{maxHeight: 'calc(100dvh - var(--dashboard-bottom-nav-height, 60px) - env(safe-area-inset-bottom) - env(safe-area-inset-top))' }}>
-            {/* Mobile Drag Handle */}
-            <div className="w-full flex justify-center pt-3 pb-2 xl:hidden bg-slate-50">
-              <div className="w-12 h-1.5 bg-slate-300/50 rounded-full" />
-            </div>
+        <div className="pos-checkout-overlay fixed inset-0 z-[110] flex items-end md:items-center justify-center bg-slate-950/60" style={{paddingBottom: 'calc(var(--dashboard-bottom-nav-height, 0px) + env(safe-area-inset-bottom))'}}>
+          <div className={`pos-tablet-checkout-modal pos-checkout-sheet ${paymentStatus === 'completed' ? 'pos-tablet-receipt-modal' : ''} relative w-full max-w-lg overflow-hidden flex flex-col`} style={{maxHeight: 'calc(100dvh - var(--dashboard-bottom-nav-height, 60px) - env(safe-area-inset-bottom) - env(safe-area-inset-top))' }}>
+            {/* Quiet mobile bottom-sheet handle */}
+            <div className="pos-checkout-drag-handle xl:hidden" aria-hidden="true"><span /></div>
 
-            {/* Header */}
-            <div className="px-6 py-4 md:py-5 bg-slate-50 border-b border-slate-250 flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Receipt className="w-5 h-5 text-emerald-600" />
-                <h4 className="font-bold text-slate-800 text-sm">{receiptLanguage === 'sw' ? posReceiptLabel('mode', receiptLanguage) : 'Payment Mode'}</h4>
+            <div className="pos-checkout-heading">
+              <div className="pos-checkout-title-group">
+                <div className="pos-checkout-title-icon"><Receipt className="w-[18px] h-[18px]" /></div>
+                <div className="min-w-0">
+                  <h4 className="pos-checkout-title">{paymentStatus === 'completed' ? 'Payment complete' : (receiptLanguage === 'sw' ? posReceiptLabel('mode', receiptLanguage) : 'Payment Mode')}</h4>
+                  {paymentStatus === 'idle' && <p className="pos-checkout-subtitle">Complete this sale securely</p>}
+                </div>
               </div>
-              <button 
+              <button
+                type="button"
+                aria-label="Close checkout"
                 onClick={() => { setIsCheckoutOpen(false); setPaymentStatus('idle'); }}
-                className="text-slate-400 hover:text-slate-705 cursor-pointer transition-colors"
+                className="pos-checkout-close"
               >
-                <X className="w-4 h-4" />
+                <X className="w-[18px] h-[18px]" />
               </button>
             </div>
 
-            {/* Steps router */}
+            {/* Payment details scroll independently of the bottom action. */}
             {paymentStatus === 'idle' && (
-              <div className="p-6 space-y-5 overflow-y-auto flex-1" style={{paddingBottom: '1.5rem'}}>
-                <div className="text-center py-2 space-y-1">
-                  <p className="text-3xl font-black text-slate-950">{currency}{Math.round(grandTotal).toLocaleString()}</p>
-                  <p className="text-[11px] text-slate-400 font-sans">Complete payment for this sale</p>
+              <>
+              <div className="pos-checkout-body overflow-y-auto flex-1">
+                <div className="pos-checkout-total">
+                  <div>
+                    <span className="pos-checkout-eyebrow">TOTAL TO COLLECT</span>
+                    <p className="pos-checkout-total-caption">Current sale</p>
+                  </div>
+                  <strong data-testid="pos-checkout-total">{currency}{Math.round(grandTotal).toLocaleString()}</strong>
                 </div>
 
                 {/* Customer Assignment (New feature) */}
-                <div className={`space-y-2 pb-2 border-b border-slate-100 ${!isDesktopCheckoutLayout ? 'bg-gradient-to-br from-slate-50/80 to-white -mx-1 px-1 pt-1 rounded-xl' : ''}`}>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Customer Identity (Required for Credit Sales)</span>
-                  <div
-                    className="grid gap-2"
-                    style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.5rem' }}
-                  >
-                    <input
-                      type="text"
-                      placeholder="Client Name"
-                      value={customerName}
-                      onChange={(e) => setCustomerName(e.target.value)}
-                      className={`bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2 rounded-xl text-slate-800 outline-none transition-all min-w-0 ${!isDesktopCheckoutLayout ? 'focus:ring-2 focus:ring-emerald-100' : ''}`}
-                    />
-                    <input
-                      type="text"
-                      placeholder="Phone Number (Optional)"
-                      value={customerPhone}
-                      onChange={(e) => setCustomerPhone(e.target.value)}
-                      className={`bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2 rounded-xl text-slate-800 outline-none transition-all font-mono min-w-0 ${!isDesktopCheckoutLayout ? 'focus:ring-2 focus:ring-emerald-100' : ''}`}
-                    />
+                <section className="pos-checkout-section" aria-label="Customer details">
+                  <div className="pos-checkout-section-heading">
+                    <span className="pos-checkout-section-number">01</span>
+                    <div>
+                      <h5>Customer details</h5>
+                      <p>Required for credit sales</p>
+                    </div>
                   </div>
-                </div>
+                  <div className="pos-checkout-customer-grid">
+                    <label className="pos-checkout-field">
+                      <span>Customer name</span>
+                      <input
+                        type="text"
+                        placeholder="Enter customer name"
+                        autoComplete="name"
+                        value={customerName}
+                        onChange={(e) => setCustomerName(e.target.value)}
+                      />
+                    </label>
+                    <label className="pos-checkout-field">
+                      <span>Phone <span className="pos-checkout-optional">(optional)</span></span>
+                      <input
+                        type="tel"
+                        placeholder="Phone number"
+                        autoComplete="tel"
+                        value={customerPhone}
+                        onChange={(e) => setCustomerPhone(e.target.value)}
+                      />
+                    </label>
+                  </div>
+                </section>
 
                 {/* Manual payment recording selectors */}
-                <div className="space-y-3">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block font-sans">Choose Payment Method</label>
-                  <div
-                    className={`grid gap-2 ${isDesktopCheckoutLayout ? 'grid-cols-2 min-[420px]:grid-cols-3' : ''}`}
-                    style={isDesktopCheckoutLayout ? undefined : { display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '0.5rem' }}
-                  >
+                <section className="pos-checkout-section" aria-label="Payment methods">
+                  <div className="pos-checkout-section-heading">
+                    <span className="pos-checkout-section-number">02</span>
+                    <div>
+                      <h5>Payment method</h5>
+                      <p>Choose where the money was received</p>
+                    </div>
+                  </div>
+                  <div className="pos-checkout-method-grid" role="group" aria-label="Choose payment method">
                     {(() => {
                       const baseModes = systemSettings?.business?.paymentModes && systemSettings.business.paymentModes.length > 0
                         ? systemSettings.business.paymentModes
@@ -2260,13 +2278,6 @@ export default function DashboardPOS({
                         const isCash = mode.toLowerCase().includes('cash');
                         const isMomo = mode.toLowerCase().includes('pesa') || mode.toLowerCase().includes('momo') || mode.toLowerCase().includes('mobile') || mode.toLowerCase().includes('mtn') || mode.toLowerCase().includes('paystack');
                         const isMulti = mode === 'Multi-Channel';
-
-                        const mobileSelectedClass = isMulti
-                          ? 'bg-gradient-to-br from-indigo-50 to-violet-50 border-indigo-300 text-indigo-700 shadow-sm'
-                          : 'bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-400 text-emerald-700 shadow-sm';
-                        const mobileUnselectedClass = 'bg-slate-50 border-slate-200 text-slate-600 hover:border-slate-300';
-                        const desktopSelectedClass = 'bg-emerald-50 border-emerald-450 text-emerald-755 shadow-sm';
-                        const desktopUnselectedClass = 'bg-slate-50 border-slate-250 text-slate-600 hover:border-slate-350';
 
                         return (
                           <motion.button
@@ -2286,37 +2297,22 @@ export default function DashboardPOS({
                                 setMultiAllocations([{ method: firstMethod, amount: Number(grandTotal.toFixed(2)), reference: '' }]);
                               }
                             }}
-                            whileTap={!isDesktopCheckoutLayout ? { scale: 0.94 } : undefined}
-                            animate={!isDesktopCheckoutLayout && isSelected ? { scale: [1, 1.05, 1] } : undefined}
-                            transition={{ duration: 0.26, ease: 'easeOut' }}
-                            className={`relative flex flex-col items-center justify-center gap-1.5 rounded-2xl border py-3 px-2 text-center transition-all cursor-pointer active:scale-95 ${
-                              isDesktopCheckoutLayout
-                                ? (isSelected ? desktopSelectedClass : desktopUnselectedClass)
-                                : (isSelected ? mobileSelectedClass : mobileUnselectedClass)
-                            }`}
+                            aria-pressed={isSelected}
+                            className={`pos-checkout-method ${isSelected ? 'pos-checkout-method-selected' : ''}`}
                           >
-                            {isSelected && (
-                              <motion.span
-                                initial={!isDesktopCheckoutLayout ? { scale: 0, opacity: 0 } : false}
-                                animate={!isDesktopCheckoutLayout ? { scale: 1, opacity: 1 } : undefined}
-                                transition={{ duration: 0.2, ease: 'easeOut' }}
-                                className={`absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full text-white ${
-                                  !isDesktopCheckoutLayout && isMulti ? 'bg-indigo-600' : 'bg-emerald-600'
-                                }`}
-                              >
-                                <Check className="w-2.5 h-2.5" strokeWidth={3} />
-                              </motion.span>
-                            )}
-                            {isCash ? (
-                              <Receipt className={`w-5 h-5 ${isSelected ? 'text-emerald-600' : 'text-slate-405'}`} />
-                            ) : isMomo ? (
-                              <Smartphone className={`w-5 h-5 ${isSelected ? 'text-emerald-600' : 'text-slate-405'}`} />
-                            ) : isMulti ? (
-                              <Coins className={`w-5 h-5 ${isSelected ? 'text-indigo-600' : 'text-slate-405'}`} />
-                            ) : (
-                              <CreditCard className={`w-5 h-5 ${isSelected ? 'text-emerald-600' : 'text-slate-405'}`} />
-                            )}
-                            <p className="font-bold text-[11px] leading-tight">{mode}</p>
+                            <span className="pos-checkout-method-icon" aria-hidden="true">
+                              {isCash ? (
+                                <Receipt className="w-[19px] h-[19px]" />
+                              ) : isMomo ? (
+                                <Smartphone className="w-[19px] h-[19px]" />
+                              ) : isMulti ? (
+                                <Coins className="w-[19px] h-[19px]" />
+                              ) : (
+                                <CreditCard className="w-[19px] h-[19px]" />
+                              )}
+                            </span>
+                            <span className="pos-checkout-method-name">{mode}</span>
+                            {isSelected && <span className="pos-checkout-method-check" aria-hidden="true"><Check className="w-3 h-3" strokeWidth={3} /></span>}
                           </motion.button>
                         );
                       });
@@ -2432,48 +2428,52 @@ export default function DashboardPOS({
                       </div>
                     );
                   })()}
-                </div>
+                </section>
 
                 {paymentMethod !== 'Multi-Channel' && (
-                  <div className="space-y-3 bg-white border border-slate-200 rounded-2xl p-4 shadow-xs">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <label className="block">
-                        <span className="text-[9.5px] uppercase font-bold text-slate-500 mb-1 block">Amount Paid ({currency})</span>
+                  <section className="pos-checkout-section" aria-label="Payment details">
+                    <div className="pos-checkout-section-heading">
+                      <span className="pos-checkout-section-number">03</span>
+                      <div>
+                        <h5>Payment details</h5>
+                        <p>Record the amount received</p>
+                      </div>
+                    </div>
+                    <div className="pos-checkout-payment-grid">
+                      <label className="pos-checkout-field">
+                        <span>Amount paid ({currency})</span>
                         <input
                           type="number"
                           min="0"
+                          inputMode="decimal"
                           value={amountPaid}
                           onChange={(e) => setAmountPaid(Math.max(0, parseFloat(e.target.value) || 0))}
-                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500 font-mono font-bold text-xs text-slate-800"
+                          className="pos-checkout-amount-input"
                         />
                       </label>
-                      <label className="block">
-                        <span className="text-[9.5px] uppercase font-bold text-slate-500 mb-1 block">Transaction Ref (optional)</span>
+                      <label className="pos-checkout-field">
+                        <span>Transaction reference <span className="pos-checkout-optional">(optional)</span></span>
                         <input
                           type="text"
                           value={referenceCode}
                           onChange={(e) => setReferenceCode(e.target.value)}
-                          placeholder="M-Pesa SMS, bank slip, card ref"
-                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500 font-mono text-xs text-slate-800"
+                          placeholder="SMS or bank reference"
                         />
                       </label>
                     </div>
-                    <label className="block">
-                      <span className="text-[9.5px] uppercase font-bold text-slate-500 mb-1 block">Payment Note (optional)</span>
+                    <label className="pos-checkout-field">
+                      <span>Payment note <span className="pos-checkout-optional">(optional)</span></span>
                       <input
                         type="text"
                         value={paymentNote}
                         onChange={(e) => setPaymentNote(e.target.value)}
-                        placeholder="Manual confirmation note"
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500 text-xs text-slate-800"
+                        placeholder="Add a note, if needed"
                       />
                     </label>
-                    <div className={`text-[10px] uppercase font-black text-center py-1.5 rounded-xl border font-sans ${
-                      amountPaid >= grandTotal
-                        ? 'bg-emerald-50 text-emerald-800 border-emerald-100'
-                        : amountPaid > 0
-                          ? 'bg-amber-50 text-amber-800 border-amber-100'
-                          : 'bg-rose-50 text-rose-700 border-rose-100'
+                    <div aria-live="polite" className={`pos-checkout-balance ${
+                      amountPaid >= grandTotal ? 'pos-checkout-balance-paid'
+                        : amountPaid > 0 ? 'pos-checkout-balance-partial'
+                        : 'pos-checkout-balance-unpaid'
                     }`}>
                       {amountPaid >= grandTotal
                         ? `Paid in full. Change: ${currency}${Math.max(0, amountPaid - grandTotal).toLocaleString()}`
@@ -2481,7 +2481,7 @@ export default function DashboardPOS({
                           ? `Partial payment. Due: ${currency}${Math.max(0, grandTotal - amountPaid).toLocaleString()}`
                           : `Unpaid / credit. Due: ${currency}${grandTotal.toLocaleString()}`}
                     </div>
-                  </div>
+                  </section>
                 )}
 
                 {/* Delivery Payment Mode removed (moved to basket) */}
@@ -2504,15 +2504,23 @@ export default function DashboardPOS({
                   </div>
                 )}
 
+              </div>
+              <div className="pos-checkout-footer">
+                <div className="pos-checkout-footer-total">
+                  <span>Sale total</span>
+                  <strong>{currency}{Math.round(grandTotal).toLocaleString()}</strong>
+                </div>
                 <button
                   type="button"
                   disabled={isProcessingPayment || (paymentMethod === 'Multi-Channel' && multiAllocations.filter(row => Number(row.amount || 0) > 0).length === 0)}
                   onClick={submitPayment}
-                  className="w-full py-4 font-bold rounded-2xl text-xs uppercase tracking-wider cursor-pointer active:scale-98 shadow-md bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/10 disabled:opacity-45 disabled:cursor-not-allowed disabled:active:scale-100"
+                  className="pos-checkout-confirm"
                 >
                   <span>{isProcessingPayment ? 'Processing...' : 'Confirm Payment'}</span>
+                  {!isProcessingPayment && <Check className="w-[18px] h-[18px]" strokeWidth={2.6} aria-hidden="true" />}
                 </button>
               </div>
+              </>
             )}
 
             {/* Completed state / Receipt print */}
