@@ -5087,25 +5087,36 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                   Continue with {SUBSCRIPTION_PLANS[selectedPlanId].name}
                   <ChevronRight className="h-4 w-4" aria-hidden="true" />
                 </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (paymentMode === 'offline') {
-                      void submitManualActivationRequest(selectedPlanId);
-                    } else {
-                      void startOnlineSubscriptionPayment(selectedPlanId, () => setPaymentMode('offline'));
-                    }
-                  }}
-                  disabled={paymentMode === 'offline' ? manualActivationSubmitting : onlinePaymentSubmitting}
-                  aria-label={paymentMode === 'offline' ? 'Pay offline — submit payment proof for approval' : 'Pay online — open secure checkout'}
-                  className="min-h-12 w-full rounded-xl bg-emerald-700 px-5 text-sm font-semibold text-white shadow-[0_3px_8px_rgba(6,95,70,0.12)] transition-colors hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {paymentMode === 'offline'
-                    ? (manualActivationSubmitting ? 'Sending…' : 'Pay offline')
-                    : (onlinePaymentSubmitting ? 'Starting secure payment…' : 'Pay online')}
-                </button>
-              )}
+              ) : null}
+              {/* ONE final payment action on both mobile and desktop, always
+                  using the very same paymentMode as the selected method. */}
+              <button
+                type="button"
+                data-testid="subscription-final-payment"
+                data-payment-mode={paymentMode}
+                onClick={() => {
+                  if (paymentMode === 'offline') {
+                    void submitManualActivationRequest(selectedPlanId);
+                  } else {
+                    void startOnlineSubscriptionPayment(selectedPlanId);
+                  }
+                }}
+                disabled={manualActivationSubmitting || onlinePaymentSubmitting}
+                aria-label={paymentMode === 'offline' ? 'Pay offline — submit payment receipt for review' : 'Pay online — open secure checkout'}
+                className={`${checkoutStep === 'plan' ? 'hidden md:flex' : 'flex'} min-h-12 w-full items-center justify-center rounded-xl bg-emerald-700 px-5 text-sm font-semibold text-white shadow-[0_3px_8px_rgba(6,95,70,0.12)] transition-colors hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-60`}
+              >
+                {paymentMode === 'offline'
+                  ? (manualActivationSubmitting ? 'Sending receipt…' : 'Pay offline')
+                  : (onlinePaymentSubmitting ? 'Opening secure checkout…' : 'Pay online')}
+              </button>
+              {checkoutStep === 'payment' && paymentMode === 'offline' && !manualActivationReceipt && !manualActivationMessage ? (
+                <p className="mt-2 text-center text-[11px] text-slate-500 md:text-xs">Attach your payment receipt before submitting.</p>
+              ) : null}
+              {checkoutStep === 'payment' && (paymentMode === 'offline' ? manualActivationMessage : onlinePaymentMessage) ? (
+                <p role="status" aria-live="polite" className="mt-2 text-center text-xs leading-5 text-slate-700">
+                  {paymentMode === 'offline' ? manualActivationMessage : onlinePaymentMessage}
+                </p>
+              ) : null}
             </footer>
           </div>
         </div>
