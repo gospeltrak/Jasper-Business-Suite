@@ -200,8 +200,65 @@ test('branch contact settings are tenant-scoped and non-destructive', async () =
 test('subscription checkout uses the native plan summary without inline mobile-money fields', async () => {
   const dashboardSource = await read('src/components/Dashboard.tsx');
   const serverSource = await read('server.ts');
-  assert.match(dashboardSource, /Choose the plan that fits your business/);
+  assert.match(dashboardSource, /Choose your plan/);
+  assert.match(dashboardSource, /Payment method/);
+  // Mobile renders package selection and checkout as distinct steps.
+  // Desktop continues presenting both at once, and existing handlers stay.
+  assert.match(dashboardSource, /checkoutStep: 'plan' \| 'payment'/);
+  assert.match(dashboardSource, /setCheckoutStep\('payment'\)/);
+  assert.match(dashboardSource, /setCheckoutStep\('plan'\)/);
+  assert.match(dashboardSource, /Continue with \{SUBSCRIPTION_PLANS\[selectedPlanId\]\.name\}/);
+  assert.match(dashboardSource, /hidden md:block/);
+  assert.match(dashboardSource, /startOnlineSubscriptionPayment\(selectedPlanId/);
+  assert.match(dashboardSource, /submitManualActivationRequest\(selectedPlanId\)/);
+  // Example payment details are unmistakably marked DEMO, not a live
+  // destination. Never silently turn a placeholder into a payable number.
+  assert.match(dashboardSource, /Mixx by Yas · Lipa Namba/);
+  assert.match(dashboardSource, /Orvix Pos/);
+  assert.match(dashboardSource, /Demo only/);
+  assert.match(dashboardSource, /Example only — do not pay this number/);
+  assert.match(dashboardSource, />000000<\/p>/);
+  assert.doesNotMatch(dashboardSource, /Lipa Namba — mfano|>123456</);
+  // The checkout has ONE final action, shared by all viewports. Both the
+  // visible label and its handler derive from the SAME selected paymentMode.
+  const checkout = dashboardSource.slice(dashboardSource.indexOf('{/* Live Premium Subscription upgrade popups */}'), dashboardSource.indexOf('{/* 🔒 Sign Out Confirmation Modal */}'));
+  const footerStart = checkout.indexOf('<footer className="subscription-checkout-footer');
+  assert.ok(footerStart >= 0, 'final checkout footer must exist');
+  const checkoutFooter = checkout.slice(footerStart, checkout.indexOf('</footer>', footerStart));
+  assert.equal((checkout.match(/data-testid="subscription-final-payment"/g) || []).length, 1);
+  assert.doesNotMatch(checkout, /subscription-desktop-action|subscription-mobile-action/);
+  assert.match(checkoutFooter, /data-payment-mode=\{paymentMode\}/);
+  assert.match(checkoutFooter, /if \(paymentMode === 'offline'\)/);
+  assert.match(checkoutFooter, /manualActivationSubmittedProofId \? 'Request sent' : manualActivationSubmitting \? 'Sending…' : 'Pay'/);
+  assert.match(checkoutFooter, /onlinePaymentSubmitting \? 'Opening checkout…' : 'Pay'/);
+  assert.match(checkoutFooter, /void submitManualActivationRequest\(selectedPlanId\)/);
+  assert.match(checkoutFooter, /void startOnlineSubscriptionPayment\(selectedPlanId\)/);
+  assert.match(checkoutFooter, /manualActivationSubmittedProofId/);
+  assert.doesNotMatch(checkoutFooter, /manualActivationMessage \: onlinePaymentMessage/);
+  assert.doesNotMatch(checkoutFooter, /role="status"/);
+  assert.match(dashboardSource, /compressPaymentReceipt\(manualActivationReceipt, 14 \* 1024\)/);
+  assert.match(dashboardSource, /Your request is being processed\./);
+  assert.doesNotMatch(dashboardSource, /contact Orvix Deployments using the WhatsApp button below/);
+  assert.match(dashboardSource, /if \(!manualActivationReceipt\) \{[\s\S]*?Attach a payment receipt image before submitting/);
+  // A failed online payment may show offline as an option, but cannot switch
+  // the user's chosen payment method without a selection.
+  assert.doesNotMatch(checkoutFooter, /setPaymentMode\('offline'\)/);
+  // Plan cards: no generated-looking gem/crown/sparkle illustrations or
+  // large mint background for selected plans, only a slim brand border.
+  assert.doesNotMatch(checkout, /<PlanIcon/);
+  assert.match(checkout, /border-emerald-600 shadow-\[0_0_0_1px/);
+  assert.doesNotMatch(checkout, /bg-\[#eefbf5\]/);
+  assert.match(dashboardSource, /checkoutStep === 'plan' \? 'h-auto' : 'h-\[92dvh\]'/);
+  const checkoutStyles = await read('src/index.css');
+  assert.match(checkoutStyles, /#dashboard-scaffold \.subscription-checkout-footer \{[\s\S]*?display: block/);
   assert.match(dashboardSource, /Order summary/);
+  // Pay offline still shows the actual plan amount. The Lipa Namba is explicitly
+  // a non-payable example. Accessibility feedback and receipts are essential.
+  assert.match(dashboardSource, /Amount due · monthly/);
+  assert.match(dashboardSource, /Selected package/);
+  assert.match(dashboardSource, /aria-live="polite"/);
+  assert.match(dashboardSource, /aria-describedby="receipt-upload-hint"/);
+  assert.match(dashboardSource, /accept="image\/png,image\/jpeg,image\/webp"/);
   assert.match(dashboardSource, /Secure payment\. Access activates after payment confirmation\./);
   assert.match(dashboardSource, /Need help\? Contact deployments/);
   assert.doesNotMatch(dashboardSource, /Secure mobile-money checkout/);
@@ -570,14 +627,17 @@ test('navigation tolerates transient permission hydration without ejecting activ
   assert.match(dashboardSource, /if \(isTabAllowed\(activeTab\)\) return;[\s\S]{0,260}800/);
 });
 
-test('POS completion waits for a durable sale save and compensates treasury on failure', async () => {
+test('POS completion atomically saves paid sales and retains unpaid-sale safeguards', async () => {
   const dashboardSource = await read('src/components/Dashboard.tsx');
+  const treasurySource = await read('src/modules/cash-bank/utils/treasuryApi.ts');
   const saleHandler = dashboardSource.slice(
     dashboardSource.indexOf('const handleAddSale = async'),
     dashboardSource.indexOf('const handleAddRider =', dashboardSource.indexOf('const handleAddSale = async')),
   );
-  assert.match(saleHandler, /const saleSaved = await saveTenantSalesOnly/);
-  assert.match(saleHandler, /await reverseTreasuryEntry\(postedTreasuryJournalId/);
+  assert.match(saleHandler, /sale: saleToStore/);
+  assert.match(saleHandler, /saleSavedAtomically = true/);
+  assert.match(saleHandler, /const saleSaved = saleSavedAtomically \|\| await saveTenantSalesOnly/);
+  assert.match(treasurySource, /post_current_branch_pos_sale/);
   assert.match(saleHandler, /if \(!saleSaved\)[\s\S]{0,700}return false/);
 });
 
@@ -748,7 +808,9 @@ test('staff salary payments are wired into the shared expense and reporting ledg
   assert.match(staffSource, /Optional Attachment/);
   assert.match(staffSource, /Recent Payment History/);
   assert.match(dashboardSource, /payrollEnabled=\{subStatus\.plan\.id === 'tanzanite'\}/);
-  assert.match(dashboardSource, /sourceType:\s*expense\.payrollPaymentType \? 'payroll' : 'expense'/);
+  assert.match(dashboardSource, /saveExpensePayment\(expense\)/);
+  const expensePayment = await read('supabase/migrations/20261026040333_operation_payment_consistency_and_balance_privacy.sql');
+  assert.match(expensePayment, /case when nullif\(p_expense->>'payrollPaymentType',''\) is null then 'expense' else 'payroll' end/);
 });
 
 test('branch stock transfer is atomic and exposed through authenticated API wiring', async () => {
@@ -882,62 +944,29 @@ test('affiliate workspace uses affiliate-scoped source tracking without querying
   assert.doesNotMatch(workspaceSource, /client\.from\('tenants'\)\.select\('\*'\)\.or/);
 });
 
-test('Forecasting Lucy is routed through authenticated Express API wiring', async () => {
+test('Forecasting remains authenticated and functional without conversational Lucy AI', async () => {
   const serverSource = await read('server.ts');
   const forecastingSource = await read('src/modules/forecasting/DashboardForecasting.tsx');
-  const lucySource = await read('src/server/lucy.ts');
-  assert.match(serverSource, /app\.post\('\/api\/lucy'/);
-  assert.match(serverSource, /await requireTenantUser\(req,\s*tenantId\)/);
-  assert.match(serverSource, /return await lucyHandler\(req,\s*res\)/);
+  assert.match(serverSource, /app\.post\('\/api\/forecast'/);
+  assert.match(serverSource, /await requireTenantUser\(req, String\(tenant\?\.id \|\| ''\)\)/);
+  assert.match(serverSource, /generateLocalForecast\(products, salesHistory \|\| \[\], tenant \|\| \{\}\)/);
+  assert.match(forecastingSource, /fetch\(`\/api\/forecast`/);
   assert.match(forecastingSource, /Authorization:\s*`Bearer \$\{accessToken\}`/);
-  assert.match(lucySource, /await requireLucyTenantUser\(req,\s*String\(businessData\?\.tenantId/);
-  assert.match(lucySource, /supabaseAdmin\.auth\.getUser\(token\)/);
+  assert.match(forecastingSource, /Run Lucy Projections/);
+  assert.match(forecastingSource, /Timeline Cashflow Forecasts/);
+  assert.match(forecastingSource, /Predicted 30D/);
+  for (const source of [serverSource, forecastingSource]) {
+    assert.doesNotMatch(source, /\/api\/lucy(?:\/speech)?|\/api\/copilot|speakWithGeminiLucy|lucyHandler|handleSendLucyMessage/);
+  }
+  assert.doesNotMatch(forecastingSource, /chatMessages|chatInput|Business Copilot · Online|Ask Lucy anything/);
 });
 
-test('Lucy text generation uses current stable Gemini models', async () => {
+test('Forecast engine retains current Gemini model and health checks', async () => {
   const serverSource = await read('server.ts');
-  const lucySource = await read('src/server/lucy.ts');
-  assert.match(serverSource, /diamond:\s*'gemini-3\.5-flash-lite'/);
-  assert.match(serverSource, /tanzanite:\s*'gemini-3\.6-flash'/);
   assert.match(serverSource, /model:\s*'gemini-3\.5-flash-lite'/);
-  assert.match(lucySource, /model:\s*'gemini-3\.6-flash'/);
-  assert.doesNotMatch(serverSource, /diamond:\s*'gemini-2\.5-flash-lite'/);
-  assert.doesNotMatch(serverSource, /tanzanite:\s*'gemini-2\.5-flash'/);
-  assert.doesNotMatch(lucySource, /model:\s*'gemini-2\.5-flash'/);
   assert.match(serverSource, /app\.get\('\/api\/health\/gemini'/);
   assert.match(serverSource, /await ai\.models\.get\(\{ model: 'gemini-3\.6-flash' \}\)/);
   assert.doesNotMatch(serverSource, /\/api\/health\/gemini[\s\S]{0,1200}(error\?\.message|error\.stack)/);
-});
-
-test('Lucy uses authenticated Gemini Swahili speech and current market grounding', async () => {
-  const serverSource = await read('server.ts');
-  const lucySource = await read('src/server/lucy.ts');
-  const forecastingSource = await read('src/modules/forecasting/DashboardForecasting.tsx');
-  const speechSource = await read('src/modules/ai-copilot/utils/lucySpeech.ts');
-
-  assert.match(serverSource, /app\.post\('\/api\/lucy\/speech'/);
-  assert.match(serverSource, /await requireTenantUser\(req, tenantId\)/);
-  assert.match(serverSource, /gemini-3\.1-flash-tts-preview/);
-  assert.match(serverSource, /voice: 'Leda'/);
-  assert.match(serverSource, /young adult Kenyan woman/);
-  assert.match(serverSource, /interaction\.outputs\.find/);
-  assert.match(serverSource, /tools: \[\{ googleSearch: \{\} \}\]/);
-  assert.match(lucySource, /tools: \[\{ googleSearch: \{\} \}\]/);
-  assert.match(lucySource, /groundingMetadata\?\.groundingChunks/);
-  assert.match(speechSource, /Authorization: `Bearer \$\{session\.access_token\}`/);
-  assert.match(speechSource, /unlockLucySpeech/);
-  assert.match(forecastingSource, /speakWithGeminiLucy/);
-  assert.match(forecastingSource, /sources: Array\.isArray\(data\.sources\)/);
-  assert.match(serverSource, /buildVerifiedLucySalesWalkthrough/);
-  assert.match(serverSource, /Proceed to Payment/);
-  assert.match(serverSource, /Choose Payment Method/);
-  assert.match(serverSource, /Confirm Payment/);
-  assert.match(serverSource, /GUIDED WALKTHROUGH MODE/);
-  assert.match(serverSource, /CHOICE MODE/);
-  assert.match(serverSource, /resolveLucyConversationChoice/);
-  assert.match(lucySource, /Use choices only when a real decision is required/);
-  assert.match(serverSource, /normalizeLucyResponseText/);
-  assert.match(serverSource, /RECENT CONVERSATION \(OLDEST TO NEWEST/);
 });
 
 test('reports use branded, searchable, multi-page PDF mode', async () => {
@@ -1064,3 +1093,49 @@ test('GitHub CI runs tests and a production frontend build', async () => {
 });
 
 
+
+
+test('Adjust Stock waits for the durable narrow product save before updating audit and closing modal', async () => {
+  const productSource = await read('src/modules/products/DashboardProducts.tsx');
+  const dashboardSource = await read('src/components/Dashboard.tsx');
+  const start = productSource.indexOf('const handleAdjustStock = async');
+  const end = productSource.indexOf('const handleBrandLogoUpload', start);
+  assert.ok(start >= 0 && end > start);
+  const handler = productSource.slice(start, end);
+  assert.match(handler, /adjustSaveInFlightRef\.current/);
+  assert.match(handler, /prepareManualStockAdjustment\(freshProduct, type, qty\)/);
+  assert.match(handler, /const saved = await onUpdateProducts\(/);
+  assert.match(handler, /\[freshProduct\.id\]/);
+  assert.match(handler, /if \(!saved\) \{[\s\S]*?setAdjustSaveError\([\s\S]*?return;/);
+  assert.ok(handler.indexOf('const saved = await onUpdateProducts') < handler.indexOf('const log = {'));
+  assert.ok(handler.indexOf('const log = {') < handler.indexOf('setAdjustProduct(null)'));
+  assert.match(handler, /finally \{[\s\S]*adjustSaveInFlightRef\.current = false/);
+  assert.match(productSource, /disabled=\{qty <= 0 \|\| isSavingAdjustment\}/);
+  assert.match(dashboardSource, /const \{ products: syncedProducts, saved \} = persistTenantProductsNow\(nextTenantProducts, branchStockUpdates, changedProductIds\)/);
+  assert.match(dashboardSource, /const didSave = await saved;/);
+});
+
+test('browser gets a fresh service worker and dashboard shell after each deployment', async () => {
+  const pkg = JSON.parse(await read('package.json'));
+  const verifier = await read('scripts/verify-deploy.mjs');
+  const stamp = await read('scripts/stamp-service-worker.mjs');
+  const sw = await read('public/sw.js');
+  const html = await read('index.html');
+  const vercel = JSON.parse(await read('vercel.json'));
+  assert.match(pkg.scripts.build, /vite build && node scripts\/stamp-service-worker\.mjs && esbuild/);
+  assert.match(stamp, /VERCEL_GIT_COMMIT_SHA/);
+  assert.match(stamp, /replaceAll\(marker, version\)/);
+  assert.match(verifier, /dist\/sw\.js/);
+  assert.match(verifier, /__ORVIX_BUILD_VERSION__/);
+  assert.match(sw, /const ORVIX_BUILD_VERSION = '__ORVIX_BUILD_VERSION__'/);
+  assert.match(sw, /self\.skipWaiting\(\)/);
+  assert.match(sw, /self\.clients\.claim\(\)/);
+  assert.match(html, /registration\.update\(\)/);
+  assert.match(html, /controllerchange/);
+  for (const route of ['/sw.js', '/index.html', '/dashboard', '/dashboard/:path*']) {
+    const rule = vercel.headers.find((item: { source: string }) => item.source === route);
+    assert.ok(rule, `Missing no-store header for ${route}`);
+    assert.ok(rule.headers.some((item: { key: string, value: string }) =>
+      item.key.toLowerCase() === 'cache-control' && item.value.includes('no-store')));
+  }
+});
