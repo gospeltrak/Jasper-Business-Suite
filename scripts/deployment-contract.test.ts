@@ -219,15 +219,32 @@ test('subscription checkout uses the native plan summary without inline mobile-m
   assert.match(dashboardSource, /Example only — do not pay this number/);
   assert.match(dashboardSource, />000000<\/p>/);
   assert.doesNotMatch(dashboardSource, /Lipa Namba — mfano|>123456</);
-  // The footer action must come from the SAME paymentMode as the selected
-  // method, with the exact correct handler for both choices.
-  const checkoutFooter = dashboardSource.slice(dashboardSource.indexOf('<footer className="subscription-mobile-action'), dashboardSource.indexOf('</footer>', dashboardSource.indexOf('<footer className="subscription-mobile-action')));
-  assert.match(checkoutFooter, /paymentMode === 'offline'/);
-  assert.match(checkoutFooter, /manualActivationSubmitting \? 'Sending…' : 'Pay offline'/);
-  assert.match(checkoutFooter, /onlinePaymentSubmitting \? 'Starting secure payment…' : 'Pay online'/);
+  // The checkout has ONE final action, shared by all viewports. Both the
+  // visible label and its handler derive from the SAME selected paymentMode.
+  const checkout = dashboardSource.slice(dashboardSource.indexOf('{/* Live Premium Subscription upgrade popups */}'), dashboardSource.indexOf('{/* 🔒 Sign Out Confirmation Modal */}'));
+  const footerStart = checkout.indexOf('<footer className="subscription-checkout-footer');
+  assert.ok(footerStart >= 0, 'final checkout footer must exist');
+  const checkoutFooter = checkout.slice(footerStart, checkout.indexOf('</footer>', footerStart));
+  assert.equal((checkout.match(/data-testid="subscription-final-payment"/g) || []).length, 1);
+  assert.doesNotMatch(checkout, /subscription-desktop-action|subscription-mobile-action/);
+  assert.match(checkoutFooter, /data-payment-mode=\{paymentMode\}/);
+  assert.match(checkoutFooter, /if \(paymentMode === 'offline'\)/);
+  assert.match(checkoutFooter, /manualActivationSubmitting \? 'Sending receipt…' : 'Pay offline'/);
+  assert.match(checkoutFooter, /onlinePaymentSubmitting \? 'Opening secure checkout…' : 'Pay online'/);
   assert.match(checkoutFooter, /void submitManualActivationRequest\(selectedPlanId\)/);
-  assert.match(checkoutFooter, /void startOnlineSubscriptionPayment\(selectedPlanId/);
+  assert.match(checkoutFooter, /void startOnlineSubscriptionPayment\(selectedPlanId\)/);
+  assert.match(dashboardSource, /if \(!manualActivationReceipt\) \{[\s\S]*?Attach a payment receipt image before submitting/);
+  // A failed online payment may show offline as an option, but cannot switch
+  // the user's chosen payment method without a selection.
+  assert.doesNotMatch(checkoutFooter, /setPaymentMode\('offline'\)/);
+  // Plan cards: no generated-looking gem/crown/sparkle illustrations or
+  // large mint background for selected plans, only a slim brand border.
+  assert.doesNotMatch(checkout, /<PlanIcon/);
+  assert.match(checkout, /border-emerald-600 shadow-\[0_0_0_1px/);
+  assert.doesNotMatch(checkout, /bg-\[#eefbf5\]/);
   assert.match(dashboardSource, /checkoutStep === 'plan' \? 'h-auto' : 'h-\[92dvh\]'/);
+  const checkoutStyles = await read('src/index.css');
+  assert.match(checkoutStyles, /#dashboard-scaffold \.subscription-checkout-footer \{[\s\S]*?display: block/);
   assert.match(dashboardSource, /Order summary/);
   // Pay offline still shows the actual plan amount. The Lipa Namba is explicitly
   // a non-payable example. Accessibility feedback and receipts are essential.
