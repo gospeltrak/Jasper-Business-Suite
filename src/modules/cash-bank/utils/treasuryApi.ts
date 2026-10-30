@@ -1,6 +1,8 @@
-import type { PaymentChannel } from '../../../types';
+import type { Delivery, PaymentChannel, Sale } from '../../../types';
+import { requireOnlineBusinessWrite } from '../../../shared/utils/onlineOnly';
 import { getSecureDataBridgeClient } from '../../../shared/dataBridge/secureDataBridge';
 import { getMaskedAccountReference } from '../../../shared/utils/paymentAccounts';
+import { selectPaymentAccountsForBranch } from './treasuryBranchAccounts';
 
 type TreasuryDirection = 'in' | 'out';
 
@@ -37,6 +39,30 @@ export interface TreasuryTransferResult {
   status: 'posted' | 'already_posted';
 }
 
+/** The server derives fee, branch and tenant from the saved delivery. */
+export async function collectDeliveryPayment(deliveryId: string, sourceAccountKey?: string): Promise<Delivery> {
+  requireOnlineBusinessWrite('delivery payment');
+  const client: any = await getSecureDataBridgeClient();
+  const { data, error } = await client.rpc('collect_current_branch_delivery_payment', {
+    p_delivery_id: deliveryId,
+    p_source_account_key: sourceAccountKey || null,
+  });
+  if (error) {
+    if (error.code === '42501') throw new Error('You do not have permission to collect delivery payments in this branch.');
+    if (error.code === 'P0002') throw new Error('This delivery is not available in the selected branch. Refresh Deliveries and try again.');
+    if (error.code === '23505') throw new Error('This delivery has a conflicting payment record. Check its payment history before retrying.');
+    if (error.code === '23514') throw new Error('The delivery fee, account or existing collection could not be verified. Check the delivery and payment history.');
+    throw new Error('Delivery payment could not be confirmed. Check Deliveries before retrying.');
+  }
+  const delivery = data?.delivery as Delivery | undefined;
+  if (!delivery || delivery.id !== deliveryId || delivery.status !== 'Delivered'
+    || delivery.deliveryPaymentStatus !== 'collected'
+    || (Number(delivery.deliveryCost || 0) > 0 && !delivery.treasuryJournalId)) {
+    throw new Error('Delivery payment was not confirmed. Refresh Deliveries before retrying.');
+  }
+  return delivery;
+}
+
 const toTreasuryType = (channel: PaymentChannel) => {
   const value = `${channel.category || ''} ${channel.paymentMethod || ''} ${channel.name || ''}`.toLowerCase();
   if (value.includes('cash') || channel.category === 'physical') return 'cash';
@@ -54,11 +80,39 @@ const toStoredMaskedReference = (channel: PaymentChannel) => {
 
 const safeTreasuryError = (error: any) => {
   const code = String(error?.code || '');
-  if (code === '23514') return new Error('The selected account has insufficient available funds.');
+  if (code === '22023') {
+    // Only server-authored, PII-free POS validation messages are safe to show.
+    // Raw SQL errors can expose internal table/function details.
+    const message = String(error?.message || '');
+    const safePosErrors = [
+      'POS sale payload is missing. Please reopen the cart.',
+      'POS business context changed. Sign in to the correct business.',
+      'POS branch is out of sync. Re-select your branch before checkout.',
+      'POS cart must contain between 1 and 500 items.',
+      'POS sale reference is invalid. Please reopen the cart.',
+      'POS sale already carries a payment reference. Check Sales before retrying.',
+      'At least one valid payment account is required.',
+      'POS sale items must have a product, quantity and price.',
+      'POS payment cannot exceed sale revenue.',
+      'Every payment line must have a valid positive amount.',
+      'POS split payment accounts must be unique.',
+    ];
+    return new Error(safePosErrors.includes(message)
+      ? message
+      : 'POS sale details could not be verified. Please check your branch and cart before retrying.');
+  }
+  if (code === '23514') {
+    const message = String(error?.message || '');
+    if (message === 'Collected payment must match POS sale amount paid.')
+      return new Error('The POS amount collected does not match the sale payment. Check the amount before retrying.');
+    if (message === 'POS payments require active accounts in one branch and currency.')
+      return new Error('Selected payment account does not belong to the active branch or currency.');
+    return new Error('The Money & Bank account or payment amount could not be verified.');
+  }
   if (code === '42501') return new Error('You do not have permission to post this Money & Bank transaction.');
   if (code === 'P0002') return new Error('The selected Money & Bank account is not active.');
-  if (code === '23505') return new Error('This Money & Bank transaction was already posted.');
-  return new Error('Money & Bank could not post this transaction safely. Nothing was saved.');
+  if (code === '23505') return new Error('This sale or payment already exists. Check Sales before retrying.');
+  return new Error('Money & Bank could not post this transaction safely. Check Sales before retrying.');
 };
 
 const TREASURY_ACCOUNT_CACHE_TTL_MS = 30_000;
@@ -194,13 +248,21 @@ export async function transferTreasuryFunds(input: {
   if (input.sourceAccountKey === input.destinationAccountKey) {
     throw new Error('Source and destination accounts must be different.');
   }
-  const syncedAccounts = await syncTreasuryPaymentAccounts(input.channels, input.openingBalances);
-  const source = syncedAccounts.find(account => account.sourceKey === input.sourceAccountKey);
-  const destination = syncedAccounts.find(account => account.sourceKey === input.destinationAccountKey);
+  const client: any = await getSecureDataBridgeClient();
+  const [syncedAccounts, context] = await Promise.all([
+    syncTreasuryPaymentAccounts(input.channels, input.openingBalances),
+    client.rpc('get_current_branch_context'),
+  ]);
+  if (context.error || context.data?.activeScope !== 'branch' || !context.data?.activeBranchId) {
+    throw new Error('Select a branch before transferring funds.');
+  }
+  const selection = selectPaymentAccountsForBranch(syncedAccounts,
+    [input.sourceAccountKey, input.destinationAccountKey], context.data.activeBranchId);
+  const source = selection.accounts.get(input.sourceAccountKey);
+  const destination = selection.accounts.get(input.destinationAccountKey);
   if (!source?.accountId || !destination?.accountId) {
     throw new Error('Both Money & Bank accounts must be active and synchronized.');
   }
-  const client: any = await getSecureDataBridgeClient();
   const { data, error } = await client.rpc('transfer_current_tenant_treasury_funds', {
     p_source_account_id: source.accountId,
     p_destination_account_id: destination.accountId,
@@ -209,6 +271,7 @@ export async function transferTreasuryFunds(input: {
     p_description: input.description,
     p_metadata: input.metadata || {},
   });
+  if (error?.code === '42501') throw new Error('Your role does not allow transfers in this branch. Ask the owner to check Transfer Between Treasury Accounts.');
   if (error) throw safeTreasuryError(error);
   return {
     journalId: String(data?.journalId || ''),
@@ -222,6 +285,8 @@ export async function postTreasurySplitIncome(input: {
   channels: PaymentChannel[];
   lines: Array<{ sourceAccountKey: string; amount: number }>;
   sourceType: 'sale' | 'delivery' | 'other';
+  // Only a real POS sale can use the narrowly authorized, atomic checkout RPC.
+  sale?: Sale;
   sourceId: string;
   description: string;
   openingBalances?: Record<string, number>;
@@ -252,10 +317,16 @@ export async function postTreasurySplitIncome(input: {
     input.openingBalances,
     input.cacheKey,
   );
-  const mapping = new Map(syncedAccounts.map(account => [account.sourceKey, account]));
+  // Cash and M-Pesa may reuse the same sourceKey in every tenant branch.
+  // Restrict Sale payment routing to the branch selected on the POS sale,
+  // instead of overwriting one branch's sourceKey with another branch's.
+  const saleSelection = input.sourceType === 'sale'
+    ? selectPaymentAccountsForBranch(syncedAccounts, [...aggregated.keys()], input.sale?.branchId)
+    : null;
+  const mapping = saleSelection?.accounts || new Map(syncedAccounts.map(account => [account.sourceKey, account]));
   const branchIds = new Set([...aggregated.keys()].map(key => mapping.get(key)?.branchId).filter(Boolean));
   if (branchIds.size !== 1) throw new Error('Split payments must belong to one active branch.');
-  const branchId = String([...branchIds][0] || '');
+  const branchId = saleSelection?.branchId || String([...branchIds][0] || '');
   const lines = [...aggregated.entries()]
     .map(([sourceAccountKey, amount]) => ({
       accountId: mapping.get(sourceAccountKey)?.accountId,
@@ -264,6 +335,21 @@ export async function postTreasurySplitIncome(input: {
     .sort((a, b) => String(a.accountId).localeCompare(String(b.accountId)));
   if (lines.some(line => !line.accountId)) {
     throw new Error('A Money & Bank account could not be synchronized.');
+  }
+
+  // POS payments must create the sale record and the money journal in one
+  // database transaction. Sellers never receive generic money_bank.post.
+  if (input.sourceType === 'sale') {
+    if (!input.sale || input.sale.id !== input.sourceId) {
+      throw new Error('A matching POS sale is required before recording its payment.');
+    }
+    const { data, error } = await client.rpc('post_current_branch_pos_sale', {
+      p_sale: { ...input.sale, branchId },
+      p_lines: lines,
+    });
+    if (error) throw safeTreasuryError(error);
+    if (!data?.journalId) throw new Error('POS sale payment was not confirmed. Check Sales before retrying.');
+    return { journalId: String(data.journalId), branchId };
   }
 
   const { data, error } = await client.rpc('post_current_tenant_treasury_split_entry', {
@@ -350,3 +436,5 @@ export async function reverseTreasuryEntry(journalId: string, sourceId: string, 
   });
   if (error) throw safeTreasuryError(error);
 }
+
+
