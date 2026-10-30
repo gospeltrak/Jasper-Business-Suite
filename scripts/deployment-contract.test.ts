@@ -1139,8 +1139,11 @@ test('barcode actions stay side-by-side and product forms check duplicate codes 
   assert.match(source, /findProductBarcodeConflict\(products, finalizedEditBarcode, editingProduct\.id\)/);
   assert.match(source, /findBatchBarcodeConflict\(products, importedItems\)/);
   assert.match(parent, /findBatchBarcodeConflict\(productsMap\[activeTenant\.id\] \|\| \[\], newProducts\)/);
-  const horizontal = source.match(/gridTemplateColumns: 'repeat\(2, minmax\(0, 1fr\)\)'/g) || [];
-  assert.ok(horizontal.length >= 2, 'Both new-product and edit-product barcode actions must be horizontal');
+  const barcodes = source.match(/className="orvix-barcode-actions"/g) || [];
+  assert.equal(barcodes.length, 2, 'Create and Edit barcode action groups must share a compact horizontal layout');
+  const barcodeCss = await read('src/index.css');
+  assert.match(barcodeCss, /#dashboard-scaffold \.orvix-barcode-actions\s*\{\s*display: grid !important;\s*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\) !important/);
+  assert.match(barcodeCss, /#dashboard-scaffold \.orvix-barcode-action\s*\{[^}]*min-height: 40px;[^}]*height: 40px/s);
   assert.match(migration, /products_reject_new_duplicate_barcodes/);
   assert.match(migration, /pg_advisory_xact_lock/);
   assert.doesNotMatch(migration, /delete from public\.products|truncate table public\.products/i);
@@ -1179,8 +1182,10 @@ test('POS payment options remain three readable columns on small phones', async 
   const phoneStart = css.indexOf('@media (max-width: 639px)');
   const phoneRules = css.slice(phoneStart, css.indexOf('@media (max-width: 479px)', phoneStart));
   assert.match(phoneRules, /grid-template-columns: repeat\(3, minmax\(0, 1fr\)\) !important/);
-  assert.match(phoneRules, /flex-direction: column/);
-  assert.match(phoneRules, /text-align: center/);
+  assert.match(phoneRules, /flex-direction: row/);
+  assert.match(phoneRules, /text-align: left/);
+  assert.match(phoneRules, /min-height: 56px/);
+  assert.match(phoneRules, /\.pos-checkout-method-icon\s*\{\s*width: 25px;\s*height: 25px/);
   assert.match(phoneRules, /\.pos-checkout-method-check\s*\{\s*position: absolute/);
   assert.match(source, /aria-pressed={isSelected}/);
   assert.match(source, /onClick={\(\) => \{\s*setPaymentMethod\(mode\)/);
