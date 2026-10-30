@@ -2821,41 +2821,47 @@ button:active:not(:disabled),
   cursor: not-allowed;
   box-shadow: none;
 }
-/* On phones, icons sit above text so three narrow columns remain readable.
-   This is presentation only; the same selection state and payment handlers run. */
+/* Compact three-column payment choices: icon at the START, not above the
+   label. Keep mobile touch targets readable without wasting vertical space. */
 @media (max-width: 639px) {
   #dashboard-scaffold .pos-checkout-method-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-    gap: 10px;
+    gap: 8px;
   }
   #dashboard-scaffold .pos-checkout-method {
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
-    justify-content: center;
-    min-height: 87px;
-    padding: 11px 5px 9px;
-    gap: 7px;
-    text-align: center;
+    justify-content: flex-start;
+    min-height: 56px;
+    padding: 7px 6px;
+    gap: 5px;
+    text-align: left;
   }
   #dashboard-scaffold .pos-checkout-method-name {
-    flex: none;
-    width: 100%;
-    font-size: 10.5px;
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
+    font-size: 10px;
     font-weight: 700;
     line-height: 1.2;
     overflow-wrap: anywhere;
   }
   #dashboard-scaffold .pos-checkout-method-icon {
-    width: 33px;
-    height: 33px;
+    width: 25px;
+    height: 25px;
     flex: none;
+    border-radius: 8px;
+  }
+  #dashboard-scaffold .pos-checkout-method-icon svg {
+    width: 16px;
+    height: 16px;
   }
   #dashboard-scaffold .pos-checkout-method-check {
     position: absolute;
-    top: 5px;
-    right: 5px;
-    width: 15px;
-    height: 15px;
+    top: 3px;
+    right: 3px;
+    width: 13px;
+    height: 13px;
   }
 }
 @media (max-width: 479px) {
@@ -2903,15 +2909,16 @@ button:active:not(:disabled),
     text-overflow: ellipsis;
   }
   #dashboard-scaffold .pos-checkout-method {
-    padding: 11px 4px 9px;
-    gap: 7px;
+    padding: 7px 4px;
+    gap: 4px;
+    min-height: 56px;
   }
   #dashboard-scaffold .pos-checkout-method-name {
-    font-size: 10px;
+    font-size: 9.5px;
   }
   #dashboard-scaffold .pos-checkout-method-icon {
-    width: 32px;
-    height: 32px;
+    width: 24px;
+    height: 24px;
   }
   #dashboard-scaffold .pos-checkout-footer {
     padding: 10px 15px 15px;
@@ -2924,4 +2931,29 @@ button:active:not(:disabled),
     border-bottom-right-radius: 0 !important;
     max-width: none !important;
   }
+}
+
+/* Barcode action rows must override the dashboard's generic mobile rule
+   [class*="grid-cols-2"] { grid-template-columns: 1fr !important; }.
+   The same action bar is used in both Create and Edit product forms. */
+#dashboard-scaffold .orvix-barcode-actions {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 8px;
+  min-width: 0;
+}
+#dashboard-scaffold .orvix-barcode-action {
+  min-width: 0;
+  min-height: 40px;
+  height: 40px;
+  padding: 0 7px;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+#dashboard-scaffold .orvix-barcode-action svg {
+  flex: none;
+}
+@media (max-width: 360px) {
+  #dashboard-scaffold .orvix-barcode-actions { gap: 6px; }
+  #dashboard-scaffold .orvix-barcode-action { gap: 4px; padding: 0 4px; font-size: 9px; }
 }
