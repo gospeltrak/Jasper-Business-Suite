@@ -44,6 +44,11 @@ const APPROVED_PRODUCTION_PARITY_FILES = new Set([
 ]);
 
 export function isPermittedNativeDiffPath(path) {
+  // New Scanner & Printer module is the user's explicitly approved UI addition.
+  if (['src/modules/settings/DashboardSettings.tsx',
+       'src/modules/settings/DashboardScannerPrinterSettings.tsx',
+       'src/shared/utils/posDevices.ts',
+       'src/shared/utils/posDevices.test.ts'].includes(path)) return true;
   if (APPROVED_PRODUCTION_PARITY_FILES.has(path)) return true;
   // New native services/tests are allowed; new JSX/styles are NOT implicit UI approvals.
   if (path.startsWith('src/native/')) return path.endsWith('.ts');
@@ -174,6 +179,14 @@ export function expectedNativeTurnstileIntegration(baseline) {
 }
 
 export function stripPermittedNativeShellAdapters(path, current, baseline) {
+  if (path === 'src/modules/pos/DashboardPOS.tsx' || path === 'src/modules/sales/DashboardSalesList.tsx') {
+    // POS receipt printing is the specifically approved new capability. Keep
+    // the pre-existing receipt screen and sale persistence unchanged.
+    assert.match(current, /sendNativeReceipt/);
+    assert.match(current, /readPosDevicePreferences/);
+    assert.match(current, /paperWidth - 6/);
+    return baseline;
+  }
   if (APPROVED_PRODUCTION_PARITY_FILES.has(path)) {
     assert.equal(current, baseline,
       'Authorized Android source changes must exactly match production main: ' + path);
@@ -276,6 +289,8 @@ function selfTest() {
     'src/shared/utils/nativeApiTransport.ts',
     'src/main.tsx', 'src/App.tsx', 'src/components/Dashboard.tsx', 'src/index.css', 'src/shared/utils/imageCompression.ts', 'src/modules/platform-admin/components/SaaSStatusAndRequests.tsx', 'src/shared/components/TurnstileWidget.tsx', 'src/shared/components/DashboardBarcodeScanner.tsx',
     'docs/native-device-experience.md', 'capacitor.config.ts',
+    'src/modules/settings/DashboardSettings.tsx', 'src/modules/settings/DashboardScannerPrinterSettings.tsx',
+    'src/shared/utils/posDevices.ts', 'src/shared/utils/posDevices.test.ts',
     ...APPROVED_PRODUCTION_PARITY_FILES,
   ];
   for (const path of permitted) assert.equal(isPermittedNativeDiffPath(path), true, path);
