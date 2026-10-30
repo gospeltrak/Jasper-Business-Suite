@@ -73,7 +73,17 @@ jobs:
           npx cap add android
           npx cap sync android
 
-      - name: Compile unsigned QA/debug APK
+      # AssembleDebug signs with ~/.android/debug.keystore. Without restoring it,
+      # every fresh GitHub runner generates a different signer and Android refuses
+      # to update the previous QA APK (INSTALL_FAILED_UPDATE_INCOMPATIBLE).
+      # Scoped to this workflow ref; QA only, never use for Play Store releases.
+      - name: Reuse Android QA debug signing key across builds
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: orvix-android-qa-debug-signing-${{ runner.os }}-${{ github.ref }}-v1
+
+      - name: Compile signed QA/debug APK
         working-directory: android
         run: ./gradlew :app:assembleDebug --no-daemon
 
