@@ -2129,7 +2129,11 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     return { settings: syncedSettings, saved };
   };
 
-  const handleUpdateActiveStocks = async (updatedProducts: Product[], changedProductIds?: string[]): Promise<boolean> => {
+  const handleUpdateActiveStocks = async (
+    updatedProducts: Product[],
+    changedProductIds?: string[],
+    options: { suppressSuccessToast?: boolean } = {},
+  ): Promise<boolean> => {
     if (blockOfflineBusinessWrite('stock adjustment')) return false;
     const changedIds = changedProductIds ? new Set(changedProductIds) : null;
     const scopedUpdates = changedIds ? updatedProducts.filter(product => changedIds.has(product.id)) : updatedProducts;
@@ -2184,14 +2188,20 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     if (branchStockUpdates !== undefined && durable?.branchStocks) {
       setBranchStocksMap(prev => ({ ...prev, [activeTenant.id]: durable.branchStocks || [] }));
     }
-    const newLog: SyncLog = {
-      id: 'l-' + Math.random().toString(36).substr(2, 9),
-      type: 'product_update',
-      status: 'success',
-      message: `Adjusted inventory stock counts on central ledger for branch: ${activeTenant.name}`,
-      timestamp: new Date().toISOString()
-    };
-    setLogs(prev => [newLog, ...prev]);
+    // Checkout already announces the completed sale through handleAddSale.
+    // Don't pop a second "inventory updated" success notice for the same
+    // transaction. Manual stock changes still announce normally, and errors
+    // from persistTenantProductsNow remain visible in either flow.
+    if (!options.suppressSuccessToast) {
+      const newLog: SyncLog = {
+        id: 'l-' + Math.random().toString(36).substr(2, 9),
+        type: 'product_update',
+        status: 'success',
+        message: `Adjusted inventory stock counts on central ledger for branch: ${activeTenant.name}`,
+        timestamp: new Date().toISOString()
+      };
+      setLogs(prev => [newLog, ...prev]);
+    }
     return true;
   };
 
@@ -4244,7 +4254,11 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
               products={activeProducts}
               userName={user.name}
               isOfflineMode={isOfflineMode}
-              onUpdateStocks={handleUpdateActiveStocks}
+              onUpdateStocks={(updatedProducts) => handleUpdateActiveStocks(
+                updatedProducts,
+                undefined,
+                { suppressSuccessToast: true },
+              )}
               onAddSale={handleAddSale}
               systemSettings={systemSettings}
               activeBranch={branchContextSelectedBranch}
