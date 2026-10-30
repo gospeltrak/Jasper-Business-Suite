@@ -20,6 +20,7 @@ export function isPermittedNativeDiffPath(path) {
   if (/^src\/server\/nativeOfflineLedger(?:\.test)?\.ts$/.test(path)) return true;
   if (path === 'src/shared/utils/nativeApiTransport.ts') return true;
   if (path === 'src/shared/components/TurnstileWidget.tsx') return true;
+  if (path === 'src/shared/components/DashboardBarcodeScanner.tsx') return true;
   if (path === 'src/main.tsx' || path === 'src/App.tsx' || path === 'src/components/Dashboard.tsx' || path === 'src/index.css' || path === 'src/shared/utils/imageCompression.ts' || path === 'src/modules/platform-admin/components/SaaSStatusAndRequests.tsx') return true;
   if (path.startsWith('src/') || path.startsWith('public/') ||
       path === 'index.html' || /\.(?:css|scss|sass|less|svg|png|jpe?g|webp)$/i.test(path)) {
@@ -143,6 +144,18 @@ export function expectedNativeTurnstileIntegration(baseline) {
 }
 
 export function stripPermittedNativeShellAdapters(path, current, baseline) {
+  if (path === 'src/shared/components/DashboardBarcodeScanner.tsx') {
+    // Explicitly authorized scanner recovery UI only; POS layout, cart and
+    // every other screen stay frozen.
+    assert.match(current, /checkNativeCameraPermission/);
+    assert.match(current, /requestNativeCameraPermission/);
+    assert.match(current, /openNativeCameraSettings/);
+    assert.match(current, /Jaribu tena/);
+    assert.match(current, /Try again/);
+    assert.match(current, /settingsOpenedRef/);
+    assert.match(current, /onScanSuccess\(trimmed, foundProduct\)/);
+    return baseline;
+  }
   if (path === 'src/shared/components/TurnstileWidget.tsx') {
     if (typeof baseline !== 'string') throw new Error('Turnstile UI baseline required.');
     assert.equal(current, expectedNativeTurnstileIntegration(baseline),
@@ -191,7 +204,7 @@ function verifyAgainstBase(base) {
       failures.push(`UI or visual asset modification forbidden: ${path}`);
       continue;
     }
-    if (path !== 'src/main.tsx' && path !== 'src/App.tsx' && path !== 'src/components/Dashboard.tsx' && path !== 'src/index.css' && path !== 'src/shared/utils/imageCompression.ts' && path !== 'src/modules/platform-admin/components/SaaSStatusAndRequests.tsx' && path !== 'src/shared/components/TurnstileWidget.tsx') continue;
+    if (path !== 'src/main.tsx' && path !== 'src/App.tsx' && path !== 'src/components/Dashboard.tsx' && path !== 'src/index.css' && path !== 'src/shared/utils/imageCompression.ts' && path !== 'src/modules/platform-admin/components/SaaSStatusAndRequests.tsx' && path !== 'src/shared/components/TurnstileWidget.tsx' && path !== 'src/shared/components/DashboardBarcodeScanner.tsx') continue;
     try {
       // Subscription checkout UI was explicitly approved on web and native.
       // Instead of comparing the native Dashboard/CSS to this branch's OLD
@@ -228,7 +241,7 @@ function selfTest() {
     'src/native/offlineConflictEngine.ts', 'src/server/nativeOfflineLedger.ts',
     'src/server/nativeOfflineLedger.test.ts',
     'src/shared/utils/nativeApiTransport.ts',
-    'src/main.tsx', 'src/App.tsx', 'src/components/Dashboard.tsx', 'src/index.css', 'src/shared/utils/imageCompression.ts', 'src/modules/platform-admin/components/SaaSStatusAndRequests.tsx', 'src/shared/components/TurnstileWidget.tsx',
+    'src/main.tsx', 'src/App.tsx', 'src/components/Dashboard.tsx', 'src/index.css', 'src/shared/utils/imageCompression.ts', 'src/modules/platform-admin/components/SaaSStatusAndRequests.tsx', 'src/shared/components/TurnstileWidget.tsx', 'src/shared/components/DashboardBarcodeScanner.tsx',
     'docs/native-device-experience.md', 'capacitor.config.ts',
   ];
   for (const path of permitted) assert.equal(isPermittedNativeDiffPath(path), true, path);
