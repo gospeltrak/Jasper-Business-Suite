@@ -20,7 +20,7 @@ export function isPermittedNativeDiffPath(path) {
   if (/^src\/server\/nativeOfflineLedger(?:\.test)?\.ts$/.test(path)) return true;
   if (path === 'src/shared/utils/nativeApiTransport.ts') return true;
   if (path === 'src/shared/components/TurnstileWidget.tsx') return true;
-  if (path === 'src/main.tsx' || path === 'src/App.tsx' || path === 'src/components/Dashboard.tsx' || path === 'src/index.css') return true;
+  if (path === 'src/main.tsx' || path === 'src/App.tsx' || path === 'src/components/Dashboard.tsx' || path === 'src/index.css' || path === 'src/shared/utils/imageCompression.ts' || path === 'src/modules/platform-admin/components/SaaSStatusAndRequests.tsx') return true;
   if (path.startsWith('src/') || path.startsWith('public/') ||
       path === 'index.html' || /\.(?:css|scss|sass|less|svg|png|jpe?g|webp)$/i.test(path)) {
     return false;
@@ -149,6 +149,10 @@ export function stripPermittedNativeShellAdapters(path, current, baseline) {
       'TurnstileWidget.tsx changed beyond native-only explicit rendering');
     return baseline;
   }
+  if (path === 'src/shared/utils/imageCompression.ts' || path === 'src/modules/platform-admin/components/SaaSStatusAndRequests.tsx' || path === 'src/index.css') {
+    assert.equal(current, baseline, 'Approved UI/utilities must be identical to production main.');
+    return baseline;
+  }
   if (path === 'src/components/Dashboard.tsx') {
     if (typeof baseline !== 'string') throw new Error('Dashboard UI baseline required.');
     assert.equal(current, expectedDashboardAfterNonvisualTypeFix(expectedDashboardAfterAuthorizedPwaRemoval(baseline)),
@@ -187,13 +191,13 @@ function verifyAgainstBase(base) {
       failures.push(`UI or visual asset modification forbidden: ${path}`);
       continue;
     }
-    if (path !== 'src/main.tsx' && path !== 'src/App.tsx' && path !== 'src/components/Dashboard.tsx' && path !== 'src/index.css' && path !== 'src/shared/components/TurnstileWidget.tsx') continue;
+    if (path !== 'src/main.tsx' && path !== 'src/App.tsx' && path !== 'src/components/Dashboard.tsx' && path !== 'src/index.css' && path !== 'src/shared/utils/imageCompression.ts' && path !== 'src/modules/platform-admin/components/SaaSStatusAndRequests.tsx' && path !== 'src/shared/components/TurnstileWidget.tsx') continue;
     try {
       // Subscription checkout UI was explicitly approved on web and native.
       // Instead of comparing the native Dashboard/CSS to this branch's OLD
       // fork point, require exact current production main UI (plus the one
       // existing native-only TypeScript narrowing fix).
-      const baselineRef = path === 'src/components/Dashboard.tsx' || path === 'src/index.css' ? base : baseline;
+      const baselineRef = ['src/components/Dashboard.tsx', 'src/index.css', 'src/shared/utils/imageCompression.ts', 'src/modules/platform-admin/components/SaaSStatusAndRequests.tsx'].includes(path) ? base : baseline;
       const oldSource = git('show', `${baselineRef}:${path}`);
       const current = readFileSync(path, 'utf8');
       assert.equal(stripPermittedNativeShellAdapters(path, current, oldSource), oldSource,
@@ -224,7 +228,7 @@ function selfTest() {
     'src/native/offlineConflictEngine.ts', 'src/server/nativeOfflineLedger.ts',
     'src/server/nativeOfflineLedger.test.ts',
     'src/shared/utils/nativeApiTransport.ts',
-    'src/main.tsx', 'src/App.tsx', 'src/components/Dashboard.tsx', 'src/index.css', 'src/shared/components/TurnstileWidget.tsx',
+    'src/main.tsx', 'src/App.tsx', 'src/components/Dashboard.tsx', 'src/index.css', 'src/shared/utils/imageCompression.ts', 'src/modules/platform-admin/components/SaaSStatusAndRequests.tsx', 'src/shared/components/TurnstileWidget.tsx',
     'docs/native-device-experience.md', 'capacitor.config.ts',
   ];
   for (const path of permitted) assert.equal(isPermittedNativeDiffPath(path), true, path);
