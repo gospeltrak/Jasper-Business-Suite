@@ -14,6 +14,11 @@ const turnstileWidget = read('src/shared/components/TurnstileWidget.tsx');
 const androidWorkflow = read('.github/workflows/native-android-qa.yml');
 const iosWorkflow = read('.github/workflows/native-ios-qa.yml');
 const dashboard = read('src/components/Dashboard.tsx');
+const scanner = read('src/shared/components/DashboardBarcodeScanner.tsx');
+const cameraBridge = read('src/native/cameraPermissions.ts');
+const cameraJava = read('scripts/native-android-camera/OrvixCameraPermissions.java');
+const cameraSetup = read('scripts/setup-native-android-camera.mjs');
+
 
 test('native dependencies are locked and match the root manifest', () => {
   for (const name of ['@capacitor/core', '@capacitor/android', '@capacitor/cli']) {
@@ -93,4 +98,26 @@ test('native-only status bar protects controls and Cloudflare key is required fo
     assert.match(workflow, /VITE_TURNSTILE_SITE_KEY:\s*\$\{\{ vars\.VITE_TURNSTILE_SITE_KEY \}\}/);
     assert.match(workflow, /test -n "\$VITE_TURNSTILE_SITE_KEY"/);
   }
+});
+
+
+test('Android barcode scanner requests camera permission on use and recovers after denial', () => {
+  assert.match(cameraBridge, /registerPlugin.*OrvixCameraPermissions/);
+  assert.match(cameraBridge, /checkCamera/);
+  assert.match(cameraBridge, /requestCamera/);
+  assert.match(cameraBridge, /openSettings/);
+  assert.match(cameraJava, /Manifest\.permission\.CAMERA/);
+  assert.match(cameraJava, /Settings\.ACTION_APPLICATION_DETAILS_SETTINGS/);
+  assert.match(cameraJava, /requestPermissionForAlias\("camera"/);
+  assert.match(cameraSetup, /android\.permission\.CAMERA/);
+  assert.match(cameraSetup, /registerPlugin\(OrvixCameraPermissions\.class\)/);
+  assert.match(androidWorkflow, /node scripts\/setup-native-android-camera\.mjs/);
+  assert.match(scanner, /requestNativeCameraPermission/);
+  assert.match(scanner, /checkNativeCameraPermission/);
+  assert.match(scanner, /openNativeCameraSettings/);
+  assert.match(scanner, /visibilitychange/);
+  assert.match(scanner, /cameraOpQueue/);
+  assert.match(scanner, /Try again/);
+  assert.match(scanner, /Fungua mipangilio ya kamera/);
+  assert.match(scanner, /USB or Bluetooth scanner/);
 });
