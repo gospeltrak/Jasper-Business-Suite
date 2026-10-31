@@ -16,7 +16,7 @@ import {
 import { formatProductQuantity } from '../../shared/utils/unitFormatter';
 import { formatLocalDate } from '../../shared/utils/localDate';
 import { classifyUniversalImportRows, downloadableUniversalTemplate, exportProductsToUniversalRows, parseCsvText } from './utils/bulkProductImport';
-import { downloadExcelFileFromRows, readExcelFileAsCsvText } from '../../shared/utils/excelExport';
+// XLSX is intentionally downloaded on demand, not when Products mounts.
 import { compressImageFile } from '../../shared/utils/imageCompression';
 import { prepareManualStockAdjustment, type ManualStockAudit } from './utils/manualStockAdjustment';
 import { generateUniqueEan13Barcode } from './barcode';
@@ -1663,7 +1663,8 @@ export default function DashboardProducts({
   };
 
   // 3. GOOGLE FORM TEMPLATE SHEET EXCEL EXPORTER / IMPORTER
-  const downloadExcelTemplate = () => {
+  const downloadExcelTemplate = async () => {
+    const { downloadExcelFileFromRows } = await import('../../shared/utils/excelExport');
     const csvContent =
       "Product Name,Barcode,Category,Brand,Cost Price,Selling Price,Shop Stock,Store Stock,Alert Level,Sell Retail,Sell Wholesale,Wholesale Price,Min Wholesale Qty\r\n"
       + "Premium Rice (5kg),6153094850239,Groceries,Orvix Foods,4500,5500,20,50,5,Yes,No,0,10\r\n"
@@ -1675,7 +1676,8 @@ export default function DashboardProducts({
     ]);
   };
 
-  const downloadUniversalTemplate = () => {
+  const downloadUniversalTemplate = async () => {
+    const { downloadExcelFileFromRows } = await import('../../shared/utils/excelExport');
     downloadExcelFileFromRows('orvix_universal_products_template.xlsx', [
       { name: 'Products', aoa: parseCsvText(downloadableUniversalTemplate()) },
     ]);
@@ -1751,6 +1753,7 @@ export default function DashboardProducts({
 
     if (/\.(xlsx|xls)$/i.test(file.name)) {
       try {
+        const { readExcelFileAsCsvText } = await import('../../shared/utils/excelExport');
         await processText(await readExcelFileAsCsvText(file));
       } catch (err: any) {
         setCsvUploadError(err?.message || 'Failed to read the selected Excel file.');
@@ -1763,7 +1766,8 @@ export default function DashboardProducts({
     reader.readAsText(file);
   };
 
-  const downloadProductCatalogue = () => {
+  const downloadProductCatalogue = async () => {
+    const { downloadExcelFileFromRows } = await import('../../shared/utils/excelExport');
     const tenantPart = (activeTenant.name || 'tenant').trim().toLowerCase()
       .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'tenant';
     downloadExcelFileFromRows(`orvix-product-catalogue-${tenantPart}-${new Date().toISOString().slice(0, 10)}.xlsx`, [
@@ -1931,6 +1935,7 @@ export default function DashboardProducts({
 
     if (/\.(xlsx|xls)$/i.test(file.name)) {
       try {
+        const { readExcelFileAsCsvText } = await import('../../shared/utils/excelExport');
         await processText(await readExcelFileAsCsvText(file));
       } catch (err: any) {
         setCsvUploadError(err?.message || 'Failed to read the selected Excel file.');
