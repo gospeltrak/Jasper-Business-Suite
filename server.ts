@@ -1533,6 +1533,58 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     };
   };
 
+  // Orvix Pro is a separately provisioned entitlement, not inherited from
+  // Tanzanite (or free trials). Enforce entitlement on the server.
+  // This read endpoint is scoped exclusively to the authenticated user tenant.
+  app.get('/api/orvix-pro/entitlement', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, private');
+    if (!supabaseAdmin) return res.status(503).json({ error: 'Pro entitlement service unavailable.' });
+    const token = getBearerToken(req);
+    if (!token) return res.status(401).json({ error: 'Sign in required.' });
+    try {
+      const { data: identity, error: authError } = await supabaseAdmin.auth.getUser(token);
+      if (authError || !identity?.user?.id) {
+        return res.status(401).json({ error: 'Sign in required.' });
+      }
+      // Never accept tenant_id in query/body: this tenant must come from a
+      // verified users row, not any client-editable identifier or JWT metadata.
+      const { data: appUser, error: userError } = await supabaseAdmin
+        .from('users')
+        .select('tenant_id')
+        .eq('id', identity.user.id)
+        .maybeSingle();
+      if (userError) return res.status(503).json({ error: 'Unable to verify tenant access.' });
+      if (!appUser?.tenant_id) return res.status(403).json({ error: 'Tenant access required.' });
+      const { data: entitlement, error: entitlementError } = await supabaseAdmin
+        .from('orvix_pro_entitlements')
+        .select('tier,status,starts_at,expires_at,settle_enabled,shift_reports_enabled,cashier_accountability_enabled,park_sale_enabled')
+        .eq('tenant_id', appUser.tenant_id)
+        .maybeSingle();
+      if (entitlementError) return res.status(503).json({ error: 'Pro entitlement service unavailable.' });
+      const now = Date.now();
+      const start = entitlement?.starts_at ? new Date(entitlement.starts_at).getTime() : null;
+      const expiry = entitlement?.expires_at ? new Date(entitlement.expires_at).getTime() : null;
+      const validWindow = (start === null || (Number.isFinite(start) && start <= now))
+        && (expiry === null || (Number.isFinite(expiry) && now < expiry));
+      const enabled = entitlement?.tier === 'pro'
+        && (entitlement?.status === 'trial' || entitlement?.status === 'active')
+        && validWindow;
+      return res.json({
+        package: 'orvix_pro',
+        enabled,
+        features: {
+          settle: enabled && entitlement?.settle_enabled === true,
+          shiftReports: enabled && entitlement?.shift_reports_enabled === true,
+          cashierAccountability: enabled && entitlement?.cashier_accountability_enabled === true,
+          parkSale: enabled && entitlement?.park_sale_enabled === true,
+        },
+      });
+    } catch (error) {
+      console.error('[Orvix Pro] entitlement lookup failed:', (error as Error)?.message);
+      return res.status(503).json({ error: 'Pro entitlement service unavailable.' });
+    }
+  });
+
   app.get('/api/branches/bootstrap', async (req, res) => {
     const branchClient = await requireBranchRpcClient(req, res);
     if (!branchClient) return;
