@@ -44,7 +44,7 @@
     "test:database-capacity": "tsx scripts/database-capacity-test.ts --confirm-staging",
     "test": "vitest run src",
     "test:watch": "vitest",
-    "test:orvix-pro": "tsx --test scripts/orvix-pro-entitlement-contract.test.ts"
+    "test:orvix-pro": "tsx --test scripts/orvix-pro-entitlement-contract.test.ts scripts/orvix-pro-settle-math.test.ts"
   },
   "dependencies": {
     "@google/genai": "^1.29.0",
