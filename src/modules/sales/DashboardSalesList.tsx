@@ -1122,7 +1122,7 @@ export default function DashboardSalesList({
           receiptLanguage === 'sw' ? 'sw' : 'en', 'manual',
         );
         setReceiptPrintMessage(result.status === 'sent'
-          ? (receiptLanguage === 'sw' ? 'Risiti imetumwa kwa printer.' : 'Receipt sent to printer.')
+          ? (receiptLanguage === 'sw' ? 'Data ya risiti imetumwa kwa Bluetooth; angalia kama karatasi imetoka.' : 'Receipt data sent over Bluetooth; check printer paper.')
           : (receiptLanguage === 'sw' ? 'Printer haijachapisha. Angalia Settings na ujaribu tena.' : 'Printer could not print. Check Settings and retry.'));
       } finally { setIsReceiptPrinting(false); }
       return;
