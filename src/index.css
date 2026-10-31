@@ -706,6 +706,10 @@ body.rtl { font-family: 'Cairo', "Plus Jakarta Sans", "Inter", system-ui, sans-s
 /* POS product catalog: 2-up on phone, 3-up on tablet, and 4-up on desktop. */
 #dashboard-scaffold #pos-product-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  /* Keep product rows at content height when search has only one row.
+     The scrollable catalog may fill the viewport, but the rows must not. */
+  align-content: start;
+  grid-auto-rows: max-content;
 }
 
 @media (min-width: 768px) and (max-width: 1279px) {
