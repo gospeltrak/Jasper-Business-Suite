@@ -33,7 +33,7 @@
     "test:performance-requests": "tsx --test scripts/performance-request-contract.test.ts",
     "test:password-recovery": "tsx --test scripts/password-recovery-contract.test.ts",
     "verify:source": "node scripts/verify-deploy.mjs && npm run security:secrets && npm run i18n:gap && npm run test:error-contract",
-    "verify:deploy": "npm run verify:source && npm run lint:prisma-server && npm run test:deploy && npm run test:money-bank && npm run test:prisma && npm run test:product-catalogue && npm run test:supabase-cron && npm run test:normalized-read && npm run test:google-auth && npm run test:staff-google-invite && npm run test:affiliate-google && npm run test:partner-capacity && npm run test:super-admin-google-mfa && npm run test:partner-dashboard && npm run test:security-hardening && npm run test:performance-requests && npm run test:password-recovery",
+    "verify:deploy": "npm run verify:source && npm run lint:prisma-server && npm run test:deploy && npm run test:money-bank && npm run test:prisma && npm run test:product-catalogue && npm run test:supabase-cron && npm run test:normalized-read && npm run test:google-auth && npm run test:staff-google-invite && npm run test:affiliate-google && npm run test:partner-capacity && npm run test:super-admin-google-mfa && npm run test:partner-dashboard && npm run test:security-hardening && npm run test:performance-requests && npm run test:password-recovery && npm run test:orvix-pro",
     "prisma:generate": "prisma generate",
     "prisma:validate": "prisma validate",
     "prisma:pull": "prisma db pull",
@@ -43,7 +43,8 @@
     "seed:demo-branches": "tsx scripts/seed-demo-branches.ts",
     "test:database-capacity": "tsx scripts/database-capacity-test.ts --confirm-staging",
     "test": "vitest run src",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:orvix-pro": "tsx --test scripts/orvix-pro-entitlement-contract.test.ts"
   },
   "dependencies": {
     "@google/genai": "^1.29.0",
