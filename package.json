@@ -14,7 +14,7 @@
     "lint": "tsc --noEmit",
     "lint:prisma-server": "tsc --noEmit --pretty false --skipLibCheck --module esnext --moduleResolution bundler --target es2022 src/server/prisma.ts src/server/workspaceNormalizationWorker.ts",
     "test:error-contract": "tsx --test scripts/safe-error-contract.test.ts scripts/auth-error-contract.test.ts",
-    "test:deploy": "tsx --test scripts/deployment-contract.test.ts scripts/niche-scope-contract.test.ts scripts/platform-admin-authorization-contract.test.ts",
+    "test:deploy": "tsx --test scripts/deployment-contract.test.ts scripts/niche-scope-contract.test.ts scripts/platform-admin-authorization-contract.test.ts scripts/sales-delivery-accounting.test.ts",
     "test:money-bank": "tsx --test scripts/payment-accounts-contract.test.ts",
     "test:prisma": "tsx --test scripts/prisma-adoption-contract.test.ts",
     "test:product-catalogue": "tsx --test scripts/product-catalogue-backup-contract.test.ts",
