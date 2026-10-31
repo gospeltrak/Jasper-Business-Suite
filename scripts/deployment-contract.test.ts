@@ -761,8 +761,9 @@ test('pharmacy hierarchy is medicine-only and product edits wait for durable per
   assert.match(productSource, /activeTenant\.businessType === 'pharmacy' && editForm\.productType === 'medicine'/);
   assert.match(productSource, /const saved = await onUpdateProducts\(updated, \[editingProduct\.id\]\)/);
   assert.match(productSource, /if \(!saved\) \{\s*setEditSaveError\([^;]+;\s*return;\s*\}\s*setEditingProduct\(null\)/);
-  assert.match(dashboardSource, /const handleUpdateActiveStocks = async \(\s*updatedProducts: Product\[\],\s*changedProductIds\?: string\[\],\s*options: \{ suppressSuccessToast\?: boolean \} = \{\},\s*\): Promise<boolean>/);
-  assert.match(dashboardSource, /const \{ products: syncedProducts, saved \} = persistTenantProductsNow\(nextTenantProducts, branchStockUpdates, changedProductIds\)/);
+  assert.match(dashboardSource, /const handleUpdateActiveStocks = async/);
+  assert.match(dashboardSource, /options: \{ suppressSuccessToast\?: boolean; stockAudit\?: ManualStockAudit \} = \{\}/);
+  assert.match(dashboardSource, /persistTenantProductsNow\(nextTenantProducts, branchStockUpdates, changedProductIds, branchScopedAudit\)/);
   assert.match(dashboardSource, /const didSave = await saved;/);
   assert.match(dashboardSource, /if \(!didSave\) return false;[\s\S]*const durable = readCachedWorkspace\(activeTenant\.id\)/);
 });
@@ -1095,7 +1096,7 @@ test('GitHub CI runs tests and a production frontend build', async () => {
 
 
 
-test('Adjust Stock waits for the durable narrow product save before updating audit and closing modal', async () => {
+test('Adjust Stock writes a durable atomic audit with the product change before closing modal', async () => {
   const productSource = await read('src/modules/products/DashboardProducts.tsx');
   const dashboardSource = await read('src/components/Dashboard.tsx');
   const start = productSource.indexOf('const handleAdjustStock = async');
@@ -1107,11 +1108,12 @@ test('Adjust Stock waits for the durable narrow product save before updating aud
   assert.match(handler, /const saved = await onUpdateProducts\(/);
   assert.match(handler, /\[freshProduct\.id\]/);
   assert.match(handler, /if \(!saved\) \{[\s\S]*?setAdjustSaveError\([\s\S]*?return;/);
-  assert.ok(handler.indexOf('const saved = await onUpdateProducts') < handler.indexOf('const log = {'));
-  assert.ok(handler.indexOf('const log = {') < handler.indexOf('setAdjustProduct(null)'));
+  assert.ok(handler.indexOf('const audit: ManualStockAudit') < handler.indexOf('const saved = await onUpdateProducts'));
+  assert.match(handler, /\{ stockAudit: audit \}/);
+  assert.doesNotMatch(handler, /safeSetJsonItem|jasper_stock_adjustments/);
   assert.match(handler, /finally \{[\s\S]*adjustSaveInFlightRef\.current = false/);
   assert.match(productSource, /disabled=\{qty <= 0 \|\| isSavingAdjustment\}/);
-  assert.match(dashboardSource, /const \{ products: syncedProducts, saved \} = persistTenantProductsNow\(nextTenantProducts, branchStockUpdates, changedProductIds\)/);
+  assert.match(dashboardSource, /branchScopedAudit/);
   assert.match(dashboardSource, /const didSave = await saved;/);
 });
 
@@ -1262,4 +1264,48 @@ test('web barcode scanning recovers from a dismissed camera permission prompt', 
   assert.match(scanner, /USB or Bluetooth scanner/);
   assert.match(scanner, /getBarcodeScanBox/);
   assert.match(scanner, /findBarcodeProduct/);
+});
+
+test('product exports and import templates produce true XLSX workbooks, not renamed CSV files', async () => {
+  const productSource = await read('src/modules/products/DashboardProducts.tsx');
+  const exporterSource = await read('src/shared/utils/excelExport.ts');
+  assert.match(productSource, /orvix_bulk_products_template\.xlsx/);
+  assert.match(productSource, /orvix_universal_products_template\.xlsx/);
+  assert.match(productSource, /orvix-product-catalogue-[^\n]+\.xlsx/);
+  assert.match(exporterSource, /XLSX\.utils\.aoa_to_sheet/);
+  assert.match(exporterSource, /bookType: 'xlsx'/);
+  assert.match(productSource, /readExcelFileAsCsvText\(file\)/);
+});
+
+test('reports use tenant-scoped normalized treasury and stock-adjustment RPCs', async () => {
+  const report = await read('src/modules/reports/DashboardReports.tsx');
+  const source = await read('src/modules/reports/utils/useAuthoritativeReportData.ts');
+  const migration = await read('supabase/migrations/20261031110000_reports_treasury_stock_adjustment.sql');
+  const workspace = await read('src/shared/utils/tenantWorkspace.ts');
+  assert.doesNotMatch(report, /deriveLedgerEntries|jasper_stock_adjustments/);
+  assert.match(source, /get_current_tenant_treasury_report/);
+  assert.match(source, /get_current_tenant_stock_adjustments/);
+  assert.match(migration, /private\.can_read_branch/);
+  assert.match(migration, /private\.has_branch_permission/);
+  assert.match(migration, /create table if not exists public\.stock_adjustments/);
+  assert.match(workspace, /save_current_branch_products_with_adjustment/);
+  assert.match(workspace, /if \(stockAudit \|\| !missingRpc\)/);
+});
+
+test('camera scanner and Excel engine load on demand rather than with the POS/products screen', async () => {
+  const pos = await read('src/modules/pos/DashboardPOS.tsx');
+  const products = await read('src/modules/products/DashboardProducts.tsx');
+  const lazyScanner = await read('src/shared/components/LazyDashboardBarcodeScanner.tsx');
+  assert.match(pos, /from '\.\.\/\.\.\/shared\/components\/LazyDashboardBarcodeScanner'/);
+  assert.match(products, /from '\.\.\/\.\.\/shared\/components\/LazyDashboardBarcodeScanner'/);
+  assert.match(lazyScanner, /lazy\(\(\) => import\('\.\/DashboardBarcodeScanner'\)\)/);
+  assert.match(lazyScanner, /if \(!props\.isOpen\) return null/);
+  assert.doesNotMatch(products, /^import\s+\{[^\n]+\}\s+from '\.\.\/\.\.\/shared\/utils\/excelExport'/m);
+  assert.match(products, /await import\('\.\.\/\.\.\/shared\/utils\/excelExport'\)/);
+});
+
+test('product catalogue search is memoized instead of re-running on unrelated UI state updates', async () => {
+  const products = await read('src/modules/products/DashboardProducts.tsx');
+  assert.match(products, /const filteredProducts = useMemo\(\(\) => \{/);
+  assert.match(products, /\}, \[products, searchTerm\]\);/);
 });

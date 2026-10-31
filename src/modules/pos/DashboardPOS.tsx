@@ -39,10 +39,10 @@ import {
   ChevronDown,
   Package
 } from 'lucide-react';
-import DashboardBarcodeScanner from '../../shared/components/DashboardBarcodeScanner';
+import DashboardBarcodeScanner from '../../shared/components/LazyDashboardBarcodeScanner';
 import { findBarcodeProduct, fitsPosShopStock, getPosShopStock, posBarcodeMessage, type PosBarcodeOutcome } from '../../shared/utils/barcodeScan';
 import CachedImage from '../../shared/components/CachedImage';
-import { downloadPdfFromElement, shareElementPdfToWhatsApp } from '../../shared/utils/pdfShare';
+// PDF engine is loaded only when a PDF action is requested.
 import { localDateToIso, timestampToLocalDate } from '../../shared/utils/localDate';
 import { getPharmacyDoseConfig, resolvePharmacyPosLine } from '../verticals/utils/pharmacyPosPricing';
 import {
@@ -190,7 +190,7 @@ export default function DashboardPOS({
   onClearPreloadedCart,
   onGoToPaymentSettings
 }: DashboardPOSProps) {
-  const { lang: receiptLanguage } = useTranslation();
+  const { lang: receiptLanguage, t } = useTranslation();
   const showProductImages = systemSettings?.posSettings?.showProductImages !== false;
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -323,6 +323,9 @@ export default function DashboardPOS({
   const [customerPhone, setCustomerPhone] = useState('');
   const [paymentStatus, setPaymentStatus] = useState<'idle' | 'completed'>('idle');
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [isCheckoutTakingLong, setIsCheckoutTakingLong] = useState(false);
+  // React ref blocks a second tap synchronously, before the next render.
+  const paymentSubmitInFlightRef = useRef(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [checkoutNeedsPaymentSetup, setCheckoutNeedsPaymentSetup] = useState(false);
   const [amountPaid, setAmountPaid] = useState<number>(0);
@@ -372,6 +375,7 @@ export default function DashboardPOS({
     if (!receiptResult) return;
     try {
       setReceiptPdfStatus('Preparing receipt PDF...');
+      const { shareElementPdfToWhatsApp } = await import('../../shared/utils/pdfShare');
       const result = await shareElementPdfToWhatsApp({
         elementId: 'pos-receipt-pdf-template',
         fileName: `Receipt-${receiptResult.reference || receiptResult.id}.pdf`,
@@ -400,6 +404,7 @@ export default function DashboardPOS({
     if (!receiptResult) return;
     try {
       setReceiptPdfStatus('Generating receipt PDF...');
+      const { downloadPdfFromElement } = await import('../../shared/utils/pdfShare');
       await downloadPdfFromElement({
         elementId: 'pos-receipt-pdf-template',
         fileName: `Receipt-${receiptResult.reference || receiptResult.id}.pdf`,
@@ -1074,11 +1079,18 @@ export default function DashboardPOS({
   };
 
   const submitPayment = async () => {
-    if (isProcessingPayment) return;
+    if (paymentSubmitInFlightRef.current) return;
+    paymentSubmitInFlightRef.current = true;
     setCheckoutError(null);
     setCheckoutNeedsPaymentSetup(false);
     setIsProcessingPayment(true);
+    setIsCheckoutTakingLong(false);
+    const startedAt = performance.now();
+    const slowNotice = window.setTimeout(() => setIsCheckoutTakingLong(true), 6000);
     try {
+      // Paint the disabled button + spinner before synchronous basket pricing.
+      await new Promise<void>(resolve =>
+        window.requestAnimationFrame(() => window.setTimeout(resolve, 0)));
       await finalizeSale();
     } catch (error: any) {
       console.error('Checkout failed', error);
@@ -1090,6 +1102,11 @@ export default function DashboardPOS({
         ? 'Muamala haujathibitishwa. Hakiki Sales kabla ya kujaribu tena.'
         : 'Payment status is unconfirmed. Check Sales before retrying.'));
     } finally {
+      window.clearTimeout(slowNotice);
+      const elapsed = performance.now() - startedAt;
+      if (elapsed > 1800) console.info('[Orvix performance] POS checkout duration:', Math.round(elapsed), 'ms');
+      setIsCheckoutTakingLong(false);
+      paymentSubmitInFlightRef.current = false;
       setIsProcessingPayment(false);
     }
   };
@@ -2507,6 +2524,14 @@ export default function DashboardPOS({
 
               </div>
               <div className="pos-checkout-footer">
+                {isCheckoutTakingLong && (
+                  <p role="status" aria-live="polite" translate="no"
+                    className="mb-2 text-center text-[11px] font-medium text-amber-700">
+                    {receiptLanguage === 'sw'
+                      ? 'Muamala bado unathibitishwa. Usibonyeze tena au kufunga ukurasa.'
+                      : 'Still confirming this sale. Do not tap again or close this screen.'}
+                  </p>
+                )}
                 <div className="pos-checkout-footer-total">
                   <span>Sale total</span>
                   <strong>{currency}{Math.round(grandTotal).toLocaleString()}</strong>
@@ -2516,9 +2541,20 @@ export default function DashboardPOS({
                   disabled={isProcessingPayment || (paymentMethod === 'Multi-Channel' && multiAllocations.filter(row => Number(row.amount || 0) > 0).length === 0)}
                   onClick={submitPayment}
                   className="pos-checkout-confirm"
+                  translate="no"
+                  aria-busy={isProcessingPayment}
                 >
-                  <span>{isProcessingPayment ? 'Processing...' : 'Confirm Payment'}</span>
-                  {!isProcessingPayment && <Check className="w-[18px] h-[18px]" strokeWidth={2.6} aria-hidden="true" />}
+                  {isProcessingPayment ? (
+                    <span key="pos-processing" className="inline-flex min-w-0 items-center justify-center gap-2">
+                      <span className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-white/40 border-t-white" aria-hidden="true" />
+                      <span>{t('Processing...')}</span>
+                    </span>
+                  ) : (
+                    <span key="pos-confirm" className="inline-flex min-w-0 items-center justify-center gap-2">
+                      <span>{t('Confirm Payment')}</span>
+                      <Check className="w-[18px] h-[18px] shrink-0" strokeWidth={2.6} aria-hidden="true" />
+                    </span>
+                  )}
                 </button>
               </div>
               </>
