@@ -23,7 +23,7 @@ import { generateUniqueEan13Barcode } from './barcode';
 import { findProductBarcodeConflict, findBatchBarcodeConflict } from './utils/barcodeUniqueness';
 import { calculateFractionSalePacketPrice } from '../sales/utils/fractionSale';
 import ModernSelect, { ModernSelectOption } from '../../shared/components/ModernSelect';
-import DashboardBarcodeScanner from '../../shared/components/DashboardBarcodeScanner';
+import DashboardBarcodeScanner from '../../shared/components/LazyDashboardBarcodeScanner';
 import { loadBranchWorkspace, transferStockBetweenBranches } from '../branches/branchApi';
 import type { BranchSummary } from '../branches/branchTypes';
 import {
