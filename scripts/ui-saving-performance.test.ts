@@ -24,7 +24,7 @@ test('product editing footer has two safe action slots on mobile and tablet', as
   const css = await read('src/index.css');
   assert.match(products, /tenant-form-footer orvix-product-edit-footer/);
   assert.doesNotMatch(products, /tenant-form-footer sticky bottom-0 z-10/);
-  assert.match(products, /className="orvix-product-edit-action [^"]+"[^>]*>[\s\S]*?translate/); // checked below separately
+  assert.match(products, /translate="no"\\s+className="orvix-product-edit-action/);
   assert.match(products, /key="product-edit-saving"/);
   assert.match(products, /key="product-edit-save"/);
   assert.match(products, /t\('Saving…'\)/);
