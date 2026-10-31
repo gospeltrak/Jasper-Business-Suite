@@ -4,7 +4,7 @@ import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianG
 import { BarChart3, TrendingUp, Calendar, DollarSign, Package, ArrowUpDown, Receipt, Tag, ArrowUpRight, ArrowDownRight, ShoppingBag, Search, AlertCircle, FileText, Truck, ChevronDown, ChevronRight, MinusCircle, ShoppingCart, Landmark } from "lucide-react";
 import { formatProductQuantity } from "../../shared/utils/unitFormatter";
 
-import { downloadPdfFromElement } from '../../shared/utils/pdfShare';
+// PDF engine is loaded only when a PDF action is requested.
 
 import ModernSelect from '../../shared/components/ModernSelect';
 import { getActiveBranchAddress, getActiveBranchDisplayName, getActiveBranchEmail, getActiveBranchPhone } from '../../shared/utils/businessBranding';
@@ -105,6 +105,7 @@ export default function DashboardReports({
     const tabAtStart = reportTab;
     setReportPdfStatus('📄 Generating PDF...');
     try {
+      const { downloadPdfFromElement } = await import('../../shared/utils/pdfShare');
       await downloadPdfFromElement({
         elementId: 'reports-a4-pdf-template',
         fileName: `${(REPORT_DOCUMENT_TITLES[reportTab] || 'Business-Report').replace(/\\s+/g, '-')}-${startDateStr}-${endDateStr}.pdf`,
