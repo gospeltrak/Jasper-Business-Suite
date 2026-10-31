@@ -1584,6 +1584,8 @@ export default function DashboardReports({
             <div className="bg-white border border-slate-200 rounded-3xl p-4 sm:p-6 shadow-sm space-y-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <h3 className="order-2 sm:order-1 font-black text-slate-800 uppercase tracking-wider">Money & Bank</h3>
+                {treasuryLoading && <p className="text-xs text-slate-500">Loading verified treasury accounts and journals…</p>}
+                {treasuryError && <p role="alert" className="text-xs text-rose-700">Money & Bank report unavailable: {treasuryError}</p>}
                 <div className="order-1 sm:order-2 flex flex-wrap gap-2">
                   <ModernSelect
                     title="Account"
@@ -1626,6 +1628,18 @@ export default function DashboardReports({
               </div>
 
               <div id="reports-a4-pdf-template" className="space-y-6">
+                {treasury && moneyBankSubTab === 'summary' && (
+                  <div className="space-y-2">
+                    <h4 className="text-xs font-extrabold text-slate-600 uppercase tracking-wider">Current account balances (all time)</h4>
+                    {treasury.accounts.filter(a => selectedMoneyBankAccountId === 'all' || a.accountId === selectedMoneyBankAccountId).map(account => (
+                      <div key={account.accountId} className="flex items-center justify-between gap-2 border border-slate-200 rounded-xl p-3 text-xs">
+                        <span className="font-semibold text-slate-800">{account.name} <span className="text-slate-400">{account.maskedReference || ''}</span></span>
+                        <span className="font-black tabular-nums">{account.currentBalance === null || account.currentBalance === undefined ? 'Balance unavailable' : (account.currency || currency) + ' ' + Number(account.currentBalance).toLocaleString()}</span>
+                      </div>
+                    ))}
+                    {treasury.accounts.length === 0 && <p className="text-xs text-slate-500">No accessible bank or cash accounts.</p>}
+                  </div>
+                )}
                 {moneyBankSubTab === 'summary' && (
                   <>
                     <div className="reports-split-grid gap-2 sm:gap-3">
@@ -2221,6 +2235,8 @@ export default function DashboardReports({
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="order-2 sm:order-1">
                   <h3 className="font-black text-slate-800 uppercase tracking-wider">Stock Adjustment Log</h3>
+                  {stockLoading && <p className="text-xs text-slate-500">Loading stock adjustment history…</p>}
+                  {stockError && <p role="alert" className="text-xs text-rose-700">Stock Adjustment report unavailable: {stockError}</p>
                   <p className="text-xs text-slate-500 mt-1">Manual stock additions and deductions from Products → Adjust Stock.</p>
                 </div>
                 <button
