@@ -6,7 +6,7 @@ interface NativePrinterPlugin {
   connectPrinter(args: { id: string }): Promise<{ connected: boolean }>;
   disconnectPrinter(): Promise<void>;
   getStatus(): Promise<{ connected: boolean; printerId?: string }>;
-  printText(args: Parameters<OrvixNativePrinterBridge['printText']>[0]): Promise<{ accepted: boolean }>;
+  printText(args: Parameters<OrvixNativePrinterBridge['printText']>[0]): ReturnType<OrvixNativePrinterBridge['printText']>;
   openBluetoothSettings(): Promise<void>;
 }
 
