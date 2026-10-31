@@ -1575,8 +1575,8 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         name: 'Orvix Pro',
         registered: Boolean(entitlement),
         enabled,
-        // Displayed only after authenticated Pro membership; not a public plan.
-        price: entitlement ? { amount: 120000, currency: 'TZS' } : null,
+        // Contract amounts are individualized and are never inferred from a
+        // flat-rate package; no Pro billing endpoint is live at this stage.
         features: {
           settle: enabled && entitlement?.settle_enabled === true,
           shiftReports: enabled && entitlement?.shift_reports_enabled === true,
