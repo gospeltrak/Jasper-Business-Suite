@@ -11,9 +11,7 @@ import { getActiveBranchAddress, getActiveBranchDisplayName, getActiveBranchEmai
 import type { BranchSummary } from '../branches/branchTypes';
 import { formatLocalDate, parseLocalDate, timestampToLocalDate } from '../../shared/utils/localDate';
 import { getSaleItemGrossTotal, getSaleItemLineTotal } from '../sales/utils/saleItemTotals';
-import { onlineStorage } from '../../shared/utils/onlineStorage';
-import { deriveLedgerEntries } from '../cash-bank/utils/ledgerDerivation';
-import { isDemoTenant } from '../../shared/utils/tenantIsolation';
+import { useAuthoritativeReportData } from './utils/useAuthoritativeReportData';
 
 const saleProductRevenue = (s: any): number =>
   s.productTotal !== undefined ? s.productTotal : (s.total - (s.deliveryCost || 0));
@@ -285,22 +283,25 @@ export default function DashboardReports({
     });
   }, [expenses, startDateStr, endDateStr, searchTerm, selectedCategory]);
 
-  // ── Money & Bank report ──
-  const [selectedMoneyBankAccountId, setSelectedMoneyBankAccountId] = useState<string>('all');
-  const moneyBankChannels = useMemo<PaymentChannel[]>(
-    () => (systemSettings?.paymentChannels || []) as PaymentChannel[],
-    [systemSettings],
-  );
-  const moneyBankLedger = useMemo<LedgerEntry[]>(() => deriveLedgerEntries({
-    tenantId: activeTenant.id,
-    channels: moneyBankChannels,
-    sales,
-    expenses,
-    deliveries,
-    purchases,
-    hasDemoSeedData: isDemoTenant(activeTenant.id),
-  }), [activeTenant.id, moneyBankChannels, sales, expenses, deliveries, purchases]);
-
+  // The real, tenant-authorized Supabase treasury and stock-audit records.
+  const [selectedMoneyBankAccountId, setSelectedMoneyBankAccountId] = useState('all');
+  const { treasury, treasuryLoading, treasuryError, stockRows, stockLoading, stockError } = useAuthoritativeReportData({
+    tenantId: activeTenant.id, branchId: activeBranch?.id || null, tab: reportTab,
+    startDate: startDateStr, endDate: endDateStr,
+  });
+  useEffect(() => { setSelectedMoneyBankAccountId('all'); }, [activeTenant.id, activeBranch?.id]);
+  const moneyBankChannels = useMemo<PaymentChannel[]>(() => (treasury?.accounts || []).map(a => ({
+    id: a.accountId, name: a.name || a.sourceKey || 'Unnamed account',
+    category: a.accountType === 'mobile_money' ? 'telco' as const : a.accountType === 'cash' ? 'physical' as const : 'bank' as const,
+    provider: a.provider || undefined, maskedReference: a.maskedReference || undefined,
+    currency: a.currency, branchId: a.branchId, status: (a.status || 'active') as PaymentChannel['status'],
+  })), [treasury]);
+  const moneyBankLedger = useMemo<LedgerEntry[]>(() => (treasury?.entries || []).map(e => ({
+    id: e.id, tenantId: activeTenant.id, channelId: e.accountId,
+    amount: Number(e.amount || 0), entryType: Number(e.amount || 0) >= 0 ? 'credit' as const : 'debit' as const,
+    sourceType: 'SETTLE_TILL_DEPOSIT' as const, description: e.description || e.sourceType || 'Money movement',
+    timestamp: e.postedAt, referenceId: e.referenceId || e.journalId,
+  })), [treasury, activeTenant.id]);
   const filteredMoneyBankLedger = useMemo(() => {
     const start = new Date(startDateStr);
     const end = new Date(endDateStr);
@@ -709,34 +710,11 @@ export default function DashboardReports({
     return { sorted, totalPurchased, totalPaid, totalOutstanding };
   }, [filteredPurchases]);
 
-  // Stock Adjustment: reads the log that Products -> Adjust Stock already
-  // writes today (onlineStorage key 'jasper_stock_adjustments', synced per
-  // tenant via the tenant_data table -- see src/shared/utils/onlineStorage.ts).
-  // Only the report view was ever deleted; the write side was never touched
-  // and needs no changes. Re-reads when this tab is opened or the date
-  // range changes, since onlineStorage has no React subscription mechanism.
-  const stockAdjustmentRows = useMemo(() => {
-    if (reportTab !== 'stock-adjustment') return [];
-    let all: any[] = [];
-    try {
-      all = JSON.parse(onlineStorage.getItem('jasper_stock_adjustments') || '[]');
-    } catch {
-      all = [];
-    }
-    const start = new Date(startDateStr);
-    const end = new Date(endDateStr);
-    end.setHours(23, 59, 59, 999);
-    return all
-      .filter((a: any) => {
-        const t = new Date(a.adjustedAt).getTime();
-        return t >= start.getTime() && t <= end.getTime();
-      })
-      .sort((a: any, b: any) => new Date(b.adjustedAt).getTime() - new Date(a.adjustedAt).getTime());
-  }, [reportTab, startDateStr, endDateStr]);
+  const stockAdjustmentRows = stockRows;
 
   const stockAdjustmentTotals = useMemo(() => {
-    const totalAdded = stockAdjustmentRows.filter((a: any) => a.type === 'add').reduce((s: number, a: any) => s + a.qty, 0);
-    const totalDeducted = stockAdjustmentRows.filter((a: any) => a.type === 'deduct').reduce((s: number, a: any) => s + a.qty, 0);
+    const totalAdded = stockAdjustmentRows.filter((a: any) => a.type === 'add').reduce((s: number, a: any) => s + Number(a.qty || 0), 0);
+    const totalDeducted = stockAdjustmentRows.filter((a: any) => a.type === 'deduct').reduce((s: number, a: any) => s + Number(a.qty || 0), 0);
     return { totalAdded, totalDeducted };
   }, [stockAdjustmentRows]);
 
