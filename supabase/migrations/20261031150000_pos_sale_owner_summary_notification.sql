@@ -21,11 +21,14 @@ declare
   v_sales_method text;
   v_ref text;
 begin
-  -- This is for new POS checkouts only, not historical migrations,
-  -- quotations, manual documents or normalization replays.
-  if new.migration_batch_id is not null
-     or coalesce(new.source_record->>'isManualPayment','false') <> 'true'
-     or coalesce(new.legacy_id,'') not like 'sl-%' then
+  -- This is for NEW checkout events only, not old normalized backfills.
+  -- Normalized writers use migration_batch_id even for live sales, so never
+  -- treat a non-null batch ID as proof that the sale is historical.
+  if coalesce(new.source_record->>'isManualPayment','false') <> 'true'
+     or coalesce(new.legacy_id,'') not like 'sl-%'
+     or new.actual_timestamp is null
+     or new.actual_timestamp < transaction_timestamp() - interval '15 minutes'
+     or new.actual_timestamp > transaction_timestamp() + interval '2 minutes' then
     return new;
   end if;
 
@@ -98,6 +101,11 @@ begin
   from (select distinct unnest(v_recipients) recipient_id) r
   on conflict (tenant_id,event_id,recipient_user_id,delivery_channel) do nothing;
 
+  return new;
+exception when others then
+  -- Notification delivery is advisory: a failing inbox insert must NEVER
+  -- undo a successful sale or its stock/treasury journal.
+  raise warning 'POS owner notification could not be enqueued: %', SQLSTATE;
   return new;
 end;
 $function$;
