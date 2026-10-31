@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Building2, CreditCard, FileCheck2, FlaskConical, Server, Users, ShieldCheck, ArrowRight } from 'lucide-react';
+import OrvixProClientList from './OrvixProClientList';
 
 /**
  * Additive Orvix Pro admin workspace. This first UI stage deliberately does
@@ -53,12 +54,7 @@ export default function OrvixProAdminPanel({ onOpenSubscribers }: Props) {
         {section === 'clients' && (
           <>
             <h3 className="text-base font-bold text-white">Pro Clients</h3>
-            <p className="text-sm text-slate-400">Private Pro memberships will be listed here from a verified, tenant-scoped admin API. Ordinary subscribers will not be converted or given Pro access automatically.</p>
-            <div className="rounded-xl border border-dashed border-slate-700 bg-slate-950/50 p-5 text-center">
-              <Users className="mx-auto mb-2 text-slate-500" size={22} />
-              <p className="text-sm font-semibold text-slate-200">Client directory not connected yet</p>
-              <p className="mt-1 text-xs text-slate-500">No client records are being simulated.</p>
-            </div>
+            <OrvixProClientList />
             <button type="button" onClick={onOpenSubscribers} className="flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-xs font-bold text-emerald-400 hover:bg-slate-800">
               Open existing Subscribers <ArrowRight size={14} />
             </button>
