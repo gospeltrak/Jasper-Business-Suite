@@ -399,6 +399,8 @@ export default function App() {
   const [proPortalAccess, setProPortalAccess] = useState<{
     userId: string;
     registered: boolean;
+    enabled: boolean;
+    amountTzs: number | null;
   } | null>(null);
   useEffect(() => {
     if (currentPath !== '/pro' || !user?.id) {
@@ -420,9 +422,12 @@ export default function App() {
         if (!cancelled) setProPortalAccess({
           userId: user.id,
           registered: response.ok && result?.package === 'orvix_pro' && result?.registered === true,
+          enabled: response.ok && result?.enabled === true,
+          amountTzs: result?.price?.currency === 'TZS' && result?.registered === true
+            ? Number(result.price.amount) : null,
         });
       } catch {
-        if (!cancelled) setProPortalAccess({ userId: user.id, registered: false });
+        if (!cancelled) setProPortalAccess({ userId: user.id, registered: false, enabled: false, amountTzs: null });
       }
     })();
     return () => { cancelled = true; };
@@ -686,6 +691,7 @@ export default function App() {
     if (isRecoveringPassword) {
       return (
         <LoginPage
+          proMode={currentPath === '/pro'}
           onLogin={handleLoginSuccess}
           onNavigate={navigateTo}
           isDark={isDark}
@@ -734,6 +740,28 @@ export default function App() {
       }
       if (!proPortalAccess.registered) {
         return <SystemErrorPage status={403} onHome={() => navigateTo('/login')} />;
+      }
+      if (!proPortalAccess.enabled) {
+        // Only registered Pro members see this private price/activation status.
+        // No checkout is offered until independently verified payment settlement
+        // can atomically activate this entitlement on the server.
+        return (
+          <main className="min-h-[100dvh] bg-slate-50 px-4 py-12 text-slate-900 flex items-start justify-center">
+            <section className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
+              <p className="text-xs font-semibold text-emerald-700">ORVIX PRO</p>
+              <h1 className="text-xl font-bold">Account awaiting activation</h1>
+              <p className="text-sm text-slate-600">Your Orvix Pro account is registered. Contact the Orvix team for payment guidance and verified activation.</p>
+              {proPortalAccess.amountTzs === 120000 && (
+                <div className="rounded-xl bg-slate-50 p-4">
+                  <p className="text-xs text-slate-500">Orvix Pro price</p>
+                  <p className="text-2xl font-bold">TZS 120,000</p>
+                </div>
+              )}
+              <p className="text-xs text-slate-500">Access will open after verified payment or an approved test trial. No automatic charge has been initiated.</p>
+              <button type="button" onClick={() => navigateTo('/login')} className="text-sm font-medium text-emerald-700 underline">Back to Orvix login</button>
+            </section>
+          </main>
+        );
       }
       return (
         <Dashboard
