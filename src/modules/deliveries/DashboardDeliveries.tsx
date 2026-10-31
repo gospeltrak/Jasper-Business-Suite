@@ -872,12 +872,19 @@ Vehicle Plate Number: ${plateNumber}
   const pendingDeliveries = deliveries.filter(del => del.status === 'Pending Dispatch').length;
   const dispatchedDeliveries = deliveries.filter(del => del.status === 'Dispatched').length;
   const deliveredDeliveries = deliveries.filter(del => del.status === 'Delivered').length;
-  const deliveryIncomeTotal = deliveries.reduce((sum, del) => sum + (del.deliveryCost || 0), 0);
+  // Collected delivery income is distinct from quoted/pending delivery fees.
+  // Never treat a pending dispatch or merely selected payment mode as cash received.
+  const isDeliveryCollected = (del: Delivery) =>
+    del.deliveryPaymentStatus === 'collected' && !!del.treasuryJournalId;
+  const deliveryIncomeTotal = deliveries.reduce((sum, del) =>
+    sum + (isDeliveryCollected(del) ? (del.deliveryCost || 0) : 0), 0);
+  const pendingDeliveryFees = deliveries.reduce((sum, del) =>
+    sum + (del.status !== 'Cancelled' && !isDeliveryCollected(del) ? (del.deliveryCost || 0) : 0), 0);
   const deliveryStats = [
     { label: 'Pending', value: pendingDeliveries, icon: Clock, accent: '#d97706' },
     { label: 'On Route', value: dispatchedDeliveries, icon: Bike, accent: '#0284c7' },
     { label: 'Delivered', value: deliveredDeliveries, icon: CheckCircle, accent: '#059669' },
-    { label: 'Revenue', value: `${currency}${Math.round(deliveryIncomeTotal).toLocaleString()}`, icon: Wallet, accent: '#4f46e5' }
+    { label: 'Collected', value: `${currency}${Math.round(deliveryIncomeTotal).toLocaleString()}`, icon: Wallet, accent: '#4f46e5' }
   ];
 
   return (
@@ -2699,7 +2706,7 @@ Vehicle Plate Number: ${plateNumber}
       {activeSubTab === 'accounting' && (
         <div className="space-y-4">
           {(() => {
-            const deliveryIncome = deliveries.reduce((sum, d) => sum + (d.deliveryCost || 0), 0);
+            const deliveryIncome = deliveryIncomeTotal;
             const deliveryExpenses = expenses?.filter(e => e.category === 'Delivery Expense' || e.category === 'Delivery Maintainance') || [];
             const totalDeliveryExpenses = deliveryExpenses.reduce((sum, e) => sum + e.amount, 0);
             const deliveryProfit = deliveryIncome - totalDeliveryExpenses;
@@ -2709,7 +2716,7 @@ Vehicle Plate Number: ${plateNumber}
                 <div className="mobile-tablet-kpi-grid grid grid-cols-2 xl:grid-cols-4 gap-2.5 md:gap-4">
                   <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-3.5 md:p-4 relative overflow-hidden shadow-sm">
                     <div className="relative z-10">
-                      <span className="block text-[9px] sm:text-[10px] font-mono uppercase font-black text-emerald-600 tracking-wider mb-1.5">Delivery Income</span>
+                      <span className="block text-[9px] sm:text-[10px] font-mono uppercase font-black text-emerald-600 tracking-wider mb-1.5">Delivery Collected</span>
                       <span className="text-lg sm:text-xl font-black font-mono text-emerald-900">{activeTenant.currency}{deliveryIncome.toLocaleString()}</span>
                     </div>
                   </div>
@@ -2741,6 +2748,7 @@ Vehicle Plate Number: ${plateNumber}
                   <div className="mobile-tablet-kpi-grid grid grid-cols-2 xl:grid-cols-4 gap-2.5">
                     {(() => {
                       const modeTotals = deliveries.reduce((acc, d) => {
+                        if (!isDeliveryCollected(d)) return acc;
                         const m = d.deliveryPaymentMethod || 'Cash';
                         acc[m] = (acc[m] || 0) + (d.deliveryCost || 0);
                         return acc;
