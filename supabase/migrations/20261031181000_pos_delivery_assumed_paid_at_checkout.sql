@@ -68,6 +68,10 @@ begin
      or nullif(v_sale_id,'') is null then
     raise exception using errcode='22023',message='Choose a delivery fee and payment mode.';
   end if;
+  if nullif(p_sale->>'productTotal','') is not null
+    and round((p_sale->>'productTotal')::numeric,2) is distinct from v_product_total then
+    raise exception using errcode='23514',message='Product and delivery totals do not match.';
+  end if;
   v_product_paid := least(v_product_total,
     greatest(0,round(coalesce((p_sale->>'amountPaid')::numeric,0),2)));
   if v_product_paid is null or v_product_paid<0 then
@@ -95,8 +99,7 @@ begin
   -- the server validates ownership and branch, never trusting a UI label.
   select * into v_account from public.branch_payment_accounts
     where id=p_delivery_account_id and tenant_id=v_tenant
-      and branch_id=v_branch and status='active' and not is_locked
-    for update;
+      and branch_id=v_branch and status='active' and not is_locked;
   if v_account.id is null
      or lower(btrim(v_account.source_key))<>lower(btrim(
        coalesce(p_sale->>'deliveryPaymentAccountKey',v_account.source_key))) then
@@ -174,6 +177,17 @@ begin
   if exists(select 1 from public.deliveries
             where tenant_id=v_tenant and legacy_id=v_delivery_id) then
     raise exception using errcode='23505',message='Delivery already exists.';
+  end if;
+
+  -- Acquire the payment-account lock AFTER the sale/workspace lock, using
+  -- the same order as other sale and collection writers to avoid deadlocks.
+  -- Revalidate that the selected delivery account was not disabled mid-sale.
+  select * into v_account from public.branch_payment_accounts
+    where id=p_delivery_account_id and tenant_id=v_tenant
+      and branch_id=v_branch and status='active' and not is_locked
+    for update;
+  if v_account.id is null then
+    raise exception using errcode='23514',message='Delivery payment account was disabled during checkout.';
   end if;
 
   -- Accounting classification: Delivery only. The "paid" assumption is
