@@ -5287,7 +5287,7 @@ Your output must be in JSON matching the specified Response Schema exactly. All 
         ['/401', 401], ['/403', 403], ['/404', 404], ['/500', 500],
       ]).get(req.path);
       const knownAppPath = req.path === '/'
-        || ['/login', '/tools', '/admin', '/dashboard', '/sales', '/sales-list', '/reports', '/pos', '/products', '/settings'].includes(req.path)
+        || ['/login', '/pro', '/tools', '/admin', '/dashboard', '/sales', '/sales-list', '/reports', '/pos', '/products', '/settings'].includes(req.path)
         || ['/login/', '/dashboard/', '/affiliate', '/partner'].some(prefix => req.path.startsWith(prefix));
       res.status(explicitErrorStatus || (knownAppPath ? 200 : 404)).type('html').send(appShellHtml);
     });
