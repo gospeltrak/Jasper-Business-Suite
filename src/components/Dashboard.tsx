@@ -1913,11 +1913,24 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     };
 
     activeSales.forEach(sale => {
-      const amount = Math.max(0, Number(sale.total || 0) - Number(sale.deliveryCost || 0));
+      // Product cash only. A 20k sale + 6k delivery must never seed 26k
+      // into Sales then seed another 6k from Delivery.
+      const productAmount = Math.max(0, Number(sale.total || 0) - Number(sale.deliveryCost || 0));
+      const receivedProducts = sale.paymentStatus === 'unpaid' || sale.paymentMethod === 'Credit'
+        ? 0
+        : Math.max(0, Math.min(productAmount, Number(sale.amountPaid ?? productAmount)));
+      if (receivedProducts <= 0) return;
       const breakdown = sale.paymentBreakdown?.length
         ? sale.paymentBreakdown
-        : [{ method: sale.paymentMethod || 'Cash', amount }];
-      breakdown.forEach(part => creditMethod(part.method || sale.paymentMethod || 'Cash', Math.max(0, Number(part.amount || 0))));
+        : [{ method: sale.paymentMethod || 'Cash', amount: receivedProducts }];
+      const totalAllocated = breakdown.reduce((sum, part) =>
+        sum + Math.max(0, Number(part.amount || 0)), 0);
+      const scale = totalAllocated > receivedProducts && totalAllocated > 0
+        ? receivedProducts / totalAllocated : 1;
+      breakdown.forEach(part => creditMethod(
+        part.method || sale.paymentMethod || 'Cash',
+        Math.max(0, Number(part.amount || 0)) * scale,
+      ));
     });
     activeDeliveries.forEach(delivery => {
       const collected = delivery.deliveryPaymentStatus === 'collected'
