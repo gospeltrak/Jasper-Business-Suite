@@ -538,6 +538,10 @@ export default function DashboardSalesList({
 
   // Search state
   const [searchTerm, setSearchTerm] = useState('');
+  // Keep massive historical ledgers from creating thousands of DOM cards.
+  // Financial KPIs remain computed from the complete local set.
+  const [visibleSalesCount, setVisibleSalesCount] = useState(100);
+  const [visibleDebtCount, setVisibleDebtCount] = useState(100);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('All');
   const [selectedSyncStatus, setSelectedSyncStatus] = useState<string>('All');
 
@@ -1092,6 +1096,16 @@ export default function DashboardSalesList({
 
     return matchesSearch && matchesPayment && matchesSync && matchesDate;
   });
+
+  useEffect(() => {
+    setVisibleSalesCount(100);
+  }, [searchTerm, selectedPaymentMethod, selectedSyncStatus, startDate, endDate]);
+
+  useEffect(() => {
+    setVisibleDebtCount(100);
+  }, [debtSearchTerm]);
+
+  const visibleSales = filteredSales.slice(0, visibleSalesCount);
 
   // KPI Calculations
   const totalVolume = filteredSales.reduce((acc, s) => acc + getProductSalesTotal(s), 0);
@@ -1946,7 +1960,7 @@ export default function DashboardSalesList({
         
         {/* Mobile View: Cards */}
         <div className="sales-cards-tablet-grid xl:hidden flex flex-col space-y-3 pb-[calc(80px+env(safe-area-inset-bottom))]">
-          {filteredSales.map((sale) => {
+          {visibleSales.map((sale) => {
             const saleItems = sale.items || [];
             const totalVal = getProductSalesTotal(sale);
             const isCredit = sale.paymentMethod === 'Credit';
@@ -2084,7 +2098,7 @@ export default function DashboardSalesList({
                 </tr>
               </thead>
               <tbody>
-                {filteredSales.map((sale, idx) => {
+                {visibleSales.map((sale, idx) => {
                   const saleItems = sale.items || [];
                   const totalVal = getProductSalesTotal(sale);
                   const isCredit = sale.paymentMethod === 'Credit';
@@ -2274,6 +2288,15 @@ export default function DashboardSalesList({
           </div>
         </div>
 
+        {filteredSales.length > visibleSalesCount && (
+          <div className="flex justify-center py-3">
+            <button type="button"
+              className="rounded-xl border border-emerald-200 px-5 py-2.5 text-xs font-bold text-emerald-700"
+              onClick={() => setVisibleSalesCount(current => current + 100)}>
+              Show 100 more sales ({Math.min(visibleSalesCount, filteredSales.length)} / {filteredSales.length})
+            </button>
+          </div>
+        )}
       </div>{/* end SALES MAIN DATA LIST */}
 
       </>
@@ -2368,7 +2391,7 @@ export default function DashboardSalesList({
                 installment form -- reusing both instead of a second,
                 parallel payment UI only on this tab. */}
             <div className="flex flex-col space-y-3">
-              {filteredDebtSales.map(s => {
+              {filteredDebtSales.slice(0, visibleDebtCount).map(s => {
                 const totalVal = getProductSalesTotal(s);
                 const initialPaid = s.amountPaid !== undefined ? s.amountPaid : 0;
                 const installments = installmentRecords[s.id] || [];
@@ -2476,6 +2499,12 @@ export default function DashboardSalesList({
                 );
               })}
 
+              {filteredDebtSales.length > visibleDebtCount && (
+                <button type="button" onClick={() => setVisibleDebtCount(current => current + 100)}
+                  className="mx-auto block rounded-xl border border-emerald-200 px-5 py-2.5 text-xs font-bold text-emerald-700">
+                  Show 100 more debts ({Math.min(visibleDebtCount, filteredDebtSales.length)} / {filteredDebtSales.length})
+                </button>
+              )}
               {filteredDebtSales.length === 0 && (
                 <div className="py-12 text-center bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 rounded-2xl text-slate-500 dark:text-slate-400 font-sans">
                   No outstanding credit accounts match search keyword or custom criteria.
