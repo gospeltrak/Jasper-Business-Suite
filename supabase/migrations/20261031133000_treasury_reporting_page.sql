@@ -66,7 +66,9 @@ begin
       where j.external_cash_flow is true and l.signed_amount>0),0),
     'moneyOut',coalesce(sum(-l.signed_amount) filter(
       where j.external_cash_flow is true and l.signed_amount<0),0),
-    'count',count(*)
+    'count',count(*),
+    'inCount',count(*) filter(where j.external_cash_flow is true and l.signed_amount>0),
+    'outCount',count(*) filter(where j.external_cash_flow is true and l.signed_amount<0)
   )
   into v_summary
   from public.treasury_journal_lines l
