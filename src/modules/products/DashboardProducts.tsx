@@ -2905,7 +2905,7 @@ export default function DashboardProducts({
                     </div>
                     <div>
                       <p className="text-[12px] font-bold text-slate-800 dark:text-white leading-tight">Template</p>
-                      <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Download Excel</p>
+                      <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Excel (.xlsx)</p>
                     </div>
                   </button>
                 )}
@@ -2935,7 +2935,7 @@ export default function DashboardProducts({
                     </div>
                     <div>
                       <p className="text-[12px] font-bold text-slate-800 dark:text-white leading-tight">Medicine Template</p>
-                      <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Type & Packaging</p>
+                      <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Excel (.xlsx) · Type & Packaging</p>
                     </div>
                   </button>
                 )}
@@ -2964,7 +2964,7 @@ export default function DashboardProducts({
                   <Database className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" />
                   <div>
                     <p className="text-[12px] font-bold text-emerald-900 dark:text-emerald-100 leading-tight">Download Product Catalogue</p>
-                    <p className="product-catalogue-subtitle text-[10px] text-emerald-700/70 dark:text-emerald-400 mt-0.5">Excel · {products.length} products</p>
+                    <p className="product-catalogue-subtitle text-[10px] text-emerald-700/70 dark:text-emerald-400 mt-0.5">Excel (.xlsx) · {products.length} products</p>
                   </div>
                 </button>
               </div>
@@ -2989,7 +2989,7 @@ export default function DashboardProducts({
                   <button onClick={downloadExcelTemplate}
                     className="h-9 px-3.5 flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 transition-colors">
                     <Download className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Bulk Template</span>
+                    <span>Excel Template</span>
                   </button>
                 )}
 
