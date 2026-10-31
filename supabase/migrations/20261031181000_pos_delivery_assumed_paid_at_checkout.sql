@@ -123,6 +123,10 @@ begin
             select id from public.treasury_journals
              where tenant_id=v_tenant
                and idempotency_key='delivery:'||v_delivery_id||':v1'),
+          'delivery',(
+            select d.source_record from public.deliveries d
+            where d.tenant_id=v_tenant and d.legacy_id=v_delivery_id
+              and d.source_active is distinct from false),
           'branchId',v_branch,'status','already_posted');
       end if;
       raise exception using errcode='23505',
