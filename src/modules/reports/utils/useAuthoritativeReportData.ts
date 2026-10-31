@@ -50,6 +50,8 @@ export interface TreasuryReportSummary {
   moneyIn: number;
   moneyOut: number;
   count: number;
+  inCount: number;
+  outCount: number;
 }
 
 export interface TreasuryReportPage {
