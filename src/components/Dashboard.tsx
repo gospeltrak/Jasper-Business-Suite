@@ -2632,7 +2632,8 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                   customerName: customerData.name || del.customerName, 
                   customerPhone: customerData.phone || del.customerPhone, 
                   notes: customerData.location || del.notes,
-                  ...(customerData.paymentMethod ? { deliveryPaymentMethod: customerData.paymentMethod } : {})
+                  ...(customerData.paymentMethod && !del.treasuryJournalId
+                    ? { deliveryPaymentMethod: customerData.paymentMethod } : {})
                 } : {})
               } 
             : del
@@ -2659,6 +2660,25 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     let collectedAccountId = currentDelivery.deliveryPaymentAccountId;
 
     const deliveryIncomeAmount = Math.max(0, Number(currentDelivery.deliveryCost || 0));
+    // POS checkout already booked Delivery Treasury. Mark Delivered without
+    // posting money for a second time; status and collection stay independent.
+    if (status === 'Delivered'
+      && currentDelivery.deliveryPaymentStatus === 'collected'
+      && !!currentDelivery.treasuryJournalId) {
+      const changedAt = new Date().toISOString();
+      const updated = (deliveriesMap[activeTenant.id] || []).map(delivery =>
+        delivery.id === deliveryId
+          ? { ...delivery, status: 'Delivered' as const, deliveredAt: changedAt, syncUpdatedAt: changedAt }
+          : delivery
+      );
+      const saved = await saveTenantDeliveriesOnly(activeTenant.id, updated);
+      if (!saved) {
+        addToast('Delivery status could not be saved. Please try again.', 'error');
+        return false;
+      }
+      setDeliveriesMap(previous => ({ ...previous, [activeTenant.id]: updated }));
+      return true;
+    }
     if (status === 'Delivered') {
       const channels = reconcilePaymentChannels(
         getTreasuryPaymentMethods(systemSettings.business),
@@ -2719,15 +2739,15 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                   ...del,
                   status,
                   deliveredAt: collectedAt,
-                  deliveryPaymentStatus: status === 'Delivered'
-                    ? 'collected'
-                    : status === 'Cancelled'
-                      ? 'cancelled'
-                      : 'pending',
-                  paymentCollectedAt: collectedAt,
+                  deliveryPaymentStatus: status === 'Cancelled'
+                    ? 'cancelled'
+                    : del.deliveryPaymentStatus === 'collected'
+                      ? 'collected'
+                      : status === 'Delivered' ? 'collected' : 'pending',
+                  paymentCollectedAt: collectedAt || del.paymentCollectedAt,
                   deliveryPaymentAccountId: status === 'Delivered'
                     ? collectedAccountId
-                    : undefined,
+                    : del.deliveryPaymentAccountId,
                   treasuryJournalId,
                   branchId: treasuryBranchId,
                 };
@@ -2767,6 +2787,12 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       return false;
     }
 
+    if (currentDelivery.treasuryJournalId
+      && updates.deliveryCost !== undefined
+      && Number(updates.deliveryCost) !== Number(currentDelivery.deliveryCost)) {
+      addToast('Delivery fee is already booked in Treasury. Reverse the payment before changing its amount.', 'error');
+      return false;
+    }
     localWorkspaceChangedAtRef.current = Date.now();
     cloudWorkspaceLoadedRef.current = true;
     // Applied against whichever delivery list is passed in — used both for
