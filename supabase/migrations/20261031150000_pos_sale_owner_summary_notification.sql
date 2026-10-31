@@ -62,7 +62,7 @@ begin
       || E'\nDelivery (ada): TSh ' || trim(to_char(v_delivery_amount,'FM999G999G999G999G990'))
       || E'\nNjia ya malipo ya delivery: ' || v_delivery_method
       || E'\nHali ya delivery: Pending Dispatch'
-      || E'\nMalipo ya delivery: hayajathibitishwa kwenye treasury';
+      || E'\nMalipo ya delivery: Paid (automatic at checkout)';
   end if;
   v_message := v_message
     || E'\nJumla ya agizo: TSh ' || trim(to_char(v_total,'FM999G999G999G999G990'))
@@ -85,7 +85,8 @@ begin
       'checkoutTotal',v_total,
       'productPaymentMethod',v_sales_method,
       'deliveryPaymentMethod',v_delivery_method,
-      'deliveryStatus',case when v_delivery_amount>0 then 'Pending Dispatch' else null end
+      'deliveryStatus',case when v_delivery_amount>0 then 'Pending Dispatch' else null end,
+      'deliveryPaymentStatus',case when v_delivery_amount>0 then 'paid_assumed' else null end
     )
   )
   on conflict (tenant_id,idempotency_key)
