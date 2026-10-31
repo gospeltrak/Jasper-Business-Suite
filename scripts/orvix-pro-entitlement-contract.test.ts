@@ -59,13 +59,26 @@ test('The one and only private Pro sign-in URL is /pro and it uses existing emai
   assert.doesNotMatch(app, /currentPath === '\/orvix-pro'/);
 });
 
-test('Private Pro pricing is 120000 TZS, not part of public 3-package checkout', () => {
+test('Pro uses individual client agreements, not a fixed amount or public checkout', () => {
   const server = read('server.ts');
   const plans = read('src/shared/utils/subscription.ts');
   assert.match(server, /registered: Boolean\(entitlement\)/);
-  assert.match(server, /price: entitlement \? \{ amount: 120000, currency: 'TZS' \} : null/);
+  assert.doesNotMatch(server, /price: entitlement \? \{ amount: 120000/);
+  assert.doesNotMatch(read('src/App.tsx'), /TZS 120,000/);
+  assert.match(read('src/App.tsx'), /agreed individually with the Orvix team/);
   assert.doesNotMatch(plans, /id: 'orvix_pro'/);
   assert.match(server, /const SUBSCRIPTION_PACKAGE_IDS = new Set\(\['ruby', 'diamond', 'tanzanite'\]\)/);
+});
+
+test('Orvix Pro admin panel and isolated demo onboarding preserve the existing workspace', () => {
+  const dashboard = read('src/components/Dashboard.tsx');
+  const admin = read('src/modules/platform-admin/components/SuperSaaSAdminView.tsx');
+  const panel = read('src/modules/platform-admin/components/OrvixProAdminPanel.tsx');
+  assert.match(dashboard, /admin-orvix-pro/);
+  assert.match(admin, /OrvixProAdminPanel/);
+  assert.match(panel, /Demo account not provisioned/);
+  assert.match(panel, /Pro Edge/);
+  assert.doesNotMatch(panel, /createUser\(|signUp\(|paymentProvider\.charge/);
 });
 
 test('Private Pro login requires membership and never exposes ordinary checkout to pending accounts', () => {
