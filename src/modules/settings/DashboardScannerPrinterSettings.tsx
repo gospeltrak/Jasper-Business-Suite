@@ -236,6 +236,14 @@ export default function DashboardScannerPrinterSettings({ tenantId, isSw }: Prop
           </div>
           {prefs.printer && native && <button type="button" className={button} disabled={busy} onClick={disconnectPrinter}><XCircle className="h-4 w-4" />{tr('Ondoa', 'Remove')}</button>}
         </div>
+        {prefs.printer && /webvfd/i.test(prefs.printer.name) && (
+          <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-[11px] leading-relaxed text-amber-900 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200">
+            {tr(
+              'WebVFD Printer imechaguliwa. Printer za WebVFD zinaweza kutumia encrypted Bluetooth protocol yao. Ku-pair au kuonekana Connected pekee hakuhakikishi uchapishaji kwenye Orvix. Ikiwa Test Print inagoma, tunahitaji uthibitisho wa compatibility au API/SDK rasmi kutoka Web Corporation.',
+              'WebVFD Printer is selected. WebVFD printers may use a vendor-specific encrypted Bluetooth protocol. Pairing or seeing Connected does not guarantee printing from Orvix. If Test Print fails, official compatibility details or an API/SDK from Web Corporation may be needed.'
+            )}
+          </div>
+        )}
         {native ? (
           <>
             <div className="mt-3 flex flex-wrap gap-2">
