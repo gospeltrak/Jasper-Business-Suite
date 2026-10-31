@@ -2437,14 +2437,16 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     } as Sale;
     let postedTreasuryJournalId = '';
     let saleSavedAtomically = false;
+    let deliverySavedAtCheckout: Delivery | null = null;
+    const deliveryFee = Math.max(0, Number(sale.deliveryCost || 0));
     const saleIncome = Math.max(0, Number(sale.total || 0) - Number(sale.deliveryCost || 0));
     const collectedAmount = sale.paymentStatus === 'unpaid'
       ? 0
       : Math.min(saleIncome, Math.max(0, Number(sale.amountPaid ?? saleIncome)));
-    const localDemoWithoutTreasury = collectedAmount > 0
+    const localDemoWithoutTreasury = (collectedAmount > 0 || deliveryFee > 0)
       && ['localhost', '127.0.0.1'].includes(window.location.hostname)
       && isPlaceholderSecureDataBridgeClient(await getSecureDataBridgeClient());
-    if (collectedAmount > 0 && !localDemoWithoutTreasury) {
+    if ((collectedAmount > 0 || deliveryFee > 0) && !localDemoWithoutTreasury) {
       // Reconcile against currently configured payment modes rather than reading
       // systemSettings.paymentChannels raw: that array is only seeded/persisted the
       // first time a tenant opens Money & Bank, so a tenant who never opened that
@@ -2458,6 +2460,15 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
         systemSettings.paymentChannels || [],
         { currency: activeTenant.currencyCode },
       );
+      // POS delivery is assumed paid as soon as a payment mode is chosen;
+      // it needs its own resolved treasury account (separate from products).
+      const deliveryPaymentAccount = deliveryFee > 0
+        ? findPaymentChannel(channels, sale.deliveryPaymentMethod || '')
+        : undefined;
+      if (deliveryFee > 0 && !deliveryPaymentAccount) {
+        addToast('Choose an active Delivery payment method in Settings before checkout.', 'error');
+        return false;
+      }
       const rawBreakdown = sale.paymentBreakdown?.length
         ? sale.paymentBreakdown
         : [{ method: sale.paymentMethod || 'Cash', amount: collectedAmount }];
@@ -2484,6 +2495,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
           lines: paymentLines,
           sourceType: 'sale',
           sale: saleToStore,
+          deliveryAccountSourceKey: deliveryPaymentAccount?.id,
           sourceId: sale.id,
           description: `Sale payment ${sale.reference || sale.id}`,
           openingBalances: getTreasuryOpeningBalances(),
@@ -2494,11 +2506,15 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
             customerName: sale.customerName || null,
           },
         });
+        if (deliveryFee > 0 && (!posted.delivery || !posted.deliveryJournalId)) {
+          throw new Error('Delivery Treasury posting could not be verified. Check Sales and Deliveries before retrying.');
+        }
         saleToStore = {
           ...saleToStore,
           branchId: posted.branchId,
-          treasuryJournalId: posted.journalId,
+          ...(posted.journalId ? { treasuryJournalId: posted.journalId } : {}),
         };
+        deliverySavedAtCheckout = posted.delivery || null;
         postedTreasuryJournalId = posted.journalId;
         saleSavedAtomically = true;
       } catch (error: any) {
@@ -2544,9 +2560,10 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       savePendingSaleOffline(saleToStore).catch(() => {});
     }
 
-    // Auto trigger delivery dispatch if deliveryCost was paid
+    // Delivery is saved with its own treasury posting in the checkout RPC.
+    // Reuse the authoritative record; do not create another payment.
     if (sale.deliveryCost && sale.deliveryCost > 0) {
-      const newDelivery: Delivery = {
+      const newDelivery: Delivery = deliverySavedAtCheckout || {
         id: 'DL-' + sale.id.substring(3).toUpperCase(),
         saleId: sale.id,
         customerName: sale.customerName || 'Walk-In Customer',
@@ -2564,7 +2581,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
         const currentDeliveries = prev[sale.tenantId] || [];
         return {
           ...prev,
-          [sale.tenantId]: [newDelivery, ...currentDeliveries]
+          [sale.tenantId]: [newDelivery, ...currentDeliveries.filter(existing => existing.id !== newDelivery.id)]
         };
       });
     }
