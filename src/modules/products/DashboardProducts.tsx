@@ -1948,21 +1948,23 @@ export default function DashboardProducts({
     reader.readAsText(file);
   };
 
-  // Filter products catalog
-  const filteredProducts = products.filter(p => 
-    String(p.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    String(p.barcode || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    String(p.category || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    String(p.brand || '').toLowerCase().includes(searchTerm.toLowerCase())
-  ).sort((a, b) => {
-    // Zero/negative stock goes to bottom, in-stock stays on top
-    const stockA = a.shopStockQty ?? a.stockQty ?? 0;
-    const stockB = b.shopStockQty ?? b.stockQty ?? 0;
-    const aOut = stockA <= 0 ? 1 : 0;
-    const bOut = stockB <= 0 ? 1 : 0;
-    if (aOut !== bOut) return aOut - bOut; // out-of-stock sinks
-    return 0; // preserve original order within each group
-  });
+  // Avoid filtering and sorting the whole catalogue on unrelated renders
+  // (modal input, scanner state, print status, etc). Only products/search change it.
+  const filteredProducts = useMemo(() => {
+    const search = searchTerm.toLowerCase();
+    return products.filter(p =>
+      String(p.name || '').toLowerCase().includes(search) ||
+      String(p.barcode || '').toLowerCase().includes(search) ||
+      String(p.category || '').toLowerCase().includes(search) ||
+      String(p.brand || '').toLowerCase().includes(search)
+    ).sort((a, b) => {
+      const stockA = a.shopStockQty ?? a.stockQty ?? 0;
+      const stockB = b.shopStockQty ?? b.stockQty ?? 0;
+      const aOut = stockA <= 0 ? 1 : 0;
+      const bOut = stockB <= 0 ? 1 : 0;
+      return aOut - bOut; // stable sort preserves the original order within each group
+    });
+  }, [products, searchTerm]);
 
   // Connection trigger simulator
   
