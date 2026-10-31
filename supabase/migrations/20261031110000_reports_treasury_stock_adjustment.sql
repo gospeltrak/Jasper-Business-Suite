@@ -114,9 +114,10 @@ begin
       'type',s.direction,'qty',s.qty,
       'previousStock',s.previous_stock,'newStock',s.new_stock,
       'reason',s.reason,'adjustedAt',s.performed_at,
-      'performedBy',s.performed_by
+      'performedBy',s.performed_by, 'performedByName',coalesce(u.name,'')
     ) order by s.performed_at desc,s.id), '[]'::jsonb)
     from public.stock_adjustments s
+    left join public.users u on u.id=s.performed_by and u.tenant_id=s.tenant_id
     where s.tenant_id=v_tenant
       and s.performed_at >= p_from and s.performed_at <= p_to
       and (p_branch_id is null or s.branch_id=p_branch_id)
@@ -156,7 +157,7 @@ begin
   end if;
   if p_adjustment is null or jsonb_typeof(p_adjustment)<>'object'
     or v_id is null or length(v_id)>128 or v_product is null
-    or v_direction not in ('add','deduct') then
+    or v_direction is null or v_direction not in ('add','deduct') then
     raise exception using errcode='22023', message='A valid manual stock adjustment is required.';
   end if;
   if nullif(p_adjustment->>'tenantId','') is not null
