@@ -1550,11 +1550,11 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       // verified users row, not any client-editable identifier or JWT metadata.
       const { data: appUser, error: userError } = await supabaseAdmin
         .from('users')
-        .select('tenant_id')
+        .select('tenant_id,is_active')
         .eq('id', identity.user.id)
         .maybeSingle();
       if (userError) return res.status(503).json({ error: 'Unable to verify tenant access.' });
-      if (!appUser?.tenant_id) return res.status(403).json({ error: 'Tenant access required.' });
+      if (!appUser?.tenant_id || appUser.is_active === false) return res.status(403).json({ error: 'Active tenant account required.' });
       const { data: entitlement, error: entitlementError } = await supabaseAdmin
         .from('orvix_pro_entitlements')
         .select('tier,status,starts_at,expires_at,settle_enabled,shift_reports_enabled,cashier_accountability_enabled,park_sale_enabled')
@@ -1572,6 +1572,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         && validWindow && hasBoundedTrial;
       return res.json({
         package: 'orvix_pro',
+        tenantId: appUser.tenant_id,
         name: 'Orvix Pro',
         registered: Boolean(entitlement),
         enabled,
