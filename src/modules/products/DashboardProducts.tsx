@@ -171,6 +171,7 @@ export default function DashboardProducts({
   const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isSavingProductEdit, setIsSavingProductEdit] = useState(false);
+  const [isProductEditTakingLong, setIsProductEditTakingLong] = useState(false);
   const productEditInFlightRef = useRef(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [editStockDraft, setEditStockDraft] = useState({ shop: '', store: '', alert: '' });
@@ -405,8 +406,14 @@ export default function DashboardProducts({
     if (!editForm.name || !editingProduct?.id || productEditInFlightRef.current) return;
     productEditInFlightRef.current = true;
     setIsSavingProductEdit(true);
+    setIsProductEditTakingLong(false);
     setEditSaveError(null);
+    const startedAt = performance.now();
+    const slowNotice = window.setTimeout(() => setIsProductEditTakingLong(true), 6000);
     try {
+      // Let the browser draw Saving… before image handling and payload updates.
+      await new Promise<void>(resolve =>
+        window.requestAnimationFrame(() => window.setTimeout(resolve, 0)));
 
       const enteredBarcode = String(editForm.barcode || '').trim();
       const finalizedEditBarcode = enteredBarcode || generateUniqueEan13Barcode(
@@ -618,6 +625,10 @@ export default function DashboardProducts({
       console.warn('[DashboardProducts] Product edit save failed:', error);
       setEditSaveError('Product changes were not saved. Please try again.');
     } finally {
+      window.clearTimeout(slowNotice);
+      const elapsed = performance.now() - startedAt;
+      if (elapsed > 1800) console.info('[Orvix performance] Product edit duration:', Math.round(elapsed), 'ms');
+      setIsProductEditTakingLong(false);
       productEditInFlightRef.current = false;
       setIsSavingProductEdit(false);
     }
@@ -6171,6 +6182,12 @@ export default function DashboardProducts({
               {editSaveError && (
                 <p role="alert" className="orvix-product-edit-error text-[11px] font-bold normal-case text-rose-600">
                   {editSaveError}
+                </p>
+              )}
+              {isProductEditTakingLong && (
+                <p role="status" aria-live="polite" translate="no"
+                  className="orvix-product-edit-error text-[11px] font-medium normal-case text-amber-700">
+                  {t('Saving…')} {t('Please keep this window open until the changes are confirmed.')}
                 </p>
               )}
               <button
