@@ -1112,7 +1112,7 @@ test('Adjust Stock writes a durable atomic audit with the product change before 
   assert.doesNotMatch(handler, /safeSetJsonItem|jasper_stock_adjustments/);
   assert.match(handler, /finally \{[\s\S]*adjustSaveInFlightRef\.current = false/);
   assert.match(productSource, /disabled=\{qty <= 0 \|\| isSavingAdjustment\}/);
-  assert.match(dashboardSource, /const \{ products: syncedProducts, saved \} = persistTenantProductsNow\(nextTenantProducts, branchStockUpdates, changedProductIds\)/);
+  assert.match(dashboardSource, /branchScopedAudit/);
   assert.match(dashboardSource, /const didSave = await saved;/);
 });
 
