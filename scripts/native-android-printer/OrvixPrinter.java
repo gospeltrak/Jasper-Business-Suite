@@ -21,6 +21,7 @@ import com.getcapacitor.annotation.Permission;
 import com.getcapacitor.annotation.PermissionCallback;
 
 import java.io.OutputStream;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
@@ -135,16 +136,25 @@ public class OrvixPrinter extends Plugin {
         closeSocketLocked();
         BluetoothDevice device = pairedDevice(id);
         if (device == null) return false;
+        // Some inexpensive 58mm printers advertise a paired SPP service but
+        // reject an encrypted RFCOMM channel. Prefer secure SPP and retry
+        // insecure SPP only after closing the failed socket.
         BluetoothSocket next = device.createRfcommSocketToServiceRecord(SPP_UUID);
         try {
             next.connect();
-            socket = next;
-            currentPrinterId = id;
-            return true;
-        } catch (Exception error) {
+        } catch (IOException secureError) {
             try { next.close(); } catch (Exception ignored) { }
-            throw error;
+            next = device.createInsecureRfcommSocketToServiceRecord(SPP_UUID);
+            try {
+                next.connect();
+            } catch (Exception fallbackError) {
+                try { next.close(); } catch (Exception ignored) { }
+                throw fallbackError;
+            }
         }
+        socket = next;
+        currentPrinterId = id;
+        return true;
     }
 
     @PluginMethod
@@ -209,6 +219,8 @@ public class OrvixPrinter extends Plugin {
                     if (acceptedJobs.contains(jobId)) {
                         JSObject result = new JSObject();
                         result.put("accepted", true);
+                        result.put("duplicate", true);
+                        result.put("printed", false); // no physical printer confirmation protocol
                         call.resolve(result);
                         return;
                     }
@@ -220,10 +232,24 @@ public class OrvixPrinter extends Plugin {
                     }
                     OutputStream out = socket.getOutputStream();
                     byte[] bytes = text.getBytes(StandardCharsets.US_ASCII);
+                    int written = 0;
                     for (int i = 0; i < copies; i++) {
-                        out.write(new byte[]{0x1b, 0x40}); // ESC @ initialization
-                        out.write(bytes);
+                        out.write(new byte[]{0x1b, 0x40}); // ESC @ initialize
                         out.flush();
+                        written += 2;
+                        // WC-5808-class portable printer buffers can be small.
+                        // Pace 128-byte packets, preserving every CR/LF byte,
+                        // so one big Java write does not overrun the receiver.
+                        for (int offset = 0; offset < bytes.length; offset += 128) {
+                            int length = Math.min(128, bytes.length - offset);
+                            out.write(bytes, offset, length);
+                            out.flush();
+                            written += length;
+                            if (offset + length < bytes.length) Thread.sleep(15);
+                        }
+                        // Give the hardware a moment to feed the last lines
+                        // before starting another requested copy.
+                        if (i + 1 < copies) Thread.sleep(120);
                     }
                     acceptedJobs.add(jobId);
                     if (acceptedJobs.size() > 100) {
@@ -233,12 +259,15 @@ public class OrvixPrinter extends Plugin {
                     }
                     JSObject result = new JSObject();
                     result.put("accepted", true);
+                    result.put("printed", false); // SPP write != physical print acknowledgement
+                    result.put("bytesWritten", written);
+                    result.put("transport", "bluetooth-classic-spp");
                     call.resolve(result);
                 } catch (SecurityException error) {
                     call.reject("Bluetooth permission blocked.");
                 } catch (Exception error) {
                     closeSocketLocked();
-                    call.reject("Could not send receipt to Bluetooth printer.");
+                    call.reject("Bluetooth printer transfer failed. Reconnect the paired printer and retry Test Print.");
                 }
             }
         });
