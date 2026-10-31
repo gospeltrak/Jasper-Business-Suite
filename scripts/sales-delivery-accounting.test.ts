@@ -162,3 +162,10 @@ test('Dispatch and Delivered status do not collect a second payment for POS-paid
   assert.match(dashboard, /customerData\.paymentMethod && !del\.treasuryJournalId/);
   assert.match(dashboard, /Delivery fee is already booked in Treasury/);
 });
+
+test('Delivery menu displays Paid independently of dispatch state on phone and desktop', async () => {
+  const deliveries = await readFile('src/modules/deliveries/DashboardDeliveries.tsx', 'utf8');
+  assert.match(deliveries, /del\.deliveryPaymentStatus === 'collected' \? 'Delivery Fee • Paid'/);
+  assert.match(deliveries, /d\.deliveryPaymentStatus === 'collected' \? 'Paid' : 'Pending Payment'/);
+  assert.match(deliveries, /\{d\.status\}/);
+});
