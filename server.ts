@@ -1566,11 +1566,13 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       const expiry = entitlement?.expires_at ? new Date(entitlement.expires_at).getTime() : null;
       const validWindow = (start === null || (Number.isFinite(start) && start <= now))
         && (expiry === null || (Number.isFinite(expiry) && now < expiry));
+      const hasBoundedTrial = entitlement?.status !== 'trial' || (start !== null && expiry !== null);
       const enabled = entitlement?.tier === 'pro'
         && (entitlement?.status === 'trial' || entitlement?.status === 'active')
-        && validWindow;
+        && validWindow && hasBoundedTrial;
       return res.json({
         package: 'orvix_pro',
+        name: 'Orvix Pro',
         enabled,
         features: {
           settle: enabled && entitlement?.settle_enabled === true,
