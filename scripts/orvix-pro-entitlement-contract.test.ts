@@ -41,3 +41,29 @@ test('Pro entitlements are explicitly granted and tenant-scoped, never auto-assi
   assert.match(server, /\.from\('orvix_pro_entitlements'\)/);
   assert.match(server, /entitlement\?\.status === 'trial' \|\| entitlement\?\.status === 'active'/);
 });
+
+test('The one and only private Pro sign-in URL is /pro and it uses existing email and password', () => {
+  const app = read('src/App.tsx');
+  const login = read('src/modules/auth/LoginPage.tsx');
+  const server = read('server.ts');
+  const robots = read('public/robots.txt');
+  assert.match(app, /currentPath === '\/pro'/);
+  assert.match(app, /<LoginPage\s+proMode/);
+  assert.match(app, /if \(sessionUser\.isProAccount\) return '\/pro'/);
+  assert.match(login, /proMode\?: boolean/);
+  assert.match(login, /const response = await fetch\('\/api\/orvix-pro\/entitlement'/);
+  assert.match(login, /payload\?\.registered !== true/);
+  assert.match(login, /if \(proMode\)/);
+  assert.match(server, /'\/pro'/);
+  assert.match(robots, /Disallow: \/pro/);
+  assert.doesNotMatch(app, /currentPath === '\/orvix-pro'/);
+});
+
+test('Private Pro pricing is 120000 TZS, not part of public 3-package checkout', () => {
+  const server = read('server.ts');
+  const plans = read('src/shared/utils/subscription.ts');
+  assert.match(server, /registered: Boolean\(entitlement\)/);
+  assert.match(server, /price: entitlement \? \{ amount: 120000, currency: 'TZS' \} : null/);
+  assert.doesNotMatch(plans, /id: 'orvix_pro'/);
+  assert.match(server, /const SUBSCRIPTION_PACKAGE_IDS = new Set\(\['ruby', 'diamond', 'tanzanite'\]\)/);
+});
