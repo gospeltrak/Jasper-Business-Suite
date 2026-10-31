@@ -39,7 +39,7 @@ import {
   ChevronDown,
   Package
 } from 'lucide-react';
-import DashboardBarcodeScanner from '../../shared/components/DashboardBarcodeScanner';
+import DashboardBarcodeScanner from '../../shared/components/LazyDashboardBarcodeScanner';
 import { findBarcodeProduct, fitsPosShopStock, getPosShopStock, posBarcodeMessage, type PosBarcodeOutcome } from '../../shared/utils/barcodeScan';
 import CachedImage from '../../shared/components/CachedImage';
 import { downloadPdfFromElement, shareElementPdfToWhatsApp } from '../../shared/utils/pdfShare';
