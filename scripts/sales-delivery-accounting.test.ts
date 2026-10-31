@@ -57,3 +57,20 @@ test('Money & Bank report is limited to pages with totals computed on server', a
   assert.match(source, /get_current_tenant_treasury_report_page/);
   assert.match(source, /REPORT_PAGE_SIZE = 50/);
 });
+
+test('delivery accounting does not count pending dispatch fees as cash already collected', async () => {
+  const deliveries = await readFile('src/modules/deliveries/DashboardDeliveries.tsx', 'utf8');
+  const dashboard = await readFile('src/components/Dashboard.tsx', 'utf8');
+  assert.match(deliveries, /del\.deliveryPaymentStatus === 'collected' && !!del\.treasuryJournalId/);
+  assert.match(deliveries, /const deliveryIncome = deliveryIncomeTotal/);
+  assert.match(deliveries, /if \(!isDeliveryCollected\(d\)\) return acc/);
+  assert.match(dashboard, /amount: saleIncome/);
+  assert.match(dashboard, /estimatedProfit = saleIncome - totalCost/);
+});
+
+test('sales cards render bounded pages, not unbounded historical arrays', async () => {
+  const salesList = await readFile('src/modules/sales/DashboardSalesList.tsx', 'utf8');
+  assert.match(salesList, /visibleSales = filteredSales\.slice\(0, visibleSalesCount\)/);
+  assert.match(salesList, /visibleSales\.map\(/);
+  assert.match(salesList, /filteredDebtSales\.slice\(0, visibleDebtCount\)\.map\(/);
+});
