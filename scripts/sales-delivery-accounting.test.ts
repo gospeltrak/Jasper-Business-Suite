@@ -94,3 +94,33 @@ test('owner sale notification persists one split summary in the existing server 
   assert.match(dashboard, /void refreshInbox\(\)/);
   assert.match(inbox, /document\.addEventListener\('visibilitychange', onVisible\)/);
 });
+
+test('Delivery Treasury uses existing payment journals and is independent from Sales revenue', async () => {
+  const sql = await readFile('supabase/migrations/20261031162000_delivery_treasury_reporting.sql', 'utf8');
+  const report = await readFile('src/modules/reports/DashboardReports.tsx', 'utf8');
+  const hook = await readFile('src/modules/reports/utils/useDeliveryTreasuryReport.ts', 'utf8');
+  const panel = await readFile('src/modules/reports/components/DeliveryTreasuryPanel.tsx', 'utf8');
+
+  assert.match(sql, /get_current_tenant_delivery_treasury_report/);
+  assert.match(sql, /j\.source_type='delivery'/);
+  assert.match(sql, /j\.source_type='expense'/);
+  assert.match(sql, /j\.external_cash_flow is true/);
+  assert.match(sql, /l\.signed_amount/);
+  assert.match(sql, /'uncollectedFees'/);
+  assert.match(sql, /'refunds'/);
+  assert.match(sql, /'netCashFlow'/);
+  assert.match(sql, /private\.can_read_branch\(v_tenant,l\.branch_id\)/);
+  assert.match(sql, /private\.has_branch_permission\(v_tenant,l\.branch_id,'cashandbank\.read'\)/);
+  assert.match(sql, /limit v_limit\+1/i);
+  assert.doesNotMatch(sql, /create\s+table/i);
+  assert.doesNotMatch(sql, /insert\s+into\s+public\.treasury_/i);
+  assert.match(hook, /input\.tab !== 'deliveries'/);
+  assert.match(hook, /get_current_tenant_delivery_treasury_report/);
+  assert.match(hook, /p_limit: 50/);
+  assert.match(panel, /Delivery Treasury/);
+  assert.match(panel, /Delivery Expenses Paid/);
+  assert.match(panel, /Delivery Payment Accounts/);
+  assert.match(report, /<DeliveryTreasuryPanel/);
+  assert.match(report, /Quoted Delivery Fees/);
+  assert.doesNotMatch(report, /label: 'Logistics Revenue'/);
+});
