@@ -955,6 +955,8 @@ export interface LedgerEntry {
   journalId?: string;
   journalType?: string;
   journalSourceType?: string;
+  /** Whether treasury movement involves external cash, not bank-to-bank transfer. */
+  externalCashFlow?: boolean;
   balanceAfter?: number;
   currency?: string;
 }
