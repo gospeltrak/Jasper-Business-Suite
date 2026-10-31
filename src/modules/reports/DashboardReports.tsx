@@ -306,9 +306,8 @@ export default function DashboardReports({
     currency: e.currency,
   })), [treasury, activeTenant.id]);
   const filteredMoneyBankLedger = useMemo(() => {
-    const start = new Date(startDateStr);
-    const end = new Date(endDateStr);
-    end.setHours(23, 59, 59, 999);
+    const start = new Date(startDateStr + 'T00:00:00.000');
+    const end = new Date(endDateStr + 'T23:59:59.999');
     return moneyBankLedger
       .filter(entry => {
         const date = new Date(entry.timestamp);
