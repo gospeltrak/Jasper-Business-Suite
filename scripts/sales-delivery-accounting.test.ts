@@ -74,3 +74,22 @@ test('sales cards render bounded pages, not unbounded historical arrays', async 
   assert.match(salesList, /visibleSales\.map\(/);
   assert.match(salesList, /filteredDebtSales\.slice\(0, visibleDebtCount\)\.map\(/);
 });
+
+test('owner sale notification persists one split summary in the existing server inbox', async () => {
+  const migration = await readFile('supabase/migrations/20261031150000_pos_sale_owner_summary_notification.sql', 'utf8');
+  const dashboard = await readFile('src/components/Dashboard.tsx', 'utf8');
+  const inbox = await readFile('src/shared/contexts/JasperNotificationContext.tsx', 'utf8');
+  assert.match(migration, /after insert on public\.sales/);
+  assert.match(migration, /new\.migration_batch_id is not null/);
+  assert.match(migration, /v_product_amount := greatest\(v_total-v_delivery_amount,0\)/);
+  assert.match(migration, /Sales \(bidhaa\): TSh/);
+  assert.match(migration, /Delivery \(ada\): TSh/);
+  assert.match(migration, /Pending Dispatch/);
+  assert.match(migration, /pos-sale-owner-summary:/);
+  assert.match(migration, /on conflict \(tenant_id,idempotency_key\)/);
+  assert.match(migration, /branch_notification_events/);
+  assert.match(migration, /branch_notification_recipients/);
+  assert.doesNotMatch(dashboard, /\baddSaleNotification\(/);
+  assert.match(dashboard, /void refreshInbox\(\)/);
+  assert.match(inbox, /document\.addEventListener\('visibilitychange', onVisible\)/);
+});
