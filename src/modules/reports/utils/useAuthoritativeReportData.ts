@@ -105,6 +105,7 @@ export function useAuthoritativeReportData(input: {
     if (input.tab !== 'money-bank') return;
     let cancelled = false;
     loadingMoreRef.current = false;
+    setTreasuryMoreLoading(false);
     setTreasury(null);
     setTreasuryLoading(true);
     setTreasuryError(null);
