@@ -2245,7 +2245,7 @@ export default function DashboardReports({
                 <div className="order-2 sm:order-1">
                   <h3 className="font-black text-slate-800 uppercase tracking-wider">Stock Adjustment Log</h3>
                   {stockLoading && <p className="text-xs text-slate-500">Loading stock adjustment history…</p>}
-                  {stockError && <p role="alert" className="text-xs text-rose-700">Stock Adjustment report unavailable: {stockError}</p>
+                  {stockError && <p role="alert" className="text-xs text-rose-700">Stock Adjustment report unavailable: {stockError}</p>}
                   <p className="text-xs text-slate-500 mt-1">Manual stock additions and deductions from Products → Adjust Stock.</p>
                 </div>
                 <button
