@@ -214,11 +214,18 @@ export async function sendNativeReceipt(
   inFlight.add(id);
   try {
     const status = await bridge.getStatus();
-    if ((!status.connected || status.printerId !== prefs.printer.id) && prefs.autoReconnect) {
+    const needsConnection = !status.connected || status.printerId !== prefs.printer.id;
+    if (needsConnection && (prefs.autoReconnect || kind === 'manual')) {
+      // A manually requested receipt should be allowed to connect explicitly,
+      // even if background auto-reconnect is switched off.
       const connected = await bridge.connectPrinter(prefs.printer.id);
-      if (!connected.connected) return { status: 'not-connected' };
-    } else if (!status.connected || status.printerId !== prefs.printer.id) {
-      return { status: 'not-connected' };
+      if (!connected.connected) return { status: 'not-connected', reason: 'Bluetooth connect failed.' };
+      const verified = await bridge.getStatus();
+      if (!verified.connected || verified.printerId !== prefs.printer.id) {
+        return { status: 'not-connected', reason: 'Bluetooth connection dropped immediately.' };
+      }
+    } else if (needsConnection) {
+      return { status: 'not-connected', reason: 'Printer is not currently connected.' };
     }
     const jobId = id + ':' + (kind === 'automatic' ? 'auto' : 'manual-' + Date.now());
     const result = await bridge.printText({
