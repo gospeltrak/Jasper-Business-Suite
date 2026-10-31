@@ -37,7 +37,7 @@ export function downloadExcelFileFromRows(filename: string, sheets: ExcelAoaShee
     // Keep exported catalogues/templates usable in Excel immediately:
     // visible headers, filter dropdowns and bounded column widths.
     const headerRow = sheet.aoa[0] || [];
-    const maxWidth = Math.min(45, 26);
+    const maxWidth = 40;
     worksheet['!cols'] = headerRow.map((header, col) => ({
       wch: Math.min(maxWidth, Math.max(14,
         String(header || '').length + 2,
