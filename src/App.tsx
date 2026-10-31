@@ -400,7 +400,6 @@ export default function App() {
     userId: string;
     registered: boolean;
     enabled: boolean;
-    amountTzs: number | null;
   } | null>(null);
   useEffect(() => {
     if (currentPath !== '/pro' || !user?.id) {
@@ -423,11 +422,9 @@ export default function App() {
           userId: user.id,
           registered: response.ok && result?.package === 'orvix_pro' && result?.registered === true,
           enabled: response.ok && result?.enabled === true,
-          amountTzs: result?.price?.currency === 'TZS' && result?.registered === true
-            ? Number(result.price.amount) : null,
         });
       } catch {
-        if (!cancelled) setProPortalAccess({ userId: user.id, registered: false, enabled: false, amountTzs: null });
+        if (!cancelled) setProPortalAccess({ userId: user.id, registered: false, enabled: false });
       }
     })();
     return () => { cancelled = true; };
@@ -751,12 +748,7 @@ export default function App() {
               <p className="text-xs font-semibold text-emerald-700">ORVIX PRO</p>
               <h1 className="text-xl font-bold">Account awaiting activation</h1>
               <p className="text-sm text-slate-600">Your Orvix Pro account is registered. Contact the Orvix team for payment guidance and verified activation.</p>
-              {proPortalAccess.amountTzs === 120000 && (
-                <div className="rounded-xl bg-slate-50 p-4">
-                  <p className="text-xs text-slate-500">Orvix Pro price</p>
-                  <p className="text-2xl font-bold">TZS 120,000</p>
-                </div>
-              )}
+              <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-700">Your monthly subscription amount is agreed individually with the Orvix team. There is no standard Pro price or public checkout.</p>
               <p className="text-xs text-slate-500">Access will open after verified payment or an approved test trial. No automatic charge has been initiated.</p>
               <button type="button" onClick={() => navigateTo('/login')} className="text-sm font-medium text-emerald-700 underline">Back to Orvix login</button>
             </section>
