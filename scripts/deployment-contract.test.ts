@@ -1291,3 +1291,15 @@ test('reports use tenant-scoped normalized treasury and stock-adjustment RPCs', 
   assert.match(workspace, /save_current_branch_products_with_adjustment/);
   assert.match(workspace, /if \(stockAudit \|\| !missingRpc\)/);
 });
+
+test('camera scanner and Excel engine load on demand rather than with the POS/products screen', async () => {
+  const pos = await read('src/modules/pos/DashboardPOS.tsx');
+  const products = await read('src/modules/products/DashboardProducts.tsx');
+  const lazyScanner = await read('src/shared/components/LazyDashboardBarcodeScanner.tsx');
+  assert.match(pos, /from '\.\.\/\.\.\/shared\/components\/LazyDashboardBarcodeScanner'/);
+  assert.match(products, /from '\.\.\/\.\.\/shared\/components\/LazyDashboardBarcodeScanner'/);
+  assert.match(lazyScanner, /lazy\(\(\) => import\('\.\/DashboardBarcodeScanner'\)\)/);
+  assert.match(lazyScanner, /if \(!props\.isOpen\) return null/);
+  assert.doesNotMatch(products, /^import\s+\{[^\n]+\}\s+from '\.\.\/\.\.\/shared\/utils\/excelExport'/m);
+  assert.match(products, /await import\('\.\.\/\.\.\/shared\/utils\/excelExport'\)/);
+});
