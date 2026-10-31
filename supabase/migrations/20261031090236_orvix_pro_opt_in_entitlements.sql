@@ -5,7 +5,7 @@ create table if not exists public.orvix_pro_entitlements (
   tenant_id uuid primary key references public.tenants(id) on delete cascade,
   tier text not null default 'pro' check (tier = 'pro'),
   status text not null default 'inactive' check (status in ('inactive', 'trial', 'active', 'suspended', 'expired')),
-  settle_enabled boolean not null default true,
+  settle_enabled boolean not null default false,
   shift_reports_enabled boolean not null default false,
   cashier_accountability_enabled boolean not null default false,
   park_sale_enabled boolean not null default false,
@@ -15,7 +15,8 @@ create table if not exists public.orvix_pro_entitlements (
   activated_by uuid,
   notes text,
   updated_at timestamptz not null default now(),
-  constraint orvix_pro_dates_check check (expires_at is null or starts_at is null or expires_at > starts_at)
+  constraint orvix_pro_dates_check check (expires_at is null or starts_at is null or expires_at > starts_at),
+  constraint orvix_pro_trial_window_check check (status <> 'trial' or (starts_at is not null and expires_at is not null))
 );
 
 alter table public.orvix_pro_entitlements enable row level security;
