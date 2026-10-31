@@ -67,3 +67,17 @@ test('Private Pro pricing is 120000 TZS, not part of public 3-package checkout',
   assert.doesNotMatch(plans, /id: 'orvix_pro'/);
   assert.match(server, /const SUBSCRIPTION_PACKAGE_IDS = new Set\(\['ruby', 'diamond', 'tanzanite'\]\)/);
 });
+
+test('Private Pro login requires membership and never exposes ordinary checkout to pending accounts', () => {
+  const app = read('src/App.tsx');
+  const login = read('src/modules/auth/LoginPage.tsx');
+  assert.match(app, /if \(!proPortalAccess\.registered\)/);
+  assert.match(app, /if \(!proPortalAccess\.enabled\)/);
+  assert.match(app, /Account awaiting activation/);
+  assert.match(app, /No automatic charge has been initiated/);
+  assert.match(app, /proMode=\{currentPath === '\/pro'\}/);
+  assert.match(login, /if \(proMode\) \{/);
+  assert.match(login, /payload\?\.registered !== true/);
+  assert.match(login, /onLogin\(\{ \.\.\.userPayload, isProAccount: true \}\)/);
+  assert.match(login, /\!proMode && \!isSaasAdminPortal/);
+});
