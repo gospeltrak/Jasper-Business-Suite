@@ -299,6 +299,7 @@ export default function App() {
     if (sessionUser.role === 'SuperAdmin' || sessionUser.isSaaSStaff) return '/dashboard';
     if (sessionUser.role === 'Partner' || sessionUser.portal_role === 'partner') return '/partner';
     if (sessionUser.role === 'Affiliate' || sessionUser.portal_role === 'affiliate') return '/affiliate';
+    if (sessionUser.isProAccount) return '/pro';
     return '/dashboard';
   };
 
@@ -391,6 +392,41 @@ export default function App() {
       console.warn('Failed to record staff logout session', error);
     }
   };
+
+  // /pro is a dedicated sign-in address, not a second tenant/auth system.
+  // Verify membership server-side again on page reload (cached user flags are
+  // only routing hints), and deny other tenants even with a valid session.
+  const [proPortalAccess, setProPortalAccess] = useState<{
+    userId: string;
+    registered: boolean;
+  } | null>(null);
+  useEffect(() => {
+    if (currentPath !== '/pro' || !user?.id) {
+      setProPortalAccess(null);
+      return;
+    }
+    let cancelled = false;
+    setProPortalAccess(null);
+    void (async () => {
+      try {
+        const client = await getSecureDataBridgeClient();
+        const { data, error } = await client.auth.getSession();
+        if (error || !data.session?.access_token) throw new Error('Session unavailable');
+        const response = await fetch('/api/orvix-pro/entitlement', {
+          method: 'GET', cache: 'no-store',
+          headers: { Authorization: `Bearer ${data.session.access_token}`, Accept: 'application/json' },
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!cancelled) setProPortalAccess({
+          userId: user.id,
+          registered: response.ok && result?.package === 'orvix_pro' && result?.registered === true,
+        });
+      } catch {
+        if (!cancelled) setProPortalAccess({ userId: user.id, registered: false });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [currentPath, user?.id]);
 
   // Perform route protection redirects check
   useEffect(() => {
@@ -663,6 +699,7 @@ export default function App() {
 
     const rendersAuthenticatedWorkspace = Boolean(user) && (
       isDashboardRoute(currentPath) ||
+      currentPath === '/pro' ||
       (currentPath === '/' && tenantDomainContext.kind === 'tenant')
     );
 
@@ -675,6 +712,38 @@ export default function App() {
         ? 403
         : tenantDomainContext.kind === 'error' ? 500 : 404;
       return <SystemErrorPage status={status} onRetry={() => window.location.reload()} />;
+    }
+
+    if (currentPath === '/pro') {
+      if (!user) {
+        return (
+          <LoginPage
+            proMode
+            onLogin={handleLoginSuccess}
+            onNavigate={navigateTo}
+            redirectMessage={redirectMessage}
+            isDark={isDark}
+            onToggleTheme={toggleTheme}
+            domainMode="app"
+            landingUrl={publicLandingUrl}
+          />
+        );
+      }
+      if (proPortalAccess?.userId !== user.id) {
+        return <div className="min-h-[100dvh] bg-white dark:bg-slate-950" aria-busy="true" />;
+      }
+      if (!proPortalAccess.registered) {
+        return <SystemErrorPage status={403} onHome={() => navigateTo('/login')} />;
+      }
+      return (
+        <Dashboard
+          user={user}
+          onLogout={handleLogoutSuccess}
+          onNavigate={navigateTo}
+          isDark={isDark}
+          onToggleTheme={toggleTheme}
+        />
+      );
     }
 
     if (currentPath === '/login' || currentPath.startsWith('/login/')) {
