@@ -105,6 +105,7 @@ export function calculateProShiftCash(
   let postedMovements = 0;
   let ignoredPendingMovements = 0;
   const seen = new Map<string, string>();
+  const seenJournalLines = new Map<string, string>();
   for (const movement of movements) {
     // Fail closed rather than silently using another teller's or branch's
     // money in today's drawer reconciliation.
@@ -139,6 +140,13 @@ export function calculateProShiftCash(
       continue;
     }
     seen.set(movement.id, fingerprint);
+    const journalFingerprint = [movement.source, movement.direction, movement.status, minor].join('|');
+    const existingLine = seenJournalLines.get(movement.journalLineId);
+    if (existingLine !== undefined) {
+      if (existingLine !== journalFingerprint) throw new Error('Conflicting duplicated treasury journal line.');
+      continue;
+    }
+    seenJournalLines.set(movement.journalLineId, journalFingerprint);
     if (movement.status !== 'posted') {
       ignoredPendingMovements++;
       continue;
