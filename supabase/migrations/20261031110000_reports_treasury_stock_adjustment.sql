@@ -150,6 +150,10 @@ declare
   v_previous numeric;
   v_after numeric;
   v_direction text := p_adjustment->>'type';
+  v_context jsonb;
+  v_snapshot jsonb;
+  v_current_product jsonb;
+  v_current_shop_qty numeric;
   v_result jsonb;
 begin
   if v_tenant is null or (select auth.uid()) is null then
@@ -177,6 +181,38 @@ begin
     or abs(v_after - v_previous - (case when v_direction='add' then v_qty else -v_qty end))>0.0001 then
     raise exception using errcode='22023', message='Stock adjustment quantities do not reconcile.';
   end if;
+  -- Compare the submitted prior stock against the durable, branch-scoped
+  -- snapshot WHILE holding the tenant workspace row lock. This protects
+  -- against a stale tablet overwriting another staff member's newer stock.
+  v_context := public.get_current_branch_context();
+  if v_branch is distinct from nullif(v_context->>'activeBranchId','')::uuid then
+    raise exception using errcode='42501',
+      message='The stock adjustment branch must match the selected workspace.';
+  end if;
+  perform 1 from public.tenant_workspaces where tenant_id=v_tenant for update;
+  if private.normalized_writes_enabled(v_tenant) then
+    v_snapshot := private.normalized_mutation_snapshot(v_tenant,array['products']);
+  else
+    select payload into v_snapshot from public.tenant_workspaces where tenant_id=v_tenant;
+  end if;
+  select item into v_current_product
+  from jsonb_array_elements(coalesce(v_snapshot->'products','[]'::jsonb)) source(item)
+  where item->>'id'=v_product
+  limit 1;
+  if v_current_product is null then
+    raise exception using errcode='23514',
+      message='The selected product is not in the active branch. Refresh and try again.';
+  end if;
+  v_current_shop_qty := coalesce(
+    nullif(v_current_product->>'shopStockQty','')::numeric,
+    coalesce(nullif(v_current_product->>'stockQty','')::numeric,0)
+      - coalesce(nullif(v_current_product->>'storeStockQty','')::numeric,0)
+  );
+  if v_current_shop_qty is null or abs(v_current_shop_qty-v_previous)>0.0001 then
+    raise exception using errcode='40001',
+      message='Stock changed since this adjustment started. Refresh and try again.';
+  end if;
+
   -- A repeated request key must never write stock twice.
   if exists(select 1 from public.stock_adjustments
     where tenant_id=v_tenant and id=v_id) then
