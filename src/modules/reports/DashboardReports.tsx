@@ -12,6 +12,7 @@ import type { BranchSummary } from '../branches/branchTypes';
 import { formatLocalDate, parseLocalDate, timestampToLocalDate } from '../../shared/utils/localDate';
 import { getSaleItemGrossTotal, getSaleItemLineTotal } from '../sales/utils/saleItemTotals';
 import { useAuthoritativeReportData } from './utils/useAuthoritativeReportData';
+import { getProductSalesDue } from '../sales/utils/salePaymentTotals';
 
 const saleProductRevenue = (s: any): number =>
   s.productTotal !== undefined ? s.productTotal : (s.total - (s.deliveryCost || 0));
@@ -352,7 +353,7 @@ export default function DashboardReports({
       // sale.amountDue is set once at checkout and never decremented by later
       // installment payments (only amountPaid is) -- total - amountPaid is
       // the only figure that reflects what the customer still actually owes.
-      const due = Math.max(0, sale.total - (sale.amountPaid || 0));
+      const due = getProductSalesDue(sale);
       if (due <= 0) return;
       const date = new Date(sale.timestamp);
       if (date < start || date > end) return;
