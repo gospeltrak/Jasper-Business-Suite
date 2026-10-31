@@ -323,6 +323,7 @@ export default function DashboardPOS({
   const [customerPhone, setCustomerPhone] = useState('');
   const [paymentStatus, setPaymentStatus] = useState<'idle' | 'completed'>('idle');
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [isCheckoutTakingLong, setIsCheckoutTakingLong] = useState(false);
   // React ref blocks a second tap synchronously, before the next render.
   const paymentSubmitInFlightRef = useRef(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
@@ -1083,7 +1084,13 @@ export default function DashboardPOS({
     setCheckoutError(null);
     setCheckoutNeedsPaymentSetup(false);
     setIsProcessingPayment(true);
+    setIsCheckoutTakingLong(false);
+    const startedAt = performance.now();
+    const slowNotice = window.setTimeout(() => setIsCheckoutTakingLong(true), 6000);
     try {
+      // Paint the disabled button + spinner before synchronous basket pricing.
+      await new Promise<void>(resolve =>
+        window.requestAnimationFrame(() => window.setTimeout(resolve, 0)));
       await finalizeSale();
     } catch (error: any) {
       console.error('Checkout failed', error);
@@ -1095,6 +1102,10 @@ export default function DashboardPOS({
         ? 'Muamala haujathibitishwa. Hakiki Sales kabla ya kujaribu tena.'
         : 'Payment status is unconfirmed. Check Sales before retrying.'));
     } finally {
+      window.clearTimeout(slowNotice);
+      const elapsed = performance.now() - startedAt;
+      if (elapsed > 1800) console.info('[Orvix performance] POS checkout duration:', Math.round(elapsed), 'ms');
+      setIsCheckoutTakingLong(false);
       paymentSubmitInFlightRef.current = false;
       setIsProcessingPayment(false);
     }
@@ -2513,6 +2524,14 @@ export default function DashboardPOS({
 
               </div>
               <div className="pos-checkout-footer">
+                {isCheckoutTakingLong && (
+                  <p role="status" aria-live="polite" translate="no"
+                    className="mb-2 text-center text-[11px] font-medium text-amber-700">
+                    {receiptLanguage === 'sw'
+                      ? 'Muamala bado unathibitishwa. Usibonyeze tena au kufunga ukurasa.'
+                      : 'Still confirming this sale. Do not tap again or close this screen.'}
+                  </p>
+                )}
                 <div className="pos-checkout-footer-total">
                   <span>Sale total</span>
                   <strong>{currency}{Math.round(grandTotal).toLocaleString()}</strong>
