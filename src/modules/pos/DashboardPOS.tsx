@@ -340,8 +340,8 @@ export default function DashboardPOS({
   const [receiptPdfStatus, setReceiptPdfStatus] = useState<string | null>(null);
   const [printNotice, setPrintNotice] = useState<string | null>(null);
   const getPrintNotice = (result: PrinterResult): string => {
-    if (result.status === 'sent') return receiptLanguage === 'sw' ? 'Risiti imetumwa kwa printer.' : 'Receipt sent to printer.';
-    if (result.status === 'already-sent') return receiptLanguage === 'sw' ? 'Risiti tayari imetumwa.' : 'Receipt was already sent.';
+    if (result.status === 'sent') return receiptLanguage === 'sw' ? 'Data ya risiti imetumwa kwa Bluetooth; hakikisha karatasi imechapishwa.' : 'Receipt data sent over Bluetooth; check that paper was printed.';
+    if (result.status === 'already-sent') return receiptLanguage === 'sw' ? 'Jaribio la awali la kutuma risiti tayari lilifanyika. Angalia printer.' : 'A previous receipt send was attempted. Check your printer.';
     if (result.status === 'not-supported') return receiptLanguage === 'sw' ? 'Mauzo yamehifadhiwa. Bluetooth printing inahitaji Android printer driver. Tumia Print Receipt.' : 'Sale saved. Bluetooth printing requires the Android printer driver. Use Print Receipt.';
     if (result.status === 'not-connected') return receiptLanguage === 'sw' ? 'Mauzo yamehifadhiwa. Unganisha printer kwenye Settings na ujaribu tena.' : 'Sale saved. Connect a printer in Settings and retry.';
     if (result.status === 'busy') return receiptLanguage === 'sw' ? 'Risiti inatumwa, tafadhali subiri.' : 'Receipt is already being sent.';
