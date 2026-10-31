@@ -2961,3 +2961,55 @@ button:active:not(:disabled),
   #dashboard-scaffold .orvix-barcode-actions { gap: 6px; }
   #dashboard-scaffold .orvix-barcode-action { gap: 4px; padding: 0 4px; font-size: 9px; }
 }
+
+/* Product Edit action area is a flex-column sibling, NOT a nested sticky
+   bar. This intentionally overrides the broad dashboard modal sticky rules,
+   which were clipping the labels on mobile/tablet during Saving state. */
+#dashboard-scaffold .tenant-form-footer.orvix-product-edit-footer {
+  position: relative !important;
+  inset-block-end: auto !important;
+  z-index: 1;
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  align-items: stretch;
+  gap: 0.625rem;
+  width: 100%;
+  min-width: 0;
+  flex: 0 0 auto;
+  padding: 0.75rem max(0.75rem, env(safe-area-inset-right))
+    max(0.75rem, env(safe-area-inset-bottom)) max(0.75rem, env(safe-area-inset-left)) !important;
+}
+#dashboard-scaffold .orvix-product-edit-footer .orvix-product-edit-error {
+  grid-column: 1 / -1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+#dashboard-scaffold .orvix-product-edit-footer .orvix-product-edit-action {
+  display: inline-flex;
+  min-width: 0;
+  min-height: 46px;
+  width: 100%;
+  padding: 0.625rem 0.5rem;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 11px;
+  line-height: 1.35;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+#dashboard-scaffold .orvix-product-edit-footer .orvix-product-edit-action > span {
+  max-width: 100%;
+  min-width: 0;
+}
+#dashboard-scaffold .pos-checkout-confirm {
+  min-width: 0;
+  text-align: center;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+#dashboard-scaffold .pos-checkout-confirm > span {
+  min-width: 0;
+  max-width: 100%;
+  line-height: 1.35;
+}
