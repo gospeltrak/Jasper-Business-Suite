@@ -43,6 +43,7 @@ assert.match(settings, /const verified = await native\.getStatus\(\)/);
 assert.match(settings, /await native\.connectPrinter\(prefs\.printer\.id\)/);
 assert.match(settings, /disabled=\{busy \|\| !prefs\.printer\} onClick=\{testPrinter\}/);
 assert.match(settings, /WebVFD protocol/);
+assert.match(settings, /WebVFD printers may use a vendor-specific encrypted Bluetooth protocol/);
 assert.match(shared, /prefs\.autoReconnect \|\| kind === 'manual'/);
 assert.match(shared, /Bluetooth connection dropped immediately/);
 
