@@ -27,6 +27,8 @@ test('Pro feature flags are independently disabled until server-confirmed', () =
     assert.match(pro, new RegExp(key + ': payload\\.features\\?\\.' + key + ' === true'));
   }
   assert.match(pro, /cache: 'no-store'/);
+  assert.match(pro, /payload\?\.tenantId !== activeTenantId/);
+  assert.match(read('src/modules/sales/DashboardSalesList.tsx'), /loadOrvixProFeatures\(activeTenant\.id\)/);
   assert.match(pro, /if \(!response\.ok\) return/);
 });
 
@@ -40,6 +42,8 @@ test('Pro entitlements are explicitly granted and tenant-scoped, never auto-assi
   assert.match(server, /\.from\('users'\)[\s\S]*?\.eq\('id', identity\.user\.id\)/);
   assert.match(server, /\.from\('orvix_pro_entitlements'\)/);
   assert.match(server, /entitlement\?\.status === 'trial' \|\| entitlement\?\.status === 'active'/);
+  assert.match(server, /tenantId: appUser\.tenant_id/);
+  assert.match(server, /appUser\.is_active === false/);
 });
 
 test('The one and only private Pro sign-in URL is /pro and it uses existing email and password', () => {
