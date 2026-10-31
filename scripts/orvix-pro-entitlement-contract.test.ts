@@ -70,6 +70,25 @@ test('Pro uses individual client agreements, not a fixed amount or public checko
   assert.match(server, /const SUBSCRIPTION_PACKAGE_IDS = new Set\(\['ruby', 'diamond', 'tanzanite'\]\)/);
 });
 
+test('Unverified legacy Settle cannot create browser-local financial records or fake reconciliation', () => {
+  const sales = read('src/modules/sales/DashboardSalesList.tsx');
+  const workspace = read('src/modules/sales/OrvixProSettleWorkspace.tsx');
+  assert.match(sales, /<OrvixProSettleWorkspace/);
+  assert.doesNotMatch(sales, /double_entry_ledgers_/);
+  assert.doesNotMatch(sales, /till_settlements_/);
+  assert.doesNotMatch(sales, /setSettleActualDrawerCount\(totalExpected/);
+  assert.doesNotMatch(sales, /Equity Bank Operating Treasury/);
+  assert.doesNotMatch(sales, /Verified Audit Stream/);
+  assert.match(workspace, /Actual Cash Counted/);
+  assert.match(workspace, /onChange=\{event => setActualCounted\(event\.target\.value\)\}/);
+  assert.match(workspace, /systemSettings\?\.paymentChannels/);
+  assert.match(workspace, /channel\.status !== 'inactive'/);
+  assert.match(workspace, /channel\.status !== 'archived'/);
+  assert.match(workspace, /branchId/);
+  assert.match(workspace, /Preview only/);
+  assert.doesNotMatch(workspace, /safeSetJsonItem|localStorage\.setItem|onlineStorage\.setItem/);
+});
+
 test('Orvix Pro admin panel and isolated demo onboarding preserve the existing workspace', () => {
   const dashboard = read('src/components/Dashboard.tsx');
   const admin = read('src/modules/platform-admin/components/SuperSaaSAdminView.tsx');
