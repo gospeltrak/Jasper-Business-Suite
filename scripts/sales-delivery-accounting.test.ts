@@ -60,12 +60,12 @@ test('Money & Bank report is limited to pages with totals computed on server', a
 
 test('delivery accounting does not count pending dispatch fees as cash already collected', async () => {
   const deliveries = await readFile('src/modules/deliveries/DashboardDeliveries.tsx', 'utf8');
-  const dashboard = await readFile('src/components/Dashboard.tsx', 'utf8');
   assert.match(deliveries, /del\.deliveryPaymentStatus === 'collected' && !!del\.treasuryJournalId/);
   assert.match(deliveries, /const deliveryIncome = deliveryIncomeTotal/);
   assert.match(deliveries, /if \(!isDeliveryCollected\(d\)\) return acc/);
-  assert.match(dashboard, /amount: saleIncome/);
-  assert.match(dashboard, /estimatedProfit = saleIncome - totalCost/);
+  const ownerNotice = await readFile('supabase/migrations/20261031150000_pos_sale_owner_summary_notification.sql', 'utf8');
+  assert.match(ownerNotice, /Sales \(bidhaa\): TSh/);
+  assert.match(ownerNotice, /Delivery \(ada\): TSh/);
 });
 
 test('sales cards render bounded pages, not unbounded historical arrays', async () => {
