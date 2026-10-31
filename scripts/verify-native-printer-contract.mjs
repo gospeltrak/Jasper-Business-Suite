@@ -39,5 +39,12 @@ assert.match(shared, /paperWidthMm: input\.paperWidthMm === 80 \? 80 : 58/);
 assert.match(settings, /'58mm'/);
 assert.match(settings, /'80mm'/);
 assert.doesNotMatch(settings, /'50mm'/);
+assert.match(settings, /const verified = await native\.getStatus\(\)/);
+assert.match(settings, /await native\.connectPrinter\(prefs\.printer\.id\)/);
+assert.match(settings, /disabled=\{busy \|\| !prefs\.printer\} onClick=\{testPrinter\}/);
+assert.match(settings, /WebVFD protocol/);
+assert.match(shared, /prefs\.autoReconnect \|\| kind === 'manual'/);
+assert.match(shared, /Bluetooth connection dropped immediately/);
+
 
 console.log('Orvix Scanner & Printer static native contract passed; hardware QA is still required.');
