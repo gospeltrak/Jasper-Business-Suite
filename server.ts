@@ -1533,6 +1533,55 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     };
   };
 
+  // Read-only Pro directory for VERIFIED platform administrators. No
+  // provisioning, subscription renewal, payments or tenant mutations.
+  // The queried entitlement rows are private, never exposed to browsers
+  // via the direct Supabase Data API.
+  app.get('/api/orvix-pro/admin/clients', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, private');
+    try {
+      await requirePlatformAdmin(req);
+      if (!supabaseAdmin) return res.status(503).json({ error: 'Pro admin service unavailable.' });
+      const { data: records, error: listError, count } = await supabaseAdmin
+        .from('orvix_pro_entitlements')
+        .select('tenant_id,status,starts_at,expires_at,settle_enabled,shift_reports_enabled,cashier_accountability_enabled,park_sale_enabled,updated_at', { count: 'exact' })
+        .order('updated_at', { ascending: false })
+        .range(0, 49);
+      if (listError) {
+        console.warn('[Orvix Pro] private admin directory unavailable:', String(listError.code || 'unknown'));
+        return res.status(503).json({ error: 'Pro client directory is not configured yet.' });
+      }
+      const ids = (records || []).map((item: any) => String(item.tenant_id)).filter(isUuid);
+      let names = new Map<string, string>();
+      if (ids.length) {
+        const { data: tenants, error: tenantError } = await supabaseAdmin
+          .from('tenants').select('id,name').in('id', ids);
+        if (tenantError) return res.status(503).json({ error: 'Could not verify Pro client names.' });
+        names = new Map((tenants || []).map((item: any) => [String(item.id), String(item.name || 'Unnamed business')]));
+      }
+      return res.json({
+        clients: (records || []).map((entry: any) => ({
+          tenantId: entry.tenant_id,
+          businessName: names.get(String(entry.tenant_id)) || 'Business unavailable',
+          status: entry.status,
+          startsAt: entry.starts_at,
+          expiresAt: entry.expires_at,
+          updatedAt: entry.updated_at,
+          features: {
+            settle: entry.settle_enabled === true,
+            shiftReports: entry.shift_reports_enabled === true,
+            cashierAccountability: entry.cashier_accountability_enabled === true,
+            parkSale: entry.park_sale_enabled === true,
+          },
+        })),
+        total: Number(count || 0),
+        hasMore: Number(count || 0) > 50,
+      });
+    } catch (error: any) {
+      return platformAdminError(res, error);
+    }
+  });
+
   // Orvix Pro is a separately provisioned entitlement, not inherited from
   // Tanzanite (or free trials). Enforce entitlement on the server.
   // This read endpoint is scoped exclusively to the authenticated user tenant.
