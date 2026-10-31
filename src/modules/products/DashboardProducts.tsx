@@ -18,8 +18,7 @@ import { formatLocalDate } from '../../shared/utils/localDate';
 import { classifyUniversalImportRows, downloadableUniversalTemplate, exportProductsToUniversalRows, parseCsvText } from './utils/bulkProductImport';
 import { downloadExcelFileFromRows, readExcelFileAsCsvText } from '../../shared/utils/excelExport';
 import { compressImageFile } from '../../shared/utils/imageCompression';
-import { safeSetJsonItem } from '../../shared/utils/dataSafety';
-import { prepareManualStockAdjustment } from './utils/manualStockAdjustment';
+import { prepareManualStockAdjustment, type ManualStockAudit } from './utils/manualStockAdjustment';
 import { generateUniqueEan13Barcode } from './barcode';
 import { findProductBarcodeConflict, findBatchBarcodeConflict } from './utils/barcodeUniqueness';
 import { calculateFractionSalePacketPrice } from '../sales/utils/fractionSale';
@@ -48,7 +47,7 @@ interface DashboardProductsProps {
   onAddProduct: (prod: Product) => Promise<boolean>;
   onAddProducts: (products: Product[]) => Promise<boolean>;
   onDeleteProduct: (id: string) => void;
-  onUpdateProducts: (updatedProducts: Product[], changedProductIds?: string[]) => Promise<boolean>;
+  onUpdateProducts: (updatedProducts: Product[], changedProductIds?: string[], options?: { stockAudit?: ManualStockAudit }) => Promise<boolean>;
   subscriptionStatus?: any;
   onTriggerUpgrade?: (limitType: 'products' | 'stores' | 'staff' | 'expired') => void;
 }
@@ -782,38 +781,23 @@ export default function DashboardProducts({
       if (!freshProduct) throw new Error('This product is no longer available. Refresh the stock list.');
       const qty = Number(adjustQty);
       const adjustment = prepareManualStockAdjustment(freshProduct, type, qty);
-      // Only one product ID is changed; avoid rewriting every branch's stock.
+      const audit: ManualStockAudit = {
+        id: `adj-${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`}`,
+        tenantId: activeTenant.id,
+        productId: freshProduct.id, productName: freshProduct.name, sku: freshProduct.sku || '',
+        type, qty, previousStock: adjustment.previousShopStock, newStock: adjustment.nextShopStock,
+        reason: adjustReason || (type === 'add' ? 'Manual addition' : 'Manual deduction'),
+        adjustedAt: new Date().toISOString(),
+      };
+      // Stock and its immutable audit event now commit in ONE database transaction.
       const saved = await onUpdateProducts(
         products.map(product => product.id === freshProduct.id ? adjustment.product : product),
         [freshProduct.id],
+        { stockAudit: audit },
       );
       if (!saved) {
         setAdjustSaveError('Stock changes were not saved. Please check your connection and try again.');
         return;
-      }
-      // A failed audit cache must never cause a second stock mutation.
-      const log = {
-        id: `adj-${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`}`,
-        productId: freshProduct.id,
-        productName: freshProduct.name,
-        sku: freshProduct.sku || '',
-        type, qty,
-        previousStock: adjustment.previousShopStock,
-        newStock: adjustment.nextShopStock,
-        reason: adjustReason || (type === 'add' ? 'Manual addition' : 'Manual deduction'),
-        adjustedAt: new Date().toISOString(),
-        tenantId: activeTenant.id,
-        branchId: freshProduct.branchId || undefined,
-      };
-      try {
-        const existing = JSON.parse(onlineStorage.getItem('jasper_stock_adjustments') || '[]');
-        safeSetJsonItem('jasper_stock_adjustments', [log, ...(Array.isArray(existing) ? existing : [])].slice(0, 1000), {
-          tenantId: activeTenant.id,
-          dataKey: 'stock_adjustments',
-          logLabel: `${activeTenant.id}/stock-adjustments`,
-        });
-      } catch (logError) {
-        console.warn('[AdjustStock] Inventory saved, audit view cache unavailable:', logError);
       }
       setAdjustProduct(null);
       setAdjustQty('');
