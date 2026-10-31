@@ -322,7 +322,7 @@ function SubscriptionCheckoutStateBridge({
 function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggleTheme, initialTab, mirrorMode = false }: DashboardProps) {
   const { t, lang, setLang } = useTranslation();
   const { getFallbackInitials, getLogoUrl } = useTenantLogo();
-  const { addSaleNotification, addSubscriptionReminderNotification, unreadCount, hydrateTenantModuleSettings, configureInbox } = useJasperNotifications();
+  const { refreshInbox, addSubscriptionReminderNotification, unreadCount, hydrateTenantModuleSettings, configureInbox } = useJasperNotifications();
   const [showDashLangMenu, setShowDashLangMenu] = useState(false);
   // Mobile top-bar "quick settings" menu (theme/language/notifications/
   // online-offline), collapsed behind one animated trigger instead of four
@@ -2532,28 +2532,12 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     }
     setSalesMap(prev => ({ ...prev, [activeTenant.id]: nextTenantSales }));
 
-    // Handle Global Owner Sale Notification
-    try {
-       // Estimate total cost of sale to determine profit
-       let totalCost = 0;
-       const summaryStrings = [];
-       sale.items.forEach(item => {
-          totalCost += ((item.costPriceAtSale || 0) * item.qty);
-          summaryStrings.push(`${item.qty}x ${item.productName}`);
-       });
-       const estimatedProfit = saleIncome - totalCost;
-
-       addSaleNotification({
-          tenantId: sale.tenantId,
-          moduleName: activeTenant.businessType === 'pharmacy' ? 'pharmacy' : (sale.channel === 'wholesale' ? 'wholesale' : 'retail'),
-          amount: saleIncome,
-          profit: estimatedProfit,
-          paymentMethod: sale.paymentMethod,
-          cashierName: sale.cashierName || user.name,
-          itemsSummary: summaryStrings.join(', ')
-       });
-    } catch(e) {
-       console.error("Failed to parse sale notification event", e);
+    // Owner notification is recorded atomically on the server when the sale
+    // enters normalized Sales. Do not generate a second client-only alert;
+    // the existing tenant inbox is the single authoritative notification feed.
+    // Refresh once only when an admin personally completes the checkout.
+    if (activeRoleName === 'Admin') {
+      void refreshInbox().catch(() => undefined);
     }
 
     if (sale.syncStatus === 'pending') {
