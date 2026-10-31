@@ -299,6 +299,7 @@ export default function App() {
     if (sessionUser.role === 'SuperAdmin' || sessionUser.isSaaSStaff) return '/dashboard';
     if (sessionUser.role === 'Partner' || sessionUser.portal_role === 'partner') return '/partner';
     if (sessionUser.role === 'Affiliate' || sessionUser.portal_role === 'affiliate') return '/affiliate';
+    if (sessionUser.isProAccount) return '/pro';
     return '/dashboard';
   };
 
@@ -391,6 +392,43 @@ export default function App() {
       console.warn('Failed to record staff logout session', error);
     }
   };
+
+  // /pro is a dedicated sign-in address, not a second tenant/auth system.
+  // Verify membership server-side again on page reload (cached user flags are
+  // only routing hints), and deny other tenants even with a valid session.
+  const [proPortalAccess, setProPortalAccess] = useState<{
+    userId: string;
+    registered: boolean;
+    enabled: boolean;
+  } | null>(null);
+  useEffect(() => {
+    if (currentPath !== '/pro' || !user?.id) {
+      setProPortalAccess(null);
+      return;
+    }
+    let cancelled = false;
+    setProPortalAccess(null);
+    void (async () => {
+      try {
+        const client = await getSecureDataBridgeClient();
+        const { data, error } = await client.auth.getSession();
+        if (error || !data.session?.access_token) throw new Error('Session unavailable');
+        const response = await fetch('/api/orvix-pro/entitlement', {
+          method: 'GET', cache: 'no-store',
+          headers: { Authorization: `Bearer ${data.session.access_token}`, Accept: 'application/json' },
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!cancelled) setProPortalAccess({
+          userId: user.id,
+          registered: response.ok && result?.package === 'orvix_pro' && result?.registered === true,
+          enabled: response.ok && result?.enabled === true,
+        });
+      } catch {
+        if (!cancelled) setProPortalAccess({ userId: user.id, registered: false, enabled: false });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [currentPath, user?.id]);
 
   // Perform route protection redirects check
   useEffect(() => {
@@ -650,6 +688,7 @@ export default function App() {
     if (isRecoveringPassword) {
       return (
         <LoginPage
+          proMode={currentPath === '/pro'}
           onLogin={handleLoginSuccess}
           onNavigate={navigateTo}
           isDark={isDark}
@@ -663,6 +702,7 @@ export default function App() {
 
     const rendersAuthenticatedWorkspace = Boolean(user) && (
       isDashboardRoute(currentPath) ||
+      currentPath === '/pro' ||
       (currentPath === '/' && tenantDomainContext.kind === 'tenant')
     );
 
@@ -675,6 +715,55 @@ export default function App() {
         ? 403
         : tenantDomainContext.kind === 'error' ? 500 : 404;
       return <SystemErrorPage status={status} onRetry={() => window.location.reload()} />;
+    }
+
+    if (currentPath === '/pro') {
+      if (!user) {
+        return (
+          <LoginPage
+            proMode
+            onLogin={handleLoginSuccess}
+            onNavigate={navigateTo}
+            redirectMessage={redirectMessage}
+            isDark={isDark}
+            onToggleTheme={toggleTheme}
+            domainMode="app"
+            landingUrl={publicLandingUrl}
+          />
+        );
+      }
+      if (proPortalAccess?.userId !== user.id) {
+        return <div className="min-h-[100dvh] bg-white dark:bg-slate-950" aria-busy="true" />;
+      }
+      if (!proPortalAccess.registered) {
+        return <SystemErrorPage status={403} onHome={() => navigateTo('/login')} />;
+      }
+      if (!proPortalAccess.enabled) {
+        // Only registered Pro members see this private price/activation status.
+        // No checkout is offered until independently verified payment settlement
+        // can atomically activate this entitlement on the server.
+        return (
+          <main className="min-h-[100dvh] bg-slate-50 px-4 py-12 text-slate-900 flex items-start justify-center">
+            <section className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
+              <p className="text-xs font-semibold text-emerald-700">ORVIX PRO</p>
+              <h1 className="text-xl font-bold">Account awaiting activation</h1>
+              <p className="text-sm text-slate-600">Your Orvix Pro account is registered. Contact the Orvix team for payment guidance and verified activation.</p>
+              <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-700">Your monthly subscription amount is agreed individually with the Orvix team. There is no standard Pro price or public checkout.</p>
+              <p className="text-xs text-slate-500">Access will open after verified payment or an approved test trial. No automatic charge has been initiated.</p>
+              <button type="button" onClick={() => navigateTo('/login')} className="text-sm font-medium text-emerald-700 underline">Back to Orvix login</button>
+            </section>
+          </main>
+        );
+      }
+      return (
+        <Dashboard
+          user={user}
+          onLogout={handleLogoutSuccess}
+          onNavigate={navigateTo}
+          isDark={isDark}
+          onToggleTheme={toggleTheme}
+        />
+      );
     }
 
     if (currentPath === '/login' || currentPath.startsWith('/login/')) {

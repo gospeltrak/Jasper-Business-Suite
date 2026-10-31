@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Shield, Users, Volume2, Sparkles, Unlock, UploadCloud, Image as ImageIcon, MessageSquare, Video, BookOpen, Store, Pill, ArrowLeft, Laptop, Globe, Clock } from "lucide-react";
 
 import SaaSUserDesk from './SaaSUserDesk';
+import OrvixProAdminPanel from './OrvixProAdminPanel';
 
 import SuperAffiliateControlCenter from './SuperAffiliateControlCenter';
 import Dashboard from '../../../components/Dashboard';
@@ -26,7 +27,7 @@ import { ONLINE_ONLY_WRITE_MESSAGE, canWriteBusinessDataOnline } from '../../../
 
 import { prepareSuperAdminMfa, SuperAdminMfaPrompt, verifySuperAdminMfa } from '../utils/superAdminMfa';
 
-export type SuperAdminWorkspaceTab = 'dashboard' | 'subscribers' | 'hw-pos' | 'hw-inventory' | 'hw-sales' | 'affiliates' | 'affiliate-agents' | 'sub-affiliates' | 'status' | 'reports' | 'user-activity' | 'expenses' | 'chats' | 'inbox' | 'security' | 'promotions' | 'tutorials' | 'ad-placements' | 'web-editor' | 'settings';
+export type SuperAdminWorkspaceTab = 'dashboard' | 'subscribers' | 'orvix-pro' | 'hw-pos' | 'hw-inventory' | 'hw-sales' | 'affiliates' | 'affiliate-agents' | 'sub-affiliates' | 'status' | 'reports' | 'user-activity' | 'expenses' | 'chats' | 'inbox' | 'security' | 'promotions' | 'tutorials' | 'ad-placements' | 'web-editor' | 'settings';
 
 export interface SuperSaaSAdminViewProps {
   activeAdminSubTab?: SuperAdminWorkspaceTab;
@@ -759,6 +760,16 @@ export default function SuperSaaSAdminView({
           <div className="space-y-6 animate-fade-in text-left">
             <SaaSUserDesk isUnlocked={isUnlocked} onLock={() => setIsUnlocked(false)} />
           </div>
+        )}
+
+        {/* ======================= PRIVATE ORVIX PRO ADMIN ======================= */}
+        {activeTab === 'orvix-pro' && (
+          <OrvixProAdminPanel
+            onOpenSubscribers={() => {
+              if (externalSetActiveTab) externalSetActiveTab('subscribers');
+              else setInternalActiveTab('subscribers');
+            }}
+          />
         )}
 
         {/* ======================= HARDWARE PANELS ======================= */}

@@ -1,6 +1,7 @@
 User-agent: *
 Allow: /
 Disallow: /login
+Disallow: /pro
 Disallow: /admin
 Disallow: /tools
 Disallow: /affiliate

@@ -1,0 +1,134 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+
+const read = (path: string) => readFileSync(path, 'utf8');
+
+test('Tanzanite base subscription and billing remain unchanged', () => {
+  const plans = read('src/shared/utils/subscription.ts');
+  const server = read('server.ts');
+  assert.match(plans, /tanzanite:\s*\{[\s\S]*?name: 'Tanzanite',[\s\S]*?price: 50000/);
+  assert.match(server, /const SUBSCRIPTION_PACKAGE_IDS = new Set\(\['ruby', 'diamond', 'tanzanite'\]\)/);
+  assert.doesNotMatch(server, /SUBSCRIPTION_PACKAGE_PRICES = new Map\(\[[\s\S]*?\['orvix_pro'/);
+});
+
+test('Settle is never inherited from Tanzanite, Diamond or the regular trial', () => {
+  const sales = read('src/modules/sales/DashboardSalesList.tsx');
+  assert.match(sales, /const canUseTillSettlement = proEntitlement\.tenantId === activeTenant\.id && proEntitlement\.features\.settle/);
+  assert.doesNotMatch(sales, /const canUseTillSettlement = activePlanId !== 'ruby'/);
+  assert.match(sales, /\.filter\(tab => tab\.id !== 'settlement' \|\| canUseTillSettlement\)/);
+  assert.match(sales, /if \(!canUseTillSettlement && activeSubTab === 'settlement'\)/);
+});
+
+test('Pro feature flags are independently disabled until server-confirmed', () => {
+  const pro = read('src/shared/utils/orvixProEntitlement.ts');
+  for (const key of ['settle', 'shiftReports', 'cashierAccountability', 'parkSale']) {
+    assert.match(pro, new RegExp(key + ': false'));
+    assert.match(pro, new RegExp(key + ': payload\\.features\\?\\.' + key + ' === true'));
+  }
+  assert.match(pro, /cache: 'no-store'/);
+  assert.match(pro, /payload\?\.tenantId !== activeTenantId/);
+  assert.match(read('src/modules/sales/DashboardSalesList.tsx'), /loadOrvixProFeatures\(activeTenant\.id\)/);
+  assert.match(pro, /if \(!response\.ok\) return/);
+});
+
+test('Pro entitlements are explicitly granted and tenant-scoped, never auto-assigned', () => {
+  const migration = read('supabase/migrations/20261031090236_orvix_pro_opt_in_entitlements.sql');
+  const server = read('server.ts');
+  assert.match(migration, /tenant_id uuid primary key references public\.tenants\(id\)/);
+  assert.match(migration, /force row level security/);
+  assert.match(migration, /revoke all on public\.orvix_pro_entitlements from public, anon, authenticated/);
+  assert.doesNotMatch(migration, /insert into public\.orvix_pro_entitlements/i);
+  assert.match(server, /\.from\('users'\)[\s\S]*?\.eq\('id', identity\.user\.id\)/);
+  assert.match(server, /\.from\('orvix_pro_entitlements'\)/);
+  assert.match(server, /entitlement\?\.status === 'trial' \|\| entitlement\?\.status === 'active'/);
+  assert.match(server, /tenantId: appUser\.tenant_id/);
+  assert.match(server, /appUser\.is_active === false/);
+});
+
+test('The one and only private Pro sign-in URL is /pro and it uses existing email and password', () => {
+  const app = read('src/App.tsx');
+  const login = read('src/modules/auth/LoginPage.tsx');
+  const server = read('server.ts');
+  const robots = read('public/robots.txt');
+  assert.match(app, /currentPath === '\/pro'/);
+  assert.match(app, /<LoginPage\s+proMode/);
+  assert.match(app, /if \(sessionUser\.isProAccount\) return '\/pro'/);
+  assert.match(login, /proMode\?: boolean/);
+  assert.match(login, /const response = await fetch\('\/api\/orvix-pro\/entitlement'/);
+  assert.match(login, /payload\?\.registered !== true/);
+  assert.match(login, /if \(proMode\)/);
+  assert.match(server, /'\/pro'/);
+  assert.match(robots, /Disallow: \/pro/);
+  assert.doesNotMatch(app, /currentPath === '\/orvix-pro'/);
+});
+
+test('Pro uses individual client agreements, not a fixed amount or public checkout', () => {
+  const server = read('server.ts');
+  const plans = read('src/shared/utils/subscription.ts');
+  assert.match(server, /registered: Boolean\(entitlement\)/);
+  assert.doesNotMatch(server, /price: entitlement \? \{ amount: 120000/);
+  assert.doesNotMatch(read('src/App.tsx'), /TZS 120,000/);
+  assert.match(read('src/App.tsx'), /agreed individually with the Orvix team/);
+  assert.doesNotMatch(plans, /id: 'orvix_pro'/);
+  assert.match(server, /const SUBSCRIPTION_PACKAGE_IDS = new Set\(\['ruby', 'diamond', 'tanzanite'\]\)/);
+});
+
+test('Unverified legacy Settle cannot create browser-local financial records or fake reconciliation', () => {
+  const sales = read('src/modules/sales/DashboardSalesList.tsx');
+  const workspace = read('src/modules/sales/OrvixProSettleWorkspace.tsx');
+  assert.match(sales, /<OrvixProSettleWorkspace/);
+  assert.doesNotMatch(sales, /double_entry_ledgers_/);
+  assert.doesNotMatch(sales, /till_settlements_/);
+  assert.doesNotMatch(sales, /setSettleActualDrawerCount\(totalExpected/);
+  assert.doesNotMatch(sales, /Equity Bank Operating Treasury/);
+  assert.doesNotMatch(sales, /Verified Audit Stream/);
+  assert.match(workspace, /Actual Cash Counted/);
+  assert.match(workspace, /onChange=\{event => setActualCounted\(event\.target\.value\)\}/);
+  assert.match(workspace, /systemSettings\?\.paymentChannels/);
+  assert.match(workspace, /channel\.status !== 'inactive'/);
+  assert.match(workspace, /channel\.status !== 'archived'/);
+  assert.match(workspace, /branchId/);
+  assert.match(workspace, /Preview only/);
+  assert.doesNotMatch(workspace, /safeSetJsonItem|localStorage\.setItem|onlineStorage\.setItem/);
+});
+
+test('Orvix Pro admin panel and isolated demo onboarding preserve the existing workspace', () => {
+  const dashboard = read('src/components/Dashboard.tsx');
+  const admin = read('src/modules/platform-admin/components/SuperSaaSAdminView.tsx');
+  const panel = read('src/modules/platform-admin/components/OrvixProAdminPanel.tsx');
+  assert.match(dashboard, /admin-orvix-pro/);
+  assert.match(admin, /OrvixProAdminPanel/);
+  assert.match(panel, /Demo account not provisioned/);
+  assert.match(panel, /Pro Edge/);
+  assert.doesNotMatch(panel, /createUser\(|signUp\(|paymentProvider\.charge/);
+});
+
+test('Pro client directory is read-only, admin-verified and never auto-provisions tenants', () => {
+  const server = read('server.ts');
+  const panel = read('src/modules/platform-admin/components/OrvixProAdminPanel.tsx');
+  const list = read('src/modules/platform-admin/components/OrvixProClientList.tsx');
+  assert.match(server, /app\.get\('\/api\/orvix-pro\/admin\/clients'/);
+  assert.match(server, /await requirePlatformAdmin\(req\)/);
+  assert.match(server, /\.from\('orvix_pro_entitlements'\)/);
+  assert.match(server, /\.range\(0, 49\)/);
+  assert.match(panel, /<OrvixProClientList/);
+  assert.match(list, /getSecureDataBridgeClient/);
+  assert.match(list, /cache: 'no-store'/);
+  assert.match(list, /No provisioned Pro clients/);
+  assert.doesNotMatch(list, /\.insert\(|\.update\(|\.delete\(|\.upsert\(/);
+});
+
+test('Private Pro login requires membership and never exposes ordinary checkout to pending accounts', () => {
+  const app = read('src/App.tsx');
+  const login = read('src/modules/auth/LoginPage.tsx');
+  assert.match(app, /if \(!proPortalAccess\.registered\)/);
+  assert.match(app, /if \(!proPortalAccess\.enabled\)/);
+  assert.match(app, /Account awaiting activation/);
+  assert.match(app, /No automatic charge has been initiated/);
+  assert.match(app, /proMode=\{currentPath === '\/pro'\}/);
+  assert.match(login, /if \(proMode\) \{/);
+  assert.match(login, /payload\?\.registered !== true/);
+  assert.match(login, /onLogin\(\{ \.\.\.userPayload, isProAccount: true \}\)/);
+  assert.match(login, /\!proMode && \!isSaasAdminPortal/);
+});

@@ -8,6 +8,8 @@ export interface User {
   profileImage?: string;
   isDuress?: boolean;
   isSaaSStaff?: boolean;
+  /** Routing hint only; never an authorization check for paid Pro features. */
+  isProAccount?: boolean;
   saasPermissions?: Record<string, boolean>;
   rolePermissions?: CustomRole['permissions'];
   phone?: string;

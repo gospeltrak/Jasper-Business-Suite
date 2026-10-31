@@ -1533,6 +1533,113 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     };
   };
 
+  // Read-only Pro directory for VERIFIED platform administrators. No
+  // provisioning, subscription renewal, payments or tenant mutations.
+  // The queried entitlement rows are private, never exposed to browsers
+  // via the direct Supabase Data API.
+  app.get('/api/orvix-pro/admin/clients', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, private');
+    try {
+      await requirePlatformAdmin(req);
+      if (!supabaseAdmin) return res.status(503).json({ error: 'Pro admin service unavailable.' });
+      const { data: records, error: listError, count } = await supabaseAdmin
+        .from('orvix_pro_entitlements')
+        .select('tenant_id,status,starts_at,expires_at,settle_enabled,shift_reports_enabled,cashier_accountability_enabled,park_sale_enabled,updated_at', { count: 'exact' })
+        .order('updated_at', { ascending: false })
+        .range(0, 49);
+      if (listError) {
+        console.warn('[Orvix Pro] private admin directory unavailable:', String(listError.code || 'unknown'));
+        return res.status(503).json({ error: 'Pro client directory is not configured yet.' });
+      }
+      const ids = (records || []).map((item: any) => String(item.tenant_id)).filter(isUuid);
+      let names = new Map<string, string>();
+      if (ids.length) {
+        const { data: tenants, error: tenantError } = await supabaseAdmin
+          .from('tenants').select('id,name').in('id', ids);
+        if (tenantError) return res.status(503).json({ error: 'Could not verify Pro client names.' });
+        names = new Map((tenants || []).map((item: any) => [String(item.id), String(item.name || 'Unnamed business')]));
+      }
+      return res.json({
+        clients: (records || []).map((entry: any) => ({
+          tenantId: entry.tenant_id,
+          businessName: names.get(String(entry.tenant_id)) || 'Business unavailable',
+          status: entry.status,
+          startsAt: entry.starts_at,
+          expiresAt: entry.expires_at,
+          updatedAt: entry.updated_at,
+          features: {
+            settle: entry.settle_enabled === true,
+            shiftReports: entry.shift_reports_enabled === true,
+            cashierAccountability: entry.cashier_accountability_enabled === true,
+            parkSale: entry.park_sale_enabled === true,
+          },
+        })),
+        total: Number(count || 0),
+        hasMore: Number(count || 0) > 50,
+      });
+    } catch (error: any) {
+      return platformAdminError(res, error);
+    }
+  });
+
+  // Orvix Pro is a separately provisioned entitlement, not inherited from
+  // Tanzanite (or free trials). Enforce entitlement on the server.
+  // This read endpoint is scoped exclusively to the authenticated user tenant.
+  app.get('/api/orvix-pro/entitlement', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, private');
+    if (!supabaseAdmin) return res.status(503).json({ error: 'Pro entitlement service unavailable.' });
+    const token = getBearerToken(req);
+    if (!token) return res.status(401).json({ error: 'Sign in required.' });
+    try {
+      const { data: identity, error: authError } = await supabaseAdmin.auth.getUser(token);
+      if (authError || !identity?.user?.id) {
+        return res.status(401).json({ error: 'Sign in required.' });
+      }
+      // Never accept tenant_id in query/body: this tenant must come from a
+      // verified users row, not any client-editable identifier or JWT metadata.
+      const { data: appUser, error: userError } = await supabaseAdmin
+        .from('users')
+        .select('tenant_id,is_active')
+        .eq('id', identity.user.id)
+        .maybeSingle();
+      if (userError) return res.status(503).json({ error: 'Unable to verify tenant access.' });
+      if (!appUser?.tenant_id || appUser.is_active === false) return res.status(403).json({ error: 'Active tenant account required.' });
+      const { data: entitlement, error: entitlementError } = await supabaseAdmin
+        .from('orvix_pro_entitlements')
+        .select('tier,status,starts_at,expires_at,settle_enabled,shift_reports_enabled,cashier_accountability_enabled,park_sale_enabled')
+        .eq('tenant_id', appUser.tenant_id)
+        .maybeSingle();
+      if (entitlementError) return res.status(503).json({ error: 'Pro entitlement service unavailable.' });
+      const now = Date.now();
+      const start = entitlement?.starts_at ? new Date(entitlement.starts_at).getTime() : null;
+      const expiry = entitlement?.expires_at ? new Date(entitlement.expires_at).getTime() : null;
+      const validWindow = (start === null || (Number.isFinite(start) && start <= now))
+        && (expiry === null || (Number.isFinite(expiry) && now < expiry));
+      const hasBoundedTrial = entitlement?.status !== 'trial' || (start !== null && expiry !== null);
+      const enabled = entitlement?.tier === 'pro'
+        && (entitlement?.status === 'trial' || entitlement?.status === 'active')
+        && validWindow && hasBoundedTrial;
+      return res.json({
+        package: 'orvix_pro',
+        tenantId: appUser.tenant_id,
+        name: 'Orvix Pro',
+        registered: Boolean(entitlement),
+        enabled,
+        // Contract amounts are individualized and are never inferred from a
+        // flat-rate package; no Pro billing endpoint is live at this stage.
+        features: {
+          settle: enabled && entitlement?.settle_enabled === true,
+          shiftReports: enabled && entitlement?.shift_reports_enabled === true,
+          cashierAccountability: enabled && entitlement?.cashier_accountability_enabled === true,
+          parkSale: enabled && entitlement?.park_sale_enabled === true,
+        },
+      });
+    } catch (error) {
+      console.error('[Orvix Pro] entitlement lookup failed:', (error as Error)?.message);
+      return res.status(503).json({ error: 'Pro entitlement service unavailable.' });
+    }
+  });
+
   app.get('/api/branches/bootstrap', async (req, res) => {
     const branchClient = await requireBranchRpcClient(req, res);
     if (!branchClient) return;
@@ -5230,7 +5337,7 @@ Your output must be in JSON matching the specified Response Schema exactly. All 
         ['/401', 401], ['/403', 403], ['/404', 404], ['/500', 500],
       ]).get(req.path);
       const knownAppPath = req.path === '/'
-        || ['/login', '/tools', '/admin', '/dashboard', '/sales', '/sales-list', '/reports', '/pos', '/products', '/settings'].includes(req.path)
+        || ['/login', '/pro', '/tools', '/admin', '/dashboard', '/sales', '/sales-list', '/reports', '/pos', '/products', '/settings'].includes(req.path)
         || ['/login/', '/dashboard/', '/affiliate', '/partner'].some(prefix => req.path.startsWith(prefix));
       res.status(explicitErrorStatus || (knownAppPath ? 200 : 404)).type('html').send(appShellHtml);
     });

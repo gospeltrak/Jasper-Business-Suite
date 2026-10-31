@@ -144,11 +144,14 @@ interface LoginPageProps {
   resolvedTenant?: Tenant | null;
   domainMode?: 'root' | 'app' | 'tenant';
   landingUrl?: string;
+  /** Private Orvix Pro login using the existing Supabase identity service. */
+  proMode?: boolean;
 }
 
-export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark = false, onToggleTheme, isSaasAdminPortal, resolvedTenant, domainMode = 'root', landingUrl }: LoginPageProps) {
+export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark = false, onToggleTheme, isSaasAdminPortal, resolvedTenant, domainMode = 'root', landingUrl, proMode = false }: LoginPageProps) {
   // Navigation Tabs: signin vs register
   const [authTab, setAuthTab] = useState<'signin' | 'register'>(() => {
+    if (proMode) return 'signin';
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('register') === 'true' || urlParams.get('ref') || urlParams.get('promo')) {
       return 'register';
@@ -351,7 +354,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     try {
       const client: any = await getSecureDataBridgeClient();
       const { error: resetError } = await client.auth.resetPasswordForEmail(targetEmail, {
-        redirectTo: window.location.origin + '/login',
+        redirectTo: window.location.origin + (proMode ? '/pro' : '/login'),
       });
       if (resetError) throw resetError;
       setResetSent(true);
@@ -564,6 +567,37 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
 
   const triggerOnLoginWithSplash = (userPayload: any) => {
     const tenantId = userPayload.activeTenant || userPayload.tenantId;
+    if (proMode) {
+      setIsLoading(true);
+      void (async () => {
+        try {
+          if (!tenantId) throw new Error('An existing Orvix Pro business account is required. Contact Orvix to register.');
+          const client = await getSecureDataBridgeClient();
+          const { data, error: sessionError } = await client.auth.getSession();
+          if (sessionError || !data.session?.access_token) throw new Error('Please sign in again.');
+          const response = await fetch('/api/orvix-pro/entitlement', {
+            method: 'GET', cache: 'no-store',
+            headers: { Authorization: `Bearer ${data.session.access_token}`, Accept: 'application/json' },
+          });
+          const payload = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error('Could not verify your Orvix Pro account. Please try again.');
+          if (payload?.package !== 'orvix_pro' || payload?.registered !== true) {
+            throw new Error('This account is not registered for Orvix Pro. Contact the Orvix team for setup.');
+          }
+          setIsLoading(false);
+          onLogin({ ...userPayload, isProAccount: true });
+        } catch (verificationError) {
+          try {
+            const client = await getSecureDataBridgeClient();
+            await client.auth.signOut({ scope: 'local' });
+          } catch { /* no persistent unauthorized Pro session */ }
+          setError(verificationError instanceof Error ? verificationError.message : 'Unable to verify Orvix Pro access.');
+          setIsLoading(false);
+        }
+      })();
+      return;
+    }
+
 
     if (!tenantId) {
       // Intercept and open the workspace onboarding flow immediately
@@ -607,7 +641,9 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       return;
     }
     setHasActiveLoginAttempt(true);
-    if (!emailChecked) {
+    if (proMode) {
+      if (await verifyLoginTurnstile()) void triggerLogin(email, password);
+    } else if (!emailChecked) {
       handleCheckEmail(e);
     } else if (!(await verifyLoginTurnstile())) {
       return;
@@ -1238,13 +1274,13 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
             )}
           </div>
           <h2 className="text-3xl font-black tracking-tight text-slate-900 dark:text-slate-100">
-            {isSaasAdminPortal ? 'SaaS Core Authority' : tenantLoginTitle}
+            {isSaasAdminPortal ? 'SaaS Core Authority' : proMode ? 'Orvix Pro' : tenantLoginTitle}
           </h2>
           {!isTenantDomainLogin && (
             <p className="text-[11px] text-slate-500 dark:text-slate-400 font-bold tracking-normal leading-relaxed uppercase max-w-sm mx-auto">
               {isSaasAdminPortal
                 ? 'Central Management Backoffice'
-                : 'Smart POS & Business Management'}
+                : proMode ? 'Private Cashier & Retail Management' : 'Smart POS & Business Management'}
             </p>
           )}
         </div>
@@ -1271,7 +1307,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         )}
 
         {/* Auth Tab Picker */}
-        {!isSaasAdminPortal && !onboardingUser && !isTenantDomainLogin && (
+        {!proMode && !isSaasAdminPortal && !onboardingUser && !isTenantDomainLogin && (
           <div className="flex bg-slate-200 p-1 rounded-2xl grid grid-cols-2 font-bold text-xs shadow-inner">
             <button
               onClick={() => { setAuthTab('signin'); setError(null); setShowEmailRegisterForm(false); }}
@@ -1377,7 +1413,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                 </div>
               </form>
             )
-          ) : onboardingUser ? (
+          ) : onboardingUser && !proMode ? (
             /* Onboarding Form Screen */
             <form className="space-y-5 animate-fade-in" onSubmit={handleOnboardingSubmit}>
               <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-center">
@@ -1490,7 +1526,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
               <input autoFocus inputMode="numeric" autoComplete="one-time-code" maxLength={6} required value={adminMfaCode} onChange={event => setAdminMfaCode(event.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="000000" className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-4 text-center font-mono text-2xl font-black tracking-[0.4em] outline-none focus:border-amber-500" />
               <button type="submit" disabled={isLoading || adminMfaCode.length !== 6} className="w-full rounded-2xl bg-amber-600 py-3.5 text-xs font-black uppercase tracking-wider text-white disabled:opacity-50">{isLoading ? 'Verifying…' : 'Verify & Open Admin'}</button>
             </form>
-          ) : (authTab === 'signin' || isSaasAdminPortal) ? (
+          ) : (proMode || authTab === 'signin' || isSaasAdminPortal) ? (
             
             /* Sign in screen */
             <form className="space-y-5" onSubmit={handleLoginSubmit}>
@@ -1582,7 +1618,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                     <span>Processing securely...</span>
                   </>
-                ) : emailChecked ? (
+                ) : (proMode || emailChecked) ? (
                   <span>Sign In</span>
                 ) : (
                   <span>Continue</span>
