@@ -238,7 +238,7 @@ export default function DashboardSalesList({
     let disposed = false;
     setProEntitlement({ tenantId: activeTenant.id, features: { ...ORVIX_PRO_DISABLED } });
     const refreshProEntitlement = () => {
-      void loadOrvixProFeatures().then(features => {
+      void loadOrvixProFeatures(activeTenant.id).then(features => {
         if (!disposed) setProEntitlement({ tenantId: activeTenant.id, features });
       });
     };
