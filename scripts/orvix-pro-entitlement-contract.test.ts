@@ -104,6 +104,21 @@ test('Orvix Pro admin panel and isolated demo onboarding preserve the existing w
   assert.doesNotMatch(panel, /createUser\(|signUp\(|paymentProvider\.charge/);
 });
 
+test('Pro client directory is read-only, admin-verified and never auto-provisions tenants', () => {
+  const server = read('server.ts');
+  const panel = read('src/modules/platform-admin/components/OrvixProAdminPanel.tsx');
+  const list = read('src/modules/platform-admin/components/OrvixProClientList.tsx');
+  assert.match(server, /app\.get\('\/api\/orvix-pro\/admin\/clients'/);
+  assert.match(server, /await requirePlatformAdmin\(req\)/);
+  assert.match(server, /\.from\('orvix_pro_entitlements'\)/);
+  assert.match(server, /\.range\(0, 49\)/);
+  assert.match(panel, /<OrvixProClientList/);
+  assert.match(list, /getSecureDataBridgeClient/);
+  assert.match(list, /cache: 'no-store'/);
+  assert.match(list, /No provisioned Pro clients/);
+  assert.doesNotMatch(list, /\.insert\(|\.update\(|\.delete\(|\.upsert\(/);
+});
+
 test('Private Pro login requires membership and never exposes ordinary checkout to pending accounts', () => {
   const app = read('src/App.tsx');
   const login = read('src/modules/auth/LoginPage.tsx');
