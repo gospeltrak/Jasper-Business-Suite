@@ -77,6 +77,15 @@ test('idempotently repeated journal events are counted once', () => {
   assert.throws(() => calculateProShiftCash(scope, [posted, { ...posted, amount: 25 }]), /Conflicting duplicated/);
 });
 
+test('same immutable treasury line cannot be double-counted under a different event ID', () => {
+  const first = movement('sale1', 'sale_cash_collection', 'in', 20);
+  const repeated = movement('sale2', 'sale_cash_collection', 'in', 20, { journalLineId: first.journalLineId });
+  const result = calculateProShiftCash(scope, [first, repeated]);
+  assert.equal(result.expectedCash, 120);
+  assert.equal(result.postedMovements, 1);
+  assert.throws(() => calculateProShiftCash(scope, [first, { ...repeated, amount: 25 }]), /Conflicting duplicated treasury journal line/);
+});
+
 test('mismatched tenant, branch, cashier, shift or currency fails closed', () => {
   for (const field of ['tenantId', 'branchId', 'cashierId', 'shiftId', 'currency'] as const) {
     const value = movement('sale', 'sale_cash_collection', 'in', 10, { [field]: 'wrong' });
