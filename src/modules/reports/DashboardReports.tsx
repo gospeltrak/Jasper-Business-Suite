@@ -301,6 +301,9 @@ export default function DashboardReports({
     amount: Number(e.amount || 0), entryType: Number(e.amount || 0) >= 0 ? 'credit' as const : 'debit' as const,
     sourceType: 'SETTLE_TILL_DEPOSIT' as const, description: e.description || e.sourceType || 'Money movement',
     timestamp: e.postedAt, referenceId: e.referenceId || e.journalId,
+    journalId: e.journalId, journalType: e.journalType, journalSourceType: e.sourceType,
+    branchId: e.branchId, balanceAfter: Number(e.balanceAfter),
+    currency: e.currency,
   })), [treasury, activeTenant.id]);
   const filteredMoneyBankLedger = useMemo(() => {
     const start = new Date(startDateStr);
