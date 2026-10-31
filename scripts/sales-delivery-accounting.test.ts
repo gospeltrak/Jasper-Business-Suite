@@ -169,3 +169,12 @@ test('Delivery menu displays Paid independently of dispatch state on phone and d
   assert.match(deliveries, /d\.deliveryPaymentStatus === 'collected' \? 'Paid' : 'Pending Payment'/);
   assert.match(deliveries, /\{d\.status\}/);
 });
+
+test('treasury opening balance does not double-count delivery fees from sales breakdown', async () => {
+  const dashboard = await readFile('src/components/Dashboard.tsx', 'utf8');
+  assert.match(dashboard, /const productAmount = Math\.max\(0, Number\(sale\.total \|\| 0\) - Number\(sale\.deliveryCost \|\| 0\)\)/);
+  assert.match(dashboard, /const receivedProducts = sale\.paymentStatus === 'unpaid' \|\| sale\.paymentMethod === 'Credit'/);
+  assert.match(dashboard, /receivedProducts \/ totalAllocated/);
+  assert.match(dashboard, /activeDeliveries\.forEach\(delivery =>/);
+  assert.match(dashboard, /delivery\.deliveryPaymentStatus === 'collected'/);
+});
