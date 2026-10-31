@@ -27,7 +27,7 @@ export const ORVIX_PRO_DISABLED: Readonly<OrvixProFeatures> = Object.freeze({
  * source of truth for this separately provisioned, paid-later add-on.
  * Missing auth, connectivity or entitlement fails CLOSED.
  */
-export async function loadOrvixProFeatures(signal?: AbortSignal): Promise<OrvixProFeatures> {
+export async function loadOrvixProFeatures(activeTenantId: string, signal?: AbortSignal): Promise<OrvixProFeatures> {
   try {
     const client = await getSecureDataBridgeClient();
     const { data, error } = await client.auth.getSession();
@@ -43,7 +43,10 @@ export async function loadOrvixProFeatures(signal?: AbortSignal): Promise<OrvixP
     });
     if (!response.ok) return { ...ORVIX_PRO_DISABLED };
     const payload = await response.json();
-    if (payload?.package !== 'orvix_pro' || payload?.enabled !== true) {
+    // Never re-label a Pro grant from one tenant as a Pro grant for another.
+    // A secondary workspace must be explicitly verified server-side before
+    // its Pro features may be used; missing/mismatched tenant fails closed.
+    if (!activeTenantId || payload?.tenantId !== activeTenantId || payload?.package !== 'orvix_pro' || payload?.enabled !== true) {
       return { ...ORVIX_PRO_DISABLED };
     }
     return {
