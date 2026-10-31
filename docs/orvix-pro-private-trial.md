@@ -46,6 +46,14 @@ on conflict (tenant_id) do nothing;
 
 **Do not copy into production without selecting the exact authorized test tenant.** Do not set the other three feature flags true until backend, permissions, UI and end-to-end tests are complete.
 
+## Release sequence (PR #39 first, then Pro)
+
+1. Verify the independent [prior-fixes PR #39](https://github.com/gospeltrak/Jasper-Business-Suite/pull/39) CI and visual/mobile testing of POS button overlap, product saving, Delivery payment accounting, notifications and treasury reports; secure approval before its own merge/deploy. The Pro draft is based on main and **must not release ahead of PR #39**.
+2. Complete secured, branch-specific server-side shifts, counted cash, actual Treasury accounts, transfers and two-party handover, with authoritative reports; never reintroduce local browser financial ledgers.
+3. Integrate HR accountability and pending orders after shift/settlement tests pass.
+4. Provision one separate owner-approved Pro demo tenant with a verified email/password and bounded trial; never reuse an existing business or generate an unverified login. Full cross-device E2E and regression tests.
+5. Vercel deployment only when the user explicitly approves release and quota/capacity permits; no automatic deployment.
+
 ## Acceptance criteria before production
 
 - All base plans including Tanzanite and standard trials show Receipts, Debts and Quotes but **not Settle**.
@@ -60,7 +68,7 @@ on conflict (tenant_id) do nothing;
 
 ## Important current limitation
 
-The current Settle form still uses historical browser-side cash/ledger state. Gating the tab is not production-ready cashier settlement. Before granting the test tenant an operational Pro Settle workflow, migrate it to secure server-side normalized transactional storage and verify full end-to-end reconciliation. The entitlement foundation is only the first step.
+The original Settle form was retired from the Pro view because it auto-filled Actual Cash Counted to Expected Cash and generated fake 'double-entry' bank movements in browser storage using hardcoded account references. The replacement compact Pro Settle view has manual cash counting and branch-scoped configured-account selection, but its actions are explicitly **preview-only**. No settlement, transfer or shift handover is reported saved until the server's normalized, authorization-checked transactional ledger is implemented and tested. Historical browser-only records are neither deleted nor imported as verified financial history.
 
 ## Pro Edge (future scope; do not build in initial cloud-only release)
 
