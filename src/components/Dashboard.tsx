@@ -2196,7 +2196,13 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
         return [update];
       });
     }
-    const { products: syncedProducts, saved } = persistTenantProductsNow(nextTenantProducts, branchStockUpdates, changedProductIds, options.stockAudit);
+    const branchScopedAudit = options.stockAudit ? {
+      ...options.stockAudit,
+      branchId: activeBranchSelection.activeScope === 'branch'
+        ? activeBranchSelection.activeBranchId || undefined
+        : undefined,
+    } : undefined;
+    const { products: syncedProducts, saved } = persistTenantProductsNow(nextTenantProducts, branchStockUpdates, changedProductIds, branchScopedAudit);
     setProductsMap(prev => ({ ...prev, [activeTenant.id]: syncedProducts }));
     const didSave = await saved;
     if (!didSave) return false;
