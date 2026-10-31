@@ -19,6 +19,7 @@ import {
   type SaleTombstones,
 } from '../../modules/sales/utils/saleSync';
 import { canWriteBusinessDataOnline, warnOfflineWriteBlocked } from './onlineOnly';
+import type { ManualStockAudit } from '../../modules/products/utils/manualStockAdjustment';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -1016,6 +1017,7 @@ async function saveTenantProductsOnlyNow(
   products: Product[],
   productTombstones: Record<string, string>,
   branchStocks?: BranchStock[],
+  stockAudit?: ManualStockAudit,
 ): Promise<boolean> {
   if (!canWriteBusinessDataOnline()) {
     warnOfflineWriteBlocked(`saveTenantProductsOnly:${tenantId}`);
@@ -1030,11 +1032,16 @@ async function saveTenantProductsOnlyNow(
 
   try {
     if (typeof client.rpc === 'function') {
-      const result = await client.rpc('save_current_branch_products', {
-        p_products: products,
-        p_product_tombstones: productTombstones,
-        ...(branchStocks !== undefined ? { p_branch_stocks: branchStocks } : {}),
-      });
+      const result = await client.rpc(
+        stockAudit ? 'save_current_branch_products_with_adjustment' : 'save_current_branch_products',
+        {
+          p_products: products,
+          p_product_tombstones: productTombstones,
+          ...(stockAudit
+            ? { p_branch_stocks: branchStocks ?? null, p_adjustment: stockAudit }
+            : branchStocks !== undefined ? { p_branch_stocks: branchStocks } : {}),
+        },
+      );
       const missingRpc = ['PGRST202', '42883'].includes(String(result.error?.code || ''));
       if (!result.error) {
         // A 200 without authoritative products is NOT proof of a durable write.
@@ -1059,7 +1066,8 @@ async function saveTenantProductsOnlyNow(
         });
         return true;
       }
-      if (!missingRpc) {
+      // A manual stock mutation MUST NOT fall back to an unaudited write.
+      if (stockAudit || !missingRpc) {
         console.warn('[workspace] products-only save error:', result.error.message);
         return false;
       }
@@ -1087,12 +1095,13 @@ export function saveTenantProductsOnly(
   products: Product[],
   productTombstones: Record<string, string> = {},
   branchStocks?: BranchStock[],
+  stockAudit?: ManualStockAudit,
 ): Promise<boolean> {
   if (!tenantId) return Promise.resolve(false);
   const previous = workspaceSaveQueue.get(tenantId) || Promise.resolve(true);
   const next = previous
     .catch(() => false)
-    .then(() => saveTenantProductsOnlyNow(tenantId, products, productTombstones, branchStocks));
+    .then(() => saveTenantProductsOnlyNow(tenantId, products, productTombstones, branchStocks, stockAudit));
   workspaceSaveQueue.set(tenantId, next);
   void next.finally(() => {
     if (workspaceSaveQueue.get(tenantId) === next) workspaceSaveQueue.delete(tenantId);
