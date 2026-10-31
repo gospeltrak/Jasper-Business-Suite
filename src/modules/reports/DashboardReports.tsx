@@ -415,8 +415,11 @@ export default function DashboardReports({
             <tr>
               <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Date</th>
               <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Account</th>
+              <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Reference</th>
+              <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Type</th>
               <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Reason</th>
               <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Amount</th>
+              <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Balance After</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -424,6 +427,8 @@ export default function DashboardReports({
               <tr key={entry.id} className="hover:bg-slate-50 transition-colors">
                 <td className="p-3 text-slate-500 whitespace-nowrap">{formatLocalDate(new Date(entry.timestamp))}</td>
                 <td className="p-3 font-medium text-slate-800">{getMoneyBankChannelName(entry.channelId)}</td>
+                <td className="p-3 text-slate-500 font-mono">{entry.referenceId || '—'}</td>
+                <td className="p-3 text-slate-500">{entry.journalSourceType || entry.journalType || '—'}</td>
                 <td className="p-3 text-slate-600">
                   {entry.description}
                   {entry.counterPartyChannelId && (
@@ -431,13 +436,14 @@ export default function DashboardReports({
                   )}
                 </td>
                 <td className={`p-3 text-right font-mono font-black ${entry.amount >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                  {entry.amount >= 0 ? '+' : '-'}{currency}{Math.round(Math.abs(entry.amount)).toLocaleString()}
+                  {entry.amount >= 0 ? '+' : '-'}{entry.currency || currency}{Math.round(Math.abs(entry.amount)).toLocaleString()}
                 </td>
+                <td className="p-3 text-right font-mono">{entry.balanceAfter === undefined ? '—' : (entry.currency || currency) + Number(entry.balanceAfter).toLocaleString()}</td>
               </tr>
             ))}
             {entries.length === 0 && (
               <tr>
-                <td colSpan={4} className="p-10 text-center text-slate-400">
+                <td colSpan={7} className="p-10 text-center text-slate-400">
                   <div className="flex flex-col items-center gap-2">
                     <Landmark className="w-8 h-8 text-slate-200" />
                     <span>{emptyText}</span>
@@ -461,6 +467,7 @@ export default function DashboardReports({
                 {getMoneyBankChannelName(entry.channelId)}
                 {entry.counterPartyChannelId ? ` · ${entry.amount >= 0 ? 'from' : 'to'} ${getMoneyBankChannelName(entry.counterPartyChannelId)}` : ''}
                 {' · '}{formatLocalDate(new Date(entry.timestamp))}
+                {entry.referenceId ? ' · Ref: ' + entry.referenceId : ''}
               </p>
             </div>
             <p className={`text-xs font-mono font-black shrink-0 ${entry.amount >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
