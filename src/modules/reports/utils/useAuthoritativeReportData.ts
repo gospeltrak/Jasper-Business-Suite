@@ -43,6 +43,7 @@ export interface StockAdjustmentReportRow {
   reason: string;
   adjustedAt: string;
   performedBy?: string;
+  performedByName?: string;
 }
 
 export function useAuthoritativeReportData(input: {
