@@ -1,5 +1,13 @@
 import { getSecureDataBridgeClient } from '../dataBridge/secureDataBridge';
 
+export const ORVIX_PRO_PACKAGE = Object.freeze({
+  id: 'orvix_pro',
+  name: 'Orvix Pro',
+  pricingStatus: 'to_be_set',
+  activation: 'private_admin_only',
+  selfServiceCheckout: false,
+});
+
 export interface OrvixProFeatures {
   settle: boolean;
   shiftReports: boolean;
