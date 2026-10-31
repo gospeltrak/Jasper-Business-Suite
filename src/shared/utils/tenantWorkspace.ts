@@ -93,22 +93,22 @@ const cacheWorkspace = (tenantId: string, workspace: TenantWorkspace) => {
   runtimeWorkspaces.set(tenantId, workspace);
 };
 
-const mergePageRecords = (current: any[], incoming: any[]): any[] => {
-  const merged = new Map<string, any>();
-  for (const record of [...current, ...incoming]) {
+// Reuse one Map across all pages. Rebuilding a Map of every earlier page
+// for each new batch is quadratic and freezes large-tenant workspaces.
+const mergePageRecords = (target: Map<string, any>, incoming: any[]): void => {
+  for (const record of incoming) {
     const id = String(record?.id || '').trim();
     const key = id || `anonymous:${JSON.stringify(record)}`;
-    merged.set(key, record);
+    target.set(key, record);
   }
-  return Array.from(merged.values());
 };
 
 const loadNormalizedWorkspaceLedgers = async (client: any): Promise<Partial<TenantWorkspace> | null> => {
-  const records: Record<PaginatedWorkspaceCollection, any[]> = {
-    sales: [],
-    expenses: [],
-    deliveries: [],
-    purchases: [],
+  const recordMaps: Record<PaginatedWorkspaceCollection, Map<string, any>> = {
+    sales: new Map(),
+    expenses: new Map(),
+    deliveries: new Map(),
+    purchases: new Map(),
   };
   const cursors: Partial<Record<PaginatedWorkspaceCollection, WorkspacePageCursor>> = {};
   let pending = [...PAGINATED_WORKSPACE_COLLECTIONS];
@@ -141,7 +141,7 @@ const loadNormalizedWorkspaceLedgers = async (client: any): Promise<Partial<Tena
     pages.forEach((page, index) => {
       const collection = pending[index];
       if (!page || page.collection !== collection || !Array.isArray(page.records)) return;
-      records[collection] = mergePageRecords(records[collection], page.records);
+      mergePageRecords(recordMaps[collection], page.records);
       if (page.hasMore && page.nextCursor?.timestamp && page.nextCursor?.id) {
         const previousCursor = cursors[collection];
         if (previousCursor?.timestamp === page.nextCursor.timestamp && previousCursor.id === page.nextCursor.id) {
@@ -156,7 +156,12 @@ const loadNormalizedWorkspaceLedgers = async (client: any): Promise<Partial<Tena
     pending = nextPending;
   }
 
-  return records;
+  return {
+    sales: Array.from(recordMaps.sales.values()),
+    expenses: Array.from(recordMaps.expenses.values()),
+    deliveries: Array.from(recordMaps.deliveries.values()),
+    purchases: Array.from(recordMaps.purchases.values()),
+  };
 };
 
 const normalizeWorkspace = (workspace: Partial<TenantWorkspace> | null | undefined): TenantWorkspace | null => {
