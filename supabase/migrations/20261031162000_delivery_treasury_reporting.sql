@@ -43,10 +43,10 @@ begin
     'pendingDispatch',count(*) filter(where d.status='Pending Dispatch'),
     'dispatched',count(*) filter(where d.status='Dispatched'),
     'delivered',count(*) filter(where d.status='Delivered'),
-    'uncollectedFees',coalesce(sum(d.delivery_cost) filter(
-       where coalesce(paid.net_paid,0)<=0),0),
+    'uncollectedFees',coalesce(sum(greatest(
+       coalesce(d.delivery_cost,0) - greatest(coalesce(paid.net_paid,0),0),0)),0),
     'uncollectedCount',count(*) filter(
-       where d.delivery_cost>0 and coalesce(paid.net_paid,0)<=0)
+       where d.delivery_cost>greatest(coalesce(paid.net_paid,0),0))
   ) into v_delivery_stats
   from public.deliveries d
   left join lateral (
