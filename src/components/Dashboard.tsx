@@ -2541,12 +2541,12 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
           totalCost += ((item.costPriceAtSale || 0) * item.qty);
           summaryStrings.push(`${item.qty}x ${item.productName}`);
        });
-       const estimatedProfit = sale.total - totalCost;
+       const estimatedProfit = saleIncome - totalCost;
 
        addSaleNotification({
           tenantId: sale.tenantId,
           moduleName: activeTenant.businessType === 'pharmacy' ? 'pharmacy' : (sale.channel === 'wholesale' ? 'wholesale' : 'retail'),
-          amount: sale.total,
+          amount: saleIncome,
           profit: estimatedProfit,
           paymentMethod: sale.paymentMethod,
           cashierName: sale.cashierName || user.name,
