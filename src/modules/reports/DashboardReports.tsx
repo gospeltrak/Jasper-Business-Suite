@@ -2259,7 +2259,7 @@ export default function DashboardReports({
                 </button>
               </div>
 
-              <div id="reports-a4-pdf-template" className="space-y-6">
+              <div id="reports-a4-pdf-template" className={stockLoading || stockError ? 'hidden' : 'space-y-6'}>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {[
                   { label: 'Total Events', value: stockAdjustmentRows.length.toLocaleString(), icon: ArrowUpDown, color: 'text-slate-900' },
@@ -2293,6 +2293,7 @@ export default function DashboardReports({
                       <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Before</th>
                       <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">After</th>
                       <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Reason</th>
+                      <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Staff</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -2312,11 +2313,12 @@ export default function DashboardReports({
                         <td className="p-3 text-right font-mono text-slate-500">{a.previousStock}</td>
                         <td className="p-3 text-right font-mono font-bold text-slate-800">{a.newStock}</td>
                         <td className="p-3 text-slate-500 max-w-[180px] truncate">{a.reason || '—'}</td>
+                        <td className="p-3 text-slate-500">{a.performedByName || '—'}</td>
                       </tr>
                     ))}
-                    {stockAdjustmentRows.length === 0 && (
+                    {!stockLoading && !stockError && stockAdjustmentRows.length === 0 && (
                       <tr>
-                        <td colSpan={7} className="p-10 text-center text-slate-400">
+                        <td colSpan={8} className="p-10 text-center text-slate-400">
                           <div className="flex flex-col items-center gap-2">
                             <ArrowUpDown className="w-8 h-8 text-slate-200" />
                             <span>No stock adjustments in this date range.</span>
