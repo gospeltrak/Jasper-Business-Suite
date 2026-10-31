@@ -109,7 +109,7 @@ export interface OrvixNativePrinterBridge {
     paperWidthMm: PaperWidthMm;
     copies: 1 | 2 | 3;
     autoReconnect: boolean;
-  }): Promise<{ accepted: boolean }>;
+  }): Promise<{ accepted: boolean; printed?: boolean; bytesWritten?: number; transport?: string; duplicate?: boolean }>;
 }
 
 export function getOrvixNativePrinterBridge(): OrvixNativePrinterBridge | null {
@@ -192,7 +192,7 @@ const attempted = new Set<string>();
 const inFlight = new Set<string>();
 
 export type PrinterResult =
-  | { status: 'sent' }
+  | { status: 'sent'; printingConfirmed: false; bytesWritten?: number }
   | { status: 'already-sent' | 'busy' | 'not-connected' | 'not-supported' | 'failed'; reason?: string };
 
 // Printing never writes sales or stock. Auto-print is best-effort and only after
@@ -231,7 +231,9 @@ export async function sendNativeReceipt(
     });
     if (!result.accepted) return { status: 'failed', reason: 'Printer did not accept the job.' };
     if (kind === 'automatic') attempted.add(id);
-    return { status: 'sent' };
+    // Native SPP confirms that bytes were written to the socket only.
+    // The printer has not independently confirmed paper movement/printing.
+    return { status: 'sent', printingConfirmed: false, bytesWritten: result.bytesWritten };
   } catch (error) {
     return { status: 'failed', reason: error instanceof Error ? error.message : 'Printer connection failed.' };
   } finally {
