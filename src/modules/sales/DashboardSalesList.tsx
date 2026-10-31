@@ -311,7 +311,7 @@ export default function DashboardSalesList({
 
   const mobileSalesSubTabs = [
     { id: 'sales', icon: <Receipt className="w-[18px] h-[18px]" />, label: 'Receipts', color: '#10b981', activeBg: '#10b981' },
-    { id: 'debts', icon: <Coins className="w-[18px] h-[18px]" />, label: 'Debts', color: '#10b981', activeBg: '#10b981', badge: sales.filter(s => s.paymentMethod === 'Credit' && (s.total - (s.amountPaid !== undefined ? s.amountPaid : 0)) > 0).length },
+    { id: 'debts', icon: <Coins className="w-[18px] h-[18px]" />, label: 'Debts', color: '#10b981', activeBg: '#10b981', badge: sales.filter(s => s.paymentMethod === 'Credit' && getProductSalesDue(s) > 0).length },
     { id: 'settlement', icon: <Building className="w-[18px] h-[18px]" />, label: 'Settle', color: '#10b981', activeBg: '#10b981' },
     { id: 'documents', icon: <FileText className="w-[18px] h-[18px]" />, label: 'Quotes', color: '#10b981', activeBg: '#10b981' },
   ].filter(tab => tab.id !== 'settlement' || canUseTillSettlement);
@@ -2836,7 +2836,7 @@ export default function DashboardSalesList({
                                     <div className="text-[9.5px] text-slate-500 truncate max-w-[170px]" title={itemsSummary || 'Customer Sale Record'}>{itemsSummary || 'Customer Sale Record'}</div>
                                   </div>
                                   <div className="text-right">
-                                    <span className="font-mono font-bold text-emerald-800">+{currency}{(s.amountPaid !== undefined ? s.amountPaid : s.total).toLocaleString()}</span>
+                                    <span className="font-mono font-bold text-emerald-800">+{currency}{getProductSalesCollected(s).toLocaleString()}</span>
                                     <span className="block text-[8px] uppercase font-mono font-black text-slate-400">Cash POS</span>
                                   </div>
                                 </div>
@@ -3650,7 +3650,7 @@ export default function DashboardSalesList({
                       <p className="text-slate-400">Date: <span className="text-slate-700">{new Date(selectedSale.timestamp).toLocaleDateString([], { dateStyle: 'long' })}</span></p>
                       {(() => {
                         const paid = selectedSale.amountPaid !== undefined ? selectedSale.amountPaid : (selectedSale.paymentMethod === 'Credit' ? 0 : selectedSale.total);
-                        const isPaid = paid >= selectedSale.total;
+                        const isPaid = paid >= getProductSalesTotal(selectedSale);
                         const isPartial = !isPaid && paid > 0;
                         const label = isPaid ? 'Paid' : isPartial ? 'Partially Paid' : 'Unpaid';
                         const pillClass = isPaid ? 'bg-emerald-50 text-emerald-700' : isPartial ? 'bg-amber-50 text-amber-700' : 'bg-rose-50 text-rose-700';
@@ -3693,7 +3693,7 @@ export default function DashboardSalesList({
                       {(() => {
                         const subtotal = (selectedSale.items || []).reduce((sum, item) => sum + getSaleItemLineTotal(item), 0);
                         const paid = selectedSale.amountPaid !== undefined ? selectedSale.amountPaid : (selectedSale.paymentMethod === 'Credit' ? 0 : selectedSale.total);
-                        const balance = Math.max(0, selectedSale.total - paid);
+                        const balance = getProductSalesDue(selectedSale);
                         return <>
                           <div className="flex justify-between text-slate-500"><span>Subtotal</span><strong className="text-slate-800">{currency}{Math.round(subtotal).toLocaleString()}</strong></div>
                           {(selectedSale.discount || 0) > 0 && <div className="flex justify-between text-orange-600"><span>Discount</span><strong>-{currency}{Math.round(selectedSale.discount || 0).toLocaleString()}</strong></div>}
@@ -3718,7 +3718,7 @@ export default function DashboardSalesList({
                           <span className="text-slate-400">Payment Mode</span><strong className="text-right text-slate-700">{selectedSale.paymentMethod}</strong>
                           {accountNumber && <><span className="text-slate-400">Account No.</span><strong className="text-right text-slate-700 font-mono">{accountNumber}</strong></>}
                           {accountName && <><span className="text-slate-400">Account Name</span><strong translate="no" className="text-right text-slate-700">{accountName}</strong></>}
-                          <span className="text-slate-400">Amount</span><strong className="text-right text-slate-900 font-mono">{currency}{Math.round(selectedSale.total).toLocaleString()}</strong>
+                          <span className="text-slate-400">Products</span><strong className="text-right text-slate-900 font-mono">{currency}{Math.round(getProductSalesTotal(selectedSale)).toLocaleString()}</strong>
                         </div>
                       </div>
                     );
@@ -3883,8 +3883,8 @@ export default function DashboardSalesList({
                   const discAmt = originalSub - taxableSub;
                   const initialPaid = selectedSale.amountPaid !== undefined ? selectedSale.amountPaid : (selectedSale.paymentMethod === 'Credit' ? 0 : selectedSale.total);
                   const extra = (installmentRecords[selectedSale.id] || []).reduce((sum, inst) => sum + inst.amount, 0);
-                  const totalPaidNow = Math.min(selectedSale.total, initialPaid);
-                  const dueRemainder = Math.max(0, selectedSale.total - totalPaidNow);
+                  const totalPaidNow = Math.min(getProductSalesTotal(selectedSale), initialPaid);
+                  const dueRemainder = Math.max(0, getProductSalesTotal(selectedSale) - totalPaidNow);
                   return (
                     <>
                       <div className="space-y-1.5 text-[11px] text-black">
@@ -4055,7 +4055,7 @@ export default function DashboardSalesList({
               
               {/* Metric Overview cards grid */}
               {(() => {
-                const totalInvoice = selectedSale.total;
+                const totalInvoice = getProductSalesTotal(selectedSale);
                 const extraInstallments = installmentRecords[selectedSale.id] || [];
                 const initialPaid = getSaleCheckoutPaid(selectedSale, extraInstallments);
 
@@ -4110,7 +4110,7 @@ export default function DashboardSalesList({
                 });
 
                 const dueRemainder = lastRemaining;
-                const totalPaidNow = Math.min(totalInvoice, getSaleCollected(selectedSale));
+                const totalPaidNow = Math.min(totalInvoice, getProductSalesCollected(selectedSale));
 
                 return (
                   <>
