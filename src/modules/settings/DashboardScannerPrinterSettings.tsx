@@ -108,7 +108,9 @@ export default function DashboardScannerPrinterSettings({ tenantId, isSw }: Prop
         copies: 1,
         autoReconnect: prefs.autoReconnect,
       });
-      setNotice(result.accepted ? tr('Jaribio limetumwa kwa printer.', 'Test sent to printer.') : tr('Printer haijakubali jaribio.', 'Printer rejected the test.'));
+      setNotice(result.accepted
+        ? tr('Data ya jaribio imetumwa kwa Bluetooth. Hakikisha karatasi imetoka; kama haijatoka, disconnect na reconnect WebVFD Printer kisha jaribu tena.', 'Test data sent over Bluetooth. Check paper; if blank, disconnect and reconnect WebVFD Printer and retry.')
+        : tr('Printer haijakubali jaribio.', 'Printer rejected the test.'));
     } catch {
       setNotice(tr('Jaribio limeshindwa. Angalia printer.', 'Test failed. Check printer.'));
     } finally {
