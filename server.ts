@@ -1573,7 +1573,10 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       return res.json({
         package: 'orvix_pro',
         name: 'Orvix Pro',
+        registered: Boolean(entitlement),
         enabled,
+        // Displayed only after authenticated Pro membership; not a public plan.
+        price: entitlement ? { amount: 120000, currency: 'TZS' } : null,
         features: {
           settle: enabled && entitlement?.settle_enabled === true,
           shiftReports: enabled && entitlement?.shift_reports_enabled === true,
