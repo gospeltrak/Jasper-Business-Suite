@@ -1679,20 +1679,20 @@ export default function DashboardProducts({
   };
 
   // 3. GOOGLE FORM TEMPLATE SHEET EXCEL EXPORTER / IMPORTER
-  const downloadCsvTemplate = () => {
+  const downloadExcelTemplate = () => {
     const csvContent =
       "Product Name,Barcode,Category,Brand,Cost Price,Selling Price,Shop Stock,Store Stock,Alert Level,Sell Retail,Sell Wholesale,Wholesale Price,Min Wholesale Qty\r\n"
       + "Premium Rice (5kg),6153094850239,Groceries,Orvix Foods,4500,5500,20,50,5,Yes,No,0,10\r\n"
       + "Spaghetti Bolognese,39185012,Groceries,Orvix Foods,800,1200,15,30,8,Yes,Yes,1100,50\r\n"
       + "Organic Coconut Milk,,Beverages,Nestle,1100,1600,10,25,3,Yes,No,0,10\r\n"; // Empty barcode tested inside
 
-    downloadExcelFileFromRows('jasper_bulk_products_template', [
+    downloadExcelFileFromRows('orvix_bulk_products_template.xlsx', [
       { name: 'Products', aoa: parseCsvText(csvContent) },
     ]);
   };
 
   const downloadUniversalTemplate = () => {
-    downloadExcelFileFromRows('jasper_universal_products_template', [
+    downloadExcelFileFromRows('orvix_universal_products_template.xlsx', [
       { name: 'Products', aoa: parseCsvText(downloadableUniversalTemplate()) },
     ]);
   };
@@ -1782,7 +1782,7 @@ export default function DashboardProducts({
   const downloadProductCatalogue = () => {
     const tenantPart = (activeTenant.name || 'tenant').trim().toLowerCase()
       .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'tenant';
-    downloadExcelFileFromRows(`orvix-product-catalogue-${tenantPart}-${new Date().toISOString().slice(0, 10)}`, [
+    downloadExcelFileFromRows(`orvix-product-catalogue-${tenantPart}-${new Date().toISOString().slice(0, 10)}.xlsx`, [
       { name: 'Products', aoa: exportProductsToUniversalRows(products) },
     ]);
     setCsvUploadSuccess(`Catalogue downloaded successfully (${products.length} products).`);
@@ -2913,7 +2913,7 @@ export default function DashboardProducts({
               <div className="product-import-actions-grid grid grid-cols-2 gap-2 p-3">
                 {!isPharmacyLike && (
                   <button
-                    onClick={downloadCsvTemplate}
+                    onClick={downloadExcelTemplate}
                     className="flex items-center gap-2.5 p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 active:bg-slate-100 text-left"
                   >
                     <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-900/40 flex items-center justify-center shrink-0">
@@ -3002,7 +3002,7 @@ export default function DashboardProducts({
               {/* Right: action buttons */}
               <div className="flex items-center gap-2 shrink-0">
                 {!isPharmacyLike && (
-                  <button onClick={downloadCsvTemplate}
+                  <button onClick={downloadExcelTemplate}
                     className="h-9 px-3.5 flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 transition-colors">
                     <Download className="w-3.5 h-3.5 text-emerald-600" />
                     <span>Bulk Template</span>
