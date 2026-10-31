@@ -154,7 +154,26 @@ begin
     if exists(
       select 1 from public.sales where tenant_id=v_tenant and legacy_id=v_sale_id
     ) then
-      raise exception using errcode='23505',message='This sale already exists.';
+      -- Retrying a credit sale cannot create another delivery payment.
+      if exists(
+        select 1 from public.treasury_journals
+        where tenant_id=v_tenant
+          and idempotency_key='delivery:'||v_delivery_id||':v1'
+      ) then
+        return jsonb_build_object(
+          'journalId',null,
+          'deliveryJournalId',(
+            select id from public.treasury_journals
+            where tenant_id=v_tenant
+              and idempotency_key='delivery:'||v_delivery_id||':v1'),
+          'delivery',(
+            select d.source_record from public.deliveries d
+            where d.tenant_id=v_tenant and d.legacy_id=v_delivery_id
+              and d.source_active is distinct from false),
+          'branchId',v_branch,'status','already_posted');
+      end if;
+      raise exception using errcode='23505',
+        message='Existing unpaid product sale has no matching delivery posting.';
     end if;
     v_saved := public.save_current_branch_sales(
       jsonb_build_array(p_sale||jsonb_build_object(
