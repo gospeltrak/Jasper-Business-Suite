@@ -1303,3 +1303,9 @@ test('camera scanner and Excel engine load on demand rather than with the POS/pr
   assert.doesNotMatch(products, /^import\s+\{[^\n]+\}\s+from '\.\.\/\.\.\/shared\/utils\/excelExport'/m);
   assert.match(products, /await import\('\.\.\/\.\.\/shared\/utils\/excelExport'\)/);
 });
+
+test('product catalogue search is memoized instead of re-running on unrelated UI state updates', async () => {
+  const products = await read('src/modules/products/DashboardProducts.tsx');
+  assert.match(products, /const filteredProducts = useMemo\(\(\) => \{/);
+  assert.match(products, /\}, \[products, searchTerm\]\);/);
+});
