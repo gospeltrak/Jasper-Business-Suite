@@ -80,7 +80,8 @@ test('owner sale notification persists one split summary in the existing server 
   const dashboard = await readFile('src/components/Dashboard.tsx', 'utf8');
   const inbox = await readFile('src/shared/contexts/JasperNotificationContext.tsx', 'utf8');
   assert.match(migration, /after insert on public\.sales/);
-  assert.match(migration, /new\.migration_batch_id is not null/);
+  assert.match(migration, /new\.actual_timestamp < transaction_timestamp\(\) - interval '15 minutes'/);
+  assert.match(migration, /exception when others then/);
   assert.match(migration, /v_product_amount := greatest\(v_total-v_delivery_amount,0\)/);
   assert.match(migration, /Sales \(bidhaa\): TSh/);
   assert.match(migration, /Delivery \(ada\): TSh/);
