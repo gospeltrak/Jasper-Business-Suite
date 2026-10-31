@@ -3649,7 +3649,7 @@ export default function DashboardSalesList({
                       <p className="text-slate-400">No: <strong className="text-slate-800">{selectedSale.reference || `INV-${selectedSale.id.toUpperCase().slice(0, 8)}`}</strong></p>
                       <p className="text-slate-400">Date: <span className="text-slate-700">{new Date(selectedSale.timestamp).toLocaleDateString([], { dateStyle: 'long' })}</span></p>
                       {(() => {
-                        const paid = selectedSale.amountPaid !== undefined ? selectedSale.amountPaid : (selectedSale.paymentMethod === 'Credit' ? 0 : selectedSale.total);
+                        const paid = getProductSalesCollected(selectedSale);
                         const isPaid = paid >= getProductSalesTotal(selectedSale);
                         const isPartial = !isPaid && paid > 0;
                         const label = isPaid ? 'Paid' : isPartial ? 'Partially Paid' : 'Unpaid';
@@ -3692,14 +3692,14 @@ export default function DashboardSalesList({
                     <div className="w-72 space-y-2 font-mono text-xs shrink-0">
                       {(() => {
                         const subtotal = (selectedSale.items || []).reduce((sum, item) => sum + getSaleItemLineTotal(item), 0);
-                        const paid = selectedSale.amountPaid !== undefined ? selectedSale.amountPaid : (selectedSale.paymentMethod === 'Credit' ? 0 : selectedSale.total);
+                        const paid = getProductSalesCollected(selectedSale);
                         const balance = getProductSalesDue(selectedSale);
                         return <>
                           <div className="flex justify-between text-slate-500"><span>Subtotal</span><strong className="text-slate-800">{currency}{Math.round(subtotal).toLocaleString()}</strong></div>
                           {(selectedSale.discount || 0) > 0 && <div className="flex justify-between text-orange-600"><span>Discount</span><strong>-{currency}{Math.round(selectedSale.discount || 0).toLocaleString()}</strong></div>}
                           {(selectedSale.vatStatus === 'vat' || (!selectedSale.vatStatus && (selectedSale.tax || 0) > 0)) && <div className="flex justify-between text-slate-500"><span>VAT / Tax</span><strong className="text-slate-700">{currency}{Math.round(selectedSale.tax || 0).toLocaleString()}</strong></div>}
-                          {(selectedSale.deliveryCost || 0) > 0 && <div className="flex justify-between text-slate-500"><span>Delivery</span><strong className="text-slate-700">{currency}{Math.round(selectedSale.deliveryCost || 0).toLocaleString()}</strong></div>}
-                          <div className="flex justify-between text-white rounded-xl px-4 py-3" style={{ backgroundColor: computedInvoiceColor }}><strong className="uppercase text-sm">Total</strong><strong className="text-base">{currency}{Math.round(selectedSale.total).toLocaleString()}</strong></div>
+                          
+                          <div className="flex justify-between text-white rounded-xl px-4 py-3" style={{ backgroundColor: computedInvoiceColor }}><strong className="uppercase text-sm">Product Total</strong><strong className="text-base">{currency}{Math.round(getProductSalesTotal(selectedSale)).toLocaleString()}</strong></div>
                           <div className="flex justify-between text-slate-500 px-4"><span>Amount Due</span><strong className="text-slate-800">{currency}{Math.round(balance).toLocaleString()}</strong></div>
                         </>;
                       })()}
@@ -4469,7 +4469,6 @@ export default function DashboardSalesList({
                   const computedDiscountAmount = discountType === 'percent' ? itemsSubtotal * (discountVal / 100) : discountVal;
                   const taxVal = viewingSaleDetail.tax || 0;
                   const isVatSale = viewingSaleDetail.vatStatus === 'vat' || (!viewingSaleDetail.vatStatus && taxVal > 0);
-                  const deliveryVal = viewingSaleDetail.deliveryCost || 0;
                   const grandTotalVal = getProductSalesTotal(viewingSaleDetail);
                   const isCredit = viewingSaleDetail.paymentMethod === 'Credit';
                   const initialPaid = viewingSaleDetail.amountPaid !== undefined ? viewingSaleDetail.amountPaid : (isCredit ? 0 : grandTotalVal);
@@ -4496,14 +4495,8 @@ export default function DashboardSalesList({
                           <span className="font-mono">+{currency}{taxVal.toLocaleString()}</span>
                         </div>
                       )}
-                      {deliveryVal > 0 && (
-                        <div className="flex justify-between items-center text-slate-500 font-medium">
-                          <span>Delivery</span>
-                          <span className="font-mono">+{currency}{deliveryVal.toLocaleString()}</span>
-                        </div>
-                      )}
                       <div className="flex justify-between items-center text-sm font-black text-slate-900 border-t border-slate-200 pt-2">
-                        <span>Grand Total</span>
+                        <span>Products Total</span>
                         <span className="font-mono text-emerald-700">{currency}{grandTotalVal.toLocaleString()}</span>
                       </div>
                       <div className="grid grid-cols-2 gap-2 pt-2 bg-slate-50 px-3.5 py-3 rounded-xl border border-slate-200">
