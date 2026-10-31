@@ -67,17 +67,29 @@ export default function DashboardScannerPrinterSettings({ tenantId, isSw }: Prop
   const connectPrinter = async (device: PrinterDevice) => {
     if (!native) return;
     setBusy(true);
+    setConnected(false);
     setNotice('');
     try {
       const result = await native.connectPrinter(device.id);
-      if (!result.connected) throw new Error('Not connected');
+      if (!result.connected) throw new Error('Connection rejected');
+      const verified = await native.getStatus();
+      if (!verified.connected || verified.printerId !== device.id) {
+        throw new Error('Bluetooth socket did not remain connected');
+      }
       update({ printer: device });
       setConnected(true);
       setDevices([]);
-      setNotice(tr('Printer imeunganishwa.', 'Printer connected.'));
-    } catch {
+      setNotice(tr(
+        'Bluetooth imeunganishwa kwa sasa. Fanya Test Print kuthibitisha kama printer inakubali data za Orvix.',
+        'Bluetooth is connected for now. Run Test Print to check whether this printer accepts Orvix data.'
+      ));
+    } catch (error) {
       setConnected(false);
-      setNotice(tr('Printer haijaunganishwa. Hakikisha imewashwa na iko karibu.', 'Printer connection failed. Check power and distance.'));
+      setNotice(tr(
+        'Bluetooth haijaunganishwa. Funga WebVFD kama inatumia printer, zima/washa printer, kisha connect tena. Printer ya WebVFD inaweza kuhitaji mfumo wao maalumu.',
+        'Bluetooth connection failed. Close WebVFD if it is using the printer, restart the printer and reconnect. WebVFD printers may require their own protocol.'
+      ));
+      console.warn('[Orvix Printer] Bluetooth connection failed:', error);
     } finally {
       setBusy(false);
     }
@@ -97,22 +109,44 @@ export default function DashboardScannerPrinterSettings({ tenantId, isSw }: Prop
     }
   };
   const testPrinter = async () => {
-    if (!native || !prefs.printer || !connected) return;
+    if (!native || !prefs.printer) return;
     setBusy(true);
+    setNotice('');
     try {
+      // The last Connect toast does not prove a live SPP session. Always read
+      // the native socket state again. Explicit Test Print may reconnect even
+      // when the user's automatic reconnect preference is disabled.
+      const status = await native.getStatus();
+      if (!status.connected || status.printerId !== prefs.printer.id) {
+        setConnected(false);
+        const reconnected = await native.connectPrinter(prefs.printer.id);
+        if (!reconnected.connected) throw new Error('Printer not connected');
+        const verified = await native.getStatus();
+        if (!verified.connected || verified.printerId !== prefs.printer.id) {
+          throw new Error('Bluetooth socket closed after connecting');
+        }
+      }
+      setConnected(true);
       const result = await native.printText({
         printerId: prefs.printer.id,
         jobId: 'orvix-test-' + Date.now(),
         text: 'ORVIX\n' + (isSw ? 'JARIBIO LA PRINTER' : 'PRINTER TEST') + '\n' + prefs.paperWidthMm + 'mm\n\n\n',
         paperWidthMm: prefs.paperWidthMm,
         copies: 1,
-        autoReconnect: prefs.autoReconnect,
+        autoReconnect: true,
       });
-      setNotice(result.accepted
-        ? tr('Data ya jaribio imetumwa kwa Bluetooth. Hakikisha karatasi imetoka; kama haijatoka, disconnect na reconnect WebVFD Printer kisha jaribu tena.', 'Test data sent over Bluetooth. Check paper; if blank, disconnect and reconnect WebVFD Printer and retry.')
-        : tr('Printer haijakubali jaribio.', 'Printer rejected the test.'));
-    } catch {
-      setNotice(tr('Jaribio limeshindwa. Angalia printer.', 'Test failed. Check printer.'));
+      if (!result.accepted) throw new Error('Printer rejected test bytes');
+      setNotice(tr(
+        'Test data imetumwa kwa Bluetooth. Hii si uthibitisho wa kuchapishwa; kama karatasi haijatoka, huenda printer inahitaji protocol ya WebVFD.',
+        'Test bytes sent over Bluetooth, but paper output is unconfirmed. If nothing prints, this device may require the WebVFD protocol.'
+      ));
+    } catch (error) {
+      setConnected(false);
+      const reason = error instanceof Error ? error.message : 'Bluetooth error';
+      setNotice(tr(
+        'Test Print imeshindwa: ' + reason + '. Funga WebVFD, zima/washa printer, kisha jaribu tena. Ikiendelea, tutahitaji protocol rasmi ya WebVFD.',
+        'Test Print failed: ' + reason + '. Close WebVFD, restart the printer and retry. If it persists, official WebVFD protocol support is needed.'
+      ));
     } finally {
       setBusy(false);
     }
@@ -198,7 +232,7 @@ export default function DashboardScannerPrinterSettings({ tenantId, isSw }: Prop
           {connected ? <CheckCircle2 className="h-5 w-5 text-emerald-600" /> : <Bluetooth className="h-5 w-5 text-slate-400" />}
           <div className="min-w-0 flex-1">
             <p className="truncate text-xs font-bold text-slate-900 dark:text-white">{prefs.printer?.name || tr('Hakuna printer iliyochaguliwa', 'No printer selected')}</p>
-            <p className="mt-1 text-[10px] text-slate-500">{connected ? tr('Imeunganishwa', 'Connected') : tr('Haijaunganishwa', 'Not connected')}</p>
+            <p className="mt-1 text-[10px] text-slate-500">{connected ? tr('Bluetooth connected · test printing', 'Bluetooth connected · test printing') : tr('Haijaunganishwa', 'Not connected')}</p>
           </div>
           {prefs.printer && native && <button type="button" className={button} disabled={busy} onClick={disconnectPrinter}><XCircle className="h-4 w-4" />{tr('Ondoa', 'Remove')}</button>}
         </div>
@@ -208,7 +242,7 @@ export default function DashboardScannerPrinterSettings({ tenantId, isSw }: Prop
               <button className={button + ' flex-1'} type="button" disabled={busy} onClick={findPrinters}>
                 <Bluetooth className="h-4 w-4" />{busy ? tr('Inatafuta...', 'Working...') : tr('Tafuta Printer Zilizopairiwa', 'Find Paired Printers')}
               </button>
-              <button className={button + ' flex-1'} type="button" disabled={busy || !connected} onClick={testPrinter}>
+              <button className={button + ' flex-1'} type="button" disabled={busy || !prefs.printer} onClick={testPrinter}>
                 <Printer className="h-4 w-4" />{tr('Test Print', 'Test Print')}
               </button>
             </div>
