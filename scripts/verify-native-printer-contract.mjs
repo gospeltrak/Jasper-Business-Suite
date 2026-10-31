@@ -17,6 +17,18 @@ assert.match(native, /Executors\.newSingleThreadExecutor\(\)/);
 assert.match(native, /@PluginMethod[\s\S]*?void printText/);
 assert.match(native, /acceptedJobs\.contains\(jobId\)/);
 assert.match(native, /Math\.max\(1, Math\.min\(3/);
+assert.match(native, /createInsecureRfcommSocketToServiceRecord\(SPP_UUID\)/);
+assert.match(native, /out\.write\(bytes, offset, length\)/);
+assert.match(native, /Math\.min\(128, bytes\.length - offset\)/);
+assert.match(native, /result\.put\("printed", false\)/);
+assert.match(native, /result\.put\("bytesWritten", written\)/);
+const pos = read('src/modules/pos/DashboardPOS.tsx');
+const sales = read('src/modules/sales/DashboardSalesList.tsx');
+assert.doesNotMatch(pos, /Receipt sent to printer\./);
+assert.doesNotMatch(sales, /Receipt sent to printer\./);
+assert.match(pos, /check that paper was printed/);
+assert.match(sales, /check printer paper/);
+
 assert.match(setup, /android\.permission\.BLUETOOTH_CONNECT/);
 assert.match(setup, /registerPlugin\(OrvixPrinter\.class\)/);
 assert.match(workflow, /node scripts\/setup-native-android-camera\.mjs[\s\S]*node scripts\/setup-native-android-printer\.mjs/);
