@@ -287,8 +287,9 @@ export default function DashboardReports({
 
   // The real, tenant-authorized Supabase treasury and stock-audit records.
   const [selectedMoneyBankAccountId, setSelectedMoneyBankAccountId] = useState('all');
-  const { treasury, treasuryLoading, treasuryError, stockRows, stockLoading, stockError } = useAuthoritativeReportData({
+  const { treasury, treasuryLoading, treasuryMoreLoading, treasuryError, loadMoreTreasury, refreshTreasury, stockRows, stockLoading, stockError } = useAuthoritativeReportData({
     tenantId: activeTenant.id, branchId: activeBranch?.id || null, tab: reportTab,
+    accountId: selectedMoneyBankAccountId === 'all' ? null : selectedMoneyBankAccountId,
     startDate: startDateStr, endDate: endDateStr,
   });
   useEffect(() => { setSelectedMoneyBankAccountId('all'); }, [activeTenant.id, activeBranch?.id]);
@@ -305,7 +306,7 @@ export default function DashboardReports({
     timestamp: e.postedAt, referenceId: e.referenceId || e.journalId,
     journalId: e.journalId, journalType: e.journalType, journalSourceType: e.sourceType,
     branchId: e.branchId, balanceAfter: Number(e.balanceAfter),
-    currency: e.currency,
+    currency: e.currency, externalCashFlow: e.externalCashFlow === true,
   })), [treasury, activeTenant.id]);
   const filteredMoneyBankLedger = useMemo(() => {
     const start = new Date(startDateStr + 'T00:00:00.000');
@@ -320,15 +321,16 @@ export default function DashboardReports({
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   }, [moneyBankLedger, startDateStr, endDateStr, selectedMoneyBankAccountId]);
 
+  // Figures are computed for the FULL date range by PostgreSQL; never
+  // sum only the first 50 visible journal lines.
   const moneyBankTotals = useMemo(() => {
-    let moneyIn = 0;
-    let moneyOut = 0;
-    filteredMoneyBankLedger.forEach(entry => {
-      if (entry.amount >= 0) moneyIn += entry.amount;
-      else moneyOut += Math.abs(entry.amount);
-    });
-    return { moneyIn, moneyOut, net: moneyIn - moneyOut, count: filteredMoneyBankLedger.length };
-  }, [filteredMoneyBankLedger]);
+    const moneyIn = Number(treasury?.summary?.moneyIn || 0);
+    const moneyOut = Number(treasury?.summary?.moneyOut || 0);
+    return { moneyIn, moneyOut, net: moneyIn - moneyOut,
+      count: Number(treasury?.summary?.count || 0),
+      inCount: Number(treasury?.summary?.inCount || 0),
+      outCount: Number(treasury?.summary?.outCount || 0) };
+  }, [treasury?.summary]);
 
   const getMoneyBankChannelName = (channelId?: string) =>
     (channelId && moneyBankChannels.find(c => c.id === channelId)?.name) || channelId || 'Unknown account';
@@ -336,11 +338,11 @@ export default function DashboardReports({
   const [moneyBankSubTab, setMoneyBankSubTab] = useState<'summary' | 'in' | 'out' | 'debts'>('summary');
 
   const moneyBankInEntries = useMemo(
-    () => filteredMoneyBankLedger.filter(entry => entry.amount >= 0),
+    () => filteredMoneyBankLedger.filter(entry => entry.amount >= 0 && entry.externalCashFlow !== false),
     [filteredMoneyBankLedger],
   );
   const moneyBankOutEntries = useMemo(
-    () => filteredMoneyBankLedger.filter(entry => entry.amount < 0),
+    () => filteredMoneyBankLedger.filter(entry => entry.amount < 0 && entry.externalCashFlow !== false),
     [filteredMoneyBankLedger],
   );
   const moneyBankReceivables = useMemo(() => {
@@ -392,21 +394,14 @@ export default function DashboardReports({
   }), [moneyBankReceivables, moneyBankPayables]);
 
   const moneyBankChannelInBreakdown = useMemo(() => {
-    const byChannel = new Map<string, number>();
-    filteredMoneyBankLedger.forEach(entry => {
-      if (entry.amount < 0) return;
-      byChannel.set(entry.channelId, (byChannel.get(entry.channelId) || 0) + entry.amount);
-    });
-    const total = Array.from(byChannel.values()).reduce((sum, v) => sum + v, 0);
-    return Array.from(byChannel.entries())
-      .map(([channelId, amount]) => ({
-        channelId,
-        name: getMoneyBankChannelName(channelId),
-        amount,
-        percent: total > 0 ? (amount / total) * 100 : 0,
-      }))
-      .sort((a, b) => b.amount - a.amount);
-  }, [filteredMoneyBankLedger, moneyBankChannels]);
+    const rows = (treasury?.accountBreakdown || []).map(row => ({
+      channelId: row.accountId, name: getMoneyBankChannelName(row.accountId),
+      amount: Number(row.moneyIn || 0), percent: 0,
+    }));
+    const total = rows.reduce((sum, row) => sum + row.amount, 0);
+    return rows.map(row => ({ ...row, percent: total > 0 ? row.amount / total * 100 : 0 }))
+      .filter(row => row.amount > 0).sort((a, b) => b.amount - a.amount);
+  }, [treasury?.accountBreakdown, moneyBankChannels]);
 
   const renderMoneyBankEntryList = (entries: LedgerEntry[], emptyText: string) => (
     <>
@@ -1607,6 +1602,11 @@ export default function DashboardReports({
                     ]}
                     onChange={setSelectedMoneyBankAccountId}
                   />
+                  <button type="button" onClick={refreshTreasury}
+                    disabled={treasuryLoading || treasuryMoreLoading}
+                    className="px-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 disabled:opacity-50">
+                    Refresh
+                  </button>
                   <button
                     onClick={printActiveReportPdf}
                     disabled={!!reportPdfStatus || treasuryLoading || !!treasuryError || !treasury}
@@ -1706,7 +1706,7 @@ export default function DashboardReports({
                     <div className="reports-split-grid gap-2 sm:gap-3">
                       {[
                         { label: 'Iliyoingia', value: `${currency}${Math.round(moneyBankTotals.moneyIn).toLocaleString()}`, icon: ArrowDownRight, color: 'text-emerald-700' },
-                        { label: 'Miamala', value: moneyBankInEntries.length.toLocaleString(), icon: FileText, color: 'text-slate-900' },
+                        { label: 'Miamala', value: moneyBankTotals.inCount.toLocaleString(), icon: FileText, color: 'text-slate-900' },
                       ].map((metric, i) => (
                         <div key={i} className="bg-slate-50 p-3 rounded-2xl border border-slate-200 overflow-hidden">
                           <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
@@ -1728,7 +1728,7 @@ export default function DashboardReports({
                     <div className="reports-split-grid gap-2 sm:gap-3">
                       {[
                         { label: 'Iliyotoka', value: `${currency}${Math.round(moneyBankTotals.moneyOut).toLocaleString()}`, icon: ArrowUpRight, color: 'text-rose-600' },
-                        { label: 'Miamala', value: moneyBankOutEntries.length.toLocaleString(), icon: FileText, color: 'text-slate-900' },
+                        { label: 'Miamala', value: moneyBankTotals.outCount.toLocaleString(), icon: FileText, color: 'text-slate-900' },
                       ].map((metric, i) => (
                         <div key={i} className="bg-slate-50 p-3 rounded-2xl border border-slate-200 overflow-hidden">
                           <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
@@ -1849,6 +1849,15 @@ export default function DashboardReports({
                       </div>
                     </div>
                   </>
+                )}
+                {treasury && treasury.hasMore && moneyBankSubTab !== 'debts' && (
+                  <div className="flex justify-center pt-3">
+                    <button type="button" onClick={() => void loadMoreTreasury()}
+                      disabled={treasuryMoreLoading}
+                      className="rounded-xl border border-emerald-200 px-4 py-2 text-xs font-bold text-emerald-700 disabled:opacity-50">
+                      {treasuryMoreLoading ? 'Loading…' : 'Load older transactions (50)'}
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
