@@ -35,6 +35,7 @@ const DashboardForecasting = lazyWithReload('DashboardForecasting', () => import
 const DashboardCashBank = lazyWithReload('DashboardCashBank', () => import('../modules/cash-bank/DashboardCashBank'));
 import { saveData } from '../shared/utils/dbSync';
 import { findBatchBarcodeConflict } from '../modules/products/utils/barcodeUniqueness';
+import type { ManualStockAudit } from '../modules/products/utils/manualStockAdjustment';
 const DashboardPurchases = lazyWithReload('DashboardPurchases', () => import('../modules/purchases/DashboardPurchases'));
 const DashboardDeliveries = lazyWithReload('DashboardDeliveries', () => import('../modules/deliveries/DashboardDeliveries'));
 const DashboardSandboxVerticals = lazyWithReload('DashboardSandboxVerticals', () => import('../modules/verticals/DashboardSandboxVerticals'));
@@ -2051,7 +2052,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
   // silently leaving the UI showing an edit that never actually reached the
   // server -- the same "looks saved, reverts on next real reload" gap
   // already fixed for settings via persistSystemSettingsNow.
-  const persistTenantProductsNow = (updatedProducts: Product[], branchStockUpdates?: BranchStock[], changedProductIds?: string[]): { products: Product[]; saved: Promise<boolean> } => {
+  const persistTenantProductsNow = (updatedProducts: Product[], branchStockUpdates?: BranchStock[], changedProductIds?: string[], stockAudit?: ManualStockAudit): { products: Product[]; saved: Promise<boolean> } => {
     if (blockOfflineBusinessWrite('product or stock changes')) {
       return { products: productsMap[activeTenant.id] || [], saved: Promise.resolve(false) };
     }
@@ -2086,7 +2087,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     // The save queue serializes in-flight writes. Database timestamp guards also
     // protect against a debounced older autosave, so do not force a full save first.
     const saved = saveTenantProductsOnly(activeTenant.id, productsToSave,
-      readLocalProductTombstones(activeTenant.id), branchStockUpdates)
+      readLocalProductTombstones(activeTenant.id), branchStockUpdates, stockAudit)
       .then(async (didSave) => {
         if (!didSave || !changedMedicine) return didSave;
         const persisted = await loadTenantProductFresh(activeTenant.id, changedMedicine.id);
@@ -2149,7 +2150,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
   const handleUpdateActiveStocks = async (
     updatedProducts: Product[],
     changedProductIds?: string[],
-    options: { suppressSuccessToast?: boolean } = {},
+    options: { suppressSuccessToast?: boolean; stockAudit?: ManualStockAudit } = {},
   ): Promise<boolean> => {
     if (blockOfflineBusinessWrite('stock adjustment')) return false;
     const changedIds = changedProductIds ? new Set(changedProductIds) : null;
@@ -2195,7 +2196,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
         return [update];
       });
     }
-    const { products: syncedProducts, saved } = persistTenantProductsNow(nextTenantProducts, branchStockUpdates, changedProductIds);
+    const { products: syncedProducts, saved } = persistTenantProductsNow(nextTenantProducts, branchStockUpdates, changedProductIds, options.stockAudit);
     setProductsMap(prev => ({ ...prev, [activeTenant.id]: syncedProducts }));
     const didSave = await saved;
     if (!didSave) return false;
