@@ -12,6 +12,7 @@ import type { BranchSummary } from '../branches/branchTypes';
 import { formatLocalDate, parseLocalDate, timestampToLocalDate } from '../../shared/utils/localDate';
 import { getSaleItemGrossTotal, getSaleItemLineTotal } from '../sales/utils/saleItemTotals';
 import { useAuthoritativeReportData } from './utils/useAuthoritativeReportData';
+import DeliveryTreasuryPanel from './components/DeliveryTreasuryPanel';
 import { getProductSalesDue } from '../sales/utils/salePaymentTotals';
 
 const saleProductRevenue = (s: any): number =>
@@ -683,17 +684,14 @@ export default function DashboardReports({
   // always showing the full delivery log.
   const deliveryReportStats = useMemo(() => {
     const validDeliveries = deliveries.filter(d => d.status !== 'Cancelled');
-    const deliveryIncome = validDeliveries.reduce((sum, d) => sum + (Number(d.deliveryCost) || 0), 0);
-    const deliveryExpensesList = expenses.filter(e => e.category === 'Delivery Expense' || e.category === 'Delivery Maintainance');
-    const totalDeliveryExpenses = deliveryExpensesList.reduce((sum, e) => sum + e.amount, 0);
-    const netDeliveryProfit = deliveryIncome - totalDeliveryExpenses;
+    const quotedFees = validDeliveries.reduce((sum, d) => sum + (Number(d.deliveryCost) || 0), 0);
     return {
       validDeliveries: validDeliveries.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()),
-      deliveryIncome,
-      totalDeliveryExpenses,
-      netDeliveryProfit,
+      quotedFees,
+      pendingCount: validDeliveries.filter(d => d.status === 'Pending Dispatch' || d.status === 'Dispatched').length,
+      deliveredCount: validDeliveries.filter(d => d.status === 'Delivered').length,
     };
-  }, [deliveries, expenses]);
+  }, [deliveries]);
 
   // Purchases ledger: did not exist as a report before this restoration --
   // built new, matching the Sales report's shape (date-scoped list +
@@ -2094,12 +2092,20 @@ export default function DashboardReports({
               </div>
 
               <div id="reports-a4-pdf-template" className="space-y-6">
+                <DeliveryTreasuryPanel
+                  tenantId={activeTenant.id}
+                  branchId={activeBranch?.id || null}
+                  startDate={startDateStr}
+                  endDate={endDateStr}
+                  currency={currency}
+                />
+                <p className="text-[11px] text-slate-500">Operational delivery history below is all-time; quoted fees are not necessarily collected money.</p>
               <div className="reports-split-grid gap-2 sm:gap-3">
                 {[
                   { label: 'Fulfillments', value: deliveryReportStats.validDeliveries.length.toLocaleString(), icon: Truck, color: 'text-slate-900' },
-                  { label: 'Logistics Revenue', value: `${currency}${Math.round(deliveryReportStats.deliveryIncome).toLocaleString()}`, icon: DollarSign, color: 'text-slate-900' },
-                  { label: 'Fleet Outflow', value: `${currency}${Math.round(deliveryReportStats.totalDeliveryExpenses).toLocaleString()}`, icon: Receipt, color: 'text-rose-600' },
-                  { label: 'Net Margin', value: `${deliveryReportStats.netDeliveryProfit >= 0 ? '+' : '-'}${currency}${Math.abs(Math.round(deliveryReportStats.netDeliveryProfit)).toLocaleString()}`, icon: TrendingUp, color: deliveryReportStats.netDeliveryProfit >= 0 ? 'text-emerald-700' : 'text-rose-600' },
+                  { label: 'Quoted Delivery Fees', value: `${currency}${Math.round(deliveryReportStats.quotedFees).toLocaleString()}`, icon: DollarSign, color: 'text-slate-900' },
+                  { label: 'Pending / Dispatched', value: deliveryReportStats.pendingCount.toLocaleString(), icon: Truck, color: 'text-amber-700' },
+                  { label: 'Delivered', value: deliveryReportStats.deliveredCount.toLocaleString(), icon: Truck, color: 'text-emerald-700' },
                 ].map((metric, i) => (
                   <div key={i} className="bg-slate-50 p-3 rounded-2xl border border-slate-200 overflow-hidden">
                     <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
