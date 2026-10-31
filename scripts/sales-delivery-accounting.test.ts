@@ -124,3 +124,41 @@ test('Delivery Treasury uses existing payment journals and is independent from S
   assert.match(report, /Quoted Delivery Fees/);
   assert.doesNotMatch(report, /label: 'Logistics Revenue'/);
 });
+
+test('POS with a delivery mode assumes fee PAID at checkout in one atomic server call', async () => {
+  const sql = await readFile('supabase/migrations/20261031181000_pos_delivery_assumed_paid_at_checkout.sql', 'utf8');
+  const treasury = await readFile('src/modules/cash-bank/utils/treasuryApi.ts', 'utf8');
+  const dashboard = await readFile('src/components/Dashboard.tsx', 'utf8');
+  const notification = await readFile('supabase/migrations/20261031150000_pos_sale_owner_summary_notification.sql', 'utf8');
+
+  assert.match(sql, /post_current_branch_pos_sale_with_delivery/);
+  assert.match(sql, /public\.post_current_branch_pos_sale\(p_sale,p_lines\)/);
+  assert.match(sql, /public\.save_current_branch_sales\(/);
+  assert.match(sql, /'source_type'/i.test(sql) ? /source_type/ : /source_type/);
+  assert.match(sql, /'money_in','delivery'/);
+  assert.match(sql, /'delivery:'\|\|v_delivery_id\|\|':v1'/);
+  assert.match(sql, /'deliveryPaymentStatus','collected'/);
+  assert.match(sql, /'status','Pending Dispatch'/);
+  assert.match(sql, /'assumedPaidAtCheckout',true/);
+  assert.match(sql, /insert into public\.deliveries/);
+  assert.match(sql, /private\.can_write_branch\(v_tenant,v_branch,'pos\.write'\)/);
+  assert.match(sql, /p_delivery_account_id uuid/);
+  assert.doesNotMatch(sql, /create\s+table/i);
+
+  assert.match(treasury, /deliveryAccountSourceKey\?: string/);
+  assert.match(treasury, /post_current_branch_pos_sale_with_delivery/);
+  assert.match(dashboard, /deliveryAccountSourceKey: deliveryPaymentAccount\?\.id/);
+  assert.match(dashboard, /deliverySavedAtCheckout \|\|/);
+  assert.match(dashboard, /\(collectedAmount > 0 \|\| deliveryFee > 0\)/);
+  assert.match(notification, /Paid \(automatic at checkout\)/);
+});
+
+test('Dispatch and Delivered status do not collect a second payment for POS-paid delivery', async () => {
+  const dashboard = await readFile('src/components/Dashboard.tsx', 'utf8');
+  assert.match(dashboard, /currentDelivery\.deliveryPaymentStatus === 'collected'/);
+  assert.match(dashboard, /!!currentDelivery\.treasuryJournalId/);
+  assert.match(dashboard, /const saved = await saveTenantDeliveriesOnly\(activeTenant\.id, updated\)/);
+  assert.match(dashboard, /del\.deliveryPaymentStatus === 'collected'/);
+  assert.match(dashboard, /customerData\.paymentMethod && !del\.treasuryJournalId/);
+  assert.match(dashboard, /Delivery fee is already booked in Treasury/);
+});
