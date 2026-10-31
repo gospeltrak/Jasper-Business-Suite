@@ -4,12 +4,19 @@
 
 - **Package name: Orvix Pro.** Do not use Ovics/Ovix; Tanzanite remains Tanzanite.
 - Ruby, Diamond and Tanzanite retain their existing prices, product limits, branch rights, payroll, reports, subscriptions and other standard capabilities. The legacy **Sales > Settle** must no longer appear on any of these base plans or the default free trial.
-- Orvix Pro is distinct and **not purchasable yet**. Owner will decide pricing and tiers later. Do not add it to public self-service checkout or payment proofs.
+- Orvix Pro is distinct. Private quoted price: **TZS 120,000** (billing period or per-deal charging cadence must be confirmed before payment implementation). No public self-service checkout: only verified Orvix Pro members may see private pricing/payment UI once payment integration is tested. Never activate access from a client-side payment callback without independent server-side provider verification.
 - Orvix Pro features: Settle with Count & Reconcile, cash transfers, verified handovers; branch-local Settle Reports and PDF exports; Employee Performance & Accountability; POS Park / Resume Pending Order.
 - No cross-branch aggregation: only the currently selected branch. Seller events keep their historical seller/shift identity after handover.
 - Mobile/tablet/desktop preserve the existing Orvix design system. Only Settle gets a compact redesign.
 - New test tenant will be created separately by the owner, then an authorized platform admin may explicitly enable **one** bounded Pro trial after verification.
 - No auto-grant for existing Tanzanite or any other tenant. No existing data deletion or backfill.
+
+## Private portal
+
+- Official sign-in URL: **https://orvix.africa/pro** (route `/pro`, not `/orvix-pro`).
+- Reuse Orvix identity provider with **email + password**. No separate public Pro registration, no Pro option on the three ordinary public packages.
+- A verified existing Pro member may sign in; non-members are rejected and directed to Orvix setup staff. The server revalidates membership when visiting `/pro`, including after page refresh.
+- Standard plans and payment checkout remain unchanged. Pro pricing is available only via authenticated, tenant-scoped membership lookup; no collection or automatic activation has been connected yet.
 
 ## Delivery state in this PR
 
@@ -17,7 +24,8 @@
 2. Authenticated server read endpoint derives tenant identity from Supabase auth and users table, not user-supplied tenant ID.
 3. Sales > Settle is gated on active server-verified Pro entitlement, not Ruby/Diamond/Tanzanite.
 4. Independent feature flags for Shift Report, Cashier Accountability and Park Sale intentionally remain **disabled** until each full feature is implemented and tested.
-5. No billing changes, no production database migration, no deployment, no test tenant activation in this PR.
+5. New private `/pro` route using existing password login and server-verified Pro membership, plus private TZS 120,000 price metadata. No billing charge is initiated.
+6. No production database migration, no deployment, no test tenant activation in this PR.
 
 ## Trial activation once the owner registers the test tenant
 
