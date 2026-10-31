@@ -17,6 +17,7 @@ import { getActiveBranchAddress, getActiveBranchDisplayName, getActiveBranchEmai
 import type { BranchSummary } from '../branches/branchTypes';
 import { useOptionalBranchContext } from '../branches/BranchContext';
 import { normalizeSubscriptionPlanId } from '../../shared/utils/subscription';
+import { loadOrvixProFeatures, ORVIX_PRO_DISABLED, type OrvixProFeatures } from '../../shared/utils/orvixProEntitlement';
 import { findPaymentChannel, getDebtCollectionPaymentChannels, getPaymentModeName } from '../../shared/utils/paymentAccounts';
 import { calculateSalesDocumentTotals } from './utils/salesDocumentTotals';
 import { getSaleItemLineTotal } from './utils/saleItemTotals';
@@ -270,6 +271,31 @@ export default function DashboardSalesList({
   // Sub tab selection (Sales transaction ledger vs. Customer A/R Debt vs. Seller Shift settlements)
   const [activeSubTab, setActiveSubTab] = useState<'sales' | 'debts' | 'settlement' | 'documents'>('sales');
 
+  // Orvix Pro is opt-in and never inherited from Tanzanite or Diamond.
+  // Fail closed while entitlement is loading, expired, revoked or offline.
+  // Scope loaded results to the tenant to prevent a stale response from
+  // accidentally showing Pro functionality after an account switch.
+  const [proEntitlement, setProEntitlement] = useState<{
+    tenantId: string;
+    features: OrvixProFeatures;
+  }>({ tenantId: activeTenant.id, features: { ...ORVIX_PRO_DISABLED } });
+
+  useEffect(() => {
+    let disposed = false;
+    setProEntitlement({ tenantId: activeTenant.id, features: { ...ORVIX_PRO_DISABLED } });
+    const refreshProEntitlement = () => {
+      void loadOrvixProFeatures().then(features => {
+        if (!disposed) setProEntitlement({ tenantId: activeTenant.id, features });
+      });
+    };
+    refreshProEntitlement();
+    window.addEventListener('focus', refreshProEntitlement);
+    return () => {
+      disposed = true;
+      window.removeEventListener('focus', refreshProEntitlement);
+    };
+  }, [activeTenant.id]);
+
   const activePlanId = normalizeSubscriptionPlanId(
     subscriptionStatus?.state?.planId
       || subscriptionStatus?.plan?.packageId
@@ -294,7 +320,7 @@ export default function DashboardSalesList({
   const branchWorkspace = useOptionalBranchContext();
   const physicalBranchCount = branchWorkspace?.snapshot?.directory?.physicalBranchCount ?? 1;
   const canUseCrossBranchDocuments = activePlanId === 'tanzanite' && !subscriptionStatus?.isExpired && physicalBranchCount > 1;
-  const canUseTillSettlement = activePlanId !== 'ruby';
+  const canUseTillSettlement = proEntitlement.tenantId === activeTenant.id && proEntitlement.features.settle;
 
   useEffect(() => {
     if (!canUseTillSettlement && activeSubTab === 'settlement') {
