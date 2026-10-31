@@ -6165,26 +6165,38 @@ export default function DashboardProducts({
               )}
             </div>
 
-            <div className="tenant-form-footer sticky bottom-0 z-10 bg-slate-50 p-3 sm:p-4 flex gap-2 border-t border-slate-200 shrink-0">
+            {/* Fixed-height form footer: a flex sibling, not a second sticky overlay.
+                Use React-owned translated labels to avoid DOM translator collisions. */}
+            <div className="tenant-form-footer orvix-product-edit-footer bg-slate-50 border-t border-slate-200">
               {editSaveError && (
-                <p role="alert" className="flex-1 self-center text-[10px] font-bold normal-case text-rose-600">
+                <p role="alert" className="orvix-product-edit-error text-[11px] font-bold normal-case text-rose-600">
                   {editSaveError}
                 </p>
               )}
-              <button 
-                type="button" 
+              <button
+                type="button"
                 disabled={isSavingProductEdit}
-                onClick={() => setEditingProduct(null)} 
-                className="flex-1 lg:flex-none px-4 sm:px-5 py-3 sm:py-2.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed font-bold rounded-xl uppercase tracking-wider text-[10.5px] cursor-pointer"
+                onClick={() => setEditingProduct(null)}
+                translate="no"
+                className="orvix-product-edit-action bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-50 font-bold rounded-xl uppercase tracking-wider cursor-pointer"
               >
-                Cancel Adjustments
+                <span>{t('Cancel Adjustments')}</span>
               </button>
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 disabled={isSavingProductEdit}
-                className="flex-1 lg:flex-none px-4 sm:px-5 py-3 sm:py-2.5 bg-emerald-600 hover:bg-emerald-505 disabled:opacity-60 disabled:cursor-wait text-white font-bold rounded-xl uppercase tracking-wider text-[10.5px] cursor-pointer"
+                aria-busy={isSavingProductEdit}
+                translate="no"
+                className="orvix-product-edit-action bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-bold rounded-xl uppercase tracking-wider cursor-pointer"
               >
-                {isSavingProductEdit ? 'Saving…' : 'Save Changes'}
+                {isSavingProductEdit ? (
+                  <span key="product-edit-saving" className="inline-flex items-center justify-center gap-2">
+                    <span className="w-3.5 h-3.5 shrink-0 animate-spin rounded-full border-2 border-white/40 border-t-white" aria-hidden="true" />
+                    <span>{t('Saving…')}</span>
+                  </span>
+                ) : (
+                  <span key="product-edit-save">{t('Save Changes')}</span>
+                )}
               </button>
             </div>
           </form>
