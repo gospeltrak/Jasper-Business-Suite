@@ -190,7 +190,7 @@ export default function DashboardPOS({
   onClearPreloadedCart,
   onGoToPaymentSettings
 }: DashboardPOSProps) {
-  const { lang: receiptLanguage } = useTranslation();
+  const { lang: receiptLanguage, t } = useTranslation();
   const showProductImages = systemSettings?.posSettings?.showProductImages !== false;
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -323,6 +323,8 @@ export default function DashboardPOS({
   const [customerPhone, setCustomerPhone] = useState('');
   const [paymentStatus, setPaymentStatus] = useState<'idle' | 'completed'>('idle');
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  // React ref blocks a second tap synchronously, before the next render.
+  const paymentSubmitInFlightRef = useRef(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [checkoutNeedsPaymentSetup, setCheckoutNeedsPaymentSetup] = useState(false);
   const [amountPaid, setAmountPaid] = useState<number>(0);
@@ -1076,7 +1078,8 @@ export default function DashboardPOS({
   };
 
   const submitPayment = async () => {
-    if (isProcessingPayment) return;
+    if (paymentSubmitInFlightRef.current) return;
+    paymentSubmitInFlightRef.current = true;
     setCheckoutError(null);
     setCheckoutNeedsPaymentSetup(false);
     setIsProcessingPayment(true);
@@ -1092,6 +1095,7 @@ export default function DashboardPOS({
         ? 'Muamala haujathibitishwa. Hakiki Sales kabla ya kujaribu tena.'
         : 'Payment status is unconfirmed. Check Sales before retrying.'));
     } finally {
+      paymentSubmitInFlightRef.current = false;
       setIsProcessingPayment(false);
     }
   };
@@ -2518,9 +2522,20 @@ export default function DashboardPOS({
                   disabled={isProcessingPayment || (paymentMethod === 'Multi-Channel' && multiAllocations.filter(row => Number(row.amount || 0) > 0).length === 0)}
                   onClick={submitPayment}
                   className="pos-checkout-confirm"
+                  translate="no"
+                  aria-busy={isProcessingPayment}
                 >
-                  <span>{isProcessingPayment ? 'Processing...' : 'Confirm Payment'}</span>
-                  {!isProcessingPayment && <Check className="w-[18px] h-[18px]" strokeWidth={2.6} aria-hidden="true" />}
+                  {isProcessingPayment ? (
+                    <span key="pos-processing" className="inline-flex min-w-0 items-center justify-center gap-2">
+                      <span className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-white/40 border-t-white" aria-hidden="true" />
+                      <span>{t('Processing...')}</span>
+                    </span>
+                  ) : (
+                    <span key="pos-confirm" className="inline-flex min-w-0 items-center justify-center gap-2">
+                      <span>{t('Confirm Payment')}</span>
+                      <Check className="w-[18px] h-[18px] shrink-0" strokeWidth={2.6} aria-hidden="true" />
+                    </span>
+                  )}
                 </button>
               </div>
               </>
