@@ -1607,7 +1607,7 @@ export default function DashboardReports({
                   />
                   <button
                     onClick={printActiveReportPdf}
-                    disabled={!!reportPdfStatus}
+                    disabled={!!reportPdfStatus || treasuryLoading || !!treasuryError || !treasury}
                     className="bg-slate-900 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[11px] sm:text-xs font-bold uppercase flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm shrink-0 disabled:opacity-60 disabled:cursor-wait"
                   >
                     <FileText className="w-3.5 h-3.5" />
@@ -1649,7 +1649,7 @@ export default function DashboardReports({
                     {treasury.accounts.length === 0 && <p className="text-xs text-slate-500">No accessible bank or cash accounts.</p>}
                   </div>
                 )}
-                {moneyBankSubTab === 'summary' && (
+                {treasury && moneyBankSubTab === 'summary' && (
                   <>
                     <div className="reports-split-grid gap-2 sm:gap-3">
                       {[
@@ -1699,7 +1699,7 @@ export default function DashboardReports({
                   </>
                 )}
 
-                {moneyBankSubTab === 'in' && (
+                {treasury && moneyBankSubTab === 'in' && (
                   <>
                     <div className="reports-split-grid gap-2 sm:gap-3">
                       {[
@@ -1721,7 +1721,7 @@ export default function DashboardReports({
                   </>
                 )}
 
-                {moneyBankSubTab === 'out' && (
+                {treasury && moneyBankSubTab === 'out' && (
                   <>
                     <div className="reports-split-grid gap-2 sm:gap-3">
                       {[
@@ -2250,7 +2250,7 @@ export default function DashboardReports({
                 </div>
                 <button
                   onClick={printActiveReportPdf}
-                  disabled={!!reportPdfStatus}
+                  disabled={!!reportPdfStatus || stockLoading || !!stockError}
                   className="order-1 sm:order-2 bg-slate-900 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[11px] sm:text-xs font-bold uppercase flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm shrink-0 disabled:opacity-60 disabled:cursor-wait"
                 >
                   <FileText className="w-3.5 h-3.5" />
@@ -2321,7 +2321,7 @@ export default function DashboardReports({
                           <div className="flex flex-col items-center gap-2">
                             <ArrowUpDown className="w-8 h-8 text-slate-200" />
                             <span>No stock adjustments in this date range.</span>
-                            <span className="text-[11px] text-slate-300">Use Products → Adjust Stock to record manual changes.</span>
+                            <span className="text-[11px] text-slate-300">Historical manual changes saved only to old device caches may be unavailable. Future adjustments will be recorded securely.</span>
                           </div>
                         </td>
                       </tr>
