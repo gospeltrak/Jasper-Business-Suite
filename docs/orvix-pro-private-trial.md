@@ -1,0 +1,53 @@
+# Orvix Pro — separately provisioned enterprise cashier package
+
+## Approved product boundaries (2026-10-31)
+
+- **Package name: Orvix Pro.** Do not use Ovics/Ovix; Tanzanite remains Tanzanite.
+- Ruby, Diamond and Tanzanite retain their existing prices, product limits, branch rights, payroll, reports, subscriptions and other standard capabilities. The legacy **Sales > Settle** must no longer appear on any of these base plans or the default free trial.
+- Orvix Pro is distinct and **not purchasable yet**. Owner will decide pricing and tiers later. Do not add it to public self-service checkout or payment proofs.
+- Orvix Pro features: Settle with Count & Reconcile, cash transfers, verified handovers; branch-local Settle Reports and PDF exports; Employee Performance & Accountability; POS Park / Resume Pending Order.
+- No cross-branch aggregation: only the currently selected branch. Seller events keep their historical seller/shift identity after handover.
+- Mobile/tablet/desktop preserve the existing Orvix design system. Only Settle gets a compact redesign.
+- New test tenant will be created separately by the owner, then an authorized platform admin may explicitly enable **one** bounded Pro trial after verification.
+- No auto-grant for existing Tanzanite or any other tenant. No existing data deletion or backfill.
+
+## Delivery state in this PR
+
+1. Isolated opt-in Pro entitlement table in an additive **unapplied** migration, RLS-protected from normal tenants. A tenant with no row has Pro disabled.
+2. Authenticated server read endpoint derives tenant identity from Supabase auth and users table, not user-supplied tenant ID.
+3. Sales > Settle is gated on active server-verified Pro entitlement, not Ruby/Diamond/Tanzanite.
+4. Independent feature flags for Shift Report, Cashier Accountability and Park Sale intentionally remain **disabled** until each full feature is implemented and tested.
+5. No billing changes, no production database migration, no deployment, no test tenant activation in this PR.
+
+## Trial activation once the owner registers the test tenant
+
+An authorized administrator verifies the new tenant ID and applies the schema migration through the normal migration review/deployment flow. The administrator then explicitly grants a bounded trial entitlement, with a time interval chosen by the owner:
+
+```sql
+-- Admin-only example; never execute without verifying target tenant_id.
+insert into public.orvix_pro_entitlements
+(tenant_id, tier, status, settle_enabled, shift_reports_enabled,
+ cashier_accountability_enabled, park_sale_enabled, starts_at, expires_at, notes)
+values
+('<verified-new-tenant-uuid>'::uuid, 'pro', 'trial', true, false,
+ false, false, now(), now() + interval '10 days', 'Authorized isolated test tenant')
+on conflict (tenant_id) do nothing;
+```
+
+**Do not copy into production without selecting the exact authorized test tenant.** Do not set the other three feature flags true until backend, permissions, UI and end-to-end tests are complete.
+
+## Acceptance criteria before production
+
+- All base plans including Tanzanite and standard trials show Receipts, Debts and Quotes but **not Settle**.
+- Only an active, unexpired, explicitly provisioned Orvix Pro tenant sees Settle.
+- Revoked, suspended or expired Pro entitlement immediately blocks all Pro server operations, not merely hides tabs.
+- Server-side financial mutations must have their own authorization checks, atomic double-entry, idempotency, branch-scoping and audit events before the Pro Settle operation is exposed live.
+- Settle, Manager Review and staff records cannot be edited/deleted to erase discrepancies.
+- PDF exports and receipts do not lose branch, seller, shift or timestamp attribution.
+- New test tenant is isolated; no existing tenant data changes.
+- Branch switch changes data scope; never combine branches.
+- Regression test the legacy subscriptions, POS, invoices, payments and existing PR #39 release before launch.
+
+## Important current limitation
+
+The current Settle form still uses historical browser-side cash/ledger state. Gating the tab is not production-ready cashier settlement. Before granting the test tenant an operational Pro Settle workflow, migrate it to secure server-side normalized transactional storage and verify full end-to-end reconciliation. The entitlement foundation is only the first step.
