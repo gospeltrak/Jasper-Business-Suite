@@ -452,6 +452,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
   const knownDashboardTabs = new Set([
     'admin-dashboard',
     'admin-subscribers',
+    'admin-orvix-pro',
     'admin-hw-pos',
     'admin-hw-inventory',
     'admin-hw-sales',
@@ -1404,6 +1405,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     const mapping: Record<string, string> = {
       'admin-dashboard': 'dashboard',
       'admin-subscribers': 'subscribers',
+      'admin-orvix-pro': 'orvix-pro',
       'admin-hw-pos': 'hw-pos',
       'admin-hw-inventory': 'hw-inventory',
       'admin-hw-sales': 'hw-sales',
@@ -3349,6 +3351,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
   const customSidebarItems = activeRoleName === 'SuperAdmin' ? [
     { id: 'admin-dashboard', label: 'Dashboard', icon: LayoutDashboard, tabId: 'admin-dashboard' },
     { id: 'admin-subscribers', label: 'Subscribers', icon: Users, tabId: 'admin-subscribers' },
+    { id: 'admin-orvix-pro', label: 'Orvix Pro', icon: Shield, tabId: 'admin-orvix-pro' },
     { id: 'admin-hw-pos', label: 'Hardware POS', icon: ShoppingCart, tabId: 'admin-hw-pos' },
     { id: 'admin-hw-inventory', label: 'HW Inventory', icon: Package, tabId: 'admin-hw-inventory' },
     { id: 'admin-hw-sales', label: 'HW Sales', icon: TrendingUp, tabId: 'admin-hw-sales' },
@@ -4601,6 +4604,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                activeAdminSubTab={
                  activeTab === 'admin-dashboard' ? 'dashboard' :
                  activeTab === 'admin-subscribers' ? 'subscribers' :
+                 activeTab === 'admin-orvix-pro' ? 'orvix-pro' :
                  activeTab === 'admin-hw-pos' ? 'hw-pos' :
                  activeTab === 'admin-hw-inventory' ? 'hw-inventory' :
                  activeTab === 'admin-hw-sales' ? 'hw-sales' :
@@ -4623,6 +4627,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                  const mappedTab = 
                    subTab === 'dashboard' ? 'admin-dashboard' :
                    subTab === 'subscribers' ? 'admin-subscribers' :
+                   subTab === 'orvix-pro' ? 'admin-orvix-pro' :
                    subTab === 'hw-pos' ? 'admin-hw-pos' :
                    subTab === 'hw-inventory' ? 'admin-hw-inventory' :
                    subTab === 'hw-sales' ? 'admin-hw-sales' :
@@ -4745,6 +4750,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                   // ── Super SaaS Admin more menu ─────────────────────
                   { id: 'admin-dashboard',   label: 'Dashboard',  icon: LayoutDashboard, bg: 'bg-emerald-600' },
                   { id: 'admin-subscribers', label: 'Subscribers',icon: Users,           bg: 'bg-blue-600' },
+                  { id: 'admin-orvix-pro',  label: 'Orvix Pro',  icon: Shield,          bg: 'bg-emerald-600' },
                   { id: 'admin-affiliates',  label: 'Affiliates', icon: Award,           bg: 'bg-amber-500' },
                   { id: 'admin-status',      label: 'Approvals',  icon: Activity,        bg: 'bg-teal-600' },
                   { id: 'admin-hw-pos',      label: 'HW POS',     icon: ShoppingCart,    bg: 'bg-violet-600' },
