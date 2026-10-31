@@ -42,7 +42,7 @@ import {
 import DashboardBarcodeScanner from '../../shared/components/LazyDashboardBarcodeScanner';
 import { findBarcodeProduct, fitsPosShopStock, getPosShopStock, posBarcodeMessage, type PosBarcodeOutcome } from '../../shared/utils/barcodeScan';
 import CachedImage from '../../shared/components/CachedImage';
-import { downloadPdfFromElement, shareElementPdfToWhatsApp } from '../../shared/utils/pdfShare';
+// PDF engine is loaded only when a PDF action is requested.
 import { localDateToIso, timestampToLocalDate } from '../../shared/utils/localDate';
 import { getPharmacyDoseConfig, resolvePharmacyPosLine } from '../verticals/utils/pharmacyPosPricing';
 import {
@@ -372,6 +372,7 @@ export default function DashboardPOS({
     if (!receiptResult) return;
     try {
       setReceiptPdfStatus('Preparing receipt PDF...');
+      const { shareElementPdfToWhatsApp } = await import('../../shared/utils/pdfShare');
       const result = await shareElementPdfToWhatsApp({
         elementId: 'pos-receipt-pdf-template',
         fileName: `Receipt-${receiptResult.reference || receiptResult.id}.pdf`,
@@ -400,6 +401,7 @@ export default function DashboardPOS({
     if (!receiptResult) return;
     try {
       setReceiptPdfStatus('Generating receipt PDF...');
+      const { downloadPdfFromElement } = await import('../../shared/utils/pdfShare');
       await downloadPdfFromElement({
         elementId: 'pos-receipt-pdf-template',
         fileName: `Receipt-${receiptResult.reference || receiptResult.id}.pdf`,
