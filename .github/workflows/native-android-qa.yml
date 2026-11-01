@@ -71,6 +71,9 @@ jobs:
           distribution: temurin
           java-version: '21'
 
+      - name: Integrate native UI types without changing production
+        run: node scripts/qa-integrate-android-pr39.mjs
+
       - name: Install locked dependencies
         run: npm ci
 
