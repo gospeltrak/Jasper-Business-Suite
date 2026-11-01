@@ -30,7 +30,7 @@ jobs:
           npx playwright install chromium
       - name: Start isolated Vite UI test, no tenant backend
         run: |
-          npm run dev -- --host 127.0.0.1 --port 5173 > /tmp/orvix-pos-bench-vite.log 2>&1 &
+          npx vite --host 127.0.0.1 --port 5173 --strictPort > /tmp/orvix-pos-bench-vite.log 2>&1 &
           for n in $(seq 1 50); do
             if curl -fsS http://127.0.0.1:5173/tests/perf/pos-cart-bench.html > /dev/null; then exit 0; fi
             sleep 2
