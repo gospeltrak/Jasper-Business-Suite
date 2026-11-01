@@ -79,7 +79,8 @@ jobs:
         run: |
           set -euo pipefail
           git fetch --no-tags origin fix/pos-cart-discount-delivery-focus-20261101
-          git diff origin/main origin/fix/pos-cart-discount-delivery-focus-20261101 -- src/modules/pos/DashboardPOS.tsx src/modules/auth/LoginPage.tsx src/index.css src/modules/sales/utils/fractionSale.ts src/modules/sales/utils/fractionSale.test.ts | git apply --3way
+          git diff origin/main 8700498ad213ddf328ad278c854a557dd1508d8b -- src/modules/pos/DashboardPOS.tsx src/modules/auth/LoginPage.tsx src/index.css src/modules/sales/utils/fractionSale.ts src/modules/sales/utils/fractionSale.test.ts | git apply --3way
+          node scripts/qa-memoize-native-pos-cards.mjs
           grep -q 'loginEmailInputRef' src/modules/auth/LoginPage.tsx
           grep -q 'pos-checkout-total-compact' src/index.css
           grep -q 'const subtotal = cart.reduce' src/modules/pos/DashboardPOS.tsx
