@@ -2277,11 +2277,11 @@ export default function DashboardPOS({
               <>
               <div className="pos-checkout-body overflow-y-auto flex-1">
                 <div className="pos-checkout-total pos-checkout-total-compact">
-                  <span className="pos-checkout-eyebrow">PRODUCT PAYMENT TO COLLECT</span>
+                  <span className="pos-checkout-eyebrow">{receiptLanguage === 'sw' ? 'MALIPO YA BIDHAA' : 'PRODUCT PAYMENT TO COLLECT'}</span>
                   <strong data-testid="pos-checkout-total">{currency}{Math.round(productCheckoutTotal).toLocaleString()}</strong>
                   {deliveryCost > 0 && (
-                    <p data-testid="pos-checkout-delivery-summary" className="pos-checkout-delivery-note" title={`Delivery: ${currency}${Math.round(deliveryCost).toLocaleString()} · Paid via ${deliveryPaymentMethod || 'selected account'}`}>
-                      Delivery: {currency}{Math.round(deliveryCost).toLocaleString()} · Paid via {deliveryPaymentMethod || 'selected account'}
+                    <p data-testid="pos-checkout-delivery-summary" className="pos-checkout-delivery-note" title={receiptLanguage === 'sw' ? `Usafirishaji: ${currency}${Math.round(deliveryCost).toLocaleString()} · Imelipwa kwa ${deliveryPaymentMethod || 'akaunti iliyochaguliwa'}` : `Delivery: ${currency}${Math.round(deliveryCost).toLocaleString()} · Paid via ${deliveryPaymentMethod || 'selected account'}`}>
+                      {receiptLanguage === 'sw' ? 'Usafirishaji' : 'Delivery'}: {currency}{Math.round(deliveryCost).toLocaleString()} · {receiptLanguage === 'sw' ? 'Imelipwa kwa' : 'Paid via'} {deliveryPaymentMethod || (receiptLanguage === 'sw' ? 'akaunti iliyochaguliwa' : 'selected account')}
                     </p>
                   )}
                 </div>
