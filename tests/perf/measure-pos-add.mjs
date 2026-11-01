@@ -17,9 +17,19 @@ try {
     await context.addInitScript(lang => localStorage.setItem('jasper_lang', lang), language);
     const page = await context.newPage();
     const errors = [];
-    page.on('pageerror', e => errors.push(e.message));
-    await page.goto('http://127.0.0.1:5173/tests/perf/pos-cart-bench.html', { waitUntil: 'domcontentloaded' });
-    await page.locator('[data-pos-product-card]').first().waitFor({ timeout: 25000 });
+    page.on('pageerror', e => { errors.push(e.message); console.error('BROWSER_PAGE_ERROR', e.message); });
+    page.on('console', message => { if (message.type() === 'error') console.error('BROWSER_CONSOLE_ERROR', message.text().slice(0, 500)); });
+    page.on('response', response => { if (response.status() >= 400) console.error('BROWSER_HTTP_ERROR', response.status(), response.url()); });
+    const loaded = await page.goto('http://127.0.0.1:5173/tests/perf/pos-cart-bench.html', { waitUntil: 'domcontentloaded' });
+    console.log('BENCH_PAGE_LOADED', loaded?.status(), await page.title());
+    try {
+      await page.locator('[data-pos-product-card]').first().waitFor({ timeout: 12000 });
+    } catch (e) {
+      console.error('BENCH_ROOT_HTML', (await page.locator('#root').innerHTML().catch(() => 'missing root')).slice(0, 2600));
+      console.error('BENCH_PAGE_ERRORS', errors);
+      await page.screenshot({ path: 'pos-bench-' + language + '-failure.png', fullPage: false });
+      throw e;
+    }
     await page.waitForFunction(() => document.querySelectorAll('[data-pos-product-card]').length === 180, null, { timeout: 25000 });
     const samples = [];
 
