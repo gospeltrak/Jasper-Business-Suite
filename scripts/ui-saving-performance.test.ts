@@ -57,3 +57,42 @@ test('POS discount and delivery fee inputs retain focus while totals recalculate
   assert.match(pos, /setOrderDiscountDraft\(raw\)/);
   assert.match(pos, /onChange=\{\(e\) => setDeliveryCost\(e\.target\.value === '' \? 0 : Math\.max\(0, Number\(e\.target\.value\)\)\)\}/);
 });
+
+
+test('mobile cart amount is derived immediately from cart entries, without waiting for discount edits', async () => {
+  const pos = await read('src/modules/pos/DashboardPOS.tsx');
+  assert.match(pos, /const subtotal = cart\.reduce\(\(sum, item\) => \{/);
+  assert.match(pos, /return sum \+ \(discountPrice \* item\.qty\)/);
+  assert.match(pos, /data-testid="pos-mobile-grand-total" role="status" aria-live="polite"/);
+  assert.match(pos, /Math\.round\(grandTotal\)\.toLocaleString\(\)/);
+  assert.doesNotMatch(pos, /const subtotal = useMemo\(\(\) =>/);
+  // No unrelated cart remount when quantities or totals change.
+  assert.doesNotMatch(pos, /key=\{\x60pos-mobile-total-\$\{cart\.length\}/);
+});
+
+test('checkout delivery summary stays inside the product amount card on one compact line', async () => {
+  const pos = await read('src/modules/pos/DashboardPOS.tsx');
+  const css = await read('src/index.css');
+  assert.match(pos, /className="pos-checkout-total pos-checkout-total-compact"/);
+  assert.match(pos, /data-testid="pos-checkout-delivery-summary"/);
+  assert.match(pos, /Delivery: \{currency\}\{Math\.round\(deliveryCost\)\.toLocaleString\(\)\} · Paid via \{deliveryPaymentMethod/);
+  assert.doesNotMatch(pos, /pos-checkout-delivery-breakdown/);
+  assert.doesNotMatch(pos, /Combined order total \(products \+ delivery\)/);
+  assert.doesNotMatch(pos, /Products only — delivery is paid separately/);
+  assert.match(css, /pos-checkout-total\.pos-checkout-total-compact/);
+  assert.match(css, /grid-template-columns: minmax\(0, 1fr\) auto/);
+  assert.match(css, /pos-checkout-total-compact \.pos-checkout-delivery-note/);
+  assert.match(css, /white-space: nowrap/);
+});
+
+test('sign-in credential inputs do not re-render on every Android keyboard character', async () => {
+  const login = await read('src/modules/auth/LoginPage.tsx');
+  assert.match(login, /const loginEmailInputRef = useRef<HTMLInputElement>\(null\)/);
+  assert.match(login, /const loginPasswordInputRef = useRef<HTMLInputElement>\(null\)/);
+  assert.match(login, /ref=\{loginEmailInputRef\}[\s\S]*?type="email"[\s\S]*?defaultValue=""/);
+  assert.match(login, /ref=\{loginPasswordInputRef\}[\s\S]*?autoComplete="current-password"[\s\S]*?defaultValue=""/);
+  assert.match(login, /loginEmailInputRef\.current\?\.value\.trim\(\)/);
+  assert.match(login, /triggerLogin\(loginEmailInputRef\.current\?\.value \|\| '', loginPasswordInputRef\.current\?\.value \|\| ''\)/);
+  assert.doesNotMatch(login, /onChange=\{\(e\) => setEmail\(e\.target\.value\)\}/);
+  assert.doesNotMatch(login, /onChange=\{\(e\) => setPassword\(e\.target\.value\)\}/);
+});
