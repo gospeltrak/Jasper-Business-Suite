@@ -74,7 +74,7 @@ jobs:
       - name: Integrate native UI types without changing production
         run: node scripts/qa-integrate-android-pr39.mjs
 
-      - name: Integrate PR42 product-only checkout and cart focus, preserving Android printer
+      - name: Integrate current deployed POS notifications, checkout and native printer
         shell: bash
         run: |
           set -euo pipefail
@@ -100,9 +100,12 @@ jobs:
           grep -q 'const displayedChannelPrice = getChannelPrice(item.product)' src/modules/pos/DashboardPOS.tsx
           grep -q 'const productCards = useMemo' src/modules/pos/DashboardPOS.tsx
           grep -q 'product.defaultPricePerBaseUnit,' src/modules/sales/utils/fractionSale.ts
-          git show origin/fix/pos-cart-discount-delivery-focus-20261101:scripts/sales-delivery-accounting.test.ts > scripts/sales-delivery-accounting.test.ts
-          git show origin/fix/pos-cart-discount-delivery-focus-20261101:scripts/ui-saving-performance.test.ts > scripts/ui-saving-performance.test.ts
-          git show origin/fix/pos-cart-discount-delivery-focus-20261101:scripts/security-hardening-contract.test.ts > scripts/security-hardening-contract.test.ts
+          # Preserve up-to-date PR43 language and financial tests merged from main.
+          grep -q 'receiptLanguage' src/modules/pos/DashboardPOS.tsx
+          grep -q 'formatOrvixNotification' src/shared/components/NotificationCenterModal.tsx
+          grep -q 'orvix-report-types-grid' src/modules/notifications-settings/DashboardNotificationsSettings.tsx
+          grep -q 'saleDetailsById' server.ts
+          test -f src/shared/utils/orvixNotificationText.ts
           grep -q 'const productCheckoutTotal = useMemo' src/modules/pos/DashboardPOS.tsx
           grep -q 'data-testid="pos-checkout-delivery-summary"' src/modules/pos/DashboardPOS.tsx
           grep -q 'sendNativeReceipt' src/modules/pos/DashboardPOS.tsx
@@ -135,8 +138,8 @@ jobs:
       - name: Native isolation and security contracts
         run: npm run native:verify
 
-      - name: Scanner, Printer & Product Unit Pricing tests
-        run: npx vitest run src/shared/utils/posDevices.test.ts src/modules/sales/utils/fractionSale.test.ts
+      - name: Scanner, Printer, Unit Pricing & Kiswahili Notification tests
+        run: npx vitest run src/shared/utils/posDevices.test.ts src/modules/sales/utils/fractionSale.test.ts src/shared/utils/orvixNotificationText.test.ts
 
       - name: Verify PR42 split checkout and input focus regression
         run: npx tsx --test scripts/sales-delivery-accounting.test.ts scripts/ui-saving-performance.test.ts
