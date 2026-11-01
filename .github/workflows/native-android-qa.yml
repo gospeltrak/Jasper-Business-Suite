@@ -55,10 +55,6 @@ jobs:
           # Keep Android-specific native camera permission recovery that was
           # dropped by a production-wins conflict resolution in scanner UI.
           git show origin/feature/scanner-printer-native-58-80:src/shared/components/DashboardBarcodeScanner.tsx > src/shared/components/DashboardBarcodeScanner.tsx
-          # Production's web POS won the merge; restore the QA source that
-          # already contains native printing/scanning, then port POS changes below.
-          git show HEAD:src/modules/pos/DashboardPOS.tsx > src/modules/pos/DashboardPOS.tsx
-          git add src/modules/pos/DashboardPOS.tsx
           grep -q 'scripts/ui-saving-performance.test.ts' <(git ls-files --cached)
           grep -q 'src/modules/reports/components/DeliveryTreasuryPanel.tsx' <(git ls-files --cached)
           grep -q 'src/modules/settings/DashboardScannerPrinterSettings.tsx' <(git ls-files --cached)
@@ -83,10 +79,9 @@ jobs:
         run: |
           set -euo pipefail
           git fetch --no-tags origin fix/pos-cart-discount-delivery-focus-20261101
-          # Apply only the stable core POS patch to the preserved Android-native POS.
-          # Current production already includes all non-POS files in this PR.
-          git diff eb4334fef4dac96298620818ff0b4186a137d3e4 8700498ad213ddf328ad278c854a557dd1508d8b -- src/modules/pos/DashboardPOS.tsx | git apply --3way
-          node scripts/qa-memoize-native-pos-cards.mjs
+          # New production POS is the source of truth for checkout, rendering,
+          # and camera lazy load; inject only Android hardware integrations.
+          node scripts/qa-overlay-native-pos-printer.mjs
           # Read stable, fully tested web files that have no native-specific code.
           for file in index.html src/shared/components/CachedImage.tsx src/shared/utils/lazyWithReload.ts src/shared/components/AppErrorBoundary.tsx src/shared/components/DashboardScreenErrorBoundary.tsx scripts/deployment-contract.test.ts; do
             git show origin/fix/pos-cart-discount-delivery-focus-20261101:"$file" > "$file"
