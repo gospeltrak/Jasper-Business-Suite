@@ -3137,3 +3137,58 @@ button:active:not(:disabled),
   outline: 3px solid #6ee7b7 !important;
   outline-offset: 2px;
 }
+
+
+/* Notifications & Auto Reports: a visible accessible checkbox and compact
+   TWO-column layout on all screens, including native Android WebView.
+   The generic Settings mobile one-column + label display:block rule is
+   intentionally overridden only for these report choices. */
+#dashboard-scaffold .settings-content-panel .orvix-report-types-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 0.5rem !important;
+  min-width: 0;
+}
+#dashboard-scaffold .settings-content-panel label.orvix-report-choice {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+  min-height: 54px;
+  min-width: 0;
+  margin: 0 !important;
+  padding: 0.5rem 0.625rem !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+  font-size: 11px !important;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.75rem;
+  cursor: pointer;
+}
+#dashboard-scaffold .settings-content-panel label.orvix-report-choice > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+#dashboard-scaffold .settings-content-panel input.orvix-report-checkbox {
+  appearance: auto !important;
+  -webkit-appearance: checkbox !important;
+  accent-color: #059669;
+  border: 1.5px solid #64748b !important;
+  background-color: white;
+  width: 21px !important;
+  height: 21px !important;
+  min-width: 21px;
+  min-height: 21px;
+  flex: 0 0 21px !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  cursor: pointer;
+}
+#dashboard-scaffold .settings-content-panel label.orvix-report-choice:has(input:checked) {
+  background: #ecfdf5;
+  border-color: #10b981;
+}
+#dashboard-scaffold .settings-content-panel label.orvix-report-choice:focus-within {
+  outline: 2px solid #10b981;
+  outline-offset: 2px;
+}
