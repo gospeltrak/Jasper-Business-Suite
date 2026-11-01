@@ -1,8 +1,8 @@
-name: Publish Orvix POS Faster Cart Android QA APK
+name: Publish Orvix Production-Synced Android QA APK
 
 on:
   push:
-    branches: [qa/publish-orvix-pos-speed-apk-20261101]
+    branches: [qa/publish-orvix-production-sync-20261101]
     paths:
       - '.github/workflows/publish-orvix-qa-apk.yml'
 
@@ -21,24 +21,30 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          result="$(gh api repos/"$GH_REPO"/actions/runs/41338437627 --jq '.conclusion')"
+          result=""
+          for i in $(seq 1 60); do
+            result="$(gh api repos/"$GH_REPO"/actions/runs/41342858266 --jq '.conclusion // ""')"
+            if [ "$result" = success ]; then break; fi
+            if [ -n "$result" ]; then echo "Android build failed: $result"; exit 1; fi
+            sleep 10
+          done
           test "$result" = success
           mkdir -p orvix-apk
-          gh run download 41338437627 --name orvix-android-debug-qa-only --dir orvix-apk --repo "$GH_REPO"
+          gh run download 41342858266 --name orvix-android-debug-qa-only --dir orvix-apk --repo "$GH_REPO"
           test -s orvix-apk/app-debug.apk
           unzip -t orvix-apk/app-debug.apk >/dev/null
           sha256sum orvix-apk/app-debug.apk
-          mv orvix-apk/app-debug.apk orvix-apk/Orvix-POS-Speed-Cart-Fix-Android-QA.apk
+          mv orvix-apk/app-debug.apk orvix-apk/Orvix-Production-Synced-Fast-POS-Android-QA.apk
       - name: Publish browser-linkable QA APK (not production)
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          gh release create orvix-android-qa-pos-speed-20261101 \
-            orvix-apk/Orvix-POS-Speed-Cart-Fix-Android-QA.apk \
+          gh release create orvix-android-qa-production-sync-20261101 \
+            orvix-apk/Orvix-Production-Synced-Fast-POS-Android-QA.apk \
             --repo "$GH_REPO" \
             --target "$GITHUB_SHA" \
-            --title 'Orvix Android QA — Faster Add-to-Cart (2026-11-01)' \
-            --notes 'QA/debug only: memoize product grid so adding cart products does not reconcile all catalog cards/images; includes product pricing and cart total improvements, delivery split, sign-in focus, native scanner and printer. Built successfully in native Android QA workflow run 41338437627. Physical phone performance still needs confirmation. No tenant data changed or production deployment.' \
+            --title 'Orvix Android QA — Production Sync & Fast POS (2026-11-01)' \
+            --notes 'QA/debug Android APK synchronized with live Orvix Production commit d05bd8a. Includes verified browser POS add-to-total timing, memoized product grid, separate delivery payments, keyboard focus, scanner and 58/80mm Bluetooth printer. Android build run 41342858266. Not a Play Store production release. Test device before using real payment data. No tenant data modifications.' \
             --prerelease
