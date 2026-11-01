@@ -5,6 +5,7 @@ import { createRoot } from 'react-dom/client';
 import DashboardPOS from '../../src/modules/pos/DashboardPOS';
 import { LanguageProvider } from '../../src/shared/contexts/LanguageContext';
 import type { Product, Tenant } from '../../src/types';
+import '../../src/shared/utils/onlineStorage';
 import '../../src/index.css';
 
 const activeTenant: Tenant = {
