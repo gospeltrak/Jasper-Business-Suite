@@ -4614,8 +4614,10 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
               systemSettings={systemSettings}
               initialSubTab={settingsInitialSubTab}
               onSaveSettings={(updated) => {
-                if (blockOfflineBusinessWrite('settings save')) return;
-                persistSystemSettingsNow(updated);
+                if (blockOfflineBusinessWrite('settings save')) return Promise.resolve(false);
+                // Report alert preferences need the actual database outcome, not
+                // an optimistic update mistaken for a confirmed saved setting.
+                return persistSystemSettingsNow(updated).saved;
               }}
               subscriptionStatus={subStatus}
               onTriggerUpgrade={(type) => {
