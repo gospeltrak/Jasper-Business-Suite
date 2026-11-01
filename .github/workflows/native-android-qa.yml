@@ -55,6 +55,9 @@ jobs:
           # Keep Android-specific native camera permission recovery that was
           # dropped by a production-wins conflict resolution in scanner UI.
           git show origin/feature/scanner-printer-native-58-80:src/shared/components/DashboardBarcodeScanner.tsx > src/shared/components/DashboardBarcodeScanner.tsx
+          # Production's web POS won the merge; restore the QA source that
+          # already contains native printing/scanning, then port POS changes below.
+          git show HEAD:src/modules/pos/DashboardPOS.tsx > src/modules/pos/DashboardPOS.tsx
           grep -q 'scripts/ui-saving-performance.test.ts' <(git ls-files --cached)
           grep -q 'src/modules/reports/components/DeliveryTreasuryPanel.tsx' <(git ls-files --cached)
           grep -q 'src/modules/settings/DashboardScannerPrinterSettings.tsx' <(git ls-files --cached)
@@ -79,13 +82,19 @@ jobs:
         run: |
           set -euo pipefail
           git fetch --no-tags origin fix/pos-cart-discount-delivery-focus-20261101
-          git diff origin/main 8700498ad213ddf328ad278c854a557dd1508d8b -- src/modules/pos/DashboardPOS.tsx src/modules/auth/LoginPage.tsx src/index.css src/modules/sales/utils/fractionSale.ts src/modules/sales/utils/fractionSale.test.ts | git apply --3way
+          # Apply only the stable core POS patch to the preserved Android-native POS.
+          # Current production already includes all non-POS files in this PR.
+          git diff eb4334fef4dac96298620818ff0b4186a137d3e4 8700498ad213ddf328ad278c854a557dd1508d8b -- src/modules/pos/DashboardPOS.tsx | git apply --3way
           node scripts/qa-memoize-native-pos-cards.mjs
           # Read stable, fully tested web files that have no native-specific code.
           for file in index.html src/shared/components/CachedImage.tsx src/shared/utils/lazyWithReload.ts src/shared/components/AppErrorBoundary.tsx src/shared/components/DashboardScreenErrorBoundary.tsx scripts/deployment-contract.test.ts; do
             git show origin/fix/pos-cart-discount-delivery-focus-20261101:"$file" > "$file"
           done
-          node scripts/qa-keep-active-forms-stable.mjs
+          # New production already includes the throttled workspace recovery.
+          # The native adapter is only needed when its hook is still old.
+          if ! grep -q 'MIN_RECOVERY_REFRESH_MS' src/components/Dashboard.tsx; then
+            node scripts/qa-keep-active-forms-stable.mjs
+          fi
           grep -q 'MIN_RECOVERY_REFRESH_MS' src/components/Dashboard.tsx
           grep -q 'inFlightLoads' src/shared/components/CachedImage.tsx
           ! grep -q 'window.location.reload()' index.html
