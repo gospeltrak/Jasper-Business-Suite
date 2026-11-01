@@ -1,0 +1,35 @@
+name: Publish verified Orvix Android QA APK (browser download)
+
+on:
+  push:
+    branches: [qa/browser-download-orvix-apk-20261101]
+    paths:
+      - '.github/workflows/publish-orvix-qa-apk.yml'
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish-qa-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Download exact successful Android QA artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p orvix-apk
+          gh run download 41294668508 --name orvix-android-debug-qa-only --dir orvix-apk --repo "$GH_REPO"
+          test -f orvix-apk/app-debug.apk
+          printf 'f807516bed84966d0b09cc5706f6bda5968ba156fad7e3c8d321e2cdab99164a  orvix-apk/app-debug.apk\n' | sha256sum -c -
+          mv orvix-apk/app-debug.apk orvix-apk/Orvix-Checkout-Delivery-Split-Fix-Android-QA.apk
+      - name: Publish as pre-release, not production
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          gh release create orvix-android-qa-delivery-split-20261101             orvix-apk/Orvix-Checkout-Delivery-Split-Fix-Android-QA.apk             --repo "$GH_REPO"             --target "$GITHUB_SHA"             --title 'Orvix Android QA — Delivery Split & 12 Fixes (2026-11-01)'             --notes 'QA/debug APK, not a production release. Includes PR39 fixes and PR42 separate product/delivery checkout with mobile keyboard focus correction. GitHub Actions run 41294668508. Test on your Android device before using real customer payments.'             --prerelease
