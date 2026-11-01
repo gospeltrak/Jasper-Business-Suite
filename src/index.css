@@ -3041,48 +3041,57 @@ button:active:not(:disabled),
 }
 
 
-/* Orvix notifications: compact, always two columns even on small Android
-   screens. Global Settings label/grid overrides previously hid checkboxes. */
+/* Notifications & Auto Reports — one scoped grid rule, no generic Settings
+   mobile overrides: keep report cards two per row with 21px visible ticks. */
 #dashboard-scaffold .settings-content-panel .orvix-report-types-grid {
   display: grid !important;
   grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-  gap: 8px !important;
+  gap: 0.5rem !important;
   min-width: 0;
 }
 #dashboard-scaffold .settings-content-panel label.orvix-report-choice {
   display: flex !important;
-  align-items: center !important;
   flex-direction: row !important;
-  gap: 8px !important;
-  margin: 0 !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+  min-height: 54px;
   min-width: 0 !important;
-  min-height: 57px;
-  padding: 9px !important;
-  color: #334155;
-  letter-spacing: normal !important;
+  padding: 0.5rem 0.625rem !important;
+  margin: 0 !important;
+  font-size: 11px !important;
   text-transform: none !important;
+  letter-spacing: normal !important;
+  color: #334155;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.75rem;
+  cursor: pointer;
+}
+#dashboard-scaffold .settings-content-panel label.orvix-report-choice > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 #dashboard-scaffold .settings-content-panel input.orvix-report-checkbox {
-  display: inline-block !important;
-  -webkit-appearance: checkbox !important;
   appearance: auto !important;
+  -webkit-appearance: checkbox !important;
   accent-color: #059669 !important;
+  display: inline-block !important;
   width: 21px !important;
   height: 21px !important;
   min-width: 21px !important;
   min-height: 21px !important;
   flex: 0 0 21px !important;
-  margin: 0 !important;
   opacity: 1 !important;
-  border: 2px solid #64748b !important;
-  border-radius: 5px !important;
-  background: #fff;
+  visibility: visible !important;
+  padding: 0 !important;
+  margin: 0 !important;
   cursor: pointer;
 }
-#dashboard-scaffold .settings-content-panel input.orvix-report-checkbox:checked {
+#dashboard-scaffold .settings-content-panel label.orvix-report-choice:has(input:checked) {
+  background: #ecfdf5 !important;
   border-color: #059669 !important;
 }
-#dashboard-scaffold .settings-content-panel input.orvix-report-checkbox:focus-visible {
-  outline: 2px solid #047857;
+#dashboard-scaffold .settings-content-panel label.orvix-report-choice:focus-within {
+  outline: 2px solid #10b981;
   outline-offset: 2px;
 }
