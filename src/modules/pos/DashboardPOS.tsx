@@ -1018,6 +1018,8 @@ export default function DashboardPOS({
                         <CachedImage
                           src={getProductImage(prod)}
                           alt={prod.name}
+                          loading="lazy"
+                          decoding="async"
                           className="w-full h-full lg:group-hover:scale-105 select-none pointer-events-none object-contain p-1.5"
                           referrerPolicy="no-referrer"
                         />
