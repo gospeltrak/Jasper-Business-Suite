@@ -976,6 +976,131 @@ export default function DashboardPOS({
     return map;
   }, [filteredProducts, activeTenant.businessType]);
 
+  // CRITICAL MOBILE POS PERFORMANCE: adding the 3rd+ product used to re-render
+  // the ENTIRE catalog (cards, pictures, batch-price tags) on every cart change.
+  // Cache the product-card React elements until the search/category/channel,
+  // actual product data, or selling price changes. Cart quantity/totals should
+  // update only the cart and sticky total; no catalog DOM reconciliation.
+  const productCards = useMemo(() => filteredProducts.map(prod => {
+              const shopQty = prod.shopStockQty ?? 0;
+              const isLow = shopQty <= prod.alertQty;
+              const isOut = shopQty <= 0;
+              const displayPrice = productPriceMap.get(prod.id) ?? prod.sellingPrice;
+              const remainingLabel = productRemainingMap.get(prod.id) ?? '';
+              return (
+                <div 
+                  key={prod.id}
+                  data-pos-product-card
+                  onClick={() => {
+                    if (!isOut) {
+                      addToCart(prod);
+                      playCartSuccessBeepAfterPaint();
+                    } else {
+                      playOutOfStockBeep();
+                    }
+                  }}
+                  className={`w-full min-w-0 bg-white border rounded-xl select-none relative shadow-xs active:scale-95 group ${!showProductImages ? 'pos-product-card-no-image' : ''} ${
+                    showProductImages
+                      ? 'p-0 lg:p-5 xl:p-3 h-full flex flex-col justify-between overflow-hidden lg:overflow-visible lg:rounded-3xl'
+                      : 'p-3 md:p-4 flex items-center gap-3 overflow-hidden'
+                  } ${
+                    isOut 
+                      ? 'border-slate-200 opacity-55 cursor-not-allowed bg-slate-50' 
+                      : 'border-slate-200 hover:border-slate-350 cursor-pointer'
+                  }`}
+                >
+                  {/* Product image — falls back to a plain icon tile when the
+                      product has none, so every card in the row keeps the
+                      same height instead of the image block disappearing */}
+                  {showProductImages && (
+                    <div className="pos-tablet-product-image w-full aspect-square lg:aspect-auto lg:h-36 xl:h-20 bg-slate-50 border-b lg:border border-slate-100 rounded-t-xl lg:rounded-2xl overflow-hidden flex items-center justify-center relative shrink-0">
+                      {getProductImage(prod) !== '' ? (
+                        <CachedImage
+                          src={getProductImage(prod)}
+                          alt={prod.name}
+                          className="w-full h-full lg:group-hover:scale-105 select-none pointer-events-none object-contain p-1.5"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        <Package className="w-7 h-7 lg:w-10 lg:h-10 text-slate-300" strokeWidth={1.5} />
+                      )}
+                      {isLow && !isOut && (
+                        <span className="absolute top-1.5 left-1.5 md:top-2.5 md:left-2.5 bg-amber-500 text-white px-1.5 md:px-2 py-0.5 rounded-lg text-[8px] md:text-[8px] font-black tracking-wider uppercase font-mono shadow-xs">
+                          LOW ({shopQty})
+                        </span>
+                      )}
+                      {isOut && (
+                        <span className="absolute top-1.5 left-1.5 md:top-2.5 md:left-2.5 bg-red-600 text-white px-1.5 md:px-2 py-0.5 rounded-lg text-[8px] md:text-[8px] font-black tracking-wider uppercase font-mono shadow-xs animate-pulse">
+                          OUT
+                        </span>
+                      )}
+                      {!isOut && (
+                        <span
+                          className="absolute top-1.5 right-1.5 md:top-2.5 md:right-2.5 max-w-[70%] truncate rounded-full border border-white/80 bg-white/95 px-1.5 md:px-2 py-0.5 text-[7px] sm:text-[8px] font-extrabold leading-tight text-slate-700 shadow-sm backdrop-blur-sm"
+                          title={remainingLabel}
+                        >
+                          <span className={`mr-1 inline-block h-1.5 w-1.5 rounded-full ${isLow ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+                          {remainingLabel}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Text details and bottom panel wrapper */}
+                  <div className={`${showProductImages ? 'flex-grow flex flex-col justify-between min-w-0 mt-1.5 px-1.5 pb-2 sm:mt-2 sm:px-2 sm:pb-2.5 lg:px-0 lg:pb-0 xl:mt-1' : 'flex-1 min-w-0 grid grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_auto] items-center gap-3'}`}>
+                    {/* Product Metadata & Text layout */}
+                    <div className="space-y-1 min-w-0">
+                      <div className={`${showProductImages ? 'hidden lg:flex' : 'flex'} items-center justify-between gap-2`}>
+                        <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 px-1.5 py-0.5 rounded-xs leading-none">
+                          {prod.category}
+                        </span>
+                        {!showProductImages && (
+                          <span className="text-[9px] font-mono text-slate-500 font-bold bg-slate-100 px-1.5 py-0.5 rounded-xs leading-none">
+                            {remainingLabel}
+                          </span>
+                        )}
+                      </div>
+                      <h5 translate="no" className={`font-extrabold text-[10px] sm:text-xs xl:text-[11px] text-slate-800 leading-snug pt-0.5 select-all ${showProductImages ? 'line-clamp-2 min-h-[1.75rem] sm:min-h-[2.25rem] xl:min-h-[1.75rem]' : 'truncate md:text-sm'}`} title={prod.name}>
+                        {prod.name}
+                      </h5>
+                      {!showProductImages && (
+                        <p className="text-[9.5px] text-slate-400 font-mono font-medium truncate">SKU: {prod.sku || prod.barcode || 'N/A'}</p>
+                      )}
+                    </div>
+
+                    {/* Pricing and Select CTA trigger */}
+                    <div className={`${showProductImages ? 'flex min-w-0 flex-col gap-1 pt-1.5 border-t border-slate-100 mt-1.5 lg:gap-2 lg:pt-2 lg:mt-2 xl:gap-1 xl:pt-1.5 xl:mt-1.5' : 'flex flex-col items-end justify-center gap-1'} shrink-0`}>
+                      <div className="space-y-0.5">
+                        <p className="hidden xl:block border-none bg-transparent text-[8px] font-bold text-slate-400 uppercase tracking-wider leading-none">Price</p>
+                        <span className="block max-w-full truncate text-[10px] sm:text-xs lg:text-[14px] xl:text-xs font-black text-emerald-700 lg:text-slate-900 leading-none" title={`${currency}${Math.round(displayPrice).toLocaleString()}`}>{currency}{Math.round(displayPrice).toLocaleString()}</span>
+                        {prod.batches && prod.batches.some(batch => batch.status === 'active') && (
+                          <span className={`${showProductImages ? 'block' : 'hidden xl:block'} text-[8px] text-slate-400 font-bold uppercase tracking-wider mt-0.5`}>
+                            {getProductCostingMethod(prod).replace('_', ' ')}
+                          </span>
+                        )}
+                      </div>
+                      {!isOut ? (
+                        <div className="w-full text-right">
+                          <span className="w-full min-h-7 lg:min-h-9 xl:min-h-7 bg-emerald-600 hover:bg-emerald-700 group-hover:bg-emerald-700 text-white text-[9px] lg:text-[10px] xl:text-[9px] font-black px-1.5 lg:px-3 py-1.5 lg:py-2 xl:py-1 rounded-lg lg:rounded-xl uppercase tracking-wider transition-all shadow-xs lg:shadow-md lg:shadow-emerald-600/20 inline-flex items-center justify-center gap-1">
+                            <Plus className="hidden lg:block h-3.5 w-3.5" strokeWidth={3} />
+                            <span className="lg:hidden">+ Add</span>
+                            <span className="hidden lg:flex">Add</span>
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-slate-400 text-[9px] font-bold uppercase tracking-wider">
+                          Out
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            }), [
+    filteredProducts, productPriceMap, productRemainingMap, addToCart,
+    showProductImages, currency,
+  ]);
+
   // Pre-compute ALL cart item display values once — avoids calling getPharmacyDoseConfig etc per render
   const cartDisplayData = useMemo(() => {
     return cart.map(item => {
@@ -1614,122 +1739,7 @@ export default function DashboardPOS({
               No matching {activeTenant.businessType === 'pharmacy' ? 'pharmaceutical products' : 'retail items'} in stock.
             </div>
           ) : (
-            filteredProducts.map(prod => {
-              const shopQty = prod.shopStockQty ?? 0;
-              const isLow = shopQty <= prod.alertQty;
-              const isOut = shopQty <= 0;
-              const displayPrice = productPriceMap.get(prod.id) ?? prod.sellingPrice;
-              const remainingLabel = productRemainingMap.get(prod.id) ?? '';
-              return (
-                <div 
-                  key={prod.id}
-                  data-pos-product-card
-                  onClick={() => {
-                    if (!isOut) {
-                      addToCart(prod);
-                      playCartSuccessBeepAfterPaint();
-                    } else {
-                      playOutOfStockBeep();
-                    }
-                  }}
-                  className={`w-full min-w-0 bg-white border rounded-xl select-none relative shadow-xs active:scale-95 group ${!showProductImages ? 'pos-product-card-no-image' : ''} ${
-                    showProductImages
-                      ? 'p-0 lg:p-5 xl:p-3 h-full flex flex-col justify-between overflow-hidden lg:overflow-visible lg:rounded-3xl'
-                      : 'p-3 md:p-4 flex items-center gap-3 overflow-hidden'
-                  } ${
-                    isOut 
-                      ? 'border-slate-200 opacity-55 cursor-not-allowed bg-slate-50' 
-                      : 'border-slate-200 hover:border-slate-350 cursor-pointer'
-                  }`}
-                >
-                  {/* Product image — falls back to a plain icon tile when the
-                      product has none, so every card in the row keeps the
-                      same height instead of the image block disappearing */}
-                  {showProductImages && (
-                    <div className="pos-tablet-product-image w-full aspect-square lg:aspect-auto lg:h-36 xl:h-20 bg-slate-50 border-b lg:border border-slate-100 rounded-t-xl lg:rounded-2xl overflow-hidden flex items-center justify-center relative shrink-0">
-                      {getProductImage(prod) !== '' ? (
-                        <CachedImage
-                          src={getProductImage(prod)}
-                          alt={prod.name}
-                          className="w-full h-full lg:group-hover:scale-105 select-none pointer-events-none object-contain p-1.5"
-                          referrerPolicy="no-referrer"
-                        />
-                      ) : (
-                        <Package className="w-7 h-7 lg:w-10 lg:h-10 text-slate-300" strokeWidth={1.5} />
-                      )}
-                      {isLow && !isOut && (
-                        <span className="absolute top-1.5 left-1.5 md:top-2.5 md:left-2.5 bg-amber-500 text-white px-1.5 md:px-2 py-0.5 rounded-lg text-[8px] md:text-[8px] font-black tracking-wider uppercase font-mono shadow-xs">
-                          LOW ({shopQty})
-                        </span>
-                      )}
-                      {isOut && (
-                        <span className="absolute top-1.5 left-1.5 md:top-2.5 md:left-2.5 bg-red-600 text-white px-1.5 md:px-2 py-0.5 rounded-lg text-[8px] md:text-[8px] font-black tracking-wider uppercase font-mono shadow-xs animate-pulse">
-                          OUT
-                        </span>
-                      )}
-                      {!isOut && (
-                        <span
-                          className="absolute top-1.5 right-1.5 md:top-2.5 md:right-2.5 max-w-[70%] truncate rounded-full border border-white/80 bg-white/95 px-1.5 md:px-2 py-0.5 text-[7px] sm:text-[8px] font-extrabold leading-tight text-slate-700 shadow-sm backdrop-blur-sm"
-                          title={remainingLabel}
-                        >
-                          <span className={`mr-1 inline-block h-1.5 w-1.5 rounded-full ${isLow ? 'bg-amber-500' : 'bg-emerald-500'}`} />
-                          {remainingLabel}
-                        </span>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Text details and bottom panel wrapper */}
-                  <div className={`${showProductImages ? 'flex-grow flex flex-col justify-between min-w-0 mt-1.5 px-1.5 pb-2 sm:mt-2 sm:px-2 sm:pb-2.5 lg:px-0 lg:pb-0 xl:mt-1' : 'flex-1 min-w-0 grid grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_auto] items-center gap-3'}`}>
-                    {/* Product Metadata & Text layout */}
-                    <div className="space-y-1 min-w-0">
-                      <div className={`${showProductImages ? 'hidden lg:flex' : 'flex'} items-center justify-between gap-2`}>
-                        <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 px-1.5 py-0.5 rounded-xs leading-none">
-                          {prod.category}
-                        </span>
-                        {!showProductImages && (
-                          <span className="text-[9px] font-mono text-slate-500 font-bold bg-slate-100 px-1.5 py-0.5 rounded-xs leading-none">
-                            {remainingLabel}
-                          </span>
-                        )}
-                      </div>
-                      <h5 translate="no" className={`font-extrabold text-[10px] sm:text-xs xl:text-[11px] text-slate-800 leading-snug pt-0.5 select-all ${showProductImages ? 'line-clamp-2 min-h-[1.75rem] sm:min-h-[2.25rem] xl:min-h-[1.75rem]' : 'truncate md:text-sm'}`} title={prod.name}>
-                        {prod.name}
-                      </h5>
-                      {!showProductImages && (
-                        <p className="text-[9.5px] text-slate-400 font-mono font-medium truncate">SKU: {prod.sku || prod.barcode || 'N/A'}</p>
-                      )}
-                    </div>
-
-                    {/* Pricing and Select CTA trigger */}
-                    <div className={`${showProductImages ? 'flex min-w-0 flex-col gap-1 pt-1.5 border-t border-slate-100 mt-1.5 lg:gap-2 lg:pt-2 lg:mt-2 xl:gap-1 xl:pt-1.5 xl:mt-1.5' : 'flex flex-col items-end justify-center gap-1'} shrink-0`}>
-                      <div className="space-y-0.5">
-                        <p className="hidden xl:block border-none bg-transparent text-[8px] font-bold text-slate-400 uppercase tracking-wider leading-none">Price</p>
-                        <span className="block max-w-full truncate text-[10px] sm:text-xs lg:text-[14px] xl:text-xs font-black text-emerald-700 lg:text-slate-900 leading-none" title={`${currency}${Math.round(displayPrice).toLocaleString()}`}>{currency}{Math.round(displayPrice).toLocaleString()}</span>
-                        {prod.batches && prod.batches.some(batch => batch.status === 'active') && (
-                          <span className={`${showProductImages ? 'block' : 'hidden xl:block'} text-[8px] text-slate-400 font-bold uppercase tracking-wider mt-0.5`}>
-                            {getProductCostingMethod(prod).replace('_', ' ')}
-                          </span>
-                        )}
-                      </div>
-                      {!isOut ? (
-                        <div className="w-full text-right">
-                          <span className="w-full min-h-7 lg:min-h-9 xl:min-h-7 bg-emerald-600 hover:bg-emerald-700 group-hover:bg-emerald-700 text-white text-[9px] lg:text-[10px] xl:text-[9px] font-black px-1.5 lg:px-3 py-1.5 lg:py-2 xl:py-1 rounded-lg lg:rounded-xl uppercase tracking-wider transition-all shadow-xs lg:shadow-md lg:shadow-emerald-600/20 inline-flex items-center justify-center gap-1">
-                            <Plus className="hidden lg:block h-3.5 w-3.5" strokeWidth={3} />
-                            <span className="lg:hidden">+ Add</span>
-                            <span className="hidden lg:flex">Add</span>
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="text-slate-400 text-[9px] font-bold uppercase tracking-wider">
-                          Out
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })
+            productCards
           )}
         </div>
           </>
