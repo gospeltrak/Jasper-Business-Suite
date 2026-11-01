@@ -49,8 +49,13 @@ replaceOne("  // Checkout modal mobile/tablet-only layout gate",
 const nativePrint=block(originalNative,
   "  const printPosReceiptPdfHandler = async () => {",
   "  // Dual-channel context (Retail vs. Wholesale)");
+const webPrintStart = pos.includes('  const printPosReceiptPdfHandler = () => {')
+  ? '  const printPosReceiptPdfHandler = () => {'
+  : '  const printPosReceiptPdfHandler = async () => {';
+console.log('QA POS print handler:', webPrintStart.trim(),
+  'already native bridge?', pos.includes('sendNativeReceipt'));
 const webPrint=block(pos,
-  "  const printPosReceiptPdfHandler = () => {",
+  webPrintStart,
   "  // Dual-channel context (Retail vs. Wholesale)");
 replaceOne(webPrint, nativePrint, 'manual print with 58/80mm and Bluetooth');
 
