@@ -1081,6 +1081,15 @@ test('all user-editable Settings modules use the authoritative tenant settings p
   assert.match(settingsSource, /setPosSettingsForm\(/);
   assert.match(settingsSource, /notificationModuleSettings/);
   assert.match(notificationsSource, /onPersistSettings/);
+  // Every Sale must persist at the first tap, confirm the database result,
+  // and roll back the checkbox when that write fails.
+  assert.match(notificationsSource, /key === 'enableSaleNotifications'/);
+  assert.match(notificationsSource, /void persistSettings\(next, previous\)/);
+  assert.match(notificationsSource, /saved !== true/);
+  assert.match(notificationsSource, /rollbackSaleTo !== undefined/);
+  assert.match(notificationsSource, /disabled=\{isSaving\}/);
+  assert.doesNotMatch(notificationsSource, /Optional and OFF by default/);
+  assert.match(dashboardSource, /return persistSystemSettingsNow\(updated\)\.saved/);
   assert.match(notificationsSource, /Save Alert Settings/);
   assert.match(notificationContextSource, /hydrateTenantModuleSettings/);
   assert.match(dashboardSource, /systemSettings\.notificationModuleSettings/);
