@@ -317,15 +317,24 @@
           navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' })
             .then((registration) => {
               console.log('Orvix PWA update service is ready.');
+              var lastUpdateCheckAt = 0;
+              var updateCheckInFlight = false;
+              var updateCheckIntervalMs = 15 * 60 * 1000;
               var checkForUpdate = function() {
-                registration.update().catch(() => {
-                  console.warn('PWA update check is temporarily unavailable.');
-                });
+                // Focus/pageshow/visibility frequently fire together on Android.
+                // Do not re-fetch PWA assets repeatedly while the seller is
+                // typing, scanning or adding items to the cart.
+                if (document.visibilityState === 'hidden' || updateCheckInFlight ||
+                    Date.now() - lastUpdateCheckAt < updateCheckIntervalMs) return;
+                lastUpdateCheckAt = Date.now();
+                updateCheckInFlight = true;
+                registration.update()
+                  .catch(() => console.warn('PWA update check is temporarily unavailable.'))
+                  .finally(() => { updateCheckInFlight = false; });
               };
               checkForUpdate();
-              // Realtime data sync is separate; checking code updates every
-              // five minutes avoids redundant background network work.
-              window.setInterval(checkForUpdate, 5 * 60 * 1000);
+              // The running session never reloads; next app launch uses updates.
+              window.setInterval(checkForUpdate, updateCheckIntervalMs);
               // An installed PWA is usually launched from a device home
               // screen icon into an already-registered service worker, not
               // a fresh page load — the load-time check above only runs
