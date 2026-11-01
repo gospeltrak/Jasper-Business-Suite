@@ -1,8 +1,8 @@
-name: Publish Orvix Production-Synced Android QA APK
+name: Publish Orvix Kiswahili Sales & Reports Android QA APK
 
 on:
   push:
-    branches: [qa/publish-orvix-production-sync-20261101]
+    branches: [qa/publish-orvix-swahili-sales-20261101]
     paths:
       - '.github/workflows/publish-orvix-qa-apk.yml'
 
@@ -23,28 +23,28 @@ jobs:
           set -euo pipefail
           result=""
           for i in $(seq 1 60); do
-            result="$(gh api repos/"$GH_REPO"/actions/runs/41342858266 --jq '.conclusion // ""')"
+            result="$(gh api repos/"$GH_REPO"/actions/runs/41346163000 --jq '.conclusion // ""')"
             if [ "$result" = success ]; then break; fi
             if [ -n "$result" ]; then echo "Android build failed: $result"; exit 1; fi
             sleep 10
           done
           test "$result" = success
           mkdir -p orvix-apk
-          gh run download 41342858266 --name orvix-android-debug-qa-only --dir orvix-apk --repo "$GH_REPO"
+          gh run download 41346163000 --name orvix-android-debug-qa-only --dir orvix-apk --repo "$GH_REPO"
           test -s orvix-apk/app-debug.apk
           unzip -t orvix-apk/app-debug.apk >/dev/null
           sha256sum orvix-apk/app-debug.apk
-          mv orvix-apk/app-debug.apk orvix-apk/Orvix-Production-Synced-Fast-POS-Android-QA.apk
+          mv orvix-apk/app-debug.apk orvix-apk/Orvix-Kiswahili-Sales-Notifications-Android-QA.apk
       - name: Publish browser-linkable QA APK (not production)
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          gh release create orvix-android-qa-production-sync-20261101 \
-            orvix-apk/Orvix-Production-Synced-Fast-POS-Android-QA.apk \
+          gh release create orvix-android-qa-swahili-sales-20261101 \
+            orvix-apk/Orvix-Kiswahili-Sales-Notifications-Android-QA.apk \
             --repo "$GH_REPO" \
             --target "$GITHUB_SHA" \
-            --title 'Orvix Android QA — Production Sync & Fast POS (2026-11-01)' \
-            --notes 'QA/debug Android APK synchronized with live Orvix Production commit d05bd8a. Includes verified browser POS add-to-total timing, memoized product grid, separate delivery payments, keyboard focus, scanner and 58/80mm Bluetooth printer. Android build run 41342858266. Not a Play Store production release. Test device before using real payment data. No tenant data modifications.' \
+            --title 'Orvix Android QA — Kiswahili Sales Notifications & Reports' \
+            --notes 'QA/debug Android APK synchronized with deployed Orvix Production commit 7040298. Includes Kiswahili/English sales notification details (seller, items, product payments and delivery separately), two-column Report Types with visible checkboxes, compact localized POS delivery note, faster cart, native camera and 58/80mm Bluetooth printer. Android build run 41346163000. Real background push while the Android app is closed and scheduled report generation are not yet connected to FCM/VAPID; do not confuse in-app reports with completed system push. No customer data was deleted.' \
             --prerelease
