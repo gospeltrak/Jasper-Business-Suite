@@ -58,6 +58,7 @@ jobs:
           # Production's web POS won the merge; restore the QA source that
           # already contains native printing/scanning, then port POS changes below.
           git show HEAD:src/modules/pos/DashboardPOS.tsx > src/modules/pos/DashboardPOS.tsx
+          git add src/modules/pos/DashboardPOS.tsx
           grep -q 'scripts/ui-saving-performance.test.ts' <(git ls-files --cached)
           grep -q 'src/modules/reports/components/DeliveryTreasuryPanel.tsx' <(git ls-files --cached)
           grep -q 'src/modules/settings/DashboardScannerPrinterSettings.tsx' <(git ls-files --cached)
