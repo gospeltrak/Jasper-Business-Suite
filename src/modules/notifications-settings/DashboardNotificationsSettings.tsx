@@ -37,6 +37,9 @@ export const DashboardNotificationsSettings: React.FC<DashboardNotificationsSett
   };
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const saveInFlightRef = useRef(false);
+  const editVersionRef = useRef(0);
   const draftTouchedRef = useRef(false);
   const settingsScopeRef = useRef(`${tenantId}:${moduleName}`);
 
@@ -67,6 +70,7 @@ export const DashboardNotificationsSettings: React.FC<DashboardNotificationsSett
 
   const update = (updates: Partial<JasperModuleNotificationSettings>) => {
     setError(null);
+    editVersionRef.current += 1;
     draftTouchedRef.current = true;
     setSettings(current => ({
       ...current,
@@ -77,10 +81,16 @@ export const DashboardNotificationsSettings: React.FC<DashboardNotificationsSett
     }));
   };
 
-  const handleSave = async () => {
+  // Settings are confirmed only after the authoritative tenant write succeeds.
+  const persistSettings = async (draft: JasperModuleNotificationSettings, rollbackSaleTo?: boolean): Promise<boolean> => {
+    if (saveInFlightRef.current) return false;
+    saveInFlightRef.current = true;
+    setIsSaving(true);
     setError(null);
-    const updated = {
-      ...settings,
+    setSaveStatus(null);
+    const editVersionAtSave = editVersionRef.current;
+    const updated: JasperModuleNotificationSettings = {
+      ...draft,
       enableInApp: true,
       enableWhatsapp: false,
       enableEmail: false,
@@ -90,24 +100,66 @@ export const DashboardNotificationsSettings: React.FC<DashboardNotificationsSett
       moduleName: activeMeta.id,
       updatedAt: new Date().toISOString(),
     };
-    const saved = await onPersistSettings?.(updated);
-    if (saved === false) {
-      setError(l('Notification settings could not be saved safely. Previous saved values were kept.', 'Mipangilio ya arifa haikuhifadhiwa. Mipangilio ya awali imebaki salama.'));
-      return;
+    try {
+      const saved = await onPersistSettings?.(updated);
+      if (saved !== true) throw new Error('Settings were not confirmed by the database');
+      updateModuleSettings(tenantId, activeMeta.id, updated);
+      if (editVersionRef.current === editVersionAtSave) {
+        setSettings(updated);
+        draftTouchedRef.current = false;
+      }
+      setSaveStatus(l('Notification settings saved.', 'Mipangilio ya arifa imehifadhiwa.'));
+      setTimeout(() => setSaveStatus(null), 3000);
+      return true;
+    } catch {
+      // No false success: return the sale checkbox to its previous state.
+      if (rollbackSaleTo !== undefined) {
+        setSettings(current => ({ ...current, enableSaleNotifications: rollbackSaleTo }));
+      }
+      setError(l(
+        'Notification settings could not be saved. Please check your connection and try again.',
+        'Mipangilio ya arifa haikuhifadhiwa. Hakikisha una intaneti kisha jaribu tena.',
+      ));
+      return false;
+    } finally {
+      saveInFlightRef.current = false;
+      setIsSaving(false);
     }
-    updateModuleSettings(tenantId, activeMeta.id, updated);
-    setSettings(updated);
-    draftTouchedRef.current = false;
-    setSaveStatus(l('Notification settings saved.', 'Mipangilio ya arifa imehifadhiwa.'));
-    setTimeout(() => setSaveStatus(null), 3000);
   };
 
-  const reportToggle = (key: keyof Pick<JasperModuleNotificationSettings, 'enableSaleNotifications' | 'enableMorningSummary' | 'enableEndDayProfitLoss' | 'enableEndDayExpenses' | 'enableWeeklySummary' | 'enableMonthlySummary' | 'enableLowStockAlerts' | 'enablePriceAlerts' | 'enableCashAlerts' | 'enableLossWarnings'>, title: string, desc?: string) => (
+  const handleSave = async () => {
+    await persistSettings(settings);
+  };
+
+  const handleSaleToggle = (checked: boolean) => {
+    if (saveInFlightRef.current) return;
+    const previous = Boolean(settings.enableSaleNotifications);
+    const next: JasperModuleNotificationSettings = {
+      ...settings,
+      enableSaleNotifications: checked,
+      tenantId,
+      moduleName: activeMeta.id,
+      updatedAt: new Date().toISOString(),
+    };
+    update({ enableSaleNotifications: checked });
+    // Every Sale saves immediately when tapped, including on Android.
+    void persistSettings(next, previous);
+  };
+
+  const reportToggle = (key: keyof Pick<JasperModuleNotificationSettings, 'enableSaleNotifications' | 'enableMorningSummary' | 'enableEndDayProfitLoss' | 'enableEndDayExpenses' | 'enableWeeklySummary' | 'enableMonthlySummary' | 'enableLowStockAlerts' | 'enablePriceAlerts' | 'enableCashAlerts' | 'enableLossWarnings'>, title: string) => (
     <label className="orvix-report-choice flex items-center gap-2 cursor-pointer p-2 bg-slate-50 border border-slate-200 rounded-lg hover:border-emerald-400 transition-colors min-w-0">
-      <input type="checkbox" aria-label={isSw ? reportLabels[title] : title} checked={!!settings[key]} onChange={e => update({ [key]: e.target.checked } as Partial<JasperModuleNotificationSettings>)} className="orvix-report-checkbox shrink-0" />
-      <div>
+      <input
+        type="checkbox"
+        aria-label={isSw ? reportLabels[title] : title}
+        checked={!!settings[key]}
+        disabled={isSaving}
+        onChange={e => key === 'enableSaleNotifications'
+          ? handleSaleToggle(e.target.checked)
+          : update({ [key]: e.target.checked } as Partial<JasperModuleNotificationSettings>)}
+        className="orvix-report-checkbox shrink-0"
+      />
+      <div className="min-w-0">
         <span className="font-semibold text-slate-800 block text-[11px] leading-4">{isSw ? (reportLabels[title] || title) : title}</span>
-        {desc && <span className="text-[10px] text-slate-500 block">{isSw ? 'Si lazima; imezimwa kwa chaguo-msingi ili kuepuka arifa nyingi.' : desc}</span>}
       </div>
     </label>
   );
@@ -123,9 +175,9 @@ export const DashboardNotificationsSettings: React.FC<DashboardNotificationsSett
             {l('Choose the reports and alerts the Tenant Admin receives inside Orvix.', 'Chagua ripoti na tahadhari ambazo msimamizi atapokea ndani ya Orvix.')}
           </p>
         </div>
-        <button onClick={handleSave} className="flex items-center space-x-2 bg-slate-900 text-white px-5 py-2.5 rounded-xl font-bold hover:bg-slate-800 transition-colors">
+        <button type="button" onClick={handleSave} disabled={isSaving} className="flex items-center space-x-2 bg-slate-900 text-white px-5 py-2.5 rounded-xl font-bold hover:bg-slate-800 transition-colors disabled:opacity-60">
           <Save className="w-4 h-4" />
-          <span>{l('Save Changes', 'Hifadhi Mabadiliko')}</span>
+          <span>{isSaving ? l('Saving...', 'Inahifadhi...') : l('Save Changes', 'Hifadhi Mabadiliko')}</span>
         </button>
       </div>
 
@@ -144,10 +196,11 @@ export const DashboardNotificationsSettings: React.FC<DashboardNotificationsSett
       <button
         type="button"
         onClick={handleSave}
+        disabled={isSaving}
         className="xl:hidden w-full flex items-center justify-center space-x-2 bg-slate-900 text-white px-5 py-2.5 rounded-xl font-bold hover:bg-slate-800 transition-colors"
       >
         <Save className="w-4 h-4" />
-        <span>{l('Save Alert Settings', 'Hifadhi Arifa')}</span>
+        <span>{isSaving ? l('Saving...', 'Inahifadhi...') : l('Save Alert Settings', 'Hifadhi Arifa')}</span>
       </button>
 
       <section className="space-y-4">
@@ -206,7 +259,7 @@ export const DashboardNotificationsSettings: React.FC<DashboardNotificationsSett
       <section className="space-y-4">
         <h4 className="font-bold text-slate-800 border-b border-slate-100 pb-2">{l('4. Report Types', '4. Aina za Ripoti na Tahadhari')}</h4>
         <div className="orvix-report-types-grid">
-          {reportToggle('enableSaleNotifications', 'Every sale notification', 'Optional and OFF by default to avoid high message volume.')}
+          {reportToggle('enableSaleNotifications', 'Every sale notification')}
           {reportToggle('enableMorningSummary', 'Morning yesterday summary')}
           {reportToggle('enableEndDayProfitLoss', 'End-of-day profit & loss report')}
           {reportToggle('enableEndDayExpenses', 'End-of-day expenses report')}
