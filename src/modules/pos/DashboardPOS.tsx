@@ -999,16 +999,11 @@ export default function DashboardPOS({
     });
   }, [cart, activeTenant.businessType, getCartUnitPrice, supportsFractionSale, usesPharmacyHierarchy]);
 
-  // Pricing calculations — fully memoized for instant updates.
-  // Must use getCartUnitPrice (the same dosage/bulk/channel-aware pricing
-  // already used for each cart line's own displayed total) rather than
-  // reading item.product.sellingPrice directly -- that raw packet/base
-  // price ignores a pharmacy line's selected dosage level (e.g. a "2
-  // tablets" selection priced at the full packet price instead of
-  // tabPrice * tabsSelected), silently overcharging the till total even
-  // though the line itself displayed the correct amount.
-  const subtotal = useMemo(() => {
-    return cart.reduce((sum, item) => {
+  // Always derive the running total directly from current cart contents.
+  // A selected product must update the mobile sticky total immediately,
+  // without entering a discount or opening the basket first.
+  // Preserve dose/bulk/channel-aware prices (not raw product prices).
+  const subtotal = cart.reduce((sum, item) => {
       if (usesPharmacyHierarchy(item.product)) {
         return sum + resolvePharmacyPosLine({
           product: item.product,
@@ -1034,7 +1029,6 @@ export default function DashboardPOS({
         : basePrice * (1 - (item.discount || 0) / 100);
       return sum + (discountPrice * item.qty);
     }, 0);
-  }, [cart, getCartUnitPrice, activeTenant.businessType, supportsFractionSale, usesPharmacyHierarchy]);
 
   const orderDiscountAmt = useMemo(() =>
     orderDiscountType === 'cash'
@@ -2206,7 +2200,7 @@ export default function DashboardPOS({
               </div>
               <span className="text-xs text-slate-600 font-bold uppercase tracking-wider">Cart Total</span>
             </div>
-            <span data-testid="pos-mobile-grand-total" className="text-emerald-700 font-black font-mono text-base">{currency}{Math.round(grandTotal).toLocaleString()}</span>
+            <span data-testid="pos-mobile-grand-total" role="status" aria-live="polite" aria-atomic="true" className="text-emerald-700 font-black font-mono text-base">{currency}{Math.round(grandTotal).toLocaleString()}</span>
           </div>
           <button
             disabled={cart.length === 0}
@@ -2248,25 +2242,15 @@ export default function DashboardPOS({
             {paymentStatus === 'idle' && (
               <>
               <div className="pos-checkout-body overflow-y-auto flex-1">
-                <div className="pos-checkout-total">
-                  <div>
-                    <span className="pos-checkout-eyebrow">PRODUCT PAYMENT TO COLLECT</span>
-                    <p className="pos-checkout-total-caption">Products only — delivery is paid separately</p>
-                  </div>
+                <div className="pos-checkout-total pos-checkout-total-compact">
+                  <span className="pos-checkout-eyebrow">PRODUCT PAYMENT TO COLLECT</span>
                   <strong data-testid="pos-checkout-total">{currency}{Math.round(productCheckoutTotal).toLocaleString()}</strong>
+                  {deliveryCost > 0 && (
+                    <p data-testid="pos-checkout-delivery-summary" className="pos-checkout-delivery-note" title={`Delivery: ${currency}${Math.round(deliveryCost).toLocaleString()} · Paid via ${deliveryPaymentMethod || 'selected account'}`}>
+                      Delivery: {currency}{Math.round(deliveryCost).toLocaleString()} · Paid via {deliveryPaymentMethod || 'selected account'}
+                    </p>
+                  )}
                 </div>
-                {deliveryCost > 0 && (
-                  <div data-testid="pos-checkout-delivery-breakdown" className="px-4 py-2.5 text-xs font-semibold text-slate-600 bg-emerald-50 border-b border-emerald-100 space-y-1">
-                    <div className="flex justify-between gap-2">
-                      <span>Delivery fee — paid via {deliveryPaymentMethod || 'selected account'}</span>
-                      <strong>{currency}{Math.round(deliveryCost).toLocaleString()}</strong>
-                    </div>
-                    <div className="flex justify-between gap-2 text-slate-500">
-                      <span>Combined order total (products + delivery)</span>
-                      <span>{currency}{Math.round(grandTotal).toLocaleString()}</span>
-                    </div>
-                  </div>
-                )}
 
                 {/* Customer Assignment (New feature) */}
                 <section className="pos-checkout-section" aria-label="Customer details">
