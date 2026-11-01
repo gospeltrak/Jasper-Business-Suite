@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { calculateFractionSaleLine, resolveFractionSaleConfig } from '../src/modules/sales/utils/fractionSale';
 
 const read = (path: string) => readFile(path, 'utf8');
 
@@ -95,4 +96,31 @@ test('sign-in credential inputs do not re-render on every Android keyboard chara
   assert.match(login, /triggerLogin\(loginEmailInputRef\.current\?\.value \|\| '', loginPasswordInputRef\.current\?\.value \|\| ''\)/);
   assert.doesNotMatch(login, /onChange=\{\(e\) => setEmail\(e\.target\.value\)\}/);
   assert.doesNotMatch(login, /onChange=\{\(e\) => setPassword\(e\.target\.value\)\}/);
+});
+
+
+test('a new product cart never inherits the discount or delivery charge from an emptied basket', async () => {
+  const pos = await read('src/modules/pos/DashboardPOS.tsx');
+  // The old Void action only did setCart([]), so prior 100%-off discounts
+  // caused a new 15k item to show zero until editing the discount manually.
+  assert.match(pos, /if \(cart\.length !== 0\) return;\s*setOrderDiscount\(0\);\s*setOrderDiscountDraft\(''\);\s*setOrderDiscountType\('percent'\);\s*setDeliveryCost\(0\);/);
+  assert.match(pos, /\}, \[cart\.length\]\)/);
+  // Preserve the original 15,000 product total with zero discount/delivery.
+  const subtotal = 15000;
+  const stalePctDiscount = subtotal * (100 / 100);
+  assert.equal(subtotal - stalePctDiscount, 0);
+  assert.equal(subtotal - 0, 15000);
+});
+
+test('cart price falls back to the visible selling price when legacy unit price is zero', () => {
+  const selected = {
+    isBulkProduct: true,
+    sellingPrice: 15000,
+    defaultPricePerBaseUnit: 0,
+    inventorySettings: { defaultPricePerBaseUnit: 0 },
+  } as Parameters<typeof resolveFractionSaleConfig>[0];
+  const config = resolveFractionSaleConfig(selected, 'Retail & Wholesale');
+  assert.equal(config.piecePrice, 15000);
+  assert.equal(calculateFractionSaleLine('piece', 1, config).lineTotal, 15000);
+  assert.equal(calculateFractionSaleLine('piece', 2, config).lineTotal, 30000);
 });
