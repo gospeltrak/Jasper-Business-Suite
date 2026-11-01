@@ -124,3 +124,19 @@ test('cart price falls back to the visible selling price when legacy unit price 
   assert.equal(calculateFractionSaleLine('piece', 1, config).lineTotal, 15000);
   assert.equal(calculateFractionSaleLine('piece', 2, config).lineTotal, 30000);
 });
+
+
+test('selected POS product immediately prices from same channel and unit-price source as product card', async () => {
+  const pos = await read('src/modules/pos/DashboardPOS.tsx');
+  // Product cards must refresh their price cache when the selling channel changes.
+  assert.match(pos, /\}, \[filteredProducts, getChannelPrice\]\)/);
+  // POS never uses zero stale optional unit price while the card shows a positive value.
+  assert.match(pos, /const displayedChannelPrice = getChannelPrice\(item\.product\)/);
+  assert.match(pos, /return Number\.isFinite\(positivePrice\) && positivePrice > 0/);
+  assert.match(pos, /Math\.max\(0, Number\(displayedChannelPrice\) \|\| Number\(item\.product\.sellingPrice\) \|\| 0\)/);
+  // The same product unit price feeds both the per-line cart display and sticky total,
+  // including Retail Packaging items; no discount input touch is required.
+  assert.match(pos, /const visibleUnitPrice = getCartUnitPrice\(item\)/);
+  assert.match(pos, /const subtotal = cart\.reduce\(\(sum, item\) =>/);
+  assert.match(pos, /data-testid="pos-mobile-grand-total"[\s\S]*?\{Math\.round\(grandTotal\)\.toLocaleString\(\)\}/);
+});
