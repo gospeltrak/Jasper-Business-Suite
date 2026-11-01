@@ -1,6 +1,7 @@
 // Isolated QA harness. Renders the REAL Sales/POS component; no credentials,
 // live tenant IDs, production database, or write endpoints are involved.
 // Only used by the headless-browser benchmark workflow.
+import '../src/shared/utils/onlineStorage';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import DashboardPOS from '../src/modules/pos/DashboardPOS';
