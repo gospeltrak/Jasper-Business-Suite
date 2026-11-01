@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   # Build a fresh internal QA APK when the native development branch changes.
   push:
-    branches: [feature/orvix-native-offline-v1, feature/scanner-printer-native-58-80, qa/orvix-android-pr39-20261101, qa/orvix-android-pr39-pos-cart-focus-20261101, qa/orvix-android-pr42-delivery-split-20261101]
+    branches: [feature/orvix-native-offline-v1, feature/scanner-printer-native-58-80, qa/orvix-android-pr39-20261101, qa/orvix-android-pr39-pos-cart-focus-20261101, qa/orvix-android-pr42-delivery-split-20261101, qa/orvix-android-cart-login-20261101]
     paths:
       - 'src/**'
       - 'scripts/**'
@@ -79,7 +79,10 @@ jobs:
         run: |
           set -euo pipefail
           git fetch --no-tags origin fix/pos-cart-discount-delivery-focus-20261101
-          git diff origin/main origin/fix/pos-cart-discount-delivery-focus-20261101 -- src/modules/pos/DashboardPOS.tsx | git apply --3way
+          git diff origin/main origin/fix/pos-cart-discount-delivery-focus-20261101 -- src/modules/pos/DashboardPOS.tsx src/modules/auth/LoginPage.tsx src/index.css | git apply --3way
+          grep -q 'loginEmailInputRef' src/modules/auth/LoginPage.tsx
+          grep -q 'pos-checkout-total-compact' src/index.css
+          grep -q 'const subtotal = cart.reduce' src/modules/pos/DashboardPOS.tsx
           git show origin/fix/pos-cart-discount-delivery-focus-20261101:scripts/sales-delivery-accounting.test.ts > scripts/sales-delivery-accounting.test.ts
           git show origin/fix/pos-cart-discount-delivery-focus-20261101:scripts/ui-saving-performance.test.ts > scripts/ui-saving-performance.test.ts
           grep -q 'const productCheckoutTotal = useMemo' src/modules/pos/DashboardPOS.tsx
