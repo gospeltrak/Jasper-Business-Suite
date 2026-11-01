@@ -35,6 +35,7 @@ const DashboardForecasting = lazyWithReload('DashboardForecasting', () => import
 const DashboardCashBank = lazyWithReload('DashboardCashBank', () => import('../modules/cash-bank/DashboardCashBank'));
 import { saveData } from '../shared/utils/dbSync';
 import { findBatchBarcodeConflict } from '../modules/products/utils/barcodeUniqueness';
+import type { ManualStockAudit } from '../modules/products/utils/manualStockAdjustment';
 const DashboardPurchases = lazyWithReload('DashboardPurchases', () => import('../modules/purchases/DashboardPurchases'));
 const DashboardDeliveries = lazyWithReload('DashboardDeliveries', () => import('../modules/deliveries/DashboardDeliveries'));
 const DashboardSandboxVerticals = lazyWithReload('DashboardSandboxVerticals', () => import('../modules/verticals/DashboardSandboxVerticals'));
@@ -321,7 +322,7 @@ function SubscriptionCheckoutStateBridge({
 function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggleTheme, initialTab, mirrorMode = false }: DashboardProps) {
   const { t, lang, setLang } = useTranslation();
   const { getFallbackInitials, getLogoUrl } = useTenantLogo();
-  const { addSaleNotification, addSubscriptionReminderNotification, unreadCount, hydrateTenantModuleSettings, configureInbox } = useJasperNotifications();
+  const { refreshInbox, addSubscriptionReminderNotification, unreadCount, hydrateTenantModuleSettings, configureInbox } = useJasperNotifications();
   const [showDashLangMenu, setShowDashLangMenu] = useState(false);
   // Mobile top-bar "quick settings" menu (theme/language/notifications/
   // online-offline), collapsed behind one animated trigger instead of four
@@ -1912,11 +1913,24 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     };
 
     activeSales.forEach(sale => {
-      const amount = Math.max(0, Number(sale.total || 0) - Number(sale.deliveryCost || 0));
+      // Product cash only. A 20k sale + 6k delivery must never seed 26k
+      // into Sales then seed another 6k from Delivery.
+      const productAmount = Math.max(0, Number(sale.total || 0) - Number(sale.deliveryCost || 0));
+      const receivedProducts = sale.paymentStatus === 'unpaid' || sale.paymentMethod === 'Credit'
+        ? 0
+        : Math.max(0, Math.min(productAmount, Number(sale.amountPaid ?? productAmount)));
+      if (receivedProducts <= 0) return;
       const breakdown = sale.paymentBreakdown?.length
         ? sale.paymentBreakdown
-        : [{ method: sale.paymentMethod || 'Cash', amount }];
-      breakdown.forEach(part => creditMethod(part.method || sale.paymentMethod || 'Cash', Math.max(0, Number(part.amount || 0))));
+        : [{ method: sale.paymentMethod || 'Cash', amount: receivedProducts }];
+      const totalAllocated = breakdown.reduce((sum, part) =>
+        sum + Math.max(0, Number(part.amount || 0)), 0);
+      const scale = totalAllocated > receivedProducts && totalAllocated > 0
+        ? receivedProducts / totalAllocated : 1;
+      breakdown.forEach(part => creditMethod(
+        part.method || sale.paymentMethod || 'Cash',
+        Math.max(0, Number(part.amount || 0)) * scale,
+      ));
     });
     activeDeliveries.forEach(delivery => {
       const collected = delivery.deliveryPaymentStatus === 'collected'
@@ -2051,7 +2065,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
   // silently leaving the UI showing an edit that never actually reached the
   // server -- the same "looks saved, reverts on next real reload" gap
   // already fixed for settings via persistSystemSettingsNow.
-  const persistTenantProductsNow = (updatedProducts: Product[], branchStockUpdates?: BranchStock[], changedProductIds?: string[]): { products: Product[]; saved: Promise<boolean> } => {
+  const persistTenantProductsNow = (updatedProducts: Product[], branchStockUpdates?: BranchStock[], changedProductIds?: string[], stockAudit?: ManualStockAudit): { products: Product[]; saved: Promise<boolean> } => {
     if (blockOfflineBusinessWrite('product or stock changes')) {
       return { products: productsMap[activeTenant.id] || [], saved: Promise.resolve(false) };
     }
@@ -2086,7 +2100,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     // The save queue serializes in-flight writes. Database timestamp guards also
     // protect against a debounced older autosave, so do not force a full save first.
     const saved = saveTenantProductsOnly(activeTenant.id, productsToSave,
-      readLocalProductTombstones(activeTenant.id), branchStockUpdates)
+      readLocalProductTombstones(activeTenant.id), branchStockUpdates, stockAudit)
       .then(async (didSave) => {
         if (!didSave || !changedMedicine) return didSave;
         const persisted = await loadTenantProductFresh(activeTenant.id, changedMedicine.id);
@@ -2149,7 +2163,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
   const handleUpdateActiveStocks = async (
     updatedProducts: Product[],
     changedProductIds?: string[],
-    options: { suppressSuccessToast?: boolean } = {},
+    options: { suppressSuccessToast?: boolean; stockAudit?: ManualStockAudit } = {},
   ): Promise<boolean> => {
     if (blockOfflineBusinessWrite('stock adjustment')) return false;
     const changedIds = changedProductIds ? new Set(changedProductIds) : null;
@@ -2195,7 +2209,13 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
         return [update];
       });
     }
-    const { products: syncedProducts, saved } = persistTenantProductsNow(nextTenantProducts, branchStockUpdates, changedProductIds);
+    const branchScopedAudit = options.stockAudit ? {
+      ...options.stockAudit,
+      branchId: activeBranchSelection.activeScope === 'branch'
+        ? activeBranchSelection.activeBranchId || undefined
+        : undefined,
+    } : undefined;
+    const { products: syncedProducts, saved } = persistTenantProductsNow(nextTenantProducts, branchStockUpdates, changedProductIds, branchScopedAudit);
     setProductsMap(prev => ({ ...prev, [activeTenant.id]: syncedProducts }));
     const didSave = await saved;
     if (!didSave) return false;
@@ -2430,14 +2450,16 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     } as Sale;
     let postedTreasuryJournalId = '';
     let saleSavedAtomically = false;
+    let deliverySavedAtCheckout: Delivery | null = null;
+    const deliveryFee = Math.max(0, Number(sale.deliveryCost || 0));
     const saleIncome = Math.max(0, Number(sale.total || 0) - Number(sale.deliveryCost || 0));
     const collectedAmount = sale.paymentStatus === 'unpaid'
       ? 0
       : Math.min(saleIncome, Math.max(0, Number(sale.amountPaid ?? saleIncome)));
-    const localDemoWithoutTreasury = collectedAmount > 0
+    const localDemoWithoutTreasury = (collectedAmount > 0 || deliveryFee > 0)
       && ['localhost', '127.0.0.1'].includes(window.location.hostname)
       && isPlaceholderSecureDataBridgeClient(await getSecureDataBridgeClient());
-    if (collectedAmount > 0 && !localDemoWithoutTreasury) {
+    if ((collectedAmount > 0 || deliveryFee > 0) && !localDemoWithoutTreasury) {
       // Reconcile against currently configured payment modes rather than reading
       // systemSettings.paymentChannels raw: that array is only seeded/persisted the
       // first time a tenant opens Money & Bank, so a tenant who never opened that
@@ -2451,6 +2473,15 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
         systemSettings.paymentChannels || [],
         { currency: activeTenant.currencyCode },
       );
+      // POS delivery is assumed paid as soon as a payment mode is chosen;
+      // it needs its own resolved treasury account (separate from products).
+      const deliveryPaymentAccount = deliveryFee > 0
+        ? findPaymentChannel(channels, sale.deliveryPaymentMethod || '')
+        : undefined;
+      if (deliveryFee > 0 && !deliveryPaymentAccount) {
+        addToast('Choose an active Delivery payment method in Settings before checkout.', 'error');
+        return false;
+      }
       const rawBreakdown = sale.paymentBreakdown?.length
         ? sale.paymentBreakdown
         : [{ method: sale.paymentMethod || 'Cash', amount: collectedAmount }];
@@ -2477,6 +2508,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
           lines: paymentLines,
           sourceType: 'sale',
           sale: saleToStore,
+          deliveryAccountSourceKey: deliveryPaymentAccount?.id,
           sourceId: sale.id,
           description: `Sale payment ${sale.reference || sale.id}`,
           openingBalances: getTreasuryOpeningBalances(),
@@ -2487,11 +2519,15 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
             customerName: sale.customerName || null,
           },
         });
+        if (deliveryFee > 0 && (!posted.delivery || !posted.deliveryJournalId)) {
+          throw new Error('Delivery Treasury posting could not be verified. Check Sales and Deliveries before retrying.');
+        }
         saleToStore = {
           ...saleToStore,
           branchId: posted.branchId,
-          treasuryJournalId: posted.journalId,
+          ...(posted.journalId ? { treasuryJournalId: posted.journalId } : {}),
         };
+        deliverySavedAtCheckout = posted.delivery || null;
         postedTreasuryJournalId = posted.journalId;
         saleSavedAtomically = true;
       } catch (error: any) {
@@ -2525,37 +2561,22 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     }
     setSalesMap(prev => ({ ...prev, [activeTenant.id]: nextTenantSales }));
 
-    // Handle Global Owner Sale Notification
-    try {
-       // Estimate total cost of sale to determine profit
-       let totalCost = 0;
-       const summaryStrings = [];
-       sale.items.forEach(item => {
-          totalCost += ((item.costPriceAtSale || 0) * item.qty);
-          summaryStrings.push(`${item.qty}x ${item.productName}`);
-       });
-       const estimatedProfit = sale.total - totalCost;
-
-       addSaleNotification({
-          tenantId: sale.tenantId,
-          moduleName: activeTenant.businessType === 'pharmacy' ? 'pharmacy' : (sale.channel === 'wholesale' ? 'wholesale' : 'retail'),
-          amount: sale.total,
-          profit: estimatedProfit,
-          paymentMethod: sale.paymentMethod,
-          cashierName: sale.cashierName || user.name,
-          itemsSummary: summaryStrings.join(', ')
-       });
-    } catch(e) {
-       console.error("Failed to parse sale notification event", e);
+    // Owner notification is recorded atomically on the server when the sale
+    // enters normalized Sales. Do not generate a second client-only alert;
+    // the existing tenant inbox is the single authoritative notification feed.
+    // Refresh once only when an admin personally completes the checkout.
+    if (activeRoleName === 'Admin') {
+      void refreshInbox().catch(() => undefined);
     }
 
     if (sale.syncStatus === 'pending') {
       savePendingSaleOffline(saleToStore).catch(() => {});
     }
 
-    // Auto trigger delivery dispatch if deliveryCost was paid
+    // Delivery is saved with its own treasury posting in the checkout RPC.
+    // Reuse the authoritative record; do not create another payment.
     if (sale.deliveryCost && sale.deliveryCost > 0) {
-      const newDelivery: Delivery = {
+      const newDelivery: Delivery = deliverySavedAtCheckout || {
         id: 'DL-' + sale.id.substring(3).toUpperCase(),
         saleId: sale.id,
         customerName: sale.customerName || 'Walk-In Customer',
@@ -2573,7 +2594,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
         const currentDeliveries = prev[sale.tenantId] || [];
         return {
           ...prev,
-          [sale.tenantId]: [newDelivery, ...currentDeliveries]
+          [sale.tenantId]: [newDelivery, ...currentDeliveries.filter(existing => existing.id !== newDelivery.id)]
         };
       });
     }
@@ -2624,7 +2645,8 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                   customerName: customerData.name || del.customerName, 
                   customerPhone: customerData.phone || del.customerPhone, 
                   notes: customerData.location || del.notes,
-                  ...(customerData.paymentMethod ? { deliveryPaymentMethod: customerData.paymentMethod } : {})
+                  ...(customerData.paymentMethod && !del.treasuryJournalId
+                    ? { deliveryPaymentMethod: customerData.paymentMethod } : {})
                 } : {})
               } 
             : del
@@ -2651,6 +2673,25 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     let collectedAccountId = currentDelivery.deliveryPaymentAccountId;
 
     const deliveryIncomeAmount = Math.max(0, Number(currentDelivery.deliveryCost || 0));
+    // POS checkout already booked Delivery Treasury. Mark Delivered without
+    // posting money for a second time; status and collection stay independent.
+    if (status === 'Delivered'
+      && currentDelivery.deliveryPaymentStatus === 'collected'
+      && !!currentDelivery.treasuryJournalId) {
+      const changedAt = new Date().toISOString();
+      const updated = (deliveriesMap[activeTenant.id] || []).map(delivery =>
+        delivery.id === deliveryId
+          ? { ...delivery, status: 'Delivered' as const, deliveredAt: changedAt, syncUpdatedAt: changedAt }
+          : delivery
+      );
+      const saved = await saveTenantDeliveriesOnly(activeTenant.id, updated);
+      if (!saved) {
+        addToast('Delivery status could not be saved. Please try again.', 'error');
+        return false;
+      }
+      setDeliveriesMap(previous => ({ ...previous, [activeTenant.id]: updated }));
+      return true;
+    }
     if (status === 'Delivered') {
       const channels = reconcilePaymentChannels(
         getTreasuryPaymentMethods(systemSettings.business),
@@ -2711,15 +2752,15 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                   ...del,
                   status,
                   deliveredAt: collectedAt,
-                  deliveryPaymentStatus: status === 'Delivered'
-                    ? 'collected'
-                    : status === 'Cancelled'
-                      ? 'cancelled'
-                      : 'pending',
-                  paymentCollectedAt: collectedAt,
+                  deliveryPaymentStatus: status === 'Cancelled'
+                    ? 'cancelled'
+                    : del.deliveryPaymentStatus === 'collected'
+                      ? 'collected'
+                      : status === 'Delivered' ? 'collected' : 'pending',
+                  paymentCollectedAt: collectedAt || del.paymentCollectedAt,
                   deliveryPaymentAccountId: status === 'Delivered'
                     ? collectedAccountId
-                    : undefined,
+                    : del.deliveryPaymentAccountId,
                   treasuryJournalId,
                   branchId: treasuryBranchId,
                 };
@@ -2759,6 +2800,12 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       return false;
     }
 
+    if (currentDelivery.treasuryJournalId
+      && updates.deliveryCost !== undefined
+      && Number(updates.deliveryCost) !== Number(currentDelivery.deliveryCost)) {
+      addToast('Delivery fee is already booked in Treasury. Reverse the payment before changing its amount.', 'error');
+      return false;
+    }
     localWorkspaceChangedAtRef.current = Date.now();
     cloudWorkspaceLoadedRef.current = true;
     // Applied against whichever delivery list is passed in — used both for

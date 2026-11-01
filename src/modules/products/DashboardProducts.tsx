@@ -16,15 +16,14 @@ import {
 import { formatProductQuantity } from '../../shared/utils/unitFormatter';
 import { formatLocalDate } from '../../shared/utils/localDate';
 import { classifyUniversalImportRows, downloadableUniversalTemplate, exportProductsToUniversalRows, parseCsvText } from './utils/bulkProductImport';
-import { downloadExcelFileFromRows, readExcelFileAsCsvText } from '../../shared/utils/excelExport';
+// XLSX is intentionally downloaded on demand, not when Products mounts.
 import { compressImageFile } from '../../shared/utils/imageCompression';
-import { safeSetJsonItem } from '../../shared/utils/dataSafety';
-import { prepareManualStockAdjustment } from './utils/manualStockAdjustment';
+import { prepareManualStockAdjustment, type ManualStockAudit } from './utils/manualStockAdjustment';
 import { generateUniqueEan13Barcode } from './barcode';
 import { findProductBarcodeConflict, findBatchBarcodeConflict } from './utils/barcodeUniqueness';
 import { calculateFractionSalePacketPrice } from '../sales/utils/fractionSale';
 import ModernSelect, { ModernSelectOption } from '../../shared/components/ModernSelect';
-import DashboardBarcodeScanner from '../../shared/components/DashboardBarcodeScanner';
+import DashboardBarcodeScanner from '../../shared/components/LazyDashboardBarcodeScanner';
 import { loadBranchWorkspace, transferStockBetweenBranches } from '../branches/branchApi';
 import type { BranchSummary } from '../branches/branchTypes';
 import {
@@ -48,7 +47,7 @@ interface DashboardProductsProps {
   onAddProduct: (prod: Product) => Promise<boolean>;
   onAddProducts: (products: Product[]) => Promise<boolean>;
   onDeleteProduct: (id: string) => void;
-  onUpdateProducts: (updatedProducts: Product[], changedProductIds?: string[]) => Promise<boolean>;
+  onUpdateProducts: (updatedProducts: Product[], changedProductIds?: string[], options?: { stockAudit?: ManualStockAudit }) => Promise<boolean>;
   subscriptionStatus?: any;
   onTriggerUpgrade?: (limitType: 'products' | 'stores' | 'staff' | 'expired') => void;
 }
@@ -172,6 +171,7 @@ export default function DashboardProducts({
   const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isSavingProductEdit, setIsSavingProductEdit] = useState(false);
+  const [isProductEditTakingLong, setIsProductEditTakingLong] = useState(false);
   const productEditInFlightRef = useRef(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [editStockDraft, setEditStockDraft] = useState({ shop: '', store: '', alert: '' });
@@ -406,8 +406,14 @@ export default function DashboardProducts({
     if (!editForm.name || !editingProduct?.id || productEditInFlightRef.current) return;
     productEditInFlightRef.current = true;
     setIsSavingProductEdit(true);
+    setIsProductEditTakingLong(false);
     setEditSaveError(null);
+    const startedAt = performance.now();
+    const slowNotice = window.setTimeout(() => setIsProductEditTakingLong(true), 6000);
     try {
+      // Let the browser draw Saving… before image handling and payload updates.
+      await new Promise<void>(resolve =>
+        window.requestAnimationFrame(() => window.setTimeout(resolve, 0)));
 
       const enteredBarcode = String(editForm.barcode || '').trim();
       const finalizedEditBarcode = enteredBarcode || generateUniqueEan13Barcode(
@@ -619,6 +625,10 @@ export default function DashboardProducts({
       console.warn('[DashboardProducts] Product edit save failed:', error);
       setEditSaveError('Product changes were not saved. Please try again.');
     } finally {
+      window.clearTimeout(slowNotice);
+      const elapsed = performance.now() - startedAt;
+      if (elapsed > 1800) console.info('[Orvix performance] Product edit duration:', Math.round(elapsed), 'ms');
+      setIsProductEditTakingLong(false);
       productEditInFlightRef.current = false;
       setIsSavingProductEdit(false);
     }
@@ -782,38 +792,23 @@ export default function DashboardProducts({
       if (!freshProduct) throw new Error('This product is no longer available. Refresh the stock list.');
       const qty = Number(adjustQty);
       const adjustment = prepareManualStockAdjustment(freshProduct, type, qty);
-      // Only one product ID is changed; avoid rewriting every branch's stock.
+      const audit: ManualStockAudit = {
+        id: `adj-${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`}`,
+        tenantId: activeTenant.id,
+        productId: freshProduct.id, productName: freshProduct.name, sku: freshProduct.sku || '',
+        type, qty, previousStock: adjustment.previousShopStock, newStock: adjustment.nextShopStock,
+        reason: adjustReason || (type === 'add' ? 'Manual addition' : 'Manual deduction'),
+        adjustedAt: new Date().toISOString(),
+      };
+      // Stock and its immutable audit event now commit in ONE database transaction.
       const saved = await onUpdateProducts(
         products.map(product => product.id === freshProduct.id ? adjustment.product : product),
         [freshProduct.id],
+        { stockAudit: audit },
       );
       if (!saved) {
         setAdjustSaveError('Stock changes were not saved. Please check your connection and try again.');
         return;
-      }
-      // A failed audit cache must never cause a second stock mutation.
-      const log = {
-        id: `adj-${typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`}`,
-        productId: freshProduct.id,
-        productName: freshProduct.name,
-        sku: freshProduct.sku || '',
-        type, qty,
-        previousStock: adjustment.previousShopStock,
-        newStock: adjustment.nextShopStock,
-        reason: adjustReason || (type === 'add' ? 'Manual addition' : 'Manual deduction'),
-        adjustedAt: new Date().toISOString(),
-        tenantId: activeTenant.id,
-        branchId: freshProduct.branchId || undefined,
-      };
-      try {
-        const existing = JSON.parse(onlineStorage.getItem('jasper_stock_adjustments') || '[]');
-        safeSetJsonItem('jasper_stock_adjustments', [log, ...(Array.isArray(existing) ? existing : [])].slice(0, 1000), {
-          tenantId: activeTenant.id,
-          dataKey: 'stock_adjustments',
-          logLabel: `${activeTenant.id}/stock-adjustments`,
-        });
-      } catch (logError) {
-        console.warn('[AdjustStock] Inventory saved, audit view cache unavailable:', logError);
       }
       setAdjustProduct(null);
       setAdjustQty('');
@@ -1679,20 +1674,22 @@ export default function DashboardProducts({
   };
 
   // 3. GOOGLE FORM TEMPLATE SHEET EXCEL EXPORTER / IMPORTER
-  const downloadCsvTemplate = () => {
+  const downloadExcelTemplate = async () => {
+    const { downloadExcelFileFromRows } = await import('../../shared/utils/excelExport');
     const csvContent =
       "Product Name,Barcode,Category,Brand,Cost Price,Selling Price,Shop Stock,Store Stock,Alert Level,Sell Retail,Sell Wholesale,Wholesale Price,Min Wholesale Qty\r\n"
       + "Premium Rice (5kg),6153094850239,Groceries,Orvix Foods,4500,5500,20,50,5,Yes,No,0,10\r\n"
       + "Spaghetti Bolognese,39185012,Groceries,Orvix Foods,800,1200,15,30,8,Yes,Yes,1100,50\r\n"
       + "Organic Coconut Milk,,Beverages,Nestle,1100,1600,10,25,3,Yes,No,0,10\r\n"; // Empty barcode tested inside
 
-    downloadExcelFileFromRows('jasper_bulk_products_template', [
+    downloadExcelFileFromRows('orvix_bulk_products_template.xlsx', [
       { name: 'Products', aoa: parseCsvText(csvContent) },
     ]);
   };
 
-  const downloadUniversalTemplate = () => {
-    downloadExcelFileFromRows('jasper_universal_products_template', [
+  const downloadUniversalTemplate = async () => {
+    const { downloadExcelFileFromRows } = await import('../../shared/utils/excelExport');
+    downloadExcelFileFromRows('orvix_universal_products_template.xlsx', [
       { name: 'Products', aoa: parseCsvText(downloadableUniversalTemplate()) },
     ]);
   };
@@ -1767,6 +1764,7 @@ export default function DashboardProducts({
 
     if (/\.(xlsx|xls)$/i.test(file.name)) {
       try {
+        const { readExcelFileAsCsvText } = await import('../../shared/utils/excelExport');
         await processText(await readExcelFileAsCsvText(file));
       } catch (err: any) {
         setCsvUploadError(err?.message || 'Failed to read the selected Excel file.');
@@ -1779,10 +1777,11 @@ export default function DashboardProducts({
     reader.readAsText(file);
   };
 
-  const downloadProductCatalogue = () => {
+  const downloadProductCatalogue = async () => {
+    const { downloadExcelFileFromRows } = await import('../../shared/utils/excelExport');
     const tenantPart = (activeTenant.name || 'tenant').trim().toLowerCase()
       .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'tenant';
-    downloadExcelFileFromRows(`orvix-product-catalogue-${tenantPart}-${new Date().toISOString().slice(0, 10)}`, [
+    downloadExcelFileFromRows(`orvix-product-catalogue-${tenantPart}-${new Date().toISOString().slice(0, 10)}.xlsx`, [
       { name: 'Products', aoa: exportProductsToUniversalRows(products) },
     ]);
     setCsvUploadSuccess(`Catalogue downloaded successfully (${products.length} products).`);
@@ -1947,6 +1946,7 @@ export default function DashboardProducts({
 
     if (/\.(xlsx|xls)$/i.test(file.name)) {
       try {
+        const { readExcelFileAsCsvText } = await import('../../shared/utils/excelExport');
         await processText(await readExcelFileAsCsvText(file));
       } catch (err: any) {
         setCsvUploadError(err?.message || 'Failed to read the selected Excel file.');
@@ -1959,21 +1959,23 @@ export default function DashboardProducts({
     reader.readAsText(file);
   };
 
-  // Filter products catalog
-  const filteredProducts = products.filter(p => 
-    String(p.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    String(p.barcode || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    String(p.category || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    String(p.brand || '').toLowerCase().includes(searchTerm.toLowerCase())
-  ).sort((a, b) => {
-    // Zero/negative stock goes to bottom, in-stock stays on top
-    const stockA = a.shopStockQty ?? a.stockQty ?? 0;
-    const stockB = b.shopStockQty ?? b.stockQty ?? 0;
-    const aOut = stockA <= 0 ? 1 : 0;
-    const bOut = stockB <= 0 ? 1 : 0;
-    if (aOut !== bOut) return aOut - bOut; // out-of-stock sinks
-    return 0; // preserve original order within each group
-  });
+  // Avoid filtering and sorting the whole catalogue on unrelated renders
+  // (modal input, scanner state, print status, etc). Only products/search change it.
+  const filteredProducts = useMemo(() => {
+    const search = searchTerm.toLowerCase();
+    return products.filter(p =>
+      String(p.name || '').toLowerCase().includes(search) ||
+      String(p.barcode || '').toLowerCase().includes(search) ||
+      String(p.category || '').toLowerCase().includes(search) ||
+      String(p.brand || '').toLowerCase().includes(search)
+    ).sort((a, b) => {
+      const stockA = a.shopStockQty ?? a.stockQty ?? 0;
+      const stockB = b.shopStockQty ?? b.stockQty ?? 0;
+      const aOut = stockA <= 0 ? 1 : 0;
+      const bOut = stockB <= 0 ? 1 : 0;
+      return aOut - bOut; // stable sort preserves the original order within each group
+    });
+  }, [products, searchTerm]);
 
   // Connection trigger simulator
   
@@ -2913,7 +2915,7 @@ export default function DashboardProducts({
               <div className="product-import-actions-grid grid grid-cols-2 gap-2 p-3">
                 {!isPharmacyLike && (
                   <button
-                    onClick={downloadCsvTemplate}
+                    onClick={downloadExcelTemplate}
                     className="flex items-center gap-2.5 p-2.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 active:bg-slate-100 text-left"
                   >
                     <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-900/40 flex items-center justify-center shrink-0">
@@ -2921,7 +2923,7 @@ export default function DashboardProducts({
                     </div>
                     <div>
                       <p className="text-[12px] font-bold text-slate-800 dark:text-white leading-tight">Template</p>
-                      <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Download Excel</p>
+                      <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Excel (.xlsx)</p>
                     </div>
                   </button>
                 )}
@@ -2951,7 +2953,7 @@ export default function DashboardProducts({
                     </div>
                     <div>
                       <p className="text-[12px] font-bold text-slate-800 dark:text-white leading-tight">Medicine Template</p>
-                      <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Type & Packaging</p>
+                      <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Excel (.xlsx) · Type & Packaging</p>
                     </div>
                   </button>
                 )}
@@ -2980,7 +2982,7 @@ export default function DashboardProducts({
                   <Database className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" />
                   <div>
                     <p className="text-[12px] font-bold text-emerald-900 dark:text-emerald-100 leading-tight">Download Product Catalogue</p>
-                    <p className="product-catalogue-subtitle text-[10px] text-emerald-700/70 dark:text-emerald-400 mt-0.5">Excel · {products.length} products</p>
+                    <p className="product-catalogue-subtitle text-[10px] text-emerald-700/70 dark:text-emerald-400 mt-0.5">Excel (.xlsx) · {products.length} products</p>
                   </div>
                 </button>
               </div>
@@ -3002,10 +3004,10 @@ export default function DashboardProducts({
               {/* Right: action buttons */}
               <div className="flex items-center gap-2 shrink-0">
                 {!isPharmacyLike && (
-                  <button onClick={downloadCsvTemplate}
+                  <button onClick={downloadExcelTemplate}
                     className="h-9 px-3.5 flex items-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200 transition-colors">
                     <Download className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Bulk Template</span>
+                    <span>Excel Template</span>
                   </button>
                 )}
 
@@ -6174,26 +6176,44 @@ export default function DashboardProducts({
               )}
             </div>
 
-            <div className="tenant-form-footer sticky bottom-0 z-10 bg-slate-50 p-3 sm:p-4 flex gap-2 border-t border-slate-200 shrink-0">
+            {/* Fixed-height form footer: a flex sibling, not a second sticky overlay.
+                Use React-owned translated labels to avoid DOM translator collisions. */}
+            <div className="tenant-form-footer orvix-product-edit-footer bg-slate-50 border-t border-slate-200">
               {editSaveError && (
-                <p role="alert" className="flex-1 self-center text-[10px] font-bold normal-case text-rose-600">
+                <p role="alert" className="orvix-product-edit-error text-[11px] font-bold normal-case text-rose-600">
                   {editSaveError}
                 </p>
               )}
-              <button 
-                type="button" 
+              {isProductEditTakingLong && (
+                <p role="status" aria-live="polite" translate="no"
+                  className="orvix-product-edit-error text-[11px] font-medium normal-case text-amber-700">
+                  {t('Saving…')} {t('Please keep this window open until the changes are confirmed.')}
+                </p>
+              )}
+              <button
+                type="button"
                 disabled={isSavingProductEdit}
-                onClick={() => setEditingProduct(null)} 
-                className="flex-1 lg:flex-none px-4 sm:px-5 py-3 sm:py-2.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed font-bold rounded-xl uppercase tracking-wider text-[10.5px] cursor-pointer"
+                onClick={() => setEditingProduct(null)}
+                translate="no"
+                className="orvix-product-edit-action bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-50 font-bold rounded-xl uppercase tracking-wider cursor-pointer"
               >
-                Cancel Adjustments
+                <span>{t('Cancel Adjustments')}</span>
               </button>
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 disabled={isSavingProductEdit}
-                className="flex-1 lg:flex-none px-4 sm:px-5 py-3 sm:py-2.5 bg-emerald-600 hover:bg-emerald-505 disabled:opacity-60 disabled:cursor-wait text-white font-bold rounded-xl uppercase tracking-wider text-[10.5px] cursor-pointer"
+                aria-busy={isSavingProductEdit}
+                translate="no"
+                className="orvix-product-edit-action bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-bold rounded-xl uppercase tracking-wider cursor-pointer"
               >
-                {isSavingProductEdit ? 'Saving…' : 'Save Changes'}
+                {isSavingProductEdit ? (
+                  <span key="product-edit-saving" className="inline-flex items-center justify-center gap-2">
+                    <span className="w-3.5 h-3.5 shrink-0 animate-spin rounded-full border-2 border-white/40 border-t-white" aria-hidden="true" />
+                    <span>{t('Saving…')}</span>
+                  </span>
+                ) : (
+                  <span key="product-edit-save">{t('Save Changes')}</span>
+                )}
               </button>
             </div>
           </form>

@@ -4,16 +4,16 @@ import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianG
 import { BarChart3, TrendingUp, Calendar, DollarSign, Package, ArrowUpDown, Receipt, Tag, ArrowUpRight, ArrowDownRight, ShoppingBag, Search, AlertCircle, FileText, Truck, ChevronDown, ChevronRight, MinusCircle, ShoppingCart, Landmark } from "lucide-react";
 import { formatProductQuantity } from "../../shared/utils/unitFormatter";
 
-import { downloadPdfFromElement } from '../../shared/utils/pdfShare';
+// PDF engine is loaded only when a PDF action is requested.
 
 import ModernSelect from '../../shared/components/ModernSelect';
 import { getActiveBranchAddress, getActiveBranchDisplayName, getActiveBranchEmail, getActiveBranchPhone } from '../../shared/utils/businessBranding';
 import type { BranchSummary } from '../branches/branchTypes';
 import { formatLocalDate, parseLocalDate, timestampToLocalDate } from '../../shared/utils/localDate';
 import { getSaleItemGrossTotal, getSaleItemLineTotal } from '../sales/utils/saleItemTotals';
-import { onlineStorage } from '../../shared/utils/onlineStorage';
-import { deriveLedgerEntries } from '../cash-bank/utils/ledgerDerivation';
-import { isDemoTenant } from '../../shared/utils/tenantIsolation';
+import { useAuthoritativeReportData } from './utils/useAuthoritativeReportData';
+import DeliveryTreasuryPanel from './components/DeliveryTreasuryPanel';
+import { getProductSalesDue } from '../sales/utils/salePaymentTotals';
 
 const saleProductRevenue = (s: any): number =>
   s.productTotal !== undefined ? s.productTotal : (s.total - (s.deliveryCost || 0));
@@ -107,6 +107,7 @@ export default function DashboardReports({
     const tabAtStart = reportTab;
     setReportPdfStatus('📄 Generating PDF...');
     try {
+      const { downloadPdfFromElement } = await import('../../shared/utils/pdfShare');
       await downloadPdfFromElement({
         elementId: 'reports-a4-pdf-template',
         fileName: `${(REPORT_DOCUMENT_TITLES[reportTab] || 'Business-Report').replace(/\\s+/g, '-')}-${startDateStr}-${endDateStr}.pdf`,
@@ -285,26 +286,32 @@ export default function DashboardReports({
     });
   }, [expenses, startDateStr, endDateStr, searchTerm, selectedCategory]);
 
-  // ── Money & Bank report ──
-  const [selectedMoneyBankAccountId, setSelectedMoneyBankAccountId] = useState<string>('all');
-  const moneyBankChannels = useMemo<PaymentChannel[]>(
-    () => (systemSettings?.paymentChannels || []) as PaymentChannel[],
-    [systemSettings],
-  );
-  const moneyBankLedger = useMemo<LedgerEntry[]>(() => deriveLedgerEntries({
-    tenantId: activeTenant.id,
-    channels: moneyBankChannels,
-    sales,
-    expenses,
-    deliveries,
-    purchases,
-    hasDemoSeedData: isDemoTenant(activeTenant.id),
-  }), [activeTenant.id, moneyBankChannels, sales, expenses, deliveries, purchases]);
-
+  // The real, tenant-authorized Supabase treasury and stock-audit records.
+  const [selectedMoneyBankAccountId, setSelectedMoneyBankAccountId] = useState('all');
+  const { treasury, treasuryLoading, treasuryMoreLoading, treasuryError, loadMoreTreasury, refreshTreasury, stockRows, stockLoading, stockError } = useAuthoritativeReportData({
+    tenantId: activeTenant.id, branchId: activeBranch?.id || null, tab: reportTab,
+    accountId: selectedMoneyBankAccountId === 'all' ? null : selectedMoneyBankAccountId,
+    startDate: startDateStr, endDate: endDateStr,
+  });
+  useEffect(() => { setSelectedMoneyBankAccountId('all'); }, [activeTenant.id, activeBranch?.id]);
+  const moneyBankChannels = useMemo<PaymentChannel[]>(() => (treasury?.accounts || []).map(a => ({
+    id: a.accountId, name: a.name || a.sourceKey || 'Unnamed account',
+    category: a.accountType === 'mobile_money' ? 'telco' as const : a.accountType === 'cash' ? 'physical' as const : 'bank' as const,
+    provider: a.provider || undefined, maskedReference: a.maskedReference || undefined,
+    currency: a.currency, branchId: a.branchId, status: (a.status || 'active') as PaymentChannel['status'],
+  })), [treasury]);
+  const moneyBankLedger = useMemo<LedgerEntry[]>(() => (treasury?.entries || []).map(e => ({
+    id: e.id, tenantId: activeTenant.id, channelId: e.accountId,
+    amount: Number(e.amount || 0), entryType: Number(e.amount || 0) >= 0 ? 'credit' as const : 'debit' as const,
+    sourceType: 'SETTLE_TILL_DEPOSIT' as const, description: e.description || e.sourceType || 'Money movement',
+    timestamp: e.postedAt, referenceId: e.referenceId || e.journalId,
+    journalId: e.journalId, journalType: e.journalType, journalSourceType: e.sourceType,
+    branchId: e.branchId, balanceAfter: Number(e.balanceAfter),
+    currency: e.currency, externalCashFlow: e.externalCashFlow === true,
+  })), [treasury, activeTenant.id]);
   const filteredMoneyBankLedger = useMemo(() => {
-    const start = new Date(startDateStr);
-    const end = new Date(endDateStr);
-    end.setHours(23, 59, 59, 999);
+    const start = new Date(startDateStr + 'T00:00:00.000');
+    const end = new Date(endDateStr + 'T23:59:59.999');
     return moneyBankLedger
       .filter(entry => {
         const date = new Date(entry.timestamp);
@@ -315,15 +322,16 @@ export default function DashboardReports({
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   }, [moneyBankLedger, startDateStr, endDateStr, selectedMoneyBankAccountId]);
 
+  // Figures are computed for the FULL date range by PostgreSQL; never
+  // sum only the first 50 visible journal lines.
   const moneyBankTotals = useMemo(() => {
-    let moneyIn = 0;
-    let moneyOut = 0;
-    filteredMoneyBankLedger.forEach(entry => {
-      if (entry.amount >= 0) moneyIn += entry.amount;
-      else moneyOut += Math.abs(entry.amount);
-    });
-    return { moneyIn, moneyOut, net: moneyIn - moneyOut, count: filteredMoneyBankLedger.length };
-  }, [filteredMoneyBankLedger]);
+    const moneyIn = Number(treasury?.summary?.moneyIn || 0);
+    const moneyOut = Number(treasury?.summary?.moneyOut || 0);
+    return { moneyIn, moneyOut, net: moneyIn - moneyOut,
+      count: Number(treasury?.summary?.count || 0),
+      inCount: Number(treasury?.summary?.inCount || 0),
+      outCount: Number(treasury?.summary?.outCount || 0) };
+  }, [treasury?.summary]);
 
   const getMoneyBankChannelName = (channelId?: string) =>
     (channelId && moneyBankChannels.find(c => c.id === channelId)?.name) || channelId || 'Unknown account';
@@ -331,11 +339,11 @@ export default function DashboardReports({
   const [moneyBankSubTab, setMoneyBankSubTab] = useState<'summary' | 'in' | 'out' | 'debts'>('summary');
 
   const moneyBankInEntries = useMemo(
-    () => filteredMoneyBankLedger.filter(entry => entry.amount >= 0),
+    () => filteredMoneyBankLedger.filter(entry => entry.amount >= 0 && entry.externalCashFlow !== false),
     [filteredMoneyBankLedger],
   );
   const moneyBankOutEntries = useMemo(
-    () => filteredMoneyBankLedger.filter(entry => entry.amount < 0),
+    () => filteredMoneyBankLedger.filter(entry => entry.amount < 0 && entry.externalCashFlow !== false),
     [filteredMoneyBankLedger],
   );
   const moneyBankReceivables = useMemo(() => {
@@ -348,7 +356,7 @@ export default function DashboardReports({
       // sale.amountDue is set once at checkout and never decremented by later
       // installment payments (only amountPaid is) -- total - amountPaid is
       // the only figure that reflects what the customer still actually owes.
-      const due = Math.max(0, sale.total - (sale.amountPaid || 0));
+      const due = getProductSalesDue(sale);
       if (due <= 0) return;
       const date = new Date(sale.timestamp);
       if (date < start || date > end) return;
@@ -387,21 +395,14 @@ export default function DashboardReports({
   }), [moneyBankReceivables, moneyBankPayables]);
 
   const moneyBankChannelInBreakdown = useMemo(() => {
-    const byChannel = new Map<string, number>();
-    filteredMoneyBankLedger.forEach(entry => {
-      if (entry.amount < 0) return;
-      byChannel.set(entry.channelId, (byChannel.get(entry.channelId) || 0) + entry.amount);
-    });
-    const total = Array.from(byChannel.values()).reduce((sum, v) => sum + v, 0);
-    return Array.from(byChannel.entries())
-      .map(([channelId, amount]) => ({
-        channelId,
-        name: getMoneyBankChannelName(channelId),
-        amount,
-        percent: total > 0 ? (amount / total) * 100 : 0,
-      }))
-      .sort((a, b) => b.amount - a.amount);
-  }, [filteredMoneyBankLedger, moneyBankChannels]);
+    const rows = (treasury?.accountBreakdown || []).map(row => ({
+      channelId: row.accountId, name: getMoneyBankChannelName(row.accountId),
+      amount: Number(row.moneyIn || 0), percent: 0,
+    }));
+    const total = rows.reduce((sum, row) => sum + row.amount, 0);
+    return rows.map(row => ({ ...row, percent: total > 0 ? row.amount / total * 100 : 0 }))
+      .filter(row => row.amount > 0).sort((a, b) => b.amount - a.amount);
+  }, [treasury?.accountBreakdown, moneyBankChannels]);
 
   const renderMoneyBankEntryList = (entries: LedgerEntry[], emptyText: string) => (
     <>
@@ -411,8 +412,11 @@ export default function DashboardReports({
             <tr>
               <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Date</th>
               <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Account</th>
+              <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Reference</th>
+              <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Type</th>
               <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Reason</th>
               <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Amount</th>
+              <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Balance After</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -420,6 +424,8 @@ export default function DashboardReports({
               <tr key={entry.id} className="hover:bg-slate-50 transition-colors">
                 <td className="p-3 text-slate-500 whitespace-nowrap">{formatLocalDate(new Date(entry.timestamp))}</td>
                 <td className="p-3 font-medium text-slate-800">{getMoneyBankChannelName(entry.channelId)}</td>
+                <td className="p-3 text-slate-500 font-mono">{entry.referenceId || '—'}</td>
+                <td className="p-3 text-slate-500">{entry.journalSourceType || entry.journalType || '—'}</td>
                 <td className="p-3 text-slate-600">
                   {entry.description}
                   {entry.counterPartyChannelId && (
@@ -427,13 +433,14 @@ export default function DashboardReports({
                   )}
                 </td>
                 <td className={`p-3 text-right font-mono font-black ${entry.amount >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                  {entry.amount >= 0 ? '+' : '-'}{currency}{Math.round(Math.abs(entry.amount)).toLocaleString()}
+                  {entry.amount >= 0 ? '+' : '-'}{entry.currency || currency}{Math.round(Math.abs(entry.amount)).toLocaleString()}
                 </td>
+                <td className="p-3 text-right font-mono">{entry.balanceAfter === undefined ? '—' : (entry.currency || currency) + Number(entry.balanceAfter).toLocaleString()}</td>
               </tr>
             ))}
             {entries.length === 0 && (
               <tr>
-                <td colSpan={4} className="p-10 text-center text-slate-400">
+                <td colSpan={7} className="p-10 text-center text-slate-400">
                   <div className="flex flex-col items-center gap-2">
                     <Landmark className="w-8 h-8 text-slate-200" />
                     <span>{emptyText}</span>
@@ -457,6 +464,7 @@ export default function DashboardReports({
                 {getMoneyBankChannelName(entry.channelId)}
                 {entry.counterPartyChannelId ? ` · ${entry.amount >= 0 ? 'from' : 'to'} ${getMoneyBankChannelName(entry.counterPartyChannelId)}` : ''}
                 {' · '}{formatLocalDate(new Date(entry.timestamp))}
+                {entry.referenceId ? ' · Ref: ' + entry.referenceId : ''}
               </p>
             </div>
             <p className={`text-xs font-mono font-black shrink-0 ${entry.amount >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
@@ -676,17 +684,14 @@ export default function DashboardReports({
   // always showing the full delivery log.
   const deliveryReportStats = useMemo(() => {
     const validDeliveries = deliveries.filter(d => d.status !== 'Cancelled');
-    const deliveryIncome = validDeliveries.reduce((sum, d) => sum + (Number(d.deliveryCost) || 0), 0);
-    const deliveryExpensesList = expenses.filter(e => e.category === 'Delivery Expense' || e.category === 'Delivery Maintainance');
-    const totalDeliveryExpenses = deliveryExpensesList.reduce((sum, e) => sum + e.amount, 0);
-    const netDeliveryProfit = deliveryIncome - totalDeliveryExpenses;
+    const quotedFees = validDeliveries.reduce((sum, d) => sum + (Number(d.deliveryCost) || 0), 0);
     return {
       validDeliveries: validDeliveries.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()),
-      deliveryIncome,
-      totalDeliveryExpenses,
-      netDeliveryProfit,
+      quotedFees,
+      pendingCount: validDeliveries.filter(d => d.status === 'Pending Dispatch' || d.status === 'Dispatched').length,
+      deliveredCount: validDeliveries.filter(d => d.status === 'Delivered').length,
     };
-  }, [deliveries, expenses]);
+  }, [deliveries]);
 
   // Purchases ledger: did not exist as a report before this restoration --
   // built new, matching the Sales report's shape (date-scoped list +
@@ -709,34 +714,11 @@ export default function DashboardReports({
     return { sorted, totalPurchased, totalPaid, totalOutstanding };
   }, [filteredPurchases]);
 
-  // Stock Adjustment: reads the log that Products -> Adjust Stock already
-  // writes today (onlineStorage key 'jasper_stock_adjustments', synced per
-  // tenant via the tenant_data table -- see src/shared/utils/onlineStorage.ts).
-  // Only the report view was ever deleted; the write side was never touched
-  // and needs no changes. Re-reads when this tab is opened or the date
-  // range changes, since onlineStorage has no React subscription mechanism.
-  const stockAdjustmentRows = useMemo(() => {
-    if (reportTab !== 'stock-adjustment') return [];
-    let all: any[] = [];
-    try {
-      all = JSON.parse(onlineStorage.getItem('jasper_stock_adjustments') || '[]');
-    } catch {
-      all = [];
-    }
-    const start = new Date(startDateStr);
-    const end = new Date(endDateStr);
-    end.setHours(23, 59, 59, 999);
-    return all
-      .filter((a: any) => {
-        const t = new Date(a.adjustedAt).getTime();
-        return t >= start.getTime() && t <= end.getTime();
-      })
-      .sort((a: any, b: any) => new Date(b.adjustedAt).getTime() - new Date(a.adjustedAt).getTime());
-  }, [reportTab, startDateStr, endDateStr]);
+  const stockAdjustmentRows = stockRows;
 
   const stockAdjustmentTotals = useMemo(() => {
-    const totalAdded = stockAdjustmentRows.filter((a: any) => a.type === 'add').reduce((s: number, a: any) => s + a.qty, 0);
-    const totalDeducted = stockAdjustmentRows.filter((a: any) => a.type === 'deduct').reduce((s: number, a: any) => s + a.qty, 0);
+    const totalAdded = stockAdjustmentRows.filter((a: any) => a.type === 'add').reduce((s: number, a: any) => s + Number(a.qty || 0), 0);
+    const totalDeducted = stockAdjustmentRows.filter((a: any) => a.type === 'deduct').reduce((s: number, a: any) => s + Number(a.qty || 0), 0);
     return { totalAdded, totalDeducted };
   }, [stockAdjustmentRows]);
 
@@ -1606,6 +1588,8 @@ export default function DashboardReports({
             <div className="bg-white border border-slate-200 rounded-3xl p-4 sm:p-6 shadow-sm space-y-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <h3 className="order-2 sm:order-1 font-black text-slate-800 uppercase tracking-wider">Money & Bank</h3>
+                {treasuryLoading && <p className="text-xs text-slate-500">Loading verified treasury accounts and journals…</p>}
+                {treasuryError && <p role="alert" className="text-xs text-rose-700">Money & Bank report unavailable: {treasuryError}</p>}
                 <div className="order-1 sm:order-2 flex flex-wrap gap-2">
                   <ModernSelect
                     title="Account"
@@ -1616,9 +1600,14 @@ export default function DashboardReports({
                     ]}
                     onChange={setSelectedMoneyBankAccountId}
                   />
+                  <button type="button" onClick={refreshTreasury}
+                    disabled={treasuryLoading || treasuryMoreLoading}
+                    className="px-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 disabled:opacity-50">
+                    Refresh
+                  </button>
                   <button
                     onClick={printActiveReportPdf}
-                    disabled={!!reportPdfStatus}
+                    disabled={!!reportPdfStatus || treasuryLoading || !!treasuryError || !treasury}
                     className="bg-slate-900 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[11px] sm:text-xs font-bold uppercase flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm shrink-0 disabled:opacity-60 disabled:cursor-wait"
                   >
                     <FileText className="w-3.5 h-3.5" />
@@ -1648,7 +1637,19 @@ export default function DashboardReports({
               </div>
 
               <div id="reports-a4-pdf-template" className="space-y-6">
-                {moneyBankSubTab === 'summary' && (
+                {treasury && moneyBankSubTab === 'summary' && (
+                  <div className="space-y-2">
+                    <h4 className="text-xs font-extrabold text-slate-600 uppercase tracking-wider">Current account balances (all time)</h4>
+                    {treasury.accounts.filter(a => selectedMoneyBankAccountId === 'all' || a.accountId === selectedMoneyBankAccountId).map(account => (
+                      <div key={account.accountId} className="flex items-center justify-between gap-2 border border-slate-200 rounded-xl p-3 text-xs">
+                        <span className="font-semibold text-slate-800">{account.name} <span className="text-slate-400">{account.maskedReference || ''}</span></span>
+                        <span className="font-black tabular-nums">{account.currentBalance === null || account.currentBalance === undefined ? 'Balance unavailable' : (account.currency || currency) + ' ' + Number(account.currentBalance).toLocaleString()}</span>
+                      </div>
+                    ))}
+                    {treasury.accounts.length === 0 && <p className="text-xs text-slate-500">No accessible bank or cash accounts.</p>}
+                  </div>
+                )}
+                {treasury && moneyBankSubTab === 'summary' && (
                   <>
                     <div className="reports-split-grid gap-2 sm:gap-3">
                       {[
@@ -1698,12 +1699,12 @@ export default function DashboardReports({
                   </>
                 )}
 
-                {moneyBankSubTab === 'in' && (
+                {treasury && moneyBankSubTab === 'in' && (
                   <>
                     <div className="reports-split-grid gap-2 sm:gap-3">
                       {[
                         { label: 'Iliyoingia', value: `${currency}${Math.round(moneyBankTotals.moneyIn).toLocaleString()}`, icon: ArrowDownRight, color: 'text-emerald-700' },
-                        { label: 'Miamala', value: moneyBankInEntries.length.toLocaleString(), icon: FileText, color: 'text-slate-900' },
+                        { label: 'Miamala', value: moneyBankTotals.inCount.toLocaleString(), icon: FileText, color: 'text-slate-900' },
                       ].map((metric, i) => (
                         <div key={i} className="bg-slate-50 p-3 rounded-2xl border border-slate-200 overflow-hidden">
                           <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
@@ -1720,12 +1721,12 @@ export default function DashboardReports({
                   </>
                 )}
 
-                {moneyBankSubTab === 'out' && (
+                {treasury && moneyBankSubTab === 'out' && (
                   <>
                     <div className="reports-split-grid gap-2 sm:gap-3">
                       {[
                         { label: 'Iliyotoka', value: `${currency}${Math.round(moneyBankTotals.moneyOut).toLocaleString()}`, icon: ArrowUpRight, color: 'text-rose-600' },
-                        { label: 'Miamala', value: moneyBankOutEntries.length.toLocaleString(), icon: FileText, color: 'text-slate-900' },
+                        { label: 'Miamala', value: moneyBankTotals.outCount.toLocaleString(), icon: FileText, color: 'text-slate-900' },
                       ].map((metric, i) => (
                         <div key={i} className="bg-slate-50 p-3 rounded-2xl border border-slate-200 overflow-hidden">
                           <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
@@ -1846,6 +1847,15 @@ export default function DashboardReports({
                       </div>
                     </div>
                   </>
+                )}
+                {treasury && treasury.hasMore && moneyBankSubTab !== 'debts' && (
+                  <div className="flex justify-center pt-3">
+                    <button type="button" onClick={() => void loadMoreTreasury()}
+                      disabled={treasuryMoreLoading}
+                      className="rounded-xl border border-emerald-200 px-4 py-2 text-xs font-bold text-emerald-700 disabled:opacity-50">
+                      {treasuryMoreLoading ? 'Loading…' : 'Load older transactions (50)'}
+                    </button>
+                  </div>
                 )}
               </div>
             </div>
@@ -2082,12 +2092,20 @@ export default function DashboardReports({
               </div>
 
               <div id="reports-a4-pdf-template" className="space-y-6">
+                <DeliveryTreasuryPanel
+                  tenantId={activeTenant.id}
+                  branchId={activeBranch?.id || null}
+                  startDate={startDateStr}
+                  endDate={endDateStr}
+                  currency={currency}
+                />
+                <p className="text-[11px] text-slate-500">Operational delivery history below is all-time; quoted fees are not necessarily collected money.</p>
               <div className="reports-split-grid gap-2 sm:gap-3">
                 {[
                   { label: 'Fulfillments', value: deliveryReportStats.validDeliveries.length.toLocaleString(), icon: Truck, color: 'text-slate-900' },
-                  { label: 'Logistics Revenue', value: `${currency}${Math.round(deliveryReportStats.deliveryIncome).toLocaleString()}`, icon: DollarSign, color: 'text-slate-900' },
-                  { label: 'Fleet Outflow', value: `${currency}${Math.round(deliveryReportStats.totalDeliveryExpenses).toLocaleString()}`, icon: Receipt, color: 'text-rose-600' },
-                  { label: 'Net Margin', value: `${deliveryReportStats.netDeliveryProfit >= 0 ? '+' : '-'}${currency}${Math.abs(Math.round(deliveryReportStats.netDeliveryProfit)).toLocaleString()}`, icon: TrendingUp, color: deliveryReportStats.netDeliveryProfit >= 0 ? 'text-emerald-700' : 'text-rose-600' },
+                  { label: 'Quoted Delivery Fees', value: `${currency}${Math.round(deliveryReportStats.quotedFees).toLocaleString()}`, icon: DollarSign, color: 'text-slate-900' },
+                  { label: 'Pending / Dispatched', value: deliveryReportStats.pendingCount.toLocaleString(), icon: Truck, color: 'text-amber-700' },
+                  { label: 'Delivered', value: deliveryReportStats.deliveredCount.toLocaleString(), icon: Truck, color: 'text-emerald-700' },
                 ].map((metric, i) => (
                   <div key={i} className="bg-slate-50 p-3 rounded-2xl border border-slate-200 overflow-hidden">
                     <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
@@ -2243,11 +2261,13 @@ export default function DashboardReports({
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="order-2 sm:order-1">
                   <h3 className="font-black text-slate-800 uppercase tracking-wider">Stock Adjustment Log</h3>
+                  {stockLoading && <p className="text-xs text-slate-500">Loading stock adjustment history…</p>}
+                  {stockError && <p role="alert" className="text-xs text-rose-700">Stock Adjustment report unavailable: {stockError}</p>}
                   <p className="text-xs text-slate-500 mt-1">Manual stock additions and deductions from Products → Adjust Stock.</p>
                 </div>
                 <button
                   onClick={printActiveReportPdf}
-                  disabled={!!reportPdfStatus}
+                  disabled={!!reportPdfStatus || stockLoading || !!stockError}
                   className="order-1 sm:order-2 bg-slate-900 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl text-[11px] sm:text-xs font-bold uppercase flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm shrink-0 disabled:opacity-60 disabled:cursor-wait"
                 >
                   <FileText className="w-3.5 h-3.5" />
@@ -2255,7 +2275,7 @@ export default function DashboardReports({
                 </button>
               </div>
 
-              <div id="reports-a4-pdf-template" className="space-y-6">
+              <div id="reports-a4-pdf-template" className={stockLoading || stockError ? 'hidden' : 'space-y-6'}>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {[
                   { label: 'Total Events', value: stockAdjustmentRows.length.toLocaleString(), icon: ArrowUpDown, color: 'text-slate-900' },
@@ -2289,6 +2309,7 @@ export default function DashboardReports({
                       <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">Before</th>
                       <th className="p-3 font-bold text-slate-500 uppercase tracking-wider text-right">After</th>
                       <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Reason</th>
+                      <th className="p-3 font-bold text-slate-500 uppercase tracking-wider">Staff</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -2308,15 +2329,16 @@ export default function DashboardReports({
                         <td className="p-3 text-right font-mono text-slate-500">{a.previousStock}</td>
                         <td className="p-3 text-right font-mono font-bold text-slate-800">{a.newStock}</td>
                         <td className="p-3 text-slate-500 max-w-[180px] truncate">{a.reason || '—'}</td>
+                        <td className="p-3 text-slate-500">{a.performedByName || '—'}</td>
                       </tr>
                     ))}
-                    {stockAdjustmentRows.length === 0 && (
+                    {!stockLoading && !stockError && stockAdjustmentRows.length === 0 && (
                       <tr>
-                        <td colSpan={7} className="p-10 text-center text-slate-400">
+                        <td colSpan={8} className="p-10 text-center text-slate-400">
                           <div className="flex flex-col items-center gap-2">
                             <ArrowUpDown className="w-8 h-8 text-slate-200" />
                             <span>No stock adjustments in this date range.</span>
-                            <span className="text-[11px] text-slate-300">Use Products → Adjust Stock to record manual changes.</span>
+                            <span className="text-[11px] text-slate-300">Historical manual changes saved only to old device caches may be unavailable. Future adjustments will be recorded securely.</span>
                           </div>
                         </td>
                       </tr>

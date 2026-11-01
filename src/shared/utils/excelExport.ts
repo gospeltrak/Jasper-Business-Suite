@@ -20,7 +20,7 @@ export function downloadExcelFile(filename: string, sheets: ExcelSheet[]): void 
     XLSX.utils.book_append_sheet(workbook, worksheet, sheet.name.slice(0, 31) || 'Sheet1');
   });
   const finalName = filename.toLowerCase().endsWith('.xlsx') ? filename : `${filename}.xlsx`;
-  XLSX.writeFile(workbook, finalName);
+  XLSX.writeFile(workbook, finalName, { bookType: 'xlsx', compression: true });
 }
 
 export interface ExcelAoaSheet {
@@ -34,10 +34,26 @@ export function downloadExcelFileFromRows(filename: string, sheets: ExcelAoaShee
   const workbook = XLSX.utils.book_new();
   sheets.forEach(sheet => {
     const worksheet = XLSX.utils.aoa_to_sheet(sheet.aoa);
+    // Keep exported catalogues/templates usable in Excel immediately:
+    // visible headers, filter dropdowns and bounded column widths.
+    const headerRow = sheet.aoa[0] || [];
+    const maxWidth = 40;
+    worksheet['!cols'] = headerRow.map((header, col) => ({
+      wch: Math.min(maxWidth, Math.max(14,
+        String(header || '').length + 2,
+        ...sheet.aoa.slice(1, 40).map(row => String(row[col] ?? '').length + 2),
+      )),
+    }));
+    if (headerRow.length > 0) {
+      worksheet['!autofilter'] = { ref: XLSX.utils.encode_range({
+        s: { r: 0, c: 0 },
+        e: { r: Math.max(0, sheet.aoa.length - 1), c: headerRow.length - 1 },
+      }) };
+    }
     XLSX.utils.book_append_sheet(workbook, worksheet, sheet.name.slice(0, 31) || 'Sheet1');
   });
   const finalName = filename.toLowerCase().endsWith('.xlsx') ? filename : `${filename}.xlsx`;
-  XLSX.writeFile(workbook, finalName);
+  XLSX.writeFile(workbook, finalName, { bookType: 'xlsx', compression: true });
 }
 
 /**

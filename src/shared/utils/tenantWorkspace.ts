@@ -19,6 +19,7 @@ import {
   type SaleTombstones,
 } from '../../modules/sales/utils/saleSync';
 import { canWriteBusinessDataOnline, warnOfflineWriteBlocked } from './onlineOnly';
+import type { ManualStockAudit } from '../../modules/products/utils/manualStockAdjustment';
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -92,22 +93,22 @@ const cacheWorkspace = (tenantId: string, workspace: TenantWorkspace) => {
   runtimeWorkspaces.set(tenantId, workspace);
 };
 
-const mergePageRecords = (current: any[], incoming: any[]): any[] => {
-  const merged = new Map<string, any>();
-  for (const record of [...current, ...incoming]) {
+// Reuse one Map across all pages. Rebuilding a Map of every earlier page
+// for each new batch is quadratic and freezes large-tenant workspaces.
+const mergePageRecords = (target: Map<string, any>, incoming: any[]): void => {
+  for (const record of incoming) {
     const id = String(record?.id || '').trim();
     const key = id || `anonymous:${JSON.stringify(record)}`;
-    merged.set(key, record);
+    target.set(key, record);
   }
-  return Array.from(merged.values());
 };
 
 const loadNormalizedWorkspaceLedgers = async (client: any): Promise<Partial<TenantWorkspace> | null> => {
-  const records: Record<PaginatedWorkspaceCollection, any[]> = {
-    sales: [],
-    expenses: [],
-    deliveries: [],
-    purchases: [],
+  const recordMaps: Record<PaginatedWorkspaceCollection, Map<string, any>> = {
+    sales: new Map(),
+    expenses: new Map(),
+    deliveries: new Map(),
+    purchases: new Map(),
   };
   const cursors: Partial<Record<PaginatedWorkspaceCollection, WorkspacePageCursor>> = {};
   let pending = [...PAGINATED_WORKSPACE_COLLECTIONS];
@@ -140,7 +141,7 @@ const loadNormalizedWorkspaceLedgers = async (client: any): Promise<Partial<Tena
     pages.forEach((page, index) => {
       const collection = pending[index];
       if (!page || page.collection !== collection || !Array.isArray(page.records)) return;
-      records[collection] = mergePageRecords(records[collection], page.records);
+      mergePageRecords(recordMaps[collection], page.records);
       if (page.hasMore && page.nextCursor?.timestamp && page.nextCursor?.id) {
         const previousCursor = cursors[collection];
         if (previousCursor?.timestamp === page.nextCursor.timestamp && previousCursor.id === page.nextCursor.id) {
@@ -155,7 +156,12 @@ const loadNormalizedWorkspaceLedgers = async (client: any): Promise<Partial<Tena
     pending = nextPending;
   }
 
-  return records;
+  return {
+    sales: Array.from(recordMaps.sales.values()),
+    expenses: Array.from(recordMaps.expenses.values()),
+    deliveries: Array.from(recordMaps.deliveries.values()),
+    purchases: Array.from(recordMaps.purchases.values()),
+  };
 };
 
 const normalizeWorkspace = (workspace: Partial<TenantWorkspace> | null | undefined): TenantWorkspace | null => {
@@ -1016,6 +1022,7 @@ async function saveTenantProductsOnlyNow(
   products: Product[],
   productTombstones: Record<string, string>,
   branchStocks?: BranchStock[],
+  stockAudit?: ManualStockAudit,
 ): Promise<boolean> {
   if (!canWriteBusinessDataOnline()) {
     warnOfflineWriteBlocked(`saveTenantProductsOnly:${tenantId}`);
@@ -1030,11 +1037,16 @@ async function saveTenantProductsOnlyNow(
 
   try {
     if (typeof client.rpc === 'function') {
-      const result = await client.rpc('save_current_branch_products', {
-        p_products: products,
-        p_product_tombstones: productTombstones,
-        ...(branchStocks !== undefined ? { p_branch_stocks: branchStocks } : {}),
-      });
+      const result = await client.rpc(
+        stockAudit ? 'save_current_branch_products_with_adjustment' : 'save_current_branch_products',
+        {
+          p_products: products,
+          p_product_tombstones: productTombstones,
+          ...(stockAudit
+            ? { p_branch_stocks: branchStocks ?? null, p_adjustment: stockAudit }
+            : branchStocks !== undefined ? { p_branch_stocks: branchStocks } : {}),
+        },
+      );
       const missingRpc = ['PGRST202', '42883'].includes(String(result.error?.code || ''));
       if (!result.error) {
         // A 200 without authoritative products is NOT proof of a durable write.
@@ -1059,7 +1071,8 @@ async function saveTenantProductsOnlyNow(
         });
         return true;
       }
-      if (!missingRpc) {
+      // A manual stock mutation MUST NOT fall back to an unaudited write.
+      if (stockAudit || !missingRpc) {
         console.warn('[workspace] products-only save error:', result.error.message);
         return false;
       }
@@ -1087,12 +1100,13 @@ export function saveTenantProductsOnly(
   products: Product[],
   productTombstones: Record<string, string> = {},
   branchStocks?: BranchStock[],
+  stockAudit?: ManualStockAudit,
 ): Promise<boolean> {
   if (!tenantId) return Promise.resolve(false);
   const previous = workspaceSaveQueue.get(tenantId) || Promise.resolve(true);
   const next = previous
     .catch(() => false)
-    .then(() => saveTenantProductsOnlyNow(tenantId, products, productTombstones, branchStocks));
+    .then(() => saveTenantProductsOnlyNow(tenantId, products, productTombstones, branchStocks, stockAudit));
   workspaceSaveQueue.set(tenantId, next);
   void next.finally(() => {
     if (workspaceSaveQueue.get(tenantId) === next) workspaceSaveQueue.delete(tenantId);

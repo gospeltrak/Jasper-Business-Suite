@@ -2,6 +2,23 @@ import type { Product } from '../../../types';
 
 export type ManualAdjustmentDirection = 'add' | 'deduct';
 
+/** One durable audit event for a confirmed manual product-stock update. */
+export interface ManualStockAudit {
+  id: string;
+  tenantId: string;
+  branchId?: string;
+  productId: string;
+  productName: string;
+  sku?: string;
+  type: ManualAdjustmentDirection;
+  qty: number;
+  previousStock: number;
+  newStock: number;
+  reason: string;
+  adjustedAt: string;
+}
+
+
 /**
  * A manual stock adjustment targets the SHOP bucket shown in Adjust Stock.
  * Warehouse stock stays untouched. Total stock must always equal the two

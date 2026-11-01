@@ -169,6 +169,18 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     void refreshInbox();
   }, [refreshInbox]);
 
+  // When an owner returns to the app, fetch the server inbox once. This
+  // catches cashier sales made on other devices without background polling
+  // or a second POS notification transport.
+  useEffect(() => {
+    if (!inboxScope || !['Admin', 'SuperAdmin'].includes(inboxScope.role)) return;
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void refreshInbox();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [inboxScope, refreshInbox]);
+
   const updateReadState = async (path: string, updater: (current: JasperNotification[]) => JasperNotification[]) => {
     if (!inboxScope || !['Admin', 'SuperAdmin'].includes(inboxScope.role)) return;
     const previous = notifications;

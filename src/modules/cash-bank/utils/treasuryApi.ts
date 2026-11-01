@@ -287,12 +287,14 @@ export async function postTreasurySplitIncome(input: {
   sourceType: 'sale' | 'delivery' | 'other';
   // Only a real POS sale can use the narrowly authorized, atomic checkout RPC.
   sale?: Sale;
+  /** Selected delivery account: POS assumes fee paid at checkout. */
+  deliveryAccountSourceKey?: string;
   sourceId: string;
   description: string;
   openingBalances?: Record<string, number>;
   cacheKey?: string;
   metadata?: Record<string, unknown>;
-}): Promise<{ journalId: string; branchId: string }> {
+}): Promise<{ journalId: string; branchId: string; deliveryJournalId?: string; delivery?: Delivery }> {
   const activeChannels = input.channels.filter(channel =>
     channel.category !== 'person'
     && channel.status !== 'inactive'
@@ -305,9 +307,11 @@ export async function postTreasurySplitIncome(input: {
       aggregated.set(line.sourceAccountKey, (aggregated.get(line.sourceAccountKey) || 0) + amount);
     }
   });
-  if (aggregated.size < 1) throw new Error('At least one collected payment is required.');
-  if ([...aggregated.keys()].some(key => !activeChannels.some(channel => channel.id === key))) {
-    throw new Error('Every collected payment must use an active Money & Bank account.');
+  const deliveryKey = String(input.deliveryAccountSourceKey || '').trim();
+  if (aggregated.size < 1 && !deliveryKey) throw new Error('At least one collected payment is required.');
+  const requiredKeys = [...new Set([...aggregated.keys(), ...(deliveryKey ? [deliveryKey] : [])])];
+  if (requiredKeys.some(key => !activeChannels.some(channel => channel.id === key))) {
+    throw new Error('Every POS or delivery payment must use an active Money & Bank account.');
   }
 
   const client: any = await getSecureDataBridgeClient();
@@ -321,10 +325,10 @@ export async function postTreasurySplitIncome(input: {
   // Restrict Sale payment routing to the branch selected on the POS sale,
   // instead of overwriting one branch's sourceKey with another branch's.
   const saleSelection = input.sourceType === 'sale'
-    ? selectPaymentAccountsForBranch(syncedAccounts, [...aggregated.keys()], input.sale?.branchId)
+    ? selectPaymentAccountsForBranch(syncedAccounts, requiredKeys, input.sale?.branchId)
     : null;
   const mapping = saleSelection?.accounts || new Map(syncedAccounts.map(account => [account.sourceKey, account]));
-  const branchIds = new Set([...aggregated.keys()].map(key => mapping.get(key)?.branchId).filter(Boolean));
+  const branchIds = new Set(requiredKeys.map(key => mapping.get(key)?.branchId).filter(Boolean));
   if (branchIds.size !== 1) throw new Error('Split payments must belong to one active branch.');
   const branchId = saleSelection?.branchId || String([...branchIds][0] || '');
   const lines = [...aggregated.entries()]
@@ -343,13 +347,34 @@ export async function postTreasurySplitIncome(input: {
     if (!input.sale || input.sale.id !== input.sourceId) {
       throw new Error('A matching POS sale is required before recording its payment.');
     }
-    const { data, error } = await client.rpc('post_current_branch_pos_sale', {
-      p_sale: { ...input.sale, branchId },
-      p_lines: lines,
-    });
+    const deliveryAccountId = deliveryKey ? mapping.get(deliveryKey)?.accountId : undefined;
+    if (deliveryKey && !deliveryAccountId) {
+      throw new Error('The delivery payment account could not be verified in the active branch.');
+    }
+    const { data, error } = await client.rpc(
+      deliveryKey ? 'post_current_branch_pos_sale_with_delivery' : 'post_current_branch_pos_sale',
+      deliveryKey ? {
+        p_sale: { ...input.sale, branchId, deliveryPaymentAccountKey: deliveryKey },
+        p_lines: lines,
+        p_delivery_account_id: deliveryAccountId,
+      } : {
+        p_sale: { ...input.sale, branchId },
+        p_lines: lines,
+      },
+    );
     if (error) throw safeTreasuryError(error);
-    if (!data?.journalId) throw new Error('POS sale payment was not confirmed. Check Sales before retrying.');
-    return { journalId: String(data.journalId), branchId };
+    if (!data || (deliveryKey && (!data.deliveryJournalId || !data.delivery))
+      || (!deliveryKey && !data.journalId)) {
+      throw new Error('POS checkout was not confirmed. Check Sales and Deliveries before retrying.');
+    }
+    return {
+      journalId: String(data.journalId || ''),
+      branchId,
+      ...(deliveryKey ? {
+        deliveryJournalId: String(data.deliveryJournalId),
+        delivery: data.delivery as Delivery,
+      } : {}),
+    };
   }
 
   const { data, error } = await client.rpc('post_current_tenant_treasury_split_entry', {

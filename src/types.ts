@@ -950,6 +950,15 @@ export interface LedgerEntry {
   counterPartyChannelId?: string;
   receiptFile?: string;
   muamalaFile?: string;
+  // Metadata from the authoritative normalized treasury journal lines.
+  branchId?: string;
+  journalId?: string;
+  journalType?: string;
+  journalSourceType?: string;
+  /** Whether treasury movement involves external cash, not bank-to-bank transfer. */
+  externalCashFlow?: boolean;
+  balanceAfter?: number;
+  currency?: string;
 }
 
 
