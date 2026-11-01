@@ -2050,7 +2050,8 @@ export default function DashboardPOS({
 
         {/* Totals and checkout */}
         <div
-          key={`pos-totals-${cart.length}-${subtotal}-${grandTotal}`}
+          // Keep the discount/delivery inputs mounted while totals change: dynamic keys
+          // would recreate both inputs after each keystroke and drop keyboard focus.
           data-testid="pos-totals"
           className="p-4 bg-slate-50 border-t border-slate-200/80 space-y-4"
         >
@@ -2175,7 +2176,6 @@ export default function DashboardPOS({
 
       {/* Mobile Sticky Cart Summary */}
       <div
-        key={`pos-mobile-total-${cart.length}-${grandTotal}`}
         className="pos-mobile-sticky-cart fixed bottom-[calc(56px+env(safe-area-inset-bottom))] left-0 w-full bg-white border-t border-slate-200 px-4 py-3 z-40 shadow-[0_-4px_10px_-2px_rgba(0,0,0,0.05)]"
       >
         <div className="flex flex-col space-y-2.5">
