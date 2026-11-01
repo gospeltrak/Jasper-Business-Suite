@@ -324,13 +324,38 @@ export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ 
     saveNotifications([newNotif, ...notifications]);
   };
 
-  const unreadCount = notifications.filter(n => !n.isRead).length;
+  // Report-type checkboxes decide which categories appear as alerts.
+  // Events remain durable in the authorized server inbox, so unticking a
+  // category hides it without destroying audit/history records.
+  const notificationFlags: Partial<Record<JasperNotification['notificationType'], keyof JasperModuleNotificationSettings>> = {
+    sale: 'enableSaleNotifications',
+    daily_summary: 'enableMorningSummary',
+    profit_loss_report: 'enableEndDayProfitLoss',
+    expense_report: 'enableEndDayExpenses',
+    weekly_summary: 'enableWeeklySummary',
+    monthly_summary: 'enableMonthlySummary',
+    low_stock: 'enableLowStockAlerts',
+    price_alert: 'enablePriceAlerts',
+    cash_alert: 'enableCashAlerts',
+    stock_alert: 'enableLowStockAlerts',
+  };
+  const visibleNotifications = notifications.filter(notification => {
+    if (!inboxScope || inboxScope.role === 'SuperAdmin') return true;
+    const flag = notificationFlags[notification.notificationType];
+    if (!flag) return true;
+    const scoped = moduleSettings.find(s => s.tenantId === notification.tenantId
+      && (s.moduleName === 'wholesale-retail' || s.moduleName === 'pharmacy'));
+    // Keep previous report alerts visible until a tenant has saved settings.
+    // Sale notifications are opt-in by default to avoid noisy phones.
+    return scoped ? Boolean(scoped[flag]) : notification.notificationType !== 'sale';
+  });
+  const unreadCount = visibleNotifications.filter(n => !n.isRead).length;
 
   return (
     <NotificationContext.Provider value={{
       settings,
       moduleSettings,
-      notifications,
+      notifications: visibleNotifications,
       scheduledReports,
       unreadCount,
       configureInbox,
