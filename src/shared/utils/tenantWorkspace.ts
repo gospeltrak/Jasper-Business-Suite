@@ -1229,6 +1229,69 @@ export function saveTenantDeliveriesOnly(
   return next;
 }
 
+/**
+ * Cancel one receipt, restock and reverse its Money & Bank journal atomically.
+ * Never fall back to a whole-workspace save: that could delete a receipt
+ * without reversing money, or vice versa.
+ */
+export function cancelTenantSaleAtomically(
+  tenantId: string,
+  saleId: string,
+  sales: any[],
+  saleTombstones: Record<string, string>,
+  products: Product[],
+  deliveries: Delivery[],
+): Promise<boolean> {
+  const previous = workspaceSaveQueue.get(tenantId) || Promise.resolve(true);
+  const task = previous.catch(() => false).then(async (): Promise<boolean> => {
+    if (!tenantId || !saleId || !canWriteBusinessDataOnline()) {
+      throw new Error('Connect to the internet and choose an active branch before cancelling this receipt.');
+    }
+    const client = await getConfiguredClient();
+    if (!client) throw new Error('Cannot reach the secure cancellation service. Check your internet connection.');
+    const { data, error } = await client.rpc('cancel_current_branch_sale', {
+      p_sale_id: saleId,
+      p_sales: sales,
+      p_sale_tombstones: saleTombstones,
+      p_products: products,
+      p_deliveries: deliveries,
+    });
+    if (error) {
+      const message = String(error.message || '');
+      const code = String(error.code || '');
+      if (/installment|audit history/i.test(message)) {
+        throw new Error('This receipt contains recorded installment payments. Keep the payment audit history and use an authorized reversal or refund.');
+      }
+      if (/negative account balance/i.test(message)) {
+        throw new Error('Cancellation cannot reverse Money & Bank: the account has insufficient available funds. Reconcile the account before retrying.');
+      }
+      if (code === '42501') throw new Error('You need access to this branch and Money & Bank reversal permission to cancel this receipt.');
+      if (code === 'P0002' || code === '40001') throw new Error('This receipt has changed or was already cancelled. Refresh Sales before retrying.');
+      if (['PGRST202', '42883'].includes(code)) throw new Error('Secure receipt cancellation is unavailable. Contact support; the sale was not changed.');
+      console.warn('[workspace] atomic receipt cancellation refused:', code, message);
+      throw new Error('Receipt cancellation was not completed. No stock or Money & Bank reversal was committed.');
+    }
+    if (data?.status !== 'cancelled' || !Array.isArray(data?.sales) || data.sales.some((item: any) => item.id === saleId)) {
+      throw new Error('Cancellation was not confirmed by the database. Refresh Sales before retrying.');
+    }
+    const base = readCachedWorkspace(tenantId) || emptyWorkspace();
+    cacheWorkspace(tenantId, {
+      ...base,
+      sales: data.sales,
+      saleTombstones: data.saleTombstones || saleTombstones,
+      products: Array.isArray(data.products) ? data.products : products,
+      deliveries: Array.isArray(data.deliveries) ? data.deliveries : deliveries,
+    });
+    return true;
+  });
+  const queued = task.then(() => true, () => false);
+  workspaceSaveQueue.set(tenantId, queued);
+  void queued.finally(() => {
+    if (workspaceSaveQueue.get(tenantId) === queued) workspaceSaveQueue.delete(tenantId);
+  });
+  return task;
+}
+
 // Same narrow-save pattern, for Sales. Unlike Expenses/Deliveries, two
 // Sales handlers are genuinely atomic with other keys today:
 // handleAddSale (and the bulk sales sync save) only ever touch `sales`,
