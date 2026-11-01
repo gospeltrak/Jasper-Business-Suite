@@ -354,7 +354,10 @@ test('workspace sync uses realtime with a low-frequency recovery poll and coales
   const dashboardSource = await read('src/components/Dashboard.tsx');
   const workspaceSource = await read('src/shared/utils/tenantWorkspace.ts');
   assert.match(dashboardSource, /scheduleTenantWorkspaceSave\(activeTenant\.id, workspace\)/);
-  assert.match(dashboardSource, /90_000/);
+  assert.match(dashboardSource, /MIN_RECOVERY_REFRESH_MS = 3 \* 60 \* 1000/);
+  assert.match(dashboardSource, /5 \* 60 \* 1000/);
+  assert.match(dashboardSource, /if \(!force && Date\.now\(\) - lastFullRefreshAt < MIN_RECOVERY_REFRESH_MS\) return/);
+  assert.match(dashboardSource, /const handleFocus = \(\) => \{[\s\S]{0,210}refreshWorkspaceFromDatabase\(\)/);
   assert.doesNotMatch(dashboardSource, /setInterval\(refreshWorkspaceFromDatabase,\s*5000\)/);
   assert.match(workspaceSource, /AUTO_SAVE_DELAY_MS = 1000/);
   assert.match(workspaceSource, /pendingWorkspaceAutoSaves/);
