@@ -156,3 +156,21 @@ test('repeated cart additions do not regenerate the entire POS product grid', as
   assert.match(pos, /id="pos-product-grid"[\s\S]*?\{\s*filteredProducts\.length === 0 \? \([\s\S]*?\)\s*:\s*\(\s*productCards\s*\)\}/);
   assert.doesNotMatch(pos.slice(pos.indexOf('id="pos-product-grid"'), pos.indexOf('Cart Summary right panel')), /filteredProducts\.map\(prod =>/);
 });
+
+
+test('POS sessions and active forms never reload automatically during chunk or PWA update checks', async () => {
+  const loader = await read('src/shared/utils/lazyWithReload.ts');
+  const index = await read('index.html');
+  const dashboard = await read('src/components/Dashboard.tsx');
+  assert.match(loader, /=> lazy\(importer\)/);
+  assert.doesNotMatch(loader, /window\.location\.reload\(/);
+  assert.match(index, /var lastUpdateCheckAt = 0/);
+  assert.match(index, /var updateCheckInFlight = false/);
+  assert.match(index, /lastUpdateCheckAt < updateCheckIntervalMs/);
+  assert.match(index, /window\.setInterval\(checkForUpdate, updateCheckIntervalMs\)/);
+  assert.doesNotMatch(index, /window\.location\.reload\(/);
+  // Data recovery remains, but Android keyboard/focus churn does not force
+  // a full tenant/branch reload on every interaction.
+  assert.match(dashboard, /if \(!force && Date\.now\(\) - lastFullRefreshAt < MIN_RECOVERY_REFRESH_MS\) return/);
+  assert.match(dashboard, /const handleFocus = \(\) => \{[\s\S]*?void refreshWorkspaceFromDatabase\(\);/);
+});
