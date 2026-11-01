@@ -1559,21 +1559,31 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         if (tenantError) return res.status(503).json({ error: 'Could not verify Pro client names.' });
         names = new Map((tenants || []).map((item: any) => [String(item.id), String(item.name || 'Unnamed business')]));
       }
+      const nowMs = Date.now();
       return res.json({
-        clients: (records || []).map((entry: any) => ({
-          tenantId: entry.tenant_id,
-          businessName: names.get(String(entry.tenant_id)) || 'Business unavailable',
-          status: entry.status,
-          startsAt: entry.starts_at,
-          expiresAt: entry.expires_at,
-          updatedAt: entry.updated_at,
-          features: {
-            settle: entry.settle_enabled === true,
-            shiftReports: entry.shift_reports_enabled === true,
-            cashierAccountability: entry.cashier_accountability_enabled === true,
-            parkSale: entry.park_sale_enabled === true,
-          },
-        })),
+        clients: (records || []).map((entry: any) => {
+          const startsMs = entry.starts_at ? new Date(entry.starts_at).getTime() : null;
+          const expiresMs = entry.expires_at ? new Date(entry.expires_at).getTime() : null;
+          const expired = expiresMs !== null && (!Number.isFinite(expiresMs) || nowMs >= expiresMs);
+          const notStarted = startsMs !== null && (!Number.isFinite(startsMs) || nowMs < startsMs);
+          const boundedTrial = entry.status !== 'trial' || (startsMs !== null && expiresMs !== null);
+          const active = (entry.status === 'trial' || entry.status === 'active')
+            && !expired && !notStarted && boundedTrial;
+          return {
+            tenantId: entry.tenant_id,
+            businessName: names.get(String(entry.tenant_id)) || 'Business unavailable',
+            status: expired ? 'expired' : notStarted ? 'inactive' : entry.status,
+            startsAt: entry.starts_at,
+            expiresAt: entry.expires_at,
+            updatedAt: entry.updated_at,
+            features: {
+              settle: active && entry.settle_enabled === true,
+              shiftReports: active && entry.shift_reports_enabled === true,
+              cashierAccountability: active && entry.cashier_accountability_enabled === true,
+              parkSale: active && entry.park_sale_enabled === true,
+            },
+          };
+        }),
         total: Number(count || 0),
         hasMore: Number(count || 0) > 50,
       });
