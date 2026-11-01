@@ -219,6 +219,18 @@ export default function DashboardPOS({
   const [orderDiscountDraft, setOrderDiscountDraft] = useState('');
   const [orderDiscountType, setOrderDiscountType] = useState<'percent' | 'cash'>('percent');
 
+  // Clearing the final cart item must also clear order-level adjustments.
+  // Previously Void/Clear removed products but left e.g. a 100% discount,
+  // so the next TSh15,000 item displayed TSh0 until the cashier edited Discount.
+  // This also applies to removing the last item via quantity-minus or Remove.
+  useEffect(() => {
+    if (cart.length !== 0) return;
+    setOrderDiscount(0);
+    setOrderDiscountDraft('');
+    setOrderDiscountType('percent');
+    setDeliveryCost(0);
+  }, [cart.length]);
+
   // Backdate date picker / Past day sales logic
   const [saleDate, setSaleDate] = useState<string>(() => {
     const d = new Date();
