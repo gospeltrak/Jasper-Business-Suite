@@ -512,7 +512,7 @@ export default function DashboardPOS({
   
   // Custom categories list loaded dynamic from branch store settings.
   // Deduplicate case-insensitively — "Groceries" and "groceries" are the same.
-  const configuredCategories = (() => {
+  const configuredCategories = useMemo(() => {
     // `products` is already scoped to the selected branch by Dashboard.
     // Tenant-wide settings must not leak another branch's categories into POS.
     const raw = products.map(p => p.category?.trim()).filter(Boolean) as string[];
@@ -524,8 +524,8 @@ export default function DashboardPOS({
       seen.add(key);
       return true;
     });
-  })();
-  const categories = ['All', ...configuredCategories];
+  }, [products]);
+  const categories = useMemo(() => ['All', ...configuredCategories], [configuredCategories]);
 
   const getPharmacyDoseWeight = (product: Product, dosageType: 'packet' | 'full' | 'half' | 'tabs' | 'strip' | 'dose' | 'unit' = 'packet', tabsSelected?: number) => {
     return resolvePharmacyPosLine({ product, selectedLevel: dosageType, tabsSelected }).unitsPerSelectedLevel;
