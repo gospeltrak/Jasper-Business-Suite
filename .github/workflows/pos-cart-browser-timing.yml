@@ -1,0 +1,44 @@
+name: POS Cart 5-Click Browser Timing (QA only)
+
+on:
+  push:
+    branches: [qa/pos-cart-timing-20261101]
+    paths:
+      - 'qa/pos-cart-speed.html'
+      - 'qa/pos-cart-speed.tsx'
+      - 'qa/measure_pos_cart.py'
+      - '.github/workflows/pos-cart-browser-timing.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mobile-pos-cart:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: |
+          npm ci --no-audit --no-fund
+          python -m pip install --disable-pip-version-check playwright==1.58.0
+          (which google-chrome && google-chrome --version) || (which chromium && chromium --version)
+      - name: Run isolated actual POS in Vite
+        run: |
+          npx vite --host 127.0.0.1 --port 4178 --strictPort > /tmp/orvix-vite-benchmark.log 2>&1 &
+          for i in $(seq 1 50); do
+            if curl -fsS http://127.0.0.1:4178/qa/pos-cart-speed.html >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat /tmp/orvix-vite-benchmark.log
+          exit 1
+      - name: Time actual product add to visible cart total at 4x CPU slowdown
+        run: python qa/measure_pos_cart.py
