@@ -516,19 +516,38 @@ test('sale deletion inventory reversal restores exact base and batch quantities'
   assert.equal(restored.batches?.[0].quantityRemainingBase, 3.5);
 });
 
-test('sale deletion remains tenant-scoped and updates canonical related data', async () => {
+test('receipt cancellation is tenant scoped, atomic with treasury and idempotent on rapid taps', async () => {
   const dashboardSource = await read('src/components/Dashboard.tsx');
   const salesSource = await read('src/modules/sales/DashboardSalesList.tsx');
-  assert.match(dashboardSource, /saleHasTenantConflict\(sale,\s*persistedSale,\s*tenantId\)/);
-  assert.match(dashboardSource, /markLocalSaleTombstone\(tenantId,\s*sale\.id/);
-  assert.match(dashboardSource, /reverseSaleInventory\(persistedSale,\s*currentProducts/);
-  assert.match(dashboardSource, /filter\(delivery => delivery\.saleId !== sale\.id\)/);
-  assert.match(dashboardSource, /saveTenantSalesOnly\(\s*tenantId,\s*nextSales,\s*nextSaleTombstones,\s*restoredProducts,\s*nextDeliveries,?\s*\)/);
-  assert.match(dashboardSource, /Sale could not be deleted from the system\. Nothing was removed\./);
+  const workspaceSource = await read('src/shared/utils/tenantWorkspace.ts');
+  const migration = await read('supabase/migrations/20261102005500_atomic_cancel_receipt_and_treasury.sql');
+  const cancelHandler = dashboardSource.slice(
+    dashboardSource.indexOf('  const handleDeleteSale = async'),
+    dashboardSource.indexOf('  const handleSendToDeliveryNote ='),
+  );
+  assert.match(cancelHandler, /saleHasTenantConflict\(sale,\s*persistedSale,\s*tenantId\)/);
+  assert.match(cancelHandler, /recordBelongsToActiveBranch\(persistedSale, activeBranchSelection\)/);
+  assert.match(cancelHandler, /reverseSaleInventory\(persistedSale,\s*currentProducts/);
+  assert.match(cancelHandler, /filter\(delivery => delivery\.saleId !== sale\.id\)/);
+  assert.match(cancelHandler, /await cancelTenantSaleAtomically\(/);
+  assert.match(cancelHandler, /markLocalSaleTombstone\(tenantId, sale\.id/);
+  assert.doesNotMatch(cancelHandler, /reverseTreasuryEntry\(/);
+  assert.doesNotMatch(cancelHandler, /await saveTenantSalesOnly\(/);
+  assert.match(workspaceSource, /client\.rpc\('cancel_current_branch_sale'/);
+  assert.match(workspaceSource, /workspaceSaveQueue\.set\(tenantId, queued\)/);
+  assert.match(workspaceSource, /if \(!data \|\| data\.status !== 'cancelled'/);
   assert.match(salesSource, /await onDeleteSale\(saleToDelete\)/);
-  assert.match(salesSource, /setIsDeletingSale\(true\)/);
-  assert.match(salesSource, /Receipt could not be cancelled safely\. Nothing was changed\./);
+  assert.match(salesSource, /deletingSaleInFlightRef\.current = true/);
+  assert.match(salesSource, /setDeleteSaleError\(error\?\.message/);
   assert.match(salesSource, /Cancelling…/);
+  assert.match(migration, /create or replace function public\.cancel_current_branch_sale\(/i);
+  assert.match(migration, /perform 1 from public\.tenant_workspaces where tenant_id=v_tenant for update/);
+  assert.match(migration, /v_saved:=public\.save_current_branch_sales\(/);
+  assert.match(migration, /j\.reversal_of_journal_id=v_journal::uuid/);
+  assert.match(migration, /public\.reverse_current_tenant_treasury_journal\(/);
+  assert.match(migration, /d\.value->>'saleId'=p_sale_id/); // database targets linked deliveries only
+  assert.match(migration, /grant execute on function public\.cancel_current_branch_sale\(text,jsonb,jsonb,jsonb,jsonb\) to authenticated/);
+  assert.doesNotMatch(migration, /\b(?:delete from|truncate table|drop table)\b/i);
 });
 
 test('delivery notes load tenant-scoped source records without manual item editing', async () => {
