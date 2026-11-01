@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   # Build a fresh internal QA APK when the native development branch changes.
   push:
-    branches: [feature/orvix-native-offline-v1, feature/scanner-printer-native-58-80, qa/orvix-android-pr39-20261101]
+    branches: [feature/orvix-native-offline-v1, feature/scanner-printer-native-58-80, qa/orvix-android-pr39-20261101, qa/orvix-android-pr39-pos-cart-focus-20261101]
     paths:
       - 'src/**'
       - 'scripts/**'
