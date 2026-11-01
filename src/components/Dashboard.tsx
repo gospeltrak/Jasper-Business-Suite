@@ -847,6 +847,10 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     let unsubscribe = () => undefined;
     let unsubscribeBusinessType = () => undefined;
     let refreshInFlight = false;
+    // Realtime already carries normal changes. A tab focus/keyboard event
+    // must not re-fetch every product, ledger and form on a hot POS screen.
+    let lastFullRefreshAt = Date.now();
+    const MIN_RECOVERY_REFRESH_MS = 3 * 60 * 1000;
     cloudWorkspaceLoadedRef.current = false;
     localWorkspaceChangedAtRef.current = 0;
     setWorkspaceReady(false);
@@ -924,6 +928,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
 
     const refreshWorkspaceFromDatabase = async (force = false) => {
       if (!active || !navigator.onLine || refreshInFlight) return;
+      if (!force && Date.now() - lastFullRefreshAt < MIN_RECOVERY_REFRESH_MS) return;
       if (Date.now() - localWorkspaceChangedAtRef.current < LOCAL_WORKSPACE_PROTECTION_MS) return;
       refreshInFlight = true;
       try {
@@ -931,6 +936,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
         const workspace = await loadTenantWorkspace(activeTenant.id);
         if (workspace) {
           cloudWorkspaceLoadedRef.current = true;
+          lastFullRefreshAt = Date.now();
           applyWorkspace(workspace);
         }
       } finally {
@@ -1016,7 +1022,9 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       refreshWorkspaceFromDatabase(true);
     };
     const handleFocus = () => {
-      refreshWorkspaceFromDatabase(true);
+      // Focus also fires during native keyboard interactions. Refresh only
+      // if the realtime recovery window has truly elapsed.
+      void refreshWorkspaceFromDatabase();
     };
     // Realtime is the primary synchronisation path. This low-frequency,
     // visible-tab refresh is only a recovery net for silent disconnects.
@@ -1024,7 +1032,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       if (document.visibilityState === 'visible') {
         void refreshWorkspaceFromDatabase();
       }
-    }, 90_000);
+    }, 5 * 60 * 1000);
 
     // A tab closed/killed outright (backgrounded app swiped away, browser
     // quit) never reaches this effect's own React cleanup below in time —
@@ -1536,13 +1544,17 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
 
   // Multi-tenant pivot controller keys
   const currentTenantId = user.activeTenant || user.tenantId;
-  const activeProducts = currentTenantId
-    ? scopeProductsForBranch(
-      productsMap[activeTenant.id] || [],
-      branchStocksMap[activeTenant.id] || [],
-      activeBranchSelection,
-    )
-    : [];
+  // Scope branch inventory only when its source or selected branch changes.
+  // Previously every unrelated Dashboard update (notifications, badges, clock,
+  // etc.) created a fresh product array. POS then re-filtered, re-priced and
+  // re-rendered EVERY product image card in the catalog during an active sale.
+  const tenantProducts = productsMap[activeTenant.id];
+  const tenantBranchStocks = branchStocksMap[activeTenant.id];
+  const activeProducts = React.useMemo(() =>
+    currentTenantId
+      ? scopeProductsForBranch(tenantProducts || [], tenantBranchStocks || [], activeBranchSelection)
+      : [],
+  [currentTenantId, tenantProducts, tenantBranchStocks, activeBranchSelection]);
   const activeSales: Sale[] = currentTenantId ? scopeBranchRecords<Sale>(salesMap[activeTenant.id] || [], activeBranchSelection) : [];
   const activeExpenses: Expense[] = currentTenantId ? scopeBranchRecords<Expense>(expensesMap[activeTenant.id] || [], activeBranchSelection) : [];
   const activePurchases: Purchase[] = currentTenantId ? scopeBranchRecords<Purchase>(purchasesMap[activeTenant.id] || [], activeBranchSelection) : [];

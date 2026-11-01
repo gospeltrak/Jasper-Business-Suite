@@ -24,6 +24,43 @@ export async function evictImageCache(url: string): Promise<void> {
   }
 }
 
+// Coalesce duplicate image loads across product cards, POS cart, and Purchases.
+// A single URL should never be fetched/decoded repeatedly after each UI remount.
+const inFlightLoads = new Map<string, Promise<string>>();
+
+async function loadCachedImage(src: string): Promise<string> {
+  if (!src || src.startsWith('data:')) return src;
+  const ready = memoryCache.get(src);
+  if (ready) return ready;
+  const pending = inFlightLoads.get(src);
+  if (pending) return pending;
+
+  const task = (async () => {
+    try {
+      if (!('caches' in window)) return src;
+      const cache = await caches.open('jasper-image-cache-v1');
+      const existing = await cache.match(src);
+      const response = existing || await fetch(src, { mode: 'cors' });
+      if (!response.ok) return src;
+      if (!existing) {
+        // Caching is best effort. An unavailable/quota-limited Cache API
+        // must not hide an otherwise valid product image.
+        await cache.put(src, response.clone()).catch(() => undefined);
+      }
+      const localUrl = URL.createObjectURL(await response.blob());
+      memoryCache.set(src, localUrl);
+      return localUrl;
+    } catch {
+      return src;
+    }
+  })();
+  inFlightLoads.set(src, task);
+  try { return await task; }
+  finally {
+    if (inFlightLoads.get(src) === task) inFlightLoads.delete(src);
+  }
+}
+
 interface CachedImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   src: string;
   alt?: string;
@@ -31,69 +68,33 @@ interface CachedImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   referrerPolicy?: React.HTMLAttributeReferrerPolicy;
 }
 
-export default function CachedImage({ src, alt, className, referrerPolicy, ...props }: CachedImageProps) {
-  const [cachedSrc, setCachedSrc] = useState<string>(() => {
-    if (!src) return '';
-    if (src.startsWith('data:')) return src;
-    return memoryCache.get(src) || '';
-  });
-  const [loaded, setLoaded] = useState(false);
+function CachedImage({ src, alt, className, referrerPolicy, ...props }: CachedImageProps) {
+  // Restore cached images instantly on mount, without blank/opacity flashes.
+  const immediate = () => src.startsWith('data:') ? src : (memoryCache.get(src) || '');
+  const [cachedSrc, setCachedSrc] = useState<string>(immediate);
+  const [loaded, setLoaded] = useState<boolean>(() => Boolean(immediate()));
 
   useEffect(() => {
+    let active = true;
     if (!src) {
       setCachedSrc('');
-      return;
+      setLoaded(false);
+      return () => { active = false; };
     }
-
-    if (src.startsWith('data:')) {
-      setCachedSrc(src);
+    const hit = src.startsWith('data:') ? src : memoryCache.get(src);
+    if (hit) {
+      setCachedSrc(hit);
       setLoaded(true);
-      return;
+      return () => { active = false; };
     }
-
-    // Check memory cache first
-    const memoryHit = memoryCache.get(src);
-    if (memoryHit) {
-      setCachedSrc(memoryHit);
+    setCachedSrc(src);
+    setLoaded(false);
+    void loadCachedImage(src).then((imageSrc) => {
+      if (!active) return;
+      setCachedSrc(imageSrc);
       setLoaded(true);
-      return;
-    }
-
-    let isMounted = true;
-
-    const cacheImage = async () => {
-      try {
-        if ('caches' in window) {
-          const cache = await caches.open('jasper-image-cache-v1');
-          const cachedResponse = await cache.match(src);
-
-          if (cachedResponse) {
-            const blob = await cachedResponse.blob();
-            const localUrl = URL.createObjectURL(blob);
-            memoryCache.set(src, localUrl);
-            if (isMounted) { setCachedSrc(localUrl); setLoaded(true); }
-          } else {
-            const response = await fetch(src, { mode: 'cors' });
-            if (response.ok) {
-              await cache.put(src, response.clone());
-              const blob = await response.blob();
-              const localUrl = URL.createObjectURL(blob);
-              memoryCache.set(src, localUrl);
-              if (isMounted) { setCachedSrc(localUrl); setLoaded(true); }
-            } else {
-              if (isMounted) { setCachedSrc(src); setLoaded(true); }
-            }
-          }
-        } else {
-          if (isMounted) { setCachedSrc(src); setLoaded(true); }
-        }
-      } catch {
-        if (isMounted) { setCachedSrc(src); setLoaded(true); }
-      }
-    };
-
-    cacheImage();
-    return () => { isMounted = false; };
+    });
+    return () => { active = false; };
   }, [src]);
 
   return (
@@ -107,3 +108,5 @@ export default function CachedImage({ src, alt, className, referrerPolicy, ...pr
     />
   );
 }
+
+export default React.memo(CachedImage);

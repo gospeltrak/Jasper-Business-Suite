@@ -306,37 +306,35 @@
     <!-- PWA Service Worker Registration -->
     <script>
       if ('serviceWorker' in navigator) {
-        var jasperRefreshingForServiceWorker = false;
+        // Updating the service worker must NEVER replace the running checkout,
+        // active cart, or partially typed form. The fresh worker supplies new
+        // assets automatically on the NEXT full app launch/navigation.
         navigator.serviceWorker.addEventListener('controllerchange', function() {
-          if (jasperRefreshingForServiceWorker) return;
-          jasperRefreshingForServiceWorker = true;
-          // Reloading the instant a new version activates can land mid-keystroke
-          // on a login/registration form (or any other form) and wipe out an
-          // in-flight request along with it, so wait for the field to be left
-          // before reloading instead of forcing it immediately.
-          var reloadWhenIdle = function() {
-            var active = document.activeElement;
-            var isEditingForm = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA');
-            if (isEditingForm) {
-              window.setTimeout(reloadWhenIdle, 2000);
-              return;
-            }
-            window.location.reload();
-          };
-          reloadWhenIdle();
+          console.info('Orvix update installed; current session stays uninterrupted.');
         });
 
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' })
             .then((registration) => {
               console.log('Orvix PWA update service is ready.');
+              var lastUpdateCheckAt = 0;
+              var updateCheckInFlight = false;
+              var updateCheckIntervalMs = 15 * 60 * 1000;
               var checkForUpdate = function() {
-                registration.update().catch(() => {
-                  console.warn('PWA update check is temporarily unavailable.');
-                });
+                // Focus/pageshow/visibility frequently fire together on Android.
+                // Do not re-fetch PWA assets repeatedly while the seller is
+                // typing, scanning or adding items to the cart.
+                if (document.visibilityState === 'hidden' || updateCheckInFlight ||
+                    Date.now() - lastUpdateCheckAt < updateCheckIntervalMs) return;
+                lastUpdateCheckAt = Date.now();
+                updateCheckInFlight = true;
+                registration.update()
+                  .catch(() => console.warn('PWA update check is temporarily unavailable.'))
+                  .finally(() => { updateCheckInFlight = false; });
               };
               checkForUpdate();
-              window.setInterval(checkForUpdate, 60000);
+              // The running session never reloads; next app launch uses updates.
+              window.setInterval(checkForUpdate, updateCheckIntervalMs);
               // An installed PWA is usually launched from a device home
               // screen icon into an already-registered service worker, not
               // a fresh page load — the load-time check above only runs

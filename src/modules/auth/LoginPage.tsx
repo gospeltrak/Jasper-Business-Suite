@@ -1,4 +1,4 @@
-import { useState, FormEvent, useEffect, useSyncExternalStore } from 'react';
+import { useState, useRef, FormEvent, useEffect, useSyncExternalStore } from 'react';
 import { useTranslation } from '../../shared/contexts/LanguageContext';
 import { Shield, Eye, EyeOff, Check, Mail } from "lucide-react";
 import { DEMO_USERS } from "../../data";
@@ -160,8 +160,12 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   const [emailChecked, setEmailChecked] = useState(false);
 
   // Sign in Form States
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  // Keep sign-in credential inputs native/uncontrolled. Updating React state
+  // for every typed character can cause Android WebView keyboard focus loss
+  // when the auth screen is re-rendered by surrounding providers.
+  // Read the current DOM values only when the form is submitted.
+  const loginEmailInputRef = useRef<HTMLInputElement>(null);
+  const loginPasswordInputRef = useRef<HTMLInputElement>(null);
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasActiveLoginAttempt, setHasActiveLoginAttempt] = useState(false);
@@ -407,7 +411,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   const handleCheckEmail = (e: FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (!email.trim()) {
+    if (!loginEmailInputRef.current?.value.trim()) {
       setError('Please enter your WhatsApp number to proceed.');
       return;
     }
@@ -613,7 +617,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       return;
 
     } else {
-      triggerLogin(email, password);
+      triggerLogin(loginEmailInputRef.current?.value || '', loginPasswordInputRef.current?.value || '');
     }
   };
 
@@ -1524,10 +1528,11 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                   <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase block tracking-wider">{t('emailLabel')}</label>
                   <div className="relative">
                     <input
+                      ref={loginEmailInputRef}
                       type="email"
                       required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      autoComplete="username"
+                      defaultValue=""
                       placeholder="email@example.com"
                       className="w-full bg-white border border-slate-200 focus:border-emerald-500 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 placeholder:text-slate-400 outline-none transition-all"
                     />
@@ -1540,10 +1545,11 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                   </div>
                   <div className="relative">
                     <input
+                      ref={loginPasswordInputRef}
                       type={showLoginPassword ? 'text' : 'password'}
                       required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      autoComplete="current-password"
+                      defaultValue=""
                       placeholder="••••••••"
                       className="w-full bg-white border border-slate-200 focus:border-emerald-500 rounded-xl px-3.5 py-2.5 pr-11 text-xs text-slate-800 placeholder:text-slate-400 outline-none font-mono transition-all"
                     />

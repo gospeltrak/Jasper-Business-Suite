@@ -2541,6 +2541,32 @@ button:active:not(:disabled),
   padding: 16px;
   margin-bottom: 22px;
 }
+/* Compact payment header: product amount plus exactly one delivery note.
+   The note spans the width, so it does not wrap beneath the amount on phones. */
+#dashboard-scaffold .pos-checkout-total.pos-checkout-total-compact {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 8px;
+  row-gap: 7px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+}
+#dashboard-scaffold .pos-checkout-total-compact .pos-checkout-eyebrow {
+  min-width: 0;
+}
+#dashboard-scaffold .pos-checkout-total-compact .pos-checkout-delivery-note {
+  grid-column: 1 / -1;
+  margin: 0;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 10px;
+  line-height: 1.35;
+  color: #538575;
+  font-weight: 600;
+}
 #dashboard-scaffold .pos-checkout-eyebrow {
   display: block;
   color: #277459;

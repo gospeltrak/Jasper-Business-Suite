@@ -219,6 +219,18 @@ export default function DashboardPOS({
   const [orderDiscountDraft, setOrderDiscountDraft] = useState('');
   const [orderDiscountType, setOrderDiscountType] = useState<'percent' | 'cash'>('percent');
 
+  // Clearing the final cart item must also clear order-level adjustments.
+  // Previously Void/Clear removed products but left e.g. a 100% discount,
+  // so the next TSh15,000 item displayed TSh0 until the cashier edited Discount.
+  // This also applies to removing the last item via quantity-minus or Remove.
+  useEffect(() => {
+    if (cart.length !== 0) return;
+    setOrderDiscount(0);
+    setOrderDiscountDraft('');
+    setOrderDiscountType('percent');
+    setDeliveryCost(0);
+  }, [cart.length]);
+
   // Backdate date picker / Past day sales logic
   const [saleDate, setSaleDate] = useState<string>(() => {
     const d = new Date();
@@ -500,7 +512,7 @@ export default function DashboardPOS({
   
   // Custom categories list loaded dynamic from branch store settings.
   // Deduplicate case-insensitively — "Groceries" and "groceries" are the same.
-  const configuredCategories = (() => {
+  const configuredCategories = useMemo(() => {
     // `products` is already scoped to the selected branch by Dashboard.
     // Tenant-wide settings must not leak another branch's categories into POS.
     const raw = products.map(p => p.category?.trim()).filter(Boolean) as string[];
@@ -512,8 +524,8 @@ export default function DashboardPOS({
       seen.add(key);
       return true;
     });
-  })();
-  const categories = ['All', ...configuredCategories];
+  }, [products]);
+  const categories = useMemo(() => ['All', ...configuredCategories], [configuredCategories]);
 
   const getPharmacyDoseWeight = (product: Product, dosageType: 'packet' | 'full' | 'half' | 'tabs' | 'strip' | 'dose' | 'unit' = 'packet', tabsSelected?: number) => {
     return resolvePharmacyPosLine({ product, selectedLevel: dosageType, tabsSelected }).unitsPerSelectedLevel;
@@ -935,15 +947,22 @@ export default function DashboardPOS({
       }).selectedUnitPrice;
     }
 
-    return unitPrice;
-  }, [activeTenant.businessType, sellingChannel, getChannelPrices, getRetailPackageConfig, supportsFractionSale, usesPharmacyHierarchy]);
+    // A selectable card can have a valid batch/retail selling price even if
+    // an old optional unit-price field is zero. Never show TSh15,000 on the
+    // catalog card and TSh0 immediately after selecting that same product.
+    const displayedChannelPrice = getChannelPrice(item.product);
+    const positivePrice = Number(unitPrice);
+    return Number.isFinite(positivePrice) && positivePrice > 0
+      ? positivePrice
+      : Math.max(0, Number(displayedChannelPrice) || Number(item.product.sellingPrice) || 0);
+  }, [activeTenant.businessType, sellingChannel, getChannelPrice, getChannelPrices, getRetailPackageConfig, supportsFractionSale, usesPharmacyHierarchy]);
 
   // Pre-compute prices for ALL filtered products once — not per card per render
   const productPriceMap = useMemo(() => {
     const map = new Map<string, number>();
     filteredProducts.forEach(p => map.set(p.id, getChannelPrice(p)));
     return map;
-  }, [filteredProducts, getBatchAwareChannelPrice]);
+  }, [filteredProducts, getChannelPrice]);
 
   // Pre-compute remaining stock labels once per render
   const productRemainingMap = useMemo(() => {
@@ -956,6 +975,133 @@ export default function DashboardPOS({
     });
     return map;
   }, [filteredProducts, activeTenant.businessType]);
+
+  // CRITICAL MOBILE POS PERFORMANCE: adding the 3rd+ product used to re-render
+  // the ENTIRE catalog (cards, pictures, batch-price tags) on every cart change.
+  // Cache the product-card React elements until the search/category/channel,
+  // actual product data, or selling price changes. Cart quantity/totals should
+  // update only the cart and sticky total; no catalog DOM reconciliation.
+  const productCards = useMemo(() => filteredProducts.map(prod => {
+              const shopQty = prod.shopStockQty ?? 0;
+              const isLow = shopQty <= prod.alertQty;
+              const isOut = shopQty <= 0;
+              const displayPrice = productPriceMap.get(prod.id) ?? prod.sellingPrice;
+              const remainingLabel = productRemainingMap.get(prod.id) ?? '';
+              return (
+                <div 
+                  key={prod.id}
+                  data-pos-product-card
+                  onClick={() => {
+                    if (!isOut) {
+                      addToCart(prod);
+                      playCartSuccessBeepAfterPaint();
+                    } else {
+                      playOutOfStockBeep();
+                    }
+                  }}
+                  className={`w-full min-w-0 bg-white border rounded-xl select-none relative shadow-xs active:scale-95 group ${!showProductImages ? 'pos-product-card-no-image' : ''} ${
+                    showProductImages
+                      ? 'p-0 lg:p-5 xl:p-3 h-full flex flex-col justify-between overflow-hidden lg:overflow-visible lg:rounded-3xl'
+                      : 'p-3 md:p-4 flex items-center gap-3 overflow-hidden'
+                  } ${
+                    isOut 
+                      ? 'border-slate-200 opacity-55 cursor-not-allowed bg-slate-50' 
+                      : 'border-slate-200 hover:border-slate-350 cursor-pointer'
+                  }`}
+                >
+                  {/* Product image — falls back to a plain icon tile when the
+                      product has none, so every card in the row keeps the
+                      same height instead of the image block disappearing */}
+                  {showProductImages && (
+                    <div className="pos-tablet-product-image w-full aspect-square lg:aspect-auto lg:h-36 xl:h-20 bg-slate-50 border-b lg:border border-slate-100 rounded-t-xl lg:rounded-2xl overflow-hidden flex items-center justify-center relative shrink-0">
+                      {getProductImage(prod) !== '' ? (
+                        <CachedImage
+                          src={getProductImage(prod)}
+                          alt={prod.name}
+                          loading="lazy"
+                          decoding="async"
+                          className="w-full h-full lg:group-hover:scale-105 select-none pointer-events-none object-contain p-1.5"
+                          referrerPolicy="no-referrer"
+                        />
+                      ) : (
+                        <Package className="w-7 h-7 lg:w-10 lg:h-10 text-slate-300" strokeWidth={1.5} />
+                      )}
+                      {isLow && !isOut && (
+                        <span className="absolute top-1.5 left-1.5 md:top-2.5 md:left-2.5 bg-amber-500 text-white px-1.5 md:px-2 py-0.5 rounded-lg text-[8px] md:text-[8px] font-black tracking-wider uppercase font-mono shadow-xs">
+                          LOW ({shopQty})
+                        </span>
+                      )}
+                      {isOut && (
+                        <span className="absolute top-1.5 left-1.5 md:top-2.5 md:left-2.5 bg-red-600 text-white px-1.5 md:px-2 py-0.5 rounded-lg text-[8px] md:text-[8px] font-black tracking-wider uppercase font-mono shadow-xs animate-pulse">
+                          OUT
+                        </span>
+                      )}
+                      {!isOut && (
+                        <span
+                          className="absolute top-1.5 right-1.5 md:top-2.5 md:right-2.5 max-w-[70%] truncate rounded-full border border-white/80 bg-white/95 px-1.5 md:px-2 py-0.5 text-[7px] sm:text-[8px] font-extrabold leading-tight text-slate-700 shadow-sm backdrop-blur-sm"
+                          title={remainingLabel}
+                        >
+                          <span className={`mr-1 inline-block h-1.5 w-1.5 rounded-full ${isLow ? 'bg-amber-500' : 'bg-emerald-500'}`} />
+                          {remainingLabel}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Text details and bottom panel wrapper */}
+                  <div className={`${showProductImages ? 'flex-grow flex flex-col justify-between min-w-0 mt-1.5 px-1.5 pb-2 sm:mt-2 sm:px-2 sm:pb-2.5 lg:px-0 lg:pb-0 xl:mt-1' : 'flex-1 min-w-0 grid grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_auto] items-center gap-3'}`}>
+                    {/* Product Metadata & Text layout */}
+                    <div className="space-y-1 min-w-0">
+                      <div className={`${showProductImages ? 'hidden lg:flex' : 'flex'} items-center justify-between gap-2`}>
+                        <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 px-1.5 py-0.5 rounded-xs leading-none">
+                          {prod.category}
+                        </span>
+                        {!showProductImages && (
+                          <span className="text-[9px] font-mono text-slate-500 font-bold bg-slate-100 px-1.5 py-0.5 rounded-xs leading-none">
+                            {remainingLabel}
+                          </span>
+                        )}
+                      </div>
+                      <h5 translate="no" className={`font-extrabold text-[10px] sm:text-xs xl:text-[11px] text-slate-800 leading-snug pt-0.5 select-all ${showProductImages ? 'line-clamp-2 min-h-[1.75rem] sm:min-h-[2.25rem] xl:min-h-[1.75rem]' : 'truncate md:text-sm'}`} title={prod.name}>
+                        {prod.name}
+                      </h5>
+                      {!showProductImages && (
+                        <p className="text-[9.5px] text-slate-400 font-mono font-medium truncate">SKU: {prod.sku || prod.barcode || 'N/A'}</p>
+                      )}
+                    </div>
+
+                    {/* Pricing and Select CTA trigger */}
+                    <div className={`${showProductImages ? 'flex min-w-0 flex-col gap-1 pt-1.5 border-t border-slate-100 mt-1.5 lg:gap-2 lg:pt-2 lg:mt-2 xl:gap-1 xl:pt-1.5 xl:mt-1.5' : 'flex flex-col items-end justify-center gap-1'} shrink-0`}>
+                      <div className="space-y-0.5">
+                        <p className="hidden xl:block border-none bg-transparent text-[8px] font-bold text-slate-400 uppercase tracking-wider leading-none">Price</p>
+                        <span className="block max-w-full truncate text-[10px] sm:text-xs lg:text-[14px] xl:text-xs font-black text-emerald-700 lg:text-slate-900 leading-none" title={`${currency}${Math.round(displayPrice).toLocaleString()}`}>{currency}{Math.round(displayPrice).toLocaleString()}</span>
+                        {prod.batches && prod.batches.some(batch => batch.status === 'active') && (
+                          <span className={`${showProductImages ? 'block' : 'hidden xl:block'} text-[8px] text-slate-400 font-bold uppercase tracking-wider mt-0.5`}>
+                            {getProductCostingMethod(prod).replace('_', ' ')}
+                          </span>
+                        )}
+                      </div>
+                      {!isOut ? (
+                        <div className="w-full text-right">
+                          <span className="w-full min-h-7 lg:min-h-9 xl:min-h-7 bg-emerald-600 hover:bg-emerald-700 group-hover:bg-emerald-700 text-white text-[9px] lg:text-[10px] xl:text-[9px] font-black px-1.5 lg:px-3 py-1.5 lg:py-2 xl:py-1 rounded-lg lg:rounded-xl uppercase tracking-wider transition-all shadow-xs lg:shadow-md lg:shadow-emerald-600/20 inline-flex items-center justify-center gap-1">
+                            <Plus className="hidden lg:block h-3.5 w-3.5" strokeWidth={3} />
+                            <span className="lg:hidden">+ Add</span>
+                            <span className="hidden lg:flex">Add</span>
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-slate-400 text-[9px] font-bold uppercase tracking-wider">
+                          Out
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            }), [
+    filteredProducts, productPriceMap, productRemainingMap, addToCart,
+    showProductImages, currency,
+  ]);
 
   // Pre-compute ALL cart item display values once — avoids calling getPharmacyDoseConfig etc per render
   const cartDisplayData = useMemo(() => {
@@ -999,16 +1145,11 @@ export default function DashboardPOS({
     });
   }, [cart, activeTenant.businessType, getCartUnitPrice, supportsFractionSale, usesPharmacyHierarchy]);
 
-  // Pricing calculations — fully memoized for instant updates.
-  // Must use getCartUnitPrice (the same dosage/bulk/channel-aware pricing
-  // already used for each cart line's own displayed total) rather than
-  // reading item.product.sellingPrice directly -- that raw packet/base
-  // price ignores a pharmacy line's selected dosage level (e.g. a "2
-  // tablets" selection priced at the full packet price instead of
-  // tabPrice * tabsSelected), silently overcharging the till total even
-  // though the line itself displayed the correct amount.
-  const subtotal = useMemo(() => {
-    return cart.reduce((sum, item) => {
+  // Always derive the running total directly from current cart contents.
+  // A selected product must update the mobile sticky total immediately,
+  // without entering a discount or opening the basket first.
+  // Preserve dose/bulk/channel-aware prices (not raw product prices).
+  const subtotal = cart.reduce((sum, item) => {
       if (usesPharmacyHierarchy(item.product)) {
         return sum + resolvePharmacyPosLine({
           product: item.product,
@@ -1022,9 +1163,12 @@ export default function DashboardPOS({
       if (supportsFractionSale(item.product)) {
         const config = resolveFractionSaleConfig(item.product, activeTenant.businessType);
         const line = calculateFractionSaleLine(item.fractionSaleLevel || 'piece', item.qty, config);
+        // Use the very same selected unit price that the product card uses.
+        // Some legacy packaging records had a zero optional piece/packet rate.
+        const visibleUnitPrice = getCartUnitPrice(item);
         const discountedUnitPrice = item.discountType === 'cash'
-          ? Math.max(0, line.selectedUnitPrice - (item.discount || 0))
-          : line.selectedUnitPrice * (1 - (item.discount || 0) / 100);
+          ? Math.max(0, visibleUnitPrice - (item.discount || 0))
+          : visibleUnitPrice * (1 - (item.discount || 0) / 100);
         return sum + (discountedUnitPrice * line.selectedLevelQuantity);
       }
       const basePrice = getCartUnitPrice(item);
@@ -1034,7 +1178,6 @@ export default function DashboardPOS({
         : basePrice * (1 - (item.discount || 0) / 100);
       return sum + (discountPrice * item.qty);
     }, 0);
-  }, [cart, getCartUnitPrice, activeTenant.businessType, supportsFractionSale, usesPharmacyHierarchy]);
 
   const orderDiscountAmt = useMemo(() =>
     orderDiscountType === 'cash'
@@ -1050,9 +1193,15 @@ export default function DashboardPOS({
     vatStatus === 'vat' ? taxableSubtotal * activeTenant.taxRate : 0,
   [vatStatus, taxableSubtotal, activeTenant.taxRate]);
 
+  // Payment amount on the Sales checkout is PRODUCT-ONLY. The delivery fee
+  // is recorded to its chosen account through a separate atomic treasury line.
+  const productCheckoutTotal = useMemo(() =>
+    Number((taxableSubtotal + tax).toFixed(2)),
+  [taxableSubtotal, tax]);
+
   const grandTotal = useMemo(() =>
-    taxableSubtotal + tax + deliveryCost,
-  [taxableSubtotal, tax, deliveryCost]);
+    Number((productCheckoutTotal + deliveryCost).toFixed(2)),
+  [productCheckoutTotal, deliveryCost]);
 
   // Memoized total item count — avoids inline cart.reduce in JSX on every render
   const cartTotalQty = useMemo(() =>
@@ -1070,7 +1219,11 @@ export default function DashboardPOS({
     const availableDeliveryModes = systemSettings?.business?.deliveryPaymentModes && systemSettings.business.deliveryPaymentModes.length > 0 
       ? systemSettings.business.deliveryPaymentModes 
       : (systemSettings?.business?.paymentModes || ['Cash']);
-    setDeliveryPaymentMethod(getPaymentModeName(availableDeliveryModes[0]));
+    // Do not overwrite the delivery account the seller already selected in Cart.
+    setDeliveryPaymentMethod(current => {
+      const valid = availableDeliveryModes.map(getPaymentModeName).filter(Boolean);
+      return valid.includes(current) ? current : valid[0] || '';
+    });
     setMultiAllocations([]);
     setAmountPaid(0);
     setReferenceCode('');
@@ -1261,7 +1414,12 @@ export default function DashboardPOS({
       throw new Error("You haven't set up payment modes yet. Go to Settings → Business Setup to set up your payment modes before you can check out.");
     }
 
-    const amountDue = Math.max(0, Number((grandTotal - normalizedAmountPaid).toFixed(2)));
+    // Delivery is assumed paid to its OWN selected Money & Bank account.
+    // Product debt and payment breakdown must never include that delivery fee.
+    if (normalizedAmountPaid > productCheckoutTotal) {
+      throw new Error('Product payment cannot exceed the product-only total. Delivery has its own payment account.');
+    }
+    const amountDue = Math.max(0, Number((productCheckoutTotal - normalizedAmountPaid).toFixed(2)));
     const manualPaymentStatus: Sale['paymentStatus'] = amountDue <= 0
       ? 'paid'
       : normalizedAmountPaid > 0
@@ -1274,7 +1432,7 @@ export default function DashboardPOS({
       id: 'sl-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
       items: saleItems,
       total: grandTotal,
-      productTotal: grandTotal - deliveryCost, // revenue excluding delivery fee
+      productTotal: productCheckoutTotal, // product-only revenue; delivery has its own treasury journal
       tax: tax,
       deliveryCost: deliveryCost,
       deliveryPaymentMethod: deliveryCost > 0 ? deliveryPaymentMethod : undefined,
@@ -1583,122 +1741,7 @@ export default function DashboardPOS({
               No matching {activeTenant.businessType === 'pharmacy' ? 'pharmaceutical products' : 'retail items'} in stock.
             </div>
           ) : (
-            filteredProducts.map(prod => {
-              const shopQty = prod.shopStockQty ?? 0;
-              const isLow = shopQty <= prod.alertQty;
-              const isOut = shopQty <= 0;
-              const displayPrice = productPriceMap.get(prod.id) ?? prod.sellingPrice;
-              const remainingLabel = productRemainingMap.get(prod.id) ?? '';
-              return (
-                <div 
-                  key={prod.id}
-                  data-pos-product-card
-                  onClick={() => {
-                    if (!isOut) {
-                      addToCart(prod);
-                      playCartSuccessBeepAfterPaint();
-                    } else {
-                      playOutOfStockBeep();
-                    }
-                  }}
-                  className={`w-full min-w-0 bg-white border rounded-xl select-none relative shadow-xs active:scale-95 group ${!showProductImages ? 'pos-product-card-no-image' : ''} ${
-                    showProductImages
-                      ? 'p-0 lg:p-5 xl:p-3 h-full flex flex-col justify-between overflow-hidden lg:overflow-visible lg:rounded-3xl'
-                      : 'p-3 md:p-4 flex items-center gap-3 overflow-hidden'
-                  } ${
-                    isOut 
-                      ? 'border-slate-200 opacity-55 cursor-not-allowed bg-slate-50' 
-                      : 'border-slate-200 hover:border-slate-350 cursor-pointer'
-                  }`}
-                >
-                  {/* Product image — falls back to a plain icon tile when the
-                      product has none, so every card in the row keeps the
-                      same height instead of the image block disappearing */}
-                  {showProductImages && (
-                    <div className="pos-tablet-product-image w-full aspect-square lg:aspect-auto lg:h-36 xl:h-20 bg-slate-50 border-b lg:border border-slate-100 rounded-t-xl lg:rounded-2xl overflow-hidden flex items-center justify-center relative shrink-0">
-                      {getProductImage(prod) !== '' ? (
-                        <CachedImage
-                          src={getProductImage(prod)}
-                          alt={prod.name}
-                          className="w-full h-full lg:group-hover:scale-105 select-none pointer-events-none object-contain p-1.5"
-                          referrerPolicy="no-referrer"
-                        />
-                      ) : (
-                        <Package className="w-7 h-7 lg:w-10 lg:h-10 text-slate-300" strokeWidth={1.5} />
-                      )}
-                      {isLow && !isOut && (
-                        <span className="absolute top-1.5 left-1.5 md:top-2.5 md:left-2.5 bg-amber-500 text-white px-1.5 md:px-2 py-0.5 rounded-lg text-[8px] md:text-[8px] font-black tracking-wider uppercase font-mono shadow-xs">
-                          LOW ({shopQty})
-                        </span>
-                      )}
-                      {isOut && (
-                        <span className="absolute top-1.5 left-1.5 md:top-2.5 md:left-2.5 bg-red-600 text-white px-1.5 md:px-2 py-0.5 rounded-lg text-[8px] md:text-[8px] font-black tracking-wider uppercase font-mono shadow-xs animate-pulse">
-                          OUT
-                        </span>
-                      )}
-                      {!isOut && (
-                        <span
-                          className="absolute top-1.5 right-1.5 md:top-2.5 md:right-2.5 max-w-[70%] truncate rounded-full border border-white/80 bg-white/95 px-1.5 md:px-2 py-0.5 text-[7px] sm:text-[8px] font-extrabold leading-tight text-slate-700 shadow-sm backdrop-blur-sm"
-                          title={remainingLabel}
-                        >
-                          <span className={`mr-1 inline-block h-1.5 w-1.5 rounded-full ${isLow ? 'bg-amber-500' : 'bg-emerald-500'}`} />
-                          {remainingLabel}
-                        </span>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Text details and bottom panel wrapper */}
-                  <div className={`${showProductImages ? 'flex-grow flex flex-col justify-between min-w-0 mt-1.5 px-1.5 pb-2 sm:mt-2 sm:px-2 sm:pb-2.5 lg:px-0 lg:pb-0 xl:mt-1' : 'flex-1 min-w-0 grid grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_auto] items-center gap-3'}`}>
-                    {/* Product Metadata & Text layout */}
-                    <div className="space-y-1 min-w-0">
-                      <div className={`${showProductImages ? 'hidden lg:flex' : 'flex'} items-center justify-between gap-2`}>
-                        <span className="text-[9px] font-black text-emerald-600 uppercase tracking-widest bg-emerald-50 px-1.5 py-0.5 rounded-xs leading-none">
-                          {prod.category}
-                        </span>
-                        {!showProductImages && (
-                          <span className="text-[9px] font-mono text-slate-500 font-bold bg-slate-100 px-1.5 py-0.5 rounded-xs leading-none">
-                            {remainingLabel}
-                          </span>
-                        )}
-                      </div>
-                      <h5 translate="no" className={`font-extrabold text-[10px] sm:text-xs xl:text-[11px] text-slate-800 leading-snug pt-0.5 select-all ${showProductImages ? 'line-clamp-2 min-h-[1.75rem] sm:min-h-[2.25rem] xl:min-h-[1.75rem]' : 'truncate md:text-sm'}`} title={prod.name}>
-                        {prod.name}
-                      </h5>
-                      {!showProductImages && (
-                        <p className="text-[9.5px] text-slate-400 font-mono font-medium truncate">SKU: {prod.sku || prod.barcode || 'N/A'}</p>
-                      )}
-                    </div>
-
-                    {/* Pricing and Select CTA trigger */}
-                    <div className={`${showProductImages ? 'flex min-w-0 flex-col gap-1 pt-1.5 border-t border-slate-100 mt-1.5 lg:gap-2 lg:pt-2 lg:mt-2 xl:gap-1 xl:pt-1.5 xl:mt-1.5' : 'flex flex-col items-end justify-center gap-1'} shrink-0`}>
-                      <div className="space-y-0.5">
-                        <p className="hidden xl:block border-none bg-transparent text-[8px] font-bold text-slate-400 uppercase tracking-wider leading-none">Price</p>
-                        <span className="block max-w-full truncate text-[10px] sm:text-xs lg:text-[14px] xl:text-xs font-black text-emerald-700 lg:text-slate-900 leading-none" title={`${currency}${Math.round(displayPrice).toLocaleString()}`}>{currency}{Math.round(displayPrice).toLocaleString()}</span>
-                        {prod.batches && prod.batches.some(batch => batch.status === 'active') && (
-                          <span className={`${showProductImages ? 'block' : 'hidden xl:block'} text-[8px] text-slate-400 font-bold uppercase tracking-wider mt-0.5`}>
-                            {getProductCostingMethod(prod).replace('_', ' ')}
-                          </span>
-                        )}
-                      </div>
-                      {!isOut ? (
-                        <div className="w-full text-right">
-                          <span className="w-full min-h-7 lg:min-h-9 xl:min-h-7 bg-emerald-600 hover:bg-emerald-700 group-hover:bg-emerald-700 text-white text-[9px] lg:text-[10px] xl:text-[9px] font-black px-1.5 lg:px-3 py-1.5 lg:py-2 xl:py-1 rounded-lg lg:rounded-xl uppercase tracking-wider transition-all shadow-xs lg:shadow-md lg:shadow-emerald-600/20 inline-flex items-center justify-center gap-1">
-                            <Plus className="hidden lg:block h-3.5 w-3.5" strokeWidth={3} />
-                            <span className="lg:hidden">+ Add</span>
-                            <span className="hidden lg:flex">Add</span>
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="text-slate-400 text-[9px] font-bold uppercase tracking-wider">
-                          Out
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })
+            productCards
           )}
         </div>
           </>
@@ -2050,7 +2093,8 @@ export default function DashboardPOS({
 
         {/* Totals and checkout */}
         <div
-          key={`pos-totals-${cart.length}-${subtotal}-${grandTotal}`}
+          // Keep the discount/delivery inputs mounted while totals change: dynamic keys
+          // would recreate both inputs after each keystroke and drop keyboard focus.
           data-testid="pos-totals"
           className="p-4 bg-slate-50 border-t border-slate-200/80 space-y-4"
         >
@@ -2175,7 +2219,6 @@ export default function DashboardPOS({
 
       {/* Mobile Sticky Cart Summary */}
       <div
-        key={`pos-mobile-total-${cart.length}-${grandTotal}`}
         className="pos-mobile-sticky-cart fixed bottom-[calc(56px+env(safe-area-inset-bottom))] left-0 w-full bg-white border-t border-slate-200 px-4 py-3 z-40 shadow-[0_-4px_10px_-2px_rgba(0,0,0,0.05)]"
       >
         <div className="flex flex-col space-y-2.5">
@@ -2191,7 +2234,7 @@ export default function DashboardPOS({
               </div>
               <span className="text-xs text-slate-600 font-bold uppercase tracking-wider">Cart Total</span>
             </div>
-            <span data-testid="pos-mobile-grand-total" className="text-emerald-700 font-black font-mono text-base">{currency}{Math.round(grandTotal).toLocaleString()}</span>
+            <span data-testid="pos-mobile-grand-total" role="status" aria-live="polite" aria-atomic="true" className="text-emerald-700 font-black font-mono text-base">{currency}{Math.round(grandTotal).toLocaleString()}</span>
           </div>
           <button
             disabled={cart.length === 0}
@@ -2233,12 +2276,14 @@ export default function DashboardPOS({
             {paymentStatus === 'idle' && (
               <>
               <div className="pos-checkout-body overflow-y-auto flex-1">
-                <div className="pos-checkout-total">
-                  <div>
-                    <span className="pos-checkout-eyebrow">TOTAL TO COLLECT</span>
-                    <p className="pos-checkout-total-caption">Current sale</p>
-                  </div>
-                  <strong data-testid="pos-checkout-total">{currency}{Math.round(grandTotal).toLocaleString()}</strong>
+                <div className="pos-checkout-total pos-checkout-total-compact">
+                  <span className="pos-checkout-eyebrow">PRODUCT PAYMENT TO COLLECT</span>
+                  <strong data-testid="pos-checkout-total">{currency}{Math.round(productCheckoutTotal).toLocaleString()}</strong>
+                  {deliveryCost > 0 && (
+                    <p data-testid="pos-checkout-delivery-summary" className="pos-checkout-delivery-note" title={`Delivery: ${currency}${Math.round(deliveryCost).toLocaleString()} · Paid via ${deliveryPaymentMethod || 'selected account'}`}>
+                      Delivery: {currency}{Math.round(deliveryCost).toLocaleString()} · Paid via {deliveryPaymentMethod || 'selected account'}
+                    </p>
+                  )}
                 </div>
 
                 {/* Customer Assignment (New feature) */}
@@ -2303,7 +2348,7 @@ export default function DashboardPOS({
                             onClick={() => {
                               setPaymentMethod(mode);
                               const isCreditMode = mode.toLowerCase().includes('credit');
-                              setAmountPaid(isCreditMode ? 0 : Number(grandTotal.toFixed(2)));
+                              setAmountPaid(isCreditMode ? 0 : productCheckoutTotal);
                               setReferenceCode('');
                               setPaymentNote('');
                               if (mode === 'Multi-Channel') {
@@ -2311,7 +2356,7 @@ export default function DashboardPOS({
                                   ? systemSettings.business.paymentModes
                                   : ['Cash', 'Mobile Money', 'Bank'];
                                 const firstMethod = baseModes.map(getPaymentModeName).filter(Boolean)[0] || 'Cash';
-                                setMultiAllocations([{ method: firstMethod, amount: Number(grandTotal.toFixed(2)), reference: '' }]);
+                                setMultiAllocations([{ method: firstMethod, amount: productCheckoutTotal, reference: '' }]);
                               }
                             }}
                             aria-pressed={isSelected}
@@ -2343,7 +2388,7 @@ export default function DashboardPOS({
                     const availableMethods = baseModes.map(getPaymentModeName).filter(Boolean);
                     const usedMethods = new Set(multiAllocations.map(row => row.method));
                     const totalAllocated = Number(multiAllocations.reduce((sum, row) => sum + Math.max(0, Number(row.amount || 0)), 0).toFixed(2));
-                    const remaining = Number((grandTotal - totalAllocated).toFixed(2));
+                    const remaining = Number((productCheckoutTotal - totalAllocated).toFixed(2));
                     const canAddMore = multiAllocations.length < availableMethods.length;
 
                     return (
@@ -2379,10 +2424,10 @@ export default function DashboardPOS({
                                     <input
                                       type="number"
                                       min="0"
-                                      max={grandTotal}
+                                      max={productCheckoutTotal}
                                       value={row.amount || ''}
                                       onChange={(e) => {
-                                        const val = Math.max(0, Math.min(grandTotal, parseFloat(e.target.value) || 0));
+                                        const val = Math.max(0, Math.min(productCheckoutTotal, parseFloat(e.target.value) || 0));
                                         const next = [...multiAllocations];
                                         next[index] = { ...next[index], amount: val };
                                         setMultiAllocations(next);
@@ -2458,13 +2503,13 @@ export default function DashboardPOS({
                     </div>
                     {/* Amount spans the sheet; the two optional fields share one equal-width row. */}
                     <label className="pos-checkout-field pos-checkout-amount-field">
-                      <span>Amount paid ({currency})</span>
+                      <span>Product amount paid ({currency})</span>
                       <input
                         type="number"
                         min="0"
                         inputMode="decimal"
                         value={amountPaid}
-                        onChange={(e) => setAmountPaid(Math.max(0, parseFloat(e.target.value) || 0))}
+                        onChange={(e) => setAmountPaid(Math.max(0, Math.min(productCheckoutTotal, parseFloat(e.target.value) || 0)))}
                         className="pos-checkout-amount-input"
                       />
                     </label>
@@ -2489,15 +2534,15 @@ export default function DashboardPOS({
                       </label>
                     </div>
                     <div aria-live="polite" className={`pos-checkout-balance ${
-                      amountPaid >= grandTotal ? 'pos-checkout-balance-paid'
+                      amountPaid >= productCheckoutTotal ? 'pos-checkout-balance-paid'
                         : amountPaid > 0 ? 'pos-checkout-balance-partial'
                         : 'pos-checkout-balance-unpaid'
                     }`}>
-                      {amountPaid >= grandTotal
-                        ? `Paid in full. Change: ${currency}${Math.max(0, amountPaid - grandTotal).toLocaleString()}`
+                      {amountPaid >= productCheckoutTotal
+                        ? `Paid in full. Change: ${currency}${Math.max(0, amountPaid - productCheckoutTotal).toLocaleString()}`
                         : amountPaid > 0
-                          ? `Partial payment. Due: ${currency}${Math.max(0, grandTotal - amountPaid).toLocaleString()}`
-                          : `Unpaid / credit. Due: ${currency}${grandTotal.toLocaleString()}`}
+                          ? `Partial payment. Due: ${currency}${Math.max(0, productCheckoutTotal - amountPaid).toLocaleString()}`
+                          : `Unpaid / credit. Due: ${currency}${productCheckoutTotal.toLocaleString()}`}
                     </div>
                   </section>
                 )}
@@ -2533,8 +2578,8 @@ export default function DashboardPOS({
                   </p>
                 )}
                 <div className="pos-checkout-footer-total">
-                  <span>Sale total</span>
-                  <strong>{currency}{Math.round(grandTotal).toLocaleString()}</strong>
+                  <span>Products to collect</span>
+                  <strong>{currency}{Math.round(productCheckoutTotal).toLocaleString()}</strong>
                 </div>
                 <button
                   type="button"
@@ -2667,8 +2712,10 @@ export default function DashboardPOS({
                     const orderDiscountAmt = receiptResult.discountType === 'cash'
                       ? (receiptResult.discount || 0)
                       : itemsSubtotal * ((receiptResult.discount || 0) / 100);
-                    const paidAmount = receiptResult.amountPaid ?? receiptResult.total;
-                    const balanceDue = Math.max(0, receiptResult.total - paidAmount);
+                    const receiptProductTotal = Math.max(0, receiptResult.productTotal ??
+                      receiptResult.total - (receiptResult.deliveryCost || 0));
+                    const paidAmount = receiptResult.amountPaid ?? (receiptResult.paymentMethod === 'Credit' ? 0 : receiptProductTotal);
+                    const balanceDue = Math.max(0, receiptProductTotal - paidAmount);
                     const changeDue = Math.max(0, receiptResult.change || 0);
                     return (
                       <>
@@ -2718,9 +2765,15 @@ export default function DashboardPOS({
                             <span className="font-semibold">{posReceiptPaymentMode(receiptResult.paymentMethod, receiptLanguage)}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span>{posReceiptLabel('amount', receiptLanguage)}</span>
+                            <span>Product payment</span>
                             <span className="font-semibold">{currency}{Math.round(paidAmount).toLocaleString()}</span>
                           </div>
+                          {(receiptResult.deliveryCost || 0) > 0 && (
+                            <div className="flex justify-between">
+                              <span>Delivery payment ({posReceiptPaymentMode(receiptResult.deliveryPaymentMethod || 'Cash', receiptLanguage)})</span>
+                              <span className="font-semibold">{currency}{Math.round(receiptResult.deliveryCost || 0).toLocaleString()}</span>
+                            </div>
+                          )}
                           {changeDue > 0 && (
                             <div className="flex justify-between">
                               <span>{posReceiptLabel('change', receiptLanguage)}</span>

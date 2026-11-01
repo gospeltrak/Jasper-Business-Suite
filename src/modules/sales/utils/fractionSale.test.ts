@@ -69,6 +69,32 @@ describe('fraction sale product settings', () => {
     expect(twoPieces.lineTotal + onePacket.lineTotal).toBe(5500);
   });
 
+
+  it('uses the nonzero selling price for a legacy retail product whose unit-price field is 0', () => {
+    // Regression: product card shows TSh15,000 while cart showed TSh0.
+    const selected = product({
+      isBulkProduct: true,
+      sellingPrice: 15000,
+      defaultPricePerBaseUnit: 0,
+      inventorySettings: { defaultPricePerBaseUnit: 0 } as Product['inventorySettings'],
+    });
+    const config = resolveFractionSaleConfig(selected, 'Retail & Wholesale');
+    expect(config.piecePrice).toBe(15000);
+    expect(calculateFractionSaleLine('piece', 1, config).lineTotal).toBe(15000);
+    expect(calculateFractionSaleLine('piece', 2, config).lineTotal).toBe(30000);
+  });
+
+  it('keeps an explicitly configured positive unit price before sellingPrice', () => {
+    const selected = product({
+      isBulkProduct: true,
+      sellingPrice: 15000,
+      defaultPricePerBaseUnit: 0,
+      sellUnitPrice: 12500,
+    });
+    const config = resolveFractionSaleConfig(selected, 'Retail & Wholesale');
+    expect(calculateFractionSaleLine('piece', 1, config).lineTotal).toBe(12500);
+  });
+
   it('normalizes purchase quantity and cost without losing the selected level snapshot', () => {
     const config = resolveFractionSaleConfig(product({ isBulkProduct: true, conversionToBaseUnit: 20 }), 'retail');
     expect(calculateFractionPurchaseLine('piece', 3, 100, config)).toMatchObject({

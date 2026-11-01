@@ -125,11 +125,14 @@ test('lazy screens recover safely after a deployment changes chunk filenames', a
 
   assert.match(dashboardSource, /lazyWithReload\('DashboardCashBank'/);
   assert.match(appSource, /lazyWithReload\('Dashboard'/);
-  assert.match(boundarySource, /Tunarudisha sehemu yako/);
+  // A code-update chunk failure must never restart an active sale or form;
+  // the cashier decides when to use the explicitly labeled Refresh button.
+  assert.match(boundarySource, /Hakuna kujireload au kuhamishwa kiotomatiki/);
   assert.doesNotMatch(boundarySource, /SystemErrorPage status=\{500\}/);
+  assert.match(boundarySource, /onClick=\{this\.reloadUpdatedApp\}/);
   assert.match(boundarySource, /window\.location\.reload\(\)/);
-  assert.match(lazyLoaderSource, /window\.setTimeout\(\(\) => window\.location\.reload\(\), 0\)/);
-  assert.match(lazyLoaderSource, /sessionStorage\.setItem/);
+  assert.match(lazyLoaderSource, /=> lazy\(importer\)/);
+  assert.doesNotMatch(lazyLoaderSource, /window\.setTimeout\(\(\) => window\.location\.reload\(\), 0\)/);
 });
 
 test('login always returns to the canonical Jasper landing hub', async () => {
@@ -351,7 +354,10 @@ test('workspace sync uses realtime with a low-frequency recovery poll and coales
   const dashboardSource = await read('src/components/Dashboard.tsx');
   const workspaceSource = await read('src/shared/utils/tenantWorkspace.ts');
   assert.match(dashboardSource, /scheduleTenantWorkspaceSave\(activeTenant\.id, workspace\)/);
-  assert.match(dashboardSource, /90_000/);
+  assert.match(dashboardSource, /MIN_RECOVERY_REFRESH_MS = 3 \* 60 \* 1000/);
+  assert.match(dashboardSource, /5 \* 60 \* 1000/);
+  assert.match(dashboardSource, /if \(!force && Date\.now\(\) - lastFullRefreshAt < MIN_RECOVERY_REFRESH_MS\) return/);
+  assert.match(dashboardSource, /const handleFocus = \(\) => \{[\s\S]{0,210}refreshWorkspaceFromDatabase\(\)/);
   assert.doesNotMatch(dashboardSource, /setInterval\(refreshWorkspaceFromDatabase,\s*5000\)/);
   assert.match(workspaceSource, /AUTO_SAVE_DELAY_MS = 1000/);
   assert.match(workspaceSource, /pendingWorkspaceAutoSaves/);

@@ -109,8 +109,11 @@ test('staff passwords are verified by Auth and purged from legacy workspace payl
 
 test('tenant login offers both Google sign-in and email + password sign-in', () => {
   assert.match(loginPage, /onClick=\{handleGoogleLoginClick\}[\s\S]*\{t\('continueGoogle'\)\}/);
-  assert.match(loginPage, /type=\{showLoginPassword \? 'text' : 'password'\}[\s\S]*value=\{password\}/);
-  assert.match(loginPage, /type="email"[\s\S]*value=\{email\}/);
+  // Android keyboard focus must not be lost on every keystroke, so the login
+  // credentials are read from stable native input refs at submission.
+  assert.match(loginPage, /ref=\{loginPasswordInputRef\}[\s\S]*?type=\{showLoginPassword \? 'text' : 'password'\}[\s\S]*?autoComplete="current-password"[\s\S]*?defaultValue=""/);
+  assert.match(loginPage, /ref=\{loginEmailInputRef\}[\s\S]*?type="email"[\s\S]*?autoComplete="username"[\s\S]*?defaultValue=""/);
+  assert.match(loginPage, /triggerLogin\(loginEmailInputRef\.current\?\.value \|\| '', loginPasswordInputRef\.current\?\.value \|\| ''\)/);
   assert.doesNotMatch(loginPage, /Owners, administrators and staff sign in with the Google account connected to this business/);
 });
 
@@ -207,8 +210,8 @@ test('manual receipts are optimized images and payment approval cannot change th
 test('system error pages are localized and never render technical error details', () => {
   for (const status of [401, 403, 404, 500]) assert.match(systemErrorPage, new RegExp(`${status}:`));
   assert.match(systemErrorPage, /en:[\s\S]*sw:/);
-  assert.match(appErrorBoundary, /Orvix inarudisha mfumo wako/);
-  assert.match(dashboardErrorBoundary, /Tunarudisha sehemu yako/);
+  assert.match(appErrorBoundary, /Mfumo hautajireload wenyewe/);
+  assert.match(dashboardErrorBoundary, /Hakuna kujireload au kuhamishwa kiotomatiki/);
   assert.doesNotMatch(appErrorBoundary, /SystemErrorPage status=\{500\}/);
   assert.doesNotMatch(dashboardErrorBoundary, /SystemErrorPage status=\{500\}/);
   assert.doesNotMatch(appErrorBoundary, /this\.state\.error\.message|componentStack/);
@@ -226,8 +229,12 @@ test('installed PWAs automatically activate each new deployment without caching 
   assert.match(serviceWorker, /self\.clients\.claim\(\)/);
   assert.match(serviceWorker, /caches\.keys\(\)[\s\S]*caches\.delete/);
   assert.doesNotMatch(serviceWorker, /caches\.open|cache\.put|respondWith/);
-  assert.match(appShell, /controllerchange[\s\S]*window\.location\.reload\(\)/);
-  assert.match(appShell, /registration\.update\(\)[\s\S]*60000/);
+  // Service worker activates in the background; it cannot interrupt a
+  // customer's checkout, focus or an unsaved record with a full page reload.
+  assert.match(appShell, /controllerchange/);
+  assert.doesNotMatch(appShell, /jasperRefreshingForServiceWorker|window\.location\.reload\(\)/);
+  assert.match(appShell, /registration\.update\(\)/);
+  assert.match(appShell, /5 \* 60 \* 1000/);
   assert.match(server, /app\.get\('\/sw\.js'/);
   assert.match(server, /createHash\('sha256'\)\.update\(appShell\)\.digest\('hex'\)/);
   assert.match(server, /Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0'/);

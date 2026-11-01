@@ -178,3 +178,47 @@ test('treasury opening balance does not double-count delivery fees from sales br
   assert.match(dashboard, /activeDeliveries\.forEach\(delivery =>/);
   assert.match(dashboard, /delivery\.deliveryPaymentStatus === 'collected'/);
 });
+
+test('POS checkout only requests PRODUCT money while delivery is posted to its separately selected account', async () => {
+  const pos = await readFile('src/modules/pos/DashboardPOS.tsx', 'utf8');
+  const dashboard = await readFile('src/components/Dashboard.tsx', 'utf8');
+  const sql = await readFile('supabase/migrations/20261031181000_pos_delivery_assumed_paid_at_checkout.sql', 'utf8');
+
+  // 15,000 in products + 5,000 delivery: checkout and sale debt are 15,000,
+  // while the combined audit receipt remains 20,000.
+  const products = 15000, delivery = 5000;
+  const combined = products + delivery;
+  assert.equal(combined, 20000);
+  assert.equal(combined - delivery, 15000);
+
+  assert.match(pos, /const productCheckoutTotal = useMemo\(\(\) =>/);
+  assert.match(pos, /taxableSubtotal \+ tax/);
+  assert.match(pos, /productCheckoutTotal \+ deliveryCost/);
+  assert.match(pos, /setAmountPaid\(isCreditMode \? 0 : productCheckoutTotal\)/);
+  assert.match(pos, /setMultiAllocations\(\[\{ method: firstMethod, amount: productCheckoutTotal, reference: '' \}\]\)/);
+  assert.match(pos, /const amountDue = Math\.max\(0, Number\(\(productCheckoutTotal - normalizedAmountPaid\)/);
+  assert.match(pos, /total: grandTotal/);
+  assert.match(pos, /productTotal: productCheckoutTotal/);
+  assert.match(pos, /deliveryPaymentMethod: deliveryCost > 0 \? deliveryPaymentMethod : undefined/);
+  assert.match(pos, /<strong data-testid="pos-checkout-total">\{currency\}\{Math\.round\(productCheckoutTotal\)/);
+  assert.match(pos, /data-testid="pos-checkout-delivery-summary"/);
+  assert.match(pos, /Delivery: \{currency\}\{Math\.round\(deliveryCost\)\.toLocaleString\(\)\} · Paid via \{deliveryPaymentMethod/);
+  assert.doesNotMatch(pos, /Combined order total \(products \+ delivery\)/);
+  assert.doesNotMatch(pos, /Products only — delivery is paid separately/);
+  assert.match(pos, /<span>Products to collect<\/span>/);
+  assert.match(pos, /const balanceDue = Math\.max\(0, receiptProductTotal - paidAmount\)/);
+  assert.match(pos, /Delivery payment \(\{posReceiptPaymentMode\(receiptResult\.deliveryPaymentMethod/);
+  assert.doesNotMatch(pos, /setAmountPaid\(isCreditMode \? 0 : Number\(grandTotal/);
+  assert.doesNotMatch(pos, /remaining = Number\(\(grandTotal - totalAllocated\)/);
+  assert.doesNotMatch(pos, /const amountDue = Math\.max\(0, Number\(\(grandTotal - normalizedAmountPaid\)/);
+
+  // Keep the seller-selected payment destination after opening checkout.
+  assert.match(pos, /setDeliveryPaymentMethod\(current => \{/);
+  assert.match(pos, /valid\.includes\(current\) \? current : valid\[0\]/);
+  // Treasury posts a product sale journal and a separate delivery journal,
+  // with the source account selected in the cart.
+  assert.match(dashboard, /deliveryAccountSourceKey: deliveryPaymentAccount\?\.id/);
+  assert.match(sql, /'money_in','delivery'/);
+  assert.match(sql, /'deliveryPaymentStatus','collected'/);
+  assert.match(sql, /v_product_paid := least\(v_product_total/);
+});

@@ -44,10 +44,16 @@ export const resolveFractionSaleConfig = (product: Product, businessType: string
     product.conversionToBaseUnit ?? settings?.conversionToBaseUnit ?? product.bulkToUnitsRatio ?? product.bulkPurchaseQty,
     1,
   );
-  const piecePrice = positive(
-    product.defaultPricePerBaseUnit ?? settings?.defaultPricePerBaseUnit ?? product.sellUnitPrice ?? product.sellingPrice,
-    0,
-  );
+  // Legacy retail packaging products may have defaultPricePerBaseUnit = 0
+  // even though sellingPrice is valid. Nullish coalescing picked that zero
+  // and caused a TSh15,000 product card to enter the POS cart at TSh0.
+  // Prefer the first strictly positive configured unit price instead.
+  const piecePrice = [
+    product.defaultPricePerBaseUnit,
+    settings?.defaultPricePerBaseUnit,
+    product.sellUnitPrice,
+    product.sellingPrice,
+  ].map(Number).find(value => Number.isFinite(value) && value > 0) ?? 0;
   const packetPriceOverridden = product.packetPriceOverridden ?? settings?.packetPriceOverridden ?? false;
   const savedPacketPrice = product.wholePackagePrice ?? settings?.wholePackagePrice;
   const packetPrice = packetPriceOverridden

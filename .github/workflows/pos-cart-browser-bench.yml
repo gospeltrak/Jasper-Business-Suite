@@ -1,0 +1,48 @@
+name: POS Real Browser Add to Cart Performance
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [fix/pos-cart-discount-delivery-focus-20261101]
+    paths:
+      - 'src/modules/pos/DashboardPOS.tsx'
+      - 'src/shared/contexts/LanguageContext.tsx'
+      - 'tests/perf/**'
+      - '.github/workflows/pos-cart-browser-bench.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - name: Install application and browser test runtime
+        run: |
+          npm ci
+          npm install --no-save --package-lock=false playwright@1.56.1
+          npx playwright install chromium
+      - name: Start isolated Vite UI test, no tenant backend
+        run: |
+          npx vite --host 127.0.0.1 --port 5173 --strictPort > /tmp/orvix-pos-bench-vite.log 2>&1 &
+          for n in $(seq 1 50); do
+            if curl -fsS http://127.0.0.1:5173/tests/perf/pos-cart-bench.html > /dev/null; then exit 0; fi
+            sleep 2
+          done
+          cat /tmp/orvix-pos-bench-vite.log
+          exit 1
+      - name: Measure exact +ADD to CART TOTAL visual update in browser
+        run: node tests/perf/measure-pos-add.mjs
+      - name: Save performance screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pos-cart-bench-screenshots
+          path: pos-bench-*.png
+          if-no-files-found: ignore
