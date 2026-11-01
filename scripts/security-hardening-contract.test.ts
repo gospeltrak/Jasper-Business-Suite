@@ -229,8 +229,12 @@ test('installed PWAs automatically activate each new deployment without caching 
   assert.match(serviceWorker, /self\.clients\.claim\(\)/);
   assert.match(serviceWorker, /caches\.keys\(\)[\s\S]*caches\.delete/);
   assert.doesNotMatch(serviceWorker, /caches\.open|cache\.put|respondWith/);
-  assert.match(appShell, /controllerchange[\s\S]*window\.location\.reload\(\)/);
-  assert.match(appShell, /registration\.update\(\)[\s\S]*60000/);
+  // Service worker activates in the background; it cannot interrupt a
+  // customer's checkout, focus or an unsaved record with a full page reload.
+  assert.match(appShell, /controllerchange/);
+  assert.doesNotMatch(appShell, /jasperRefreshingForServiceWorker|window\.location\.reload\(\)/);
+  assert.match(appShell, /registration\.update\(\)/);
+  assert.match(appShell, /5 \* 60 \* 1000/);
   assert.match(server, /app\.get\('\/sw\.js'/);
   assert.match(server, /createHash\('sha256'\)\.update\(appShell\)\.digest\('hex'\)/);
   assert.match(server, /Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0'/);
