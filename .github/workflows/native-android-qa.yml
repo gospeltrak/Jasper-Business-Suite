@@ -96,7 +96,10 @@ jobs:
           ! grep -q 'window.location.reload()' index.html
           grep -q 'loginEmailInputRef' src/modules/auth/LoginPage.tsx
           # Block publication unless the latest production one-tap-login fix is packaged.
-          git merge-base --is-ancestor 2ce343e3517621f6f835028618b9b8aee2b3e8c5 origin/main
+          git merge-base --is-ancestor 35ed6bc991b870aae59ba53ac894efecd0d337d7 origin/main
+          grep -q 'void persistSettings(next, previous)' src/modules/notifications-settings/DashboardNotificationsSettings.tsx
+          grep -q 'saved !== true' src/modules/notifications-settings/DashboardNotificationsSettings.tsx
+          ! grep -q 'Optional and OFF by default' src/modules/notifications-settings/DashboardNotificationsSettings.tsx
           grep -q 'loginAttemptInFlightRef.current = true' src/modules/auth/LoginPage.tsx
           grep -q 'await triggerLogin(loginEmailInputRef.current' src/modules/auth/LoginPage.tsx
           ! grep -q 'emailChecked' src/modules/auth/LoginPage.tsx
@@ -228,11 +231,11 @@ jobs:
           test -s qa-apk/app-debug.apk
           unzip -t qa-apk/app-debug.apk > /dev/null
           sha256sum qa-apk/app-debug.apk
-          mv qa-apk/app-debug.apk qa-apk/Orvix-One-Tap-Login-Sales-Notifications-Android-QA.apk
-          gh release create orvix-android-qa-one-tap-login-20261102 \
-            qa-apk/Orvix-One-Tap-Login-Sales-Notifications-Android-QA.apk \
+          mv qa-apk/app-debug.apk qa-apk/Orvix-Every-Sale-Login-Fix-Android-QA.apk
+          gh release create orvix-android-qa-every-sale-20261102 \
+            qa-apk/Orvix-Every-Sale-Login-Fix-Android-QA.apk \
             --repo "$GH_REPO" \
             --target "$GITHUB_SHA" \
-            --title 'Orvix Android QA — One-Tap Login, Kiswahili Sales and Notifications' \
-            --notes 'Internal QA Android APK built from the current native Android QA branch merged at build time with Production main commit 2ce343e (or newer). Fixes Sign In requiring two presses; prevents duplicate authentication. Includes localized sale notifications with seller/item details, report choices, native scanner and printer. This is a QA/debug package, not Play Store release. Background push with the app fully closed is still not enabled. No production database migrations or tenant data changes.' \
+            --title 'Orvix Android QA — Every Sale Alerts and One-Tap Login' \
+            --notes 'Android QA build integrating deployed Production commit 35ed6bc (or newer). Every Sale notification toggle autosaves on tap with confirmed DB write and error rollback; mobile OFF by default paragraph removed. Includes one-tap Sign In, Kiswahili sale notification details, scanner and Bluetooth printer. Not Play Store. Real remote push while fully closed remains pending. No customer data changed or removed by the APK build.' \
             --prerelease
