@@ -19,7 +19,7 @@ export { DEFAULT_CUSTOM_ROLES };
 interface DashboardSettingsProps {
   activeTenant: Tenant;
   systemSettings: SystemSettings;
-  onSaveSettings: (settings: SystemSettings) => void;
+  onSaveSettings: (settings: SystemSettings) => void | Promise<boolean>;
   subscriptionStatus?: any;
   onTriggerUpgrade?: (limitType: 'products' | 'stores' | 'staff' | 'expired') => void;
   sales?: Sale[];
