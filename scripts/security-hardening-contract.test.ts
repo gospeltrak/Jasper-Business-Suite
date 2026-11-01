@@ -210,8 +210,8 @@ test('manual receipts are optimized images and payment approval cannot change th
 test('system error pages are localized and never render technical error details', () => {
   for (const status of [401, 403, 404, 500]) assert.match(systemErrorPage, new RegExp(`${status}:`));
   assert.match(systemErrorPage, /en:[\s\S]*sw:/);
-  assert.match(appErrorBoundary, /Orvix inarudisha mfumo wako/);
-  assert.match(dashboardErrorBoundary, /Tunarudisha sehemu yako/);
+  assert.match(appErrorBoundary, /Mfumo hautajireload wenyewe/);
+  assert.match(dashboardErrorBoundary, /Hakuna kujireload au kuhamishwa kiotomatiki/);
   assert.doesNotMatch(appErrorBoundary, /SystemErrorPage status=\{500\}/);
   assert.doesNotMatch(dashboardErrorBoundary, /SystemErrorPage status=\{500\}/);
   assert.doesNotMatch(appErrorBoundary, /this\.state\.error\.message|componentStack/);
