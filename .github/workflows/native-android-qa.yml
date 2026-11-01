@@ -95,6 +95,11 @@ jobs:
           grep -q 'inFlightLoads' src/shared/components/CachedImage.tsx
           ! grep -q 'window.location.reload()' index.html
           grep -q 'loginEmailInputRef' src/modules/auth/LoginPage.tsx
+          # Block publication unless the latest production one-tap-login fix is packaged.
+          git merge-base --is-ancestor 2ce343e3517621f6f835028618b9b8aee2b3e8c5 origin/main
+          grep -q 'loginAttemptInFlightRef.current = true' src/modules/auth/LoginPage.tsx
+          grep -q 'await triggerLogin(loginEmailInputRef.current' src/modules/auth/LoginPage.tsx
+          ! grep -q 'emailChecked' src/modules/auth/LoginPage.tsx
           grep -q 'pos-checkout-total-compact' src/index.css
           grep -q 'const subtotal = cart.reduce' src/modules/pos/DashboardPOS.tsx
           grep -q 'const displayedChannelPrice = getChannelPrice(item.product)' src/modules/pos/DashboardPOS.tsx
@@ -198,3 +203,36 @@ jobs:
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 7
+
+  publish-one-tap-qa-release:
+    name: Publish verified Orvix QA APK for direct download
+    needs: android-debug-qa
+    if: github.event_name == 'push' && github.ref == 'refs/heads/qa/orvix-android-cart-login-20261101'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Download verified Android QA artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: orvix-android-debug-qa-only
+          path: qa-apk
+      - name: Verify, name and publish directly downloadable APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s qa-apk/app-debug.apk
+          unzip -t qa-apk/app-debug.apk > /dev/null
+          sha256sum qa-apk/app-debug.apk
+          mv qa-apk/app-debug.apk qa-apk/Orvix-One-Tap-Login-Sales-Notifications-Android-QA.apk
+          gh release create orvix-android-qa-one-tap-login-20261102 \
+            qa-apk/Orvix-One-Tap-Login-Sales-Notifications-Android-QA.apk \
+            --repo "$GH_REPO" \
+            --target "$GITHUB_SHA" \
+            --title 'Orvix Android QA — One-Tap Login, Kiswahili Sales and Notifications' \
+            --notes 'Internal QA Android APK built from the current native Android QA branch merged at build time with Production main commit 2ce343e (or newer). Fixes Sign In requiring two presses; prevents duplicate authentication. Includes localized sale notifications with seller/item details, report choices, native scanner and printer. This is a QA/debug package, not Play Store release. Background push with the app fully closed is still not enabled. No production database migrations or tenant data changes.' \
+            --prerelease
