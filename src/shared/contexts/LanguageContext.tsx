@@ -2020,23 +2020,25 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     runGlobalTranslation();
 
     const observer = new MutationObserver((mutations) => {
-      let shouldTranslate = false;
+      // IMPORTANT FOR POS: cart additions cause DOM mutations on every click.
+      // Re-translating document.body was traversing *all* catalog cards and
+      // tables for every changed total, and could stall the cashier's phone.
+      // Only translate nodes whose actual text/attributes or children changed.
+      const changedNodes = new Set<Node>();
       for (const mutation of mutations) {
-        if (mutation.addedNodes.length > 0) {
-          shouldTranslate = true;
-          break;
-        }
-        if (mutation.type === 'characterData') {
+        if (mutation.type === 'childList') {
+          mutation.addedNodes.forEach(node => changedNodes.add(node));
+        } else if (mutation.type === 'characterData') {
           const originalVal = (mutation.target as any).__originalText;
           const currentVal = mutation.target.nodeValue;
           const expectedTranslated = originalVal !== undefined ? translateString(originalVal, lang) : undefined;
           if (originalVal === undefined || currentVal !== expectedTranslated) {
-            // Update cache to the new value set by React/DOM
+            // React reused this text node for a different cart total; update
+            // its un-translated source rather than displaying the stale value.
             (mutation.target as any).__originalText = currentVal;
-            shouldTranslate = true;
+            changedNodes.add(mutation.target);
           }
-        }
-        if (mutation.type === 'attributes' && ['placeholder', 'title', 'aria-label'].includes(mutation.attributeName || '')) {
+        } else if (mutation.type === 'attributes' && ['placeholder', 'title', 'aria-label'].includes(mutation.attributeName || '')) {
           const el = mutation.target as HTMLInputElement;
           const isPlaceholder = mutation.attributeName === 'placeholder';
           const originalKey = isPlaceholder ? '__originalPlaceholder' : `__original_${mutation.attributeName}`;
@@ -2045,14 +2047,21 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
           const expectedTranslated = originalVal !== undefined ? translateString(originalVal, lang) : undefined;
           if (originalVal === undefined || currentVal !== expectedTranslated) {
             (el as any)[originalKey] = currentVal;
-            shouldTranslate = true;
+            changedNodes.add(el);
           }
         }
       }
 
-      if (shouldTranslate) {
-        observer.disconnect();
-        runGlobalTranslation();
+      if (!changedNodes.size) return;
+      observer.disconnect();
+      try {
+        const changedList = [...changedNodes];
+        for (const node of changedList) {
+          // An added container already includes its new descendants.
+          if (changedList.some(other => other !== node && other.contains(node))) continue;
+          translateNode(node, lang);
+        }
+      } finally {
         observer.observe(document.body, {
           childList: true,
           subtree: true,
