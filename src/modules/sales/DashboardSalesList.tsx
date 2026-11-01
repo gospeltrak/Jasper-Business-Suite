@@ -624,6 +624,7 @@ export default function DashboardSalesList({
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
   const [saleToDelete, setSaleToDelete] = useState<Sale | null>(null);
   const [isDeletingSale, setIsDeletingSale] = useState(false);
+  const deletingSaleInFlightRef = useRef(false);
   const [deleteSaleError, setDeleteSaleError] = useState<string | null>(null);
   const openDeleteSaleConfirmation = (sale: Sale) => {
     setDeleteSaleError(null);
@@ -4986,19 +4987,18 @@ export default function DashboardSalesList({
               <button
                 type="button"
                 onClick={async () => {
-                  if (isDeletingSale) return;
+                  if (deletingSaleInFlightRef.current) return;
+                  deletingSaleInFlightRef.current = true;
                   setIsDeletingSale(true);
                   setDeleteSaleError(null);
                   try {
-                    if (onDeleteSale) {
-                      const deleted = await onDeleteSale(saleToDelete);
-                      if (!deleted) {
-                        setDeleteSaleError('Receipt could not be cancelled. Check your branch access and permissions, then try again.');
-                        return;
-                      }
-                    } else if (onUpdateSales) {
-                      const nextSales = sales.filter(s => s.id !== saleToDelete.id);
-                      onUpdateSales(nextSales);
+                    if (!onDeleteSale) {
+                      throw new Error('Safe receipt cancellation is unavailable. Refresh the application before trying again.');
+                    }
+                    const deleted = await onDeleteSale(saleToDelete);
+                    if (!deleted) {
+                      setDeleteSaleError('Receipt could not be cancelled. Check your connection and branch access, then retry.');
+                      return;
                     }
                     setInstallmentRecords(previous => {
                       const next = { ...previous };
@@ -5006,9 +5006,10 @@ export default function DashboardSalesList({
                       return next;
                     });
                     setSaleToDelete(null);
-                  } catch {
-                    setDeleteSaleError('Receipt could not be cancelled safely. Nothing was changed.');
+                  } catch (error: any) {
+                    setDeleteSaleError(error?.message || 'Receipt could not be cancelled safely. Nothing was changed.');
                   } finally {
+                    deletingSaleInFlightRef.current = false;
                     setIsDeletingSale(false);
                   }
                 }}
