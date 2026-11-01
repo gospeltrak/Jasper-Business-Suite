@@ -1050,9 +1050,15 @@ export default function DashboardPOS({
     vatStatus === 'vat' ? taxableSubtotal * activeTenant.taxRate : 0,
   [vatStatus, taxableSubtotal, activeTenant.taxRate]);
 
+  // Payment amount on the Sales checkout is PRODUCT-ONLY. The delivery fee
+  // is recorded to its chosen account through a separate atomic treasury line.
+  const productCheckoutTotal = useMemo(() =>
+    Number((taxableSubtotal + tax).toFixed(2)),
+  [taxableSubtotal, tax]);
+
   const grandTotal = useMemo(() =>
-    taxableSubtotal + tax + deliveryCost,
-  [taxableSubtotal, tax, deliveryCost]);
+    Number((productCheckoutTotal + deliveryCost).toFixed(2)),
+  [productCheckoutTotal, deliveryCost]);
 
   // Memoized total item count — avoids inline cart.reduce in JSX on every render
   const cartTotalQty = useMemo(() =>
@@ -1070,7 +1076,11 @@ export default function DashboardPOS({
     const availableDeliveryModes = systemSettings?.business?.deliveryPaymentModes && systemSettings.business.deliveryPaymentModes.length > 0 
       ? systemSettings.business.deliveryPaymentModes 
       : (systemSettings?.business?.paymentModes || ['Cash']);
-    setDeliveryPaymentMethod(getPaymentModeName(availableDeliveryModes[0]));
+    // Do not overwrite the delivery account the seller already selected in Cart.
+    setDeliveryPaymentMethod(current => {
+      const valid = availableDeliveryModes.map(getPaymentModeName).filter(Boolean);
+      return valid.includes(current) ? current : valid[0] || '';
+    });
     setMultiAllocations([]);
     setAmountPaid(0);
     setReferenceCode('');
@@ -1261,7 +1271,12 @@ export default function DashboardPOS({
       throw new Error("You haven't set up payment modes yet. Go to Settings → Business Setup to set up your payment modes before you can check out.");
     }
 
-    const amountDue = Math.max(0, Number((grandTotal - normalizedAmountPaid).toFixed(2)));
+    // Delivery is assumed paid to its OWN selected Money & Bank account.
+    // Product debt and payment breakdown must never include that delivery fee.
+    if (normalizedAmountPaid > productCheckoutTotal) {
+      throw new Error('Product payment cannot exceed the product-only total. Delivery has its own payment account.');
+    }
+    const amountDue = Math.max(0, Number((productCheckoutTotal - normalizedAmountPaid).toFixed(2)));
     const manualPaymentStatus: Sale['paymentStatus'] = amountDue <= 0
       ? 'paid'
       : normalizedAmountPaid > 0
@@ -1274,7 +1289,7 @@ export default function DashboardPOS({
       id: 'sl-' + Math.random().toString(36).substr(2, 9).toUpperCase(),
       items: saleItems,
       total: grandTotal,
-      productTotal: grandTotal - deliveryCost, // revenue excluding delivery fee
+      productTotal: productCheckoutTotal, // product-only revenue; delivery has its own treasury journal
       tax: tax,
       deliveryCost: deliveryCost,
       deliveryPaymentMethod: deliveryCost > 0 ? deliveryPaymentMethod : undefined,
@@ -2235,11 +2250,23 @@ export default function DashboardPOS({
               <div className="pos-checkout-body overflow-y-auto flex-1">
                 <div className="pos-checkout-total">
                   <div>
-                    <span className="pos-checkout-eyebrow">TOTAL TO COLLECT</span>
-                    <p className="pos-checkout-total-caption">Current sale</p>
+                    <span className="pos-checkout-eyebrow">PRODUCT PAYMENT TO COLLECT</span>
+                    <p className="pos-checkout-total-caption">Products only — delivery is paid separately</p>
                   </div>
-                  <strong data-testid="pos-checkout-total">{currency}{Math.round(grandTotal).toLocaleString()}</strong>
+                  <strong data-testid="pos-checkout-total">{currency}{Math.round(productCheckoutTotal).toLocaleString()}</strong>
                 </div>
+                {deliveryCost > 0 && (
+                  <div data-testid="pos-checkout-delivery-breakdown" className="px-4 py-2.5 text-xs font-semibold text-slate-600 bg-emerald-50 border-b border-emerald-100 space-y-1">
+                    <div className="flex justify-between gap-2">
+                      <span>Delivery fee — paid via {deliveryPaymentMethod || 'selected account'}</span>
+                      <strong>{currency}{Math.round(deliveryCost).toLocaleString()}</strong>
+                    </div>
+                    <div className="flex justify-between gap-2 text-slate-500">
+                      <span>Combined order total (products + delivery)</span>
+                      <span>{currency}{Math.round(grandTotal).toLocaleString()}</span>
+                    </div>
+                  </div>
+                )}
 
                 {/* Customer Assignment (New feature) */}
                 <section className="pos-checkout-section" aria-label="Customer details">
@@ -2303,7 +2330,7 @@ export default function DashboardPOS({
                             onClick={() => {
                               setPaymentMethod(mode);
                               const isCreditMode = mode.toLowerCase().includes('credit');
-                              setAmountPaid(isCreditMode ? 0 : Number(grandTotal.toFixed(2)));
+                              setAmountPaid(isCreditMode ? 0 : productCheckoutTotal);
                               setReferenceCode('');
                               setPaymentNote('');
                               if (mode === 'Multi-Channel') {
@@ -2311,7 +2338,7 @@ export default function DashboardPOS({
                                   ? systemSettings.business.paymentModes
                                   : ['Cash', 'Mobile Money', 'Bank'];
                                 const firstMethod = baseModes.map(getPaymentModeName).filter(Boolean)[0] || 'Cash';
-                                setMultiAllocations([{ method: firstMethod, amount: Number(grandTotal.toFixed(2)), reference: '' }]);
+                                setMultiAllocations([{ method: firstMethod, amount: productCheckoutTotal, reference: '' }]);
                               }
                             }}
                             aria-pressed={isSelected}
@@ -2343,7 +2370,7 @@ export default function DashboardPOS({
                     const availableMethods = baseModes.map(getPaymentModeName).filter(Boolean);
                     const usedMethods = new Set(multiAllocations.map(row => row.method));
                     const totalAllocated = Number(multiAllocations.reduce((sum, row) => sum + Math.max(0, Number(row.amount || 0)), 0).toFixed(2));
-                    const remaining = Number((grandTotal - totalAllocated).toFixed(2));
+                    const remaining = Number((productCheckoutTotal - totalAllocated).toFixed(2));
                     const canAddMore = multiAllocations.length < availableMethods.length;
 
                     return (
@@ -2379,10 +2406,10 @@ export default function DashboardPOS({
                                     <input
                                       type="number"
                                       min="0"
-                                      max={grandTotal}
+                                      max={productCheckoutTotal}
                                       value={row.amount || ''}
                                       onChange={(e) => {
-                                        const val = Math.max(0, Math.min(grandTotal, parseFloat(e.target.value) || 0));
+                                        const val = Math.max(0, Math.min(productCheckoutTotal, parseFloat(e.target.value) || 0));
                                         const next = [...multiAllocations];
                                         next[index] = { ...next[index], amount: val };
                                         setMultiAllocations(next);
@@ -2458,13 +2485,13 @@ export default function DashboardPOS({
                     </div>
                     {/* Amount spans the sheet; the two optional fields share one equal-width row. */}
                     <label className="pos-checkout-field pos-checkout-amount-field">
-                      <span>Amount paid ({currency})</span>
+                      <span>Product amount paid ({currency})</span>
                       <input
                         type="number"
                         min="0"
                         inputMode="decimal"
                         value={amountPaid}
-                        onChange={(e) => setAmountPaid(Math.max(0, parseFloat(e.target.value) || 0))}
+                        onChange={(e) => setAmountPaid(Math.max(0, Math.min(productCheckoutTotal, parseFloat(e.target.value) || 0)))}
                         className="pos-checkout-amount-input"
                       />
                     </label>
@@ -2489,15 +2516,15 @@ export default function DashboardPOS({
                       </label>
                     </div>
                     <div aria-live="polite" className={`pos-checkout-balance ${
-                      amountPaid >= grandTotal ? 'pos-checkout-balance-paid'
+                      amountPaid >= productCheckoutTotal ? 'pos-checkout-balance-paid'
                         : amountPaid > 0 ? 'pos-checkout-balance-partial'
                         : 'pos-checkout-balance-unpaid'
                     }`}>
-                      {amountPaid >= grandTotal
-                        ? `Paid in full. Change: ${currency}${Math.max(0, amountPaid - grandTotal).toLocaleString()}`
+                      {amountPaid >= productCheckoutTotal
+                        ? `Paid in full. Change: ${currency}${Math.max(0, amountPaid - productCheckoutTotal).toLocaleString()}`
                         : amountPaid > 0
-                          ? `Partial payment. Due: ${currency}${Math.max(0, grandTotal - amountPaid).toLocaleString()}`
-                          : `Unpaid / credit. Due: ${currency}${grandTotal.toLocaleString()}`}
+                          ? `Partial payment. Due: ${currency}${Math.max(0, productCheckoutTotal - amountPaid).toLocaleString()}`
+                          : `Unpaid / credit. Due: ${currency}${productCheckoutTotal.toLocaleString()}`}
                     </div>
                   </section>
                 )}
@@ -2533,8 +2560,8 @@ export default function DashboardPOS({
                   </p>
                 )}
                 <div className="pos-checkout-footer-total">
-                  <span>Sale total</span>
-                  <strong>{currency}{Math.round(grandTotal).toLocaleString()}</strong>
+                  <span>Products to collect</span>
+                  <strong>{currency}{Math.round(productCheckoutTotal).toLocaleString()}</strong>
                 </div>
                 <button
                   type="button"
@@ -2667,8 +2694,10 @@ export default function DashboardPOS({
                     const orderDiscountAmt = receiptResult.discountType === 'cash'
                       ? (receiptResult.discount || 0)
                       : itemsSubtotal * ((receiptResult.discount || 0) / 100);
-                    const paidAmount = receiptResult.amountPaid ?? receiptResult.total;
-                    const balanceDue = Math.max(0, receiptResult.total - paidAmount);
+                    const receiptProductTotal = Math.max(0, receiptResult.productTotal ??
+                      receiptResult.total - (receiptResult.deliveryCost || 0));
+                    const paidAmount = receiptResult.amountPaid ?? (receiptResult.paymentMethod === 'Credit' ? 0 : receiptProductTotal);
+                    const balanceDue = Math.max(0, receiptProductTotal - paidAmount);
                     const changeDue = Math.max(0, receiptResult.change || 0);
                     return (
                       <>
@@ -2718,9 +2747,15 @@ export default function DashboardPOS({
                             <span className="font-semibold">{posReceiptPaymentMode(receiptResult.paymentMethod, receiptLanguage)}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span>{posReceiptLabel('amount', receiptLanguage)}</span>
+                            <span>Product payment</span>
                             <span className="font-semibold">{currency}{Math.round(paidAmount).toLocaleString()}</span>
                           </div>
+                          {(receiptResult.deliveryCost || 0) > 0 && (
+                            <div className="flex justify-between">
+                              <span>Delivery payment ({posReceiptPaymentMode(receiptResult.deliveryPaymentMethod || 'Cash', receiptLanguage)})</span>
+                              <span className="font-semibold">{currency}{Math.round(receiptResult.deliveryCost || 0).toLocaleString()}</span>
+                            </div>
+                          )}
                           {changeDue > 0 && (
                             <div className="flex justify-between">
                               <span>{posReceiptLabel('change', receiptLanguage)}</span>
