@@ -96,7 +96,11 @@ jobs:
           ! grep -q 'window.location.reload()' index.html
           grep -q 'loginEmailInputRef' src/modules/auth/LoginPage.tsx
           # Block publication unless the latest production one-tap-login fix is packaged.
-          git merge-base --is-ancestor 35ed6bc991b870aae59ba53ac894efecd0d337d7 origin/main
+          git merge-base --is-ancestor 5fd66bf59e010709792f5ca7877546f6c1db5b03 origin/main
+          grep -q 'await cancelTenantSaleAtomically(' src/components/Dashboard.tsx
+          grep -q "client.rpc('cancel_current_branch_sale'" src/shared/utils/tenantWorkspace.ts
+          grep -q 'deletingSaleInFlightRef.current = true' src/modules/sales/DashboardSalesList.tsx
+          test -f supabase/migrations/20261102005500_atomic_cancel_receipt_and_treasury.sql
           grep -q 'void persistSettings(next, previous)' src/modules/notifications-settings/DashboardNotificationsSettings.tsx
           grep -q 'saved !== true' src/modules/notifications-settings/DashboardNotificationsSettings.tsx
           ! grep -q 'Optional and OFF by default' src/modules/notifications-settings/DashboardNotificationsSettings.tsx
@@ -231,11 +235,11 @@ jobs:
           test -s qa-apk/app-debug.apk
           unzip -t qa-apk/app-debug.apk > /dev/null
           sha256sum qa-apk/app-debug.apk
-          mv qa-apk/app-debug.apk qa-apk/Orvix-Every-Sale-Login-Fix-Android-QA.apk
-          gh release create orvix-android-qa-every-sale-20261102 \
-            qa-apk/Orvix-Every-Sale-Login-Fix-Android-QA.apk \
+          mv qa-apk/app-debug.apk qa-apk/Orvix-Receipt-Cancel-Stock-Treasury-Fix-Android-QA.apk
+          gh release create orvix-android-qa-cancel-receipt-20261102 \
+            qa-apk/Orvix-Receipt-Cancel-Stock-Treasury-Fix-Android-QA.apk \
             --repo "$GH_REPO" \
             --target "$GITHUB_SHA" \
-            --title 'Orvix Android QA — Every Sale Alerts and One-Tap Login' \
-            --notes 'Android QA build integrating deployed Production commit 35ed6bc (or newer). Every Sale notification toggle autosaves on tap with confirmed DB write and error rollback; mobile OFF by default paragraph removed. Includes one-tap Sign In, Kiswahili sale notification details, scanner and Bluetooth printer. Not Play Store. Real remote push while fully closed remains pending. No customer data changed or removed by the APK build.' \
+            --title 'Orvix Android QA — Cancel Receipt, Stock and Money & Bank' \
+            --notes 'Android QA APK built from current main at commit 5fd66bf (or newer). Includes atomic Cancel Receipt handling, safe inventory and Money & Bank reversal, single-tap authentication, Every Sale preferences, Kiswahili notifications, scanner and Bluetooth printer. The production web deployment may still be on an earlier revision because Vercel daily deployment quota is exhausted. This is a QA/debug APK (not Play Store). Install first and verify with a nonfinancial test record; do not delete real sales to test. The build does not delete customer records.' \
             --prerelease
