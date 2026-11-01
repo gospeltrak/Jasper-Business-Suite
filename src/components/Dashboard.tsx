@@ -1536,13 +1536,17 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
 
   // Multi-tenant pivot controller keys
   const currentTenantId = user.activeTenant || user.tenantId;
-  const activeProducts = currentTenantId
-    ? scopeProductsForBranch(
-      productsMap[activeTenant.id] || [],
-      branchStocksMap[activeTenant.id] || [],
-      activeBranchSelection,
-    )
-    : [];
+  // Scope branch inventory only when its source or selected branch changes.
+  // Previously every unrelated Dashboard update (notifications, badges, clock,
+  // etc.) created a fresh product array. POS then re-filtered, re-priced and
+  // re-rendered EVERY product image card in the catalog during an active sale.
+  const tenantProducts = productsMap[activeTenant.id];
+  const tenantBranchStocks = branchStocksMap[activeTenant.id];
+  const activeProducts = React.useMemo(() =>
+    currentTenantId
+      ? scopeProductsForBranch(tenantProducts || [], tenantBranchStocks || [], activeBranchSelection)
+      : [],
+  [currentTenantId, tenantProducts, tenantBranchStocks, activeBranchSelection]);
   const activeSales: Sale[] = currentTenantId ? scopeBranchRecords<Sale>(salesMap[activeTenant.id] || [], activeBranchSelection) : [];
   const activeExpenses: Expense[] = currentTenantId ? scopeBranchRecords<Expense>(expensesMap[activeTenant.id] || [], activeBranchSelection) : [];
   const activePurchases: Purchase[] = currentTenantId ? scopeBranchRecords<Purchase>(purchasesMap[activeTenant.id] || [], activeBranchSelection) : [];
