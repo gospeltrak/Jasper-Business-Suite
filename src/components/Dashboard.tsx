@@ -49,7 +49,7 @@ import DuressDashboard from '../shared/components/DuressDashboard';
 
 import { savePendingSaleOffline } from '../shared/utils/offlineDb';
 import { createCleanTenantSettings, isDemoTenant } from '../shared/utils/tenantIsolation';
-import { addTenantPurchasePayment, flushPendingTenantWorkspace, hasPendingTenantWorkspaceSave, loadTenantProductFresh, loadTenantWorkspace, loadTenantWorkspaceCore, markTenantProductsUpdated, readCachedWorkspace, reloadTenantWorkspace, saveTenantDeliveriesOnly, saveTenantExpensesOnly, saveTenantProductsOnly, saveTenantPurchasesOnly, saveTenantSalesOnly, saveTenantSettings, scheduleTenantWorkspaceSave, subscribeToTenantBusinessType, subscribeToTenantWorkspace, TenantWorkspace, waitForTenantWorkspaceLoad, workspaceHasBusinessData } from '../shared/utils/tenantWorkspace';
+import { addTenantPurchasePayment, cancelTenantSaleAtomically, flushPendingTenantWorkspace, hasPendingTenantWorkspaceSave, loadTenantProductFresh, loadTenantWorkspace, loadTenantWorkspaceCore, markTenantProductsUpdated, readCachedWorkspace, reloadTenantWorkspace, saveTenantDeliveriesOnly, saveTenantExpensesOnly, saveTenantProductsOnly, saveTenantPurchasesOnly, saveTenantSalesOnly, saveTenantSettings, scheduleTenantWorkspaceSave, subscribeToTenantBusinessType, subscribeToTenantWorkspace, TenantWorkspace, waitForTenantWorkspaceLoad, workspaceHasBusinessData } from '../shared/utils/tenantWorkspace';
 import { safeSetJsonItem, safeSetTenantMapItem } from '../shared/utils/dataSafety';
 import { findPaymentChannel, getDebtCollectionPaymentChannels, getTreasuryPaymentMethods, reconcilePaymentChannels } from '../shared/utils/paymentAccounts';
 import { attachPayloadProductTombstones, markLocalProductTombstones, mergeProductTombstones, mergeProductsForSync, readLocalProductTombstones, stampProductsForSync, writeLocalProductTombstones } from '../modules/products/utils/productSync';
@@ -2302,96 +2302,53 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       addToast('This sale has no valid transaction ID and could not be deleted.', 'error');
       return false;
     }
-
     const tenantId = activeTenant.id;
     const currentSales = salesMap[tenantId] || [];
     const persistedSale = currentSales.find(candidate => candidate.id === sale.id);
-    if (!persistedSale) return true;
-
-    // Older workspace sales can legitimately predate the tenantId field. Their
-    // presence inside the active tenant's canonical workspace establishes the
-    // tenant boundary; an explicit conflicting tenant ID is still rejected.
+    if (!persistedSale) {
+      throw new Error('Receipt is no longer available. Refresh Sales before retrying.');
+    }
     if (saleHasTenantConflict(sale, persistedSale, tenantId)) {
-      console.warn('[Dashboard] Blocked sale deletion outside the active tenant.');
-      addToast('This sale belongs to a different business and cannot be deleted here.', 'error');
-      return false;
+      throw new Error('This sale belongs to a different business and cannot be cancelled here.');
     }
-
     if (!recordBelongsToActiveBranch(persistedSale, activeBranchSelection)) {
-      addToast('Switch to the branch that owns this sale before deleting it.', 'error');
-      return false;
+      throw new Error('Switch to the branch that owns this receipt before cancelling it.');
     }
-
+    if (Array.isArray(persistedSale.payments) && persistedSale.payments.length > 0) {
+      throw new Error('This receipt has customer payments in its audit history. Use the authorized refund or reversal workflow.');
+    }
     const deletedAt = new Date().toISOString();
     const previousSaleTombstones = readLocalSaleTombstones(tenantId);
-    const nextSaleTombstones = markLocalSaleTombstone(tenantId, sale.id, deletedAt);
+    const nextSaleTombstones = { ...previousSaleTombstones, [sale.id]: deletedAt };
     const nextSales = currentSales.filter(candidate => candidate.id !== sale.id);
     const currentProducts = productsMap[tenantId] || [];
-
     const restoredProducts = reverseSaleInventory(persistedSale, currentProducts, deletedAt);
-    const nextDeliveries = (deliveriesMap[tenantId] || [])
-      .filter(delivery => delivery.saleId !== sale.id);
+    const nextDeliveries = (deliveriesMap[tenantId] || []).filter(delivery => delivery.saleId !== sale.id);
 
-    // Narrow save: this delete atomically touches sales + products (stock
-    // restored) + deliveries (linked delivery removed) + saleTombstones,
-    // exactly as before -- see saveTenantSalesOnly's contract.
-    const saved = await saveTenantSalesOnly(
-      tenantId,
-      nextSales,
-      nextSaleTombstones,
-      restoredProducts,
-      nextDeliveries,
+    // ONE atomic, tenant/branch-checked database transaction for sale, stock,
+    // delivery and Money & Bank. The previous two-RPC sequence could leave a
+    // deleted sale after the journal reversal or compensating save failed.
+    // Do not set a local tombstone or dismiss the modal until DB confirms all.
+    await cancelTenantSaleAtomically(
+      tenantId, sale.id, nextSales, nextSaleTombstones, restoredProducts, nextDeliveries,
     );
 
-    if (!saved) {
-      writeLocalSaleTombstones(tenantId, previousSaleTombstones);
-      addToast('Sale could not be deleted from the system. Nothing was removed.', 'error');
-      return false;
-    }
-
-    if (persistedSale.treasuryJournalId) {
-      try {
-        await reverseTreasuryEntry(
-          persistedSale.treasuryJournalId,
-          persistedSale.id,
-          `Deleted sale ${persistedSale.reference || persistedSale.id}`,
-        );
-      } catch (error: any) {
-        writeLocalSaleTombstones(tenantId, previousSaleTombstones);
-        await saveTenantSalesOnly(
-          tenantId,
-          currentSales,
-          previousSaleTombstones,
-          currentProducts,
-          deliveriesMap[tenantId] || [],
-        );
-        addToast(error?.message || 'Money & Bank could not reverse this sale safely.', 'error');
-        return false;
-      }
-    }
-
+    markLocalSaleTombstone(tenantId, sale.id, deletedAt);
     localWorkspaceChangedAtRef.current = Date.now();
     cloudWorkspaceLoadedRef.current = true;
     setSalesMap(previous => ({ ...previous, [tenantId]: nextSales }));
     setProductsMap(previous => ({ ...previous, [tenantId]: restoredProducts }));
     setDeliveriesMap(previous => ({ ...previous, [tenantId]: nextDeliveries }));
     saveData(
-      tenantId,
-      'sales_map',
-      attachPayloadSaleTombstones(
-        { [tenantId]: nextSales },
-        tenantId,
-        nextSaleTombstones,
-      ),
+      tenantId, 'sales_map',
+      attachPayloadSaleTombstones({ [tenantId]: nextSales }, tenantId, nextSaleTombstones),
     );
     saveData(tenantId, 'products_map', { [tenantId]: restoredProducts });
     saveData(tenantId, 'deliveries_map', { [tenantId]: nextDeliveries });
-
     setLogs(previous => [{
       id: `sale-delete-${sale.id}-${Date.now()}`,
-      type: 'sale',
-      status: 'success',
-      message: `Deleted sale ${sale.reference || sale.id} and reversed its inventory movements.`,
+      type: 'sale', status: 'success',
+      message: `Cancelled receipt ${sale.reference || sale.id} and reversed stock and linked payments.`,
       timestamp: deletedAt,
     }, ...previous]);
     return true;

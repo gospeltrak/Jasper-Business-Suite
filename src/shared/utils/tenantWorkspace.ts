@@ -1294,6 +1294,73 @@ async function saveTenantSalesOnlyNow(
   }
 }
 
+/**
+ * Cancels a receipt, restores stock, removes its linked delivery and reverses
+ * both payment journals in ONE DB transaction. Never fall back to two writes:
+ * the old flow could leave a deleted sale after a treasury reversal failure.
+ */
+export function cancelTenantSaleAtomically(
+  tenantId: string,
+  saleId: string,
+  sales: any[],
+  saleTombstones: Record<string, string>,
+  products: Product[],
+  deliveries: Delivery[],
+): Promise<void> {
+  const previous = workspaceSaveQueue.get(tenantId) || Promise.resolve(true);
+  const task = previous.catch(() => false).then(async () => {
+    if (!tenantId || !saleId || !canWriteBusinessDataOnline()) {
+      throw new Error('Connect to the internet before cancelling a receipt.');
+    }
+    const client = await getConfiguredClient();
+    if (!client) throw new Error('The receipt cancellation service is unavailable. Check your connection.');
+    const { data, error } = await client.rpc('cancel_current_branch_sale', {
+      p_sale_id: saleId,
+      p_sales: sales,
+      p_sale_tombstones: saleTombstones,
+      p_products: products,
+      p_deliveries: deliveries,
+    });
+    if (error) {
+      const message = String(error.message || '');
+      if (message.includes('installments') || message.includes('payment audit history')) {
+        throw new Error('This receipt has recorded payments. Use an authorized refund or reversal instead of deleting its payment history.');
+      }
+      if (message.includes('negative account balance')) {
+        throw new Error('Receipt cannot be cancelled: the payment account has insufficient balance to reverse this sale. Review Money & Bank first.');
+      }
+      if (error.code === '42501') {
+        throw new Error('You do not have permission to cancel this receipt or reverse its payment in this branch.');
+      }
+      if (error.code === 'P0002') {
+        throw new Error('This receipt has changed or is already gone. Refresh Sales before trying again.');
+      }
+      if (['PGRST202', '42883'].includes(String(error.code || ''))) {
+        throw new Error('Safe receipt cancellation is unavailable. A system update is required; no sale was removed.');
+      }
+      console.warn('[workspace] atomic receipt cancellation failed:', error.code || 'unknown');
+      throw new Error('Receipt cancellation was not confirmed by the database. Check your connection and refresh Sales before retrying.');
+    }
+    if (!data || data.status !== 'cancelled' || data.saleId !== saleId) {
+      throw new Error('Receipt cancellation was not confirmed. Refresh Sales before retrying.');
+    }
+    const current = readCachedWorkspace(tenantId) || emptyWorkspace();
+    cacheWorkspace(tenantId, {
+      ...current,
+      sales: Array.isArray(data.sales) ? data.sales : sales,
+      saleTombstones: (data.saleTombstones || saleTombstones) as Record<string, string>,
+      products: Array.isArray(data.products) ? data.products : products,
+      deliveries: Array.isArray(data.deliveries) ? data.deliveries : deliveries,
+    });
+  });
+  const queued = task.then(() => true, () => false);
+  workspaceSaveQueue.set(tenantId, queued);
+  void queued.finally(() => {
+    if (workspaceSaveQueue.get(tenantId) === queued) workspaceSaveQueue.delete(tenantId);
+  });
+  return task;
+}
+
 export function saveTenantSalesOnly(
   tenantId: string,
   sales: any[],
