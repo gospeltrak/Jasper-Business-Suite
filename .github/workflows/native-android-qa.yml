@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   # Build a fresh internal QA APK when the native development branch changes.
   push:
-    branches: [feature/orvix-native-offline-v1, feature/scanner-printer-native-58-80, qa/orvix-android-pr39-20261101, qa/orvix-android-pr39-pos-cart-focus-20261101]
+    branches: [feature/orvix-native-offline-v1, feature/scanner-printer-native-58-80, qa/orvix-android-pr39-20261101, qa/orvix-android-pr39-pos-cart-focus-20261101, qa/orvix-android-pr42-delivery-split-20261101]
     paths:
       - 'src/**'
       - 'scripts/**'
@@ -74,6 +74,18 @@ jobs:
       - name: Integrate native UI types without changing production
         run: node scripts/qa-integrate-android-pr39.mjs
 
+      - name: Integrate PR42 product-only checkout and cart focus, preserving Android printer
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin fix/pos-cart-discount-delivery-focus-20261101
+          git diff origin/main origin/fix/pos-cart-discount-delivery-focus-20261101 -- src/modules/pos/DashboardPOS.tsx | git apply --3way
+          git show origin/fix/pos-cart-discount-delivery-focus-20261101:scripts/sales-delivery-accounting.test.ts > scripts/sales-delivery-accounting.test.ts
+          git show origin/fix/pos-cart-discount-delivery-focus-20261101:scripts/ui-saving-performance.test.ts > scripts/ui-saving-performance.test.ts
+          grep -q 'const productCheckoutTotal = useMemo' src/modules/pos/DashboardPOS.tsx
+          grep -q 'Delivery fee — paid via' src/modules/pos/DashboardPOS.tsx
+          grep -q 'sendNativeReceipt' src/modules/pos/DashboardPOS.tsx
+
       - name: Install locked dependencies
         run: npm ci
 
@@ -104,6 +116,9 @@ jobs:
 
       - name: Scanner & Printer unit tests
         run: npx vitest run src/shared/utils/posDevices.test.ts
+
+      - name: Verify PR42 split checkout and input focus regression
+        run: npx tsx --test scripts/sales-delivery-accounting.test.ts scripts/ui-saving-performance.test.ts
 
       - name: Validate TypeScript
         run: npm run lint
