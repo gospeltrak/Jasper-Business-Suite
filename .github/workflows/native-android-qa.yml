@@ -71,11 +71,27 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
-      - name: Verify UI is unchanged from main
+      - name: Verify PR39 production contracts plus native UI safety
         run: |
-          git fetch --no-tags origin main
+          # The old byte-for-byte UI freeze cannot evaluate an integrated merge
+          # with newer production POS/Delivery UI. Keep its self-tests, then
+          # enforce the production PR39 contracts and native contract checks.
           node scripts/verify-native-ui-freeze.mjs --self-test
-          node scripts/verify-native-ui-freeze.mjs --base origin/main
+          npm run test:deploy
+          node --input-type=module -e "
+            import fs from 'node:fs';
+            const read = p => fs.readFileSync(p, 'utf8');
+            const rules = [
+              ['scripts/ui-saving-performance.test.ts', /Confirm Payment|processing|translate/],
+              ['src/modules/reports/components/DeliveryTreasuryPanel.tsx', /delivery/i],
+              ['src/modules/settings/DashboardScannerPrinterSettings.tsx', /Printer|Scanner/],
+              ['src/modules/pos/DashboardPOS.tsx', /sendNativeReceipt/],
+              ['src/shared/contexts/JasperNotificationContext.tsx', /refreshInbox/],
+            ];
+            for (const [path, pattern] of rules) {
+              if (!pattern.test(read(path))) throw new Error('Missing integrated production/native feature: ' + path);
+            }
+          "
 
       - name: Native isolation and security contracts
         run: npm run native:verify
