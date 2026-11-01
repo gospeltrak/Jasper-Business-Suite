@@ -12,6 +12,16 @@ assert(pos.includes('paymentSubmitInFlightRef'), 'Expected latest safe payment s
 assert(pos.includes('className="pos-checkout-confirm"'), 'Expected latest checkout confirmation UI');
 assert(originalNative.includes('sendNativeReceipt'), 'Expected original Android printer integrations');
 assert(pos.includes("import DashboardBarcodeScanner from '../../shared/components/LazyDashboardBarcodeScanner'"), 'Keep camera scanner lazy loaded');
+if (pos.includes('getOrvixNativePrinterBridge') &&
+    pos.includes('sendNativeReceipt') &&
+    pos.includes('automaticPrinting') &&
+    pos.includes('posDevicePreferences.scannerMode') &&
+    pos.includes('key="pos-processing"') &&
+    pos.includes('translate="no"')) {
+  console.log('Deployed POS and Android native bridge already merged cleanly. Reuse exact merged code.');
+  process.exit(0);
+}
+
 
 function replaceOne(from, to, label) {
   const hits = pos.split(from).length - 1;
