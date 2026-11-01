@@ -140,3 +140,19 @@ test('selected POS product immediately prices from same channel and unit-price s
   assert.match(pos, /const subtotal = cart\.reduce\(\(sum, item\) =>/);
   assert.match(pos, /data-testid="pos-mobile-grand-total"[\s\S]*?\{Math\.round\(grandTotal\)\.toLocaleString\(\)\}/);
 });
+
+
+test('repeated cart additions do not regenerate the entire POS product grid', async () => {
+  const pos = await read('src/modules/pos/DashboardPOS.tsx');
+  // Customer reported first 1-2 add taps are fast, then 3rd+ item stalls.
+  // The full catalog is independent of cart, discount and checkout state.
+  const memoizedGrid = pos.match(/const productCards = useMemo\(\(\) => ([\s\S]*?), \[([\s\S]*?)\]\);/);
+  assert.ok(memoizedGrid, 'Catalog cards must be built in a memoized list');
+  assert.match(memoizedGrid[1], /filteredProducts\.map\(prod => \{/);
+  assert.match(memoizedGrid[1], /key=\{prod\.id\}/);
+  assert.match(memoizedGrid[1], /addToCart\(prod\)/);
+  assert.match(memoizedGrid[2], /filteredProducts, productPriceMap, productRemainingMap, addToCart/);
+  assert.doesNotMatch(memoizedGrid[2], /\bcart\b|grandTotal|subtotal|orderDiscount|deliveryCost/);
+  assert.match(pos, /id="pos-product-grid"[\s\S]*?\{\s*filteredProducts\.length === 0 \? \([\s\S]*?\)\s*:\s*\(\s*productCards\s*\)\}/);
+  assert.doesNotMatch(pos.slice(pos.indexOf('id="pos-product-grid"'), pos.indexOf('Cart Summary right panel')), /filteredProducts\.map\(prod =>/);
+});
