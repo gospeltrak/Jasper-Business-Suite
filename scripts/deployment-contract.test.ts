@@ -125,11 +125,14 @@ test('lazy screens recover safely after a deployment changes chunk filenames', a
 
   assert.match(dashboardSource, /lazyWithReload\('DashboardCashBank'/);
   assert.match(appSource, /lazyWithReload\('Dashboard'/);
-  assert.match(boundarySource, /Tunarudisha sehemu yako/);
+  // A code-update chunk failure must never restart an active sale or form;
+  // the cashier decides when to use the explicitly labeled Refresh button.
+  assert.match(boundarySource, /Hakuna kujireload au kuhamishwa kiotomatiki/);
   assert.doesNotMatch(boundarySource, /SystemErrorPage status=\{500\}/);
+  assert.match(boundarySource, /onClick=\{this\.reloadUpdatedApp\}/);
   assert.match(boundarySource, /window\.location\.reload\(\)/);
-  assert.match(lazyLoaderSource, /window\.setTimeout\(\(\) => window\.location\.reload\(\), 0\)/);
-  assert.match(lazyLoaderSource, /sessionStorage\.setItem/);
+  assert.match(lazyLoaderSource, /=> lazy\(importer\)/);
+  assert.doesNotMatch(lazyLoaderSource, /window\.setTimeout\(\(\) => window\.location\.reload\(\), 0\)/);
 });
 
 test('login always returns to the canonical Jasper landing hub', async () => {
