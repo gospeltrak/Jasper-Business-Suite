@@ -3086,3 +3086,54 @@ button:active:not(:disabled),
   outline: 2px solid #047857;
   outline-offset: 2px;
 }
+
+
+/* Orvix Notifications: two readable columns at EVERY device width.
+ * Global mobile Settings rules turn labels into blocks and neutralize
+ * Tailwind's grid-cols-2; these explicit scoped rules opt this screen out. */
+#dashboard-scaffold .settings-content-panel .orvix-report-types-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 0.5rem !important;
+  min-width: 0;
+}
+#dashboard-scaffold .settings-content-panel label.orvix-report-choice {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+  min-width: 0 !important;
+  min-height: 3.25rem;
+  padding: 0.55rem !important;
+  margin: 0 !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+  cursor: pointer;
+  border-color: #cbd5e1;
+}
+#dashboard-scaffold .settings-content-panel label.orvix-report-choice > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+#dashboard-scaffold .settings-content-panel .orvix-report-checkbox {
+  appearance: auto !important;
+  -webkit-appearance: checkbox !important;
+  accent-color: #059669 !important;
+  display: block !important;
+  width: 1.3rem !important;
+  height: 1.3rem !important;
+  min-width: 1.3rem;
+  flex: 0 0 1.3rem;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 2px solid #64748b !important;
+  border-radius: 0.25rem;
+  cursor: pointer;
+}
+#dashboard-scaffold .settings-content-panel label.orvix-report-choice:has(input:checked) {
+  background: #ecfdf5 !important;
+  border-color: #059669 !important;
+}
+#dashboard-scaffold .settings-content-panel .orvix-report-checkbox:focus-visible {
+  outline: 3px solid #6ee7b7 !important;
+  outline-offset: 2px;
+}
