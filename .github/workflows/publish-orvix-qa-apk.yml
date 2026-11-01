@@ -1,8 +1,8 @@
-name: Publish Orvix immediate Cart Total Android QA APK
+name: Publish Orvix fast Sales Cart Android QA APK
 
 on:
   push:
-    branches: [qa/publish-orvix-cart-total-fix-20261101]
+    branches: [qa/publish-orvix-pos-speed-20261101]
     paths:
       - '.github/workflows/publish-orvix-qa-apk.yml'
 
@@ -21,24 +21,24 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          result="$(gh api repos/"$GH_REPO"/actions/runs/41337076146 --jq '.conclusion')"
+          result="$(gh api repos/"$GH_REPO"/actions/runs/41338437627 --jq '.conclusion')"
           test "$result" = success
           mkdir -p orvix-apk
-          gh run download 41337076146 --name orvix-android-debug-qa-only --dir orvix-apk --repo "$GH_REPO"
+          gh run download 41338437627 --name orvix-android-debug-qa-only --dir orvix-apk --repo "$GH_REPO"
           test -s orvix-apk/app-debug.apk
           unzip -t orvix-apk/app-debug.apk >/dev/null
           sha256sum orvix-apk/app-debug.apk
-          mv orvix-apk/app-debug.apk orvix-apk/Orvix-Live-Cart-Total-Fix-Android-QA.apk
+          mv orvix-apk/app-debug.apk orvix-apk/Orvix-Fast-Sales-Cart-Android-QA.apk
       - name: Publish browser-downloadable QA prerelease (not production)
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          gh release create orvix-android-qa-live-cart-total-20261101 \
-            orvix-apk/Orvix-Live-Cart-Total-Fix-Android-QA.apk \
+          gh release create orvix-android-qa-fast-sales-cart-20261101 \
+            orvix-apk/Orvix-Fast-Sales-Cart-Android-QA.apk \
             --repo "$GH_REPO" \
             --target "$GITHUB_SHA" \
-            --title 'Orvix Android QA — Immediate Cart Total Price Fix' \
-            --notes 'QA only, not production. Includes matching catalog/card and cart item pricing, legacy price-zero fallback, reset upon emptied cart, discount/delivery focus fixes, separate delivery payment and stable login entry. Android workflow 41337076146 passed; needs actual physical phone verification. Existing tenant data must be protected.' \
+            --title 'Orvix Android QA — Fast Sales Cart with memoized product cards' \
+            --notes 'QA only, not production. Product catalog card tree is memoized so adding items to Sales Cart does not redraw every product card and image. Also includes existing live cart price, login, delivery and printer fixes. Android workflow 41338437627 passed; needs actual physical phone verification. Existing tenant data must be protected.' \
             --prerelease
