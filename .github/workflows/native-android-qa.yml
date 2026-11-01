@@ -85,8 +85,9 @@ jobs:
           grep -q 'const subtotal = cart.reduce' src/modules/pos/DashboardPOS.tsx
           git show origin/fix/pos-cart-discount-delivery-focus-20261101:scripts/sales-delivery-accounting.test.ts > scripts/sales-delivery-accounting.test.ts
           git show origin/fix/pos-cart-discount-delivery-focus-20261101:scripts/ui-saving-performance.test.ts > scripts/ui-saving-performance.test.ts
+          git show origin/fix/pos-cart-discount-delivery-focus-20261101:scripts/security-hardening-contract.test.ts > scripts/security-hardening-contract.test.ts
           grep -q 'const productCheckoutTotal = useMemo' src/modules/pos/DashboardPOS.tsx
-          grep -q 'Delivery fee — paid via' src/modules/pos/DashboardPOS.tsx
+          grep -q 'data-testid="pos-checkout-delivery-summary"' src/modules/pos/DashboardPOS.tsx
           grep -q 'sendNativeReceipt' src/modules/pos/DashboardPOS.tsx
 
       - name: Install locked dependencies
