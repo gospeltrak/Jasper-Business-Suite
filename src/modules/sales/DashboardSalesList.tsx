@@ -1,4 +1,4 @@
-import { getSaleCollected, getSaleCheckoutPaid } from './utils/salePaymentTotals';
+import { getSaleCollected, getSaleCheckoutPaid, getProductSalesTotal, getProductSalesCollected, getProductSalesDue } from './utils/salePaymentTotals';
 import React, { useState, useRef, useEffect, FormEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { Sale, Tenant, SaleItem, Product, SystemSettings, SalesDocument, User as AppUser } from '../../types';
@@ -284,14 +284,14 @@ export default function DashboardSalesList({
 
   const salesSubTabs = [
     { id: 'sales', icon: <Receipt className="w-4 h-4" />, label: 'Receipts', color: '#4f46e5' },
-    { id: 'debts', icon: <Coins className="w-4 h-4" />, label: 'Credit & Debts', color: '#d97706', badge: sales.filter(s=>s.paymentMethod==='Credit'&&(s.total-(s.amountPaid!==undefined?s.amountPaid:0))>0).length },
+    { id: 'debts', icon: <Coins className="w-4 h-4" />, label: 'Credit & Debts', color: '#d97706', badge: sales.filter(s=>s.paymentMethod==='Credit'&&getProductSalesDue(s)>0).length },
     { id: 'settlement', icon: <Building className="w-4 h-4" />, label: 'Till Settlement', color: '#7c3aed' },
     { id: 'documents', icon: <FileText className="w-4 h-4" />, label: 'Quotes & Invoices', color: '#0d9488' },
   ].filter(tab => tab.id !== 'settlement' || canUseTillSettlement);
 
   const mobileSalesSubTabs = [
     { id: 'sales', icon: <Receipt className="w-[18px] h-[18px]" />, label: 'Receipts', color: '#10b981', activeBg: '#10b981' },
-    { id: 'debts', icon: <Coins className="w-[18px] h-[18px]" />, label: 'Debts', color: '#10b981', activeBg: '#10b981', badge: sales.filter(s => s.paymentMethod === 'Credit' && (s.total - (s.amountPaid !== undefined ? s.amountPaid : 0)) > 0).length },
+    { id: 'debts', icon: <Coins className="w-[18px] h-[18px]" />, label: 'Debts', color: '#10b981', activeBg: '#10b981', badge: sales.filter(s => s.paymentMethod === 'Credit' && getProductSalesDue(s) > 0).length },
     { id: 'settlement', icon: <Building className="w-[18px] h-[18px]" />, label: 'Settle', color: '#10b981', activeBg: '#10b981' },
     { id: 'documents', icon: <FileText className="w-[18px] h-[18px]" />, label: 'Quotes', color: '#10b981', activeBg: '#10b981' },
   ].filter(tab => tab.id !== 'settlement' || canUseTillSettlement);
@@ -518,6 +518,10 @@ export default function DashboardSalesList({
 
   // Search state
   const [searchTerm, setSearchTerm] = useState('');
+  // Keep massive historical ledgers from creating thousands of DOM cards.
+  // Financial KPIs remain computed from the complete local set.
+  const [visibleSalesCount, setVisibleSalesCount] = useState(100);
+  const [visibleDebtCount, setVisibleDebtCount] = useState(100);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('All');
   const [selectedSyncStatus, setSelectedSyncStatus] = useState<string>('All');
 
@@ -963,19 +967,26 @@ export default function DashboardSalesList({
     return matchesSearch && matchesPayment && matchesSync && matchesDate;
   });
 
+  useEffect(() => {
+    setVisibleSalesCount(100);
+  }, [searchTerm, selectedPaymentMethod, selectedSyncStatus, startDate, endDate]);
+
+  useEffect(() => {
+    setVisibleDebtCount(100);
+  }, [debtSearchTerm]);
+
+  const visibleSales = filteredSales.slice(0, visibleSalesCount);
+
   // KPI Calculations
-  const totalVolume = filteredSales.reduce((acc, s) => acc + s.total, 0);
+  const totalVolume = filteredSales.reduce((acc, s) => acc + getProductSalesTotal(s), 0);
   const pendingSyncCount = filteredSales.filter(s => s.syncStatus === 'pending').length;
   const creditsCount = filteredSales.filter(s => s.paymentMethod === 'Credit').length;
-  const creditsVolume = filteredSales.filter(s => s.paymentMethod === 'Credit').reduce((acc, s) => acc + s.total, 0);
-  const getAmountPaidForSale = getSaleCollected;
+  const creditsVolume = filteredSales.filter(s => s.paymentMethod === 'Credit').reduce((acc, s) => acc + getProductSalesDue(s), 0);
+  const getAmountPaidForSale = getProductSalesCollected;
   const amountCollectedVolume = filteredSales.reduce((acc, s) => acc + getAmountPaidForSale(s), 0);
   const amountCollectedCount = filteredSales.filter(s => getAmountPaidForSale(s) > 0).length;
   const pendingCount = filteredSales.filter(s => {
-    const amountPaid = getSaleCollected(s);
-    const pastInstallments = (installmentRecords[s.id] || []).reduce((sum, inst) => sum + inst.amount, 0);
-    const totalCollectedSoFar = s.paymentMethod === 'Credit' ? amountPaid : s.total;
-    return s.paymentMethod === 'Credit' && totalCollectedSoFar < s.total;
+    return s.paymentMethod === 'Credit' && getProductSalesDue(s) > 0;
   }).length;
 
   const simulatePrint = () => {
@@ -1819,11 +1830,11 @@ export default function DashboardSalesList({
         
         {/* Mobile View: Cards */}
         <div className="sales-cards-tablet-grid xl:hidden flex flex-col space-y-3 pb-[calc(80px+env(safe-area-inset-bottom))]">
-          {filteredSales.map((sale) => {
+          {visibleSales.map((sale) => {
             const saleItems = sale.items || [];
-            const totalVal = sale.total;
+            const totalVal = getProductSalesTotal(sale);
             const isCredit = sale.paymentMethod === 'Credit';
-            const amountPaid = getSaleCollected(sale);
+            const amountPaid = getProductSalesCollected(sale);
             const pastInstallments = (installmentRecords[sale.id] || []).reduce((sum, inst) => sum + inst.amount, 0);
             const totalCollectedSoFar = isCredit ? amountPaid : totalVal;
             const amountDueRaw = isCredit ? Math.max(0, totalVal - totalCollectedSoFar) : 0;
@@ -1957,9 +1968,9 @@ export default function DashboardSalesList({
                 </tr>
               </thead>
               <tbody>
-                {filteredSales.map((sale, idx) => {
+                {visibleSales.map((sale, idx) => {
                   const saleItems = sale.items || [];
-                  const totalVal = sale.total;
+                  const totalVal = getProductSalesTotal(sale);
                   const isCredit = sale.paymentMethod === 'Credit';
                   const initialPaid = sale.amountPaid !== undefined ? sale.amountPaid : (isCredit ? 0 : totalVal);
                   const installments = installmentRecords[sale.id] || [];
@@ -2147,6 +2158,15 @@ export default function DashboardSalesList({
           </div>
         </div>
 
+        {filteredSales.length > visibleSalesCount && (
+          <div className="flex justify-center py-3">
+            <button type="button"
+              className="rounded-xl border border-emerald-200 px-5 py-2.5 text-xs font-bold text-emerald-700"
+              onClick={() => setVisibleSalesCount(current => current + 100)}>
+              Show 100 more sales ({Math.min(visibleSalesCount, filteredSales.length)} / {filteredSales.length})
+            </button>
+          </div>
+        )}
       </div>{/* end SALES MAIN DATA LIST */}
 
       </>
@@ -2160,17 +2180,17 @@ export default function DashboardSalesList({
         // (it still shows as paid under the Sales tab), not linger here
         // showing a owed-now of 0.
         const debtSales = sales.filter(s => {
-          const initialPaid = s.amountPaid !== undefined ? s.amountPaid : (s.paymentMethod === 'Credit' ? 0 : s.total);
+          const initialPaid = s.amountPaid !== undefined ? s.amountPaid : (s.paymentMethod === 'Credit' ? 0 : getProductSalesTotal(s));
           const installmentsVal = (installmentRecords[s.id] || []).reduce((sum, i) => sum + i.amount, 0);
-          const calculatedPaid = Math.min(s.total, initialPaid);
-          return (s.total - calculatedPaid) > 0;
+          const calculatedPaid = Math.min(getProductSalesTotal(s), initialPaid);
+          return (getProductSalesTotal(s) - calculatedPaid) > 0;
         });
-        const totalDebtIssued = debtSales.reduce((sum, s) => sum + s.total, 0);
+        const totalDebtIssued = debtSales.reduce((sum, s) => sum + getProductSalesTotal(s), 0);
 
         const totalDebtPaidIn = debtSales.reduce((sum, s) => {
           const initialPaid = s.amountPaid !== undefined ? s.amountPaid : 0;
           const installmentsVal = (installmentRecords[s.id] || []).reduce((instTot, i) => instTot + i.amount, 0);
-          return sum + Math.min(s.total, initialPaid);
+          return sum + Math.min(getProductSalesTotal(s), initialPaid);
         }, 0);
 
         const totalDebtOutstanding = Math.max(0, totalDebtIssued - totalDebtPaidIn);
@@ -2241,8 +2261,8 @@ export default function DashboardSalesList({
                 installment form -- reusing both instead of a second,
                 parallel payment UI only on this tab. */}
             <div className="flex flex-col space-y-3">
-              {filteredDebtSales.map(s => {
-                const totalVal = s.total;
+              {filteredDebtSales.slice(0, visibleDebtCount).map(s => {
+                const totalVal = getProductSalesTotal(s);
                 const initialPaid = s.amountPaid !== undefined ? s.amountPaid : 0;
                 const installments = installmentRecords[s.id] || [];
                 const extraPaid = installments.reduce((sum, inst) => sum + inst.amount, 0);
@@ -2349,6 +2369,12 @@ export default function DashboardSalesList({
                 );
               })}
 
+              {filteredDebtSales.length > visibleDebtCount && (
+                <button type="button" onClick={() => setVisibleDebtCount(current => current + 100)}
+                  className="mx-auto block rounded-xl border border-emerald-200 px-5 py-2.5 text-xs font-bold text-emerald-700">
+                  Show 100 more debts ({Math.min(visibleDebtCount, filteredDebtSales.length)} / {filteredDebtSales.length})
+                </button>
+              )}
               {filteredDebtSales.length === 0 && (
                 <div className="py-12 text-center bg-white dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 rounded-2xl text-slate-500 dark:text-slate-400 font-sans">
                   No outstanding credit accounts match search keyword or custom criteria.
@@ -2674,8 +2700,8 @@ export default function DashboardSalesList({
                       <p className="text-slate-400">No: <strong className="text-slate-800">{selectedSale.reference || `INV-${selectedSale.id.toUpperCase().slice(0, 8)}`}</strong></p>
                       <p className="text-slate-400">Date: <span className="text-slate-700">{new Date(selectedSale.timestamp).toLocaleDateString([], { dateStyle: 'long' })}</span></p>
                       {(() => {
-                        const paid = selectedSale.amountPaid !== undefined ? selectedSale.amountPaid : (selectedSale.paymentMethod === 'Credit' ? 0 : selectedSale.total);
-                        const isPaid = paid >= selectedSale.total;
+                        const paid = getProductSalesCollected(selectedSale);
+                        const isPaid = paid >= getProductSalesTotal(selectedSale);
                         const isPartial = !isPaid && paid > 0;
                         const label = isPaid ? 'Paid' : isPartial ? 'Partially Paid' : 'Unpaid';
                         const pillClass = isPaid ? 'bg-emerald-50 text-emerald-700' : isPartial ? 'bg-amber-50 text-amber-700' : 'bg-rose-50 text-rose-700';
@@ -2717,14 +2743,14 @@ export default function DashboardSalesList({
                     <div className="w-72 space-y-2 font-mono text-xs shrink-0">
                       {(() => {
                         const subtotal = (selectedSale.items || []).reduce((sum, item) => sum + getSaleItemLineTotal(item), 0);
-                        const paid = selectedSale.amountPaid !== undefined ? selectedSale.amountPaid : (selectedSale.paymentMethod === 'Credit' ? 0 : selectedSale.total);
-                        const balance = Math.max(0, selectedSale.total - paid);
+                        const paid = getProductSalesCollected(selectedSale);
+                        const balance = getProductSalesDue(selectedSale);
                         return <>
                           <div className="flex justify-between text-slate-500"><span>Subtotal</span><strong className="text-slate-800">{currency}{Math.round(subtotal).toLocaleString()}</strong></div>
                           {(selectedSale.discount || 0) > 0 && <div className="flex justify-between text-orange-600"><span>Discount</span><strong>-{currency}{Math.round(selectedSale.discount || 0).toLocaleString()}</strong></div>}
                           {(selectedSale.vatStatus === 'vat' || (!selectedSale.vatStatus && (selectedSale.tax || 0) > 0)) && <div className="flex justify-between text-slate-500"><span>VAT / Tax</span><strong className="text-slate-700">{currency}{Math.round(selectedSale.tax || 0).toLocaleString()}</strong></div>}
-                          {(selectedSale.deliveryCost || 0) > 0 && <div className="flex justify-between text-slate-500"><span>Delivery</span><strong className="text-slate-700">{currency}{Math.round(selectedSale.deliveryCost || 0).toLocaleString()}</strong></div>}
-                          <div className="flex justify-between text-white rounded-xl px-4 py-3" style={{ backgroundColor: computedInvoiceColor }}><strong className="uppercase text-sm">Total</strong><strong className="text-base">{currency}{Math.round(selectedSale.total).toLocaleString()}</strong></div>
+                          
+                          <div className="flex justify-between text-white rounded-xl px-4 py-3" style={{ backgroundColor: computedInvoiceColor }}><strong className="uppercase text-sm">Product Total</strong><strong className="text-base">{currency}{Math.round(getProductSalesTotal(selectedSale)).toLocaleString()}</strong></div>
                           <div className="flex justify-between text-slate-500 px-4"><span>Amount Due</span><strong className="text-slate-800">{currency}{Math.round(balance).toLocaleString()}</strong></div>
                         </>;
                       })()}
@@ -2743,7 +2769,7 @@ export default function DashboardSalesList({
                           <span className="text-slate-400">Payment Mode</span><strong className="text-right text-slate-700">{selectedSale.paymentMethod}</strong>
                           {accountNumber && <><span className="text-slate-400">Account No.</span><strong className="text-right text-slate-700 font-mono">{accountNumber}</strong></>}
                           {accountName && <><span className="text-slate-400">Account Name</span><strong translate="no" className="text-right text-slate-700">{accountName}</strong></>}
-                          <span className="text-slate-400">Amount</span><strong className="text-right text-slate-900 font-mono">{currency}{Math.round(selectedSale.total).toLocaleString()}</strong>
+                          <span className="text-slate-400">Products</span><strong className="text-right text-slate-900 font-mono">{currency}{Math.round(getProductSalesTotal(selectedSale)).toLocaleString()}</strong>
                         </div>
                       </div>
                     );
@@ -2908,8 +2934,8 @@ export default function DashboardSalesList({
                   const discAmt = originalSub - taxableSub;
                   const initialPaid = selectedSale.amountPaid !== undefined ? selectedSale.amountPaid : (selectedSale.paymentMethod === 'Credit' ? 0 : selectedSale.total);
                   const extra = (installmentRecords[selectedSale.id] || []).reduce((sum, inst) => sum + inst.amount, 0);
-                  const totalPaidNow = Math.min(selectedSale.total, initialPaid);
-                  const dueRemainder = Math.max(0, selectedSale.total - totalPaidNow);
+                  const totalPaidNow = Math.min(getProductSalesTotal(selectedSale), initialPaid);
+                  const dueRemainder = Math.max(0, getProductSalesTotal(selectedSale) - totalPaidNow);
                   return (
                     <>
                       <div className="space-y-1.5 text-[11px] text-black">
@@ -3080,7 +3106,7 @@ export default function DashboardSalesList({
               
               {/* Metric Overview cards grid */}
               {(() => {
-                const totalInvoice = selectedSale.total;
+                const totalInvoice = getProductSalesTotal(selectedSale);
                 const extraInstallments = installmentRecords[selectedSale.id] || [];
                 const initialPaid = getSaleCheckoutPaid(selectedSale, extraInstallments);
 
@@ -3135,7 +3161,7 @@ export default function DashboardSalesList({
                 });
 
                 const dueRemainder = lastRemaining;
-                const totalPaidNow = Math.min(totalInvoice, getSaleCollected(selectedSale));
+                const totalPaidNow = Math.min(totalInvoice, getProductSalesCollected(selectedSale));
 
                 return (
                   <>
@@ -3494,8 +3520,7 @@ export default function DashboardSalesList({
                   const computedDiscountAmount = discountType === 'percent' ? itemsSubtotal * (discountVal / 100) : discountVal;
                   const taxVal = viewingSaleDetail.tax || 0;
                   const isVatSale = viewingSaleDetail.vatStatus === 'vat' || (!viewingSaleDetail.vatStatus && taxVal > 0);
-                  const deliveryVal = viewingSaleDetail.deliveryCost || 0;
-                  const grandTotalVal = viewingSaleDetail.total;
+                  const grandTotalVal = getProductSalesTotal(viewingSaleDetail);
                   const isCredit = viewingSaleDetail.paymentMethod === 'Credit';
                   const initialPaid = viewingSaleDetail.amountPaid !== undefined ? viewingSaleDetail.amountPaid : (isCredit ? 0 : grandTotalVal);
                   const installments = installmentRecords[viewingSaleDetail.id] || [];
@@ -3521,14 +3546,8 @@ export default function DashboardSalesList({
                           <span className="font-mono">+{currency}{taxVal.toLocaleString()}</span>
                         </div>
                       )}
-                      {deliveryVal > 0 && (
-                        <div className="flex justify-between items-center text-slate-500 font-medium">
-                          <span>Delivery</span>
-                          <span className="font-mono">+{currency}{deliveryVal.toLocaleString()}</span>
-                        </div>
-                      )}
                       <div className="flex justify-between items-center text-sm font-black text-slate-900 border-t border-slate-200 pt-2">
-                        <span>Grand Total</span>
+                        <span>Products Total</span>
                         <span className="font-mono text-emerald-700">{currency}{grandTotalVal.toLocaleString()}</span>
                       </div>
                       <div className="grid grid-cols-2 gap-2 pt-2 bg-slate-50 px-3.5 py-3 rounded-xl border border-slate-200">
@@ -3965,7 +3984,7 @@ export default function DashboardSalesList({
                 </div>
                 <div className="flex justify-between text-sm pt-2 border-t border-slate-200 font-bold">
                   <span className="text-slate-800">Sale Total Amount:</span>
-                  <span className="text-rose-600 font-mono">{activeTenant.currency} {saleToDelete.total.toLocaleString()}</span>
+                  <span className="text-rose-600 font-mono">{activeTenant.currency} {getProductSalesTotal(saleToDelete).toLocaleString()}</span>
                 </div>
               </div>
               {deleteSaleError && (
@@ -4841,7 +4860,7 @@ export default function DashboardSalesList({
                   {mobileActionsSale.customerName || 'Customer'} — <span className="font-mono text-indigo-700">#{getSaleReference(mobileActionsSale)}</span>
                 </h3>
                 <p className="text-xs text-slate-500 mt-1 flex items-center justify-between">
-                  <span>Total Due: <strong className="font-extrabold text-slate-900">{currency}{Math.round(mobileActionsSale.total).toLocaleString()}</strong></span>
+                  <span>Total Due: <strong className="font-extrabold text-slate-900">{currency}{Math.round(getProductSalesTotal(mobileActionsSale)).toLocaleString()}</strong></span>
                   <span>{new Date(mobileActionsSale.timestamp).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })} &bull; {new Date(mobileActionsSale.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                 </p>
               </div>
@@ -4876,7 +4895,7 @@ export default function DashboardSalesList({
                 <button
                   type="button"
                   onClick={() => {
-                    const totalVal = mobileActionsSale.total;
+                    const totalVal = getProductSalesTotal(mobileActionsSale);
                     const isCredit = mobileActionsSale.paymentMethod === 'Credit';
                     const initialPaid = mobileActionsSale.amountPaid !== undefined ? mobileActionsSale.amountPaid : (isCredit ? 0 : totalVal);
                     const installments = installmentRecords[mobileActionsSale.id] || [];
@@ -4907,7 +4926,7 @@ export default function DashboardSalesList({
                 <button
                   type="button"
                   onClick={() => {
-                    const totalVal = mobileActionsSale.total;
+                    const totalVal = getProductSalesTotal(mobileActionsSale);
                     const isCredit = mobileActionsSale.paymentMethod === 'Credit';
                     const initialPaid = mobileActionsSale.amountPaid !== undefined ? mobileActionsSale.amountPaid : (isCredit ? 0 : totalVal);
                     const installments = installmentRecords[mobileActionsSale.id] || [];
