@@ -45,3 +45,15 @@ test('workspace history merge maintains a single Map per collection regardless o
   assert.match(workspace, /sales: Array\.from\(recordMaps\.sales\.values\(\)\)/);
   assert.doesNotMatch(workspace, /records\[collection\] = mergePageRecords\(records\[collection\]/);
 });
+
+test('POS discount and delivery fee inputs retain focus while totals recalculate', async () => {
+  const pos = await read('src/modules/pos/DashboardPOS.tsx');
+  // An input under a key derived from its own calculated total is unmounted
+  // on every digit, interrupting typing on both Android and desktop.
+  assert.match(pos, /data-testid="pos-totals"/);
+  assert.doesNotMatch(pos, /key=\{\`pos-totals-\$\{cart\.length\}/);
+  assert.doesNotMatch(pos, /key=\{\`pos-mobile-total-\$\{cart\.length\}/);
+  assert.match(pos, /value=\{orderDiscountDraft\}/);
+  assert.match(pos, /setOrderDiscountDraft\(raw\)/);
+  assert.match(pos, /onChange=\{\(e\) => setDeliveryCost\(e\.target\.value === '' \? 0 : Math\.max\(0, Number\(e\.target\.value\)\)\)\}/);
+});
