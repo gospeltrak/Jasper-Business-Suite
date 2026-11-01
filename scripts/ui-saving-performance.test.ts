@@ -76,7 +76,9 @@ test('checkout delivery summary stays inside the product amount card on one comp
   const css = await read('src/index.css');
   assert.match(pos, /className="pos-checkout-total pos-checkout-total-compact"/);
   assert.match(pos, /data-testid="pos-checkout-delivery-summary"/);
-  assert.match(pos, /Delivery: \{currency\}\{Math\.round\(deliveryCost\)\.toLocaleString\(\)\} · Paid via \{deliveryPaymentMethod/);
+  assert.match(pos, /data-testid="pos-checkout-delivery-summary"/);
+  assert.match(pos, /receiptLanguage === 'sw' \? 'Usafirishaji' : 'Delivery'/);
+  assert.match(pos, /receiptLanguage === 'sw' \? 'Imelipwa kwa' : 'Paid via'/);
   assert.doesNotMatch(pos, /pos-checkout-delivery-breakdown/);
   assert.doesNotMatch(pos, /Combined order total \(products \+ delivery\)/);
   assert.doesNotMatch(pos, /Products only — delivery is paid separately/);

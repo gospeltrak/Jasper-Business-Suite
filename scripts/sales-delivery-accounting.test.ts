@@ -202,7 +202,9 @@ test('POS checkout only requests PRODUCT money while delivery is posted to its s
   assert.match(pos, /deliveryPaymentMethod: deliveryCost > 0 \? deliveryPaymentMethod : undefined/);
   assert.match(pos, /<strong data-testid="pos-checkout-total">\{currency\}\{Math\.round\(productCheckoutTotal\)/);
   assert.match(pos, /data-testid="pos-checkout-delivery-summary"/);
-  assert.match(pos, /Delivery: \{currency\}\{Math\.round\(deliveryCost\)\.toLocaleString\(\)\} · Paid via \{deliveryPaymentMethod/);
+  assert.match(pos, /data-testid="pos-checkout-delivery-summary"/);
+  assert.match(pos, /receiptLanguage === 'sw' \? 'Usafirishaji' : 'Delivery'/);
+  assert.match(pos, /receiptLanguage === 'sw' \? 'Imelipwa kwa' : 'Paid via'/);
   assert.doesNotMatch(pos, /Combined order total \(products \+ delivery\)/);
   assert.doesNotMatch(pos, /Products only — delivery is paid separately/);
   assert.match(pos, /<span>Products to collect<\/span>/);

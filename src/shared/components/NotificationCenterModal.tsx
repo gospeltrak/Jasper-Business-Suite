@@ -1,6 +1,7 @@
 import React from 'react';
 import { useJasperNotifications } from '../contexts/JasperNotificationContext';
 import { useTranslation } from '../contexts/LanguageContext';
+import { formatOrvixNotification } from '../utils/orvixNotificationText';
 import { Bell, Check, X, FileText, ShoppingCart, AlertCircle } from "lucide-react";
 
 interface Props {
@@ -105,14 +106,14 @@ export const NotificationCenterModal: React.FC<Props> = ({ isOpen, onClose, onNa
                      <div className="flex-1 min-w-0">
                         <div className="flex justify-between items-start mb-1">
                            <h4 className={`text-sm truncate pr-2 ${n.isRead ? 'font-medium text-slate-700' : 'font-bold text-slate-900'}`}>
-                              {n.title}
+                              {formatOrvixNotification(n, lang).title}
                            </h4>
                            <span className="text-[10px] text-slate-400 whitespace-nowrap pt-1">
                               {new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                            </span>
                         </div>
                         <p className={`text-xs leading-relaxed whitespace-pre-wrap ${n.isRead ? 'text-slate-500' : 'text-slate-700'}`}>
-                           {n.message}
+                           {formatOrvixNotification(n, lang).message}
                         </p>
                         {!n.isRead && (
                            <div className="mt-2 text-[10px] font-bold text-emerald-600 tracking-wider">

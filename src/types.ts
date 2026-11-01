@@ -908,6 +908,18 @@ export interface JasperModuleNotificationSettings {
   updatedAt: string;
 }
 export interface JasperNotification {
+  /** Validated, tenant-scoped sale details from the existing inbox API. */
+  saleDetails?: {
+    seller?: string;
+    productAmount?: number;
+    deliveryAmount?: number;
+    total?: number;
+    productPaymentMethod?: string;
+    deliveryPaymentMethod?: string;
+    reference?: string;
+    items?: Array<{ name: string; qty: number }>;
+    payments?: Array<{ method: string; amount: number }>;
+  };
   id: string;
   tenantId: string;
   moduleName: string;
