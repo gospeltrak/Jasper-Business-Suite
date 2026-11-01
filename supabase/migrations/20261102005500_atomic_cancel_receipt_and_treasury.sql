@@ -90,7 +90,13 @@ begin
   -- with insufficient funds or missing reversal permission rolls back stock,
   -- sales and delivery together instead of leaving half-cancelled receipts.
   v_journal:=nullif(v_sale->>'treasuryJournalId','');
-  if v_journal is not null then
+  -- Normalized business persistence already reverses a tombstoned sale's
+  -- journal. Never reverse it twice (the old Dashboard did, then tried an
+  -- unsafe compensating re-insert). Legacy persistence does not.
+  if v_journal is not null and not exists (
+    select 1 from public.treasury_journals j
+    where j.tenant_id=v_tenant and j.reversal_of_journal_id=v_journal::uuid
+  ) then
     perform public.reverse_current_tenant_treasury_journal(
       v_journal::uuid, 'reversal:'||p_sale_id||':v1',
       'Cancelled receipt '||p_sale_id
@@ -104,7 +110,12 @@ begin
     where d.value->>'saleId'=p_sale_id
   loop
     v_journal:=nullif(v_delivery->>'treasuryJournalId','');
-    if v_journal is not null and v_journal is distinct from nullif(v_sale->>'treasuryJournalId','') then
+    if v_journal is not null
+      and v_journal is distinct from nullif(v_sale->>'treasuryJournalId','')
+      and not exists (
+        select 1 from public.treasury_journals j
+        where j.tenant_id=v_tenant and j.reversal_of_journal_id=v_journal::uuid
+      ) then
       perform public.reverse_current_tenant_treasury_journal(
         v_journal::uuid, 'reversal:delivery:'||(v_delivery->>'id')||':v1',
         'Cancelled delivery for receipt '||p_sale_id
