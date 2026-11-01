@@ -157,7 +157,6 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   });
 
   const [showEmailRegisterForm, setShowEmailRegisterForm] = useState(false);
-  const [emailChecked, setEmailChecked] = useState(false);
 
   // Sign in Form States
   // Keep sign-in credential inputs native/uncontrolled. Updating React state
@@ -170,6 +169,8 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   const [error, setError] = useState<string | null>(null);
   const [hasActiveLoginAttempt, setHasActiveLoginAttempt] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  // Synchronous lock: double taps cannot start two sign-in requests before React updates.
+  const loginAttemptInFlightRef = useRef(false);
   const [pendingAdminUser, setPendingAdminUser] = useState<User | null>(null);
   const [adminMfaPrompt, setAdminMfaPrompt] = useState<SuperAdminMfaPrompt | null>(null);
   const [adminMfaCode, setAdminMfaCode] = useState('');
@@ -408,19 +409,6 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     }
   };
 
-  const handleCheckEmail = (e: FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    if (!loginEmailInputRef.current?.value.trim()) {
-      setError('Please enter your WhatsApp number to proceed.');
-      return;
-    }
-
-    // Do not query a public account directory before authentication. It leaks
-    // account existence and blocks real database-only users such as Super Admin.
-    setEmailChecked(true);
-  };
-
   const handleOnboardingSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!onboardingUser) return;
@@ -610,14 +598,31 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       setError('Super Admin password login is disabled. Continue with Google, then verify Authenticator.');
       return;
     }
-    setHasActiveLoginAttempt(true);
-    if (!emailChecked) {
-      handleCheckEmail(e);
-    } else if (!(await verifyLoginTurnstile())) {
+    if (loginAttemptInFlightRef.current) return;
+    if (!loginEmailInputRef.current?.value.trim() || !loginPasswordInputRef.current?.value) {
+      setError(currentLang === 'sw' ? 'Weka email na nenosiri ili kuingia.' : 'Enter your email and password to sign in.');
       return;
+    }
 
-    } else {
-      triggerLogin(loginEmailInputRef.current?.value || '', loginPasswordInputRef.current?.value || '');
+    // One press submits credentials directly; there is no preliminary "Continue" step.
+    // Lock before the first await so rapid clicks/Android double taps are idempotent.
+    loginAttemptInFlightRef.current = true;
+    setHasActiveLoginAttempt(true);
+    setIsLoading(true);
+    setError(null);
+    try {
+      if (!(await verifyLoginTurnstile())) return;
+      await triggerLogin(loginEmailInputRef.current?.value || '', loginPasswordInputRef.current?.value || '');
+    } catch (err) {
+      const safeError = toUserFacingError(err, {
+        language: currentLang,
+        context: 'sign_in',
+        fallbackCode: 'AUTH_ERROR',
+      });
+      setError(safeError.message);
+    } finally {
+      loginAttemptInFlightRef.current = false;
+      setIsLoading(false);
     }
   };
 
@@ -1588,10 +1593,8 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                     <span>Processing securely...</span>
                   </>
-                ) : emailChecked ? (
-                  <span>Sign In</span>
                 ) : (
-                  <span>Continue</span>
+                  <span>Sign In</span>
                 )}
               </button>
 
