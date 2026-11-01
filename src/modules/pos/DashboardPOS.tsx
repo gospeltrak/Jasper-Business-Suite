@@ -947,15 +947,22 @@ export default function DashboardPOS({
       }).selectedUnitPrice;
     }
 
-    return unitPrice;
-  }, [activeTenant.businessType, sellingChannel, getChannelPrices, getRetailPackageConfig, supportsFractionSale, usesPharmacyHierarchy]);
+    // A selectable card can have a valid batch/retail selling price even if
+    // an old optional unit-price field is zero. Never show TSh15,000 on the
+    // catalog card and TSh0 immediately after selecting that same product.
+    const displayedChannelPrice = getChannelPrice(item.product);
+    const positivePrice = Number(unitPrice);
+    return Number.isFinite(positivePrice) && positivePrice > 0
+      ? positivePrice
+      : Math.max(0, Number(displayedChannelPrice) || Number(item.product.sellingPrice) || 0);
+  }, [activeTenant.businessType, sellingChannel, getChannelPrice, getChannelPrices, getRetailPackageConfig, supportsFractionSale, usesPharmacyHierarchy]);
 
   // Pre-compute prices for ALL filtered products once — not per card per render
   const productPriceMap = useMemo(() => {
     const map = new Map<string, number>();
     filteredProducts.forEach(p => map.set(p.id, getChannelPrice(p)));
     return map;
-  }, [filteredProducts, getBatchAwareChannelPrice]);
+  }, [filteredProducts, getChannelPrice]);
 
   // Pre-compute remaining stock labels once per render
   const productRemainingMap = useMemo(() => {
@@ -1029,9 +1036,12 @@ export default function DashboardPOS({
       if (supportsFractionSale(item.product)) {
         const config = resolveFractionSaleConfig(item.product, activeTenant.businessType);
         const line = calculateFractionSaleLine(item.fractionSaleLevel || 'piece', item.qty, config);
+        // Use the very same selected unit price that the product card uses.
+        // Some legacy packaging records had a zero optional piece/packet rate.
+        const visibleUnitPrice = getCartUnitPrice(item);
         const discountedUnitPrice = item.discountType === 'cash'
-          ? Math.max(0, line.selectedUnitPrice - (item.discount || 0))
-          : line.selectedUnitPrice * (1 - (item.discount || 0) / 100);
+          ? Math.max(0, visibleUnitPrice - (item.discount || 0))
+          : visibleUnitPrice * (1 - (item.discount || 0) / 100);
         return sum + (discountedUnitPrice * line.selectedLevelQuantity);
       }
       const basePrice = getCartUnitPrice(item);
