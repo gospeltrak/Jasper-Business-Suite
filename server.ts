@@ -1100,13 +1100,64 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
 
       const { data, error } = await supabaseAdmin!
         .from('branch_notification_recipients')
-        .select('id, tenant_id, event_id, delivery_status, read_at, created_at, branch_notification_events!inner(id, tenant_id, module_name, event_type, title, message, created_at)')
+        .select('id, tenant_id, event_id, delivery_status, read_at, created_at, branch_notification_events!inner(id, tenant_id, module_name, event_type, title, message, payload, created_at)')
         .eq('tenant_id', access.tenantId)
         .eq('recipient_user_id', access.user.id)
         .eq('delivery_channel', 'in_app')
         .order('created_at', { ascending: false })
         .limit(100);
       if (error) throw error;
+
+      // Fetch sale details in ONE tenant-scoped query. Existing DB trigger
+      // publishes a single, idempotent event per sale but its prebuilt message
+      // mixed English/Swahili and did not contain the sold product names.
+      // Never send the full source_record to the browser (customer PII etc).
+      const eventsForSales = (data || [])
+        .map((row: any) => Array.isArray(row.branch_notification_events)
+          ? row.branch_notification_events[0] : row.branch_notification_events)
+        .filter((event: any) => event?.event_type === 'sale');
+      const saleIds = [...new Set(eventsForSales
+        .map((event: any) => String(event.payload?.saleId || ''))
+        .filter(id => /^sl-[a-z0-9_-]{3,80}$/i.test(id)))].slice(0, 100);
+      const saleDetailsById = new Map<string, any>();
+      if (saleIds.length > 0) {
+        const { data: saleRows, error: saleError } = await supabaseAdmin!
+          .from('sales')
+          .select('legacy_id, cashier_name, total, delivery_cost, payment_method, delivery_payment_method, reference, source_record')
+          .eq('tenant_id', access.tenantId)
+          .in('legacy_id', saleIds)
+          .limit(100);
+        if (!saleError) {
+          for (const row of saleRows || []) {
+            const source: any = row.source_record && typeof row.source_record === 'object' ? row.source_record : {};
+            const items = (Array.isArray(source.items) ? source.items : []).slice(0, 30)
+              .map((item: any) => ({
+                name: String(item.productName || item.name || '').slice(0, 100),
+                qty: Math.max(0, Number(item.qty ?? item.quantity ?? 0) || 0),
+              }))
+              .filter((item: any) => item.name && item.qty > 0);
+            const payments = (Array.isArray(source.paymentBreakdown) ? source.paymentBreakdown : []).slice(0, 8)
+              .map((item: any) => ({
+                method: String(item.method || '').slice(0, 50),
+                amount: Math.max(0, Number(item.amount) || 0),
+              }))
+              .filter((item: any) => item.method && item.amount > 0);
+            saleDetailsById.set(String(row.legacy_id), {
+              seller: String(row.cashier_name || source.cashierName || '').slice(0, 100),
+              productAmount: Math.max(0, Number(row.total || 0) - Number(row.delivery_cost || 0)),
+              deliveryAmount: Math.max(0, Number(row.delivery_cost) || 0),
+              total: Math.max(0, Number(row.total) || 0),
+              productPaymentMethod: String(row.payment_method || '').slice(0, 50),
+              deliveryPaymentMethod: String(row.delivery_payment_method || '').slice(0, 50),
+              reference: String(row.reference || '').slice(0, 80),
+              items,
+              payments,
+            });
+          }
+        } else {
+          console.warn('[notifications] Sale detail lookup unavailable; inbox remains readable.');
+        }
+      }
 
       const notifications = (data || [])
         .map((recipient: any) => {
@@ -1120,6 +1171,8 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
             title: event?.title || 'System notification',
             message: event?.message || '',
             notificationType: event?.event_type || 'system_alert',
+            ...(event?.event_type === 'sale' && saleDetailsById.has(String(event?.payload?.saleId || ''))
+              ? { saleDetails: saleDetailsById.get(String(event?.payload?.saleId)) } : {}),
             deliveryChannel: 'in_app',
             status: recipient.delivery_status === 'delivered' ? 'sent' : 'pending',
             isRead: Boolean(recipient.read_at),
