@@ -126,7 +126,7 @@ test('works with denied session storage and checks exact URL parameters', () => 
 
 function loadPasswordSubmit({ updateError = null as unknown, signOutError = null as unknown, password = 'newPassword123', confirmation = password } = {}) {
   const start = loginSource.indexOf('  const handleSetNewPassword = ');
-  const end = loginSource.indexOf('  const handleCheckEmail = ', start);
+  const end = loginSource.indexOf('  const handleOnboardingSubmit = ', start);
   const events: string[] = [];
   const context: any = {
     newPassword: password, newPasswordConfirm: confirmation, currentLang: 'en',

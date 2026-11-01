@@ -114,6 +114,14 @@ test('tenant login offers both Google sign-in and email + password sign-in', () 
   assert.match(loginPage, /ref=\{loginPasswordInputRef\}[\s\S]*?type=\{showLoginPassword \? 'text' : 'password'\}[\s\S]*?autoComplete="current-password"[\s\S]*?defaultValue=""/);
   assert.match(loginPage, /ref=\{loginEmailInputRef\}[\s\S]*?type="email"[\s\S]*?autoComplete="username"[\s\S]*?defaultValue=""/);
   assert.match(loginPage, /triggerLogin\(loginEmailInputRef\.current\?\.value \|\| '', loginPasswordInputRef\.current\?\.value \|\| ''\)/);
+  // Regression: clicking Sign In once must authenticate; no first-click email-check gate.
+  const loginSubmit = loginPage.slice(loginPage.indexOf('const handleLoginSubmit ='), loginPage.indexOf('const triggerLogin ='));
+  assert.match(loginSubmit, /await verifyLoginTurnstile\(\)/);
+  assert.match(loginSubmit, /await triggerLogin\(loginEmailInputRef\.current\?\.value/);
+  assert.match(loginSubmit, /loginAttemptInFlightRef\.current = true/);
+  assert.match(loginSubmit, /loginAttemptInFlightRef\.current = false/);
+  assert.doesNotMatch(loginSubmit, /emailChecked|handleCheckEmail/);
+  assert.doesNotMatch(loginPage, /\{emailChecked\s*\?/);
   assert.doesNotMatch(loginPage, /Owners, administrators and staff sign in with the Google account connected to this business/);
 });
 
