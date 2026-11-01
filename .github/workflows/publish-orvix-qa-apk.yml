@@ -1,8 +1,8 @@
-name: Publish Orvix Android QA with continuous login and live cart
+name: Publish Orvix POS Faster Cart Android QA APK
 
 on:
   push:
-    branches: [qa/publish-orvix-cart-login-apk-20261101]
+    branches: [qa/publish-orvix-pos-speed-apk-20261101]
     paths:
       - '.github/workflows/publish-orvix-qa-apk.yml'
 
@@ -15,30 +15,30 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
-      - name: Download successfully tested exact Android QA APK
+      - name: Verify QA run and download built Android APK
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          result="$(gh api repos/"$GH_REPO"/actions/runs/41314036193 --jq '.conclusion')"
+          result="$(gh api repos/"$GH_REPO"/actions/runs/41338437627 --jq '.conclusion')"
           test "$result" = success
           mkdir -p orvix-apk
-          gh run download 41314036193 --name orvix-android-debug-qa-only --dir orvix-apk --repo "$GH_REPO"
+          gh run download 41338437627 --name orvix-android-debug-qa-only --dir orvix-apk --repo "$GH_REPO"
           test -s orvix-apk/app-debug.apk
           unzip -t orvix-apk/app-debug.apk >/dev/null
           sha256sum orvix-apk/app-debug.apk
-          mv orvix-apk/app-debug.apk orvix-apk/Orvix-Cart-Checkout-Login-Fix-Android-QA.apk
-      - name: Publish public browser-download link as QA prerelease
+          mv orvix-apk/app-debug.apk orvix-apk/Orvix-POS-Speed-Cart-Fix-Android-QA.apk
+      - name: Publish browser-linkable QA APK (not production)
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          gh release create orvix-android-qa-cart-login-20261101 \
-            orvix-apk/Orvix-Cart-Checkout-Login-Fix-Android-QA.apk \
+          gh release create orvix-android-qa-pos-speed-20261101 \
+            orvix-apk/Orvix-POS-Speed-Cart-Fix-Android-QA.apk \
             --repo "$GH_REPO" \
             --target "$GITHUB_SHA" \
-            --title 'Orvix Android QA — Cart, Checkout & Sign-in fixes (2026-11-01)' \
-            --notes 'QA/debug APK. Cart total responds immediately to product selection; Delivery payment is shown in one compact line inside Checkout; Sign In email and password support uninterrupted typing. Includes original PR39 corrections and PR42 product-only checkout. Verified from Android QA workflow run 41314036193. Not a production release; test on physical device before handling real payments.' \
+            --title 'Orvix Android QA — Faster Add-to-Cart (2026-11-01)' \
+            --notes 'QA/debug only: memoize product grid so adding cart products does not reconcile all catalog cards/images; includes product pricing and cart total improvements, delivery split, sign-in focus, native scanner and printer. Built successfully in native Android QA workflow run 41338437627. Physical phone performance still needs confirmation. No tenant data changed or production deployment.' \
             --prerelease
