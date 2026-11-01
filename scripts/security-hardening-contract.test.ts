@@ -109,8 +109,11 @@ test('staff passwords are verified by Auth and purged from legacy workspace payl
 
 test('tenant login offers both Google sign-in and email + password sign-in', () => {
   assert.match(loginPage, /onClick=\{handleGoogleLoginClick\}[\s\S]*\{t\('continueGoogle'\)\}/);
-  assert.match(loginPage, /type=\{showLoginPassword \? 'text' : 'password'\}[\s\S]*value=\{password\}/);
-  assert.match(loginPage, /type="email"[\s\S]*value=\{email\}/);
+  // Android keyboard focus must not be lost on every keystroke, so the login
+  // credentials are read from stable native input refs at submission.
+  assert.match(loginPage, /ref=\{loginPasswordInputRef\}[\s\S]*?type=\{showLoginPassword \? 'text' : 'password'\}[\s\S]*?autoComplete="current-password"[\s\S]*?defaultValue=""/);
+  assert.match(loginPage, /ref=\{loginEmailInputRef\}[\s\S]*?type="email"[\s\S]*?autoComplete="username"[\s\S]*?defaultValue=""/);
+  assert.match(loginPage, /triggerLogin\(loginEmailInputRef\.current\?\.value \|\| '', loginPasswordInputRef\.current\?\.value \|\| ''\)/);
   assert.doesNotMatch(loginPage, /Owners, administrators and staff sign in with the Google account connected to this business/);
 });
 
