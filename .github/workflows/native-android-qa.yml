@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   # Build a fresh internal QA APK when the native development branch changes.
   push:
-    branches: [feature/orvix-native-offline-v1, feature/scanner-printer-native-58-80]
+    branches: [feature/orvix-native-offline-v1, feature/scanner-printer-native-58-80, qa/orvix-android-pr39-20261101]
     paths:
       - 'src/**'
       - 'scripts/**'
@@ -41,6 +41,20 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
+
+      # QA-only integration: build the current production PR39 changes atop
+      # the existing Android native shell, without touching main or Pro.
+      - name: Integrate released production frontend into Android QA workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin main
+          git -c user.name='Orvix Android QA' -c user.email='orvix-android-qa@users.noreply.github.com' merge --no-commit --no-ff -X theirs origin/main
+          git diff --name-only --diff-filter=U | tee /tmp/orvix-merge-unresolved.txt
+          test ! -s /tmp/orvix-merge-unresolved.txt
+          grep -q 'scripts/ui-saving-performance.test.ts' <(git ls-files --cached)
+          grep -q 'src/modules/reports/components/DeliveryTreasuryPanel.tsx' <(git ls-files --cached)
+          grep -q 'src/modules/settings/DashboardScannerPrinterSettings.tsx' <(git ls-files --cached)
 
       - name: Use Node 22
         uses: actions/setup-node@v4
