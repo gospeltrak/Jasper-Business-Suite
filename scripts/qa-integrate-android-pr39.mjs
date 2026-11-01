@@ -46,22 +46,3 @@ dashboard = dashboard.slice(0, start) + head + tail + dashboard.slice(end);
 writeFileSync(dashPath, dashboard);
 console.log('PR39 Android integration: native scanner props and safe delivery type narrowing applied');
 
-const posPath = 'src/modules/pos/DashboardPOS.tsx';
-let pos = readFileSync(posPath, 'utf8');
-const dynamicTotalsKey = '          key={`pos-totals-${cart.length}-${subtotal}-${grandTotal}`}\\n'.replace('\\n', '\n');
-const dynamicMobileKey = '        key={`pos-mobile-total-${cart.length}-${grandTotal}`}\\n'.replace('\\n', '\n');
-pos = replaceExactlyOnce(
-  pos,
-  dynamicTotalsKey,
-  '          // Keep discount and delivery fields mounted while totals change.\n',
-  'PR42 POS order-discount/delivery typing focus fix',
-);
-pos = replaceExactlyOnce(
-  pos,
-  dynamicMobileKey,
-  '',
-  'PR42 mobile cart summary stable identity',
-);
-assert(!pos.includes('key={`pos-totals-'), 'Dynamic POS cart remount key must be removed');
-writeFileSync(posPath, pos);
-console.log('PR42 Android integration: discount and delivery inputs stay mounted during typing');
