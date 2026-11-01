@@ -52,6 +52,9 @@ jobs:
           git -c user.name='Orvix Android QA' -c user.email='orvix-android-qa@users.noreply.github.com' merge --no-commit --no-ff -X theirs origin/main
           git diff --name-only --diff-filter=U | tee /tmp/orvix-merge-unresolved.txt
           test ! -s /tmp/orvix-merge-unresolved.txt
+          # Keep Android-specific native camera permission recovery that was
+          # dropped by a production-wins conflict resolution in scanner UI.
+          git show origin/feature/scanner-printer-native-58-80:src/shared/components/DashboardBarcodeScanner.tsx > src/shared/components/DashboardBarcodeScanner.tsx
           grep -q 'scripts/ui-saving-performance.test.ts' <(git ls-files --cached)
           grep -q 'src/modules/reports/components/DeliveryTreasuryPanel.tsx' <(git ls-files --cached)
           grep -q 'src/modules/settings/DashboardScannerPrinterSettings.tsx' <(git ls-files --cached)
