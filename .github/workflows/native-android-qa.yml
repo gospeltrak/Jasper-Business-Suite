@@ -83,9 +83,12 @@ jobs:
           # and camera lazy load; inject only Android hardware integrations.
           node scripts/qa-overlay-native-pos-printer.mjs
           # Read stable, fully tested web files that have no native-specific code.
-          for file in index.html src/shared/components/CachedImage.tsx src/shared/utils/lazyWithReload.ts src/shared/components/AppErrorBoundary.tsx src/shared/components/DashboardScreenErrorBoundary.tsx scripts/deployment-contract.test.ts; do
+          for file in index.html src/shared/components/CachedImage.tsx src/shared/utils/lazyWithReload.ts src/shared/components/AppErrorBoundary.tsx src/shared/components/DashboardScreenErrorBoundary.tsx; do
             git show origin/fix/pos-cart-discount-delivery-focus-20261101:"$file" > "$file"
           done
+          # Never overwrite current main's atomic Cancel Receipt tests with the
+          # older PR42 deployment contract from the checkout overlay branch.
+          git show origin/main:scripts/deployment-contract.test.ts > scripts/deployment-contract.test.ts
           # New production already includes the throttled workspace recovery.
           # The native adapter is only needed when its hook is still old.
           if ! grep -q 'MIN_RECOVERY_REFRESH_MS' src/components/Dashboard.tsx; then
