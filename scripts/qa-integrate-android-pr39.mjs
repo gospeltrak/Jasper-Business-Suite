@@ -24,19 +24,23 @@ const start = dashboard.indexOf('  const handleUpdateDeliveryStatus = async');
 const end = dashboard.indexOf('  const handleUpdateDeliveryDetails = async', start);
 assert(start >= 0 && end > start, 'Delivery status function anchors are required');
 let block = dashboard.slice(start, end);
-block = replaceExactlyOnce(
-  block,
-  '    let treasuryJournalId = currentDelivery.treasuryJournalId;',
-  "    const markedDelivered = status === 'Delivered';\n    let treasuryJournalId = currentDelivery.treasuryJournalId;",
-  'TypeScript-safe delivery flag',
-);
+if (!block.includes("const markedDelivered = status === 'Delivered';")) {
+  block = replaceExactlyOnce(
+    block,
+    '    let treasuryJournalId = currentDelivery.treasuryJournalId;',
+    "    const markedDelivered = status === 'Delivered';\n    let treasuryJournalId = currentDelivery.treasuryJournalId;",
+    'TypeScript-safe delivery flag',
+  );
+}
 const anchor = '    setDeliveriesMap(prev => {';
 const split = block.indexOf(anchor);
 assert(split >= 0, 'Delivery mutation block is required');
 const head = block.slice(0, split);
 let tail = block.slice(split);
 const uses = tail.match(/status === 'Delivered'/g) || [];
-assert(uses.length >= 3 && uses.length <= 6, 'Expected delivered-state expressions in updater and log');
+console.log('Remaining delivered-state comparisons in updater/log:', uses.length);
+assert(uses.length <= 6, 'Unexpected number of delivered-state expressions in updater and log');
+assert(uses.length > 0 || tail.includes('markedDelivered'), 'Missing delivery status checks');
 tail = tail.replaceAll("status === 'Delivered'", 'markedDelivered');
 dashboard = dashboard.slice(0, start) + head + tail + dashboard.slice(end);
 writeFileSync(dashPath, dashboard);
