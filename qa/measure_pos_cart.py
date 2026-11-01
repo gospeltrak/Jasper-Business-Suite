@@ -61,9 +61,26 @@ def run_case(browser, count: int, mode: str):
     cdp = context.new_cdp_session(page)
     cdp.send("Emulation.setCPUThrottlingRate", {"rate": 4})
     page_errors = []
+    console_errors = []
+    failed_responses = []
     page.on("pageerror", lambda error: page_errors.append(str(error)))
+    page.on("console", lambda msg: console_errors.append(msg.text) if msg.type == "error" else None)
+    page.on("response", lambda res: failed_responses.append(f"{res.status} {res.url}") if res.status >= 400 else None)
     page.goto(f"{TARGET}?count={count}&images=on", wait_until="domcontentloaded", timeout=90000)
-    page.wait_for_function("window.__ORVIX_BENCHMARK_READY__ === true", timeout=45000)
+    try:
+        page.wait_for_function("window.__ORVIX_BENCHMARK_READY__ === true", timeout=15000)
+    except Exception:
+        print("QA_BOOT_DEBUG="+json.dumps({
+            "url": page.url,
+            "title": page.title(),
+            "pageErrors": page_errors[:12],
+            "consoleErrors": console_errors[:12],
+            "failedResponses": failed_responses[:12],
+            "ready": page.evaluate("window.__ORVIX_BENCHMARK_READY__ || false"),
+            "renderedRootText": page.locator("#root").inner_text(timeout=3000)[:700],
+            "bodyText": page.locator("body").inner_text(timeout=3000)[:600],
+        }),flush=True)
+        raise
     page.wait_for_selector('[data-pos-product-card]', timeout=45000)
     page.wait_for_selector('[data-testid="pos-mobile-grand-total"]', timeout=45000)
     total = 0
