@@ -6317,10 +6317,6 @@ export default function DashboardProducts({
                 </div>
               </div>
               )}
-            </div>
-
-            {/* Fixed-height form footer: a flex sibling, not a second sticky overlay.
-                Use React-owned translated labels to avoid DOM translator collisions. */}
             {!isPharmacyLike && !editingProduct.variationParentId && (
               <div className="mx-4 sm:mx-6 mb-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3 normal-case space-y-2">
                 <label className="flex items-center justify-between text-[11px] font-bold text-slate-700">
@@ -6359,6 +6355,10 @@ export default function DashboardProducts({
                 )}
               </div>
             )}
+            </div>
+
+            {/* Fixed-height form footer: a flex sibling, not a second sticky overlay.
+                Use React-owned translated labels to avoid DOM translator collisions. */}
             <div className="tenant-form-footer orvix-product-edit-footer bg-slate-50 border-t border-slate-200">
               {editSaveError && (
                 <p role="alert" className="orvix-product-edit-error text-[11px] font-bold normal-case text-rose-600">
