@@ -226,3 +226,13 @@ test('variation replenishment confirms the database save and never removes a chi
   assert.match(productsSource, /disabled=\{isSavingReplenish \|\| !replenishCost \|\| !replenishQty\}/);
   assert.match(dashboardSource, /if \(product\.variationParentId\) \{[\s\S]*?SKU must be preserved for audit/);
 });
+
+test('creating variation SKUs writes only newly-created rows to the normalized product RPC', async () => {
+  const source = await readFile(new URL('../src/components/Dashboard.tsx', import.meta.url), 'utf8');
+  const start = source.indexOf('const handleCreateProducts = (newProducts: Product[]) =>');
+  const end = source.indexOf('const handleCreateProduct = (newProd: Product) =>', start);
+  assert.ok(start >= 0 && end > start);
+  const handler = source.slice(start, end);
+  assert.match(handler, /persistTenantProductsNow\(\s*updatedProducts, undefined, branchScopedProducts\.map\(product => product\.id\)/);
+  assert.doesNotMatch(handler, /persistTenantProductsNow\(updatedProducts\)/);
+});
