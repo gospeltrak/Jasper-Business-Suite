@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Tenant, Product, Sale, SaleItem, SystemSettings } from '../../types';
+import { getPosVariationCards, getProductVariations, isVariationParent } from '../products/utils/productVariations';
 import {
   calculateWeightedAverageCost,
   deductBatchesForSale,
@@ -193,6 +194,8 @@ export default function DashboardPOS({
   const { lang: receiptLanguage, t } = useTranslation();
   const showProductImages = systemSettings?.posSettings?.showProductImages !== false;
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCardVariations, setSelectedCardVariations] = useState<Record<string, string>>({});
+  const posCardCatalogue = useMemo(() => getPosVariationCards(products), [products]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [cart, setCartState] = useState<Array<{ 
     product: Product; 
@@ -619,7 +622,7 @@ export default function DashboardPOS({
   };
 
   // Filtering products for current tenant active list
-  const filteredProducts = useMemo(() => products.filter(p => {
+  const filteredProducts = useMemo(() => posCardCatalogue.filter(p => {
     const shopQty = Number(p.shopStockQty ?? p.stockQty ?? 0);
     if (shopQty <= 0) return false;
     const matchesSearch = String(p.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -629,11 +632,15 @@ export default function DashboardPOS({
       p.category?.trim().toLowerCase() === selectedCategory.trim().toLowerCase();
     const inStock = (p.shopStockQty ?? p.stockQty ?? 0) > 0;
     return matchesSearch && matchesCategory && inStock;
-  }), [products, searchTerm, selectedCategory]);
+  }), [posCardCatalogue, searchTerm, selectedCategory]);
 
   const addToCart = useCallback((candidate: Product): PosBarcodeOutcome => {
     const prod = latestProductsRef.current.find(product => product.id === candidate.id);
     if (!prod) return 'not-found';
+    if (isVariationParent(prod)) {
+      setPosWarning('Choose a variation before adding this product.');
+      return 'not-found';
+    }
     // Channel selling permissions validation
     if (sellingChannel === 'retail' && prod.sellInRetail === false) {
       setPosWarning(`Product "${prod.name}" is wholesale-only. Change channel to Wholesale to sell this product.`);
@@ -982,19 +989,24 @@ export default function DashboardPOS({
   // actual product data, or selling price changes. Cart quantity/totals should
   // update only the cart and sticky total; no catalog DOM reconciliation.
   const productCards = useMemo(() => filteredProducts.map(prod => {
+              const variations = isVariationParent(prod) ? getProductVariations(products, prod.id) : [];
+              const selectedVariation = variations.find(v => v.id === selectedCardVariations[prod.id]);
               const shopQty = prod.shopStockQty ?? 0;
               const isLow = shopQty <= prod.alertQty;
               const isOut = shopQty <= 0;
-              const displayPrice = productPriceMap.get(prod.id) ?? prod.sellingPrice;
+              const displayPrice = selectedVariation
+                ? (sellingChannel === 'wholesale' && selectedVariation.sellInWholesale
+                  ? selectedVariation.wholesalePrice ?? selectedVariation.sellingPrice
+                  : selectedVariation.sellingPrice)
+                : productPriceMap.get(prod.id) ?? prod.sellingPrice;
               const remainingLabel = productRemainingMap.get(prod.id) ?? '';
               return (
                 <div 
                   key={prod.id}
                   data-pos-product-card
                   onClick={() => {
-                    if (!isOut) {
-                      addToCart(prod);
-                      playCartSuccessBeepAfterPaint();
+                    if (!isOut && !isVariationParent(prod)) {
+                      if (addToCart(prod) === 'added') playCartSuccessBeepAfterPaint();
                     } else {
                       playOutOfStockBeep();
                     }
@@ -1081,13 +1093,45 @@ export default function DashboardPOS({
                           </span>
                         )}
                       </div>
+                      {variations.length > 0 && (
+                        <label className="block w-full text-[9px] font-bold text-slate-500 normal-case" onClick={event => event.stopPropagation()}>
+                          <span className="block mb-1">Variation</span>
+                          <select
+                            aria-label={`Choose ${prod.name} variation`}
+                            value={selectedCardVariations[prod.id] || ''}
+                            onClick={event => event.stopPropagation()}
+                            onChange={event => setSelectedCardVariations(current => ({ ...current, [prod.id]: event.target.value }))}
+                            className="block w-full min-w-0 rounded-lg border border-slate-200 bg-white px-1.5 py-1 text-[10px] text-slate-700 focus:border-emerald-500"
+                          >
+                            <option value="">Choose variation...</option>
+                            {variations.map(variation => (
+                              <option key={variation.id} value={variation.id} disabled={(variation.shopStockQty ?? 0) <= 0}>
+                                {variation.variationLabel || variation.name} ({variation.shopStockQty ?? 0})
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      )}
                       {!isOut ? (
                         <div className="w-full text-right">
+                          {variations.length > 0 ? (
+                            <button
+                              type="button"
+                              disabled={!selectedVariation || (selectedVariation.shopStockQty ?? 0) <= 0}
+                              onClick={event => {
+                                event.stopPropagation();
+                                if (!selectedVariation) return;
+                                if (addToCart(selectedVariation) === 'added') playCartSuccessBeepAfterPaint();
+                              }}
+                              className="w-full min-h-7 rounded-lg bg-emerald-600 px-1.5 py-1 text-[9px] font-bold text-white disabled:opacity-40"
+                            >+ Add</button>
+                          ) : (
                           <span className="w-full min-h-7 lg:min-h-9 xl:min-h-7 bg-emerald-600 hover:bg-emerald-700 group-hover:bg-emerald-700 text-white text-[9px] lg:text-[10px] xl:text-[9px] font-black px-1.5 lg:px-3 py-1.5 lg:py-2 xl:py-1 rounded-lg lg:rounded-xl uppercase tracking-wider transition-all shadow-xs lg:shadow-md lg:shadow-emerald-600/20 inline-flex items-center justify-center gap-1">
                             <Plus className="hidden lg:block h-3.5 w-3.5" strokeWidth={3} />
                             <span className="lg:hidden">+ Add</span>
                             <span className="hidden lg:flex">Add</span>
                           </span>
+                          )}
                         </div>
                       ) : (
                         <span className="text-slate-400 text-[9px] font-bold uppercase tracking-wider">
@@ -1099,7 +1143,7 @@ export default function DashboardPOS({
                 </div>
               );
             }), [
-    filteredProducts, productPriceMap, productRemainingMap, addToCart,
+    filteredProducts, products, selectedCardVariations, sellingChannel, productPriceMap, productRemainingMap, addToCart,
     showProductImages, currency,
   ]);
 
@@ -1366,6 +1410,8 @@ export default function DashboardPOS({
 
       return {
         productId: i.product.id,
+        variationParentId: i.product.variationParentId,
+        variationLabel: i.product.variationLabel,
         productName: isPharmacy && dType !== 'packet' 
           ? `${i.product.name} [${pharmacyLevelLabel}]`
           : i.product.name,
