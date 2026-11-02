@@ -2049,14 +2049,27 @@ export default function DashboardProducts({
   // (modal input, scanner state, print status, etc). Only products/search change it.
   const filteredProducts = useMemo(() => {
     const search = searchTerm.toLowerCase();
+    // Keep the original product-card layout: a variation child is a ledger
+    // stock item, never an extra catalogue card. Searching child names and
+    // barcodes still finds the one parent grouping card.
     return products.filter(p =>
-      String(p.name || '').toLowerCase().includes(search) ||
-      String(p.barcode || '').toLowerCase().includes(search) ||
-      String(p.category || '').toLowerCase().includes(search) ||
-      String(p.brand || '').toLowerCase().includes(search)
+      !p.variationParentId && (
+        String(p.name || '').toLowerCase().includes(search) ||
+        String(p.barcode || '').toLowerCase().includes(search) ||
+        String(p.category || '').toLowerCase().includes(search) ||
+        String(p.brand || '').toLowerCase().includes(search) ||
+        (isVariationParent(p) && getProductVariations(products, p.id).some(child =>
+          String(child.variationLabel || child.name).toLowerCase().includes(search) ||
+          String(child.barcode || child.sku).toLowerCase().includes(search)
+        ))
+      )
     ).sort((a, b) => {
-      const stockA = a.shopStockQty ?? a.stockQty ?? 0;
-      const stockB = b.shopStockQty ?? b.stockQty ?? 0;
+      const stockA = isVariationParent(a)
+        ? getProductVariations(products, a.id).reduce((sum, child) => sum + Number(child.shopStockQty || 0), 0)
+        : a.shopStockQty ?? a.stockQty ?? 0;
+      const stockB = isVariationParent(b)
+        ? getProductVariations(products, b.id).reduce((sum, child) => sum + Number(child.shopStockQty || 0), 0)
+        : b.shopStockQty ?? b.stockQty ?? 0;
       const aOut = stockA <= 0 ? 1 : 0;
       const bOut = stockB <= 0 ? 1 : 0;
       return aOut - bOut; // stable sort preserves the original order within each group
