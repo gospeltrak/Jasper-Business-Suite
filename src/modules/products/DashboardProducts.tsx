@@ -1712,7 +1712,7 @@ export default function DashboardProducts({
 
   // Stock Transfer Actions
   const handleExecuteTransfer = async () => {
-    if (!transferProduct) return;
+    if (!transferProduct || transferSubmitting) return;
     if (isVariationParent(transferProduct)) {
       setTransferError('Select a specific variation to transfer its stock.');
       return;
@@ -1787,15 +1787,27 @@ export default function DashboardProducts({
       return p;
     });
     
-    onUpdateProducts(updatedProducts);
-    setTransferSuccess(true);
+    // The transfer is complete only when the authoritative products/branch-stock
+    // RPC confirms the child SKU was saved. Never report success optimistically.
+    setTransferSubmitting(true);
     setTransferError(null);
-    
-    setTimeout(() => {
-      setTransferProduct(null);
-      setTransferSuccess(false);
-      setTransferQty(1);
-    }, 1200);
+    try {
+      const saved = await onUpdateProducts(updatedProducts, [transferProduct.id]);
+      if (!saved) {
+        setTransferError('Stock transfer could not be saved. Your previous stock was kept; please retry.');
+        return;
+      }
+      setTransferSuccess(true);
+      setTimeout(() => {
+        setTransferProduct(null);
+        setTransferSuccess(false);
+        setTransferQty(1);
+      }, 1200);
+    } catch (error) {
+      setTransferError(error instanceof Error ? error.message : 'Stock transfer could not be saved.');
+    } finally {
+      setTransferSubmitting(false);
+    }
   };
 
   // 3. GOOGLE FORM TEMPLATE SHEET EXCEL EXPORTER / IMPORTER
