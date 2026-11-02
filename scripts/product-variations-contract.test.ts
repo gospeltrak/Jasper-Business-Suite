@@ -11,7 +11,8 @@ import {
 import {
   exportProductsToUniversalRows, classifyUniversalImportRows,
 } from '../src/modules/products/utils/bulkProductImport';
-import type { Product } from '../src/types';
+import type { Product, Sale } from '../src/types';
+import { reverseSaleInventory } from '../src/modules/sales/utils/saleSync';
 import { scopeProductsForBranch } from '../src/modules/branches/branchScope';
 
 const base: Product = {
@@ -178,4 +179,32 @@ test('variation shop/store transfers wait for a durable scoped stock save', asyn
   assert.match(transferCode, /if \(!saved\) \{[\s\S]*?setTransferError/);
   assert.doesNotMatch(transferCode, /\bonUpdateProducts\(updatedProducts\);/);
   assert.match(transferCode, /finally \{\s*setTransferSubmitting\(false\)/);
+});
+
+
+test('returning a sale restores only that variation, never sibling or grouping stock', () => {
+  const { parent, variants } = make();
+  const sale: Sale = {
+    id: 'sale-a', tenantId: 'tenant-1', timestamp: '2026-11-02T12:00:00Z',
+    reference: 'SALE-001', syncStatus: 'synced', cashierName: 'QA',
+    paymentMethod: 'Cash', tax: 0, total: 25500,
+    items: [{
+      productId: variants[0].id, productName: variants[0].name,
+      variationParentId: parent.id, variationLabel: variants[0].variationLabel,
+      qty: 3, baseQuantityDeducted: 3, discount: 0, price: 8500,
+    }],
+  };
+  // Sale already deducted 3 fresh-roll items. Its reversal must not touch
+  // Classic or the grouping parent, which has no sellable stock.
+  const sold = [
+    parent,
+    { ...variants[0], shopStockQty: 27, stockQty: 35 },
+    variants[1],
+  ];
+  const returned = reverseSaleInventory(sale, sold, '2026-11-02T12:05:00Z');
+  assert.equal(returned.find(p => p.id === parent.id)?.stockQty, 0);
+  assert.equal(returned.find(p => p.id === variants[0].id)?.shopStockQty, 30);
+  assert.equal(returned.find(p => p.id === variants[0].id)?.stockQty, 38);
+  assert.equal(returned.find(p => p.id === variants[1].id)?.shopStockQty, 12);
+  assert.equal(returned.find(p => p.id === variants[1].id)?.stockQty, 17);
 });
