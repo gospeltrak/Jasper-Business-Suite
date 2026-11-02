@@ -123,3 +123,61 @@ test('Android barcode scanner requests camera permission on use and recovers aft
   assert.match(scanner, /Fungua mipangilio ya kamera/);
   assert.match(scanner, /USB or Bluetooth scanner/);
 });
+
+// WhatsApp message-only wa.me URLs cannot attach an Orvix PDF; the native
+// bridge must give Android an actual PDF URI with temporary read permission.
+test('Android PDF share uses a FileProvider URI and never substitutes WhatsApp text', () => {
+  const bridge = read('src/native/nativePdfAttachmentShare.ts');
+  const java = read('scripts/native-android-share/OrvixPdfAttachment.java');
+  const setup = read('scripts/setup-native-android-pdf-share.mjs');
+  const pdf = read('src/shared/utils/pdfShare.ts');
+  assert.match(main, /installOrvixNativePdfAttachmentShare\(\)/);
+  assert.match(bridge, /registerPlugin.*OrvixPdfAttachment/);
+  assert.match(bridge, /__orvixSharePdfAttachment/);
+  assert.match(java, /Intent\.ACTION_SEND/);
+  assert.match(java, /application\/pdf/);
+  assert.match(java, /FileProvider\.getUriForFile/);
+  assert.match(java, /FLAG_GRANT_READ_URI_PERMISSION/);
+  assert.match(setup, /registerPlugin\(OrvixPdfAttachment\.class\)/);
+  assert.match(androidWorkflow, /node scripts\/setup-native-android-pdf-share\.mjs/);
+  assert.match(pdf, /shareActualPdfAttachment\(pdfFile, message/);
+  assert.doesNotMatch(pdf, /buildWhatsAppLink|window\.open\(waUrl/);
+});
+
+test('native device PIN gate uses Android security and never stores the PIN in Orvix', () => {
+  const java = read('scripts/native-android-security/OrvixDeviceCredential.java');
+  const setup = read('scripts/setup-native-android-device-credential.mjs');
+  const gate = read('src/native/NativeDeviceLock.tsx');
+  assert.match(java, /KeyguardManager/);
+  assert.match(java, /isDeviceSecure\(\)/);
+  assert.match(java, /createConfirmDeviceCredentialIntent/);
+  assert.match(java, /Activity\.RESULT_OK/);
+  assert.match(setup, /registerPlugin\(OrvixDeviceCredential\.class\)/);
+  assert.match(androidWorkflow, /node scripts\/setup-native-android-device-credential\.mjs/);
+  assert.match(app, /<NativeDeviceLock/);
+  assert.match(gate, /DeviceCredential\.authenticate\(\)/);
+  assert.match(gate, /BACKGROUND_LOCK_MS = 30_000/);
+  assert.match(gate, /inFlightRef\.current/);
+  assert.doesNotMatch(java, /SharedPreferences|SQLiteDatabase|PIN_SECRET|password_hash/);
+});
+
+test('Android notifications have OS channels and explicit Android 13 permission (FCM still separate)', () => {
+  const java = read('scripts/native-android-notifications/OrvixNotificationChannels.java');
+  const setup = read('scripts/setup-native-android-notifications.mjs');
+  assert.match(java, /NotificationManager\.IMPORTANCE_HIGH/);
+  assert.match(java, /createNotificationChannel/);
+  assert.match(java, /Manifest\.permission\.POST_NOTIFICATIONS/);
+  assert.match(java, /requestPermissionForAlias/);
+  assert.match(setup, /registerPlugin\(OrvixNotificationChannels\.class\)/);
+  assert.match(setup, /android\.permission\.POST_NOTIFICATIONS/);
+  assert.match(androidWorkflow, /node scripts\/setup-native-android-notifications\.mjs/);
+  assert.doesNotMatch(java, /FirebaseMessagingService|sendPushAutomatically/);
+});
+
+test('Android tenant login splash never reuses another tenant logo or blocks login', () => {
+  assert.match(app, /loginSplashRequestIdRef/);
+  assert.match(app, /current\.tenantId === storageTenantId/);
+  assert.match(app, /logoSrc: '\/jb-logo\.png'/);
+  assert.match(app, /void fetchLogoUrl\(storageTenantId\)\.then/);
+  assert.doesNotMatch(app, /await fetchLogoUrl\(storageTenantId\)/);
+});

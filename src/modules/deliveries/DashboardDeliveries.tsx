@@ -651,14 +651,16 @@ export default function DashboardDeliveries({
 
     try {
       setDeliveryPdfStatus('Generating delivery note PDF...');
-      await shareElementPdfToWhatsApp({
+      const shareResult = await shareElementPdfToWhatsApp({
         elementId: 'delivery-note-print-area',
         fileName: `delivery-note-${notePINo || Date.now()}.pdf`,
         format: 'a4',
         phone: phone.trim(),
         message: 'Please find attached your delivery note.',
       });
-      setDeliveryPdfStatus('✅ Delivery note sent.');
+      setDeliveryPdfStatus(shareResult.method === 'native-share'
+        ? '📎 Delivery PDF ready. Choose WhatsApp and the recipient.'
+        : '📥 Delivery PDF saved. Attach it manually in WhatsApp.');
       markNoteCompleted();
     } catch (err: any) {
       setDeliveryPdfStatus('Send failed: ' + (err?.message || 'Please try again.'));
@@ -846,14 +848,16 @@ Vehicle Plate Number: ${plateNumber}
         handleLoadFromOrder(del);
         setActiveSubTab('notes');
       });
-      await shareElementPdfToWhatsApp({
+      const shareResult = await shareElementPdfToWhatsApp({
         elementId: 'delivery-note-print-area',
         fileName: `delivery-note-${dnNo}.pdf`,
         phone: del.customerPhone,
         message: `Hello ${customerName}, please find attached your delivery note PDF from ${getActiveBranchDisplayName(activeTenant, systemSettings, undefined, activeBranch)}. Thank you.`,
         format: 'a4'
       });
-      setDeliveryPdfStatus('PDF ready for WhatsApp.');
+      setDeliveryPdfStatus(shareResult.method === 'native-share'
+        ? '📎 Delivery PDF ready. Choose WhatsApp and the recipient.'
+        : '📥 Delivery PDF saved. Attach it manually in WhatsApp.');
     } catch (err: any) {
       setDeliveryPdfStatus(err?.message || 'Open the delivery note preview first so the PDF can be created.');
     } finally {
