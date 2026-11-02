@@ -236,3 +236,15 @@ test('creating variation SKUs writes only newly-created rows to the normalized p
   assert.match(handler, /persistTenantProductsNow\(\s*updatedProducts, undefined, branchScopedProducts\.map\(product => product\.id\)/);
   assert.doesNotMatch(handler, /persistTenantProductsNow\(updatedProducts\)/);
 });
+
+test('product registration blocks a second submit while the first SKU bundle is saving', async () => {
+  const source = await readFile(new URL('../src/modules/products/DashboardProducts.tsx', import.meta.url), 'utf8');
+  const start = source.indexOf('const handleCreateProduct = async (e: FormEvent) =>');
+  const end = source.indexOf('// Stock Transfer Actions', start);
+  assert.ok(start >= 0 && end > start);
+  const create = source.slice(start, end);
+  assert.match(create, /if \(productCreationInFlightRef\.current\) return/);
+  assert.match(create, /productCreationInFlightRef\.current = true/);
+  assert.match(create, /finally \{[\s\S]*?productCreationInFlightRef\.current = false/);
+  assert.match(source, /disabled=\{formSuccess \|\| isProcessingImage \|\| isCreatingProduct\}/);
+});
