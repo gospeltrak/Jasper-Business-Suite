@@ -1153,8 +1153,8 @@ export default function DashboardPOS({
                 </div>
               );
             }), [
-    filteredProducts, productPriceMap, productRemainingMap, addToCart,
-    products, selectedCardVariations, sellingChannel, showProductImages, currency,
+    filteredProducts, products, selectedCardVariations, sellingChannel, productPriceMap, productRemainingMap, addToCart,
+    showProductImages, currency,
   ]);
 
   // Pre-compute ALL cart item display values once — avoids calling getPharmacyDoseConfig etc per render
