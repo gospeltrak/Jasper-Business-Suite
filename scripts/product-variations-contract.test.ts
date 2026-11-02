@@ -159,3 +159,8 @@ test('overview stock warnings only inspect sellable variation stock lines', asyn
   assert.match(source, /products\.filter\(p => !p\.isVariationParent && p\.stockQty <= \(p\.alertQty/);
   assert.match(source, /products\.filter\(p => !p\.isVariationParent && p\.stockQty <= 45/);
 });
+
+test('editing a parent group cannot change historical legacy sale cost fallback', async () => {
+  const source = await readFile(new URL('../src/modules/products/DashboardProducts.tsx', import.meta.url), 'utf8');
+  assert.match(source, /const parent = makeVariationParent\(\{[\s\S]*?costPrice: editingProduct\.costPrice,[\s\S]*?sellingPrice: editingProduct\.sellingPrice/);
+});
