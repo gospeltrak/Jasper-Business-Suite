@@ -584,7 +584,11 @@ test('delivery note WhatsApp sharing mounts the selected note and shares its PDF
   assert.match(deliverySource, /shareElementPdfToWhatsApp\(\{\s*elementId: 'delivery-note-print-area'/);
   assert.match(deliverySource, /fileName: `delivery-note-\$\{dnNo\}\.pdf`/);
   assert.match(pdfSource, /const pdfFile = await createPdfFromElement\(options\)/);
-  assert.match(pdfSource, /navigator\.share\(\{ files, title: pdfFile\.name, text: message \}\)/);
+  assert.match(pdfSource, /navigator\.share\(\{ files: \[pdfFile\], title: pdfFile\.name, text: message \}\)/);
+  assert.match(pdfSource, /__orvixSharePdfAttachment/);
+  assert.doesNotMatch(pdfSource, /buildWhatsAppLink|window\.open\(waUrl/);
+  assert.match(pdfSource, /return shareActualPdfAttachment\(pdfFile, message, options\.phone \|\| ''\)/);
+  assert.match(pdfSource, /return shareActualPdfAttachment\(pdfFile, waMessage, phone\)/);
   assert.match(pdfSource, /downloadBlob\(pdfFile, pdfFile\.name\)/);
 });
 
