@@ -637,7 +637,7 @@ export default function DashboardPOS({
   const addToCart = useCallback((candidate: Product): PosBarcodeOutcome => {
     const prod = latestProductsRef.current.find(product => product.id === candidate.id);
     if (!prod) return 'not-found';
-    if (isVariationParent(prod)) {
+    if (prod.isVariationParent === true) {
       setPosWarning('Choose a variation before adding this product.');
       return 'not-found';
     }
