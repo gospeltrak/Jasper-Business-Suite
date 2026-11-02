@@ -621,6 +621,13 @@ export default function DashboardReports({
   const productDrilldownStats = useMemo(() => {
     const isAll = selectedMonitoredProductId === 'all';
     const product = isAll ? undefined : products.find(p => p.id === selectedMonitoredProductId);
+    // Parent audit groups child variation sales; legacy parent sales remain.
+    const includedProductIds = new Set([
+      selectedMonitoredProductId,
+      ...(product?.isVariationParent
+        ? products.filter(p => p.variationParentId === product.id).map(p => p.id)
+        : []),
+    ]);
     const dailyMap = new Map<string, { date: string; qty: number; revenue: number }>();
     let qty = 0;
     let revenue = 0;
@@ -631,7 +638,7 @@ export default function DashboardReports({
       let dayQty = 0;
       let dayRevenue = 0;
       (s.items || []).forEach(item => {
-        if (!isAll && item.productId !== selectedMonitoredProductId) return;
+        if (!isAll && !includedProductIds.has(item.productId)) return;
         const matchingProd = products.find(p => p.id === item.productId);
         const lineRevenue = getSaleItemLineTotal(item);
         const baseQty = item.baseQuantityDeducted ?? item.qty;
@@ -724,8 +731,9 @@ export default function DashboardReports({
 
   const filteredInventoryProducts = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
-    if (!q) return products;
-    return products.filter(p =>
+    const stockRows = products.filter(p => !p.isVariationParent);
+    if (!q) return stockRows;
+    return stockRows.filter(p =>
       String(p.name || '').toLowerCase().includes(q) ||
       String(p.sku || '').toLowerCase().includes(q) ||
       String(p.category || '').toLowerCase().includes(q)
