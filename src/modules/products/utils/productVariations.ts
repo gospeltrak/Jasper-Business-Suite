@@ -132,7 +132,7 @@ export const makeVariationParent = (parent: Product): Product => ({
   storeStockQty: 0,
   costPrice: 0,
   sellingPrice: 0,
-  wholesalePrice: undefined,
+  wholesalePrice: parent.wholesalePrice,
   batches: [],
 });
 
@@ -140,14 +140,13 @@ export const buildVariationCard = (parent: Product, variants: readonly Product[]
   const stock = variants.reduce((sum, product) => sum + qty(product.stockQty), 0);
   const shop = variants.reduce((sum, product) => sum + qty(product.shopStockQty), 0);
   const store = variants.reduce((sum, product) => sum + qty(product.storeStockQty), 0);
+  const availablePrices = variants.map(product => product.sellingPrice).filter(value => value > 0);
   return {
     ...parent,
     stockQty: qty(stock),
     shopStockQty: qty(shop),
     storeStockQty: qty(store),
-    sellingPrice: Math.min(...variants.map(v => v.sellingPrice).filter(p => p > 0).concat([Infinity])) === Infinity
-      ? 0
-      : Math.min(...variants.map(v => v.sellingPrice).filter(p => p > 0)),
+    sellingPrice: availablePrices.length ? Math.min(...availablePrices) : 0,
   };
 };
 
