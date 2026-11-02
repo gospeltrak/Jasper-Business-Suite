@@ -10,6 +10,7 @@ const BACKGROUND_LOCK_MS = 30_000;
 
 type Props = {
   identity: string;
+  splashVisible: boolean;
   children: ReactNode;
   onSignOut: () => void | Promise<void>;
 };
@@ -20,7 +21,7 @@ type Props = {
  * The wrapped dashboard stays mounted but visually hidden while locked, so
  * an unfinished sale does not disappear when the screen is switched off.
  */
-export default function NativeDeviceLock({ identity, children, onSignOut }: Props) {
+export default function NativeDeviceLock({ identity, splashVisible, children, onSignOut }: Props) {
   const nativeAndroid = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
   const [unlocked, setUnlocked] = useState(false);
   const [verifying, setVerifying] = useState(false);
@@ -28,9 +29,11 @@ export default function NativeDeviceLock({ identity, children, onSignOut }: Prop
   const inFlightRef = useRef(false);
   const lastBackgroundAt = useRef<number | null>(null);
   const requestRef = useRef(0);
+  const autoPromptedForIdentityRef = useRef('');
 
   useEffect(() => {
     requestRef.current += 1;
+    autoPromptedForIdentityRef.current = '';
     setUnlocked(false);
     setError('');
     setVerifying(false);
@@ -53,6 +56,7 @@ export default function NativeDeviceLock({ identity, children, onSignOut }: Prop
         lastBackgroundAt.current = null;
         if (since !== null && performance.now() - since >= BACKGROUND_LOCK_MS) {
           // Keep the cart/form mounted, but cover all confidential content.
+          autoPromptedForIdentityRef.current = '';
           setUnlocked(false);
         }
       }
@@ -89,6 +93,15 @@ export default function NativeDeviceLock({ identity, children, onSignOut }: Prop
       }
     }
   }, [nativeAndroid]);
+
+  // Prompt once automatically after the branded login reveal has finished.
+  // Cancelled challenges require a deliberate tap, not an endless PIN loop.
+  useEffect(() => {
+    if (!nativeAndroid || splashVisible || unlocked || verifying) return;
+    if (autoPromptedForIdentityRef.current === identity) return;
+    autoPromptedForIdentityRef.current = identity;
+    void unlock();
+  }, [nativeAndroid, splashVisible, unlocked, verifying, identity, unlock]);
 
   if (!nativeAndroid) return <>{children}</>;
   return (
