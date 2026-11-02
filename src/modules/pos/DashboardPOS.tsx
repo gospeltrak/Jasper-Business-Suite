@@ -1012,7 +1012,10 @@ export default function DashboardPOS({
                   key={prod.id}
                   data-pos-product-card
                   onClick={() => {
-                    if (!isOut && !isVariationParent(prod)) {
+                    // A grouping card is never sold directly; the variation
+                    // dropdown and its Add button explicitly choose stock.
+                    if (isVariationParent(prod)) return;
+                    if (!isOut) {
                       if (addToCart(prod) === 'added') playCartSuccessBeepAfterPaint();
                     } else {
                       playOutOfStockBeep();
@@ -1150,8 +1153,8 @@ export default function DashboardPOS({
                 </div>
               );
             }), [
-    filteredProducts, products, selectedCardVariations, sellingChannel, productPriceMap, productRemainingMap, addToCart,
-    showProductImages, currency,
+    filteredProducts, productPriceMap, productRemainingMap, addToCart,
+    products, selectedCardVariations, sellingChannel, showProductImages, currency,
   ]);
 
   // Pre-compute ALL cart item display values once — avoids calling getPharmacyDoseConfig etc per render
