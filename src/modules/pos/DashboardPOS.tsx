@@ -397,9 +397,9 @@ export default function DashboardPOS({
       });
 
       if (result.method === 'native-share') {
-        setReceiptPdfStatus('✅ Receipt shared successfully.');
+        setReceiptPdfStatus('📎 PDF ready. Select WhatsApp and choose the customer chat to send.');
       } else {
-        setReceiptPdfStatus('📥 PDF downloaded. Open WhatsApp → attach the file → send.');
+        setReceiptPdfStatus('📥 PDF saved. Open the customer chat on WhatsApp and attach this PDF manually.');
       }
     } catch (err: any) {
       if (err?.message === 'Share cancelled') {
@@ -2842,8 +2842,8 @@ export default function DashboardPOS({
                       <p className="text-[10px] font-bold text-emerald-700">{receiptPdfStatus}</p>
                     )}
                     <p className="text-[9.5px] text-slate-500 leading-relaxed">
-                      On mobile: tap Send PDF → select WhatsApp → PDF attaches automatically.<br/>
-                      On desktop: PDF downloads, then WhatsApp opens — attach manually.
+                      On mobile: tap Send PDF → select WhatsApp and choose the customer chat. Confirm that the PDF is attached before sending.<br/>
+                      On desktop: download the PDF, then attach it to the customer chat manually.
                     </p>
                   </div>
 

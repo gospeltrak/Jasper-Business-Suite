@@ -1159,14 +1159,16 @@ export default function DashboardSalesList({
   const sharePdfDocument = async (doc: SalesDocument, phone?: string) => {
     try {
       setPdfShareStatus('Preparing PDF...');
-      await shareElementPdfToWhatsApp({
+      const shareResult = await shareElementPdfToWhatsApp({
         elementId: 'sales-document-a4-pdf-template',
         fileName: `${normalizeDocType(doc.type).replace(/\s+/g, '-')}-${doc.documentNumber}.pdf`,
         phone: phone || doc.customerPhone,
         message: buildDocumentWhatsAppMessage(doc),
         format: 'a4'
       });
-      setPdfShareStatus('PDF ready for WhatsApp.');
+      setPdfShareStatus(shareResult.method === 'native-share'
+        ? '📎 PDF ready. Select WhatsApp and the recipient to send.'
+        : '📥 PDF saved. Attach it manually in the customer WhatsApp chat.');
     } catch (err: any) {
       setPdfShareStatus(err?.message || 'Could not prepare PDF.');
     } finally {
@@ -1193,14 +1195,16 @@ export default function DashboardSalesList({
   const shareSalePdf = async (sale: Sale, phone?: string, format: 'a4' | 'receipt' = 'a4') => {
     try {
       setPdfShareStatus('Preparing PDF...');
-      await shareElementPdfToWhatsApp({
+      const shareResult = await shareElementPdfToWhatsApp({
         elementId: format === 'a4' ? 'sales-invoice-a4-pdf-template' : 'sales-receipt-pdf-template',
         fileName: format === 'a4' ? buildInvoiceFileName(sale) : buildReceiptFileName(sale),
         phone: phone || sale.customerPhone,
         message: `Hello ${sale.customerName || 'customer'}, please find attached your ${format === 'a4' ? 'sales invoice' : 'POS receipt'} PDF from ${getActiveBranchDisplayName(activeTenant, systemSettings, undefined, activeBranch)}. Thank you.`,
         format
       });
-      setPdfShareStatus('PDF ready for WhatsApp.');
+      setPdfShareStatus(shareResult.method === 'native-share'
+        ? '📎 PDF ready. Select WhatsApp and the recipient to send.'
+        : '📥 PDF saved. Attach it manually in the customer WhatsApp chat.');
     } catch (err: any) {
       setPdfShareStatus(err?.message || 'Could not prepare PDF.');
     } finally {
