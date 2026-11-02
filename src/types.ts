@@ -202,6 +202,12 @@ export interface PriceChangeInfo {
 export interface Product {
   id: string;
   name: string;
+  /** Group-only product: POS requires selection of one sellable child. */
+  isVariationParent?: boolean;
+  /** Immutable parent identity. Each child remains a standard stock-ledger product. */
+  variationParentId?: string;
+  /** Human-readable option such as "Fresh Rolls" or "Classic". */
+  variationLabel?: string;
   sku: string;
   barcode: string;
   category: string;
@@ -353,6 +359,9 @@ export interface SaleBatchItem {
 export interface SaleItem {
   productId: string;
   productName: string;
+  /** Optional variation snapshot. Legacy sale lines remain unchanged. */
+  variationParentId?: string;
+  variationLabel?: string;
   qty: number;
   quantity?: number;
   price: number;
@@ -493,6 +502,8 @@ export interface Supplier {
 export interface PurchaseItem {
   productId: string;
   productName: string;
+  variationParentId?: string;
+  variationLabel?: string;
   qty: number;
   costPrice: number;
   // Universal Inventory Unit & Packaging Engine -- which package level was
