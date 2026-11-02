@@ -2930,10 +2930,10 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       addToast('This product has variations. Its stock and sales history must remain linked; the parent cannot be deleted.', 'error');
       return;
     }
-    // Never orphan variation stock or past transactions by removing the
-    // grouping record. Each variation remains a real stock-ledger product.
-    if (product.isVariationParent && tenantProducts.some(item => item.variationParentId === id)) {
-      addToast('This product has variations. Keep the parent group to protect inventory and sales history.', 'error');
+    // A child variation is a permanent SKU identity referenced by purchases,
+    // sales, stock transactions and receipts. Never silently delete its ledger.
+    if (product.variationParentId) {
+      addToast('This variation is linked to product and inventory history. Its SKU must be preserved for audit.', 'error');
       return;
     }
     if (!recordBelongsToActiveBranch(product, activeBranchSelection)) {
