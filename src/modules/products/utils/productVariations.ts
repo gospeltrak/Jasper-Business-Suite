@@ -143,7 +143,10 @@ export const makeVariationParent = (parent: Product): Product => ({
   costPrice: parent.costPrice,
   sellingPrice: parent.sellingPrice,
   wholesalePrice: parent.wholesalePrice,
-  batches: [],
+  // A legacy parent may carry FINISHED batches which are still essential
+  // historical inventory audit records. Conversion already rejects active
+  // batches, so never erase these older records to enable variations.
+  batches: parent.batches,
 });
 
 export const buildVariationCard = (parent: Product, variants: readonly Product[]): Product => {
