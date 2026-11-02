@@ -12,6 +12,7 @@ import {
   exportProductsToUniversalRows, classifyUniversalImportRows,
 } from '../src/modules/products/utils/bulkProductImport';
 import type { Product } from '../src/types';
+import { scopeProductsForBranch } from '../src/modules/branches/branchScope';
 
 const base: Product = {
   id: 'domestic', name: 'Domestic', sku: '61500001', barcode: '61500001',
@@ -61,6 +62,25 @@ test('duplicate variation name and barcode cannot enter the tenant catalogue', (
   ], []), /Duplicate variation name/);
   assert.match(validateVariations(parent, [drafts[0], { ...drafts[1], barcode: drafts[0].barcode }], []), /already registered/);
   assert.match(validateVariations(parent, drafts, [{ ...base, id: 'other', barcode: drafts[0].barcode }]), /already registered/);
+});
+
+test('cross-branch variation stock stays on the selected child and displays its parent', () => {
+  const { parent, variants } = make();
+  const stock = {
+    id: 'branch-stock-fresh', tenantId: 'tenant-1', branchId: 'branch-b',
+    productId: variants[0].id, quantity: 6, shopStockQty: 6, storeStockQty: 0,
+    createdAt: '2026-11-02T00:00:00.000Z', updatedAt: '2026-11-02T00:00:00.000Z',
+  };
+  const scoped = scopeProductsForBranch(
+    [parent, ...variants], [stock],
+    { activeScope: 'branch', activeBranchId: 'branch-b', selectedBranch: null },
+  );
+  assert.equal(scoped.some(p => p.id === parent.id), true);
+  assert.equal(scoped.some(p => p.id === variants[0].id && p.shopStockQty === 6), true);
+  assert.equal(scoped.some(p => p.id === variants[1].id), false);
+  const cards = getPosVariationCards(scoped);
+  assert.equal(cards.length, 1);
+  assert.equal(cards[0].shopStockQty, 6);
 });
 
 test('product catalogue restore remaps child to imported parent, never the source tenant ID', () => {
