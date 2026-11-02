@@ -3717,6 +3717,13 @@ export default function DashboardProducts({
                           <label className="text-[9px] font-semibold text-slate-500">Retail Price
                             <input type="number" min="0" value={variant.sellingPrice} onChange={event => updateVariationDraft(index, { sellingPrice: Number(event.target.value) })} className="w-full min-w-0 bg-white border border-slate-200 rounded-lg p-2 text-xs" />
                           </label>
+                          {sellInWholesale && (
+                            <label className="text-[9px] font-semibold text-slate-500">Wholesale Price
+                              <input type="number" min="0" value={variant.wholesalePrice ?? wholesalePrice}
+                                onChange={event => updateVariationDraft(index, { wholesalePrice: Number(event.target.value) })}
+                                className="w-full min-w-0 bg-white border border-slate-200 rounded-lg p-2 text-xs" />
+                            </label>
+                          )}
                           <label className="text-[9px] font-semibold text-slate-500">Shop Qty
                             <input type="number" min="0" step="0.001" value={variant.shopStockQty} onChange={event => updateVariationDraft(index, { shopStockQty: Number(event.target.value) })} className="w-full min-w-0 bg-white border border-slate-200 rounded-lg p-2 text-xs" />
                           </label>
@@ -6333,6 +6340,12 @@ export default function DashboardProducts({
                           <label>Variation<input value={v.label} onChange={e => updateEditVariation(index,{label:e.target.value})} className="block w-full min-w-0 p-1 border rounded" /></label>
                           <label>Cost<input type="number" min="0" value={v.costPrice} onChange={e => updateEditVariation(index,{costPrice:Number(e.target.value)})} className="block w-full min-w-0 p-1 border rounded" /></label>
                           <label>Retail<input type="number" min="0" value={v.sellingPrice} onChange={e => updateEditVariation(index,{sellingPrice:Number(e.target.value)})} className="block w-full min-w-0 p-1 border rounded" /></label>
+                          {editForm.sellInWholesale && (
+                            <label>Wholesale<input type="number" min="0"
+                              value={v.wholesalePrice ?? editForm.wholesalePrice ?? 0}
+                              onChange={e => updateEditVariation(index,{wholesalePrice:Number(e.target.value)})}
+                              className="block w-full min-w-0 p-1 border rounded" /></label>
+                          )}
                           <label>Shop<input type="number" min="0" step="0.001" value={v.shopStockQty} onChange={e => updateEditVariation(index,{shopStockQty:Number(e.target.value)})} className="block w-full min-w-0 p-1 border rounded" /></label>
                           <label>Store<input type="number" min="0" step="0.001" value={v.storeStockQty} onChange={e => updateEditVariation(index,{storeStockQty:Number(e.target.value)})} className="block w-full min-w-0 p-1 border rounded" /></label>
                           <label>Barcode<input value={v.barcode} placeholder="Auto" onChange={e => updateEditVariation(index,{barcode:e.target.value})} className="block w-full min-w-0 p-1 border rounded" /></label>
