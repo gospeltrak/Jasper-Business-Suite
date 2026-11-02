@@ -40,6 +40,12 @@ export default function NativeDeviceLock({ identity, children, onSignOut }: Prop
   useEffect(() => {
     if (!nativeAndroid) return;
     const onVisibility = () => {
+      // The native Keyguard prompt temporarily backgrounds the WebView.
+      // This is NOT the user leaving Orvix: never re-lock during validation.
+      if (inFlightRef.current) {
+        lastBackgroundAt.current = null;
+        return;
+      }
       if (document.visibilityState === 'hidden') {
         lastBackgroundAt.current = performance.now();
       } else {
@@ -58,6 +64,7 @@ export default function NativeDeviceLock({ identity, children, onSignOut }: Prop
   const unlock = useCallback(async () => {
     if (inFlightRef.current || !nativeAndroid) return;
     inFlightRef.current = true;
+    lastBackgroundAt.current = null;
     const request = ++requestRef.current;
     setVerifying(true);
     setError('');
