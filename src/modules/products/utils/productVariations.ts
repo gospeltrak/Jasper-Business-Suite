@@ -137,8 +137,11 @@ export const makeVariationParent = (parent: Product): Product => ({
   stockQty: 0,
   shopStockQty: 0,
   storeStockQty: 0,
-  costPrice: 0,
-  sellingPrice: 0,
+  // Preserve historical fallback costs/prices for a legacy product that is
+  // converted after its stock is reconciled. Old sales may not have a cost
+  // snapshot; clearing costPrice here would corrupt their profit reports.
+  costPrice: parent.costPrice,
+  sellingPrice: parent.sellingPrice,
   wholesalePrice: parent.wholesalePrice,
   batches: [],
 });
