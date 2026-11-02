@@ -360,6 +360,8 @@ export function classifyUniversalImportRows(text: string): UniversalImportSummar
       continue;
     }
     result.product.variationParentId = parent.id;
+    // Export already includes the full child name (Parent — Variation).
+    // Re-importing must not duplicate the prefix on every round-trip.
     result.product.name = `${parent.name} — ${result.product.variationLabel}`;
   }
   const readyProducts = results
