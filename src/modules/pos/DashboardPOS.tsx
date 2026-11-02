@@ -625,14 +625,21 @@ export default function DashboardPOS({
   const filteredProducts = useMemo(() => posCardCatalogue.filter(p => {
     const shopQty = Number(p.shopStockQty ?? p.stockQty ?? 0);
     if (shopQty <= 0) return false;
-    const matchesSearch = String(p.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          String(p.sku || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          String(p.barcode || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const query = searchTerm.toLowerCase();
+    const matchesSearch = String(p.name || '').toLowerCase().includes(query) ||
+                          String(p.sku || '').toLowerCase().includes(query) ||
+                          String(p.barcode || '').toLowerCase().includes(query) ||
+                          (p.isVariationParent === true && getProductVariations(products, p.id).some(child =>
+                            child.name.toLowerCase().includes(query) ||
+                            String(child.variationLabel || '').toLowerCase().includes(query) ||
+                            String(child.barcode || '').toLowerCase().includes(query) ||
+                            String(child.sku || '').toLowerCase().includes(query)
+                          ));
     const matchesCategory = !selectedCategory || selectedCategory === 'All' || 
       p.category?.trim().toLowerCase() === selectedCategory.trim().toLowerCase();
     const inStock = (p.shopStockQty ?? p.stockQty ?? 0) > 0;
     return matchesSearch && matchesCategory && inStock;
-  }), [posCardCatalogue, searchTerm, selectedCategory]);
+  }), [posCardCatalogue, products, searchTerm, selectedCategory]);
 
   const addToCart = useCallback((candidate: Product): PosBarcodeOutcome => {
     const prod = latestProductsRef.current.find(product => product.id === candidate.id);
