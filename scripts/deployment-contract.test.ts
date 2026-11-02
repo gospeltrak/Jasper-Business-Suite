@@ -162,6 +162,19 @@ test('optional tenant branding and workspace hydration never block a successful 
   assert.doesNotMatch(appSource, /await configureOnlineStorage\(restoredStorageTenantId\)/);
 });
 
+test('login splash uses only the current tenant logo when asynchronous branding arrives', async () => {
+  const appSource = await read('src/App.tsx');
+  const loginHandler = appSource.slice(
+    appSource.indexOf('const handleLoginSuccess ='),
+    appSource.indexOf('useEffect(() => {', appSource.indexOf('const handleLoginSuccess =')),
+  );
+  assert.match(loginHandler, /logoSrc: '\/jb-logo\.png'/);
+  assert.match(loginHandler, /void fetchLogoUrl\(storageTenantId\)\.then/);
+  assert.match(loginHandler, /loginSplashRequestIdRef\.current !== loginSplashRequestId/);
+  assert.match(loginHandler, /current\.tenantId === storageTenantId/);
+  assert.doesNotMatch(loginHandler, /logoSrc: getLogoUrl\(isDark\)/);
+});
+
 test('workspace entry and branch switching stay fast and non-blocking', async () => {
   const appSource = await read('src/App.tsx');
   const splashSource = await read('src/shared/components/JasperSplashScreen.tsx');
