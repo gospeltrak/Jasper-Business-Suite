@@ -171,6 +171,10 @@ export default function DashboardProducts({
 
   const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editHasVariations, setEditHasVariations] = useState(false);
+  const [editVariationDrafts, setEditVariationDrafts] = useState<VariationDraft[]>([]);
+  const updateEditVariation = (index: number, patch: Partial<VariationDraft>) =>
+    setEditVariationDrafts(current => current.map((draft, i) => i === index ? { ...draft, ...patch } : draft));
   const [isSavingProductEdit, setIsSavingProductEdit] = useState(false);
   const [isProductEditTakingLong, setIsProductEditTakingLong] = useState(false);
   const productEditInFlightRef = useRef(false);
@@ -345,6 +349,14 @@ export default function DashboardProducts({
       return String(value);
     };
     setEditingProduct(prod);
+    const previousVariations = getProductVariations(products, prod.id);
+    setEditHasVariations(isVariationParent(prod));
+    setEditVariationDrafts(previousVariations.map(v => ({
+      id: v.id, label: v.variationLabel || v.name, barcode: v.barcode,
+      costPrice: v.costPrice, sellingPrice: v.sellingPrice,
+      shopStockQty: v.shopStockQty, storeStockQty: v.storeStockQty,
+      wholesalePrice: v.wholesalePrice,
+    })));
     setEditSaveError(null);
     setEditForm({ ...prod });
     setEditStockDraft({
@@ -612,7 +624,36 @@ export default function DashboardProducts({
         return p;
       });
 
-      const saved = await onUpdateProducts(updated, [editingProduct.id]);
+      let updatedWithVariations = updated;
+      let changedProductIds = [editingProduct.id];
+      if (editHasVariations && !isPharmacyLike) {
+        try {
+          const originalVariants = getProductVariations(products, editingProduct.id);
+          if (!isVariationParent(editingProduct) && (editingProduct.batches || []).some(batch => batch.status === 'active')) {
+            throw new Error('Existing active FIFO batches must be reconciled before enabling variations.');
+          }
+          if (!isVariationParent(editingProduct) &&
+              ((editingProduct.shopStockQty || 0) !== 0 || (editingProduct.storeStockQty || 0) !== 0)) {
+            throw new Error('Reconcile existing shop and store stock to zero before converting this product to variations. No stock will be deleted.');
+          }
+          if (isVariationParent(editingProduct) &&
+              originalVariants.some(existing => !editVariationDrafts.some(draft => draft.id === existing.id))) {
+            throw new Error('Existing variations cannot be deleted here because they may have sales and stock history.');
+          }
+          const parent = makeVariationParent(updated.find(p => p.id === editingProduct.id)!);
+          const children = buildVariationProducts(parent, editVariationDrafts, products, originalVariants);
+          const changedById = new Map([parent, ...children].map(product => [product.id, product]));
+          updatedWithVariations = [
+            ...updated.map(product => changedById.get(product.id) || product),
+            ...children.filter(child => !updated.some(product => product.id === child.id)),
+          ];
+          changedProductIds = [parent.id, ...children.map(child => child.id)];
+        } catch (error) {
+          setEditSaveError(error instanceof Error ? error.message : 'Please check your variations.');
+          return;
+        }
+      }
+      const saved = await onUpdateProducts(updatedWithVariations, changedProductIds);
       // Keep the tenant's draft and the edit modal open when the durable
       // workspace write fails. Closing optimistically made hierarchy changes
       // appear saved until the next hydration restored the cloud copy.
@@ -6254,6 +6295,38 @@ export default function DashboardProducts({
 
             {/* Fixed-height form footer: a flex sibling, not a second sticky overlay.
                 Use React-owned translated labels to avoid DOM translator collisions. */}
+            {!isPharmacyLike && !editingProduct.variationParentId && (
+              <div className="mx-4 sm:mx-6 mb-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3 normal-case space-y-2">
+                <label className="flex items-center justify-between text-[11px] font-bold text-slate-700">
+                  Product Variations
+                  <input type="checkbox" checked={editHasVariations} disabled={isVariationParent(editingProduct)}
+                    onChange={event => {
+                      setEditHasVariations(event.target.checked);
+                      if (event.target.checked && editVariationDrafts.length === 0) setEditVariationDrafts([emptyVariation(), emptyVariation()]);
+                    }} className="accent-emerald-600 w-4 h-4" />
+                </label>
+                {editHasVariations && (
+                  <>
+                    <p className="text-[10px] text-slate-500">Each variation has its own barcode, price and stock. Existing variations cannot be deleted here; old parent stock and active FIFO batches must be reconciled first.</p>
+                    <div className="max-h-44 overflow-y-auto space-y-2">
+                      {editVariationDrafts.map((v, index) => (
+                        <div key={v.id || index} className="grid grid-cols-3 sm:grid-cols-6 gap-2 border-t border-slate-200 pt-2 text-[9px]">
+                          <label>Variation<input value={v.label} onChange={e => updateEditVariation(index,{label:e.target.value})} className="block w-full min-w-0 p-1 border rounded" /></label>
+                          <label>Cost<input type="number" min="0" value={v.costPrice} onChange={e => updateEditVariation(index,{costPrice:Number(e.target.value)})} className="block w-full min-w-0 p-1 border rounded" /></label>
+                          <label>Retail<input type="number" min="0" value={v.sellingPrice} onChange={e => updateEditVariation(index,{sellingPrice:Number(e.target.value)})} className="block w-full min-w-0 p-1 border rounded" /></label>
+                          <label>Shop<input type="number" min="0" step="0.001" value={v.shopStockQty} onChange={e => updateEditVariation(index,{shopStockQty:Number(e.target.value)})} className="block w-full min-w-0 p-1 border rounded" /></label>
+                          <label>Store<input type="number" min="0" step="0.001" value={v.storeStockQty} onChange={e => updateEditVariation(index,{storeStockQty:Number(e.target.value)})} className="block w-full min-w-0 p-1 border rounded" /></label>
+                          <label>Barcode<input value={v.barcode} placeholder="Auto" onChange={e => updateEditVariation(index,{barcode:e.target.value})} className="block w-full min-w-0 p-1 border rounded" /></label>
+                          {!v.id && editVariationDrafts.length > 2 &&
+                            <button type="button" onClick={() => setEditVariationDrafts(rows => rows.filter((_,i)=>i!==index))} className="text-red-600 text-left">Remove</button>}
+                        </div>
+                      ))}
+                    </div>
+                    <button type="button" onClick={() => setEditVariationDrafts(rows => [...rows, emptyVariation()])} className="text-[10px] font-bold text-emerald-700">+ Add Variation</button>
+                  </>
+                )}
+              </div>
+            )}
             <div className="tenant-form-footer orvix-product-edit-footer bg-slate-50 border-t border-slate-200">
               {editSaveError && (
                 <p role="alert" className="orvix-product-edit-error text-[11px] font-bold normal-case text-rose-600">
