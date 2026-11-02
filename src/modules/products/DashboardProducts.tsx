@@ -6525,7 +6525,7 @@ export default function DashboardProducts({
                   <Package className="w-4 h-4 text-emerald-600" />
                   <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider font-mono">Stock Restock & Prices</h4>
                 </div>
-                <button type="button" onClick={() => setReplenishProduct(null)} className="text-slate-500 hover:text-slate-700 cursor-pointer">
+                <button type="button" disabled={isSavingReplenish} onClick={() => setReplenishProduct(null)} className="text-slate-500 hover:text-slate-700 cursor-pointer disabled:opacity-50" aria-label="Close replenishment">
                   <X className="w-4 h-4" />
                 </button>
               </div>
