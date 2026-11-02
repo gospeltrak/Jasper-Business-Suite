@@ -2711,7 +2711,9 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
 
     setDeliveriesMap(prev => {
       const currentTenantDels = prev[activeTenant.id] || [];
-      const collectedAt = status === 'Delivered' ? new Date().toISOString() : undefined;
+      // Delivered status is fully handled and persisted above. Only pending,
+      // dispatched or cancelled states can reach this branch.
+      const collectedAt: string | undefined = undefined;
       return {
         ...prev,
         [activeTenant.id]: currentTenantDels.map(del => 
@@ -2725,11 +2727,9 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                     ? 'cancelled'
                     : del.deliveryPaymentStatus === 'collected'
                       ? 'collected'
-                      : status === 'Delivered' ? 'collected' : 'pending',
+                      : 'pending',
                   paymentCollectedAt: collectedAt || del.paymentCollectedAt,
-                  deliveryPaymentAccountId: status === 'Delivered'
-                    ? collectedAccountId
-                    : del.deliveryPaymentAccountId,
+                  deliveryPaymentAccountId: del.deliveryPaymentAccountId,
                   treasuryJournalId,
                   branchId: treasuryBranchId,
                 };
@@ -2742,7 +2742,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     const newLog: SyncLog = {
       id: 'l-' + Math.random().toString(36).substr(2, 9),
       type: 'product_update',
-      status: status === 'Delivered' ? 'success' : 'failed',
+      status: 'failed',
       message: `Delivery dispatch ${deliveryId} status updated: ${status}.`,
       timestamp: new Date().toISOString()
     };
