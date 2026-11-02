@@ -208,3 +208,21 @@ test('returning a sale restores only that variation, never sibling or grouping s
   assert.equal(returned.find(p => p.id === variants[1].id)?.shopStockQty, 12);
   assert.equal(returned.find(p => p.id === variants[1].id)?.stockQty, 17);
 });
+
+
+test('variation replenishment confirms the database save and never removes a child ledger', async () => {
+  const read = (path: string) => readFile(new URL(`../${path}`, import.meta.url), 'utf8');
+  const productsSource = await read('src/modules/products/DashboardProducts.tsx');
+  const dashboardSource = await read('src/components/Dashboard.tsx');
+  const replenishCode = productsSource.slice(
+    productsSource.indexOf('const handleReplenishSubmit = async'),
+    productsSource.indexOf('const adjustSearchProducts ='),
+  );
+  assert.match(replenishCode, /if \(replenishInFlightRef\.current/);
+  assert.match(replenishCode, /isVariationParent\(replenishProduct\)/);
+  assert.match(replenishCode, /const saved = await onUpdateProducts\(/);
+  assert.match(replenishCode, /\[replenishProduct\.id\]/);
+  assert.match(replenishCode, /if \(!saved\) \{[\s\S]*?setReplenishSaveError/);
+  assert.match(productsSource, /disabled=\{isSavingReplenish \|\| !replenishCost \|\| !replenishQty\}/);
+  assert.match(dashboardSource, /if \(product\.variationParentId\) \{[\s\S]*?SKU must be preserved for audit/);
+});
