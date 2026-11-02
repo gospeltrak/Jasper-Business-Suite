@@ -1,5 +1,6 @@
 import { Suspense, useState, useEffect, useRef, useSyncExternalStore } from 'react';
 import JasperSplashScreen from './shared/components/JasperSplashScreen';
+import NativeDeviceLock from './native/NativeDeviceLock';
 import { User, Tenant } from './types';
 import { useTheme } from './shared/contexts/ThemeContext';
 import { useTenantLogo } from './shared/contexts/TenantLogoContext';
@@ -908,7 +909,14 @@ export default function App() {
       <Suspense fallback={(
         <div className="min-h-[100dvh] bg-white" aria-hidden="true" />
       )}>
-        {renderRoute()}
+        {user && isOrvixNativeApp() ? (
+          <NativeDeviceLock
+            identity={`${user.id || user.email}:${user.activeTenant || user.tenantId || ''}`}
+            onSignOut={handleLogoutSuccess}
+          >
+            {renderRoute()}
+          </NativeDeviceLock>
+        ) : renderRoute()}
       </Suspense>
     </div>
   );
