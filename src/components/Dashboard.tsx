@@ -2639,7 +2639,6 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     if (!currentDelivery || !recordBelongsToActiveBranch(currentDelivery, activeBranchSelection)) return false;
     let treasuryJournalId = currentDelivery.treasuryJournalId;
     let treasuryBranchId = currentDelivery.branchId;
-    let collectedAccountId = currentDelivery.deliveryPaymentAccountId;
 
     const deliveryIncomeAmount = Math.max(0, Number(currentDelivery.deliveryCost || 0));
     // POS checkout already booked Delivery Treasury. Mark Delivered without
