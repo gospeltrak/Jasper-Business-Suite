@@ -160,3 +160,16 @@ test('native device PIN gate uses Android security and never stores the PIN in O
   assert.match(gate, /inFlightRef\.current/);
   assert.doesNotMatch(java, /SharedPreferences|SQLiteDatabase|PIN_SECRET|password_hash/);
 });
+
+test('Android notifications have OS channels and explicit Android 13 permission (FCM still separate)', () => {
+  const java = read('scripts/native-android-notifications/OrvixNotificationChannels.java');
+  const setup = read('scripts/setup-native-android-notifications.mjs');
+  assert.match(java, /NotificationManager\.IMPORTANCE_HIGH/);
+  assert.match(java, /createNotificationChannel/);
+  assert.match(java, /Manifest\.permission\.POST_NOTIFICATIONS/);
+  assert.match(java, /requestPermissionForAlias/);
+  assert.match(setup, /registerPlugin\(OrvixNotificationChannels\.class\)/);
+  assert.match(setup, /android\.permission\.POST_NOTIFICATIONS/);
+  assert.match(androidWorkflow, /node scripts\/setup-native-android-notifications\.mjs/);
+  assert.doesNotMatch(java, /FirebaseMessagingService|sendPushAutomatically/);
+});
