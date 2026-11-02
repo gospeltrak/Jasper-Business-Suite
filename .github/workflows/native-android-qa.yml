@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   # Build a fresh internal QA APK when the native development branch changes.
   push:
-    branches: [feature/orvix-native-offline-v1, feature/scanner-printer-native-58-80, qa/orvix-android-pr39-20261101, qa/orvix-android-pr39-pos-cart-focus-20261101, qa/orvix-android-pr42-delivery-split-20261101]
+    branches: [feature/orvix-native-offline-v1, feature/scanner-printer-native-58-80, qa/orvix-android-pr39-20261101, qa/orvix-android-pr39-pos-cart-focus-20261101, qa/orvix-android-pr42-delivery-split-20261101, fix/orvix-android-pdf-attachment-20261102]
     paths:
       - 'src/**'
       - 'scripts/**'
@@ -142,6 +142,9 @@ jobs:
 
       - name: Install native Bluetooth printer support
         run: node scripts/setup-native-android-printer.mjs
+
+      - name: Install Android real PDF attachment sharing
+        run: node scripts/setup-native-android-pdf-share.mjs
 
       # Stable *internal QA only* signing, not for release/Play Store.
       # Cache the explicit workspace file. The prior ~/.android path did not
