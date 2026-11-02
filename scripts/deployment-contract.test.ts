@@ -784,7 +784,8 @@ test('pharmacy hierarchy is medicine-only and product edits wait for durable per
 
   assert.match(productSource, /isPharmacyLike && productType === 'medicine' \? \(/);
   assert.match(productSource, /activeTenant\.businessType === 'pharmacy' && editForm\.productType === 'medicine'/);
-  assert.match(productSource, /const saved = await onUpdateProducts\(updated, \[editingProduct\.id\]\)/);
+  assert.match(productSource, /let changedProductIds = \[editingProduct\.id\]/);
+  assert.match(productSource, /const saved = await onUpdateProducts\(updatedWithVariations, changedProductIds\)/);
   assert.match(productSource, /if \(!saved\) \{\s*setEditSaveError\([^;]+;\s*return;\s*\}\s*setEditingProduct\(null\)/);
   assert.match(dashboardSource, /const handleUpdateActiveStocks = async/);
   assert.match(dashboardSource, /options: \{ suppressSuccessToast\?: boolean; stockAudit\?: ManualStockAudit \} = \{\}/);
