@@ -53,9 +53,11 @@ export const validateVariations = (
     return { ...parent, id: row.id || `__draft-${index}`, barcode: row.barcode.trim(), sku: row.barcode.trim() };
   });
   const existingOutside = catalogue.filter(product =>
-    product.id !== parent.id && !previousVariants.some(prev => prev.id === product.id));
-  const occupied = [...existingOutside, ...draftProducts];
-  const collision = findBatchBarcodeConflict([], occupied);
+    !previousVariants.some(prev => prev.id === product.id));
+  const collision = findBatchBarcodeConflict(
+    [...existingOutside, parent],
+    draftProducts,
+  );
   if (collision) return `Barcode "${collision.barcode}" is already registered to "${collision.product.name}".`;
   return null;
 };
@@ -143,7 +145,9 @@ export const buildVariationCard = (parent: Product, variants: readonly Product[]
     stockQty: qty(stock),
     shopStockQty: qty(shop),
     storeStockQty: qty(store),
-    sellingPrice: Math.min(...variants.map(v => v.sellingPrice).filter(p => p > 0), 0) || variants.find(v => v.sellingPrice > 0)?.sellingPrice || 0,
+    sellingPrice: Math.min(...variants.map(v => v.sellingPrice).filter(p => p > 0).concat([Infinity])) === Infinity
+      ? 0
+      : Math.min(...variants.map(v => v.sellingPrice).filter(p => p > 0)),
   };
 };
 
