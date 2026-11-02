@@ -2886,7 +2886,12 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       branchId: activeBranchSelection.activeBranchId || undefined,
     }));
     const updatedProducts = [...branchScopedProducts, ...(productsMap[activeTenant.id] || [])];
-    const { products: syncedProducts, saved } = persistTenantProductsNow(updatedProducts);
+    // Only send newly-created parent/child SKU rows to the normalized RPC.
+    // Rewriting the whole catalogue can overwrite stock changed by another
+    // sale or branch while this product-creation request was in flight.
+    const { products: syncedProducts, saved } = persistTenantProductsNow(
+      updatedProducts, undefined, branchScopedProducts.map(product => product.id),
+    );
     setProductsMap(prev => {
       return {
         ...prev,
