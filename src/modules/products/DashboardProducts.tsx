@@ -205,16 +205,47 @@ export default function DashboardProducts({
   const [adjustSearch, setAdjustSearch] = useState<string>('');
   const [adjustSearchResults, setAdjustSearchResults] = useState<Product[]>([]);
   const [adjustShowSearch, setAdjustShowSearch] = useState(false);
+  // A grouping parent has no sellable stock. The existing stock actions must
+  // operate on one real child row instead of silently updating the parent.
+  type VariantStockAction = 'replenish' | 'adjust' | 'transfer';
+  const [variantStockAction, setVariantStockAction] = useState<{ parent: Product; action: VariantStockAction } | null>(null);
+  const openVariantStockAction = (product: Product, action: VariantStockAction) => {
+    if (isVariationParent(product)) {
+      setVariantStockAction({ parent: product, action });
+      return;
+    }
+    if (action === 'replenish') {
+      setReplenishProduct(product);
+      setReplenishCost('');
+      setReplenishQty('');
+      setReplenishSupplier('');
+      setReplenishPriceAction('suggested');
+      setReplenishCostingMethod(product.costingMethod || product.inventorySettings?.costingMethod || 'fifo');
+    } else if (action === 'adjust') {
+      setAdjustProduct(product);
+      setAdjustQty('');
+      setAdjustReason('');
+      setAdjustSearch(product.name);
+      setAdjustShowSearch(false);
+      setAdjustSaveError(null);
+    } else {
+      setTransferProduct(product);
+      setTransferQty(1);
+      setTransferDirection('store_to_shop');
+      setTransferError(null);
+      setTransferSuccess(false);
+    }
+  };
 
   // Lock body scroll when product overlays are open
   useEffect(() => {
-    if (mobileProductMenu || editingProduct || replenishProduct || adjustProduct || viewingProduct || productToDelete) {
+    if (mobileProductMenu || editingProduct || replenishProduct || adjustProduct || variantStockAction || viewingProduct || productToDelete) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
     }
     return () => { document.body.style.overflow = ''; };
-  }, [mobileProductMenu, editingProduct, replenishProduct, adjustProduct, viewingProduct, productToDelete]);
+  }, [mobileProductMenu, editingProduct, replenishProduct, adjustProduct, variantStockAction, viewingProduct, productToDelete]);
 
   // Mobile/tablet Add Product form gets a polished card layout below the xl
   // breakpoint; desktop keeps the original plain layout unchanged.
@@ -4073,13 +4104,7 @@ export default function DashboardProducts({
                         <td className="py-4 px-5 text-center relative">
                           <div className="flex items-center justify-center space-x-1">
                             <button
-                              onClick={() => {
-                                setTransferProduct(prod);
-                                setTransferQty(1);
-                                setTransferDirection('store_to_shop');
-                                setTransferError(null);
-                                setTransferSuccess(false);
-                              }}
+                              onClick={() => openVariantStockAction(prod, 'transfer')}
                               className="p-1.5 hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 rounded-lg cursor-pointer transition-colors"
                               title="Transfer Warehouse Stock"
                             >
@@ -4105,9 +4130,9 @@ export default function DashboardProducts({
                                     {[
                                       { label: 'View Details',   icon: Eye,     color: 'text-slate-700',   action: () => { setViewingProduct(prod); setDesktopMenuId(null); } },
                                       { label: 'Edit Item',      icon: Edit,    color: 'text-slate-700',   action: () => { handleBeginEdit(prod); setDesktopMenuId(null); } },
-                                      { label: 'Replenish Stock',icon: Package, color: 'text-emerald-700', action: () => { setReplenishProduct(prod); setReplenishCost(''); setReplenishQty(''); setReplenishSupplier(''); setReplenishPriceAction('suggested'); setReplenishCostingMethod(prod.costingMethod || prod.inventorySettings?.costingMethod || 'fifo'); setDesktopMenuId(null); } },
-                                      { label: 'Adjust Stock', icon: ArrowLeftRight, color: 'text-blue-600', action: () => { setAdjustProduct(prod); setAdjustQty(''); setAdjustReason(''); setAdjustSearch(prod.name); setAdjustShowSearch(false); setDesktopMenuId(null); } },
-                                      { label: 'Transfer Stock', icon: ArrowLeftRight, color: 'text-indigo-700', action: () => { setTransferProduct(prod); setTransferQty(1); setTransferDirection('store_to_shop'); setTransferError(null); setTransferSuccess(false); setDesktopMenuId(null); } },
+                                      { label: 'Replenish Stock',icon: Package, color: 'text-emerald-700', action: () => { openVariantStockAction(prod, 'replenish'); setDesktopMenuId(null); } },
+                                      { label: 'Adjust Stock', icon: ArrowLeftRight, color: 'text-blue-600', action: () => { openVariantStockAction(prod, 'adjust'); setDesktopMenuId(null); } },
+                                      { label: 'Transfer Stock', icon: ArrowLeftRight, color: 'text-indigo-700', action: () => { openVariantStockAction(prod, 'transfer'); setDesktopMenuId(null); } },
                                     ].map(item => {
                                       const Icon = item.icon;
                                       return (
@@ -4730,6 +4755,36 @@ export default function DashboardProducts({
               </button>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* Only grouping products show this compact chooser; ordinary products
+          keep the same original replenishment, adjustment and transfer screens. */}
+      {variantStockAction && (
+        <div className="tenant-modal-overlay fixed inset-0 z-[240] flex items-center justify-center bg-slate-950/60 p-4" onClick={event => { if (event.target === event.currentTarget) setVariantStockAction(null); }}>
+          <div className="tenant-form-screen w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-4 shadow-xl space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <h3 className="text-sm font-black text-slate-900">Choose Variation</h3>
+                <p className="text-[11px] text-slate-500 truncate">{variantStockAction.parent.name}</p>
+              </div>
+              <button type="button" onClick={() => setVariantStockAction(null)} aria-label="Close variation selection" className="rounded-lg p-2 text-slate-500"><X className="h-4 w-4" /></button>
+            </div>
+            <div className="max-h-56 space-y-1 overflow-y-auto">
+              {getProductVariations(products, variantStockAction.parent.id).map(variation => (
+                <button key={variation.id} type="button"
+                  onClick={() => {
+                    const selectedAction = variantStockAction.action;
+                    setVariantStockAction(null);
+                    openVariantStockAction(variation, selectedAction);
+                  }}
+                  className="flex w-full items-center justify-between gap-2 rounded-xl border border-slate-100 bg-slate-50 p-2.5 text-left hover:border-emerald-400">
+                  <span className="min-w-0 truncate text-xs font-bold text-slate-800">{variation.variationLabel || variation.name}</span>
+                  <span className="shrink-0 text-[10px] font-semibold text-emerald-700">Stock {variation.shopStockQty ?? 0}</span>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -6655,14 +6710,7 @@ export default function DashboardProducts({
                 <button type="button" aria-label="Replenish stock"
                   onClick={() => {
                     const prod = mobileProductMenu;
-                    if (prod) runAfterMobileMenuClose(() => {
-                      setReplenishProduct(prod);
-                      setReplenishCost('');
-                      setReplenishQty('');
-                      setReplenishSupplier('');
-                      setReplenishPriceAction('suggested');
-                      setReplenishCostingMethod(prod.costingMethod || prod.inventorySettings?.costingMethod || 'fifo');
-                    });
+                    if (prod) runAfterMobileMenuClose(() => openVariantStockAction(prod, 'replenish'));
                   }}
                   className="w-full flex items-center gap-4 px-4 py-3.5 bg-white rounded-2xl active:bg-slate-50 text-left border border-slate-100"
                 >
@@ -6673,13 +6721,7 @@ export default function DashboardProducts({
                 <button type="button" aria-label="Adjust stock"
                   onClick={() => {
                     const prod = mobileProductMenu;
-                    if (prod) runAfterMobileMenuClose(() => {
-                      setAdjustProduct(prod);
-                      setAdjustQty('');
-                      setAdjustReason('');
-                      setAdjustSearch(prod.name);
-                      setAdjustShowSearch(false);
-                    });
+                    if (prod) runAfterMobileMenuClose(() => openVariantStockAction(prod, 'adjust'));
                   }}
                   className="w-full flex items-center gap-4 px-4 py-3.5 bg-white rounded-2xl active:bg-slate-50 text-left border border-slate-100"
                 >
@@ -6690,13 +6732,7 @@ export default function DashboardProducts({
                 <button type="button" aria-label="Transfer stock"
                   onClick={() => {
                     const prod = mobileProductMenu;
-                    if (prod) runAfterMobileMenuClose(() => {
-                      setTransferProduct(prod);
-                      setTransferQty(1);
-                      setTransferDirection('store_to_shop');
-                      setTransferError(null);
-                      setTransferSuccess(false);
-                    });
+                    if (prod) runAfterMobileMenuClose(() => openVariantStockAction(prod, 'transfer'));
                   }}
                   className="w-full flex items-center gap-4 px-4 py-3.5 bg-white rounded-2xl active:bg-indigo-50 text-left border border-indigo-100"
                 >
