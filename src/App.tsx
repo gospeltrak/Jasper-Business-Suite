@@ -35,6 +35,7 @@ type TenantDomainContext = {
 
 type SplashRequest = {
   mode: 'generic' | 'tenant';
+  tenantId?: string;
   logoSrc?: string;
   showTagline: boolean;
   pendingPath?: string;
@@ -111,7 +112,7 @@ export default function App() {
   const [tenantDomainContext, setTenantDomainContext] = useState<TenantDomainContext>({ kind: 'loading' });
   
   const { isDark, toggleTheme } = useTheme();
-  const { fetchLogoUrl, getLogoUrl } = useTenantLogo();
+  const { fetchLogoUrl } = useTenantLogo();
 
   // The new Orvix reveal is the only loader shown across public entry,
   // public auth navigation, and the first authenticated workspace entry.
@@ -120,6 +121,7 @@ export default function App() {
     showTagline: true,
   });
   const splashShownRef = useRef(false);
+  const loginSplashRequestIdRef = useRef(0);
   const logoutInProgressRef = useRef(false);
   const staffSessionIdRef = useRef<string | null>(null);
   const publicLandingUrl = JASPER_PUBLIC_LANDING_URL;
@@ -566,11 +568,19 @@ export default function App() {
       return;
     }
     const storageTenantId = authenticatedUser.activeTenant || authenticatedUser.tenantId;
-    // Branding is cosmetic. Refresh it in the background while the existing
-    // workspace effect hydrates tenant data; neither request may hold the user
-    // on the login page after authentication has succeeded.
+    const loginSplashRequestId = ++loginSplashRequestIdRef.current;
+    // Logo loads concurrently with the dashboard. Never reuse a prior
+    // tenant's cached logo or delay authentication for branding.
     if (storageTenantId && storageTenantId !== 'platform-control') {
-      void fetchLogoUrl(storageTenantId);
+      void fetchLogoUrl(storageTenantId).then(({ light, dark }) => {
+        const logoSrc = isDark ? (dark || light) : (light || dark);
+        if (!logoSrc || logoutInProgressRef.current || loginSplashRequestIdRef.current !== loginSplashRequestId) return;
+        setSplashRequest(current =>
+          current?.mode === 'tenant' && current.tenantId === storageTenantId
+            ? { ...current, logoSrc }
+            : current
+        );
+      }).catch(() => { /* Keep the Orvix fallback until next login. */ });
     }
     void recordStaffLogin(authenticatedUser);
     setUser(authenticatedUser);
@@ -578,11 +588,8 @@ export default function App() {
     splashShownRef.current = true;
     setSplashRequest({
       mode: 'tenant',
-      // Tenant's own logo when set; otherwise fall back to the actual Orvix
-      // logo image (same asset used on the login screen) rather than no
-      // image at all, so the workspace-entry reveal always shows a real
-      // logo — tenant's if present, Orvix's if not.
-      logoSrc: getLogoUrl(isDark) || '/jb-logo.png',
+      tenantId: storageTenantId,
+      logoSrc: '/jb-logo.png',
       showTagline: false,
     });
     // Route immediately underneath the two-second tenant-branded reveal.
@@ -612,6 +619,7 @@ export default function App() {
 
   const handleLogoutSuccess = async () => {
     logoutInProgressRef.current = true;
+    ++loginSplashRequestIdRef.current;
     recordStaffLogout(user);
     try {
       await endCloudSession();
