@@ -265,7 +265,7 @@ function EditPurchaseModal({
   const editTotalAmount = editItems.reduce((sum, item) => sum + (Number(item.costPrice) || 0) * item.qty, 0);
   const itemSearchResults = itemSearch.trim()
     ? products.filter(p =>
-        !editItems.some(item => item.productId === p.id) &&
+        !p.isVariationParent && !editItems.some(item => item.productId === p.id) &&
         p.name.toLowerCase().includes(itemSearch.trim().toLowerCase())
       ).slice(0, 6)
     : [];
@@ -741,14 +741,16 @@ export default function DashboardPurchases({
     });
 
   // Filtered products for till search
-  const filteredProducts = products.filter(p => 
+  const filteredProducts = products.filter(p =>
+    !p.isVariationParent && (
     String(p.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     String(p.sku || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    String(p.barcode || '').includes(searchTerm)
+    String(p.barcode || '').includes(searchTerm))
   );
 
   // Add Product to Cart
   const handleAddToCart = (product: Product) => {
+    if (product.isVariationParent) return;
     const existing = cart.find(item => item.product.id === product.id);
     if (existing) {
       setCart(cart.map(item =>
@@ -925,6 +927,8 @@ export default function DashboardPurchases({
         return {
           productId: item.product.id,
           productName: item.product.name,
+          variationParentId: item.product.variationParentId,
+          variationLabel: item.product.variationLabel,
           qty: item.qty,
           costPrice: resolvedCostPrice,
           packageLevelId: level?.id,
