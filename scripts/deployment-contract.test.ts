@@ -316,7 +316,9 @@ test('commercial document product search follows the active branch and recognize
 
   assert.match(salesSource, /setNewDocIssuingBranchId\(preferredBranch\?\.id \|\| ''\)/);
   assert.match(salesSource, /setDocWizardSourceBranchId\(preferredBranch\?\.id \|\| ''\)/);
-  // The selected branch still uses the authoritative catalogue, but only sellable SKUs.\n  assert.match(salesSource, /const sellableProducts = products\.filter\(product => !product\.isVariationParent\)/);\n  assert.match(salesSource, /docWizardSourceBranchId === activeBranchId\) return sellableProducts/);
+  // The selected branch still uses the authoritative catalogue, but only sellable SKUs.
+  assert.match(salesSource, /const sellableProducts = products\.filter\(product => !product\.isVariationParent\)/);
+  assert.match(salesSource, /docWizardSourceBranchId === activeBranchId\) return sellableProducts/);
   assert.match(migrationSource, /create or replace function public\.list_cross_branch_document_sources\(\)/);
   assert.match(migrationSource, /coalesce\(stock\.shop_stock_qty, 0\) \+ coalesce\(stock\.store_stock_qty, 0\)/);
   assert.match(migrationSource, /where stock\.tenant_id = v_tenant_id/);
