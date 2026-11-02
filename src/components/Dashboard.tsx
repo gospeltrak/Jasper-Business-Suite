@@ -2924,6 +2924,12 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     const tenantProducts = productsMap[activeTenant.id] || [];
     const product = tenantProducts.find(item => item.id === id);
     if (!product || !activeProducts.some(item => item.id === id)) return;
+    // Removing a grouping parent without its children would orphan live
+    // stock, transactions and receipts. A destructive cascade is forbidden.
+    if (product.isVariationParent) {
+      addToast('This product has variations. Its stock and sales history must remain linked; the parent cannot be deleted.', 'error');
+      return;
+    }
     // Never orphan variation stock or past transactions by removing the
     // grouping record. Each variation remains a real stock-ledger product.
     if (product.isVariationParent && tenantProducts.some(item => item.variationParentId === id)) {
