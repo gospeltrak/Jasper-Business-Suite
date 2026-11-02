@@ -96,7 +96,7 @@ test('POS card requires explicit variation and both purchase/report ledgers use 
   assert.match(pos, /aria-label=\{\`Choose \$\{prod\.name\} variation\`\}/);
   assert.match(pos, /disabled=\{!selectedVariation/);
   assert.match(pos, /addToCart\(selectedVariation\)/);
-  assert.match(pos, /if \(isVariationParent\(prod\)\)/);
+  assert.match(pos, /if \(prod\.isVariationParent === true\)/);
   assert.match(pos, /variationParentId: i\.product\.variationParentId/);
   assert.match(purchase, /!p\.isVariationParent/);
   assert.match(report, /includedProductIds/);
