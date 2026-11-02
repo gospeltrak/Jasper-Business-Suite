@@ -16,6 +16,7 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.UUID;
 
 /**
  * Send real PDFs to Android sharesheet (WhatsApp, email, etc.).
@@ -61,9 +62,14 @@ public class OrvixPdfAttachment extends Plugin {
                 call.reject("Could not prepare PDF sharing folder.");
                 return;
             }
-            // One temporary file per request. A previous receipt with the same
-            // number must never be overwritten while an Android chooser is open.
-            File file = File.createTempFile("orvix-", ".pdf", folder);
+            // Unique private directory prevents collisions while preserving
+            // the actual receipt/invoice/quotation filename in WhatsApp.
+            File shareFolder = new File(folder, UUID.randomUUID().toString());
+            if (!shareFolder.mkdirs()) {
+                call.reject("Could not prepare PDF attachment.");
+                return;
+            }
+            File file = new File(shareFolder, fileName);
             try (FileOutputStream output = new FileOutputStream(file)) {
                 output.write(pdf);
                 output.flush();
