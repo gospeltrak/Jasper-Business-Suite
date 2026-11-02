@@ -194,6 +194,9 @@ export default function DashboardProducts({
   const [replenishPriceAction, setReplenishPriceAction] = useState<'suggested' | 'keep' | 'custom'>('suggested');
   const [replenishCustomPrice, setReplenishCustomPrice] = useState<number | ''>('');
   const [replenishCostingMethod, setReplenishCostingMethod] = useState<'fifo' | 'average_price' | 'batch_price'>('fifo');
+  const [isSavingReplenish, setIsSavingReplenish] = useState(false);
+  const [replenishSaveError, setReplenishSaveError] = useState<string | null>(null);
+  const replenishInFlightRef = useRef(false);
 
   // Stock Adjustment
   const [adjustProduct, setAdjustProduct] = useState<Product | null>(null);
@@ -215,6 +218,7 @@ export default function DashboardProducts({
       return;
     }
     if (action === 'replenish') {
+      setReplenishSaveError(null);
       setReplenishProduct(product);
       setReplenishCost('');
       setReplenishQty('');
@@ -771,9 +775,16 @@ export default function DashboardProducts({
     };
   };
 
-  const handleReplenishSubmit = (e: React.FormEvent) => {
+  const handleReplenishSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!replenishProduct || !replenishQty || Number(replenishQty) <= 0 || !replenishCost) return;
+    if (replenishInFlightRef.current || !replenishProduct || !replenishQty || Number(replenishQty) <= 0 || !replenishCost) return;
+    if (isVariationParent(replenishProduct)) {
+      setReplenishSaveError('Choose a specific variation before replenishing stock.');
+      return;
+    }
+    replenishInFlightRef.current = true;
+    setIsSavingReplenish(true);
+    setReplenishSaveError(null);
     
     const receivedPackageQty = Number(replenishQty);
     const receivedPackageCost = Number(replenishCost);
@@ -839,15 +850,28 @@ export default function DashboardProducts({
       },
     };
 
-    onUpdateProducts(products.map(p => p.id === replenishProduct.id ? updatedProduct : p));
-
-    setReplenishProduct(null);
-    setReplenishQty('');
-    setReplenishCost('');
-    setReplenishSupplier('');
-    setReplenishPriceAction('suggested');
-    setReplenishCostingMethod('fifo');
-    setReplenishCustomPrice('');
+    try {
+      const saved = await onUpdateProducts(
+        products.map(p => p.id === replenishProduct.id ? updatedProduct : p),
+        [replenishProduct.id],
+      );
+      if (!saved) {
+        setReplenishSaveError('Replenishment could not be saved. Existing stock is unchanged. Check your connection and retry.');
+        return;
+      }
+      setReplenishProduct(null);
+      setReplenishQty('');
+      setReplenishCost('');
+      setReplenishSupplier('');
+      setReplenishPriceAction('suggested');
+      setReplenishCostingMethod('fifo');
+      setReplenishCustomPrice('');
+    } catch (error) {
+      setReplenishSaveError(error instanceof Error ? error.message : 'Replenishment could not be saved. Please retry.');
+    } finally {
+      replenishInFlightRef.current = false;
+      setIsSavingReplenish(false);
+    }
   };
 
   const adjustSearchProducts = (query: string) => {
@@ -6494,7 +6518,7 @@ export default function DashboardProducts({
       {/* REPLENISH BATCH MODAL */}
       {replenishProduct && (
         <div className="tenant-modal-overlay fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in font-sans" style={{paddingBottom: `calc(${'var(--dashboard-bottom-nav-height, 60px)'} + env(safe-area-inset-bottom))`}}>
-          <form onSubmit={handleReplenishSubmit} className="tenant-form-screen bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col">
+          <form onSubmit={handleReplenishSubmit} aria-busy={isSavingReplenish} className="tenant-form-screen bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col">
             <div className="tenant-form-header px-6 py-4 bg-slate-50 border-b border-slate-200 flex flex-col space-y-1">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
@@ -6624,11 +6648,14 @@ export default function DashboardProducts({
               )}
             </div>
 
-            <div className="tenant-form-footer bg-slate-50 p-4 flex justify-between space-x-2 border-t border-slate-200">
-              <span className="text-[10px] text-slate-500 max-w-[240px] leading-tight flex items-center"><Package className="w-3 h-3 mr-1 shrink-0"/> {replenishCostingMethod === 'average_price' ? 'Saves batch and updates POS average price' : replenishCostingMethod === 'batch_price' ? 'Saves batch for batch-price selling' : 'Saves batch for FIFO selling'}</span>
-              <div className="flex space-x-2">
-                <button type="button" onClick={() => setReplenishProduct(null)} className="px-4 py-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-lg uppercase tracking-wider text-[10px] cursor-pointer">Cancel</button>
-                <button type="submit" disabled={!replenishCost || !replenishQty} className="px-5 py-2 bg-emerald-600 disabled:opacity-50 hover:bg-emerald-500 text-white font-bold rounded-lg uppercase tracking-wider text-[10px] cursor-pointer">Add Batch</button>
+            <div className="tenant-form-footer bg-slate-50 p-4 flex flex-col gap-2 border-t border-slate-200">
+              {replenishSaveError && <p role="alert" className="text-xs font-semibold text-red-700">{replenishSaveError}</p>}
+              <div className="flex justify-between gap-2">
+                <span className="text-[10px] text-slate-500 max-w-[240px] leading-tight flex items-center"><Package className="w-3 h-3 mr-1 shrink-0"/> {replenishCostingMethod === 'average_price' ? 'Saves batch and updates POS average price' : replenishCostingMethod === 'batch_price' ? 'Saves batch for batch-price selling' : 'Saves batch for FIFO selling'}</span>
+                <div className="flex space-x-2">
+                  <button type="button" disabled={isSavingReplenish} onClick={() => setReplenishProduct(null)} className="px-4 py-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-lg uppercase tracking-wider text-[10px] cursor-pointer disabled:opacity-50">Cancel</button>
+                  <button type="submit" disabled={isSavingReplenish || !replenishCost || !replenishQty} className="px-5 py-2 bg-emerald-600 disabled:opacity-50 hover:bg-emerald-500 text-white font-bold rounded-lg uppercase tracking-wider text-[10px] cursor-pointer">{isSavingReplenish ? 'Saving…' : 'Add Batch'}</button>
+                </div>
               </div>
             </div>
           </form>
