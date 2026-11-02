@@ -123,3 +123,23 @@ test('Android barcode scanner requests camera permission on use and recovers aft
   assert.match(scanner, /Fungua mipangilio ya kamera/);
   assert.match(scanner, /USB or Bluetooth scanner/);
 });
+
+// WhatsApp message-only wa.me URLs cannot attach an Orvix PDF; the native
+// bridge must give Android an actual PDF URI with temporary read permission.
+test('Android PDF share uses a FileProvider URI and never substitutes WhatsApp text', () => {
+  const bridge = read('src/native/nativePdfAttachmentShare.ts');
+  const java = read('scripts/native-android-share/OrvixPdfAttachment.java');
+  const setup = read('scripts/setup-native-android-pdf-share.mjs');
+  const pdf = read('src/shared/utils/pdfShare.ts');
+  assert.match(main, /installOrvixNativePdfAttachmentShare\(\)/);
+  assert.match(bridge, /registerPlugin.*OrvixPdfAttachment/);
+  assert.match(bridge, /__orvixSharePdfAttachment/);
+  assert.match(java, /Intent\.ACTION_SEND/);
+  assert.match(java, /application\/pdf/);
+  assert.match(java, /FileProvider\.getUriForFile/);
+  assert.match(java, /FLAG_GRANT_READ_URI_PERMISSION/);
+  assert.match(setup, /registerPlugin\(OrvixPdfAttachment\.class\)/);
+  assert.match(androidWorkflow, /node scripts\/setup-native-android-pdf-share\.mjs/);
+  assert.match(pdf, /shareActualPdfAttachment\(pdfFile, message/);
+  assert.doesNotMatch(pdf, /buildWhatsAppLink|window\.open\(waUrl/);
+});
