@@ -79,11 +79,19 @@ export const scopeProductsForBranch = (
 
   const selectedStocks = branchStocks.filter(stock => stock.branchId === selection.activeBranchId);
   const stockByProductId = new Map(selectedStocks.map(stock => [stock.productId, stock]));
+  // A variant can be transferred to another branch. The receiving branch
+  // needs its parent catalog card even if the parent was created elsewhere.
+  const visibleParentIds = new Set(products
+    .filter(product => product.variationParentId && (
+      stockByProductId.has(product.id) || recordBranchId(product) === selection.activeBranchId
+    ))
+    .map(product => product.variationParentId!));
   const selectedIsPrimary = selection.selectedBranch?.includesUnassignedHistoricalRecords === true;
 
   return products.flatMap(product => {
     const branchId = recordBranchId(product);
     const stock = stockByProductId.get(product.id);
+    if (product.isVariationParent && visibleParentIds.has(product.id)) return [product];
     if (branchId !== selection.activeBranchId && !stock && !(selectedIsPrimary && branchId === null)) return [];
     if (!stock) return [product];
     return [{
