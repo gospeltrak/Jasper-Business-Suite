@@ -1,6 +1,5 @@
 import jsPDF from 'jspdf';
 import { toCanvas as htmlToCanvas } from 'html-to-image';
-import { buildWhatsAppLink } from './whatsapp';
 import { posReceiptLabel, posReceiptPaymentMode, posReceiptWalkInCustomer, posReceiptQuantity, posReceiptDate, posReceiptTime } from './posReceiptI18n';
 
 const sanitizeFileName = (name: string) =>
@@ -481,55 +480,70 @@ export type ShareResult =
   | { method: 'native-share' }
   | { method: 'downloaded'; phone: string };
 
+// Android injects this bridge only when the actual native PDF attachment
+// plugin is installed. WhatsApp's text-only wa.me URLs cannot carry local PDFs.
+type NativePdfAttachmentShare = (file: File, message: string) => Promise<void>;
+
+async function shareActualPdfAttachment(
+  pdfFile: File,
+  message: string,
+  phone = '',
+): Promise<ShareResult> {
+  if (pdfFile.type !== 'application/pdf' || pdfFile.size < 20) {
+    throw new Error('The PDF could not be created. Please try again.');
+  }
+  const cleanPhone = phone.replace(/[^0-9]/g, '');
+  const nativeShare = (window as Window & {
+    __orvixSharePdfAttachment?: NativePdfAttachmentShare;
+  }).__orvixSharePdfAttachment;
+  if (typeof nativeShare === 'function') {
+    try {
+      await nativeShare(pdfFile, message);
+      return { method: 'native-share' };
+    } catch (error: any) {
+      if (/cancel|abort/i.test(String(error?.message || ''))) throw new Error('Share cancelled');
+      console.warn('[pdfShare] Android attachment sharing unavailable:', error);
+      // Fail closed: no silent text-only WhatsApp message.
+    }
+  } else {
+    const canShareFile = (() => {
+      if (typeof navigator === 'undefined' || typeof navigator.share !== 'function') return false;
+      if (typeof navigator.canShare !== 'function') return true;
+      try {
+        return navigator.canShare({ files: [pdfFile] });
+      } catch {
+        return true;
+      }
+    })();
+    if (canShareFile) {
+      try {
+        await navigator.share({ files: [pdfFile], title: pdfFile.name, text: message });
+        return { method: 'native-share' };
+      } catch (error: any) {
+        if (error?.name === 'AbortError') throw new Error('Share cancelled');
+        console.warn('[pdfShare] Browser file-sharing unavailable:', error);
+      }
+    }
+  }
+  // Download actual PDF, never open WhatsApp with text claiming an absent
+  // attachment. The seller can manually attach the downloaded file.
+  downloadBlob(pdfFile, pdfFile.name);
+  return { method: 'downloaded', phone: cleanPhone };
+}
+
 // ─── Share receipt PDF via WhatsApp ───────────────────────────────────────────
 
 export async function sharePosReceiptPdf(
   data: ReceiptData,
   phone: string,
-  message?: string
+  message?: string,
 ): Promise<ShareResult> {
   const pdfFile = createPosReceiptPdfFromData(data);
   const lang = resolveReceiptLanguage(data.language);
   const waMessage = message || (lang === 'sw'
     ? `Habari${data.customerName ? ` ${posReceiptWalkInCustomer(data.customerName, lang)}` : ''}, tafadhali pokea risiti yako kutoka ${data.businessName}. Asante!`
     : `Hello${data.customerName ? ` ${data.customerName}` : ''}, please find your receipt attached from ${data.businessName}. Thank you!`);
-  const cleanPhone = phone.replace(/[^\d]/g, '');
-  const files = [pdfFile];
-
-  // MOBILE: Web Share API — opens OS share sheet, user taps WhatsApp
-  // navigator.canShare is assumed shareable when absent or when it itself
-  // throws (seen on some non-conformant mobile browsers/WebViews) -- the
-  // actual navigator.share() call right below is already guarded by its own
-  // try/catch with a download+wa.me fallback, so this only widens which
-  // devices get a chance at the native file-attach share sheet instead of
-  // skipping straight to download-only.
-  const canShareFile = (() => {
-    if (typeof navigator === 'undefined' || typeof navigator.share !== 'function') return false;
-    if (typeof navigator.canShare !== 'function') return true;
-    try {
-      return navigator.canShare({ files });
-    } catch {
-      return true;
-    }
-  })();
-
-  if (canShareFile) {
-    try {
-      await navigator.share({ files, title: pdfFile.name, text: waMessage });
-      return { method: 'native-share' };
-    } catch (e: any) {
-      if (e?.name === 'AbortError') throw new Error('Share cancelled');
-      console.warn('[pdfShare] Native share failed, falling back:', e);
-    }
-  }
-
-  // DESKTOP: download + open WhatsApp
-  downloadBlob(pdfFile, pdfFile.name);
-  if (cleanPhone) {
-    const waUrl = buildWhatsAppLink(waMessage, cleanPhone);
-    setTimeout(() => window.open(waUrl, '_blank', 'noopener,noreferrer'), 600);
-  }
-  return { method: 'downloaded', phone: cleanPhone };
+  return shareActualPdfAttachment(pdfFile, waMessage, phone);
 }
 
 type PdfShareOptions = {
@@ -1234,39 +1248,5 @@ export async function printPdfFromElement(options: Omit<PdfShareOptions, 'phone'
 export async function shareElementPdfToWhatsApp(options: PdfShareOptions): Promise<ShareResult> {
   const pdfFile = await createPdfFromElement(options);
   const message = options.message || 'Please find your receipt attached.';
-  const phone = options.phone?.replace(/[^\d]/g, '') || '';
-  const files = [pdfFile];
-
-  // navigator.canShare is assumed shareable when absent or when it itself
-  // throws (seen on some non-conformant mobile browsers/WebViews) -- the
-  // actual navigator.share() call right below is already guarded by its own
-  // try/catch with a download+wa.me fallback, so this only widens which
-  // devices get a chance at the native file-attach share sheet instead of
-  // skipping straight to download-only.
-  const canShareFile = (() => {
-    if (typeof navigator === 'undefined' || typeof navigator.share !== 'function') return false;
-    if (typeof navigator.canShare !== 'function') return true;
-    try {
-      return navigator.canShare({ files });
-    } catch {
-      return true;
-    }
-  })();
-
-  if (canShareFile) {
-    try {
-      await navigator.share({ files, title: pdfFile.name, text: message });
-      return { method: 'native-share' };
-    } catch (e: any) {
-      if (e?.name === 'AbortError') throw new Error('Share cancelled');
-      console.warn('[pdfShare] Native share failed, falling back:', e);
-    }
-  }
-
-  downloadBlob(pdfFile, pdfFile.name);
-  if (phone) {
-    const waUrl = buildWhatsAppLink(message, phone);
-    setTimeout(() => window.open(waUrl, '_blank', 'noopener,noreferrer'), 600);
-  }
-  return { method: 'downloaded', phone };
+  return shareActualPdfAttachment(pdfFile, message, options.phone || '');
 }
