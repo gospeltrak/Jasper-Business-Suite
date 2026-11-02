@@ -2925,6 +2925,12 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     const tenantProducts = productsMap[activeTenant.id] || [];
     const product = tenantProducts.find(item => item.id === id);
     if (!product || !activeProducts.some(item => item.id === id)) return;
+    // Never orphan variation stock or past transactions by removing the
+    // grouping record. Each variation remains a real stock-ledger product.
+    if (product.isVariationParent && tenantProducts.some(item => item.variationParentId === id)) {
+      addToast('This product has variations. Keep the parent group to protect inventory and sales history.', 'error');
+      return;
+    }
     if (!recordBelongsToActiveBranch(product, activeBranchSelection)) {
       if (!activeBranchSelection.activeBranchId) return;
       setBranchStocksMap(previous => ({
