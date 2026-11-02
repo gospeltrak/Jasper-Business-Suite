@@ -149,6 +149,9 @@ jobs:
       - name: Install Android phone PIN credential gate
         run: node scripts/setup-native-android-device-credential.mjs
 
+      - name: Install Android notification channels and permission
+        run: node scripts/setup-native-android-notifications.mjs
+
       # Stable *internal QA only* signing, not for release/Play Store.
       # Cache the explicit workspace file. The prior ~/.android path did not
       # exist at cache-save time, silently changing signers between builds.
