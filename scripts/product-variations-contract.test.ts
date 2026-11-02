@@ -130,3 +130,18 @@ test('POS card requires explicit variation and both purchase/report ledgers use 
   assert.match(report, /includedProductIds/);
   assert.match(report, /!p\.isVariationParent/);
 });
+
+test('quotation and invoice item picker excludes non-sellable variation parents', async () => {
+  const source = await readFile(new URL('../src/modules/sales/DashboardSalesList.tsx', import.meta.url), 'utf8');
+  assert.match(source, /const sellableProducts = products\.filter\(product => !product\.isVariationParent\)/);
+  assert.match(source, /if \(!canUseCrossBranchDocuments \|\| !crossBranchSources\) return sellableProducts/);
+  assert.match(source, /if \(docWizardSourceBranchId === activeBranchId\) return sellableProducts/);
+  assert.match(source, /if \(!found \|\| found\.isVariationParent\) return/);
+});
+
+test('overview stock warnings only inspect sellable variation stock lines', async () => {
+  const source = await readFile(new URL('../src/modules/overview/DashboardOverview.tsx', import.meta.url), 'utf8');
+  assert.match(source, /products\.filter\(p => !p\.isVariationParent && \(p\.shopStockQty/);
+  assert.match(source, /products\.filter\(p => !p\.isVariationParent && p\.stockQty <= \(p\.alertQty/);
+  assert.match(source, /products\.filter\(p => !p\.isVariationParent && p\.stockQty <= 45/);
+});
