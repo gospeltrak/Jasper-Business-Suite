@@ -21,6 +21,7 @@ import { compressImageFile } from '../../shared/utils/imageCompression';
 import { prepareManualStockAdjustment, type ManualStockAudit } from './utils/manualStockAdjustment';
 import { generateUniqueEan13Barcode } from './barcode';
 import { findProductBarcodeConflict, findBatchBarcodeConflict } from './utils/barcodeUniqueness';
+import { buildVariationProducts, getProductVariations, isVariationParent, makeVariationParent, type VariationDraft } from './utils/productVariations';
 import { calculateFractionSalePacketPrice } from '../sales/utils/fractionSale';
 import ModernSelect, { ModernSelectOption } from '../../shared/components/ModernSelect';
 import DashboardBarcodeScanner from '../../shared/components/LazyDashboardBarcodeScanner';
@@ -837,6 +838,14 @@ export default function DashboardProducts({
 
   // Add Product Panel state
   const [isOpen, setIsOpen] = useState(false);
+  const [hasVariations, setHasVariations] = useState(false);
+  const emptyVariation = (): VariationDraft => ({
+    label: '', barcode: '', costPrice: 0, sellingPrice: 0, shopStockQty: 0, storeStockQty: 0,
+  });
+  const [variationDrafts, setVariationDrafts] = useState<VariationDraft[]>([emptyVariation(), emptyVariation()]);
+  const updateVariationDraft = (index: number, patch: Partial<VariationDraft>) => {
+    setVariationDrafts(current => current.map((entry, i) => i === index ? { ...entry, ...patch } : entry));
+  };
   const [name, setName] = useState('');
   const [barcode, setBarcode] = useState('');
   const [category, setCategory] = useState(categoriesList[0] || '');
@@ -1272,7 +1281,11 @@ export default function DashboardProducts({
     }
 
     const openingStockQuantity = getTotalStockQty(shopStockQty, storeStockQty);
-    if (isPharmacyLike && productType === 'medicine' && trackExpiry && openingStockQuantity > 0 && !initialExpiryDate) {
+    if (hasVariations && openingStockQuantity !== 0) {
+      setFormError('Set opening stock for each variation below. Leave the parent product stock at zero.');
+      return;
+    }
+    if (isPharmacyLike && productType === 'medicine' && trackExpiry && (hasVariations ? variationDrafts.some(v => v.shopStockQty + v.storeStockQty > 0) : openingStockQuantity > 0) && !initialExpiryDate) {
       setFormError('Expiry date is required when registering opening stock for a medicine that tracks expiry.');
       return;
     }
@@ -1281,7 +1294,7 @@ export default function DashboardProducts({
     const finalWholesalePrice = sellInWholesale ? wholesalePrice : 0;
     const finalMinWholesaleQty = sellInWholesale ? minWholesaleQty : 0;
 
-    if (sellInRetail && finalSellingPrice <= 0) {
+    if (!hasVariations && sellInRetail && finalSellingPrice <= 0) {
       setFormError('Retail price must be greater than zero when selling in retail.');
       return;
     }
@@ -1292,7 +1305,7 @@ export default function DashboardProducts({
       return;
     }
 
-    if (sellInWholesale) {
+    if (sellInWholesale && !hasVariations) {
       if (finalWholesalePrice <= 0) {
         setFormError('Wholesale price must be greater than zero when selling in wholesale.');
         return;
@@ -1536,7 +1549,29 @@ export default function DashboardProducts({
       image: finalImageUrl,
       batches: openingStockBatch ? [openingStockBatch] : newProd.batches,
     };
-    if (!(await onAddProduct(finalProd))) {
+    let recordsToCreate: Product[] = [finalProd];
+    if (hasVariations) {
+      try {
+        const group = makeVariationParent(finalProd);
+        const variants = buildVariationProducts(group, variationDrafts, products);
+        recordsToCreate = [
+          group,
+          ...variants.map(variant => ({
+            ...variant,
+            batches: productType === 'medicine' && trackExpiry && variant.stockQty > 0
+              ? [createInventoryBatch(variant, variant.stockQty, variant.costPrice, {
+                  finalSellingPrice: variant.sellingPrice,
+                  expiryDate: initialExpiryDate,
+                })]
+              : variant.batches,
+          })),
+        ];
+      } catch (error) {
+        setFormError(error instanceof Error ? error.message : 'Please check the variation names, barcodes and prices.');
+        return;
+      }
+    }
+    if (!(await (hasVariations ? onAddProducts(recordsToCreate) : onAddProduct(finalProd)))) {
       setFormError('Product registration could not be confirmed. Check your connection or barcode and try again.');
       return;
     }
@@ -1545,6 +1580,8 @@ export default function DashboardProducts({
     setTimeout(() => {
       // Reset Registry form
       setName('');
+      setHasVariations(false);
+      setVariationDrafts([emptyVariation(), emptyVariation()]);
       setBrand('');
       setBarcode('');
       setCategory(categoriesList[0] || '');
@@ -3612,6 +3649,45 @@ export default function DashboardProducts({
                   columns 1 and 2, leaving a large empty gap under them. */}
               {isTabletWidthOrWider && pharmacyUnitHierarchySection}
               {isTabletWidthOrWider && smartBatchCostingSection}
+
+              {/* Compact, opt-in variations; the existing three-column form remains unchanged. */}
+              {!isPharmacyLike && (
+                <div className="rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2.5 space-y-2 normal-case">
+                  <label className="flex items-center justify-between gap-2 cursor-pointer">
+                    <span className="text-[11px] font-bold text-slate-700">Product Variations <span className="text-[10px] font-normal text-slate-500">(e.g. Fresh Rolls, Classic)</span></span>
+                    <input type="checkbox" checked={hasVariations} onChange={event => setHasVariations(event.target.checked)} className="accent-emerald-600 w-4 h-4" />
+                  </label>
+                  {hasVariations && (
+                    <>
+                      <p className="text-[10px] text-slate-500">Each variation has its own selling price, cost, barcode and stock. Leave the regular stock fields above at zero.</p>
+                      {variationDrafts.map((variant, index) => (
+                        <div key={index} className="grid grid-cols-2 sm:grid-cols-6 gap-2 items-end border-t border-slate-200 pt-2">
+                          <label className="col-span-2 sm:col-span-1 text-[9px] font-semibold text-slate-500">Variation
+                            <input value={variant.label} onChange={event => updateVariationDraft(index, { label: event.target.value })} placeholder="Classic" className="w-full min-w-0 bg-white border border-slate-200 rounded-lg p-2 text-xs text-slate-800" />
+                          </label>
+                          <label className="text-[9px] font-semibold text-slate-500">Cost
+                            <input type="number" min="0" value={variant.costPrice} onChange={event => updateVariationDraft(index, { costPrice: Number(event.target.value) })} className="w-full min-w-0 bg-white border border-slate-200 rounded-lg p-2 text-xs" />
+                          </label>
+                          <label className="text-[9px] font-semibold text-slate-500">Retail Price
+                            <input type="number" min="0" value={variant.sellingPrice} onChange={event => updateVariationDraft(index, { sellingPrice: Number(event.target.value) })} className="w-full min-w-0 bg-white border border-slate-200 rounded-lg p-2 text-xs" />
+                          </label>
+                          <label className="text-[9px] font-semibold text-slate-500">Shop Qty
+                            <input type="number" min="0" step="0.001" value={variant.shopStockQty} onChange={event => updateVariationDraft(index, { shopStockQty: Number(event.target.value) })} className="w-full min-w-0 bg-white border border-slate-200 rounded-lg p-2 text-xs" />
+                          </label>
+                          <label className="text-[9px] font-semibold text-slate-500">Store Qty
+                            <input type="number" min="0" step="0.001" value={variant.storeStockQty} onChange={event => updateVariationDraft(index, { storeStockQty: Number(event.target.value) })} className="w-full min-w-0 bg-white border border-slate-200 rounded-lg p-2 text-xs" />
+                          </label>
+                          <label className="col-span-2 sm:col-span-1 text-[9px] font-semibold text-slate-500">Barcode (optional)
+                            <input value={variant.barcode} onChange={event => updateVariationDraft(index, { barcode: event.target.value })} placeholder="Auto" className="w-full min-w-0 bg-white border border-slate-200 rounded-lg p-2 text-xs" />
+                          </label>
+                          {variationDrafts.length > 2 && <button type="button" onClick={() => setVariationDrafts(rows => rows.filter((_, i) => i !== index))} className="text-[9px] text-red-600 text-left">Remove</button>}
+                        </div>
+                      ))}
+                      <button type="button" onClick={() => setVariationDrafts(rows => [...rows, emptyVariation()])} className="text-[10px] font-bold text-emerald-700">+ Add Variation</button>
+                    </>
+                  )}
+                </div>
+              )}
 
               {/* Commit Trigger */}
               <button
