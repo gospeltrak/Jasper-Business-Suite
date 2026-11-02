@@ -1367,7 +1367,10 @@ export default function DashboardProducts({
         onTriggerUpgrade?.('expired');
         return;
       }
-      if (products.length >= subscriptionStatus.plan.maxProducts) {
+      // Every variation has a real stock-ledger product identity. Count all
+      // child SKUs up front so a multi-variation create cannot bypass plan limits.
+      const incomingCount = hasVariations ? 1 + variationDrafts.length : 1;
+      if (products.length + incomingCount > subscriptionStatus.plan.maxProducts) {
         onTriggerUpgrade?.('products');
         return;
       }
