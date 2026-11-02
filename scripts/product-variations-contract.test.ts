@@ -50,6 +50,14 @@ test('variations keep two independent stock rows and a zero-stock grouping paren
   assert.equal(cards[0].sellingPrice, 7000);
 });
 
+test('converting a legacy SKU keeps cost/price needed for historic sale profit fallback', () => {
+  const old = { ...base, costPrice: 5400, sellingPrice: 8000, stockQty: 0 };
+  const grouped = makeVariationParent(old);
+  assert.equal(grouped.costPrice, 5400);
+  assert.equal(grouped.sellingPrice, 8000);
+  assert.equal(grouped.shopStockQty, 0);
+});
+
 test('legacy products without variations remain a normal sellable POS card', () => {
   const legacy = { ...base, id: 'old', stockQty: 7, shopStockQty: 7, sellingPrice: 1200, isVariationParent: undefined };
   assert.deepEqual(getPosVariationCards([legacy]), [legacy]);
