@@ -143,3 +143,20 @@ test('Android PDF share uses a FileProvider URI and never substitutes WhatsApp t
   assert.match(pdf, /shareActualPdfAttachment\(pdfFile, message/);
   assert.doesNotMatch(pdf, /buildWhatsAppLink|window\.open\(waUrl/);
 });
+
+test('native device PIN gate uses Android security and never stores the PIN in Orvix', () => {
+  const java = read('scripts/native-android-security/OrvixDeviceCredential.java');
+  const setup = read('scripts/setup-native-android-device-credential.mjs');
+  const gate = read('src/native/NativeDeviceLock.tsx');
+  assert.match(java, /KeyguardManager/);
+  assert.match(java, /isDeviceSecure\(\)/);
+  assert.match(java, /createConfirmDeviceCredentialIntent/);
+  assert.match(java, /Activity\.RESULT_OK/);
+  assert.match(setup, /registerPlugin\(OrvixDeviceCredential\.class\)/);
+  assert.match(androidWorkflow, /node scripts\/setup-native-android-device-credential\.mjs/);
+  assert.match(app, /<NativeDeviceLock/);
+  assert.match(gate, /DeviceCredential\.authenticate\(\)/);
+  assert.match(gate, /BACKGROUND_LOCK_MS = 30_000/);
+  assert.match(gate, /inFlightRef\.current/);
+  assert.doesNotMatch(java, /SharedPreferences|SQLiteDatabase|PIN_SECRET|password_hash/);
+});
