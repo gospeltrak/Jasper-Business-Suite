@@ -45,6 +45,13 @@ export const validateVariations = (
     if (parent.sellInRetail !== false && (!Number.isFinite(row.sellingPrice) || row.sellingPrice <= 0)) {
       throw new Error(`Set a valid retail price for ${label}.`);
     }
+    const wholesalePrice = row.wholesalePrice ?? parent.wholesalePrice ?? 0;
+    if (parent.sellInWholesale && (!Number.isFinite(wholesalePrice) || wholesalePrice <= 0)) {
+      throw new Error(`Set a valid wholesale price for ${label}.`);
+    }
+    if (parent.sellInWholesale && parent.sellInRetail !== false && wholesalePrice >= row.sellingPrice) {
+      throw new Error(`Wholesale price must be lower than the retail price for ${label}.`);
+    }
     if (!Number.isFinite(row.costPrice) || row.costPrice < 0
       || !Number.isFinite(row.shopStockQty) || row.shopStockQty < 0
       || !Number.isFinite(row.storeStockQty) || row.storeStockQty < 0) {
