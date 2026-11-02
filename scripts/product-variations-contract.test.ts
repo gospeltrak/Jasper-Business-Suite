@@ -58,6 +58,20 @@ test('converting a legacy SKU keeps cost/price needed for historic sale profit f
   assert.equal(grouped.shopStockQty, 0);
 });
 
+test('legacy finished FIFO batches stay available for historical audit after conversion', () => {
+  const finishedBatch = {
+    id: 'old-batch', productId: base.id, batchNumber: 'B-2026',
+    purchaseDate: '2026-01-02T00:00:00Z', quantityPurchased: 20,
+    quantityRemaining: 0, buyingPrice: 5100, status: 'finished' as const,
+    createdBy: 'tester', createdAt: '2026-01-02T00:00:00Z',
+  };
+  const group = makeVariationParent({
+    ...base, shopStockQty: 0, storeStockQty: 0, stockQty: 0, batches: [finishedBatch],
+  });
+  assert.deepEqual(group.batches, [finishedBatch]);
+  assert.equal(group.shopStockQty, 0);
+});
+
 test('legacy products without variations remain a normal sellable POS card', () => {
   const legacy = { ...base, id: 'old', stockQty: 7, shopStockQty: 7, sellingPrice: 1200, isVariationParent: undefined };
   assert.deepEqual(getPosVariationCards([legacy]), [legacy]);
