@@ -106,11 +106,11 @@ export default function NativeDeviceLock({ identity, splashVisible, children, on
   if (!nativeAndroid) return <>{children}</>;
   return (
     <>
-      <div style={{ display: 'contents', visibility: unlocked ? 'visible' : 'hidden', pointerEvents: unlocked ? 'auto' : 'none' }} aria-hidden={!unlocked}>
+      <div inert={!unlocked} style={{ display: 'contents', visibility: unlocked ? 'visible' : 'hidden', pointerEvents: unlocked ? 'auto' : 'none' }} aria-hidden={!unlocked}>
         {children}
       </div>
       {!unlocked && (
-        <div className="fixed inset-0 z-[20000] flex items-center justify-center bg-white px-6 dark:bg-slate-950">
+        <div className="fixed inset-0 z-[2147483647] flex items-center justify-center bg-white px-6 dark:bg-slate-950">
           <div className="w-full max-w-sm text-center">
             <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-3xl bg-emerald-50 dark:bg-emerald-950/50">
               <LockKeyhole className="h-10 w-10 text-emerald-600" />
