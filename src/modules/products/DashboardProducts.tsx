@@ -832,6 +832,7 @@ export default function DashboardProducts({
     try {
       const freshProduct = products.find(product => product.id === adjustProduct.id);
       if (!freshProduct) throw new Error('This product is no longer available. Refresh the stock list.');
+      if (isVariationParent(freshProduct)) throw new Error('Select a variation stock item, not the parent product group.');
       const qty = Number(adjustQty);
       const adjustment = prepareManualStockAdjustment(freshProduct, type, qty);
       const audit: ManualStockAudit = {
@@ -1670,6 +1671,10 @@ export default function DashboardProducts({
   // Stock Transfer Actions
   const handleExecuteTransfer = async () => {
     if (!transferProduct) return;
+    if (isVariationParent(transferProduct)) {
+      setTransferError('Select a specific variation to transfer its stock.');
+      return;
+    }
     const qty = Number(transferQty) || 0;
     if (qty <= 0) {
       setTransferError('Please specify a positive unit quantity.');
@@ -3776,8 +3781,13 @@ export default function DashboardProducts({
             {/* ── MOBILE STOCK CARDS ── */}
             <div className="stock-cards-tablet-grid xl:hidden bg-slate-50 dark:bg-slate-950 px-3 pt-3 pb-[calc(80px+env(safe-area-inset-bottom))] space-y-3">
               {filteredProducts.map((prod) => {
-                  const shopQty = prod.shopStockQty ?? 0;
-                  const storeQty = prod.storeStockQty ?? 0;
+                  const variations = isVariationParent(prod) ? getProductVariations(products, prod.id) : [];
+                  const shopQty = isVariationParent(prod)
+                    ? variations.reduce((sum, v) => sum + (v.shopStockQty || 0), 0)
+                    : prod.shopStockQty ?? 0;
+                  const storeQty = isVariationParent(prod)
+                    ? variations.reduce((sum, v) => sum + (v.storeStockQty || 0), 0)
+                    : prod.storeStockQty ?? 0;
                   const totalQty = getTotalStockQty(shopQty, storeQty);
                   const isOutOfStock = totalQty <= 0;
                   const isLow = !isOutOfStock && shopQty <= (prod.alertQty || 5);
@@ -3817,7 +3827,10 @@ export default function DashboardProducts({
 
                         {/* Name + meta */}
                         <div className="flex-1 min-w-0">
-                          <p translate="no" className="font-bold text-slate-900 dark:text-white text-[13px] leading-snug truncate">{prod.name}</p>
+                          <p translate="no" className="font-bold text-slate-900 dark:text-white text-[13px] leading-snug truncate">
+                            {prod.name}
+                            {isVariationParent(prod) && <span className="ml-1 text-[9px] text-emerald-700">({variations.length} variations)</span>}
+                          </p>
                           <div className="flex items-center gap-1.5 mt-0.5">
                             {prod.category && <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 truncate max-w-[100px]">{prod.category}</span>}
                             {prod.brand && <><span className="text-slate-200 dark:text-slate-700">·</span><span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 truncate max-w-[80px]">{prod.brand}</span></>}
@@ -3918,8 +3931,13 @@ export default function DashboardProducts({
                 </thead>
                 <tbody className="divide-y divide-slate-150/50 text-slate-600 text-xs font-sans pb-32">
                   {filteredProducts.map(prod => {
-                    const shopQty = prod.shopStockQty ?? 0;
-                    const storeQty = prod.storeStockQty ?? 0;
+                    const variations = isVariationParent(prod) ? getProductVariations(products, prod.id) : [];
+                    const shopQty = isVariationParent(prod)
+                      ? variations.reduce((sum, v) => sum + (v.shopStockQty || 0), 0)
+                      : prod.shopStockQty ?? 0;
+                    const storeQty = isVariationParent(prod)
+                      ? variations.reduce((sum, v) => sum + (v.storeStockQty || 0), 0)
+                      : prod.storeStockQty ?? 0;
                     const totalQty = getTotalStockQty(shopQty, storeQty);
                     
                     const isOutOfStock = totalQty <= 0;
@@ -3947,6 +3965,7 @@ export default function DashboardProducts({
                             <div className="space-y-0.5">
                               <p className="font-bold text-slate-800 text-[12.5px] leading-tight">
                                 {prod.name}
+                                {isVariationParent(prod) && <span className="ml-1 text-[10px] font-semibold text-emerald-600">{variations.length} variations</span>}
                                 {prod.unit && <span className="ml-2 font-mono text-slate-400 font-semibold bg-slate-100 px-1.5 py-0.5 rounded leading-none text-[10px]">({prod.unit})</span>}
                               </p>
                             </div>
