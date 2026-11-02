@@ -990,6 +990,8 @@ export default function DashboardProducts({
   // Form notifications
   const [formSuccess, setFormSuccess] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [isCreatingProduct, setIsCreatingProduct] = useState(false);
+  const productCreationInFlightRef = useRef(false);
 
   // Retail & Wholesale Form states
   const [sellInRetail, setSellInRetail] = useState(true);
@@ -1373,6 +1375,9 @@ export default function DashboardProducts({
   // Handle Create Product
   const handleCreateProduct = async (e: FormEvent) => {
     e.preventDefault();
+    // The same form can be submitted twice before a cloud write returns.
+    // One submission must create exactly one parent and its child SKU rows.
+    if (productCreationInFlightRef.current) return;
     setFormError(null);
 
     if (!name) {
@@ -1623,6 +1628,9 @@ export default function DashboardProducts({
     // productImage = canvas-processed base64 (background removed, 500x500px)
     // We upload this processed result directly — NOT the raw file —
     // because the canvas pipeline may have transformed it significantly.
+    productCreationInFlightRef.current = true;
+    setIsCreatingProduct(true);
+    try {
     let finalImageUrl: string | undefined = productImage || undefined;
 
     if (productImage && productImage.startsWith('data:image')) {
@@ -1732,6 +1740,12 @@ export default function DashboardProducts({
       setFormSuccess(false);
       setFormError(null);
     }, 1100);
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : 'Could not create the product. Please retry.');
+    } finally {
+      productCreationInFlightRef.current = false;
+      setIsCreatingProduct(false);
+    }
   };
 
   // Stock Transfer Actions
@@ -3836,7 +3850,7 @@ export default function DashboardProducts({
               {/* Commit Trigger */}
               <button
                 type="submit"
-                disabled={formSuccess || isProcessingImage}
+                disabled={formSuccess || isProcessingImage || isCreatingProduct}
                 className={isDesktopAddProductLayout
                   ? "w-full py-3.5 bg-emerald-600 hover:bg-emerald-505 disabled:bg-slate-150 disabled:text-slate-400 text-white font-bold rounded-xl text-xs uppercase tracking-wider transition-all flex items-center justify-center space-x-1.5 cursor-pointer shadow-md shadow-emerald-550/10"
                   : "w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 disabled:bg-slate-150 disabled:bg-none disabled:text-slate-400 text-white font-bold rounded-xl text-xs uppercase tracking-wider transition-all flex items-center justify-center space-x-1.5 cursor-pointer active:scale-[0.98] shadow-md shadow-emerald-600/25"}
