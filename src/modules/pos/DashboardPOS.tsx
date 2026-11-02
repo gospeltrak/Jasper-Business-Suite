@@ -312,6 +312,12 @@ export default function DashboardPOS({
     // Resolve against the current complete catalogue, never the search/stock grid
     // or the product snapshot captured when the camera was opened.
     const product = findBarcodeProduct(latestProductsRef.current, scannedCode);
+    if (product?.isVariationParent === true) {
+      playWarningBeep();
+      addScanToast('warning', 'Choose the product variation on its card before adding to cart.');
+      setPosWarning('This barcode belongs to a product group. Choose a variation first.');
+      return;
+    }
     if (!product) {
       playErrorBeep();
       addScanToast('error', posBarcodeMessage('not-found', receiptLanguage, scannedCode));
