@@ -912,6 +912,7 @@ export default function App() {
         {user && isOrvixNativeApp() ? (
           <NativeDeviceLock
             identity={`${user.id || user.email}:${user.activeTenant || user.tenantId || ''}`}
+            splashVisible={Boolean(splashRequest)}
             onSignOut={handleLogoutSuccess}
           >
             {renderRoute()}
