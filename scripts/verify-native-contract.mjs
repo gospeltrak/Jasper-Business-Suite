@@ -173,3 +173,11 @@ test('Android notifications have OS channels and explicit Android 13 permission 
   assert.match(androidWorkflow, /node scripts\/setup-native-android-notifications\.mjs/);
   assert.doesNotMatch(java, /FirebaseMessagingService|sendPushAutomatically/);
 });
+
+test('Android tenant login splash never reuses another tenant logo or blocks login', () => {
+  assert.match(app, /loginSplashRequestIdRef/);
+  assert.match(app, /current\.tenantId === storageTenantId/);
+  assert.match(app, /logoSrc: '\/jb-logo\.png'/);
+  assert.match(app, /void fetchLogoUrl\(storageTenantId\)\.then/);
+  assert.doesNotMatch(app, /await fetchLogoUrl\(storageTenantId\)/);
+});
