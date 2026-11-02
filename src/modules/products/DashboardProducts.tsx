@@ -671,7 +671,15 @@ export default function DashboardProducts({
               originalVariants.some(existing => !editVariationDrafts.some(draft => draft.id === existing.id))) {
             throw new Error('Existing variations cannot be deleted here because they may have sales and stock history.');
           }
-          const parent = makeVariationParent(updated.find(p => p.id === editingProduct.id)!);
+          // Once a legacy product becomes a grouping parent, its historical
+          // prices remain the fallback for old sales lacking cost snapshots.
+          // Editing child prices must never reprice past parent transactions.
+          const parent = makeVariationParent({
+            ...updated.find(p => p.id === editingProduct.id)!,
+            costPrice: editingProduct.costPrice,
+            sellingPrice: editingProduct.sellingPrice,
+            wholesalePrice: editingProduct.wholesalePrice,
+          });
           const children = buildVariationProducts(parent, editVariationDrafts, products, originalVariants);
           const changedById = new Map([parent, ...children].map(product => [product.id, product]));
           updatedWithVariations = [
