@@ -124,7 +124,7 @@ export default function ProductVariationEditor({
           <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
             <div>
               <h5 className="text-xs font-extrabold text-slate-800 dark:text-white">Variations ({drafts.length})</h5>
-              <p className="text-[10px] text-slate-500">Each variation has its own buying, retail and wholesale rules.</p>
+              <p className="text-[10px] text-slate-500">Each variation has its own buying, retail and wholesale rules ({currency}).</p>
             </div>
             <button type="button" onClick={() => onDraftsChange(current => [...current, emptyVariationDraft()])}
               className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-emerald-300 bg-white px-3 text-[11px] font-bold text-emerald-700">
