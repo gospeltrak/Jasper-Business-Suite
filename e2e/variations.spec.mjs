@@ -67,7 +67,7 @@ test('Add Product registers two unique child variations exactly once and reload 
   await page.getByRole('switch',{name:'Product Variations'}).check();
   const rows = page.getByTestId('variation-create-row');
   await expect(rows).toHaveCount(0);
-  await expect(page.getByText('Barcode Controls & Stock',{exact:true})).toHaveCount(0);
+  await expect(page.getByText(/Barcode Controls & Stock/)).toHaveCount(0);
   await page.getByTestId('add-variation-card').click();
   await expect(rows).toHaveCount(1);
   await page.getByTestId('add-variation-card').click();
@@ -132,12 +132,12 @@ test('native phone and tablet Variation UI has tagged types and independent whol
   await variationSwitch.check();
   await expect(form.getByTestId('variation-toggle-status')).toHaveText('ON');
   await expect(page.getByTestId('variation-create-row')).toHaveCount(0);
-  await expect(page.getByText('Barcode Controls & Stock',{exact:true})).toHaveCount(0);
+  await expect(page.getByText(/Barcode Controls & Stock/)).toHaveCount(0);
   await expect(page.getByText('Variation-based Pricing',{exact:true})).toHaveCount(0);
   await variationSwitch.uncheck();
   await expect(form.getByTestId('variation-toggle-status')).toHaveText('OFF');
   await expect(page.getByTestId('variation-create-row')).toHaveCount(0);
-  await expect(page.getByText('Barcode Controls & Stock',{exact:true})).toBeVisible();
+  await expect(page.getByText(/Barcode Controls & Stock/)).toBeVisible();
   await variationSwitch.check();
   await expect(form.getByRole('button',{name:'Flavor'})).toBeVisible();
   await form.getByRole('button',{name:'Flavor'}).click();
@@ -211,9 +211,9 @@ test('one variation can be added and saved, and parent barcode-stock is hidden o
   }
   const form = page.getByTestId('product-variations-editor');
   await page.getByPlaceholder('e.g. Pure Groundnut Oil (5 Litre)').fill('QA Solo Variant');
-  await expect(page.getByText('Barcode Controls & Stock',{exact:true})).toBeVisible();
+  await expect(page.getByText(/Barcode Controls & Stock/)).toBeVisible();
   await form.getByRole('switch',{name:'Product Variations'}).check();
-  await expect(page.getByText('Barcode Controls & Stock',{exact:true})).toHaveCount(0);
+  await expect(page.getByText(/Barcode Controls & Stock/)).toHaveCount(0);
   await expect(page.getByTestId('variation-create-row')).toHaveCount(0);
   await form.getByTestId('add-variation-card').click();
   const row = page.getByTestId('variation-create-row').first();
