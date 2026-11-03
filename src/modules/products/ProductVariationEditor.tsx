@@ -45,6 +45,15 @@ export default function ProductVariationEditor({
   const toggleDetails = (index: number) =>
     setExpandedRows(current => current.includes(index) ? current.filter(i => i !== index) : [...current, index]);
 
+  const removeUnsavedDraft = (index: number) => {
+    // Existing child SKUs must never be deleted by removing a visual card:
+    // they may already be referenced by sales, returns and branch transfers.
+    if (drafts[index]?.id) return;
+    onDraftsChange(current => current.filter((draft, i) => i !== index || !!draft.id));
+    // Indices change after removal; close open disclosure panels.
+    setExpandedRows([]);
+  };
+
   const customAttribute = !ATTRIBUTE_OPTIONS.slice(0, -1).includes(attribute as typeof ATTRIBUTE_OPTIONS[number]);
 
   return (
@@ -98,29 +107,20 @@ export default function ProductVariationEditor({
         </div>
 
         <div className="border-t border-slate-100 pt-3 dark:border-slate-700">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <h5 className="text-xs font-extrabold text-slate-800 dark:text-white">Variations ({drafts.length})</h5>
-              <p className="text-[10px] text-slate-500">Each variation has its own buying, retail and wholesale rules ({currency}).</p>
-            </div>
-            <button type="button" onClick={() => onDraftsChange(current => [...current, emptyVariationDraft()])}
-              className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-emerald-300 bg-white px-3 text-[11px] font-bold text-emerald-700">
-              <Plus size={15} /> Add Variation
-            </button>
-          </div>
+          <h5 className="mb-2 text-xs font-extrabold text-slate-800 dark:text-white">Variations ({drafts.length})</h5>
 
-          <div className="space-y-3">
+          <div className="space-y-2">
             {drafts.map((draft, index) => {
               const retail = draft.sellInRetail !== false;
               const wholesale = draft.sellInWholesale === true;
               const detailsOpen = expandedRows.includes(index);
               return <div key={draft.id || index} data-testid="variation-create-row"
                 className="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
-                <div className="flex flex-wrap items-center justify-between gap-2 bg-emerald-50/60 px-3 py-2 dark:bg-emerald-950/20">
+                <div className="flex flex-wrap items-center justify-between gap-1.5 bg-emerald-50/60 px-2.5 py-1.5 dark:bg-emerald-950/20">
                   <span className="text-[11px] font-extrabold text-slate-800 dark:text-white">
                     {draft.label.trim() || `Variation ${index + 1}`}
                   </span>
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                     <label className="inline-flex min-h-9 items-center gap-1.5 text-[10px] font-semibold text-slate-700 dark:text-slate-200">
                       <input aria-label={`Sell Retail ${index + 1}`} type="checkbox" checked={retail}
                         onChange={event => change(index, { sellInRetail: event.target.checked })}
@@ -131,14 +131,19 @@ export default function ProductVariationEditor({
                         onChange={event => change(index, { sellInWholesale: event.target.checked })}
                         className="h-4 w-4 accent-emerald-600" /> Wholesale
                     </label>
-                    {!draft.id && drafts.length > 2 && <button type="button" aria-label={`Remove variation ${index + 1}`}
-                      onClick={() => onDraftsChange(current => current.filter((_, i) => i !== index))}
-                      className="flex h-9 w-9 items-center justify-center rounded-lg text-rose-600 hover:bg-rose-50">
+                    <button
+                      type="button"
+                      aria-label={`Remove variation ${index + 1}`}
+                      title={draft.id ? 'Saved SKU cannot be removed here because of existing stock or sales history.' : 'Remove this variation'}
+                      disabled={!!draft.id}
+                      onClick={() => removeUnsavedDraft(index)}
+                      className="flex h-9 w-9 items-center justify-center rounded-lg text-rose-600 hover:bg-rose-50 disabled:cursor-not-allowed disabled:text-slate-300"
+                    >
                       <Trash2 size={15}/>
-                    </button>}
+                    </button>
                   </div>
                 </div>
-                <div data-testid="variation-prices-grid" className="orvix-variation-prices-grid min-w-0 p-3">
+                <div data-testid="variation-prices-grid" className="orvix-variation-prices-grid min-w-0 p-2.5">
                   <label className={fieldLabel}>Variation
                     <input aria-label={`Variation ${index + 1} value`} value={draft.label}
                       onChange={event => change(index, { label: event.target.value })}
@@ -174,7 +179,7 @@ export default function ProductVariationEditor({
                       placeholder="No limit" className={compactInput + (!wholesale ? ' opacity-50' : '')} />
                   </label>
                 </div>
-                <div className="border-t border-slate-100 px-3 py-1.5 dark:border-slate-700">
+                <div className="border-t border-slate-100 px-2.5 py-0.5 dark:border-slate-700">
                   <button type="button" aria-expanded={detailsOpen} onClick={() => toggleDetails(index)}
                     className="inline-flex min-h-10 items-center gap-1.5 text-[11px] font-bold text-emerald-700 dark:text-emerald-400">
                     {detailsOpen ? <ChevronUp size={14}/> : <ChevronDown size={14}/>}
@@ -201,9 +206,17 @@ export default function ProductVariationEditor({
               </div>;
             })}
           </div>
-          <p className="mt-2 text-[10px] leading-snug text-slate-500">
-            Wholesale limits apply separately to each SKU. Maximum is optional. Stock and barcodes are unique to each variation. {editing && 'Existing SKUs stay attached to their sales history.'}
-          </p>
+          <button
+            type="button"
+            data-testid="add-variation-card"
+            onClick={() => onDraftsChange(current => [...current, emptyVariationDraft()])}
+            className="mt-2 inline-flex min-h-10 w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-emerald-300 bg-emerald-50/50 px-3 text-xs font-bold text-emerald-700 transition-colors hover:bg-emerald-100 active:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300"
+          >
+            <Plus size={15} /> Add Variation
+          </button>
+          {editing && drafts.some(draft => !!draft.id) && <p className="mt-1 text-[10px] text-slate-500">
+            Saved variations are protected to preserve stock and sales history.
+          </p>}
         </div>
       </div>}
     </section>
