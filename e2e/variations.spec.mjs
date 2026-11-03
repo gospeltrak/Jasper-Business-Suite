@@ -135,4 +135,29 @@ test('native phone and tablet Variation UI has tagged types and independent whol
     viewportWidth: document.documentElement.clientWidth,
   }));
   expect(sizing.documentWidth).toBeLessThanOrEqual(sizing.viewportWidth + 2);
+
+  await page.getByPlaceholder('e.g. Pure Groundnut Oil (5 Litre)').fill('QA Flavored Drink');
+  await first.getByRole('textbox',{name:'Variation 1 value'}).fill('Vanilla');
+  await first.getByRole('spinbutton',{name:'Variation 1 buying price'}).fill('200');
+  await first.getByRole('spinbutton',{name:'Variation 1 retail price'}).fill('500');
+  const second = page.getByTestId('variation-create-row').nth(1);
+  await second.getByRole('textbox',{name:'Variation 2 value'}).fill('Orange');
+  await second.getByRole('spinbutton',{name:'Variation 2 buying price'}).fill('300');
+  await second.getByRole('spinbutton',{name:'Variation 2 retail price'}).fill('800');
+  await page.locator('form button[type="submit"]').last().click();
+  await expect.poll(async () => (await ledger(page)).products.filter(p => p.name.startsWith('QA Flavored Drink')).length).toBe(3);
+  let state = await ledger(page);
+  const newlyCreated = state.products.filter(p => p.name.startsWith('QA Flavored Drink'));
+  const parent = newlyCreated.find(p => p.isParent);
+  expect(parent?.option).toBe('Flavor');
+  const vanilla = newlyCreated.find(p => p.parent === parent.id && p.name.endsWith('Vanilla'));
+  expect(vanilla).toMatchObject({
+    option:'Flavor',retail:true,wholesale:true,wholesalePrice:400,
+    wholesaleMin:6,wholesaleMax:24,price:500
+  });
+  await page.reload();
+  state = await ledger(page);
+  expect(state.products.find(p => p.id === vanilla.id)).toMatchObject({
+    option:'Flavor',wholesale:true,wholesaleMin:6,wholesaleMax:24
+  });
 });
