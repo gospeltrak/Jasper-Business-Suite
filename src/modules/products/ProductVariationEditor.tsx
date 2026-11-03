@@ -107,7 +107,7 @@ export default function ProductVariationEditor({
         </div>
 
         <div className="border-t border-slate-100 pt-3 dark:border-slate-700">
-          <h5 className="mb-2 text-xs font-extrabold text-slate-800 dark:text-white">Variations ({drafts.length})</h5>
+          {drafts.length > 0 && <h5 className="mb-2 text-xs font-extrabold text-slate-800 dark:text-white">Variations ({drafts.length})</h5>}
 
           <div className="space-y-2">
             {drafts.map((draft, index) => {
@@ -160,19 +160,19 @@ export default function ProductVariationEditor({
                       onChange={event => change(index, { sellingPrice: Number(event.target.value) })}
                       className={compactInput + (!retail ? ' opacity-50' : '')} />
                   </label>
-                  <label className={fieldLabel}>Wholesale Price
+                  <label className={fieldLabel + (wholesale ? '' : ' orvix-variant-hide-inactive-wholesale')}>Wholesale Price
                     <input aria-label={`Variation ${index + 1} wholesale price`} type="number" min="0" step="0.01"
                       disabled={!wholesale} value={wholesale ? draft.wholesalePrice ?? 0 : 0}
                       onChange={event => change(index, { wholesalePrice: Number(event.target.value) })}
                       className={compactInput + (!wholesale ? ' opacity-50' : '')} />
                   </label>
-                  <label className={fieldLabel}>Min Wholesale Qty
+                  <label className={fieldLabel + (wholesale ? '' : ' orvix-variant-hide-inactive-wholesale')}>Min Wholesale Qty
                     <input aria-label={`Variation ${index + 1} min wholesale quantity`} type="number" min="1" step="1"
                       disabled={!wholesale} value={wholesale ? draft.minWholesaleQty ?? 10 : 0}
                       onChange={event => change(index, { minWholesaleQty: Number(event.target.value) })}
                       className={compactInput + (!wholesale ? ' opacity-50' : '')} />
                   </label>
-                  <label className={fieldLabel}>Max Wholesale Qty
+                  <label className={fieldLabel + (wholesale ? '' : ' orvix-variant-hide-inactive-wholesale')}>Max Wholesale Qty
                     <input aria-label={`Variation ${index + 1} max wholesale quantity`} type="number" min="1" step="1"
                       disabled={!wholesale} value={wholesale ? draft.maxWholesaleQty ?? '' : ''}
                       onChange={event => change(index, { maxWholesaleQty: qtyValue(event.target.value) })}
