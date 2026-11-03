@@ -3812,7 +3812,7 @@ export default function DashboardProducts({
                     <>
                       <p className="text-[10px] text-slate-500">Each variation has its own selling price, cost, barcode and stock. Leave the regular stock fields above at zero.</p>
                       {variationDrafts.map((variant, index) => (
-                        <div key={index} className="grid grid-cols-2 sm:grid-cols-6 gap-2 items-end border-t border-slate-200 pt-2">
+                        <div key={index} data-testid="variation-create-row" className="grid grid-cols-2 sm:grid-cols-6 gap-2 items-end border-t border-slate-200 pt-2">
                           <label className="col-span-2 sm:col-span-1 text-[9px] font-semibold text-slate-500">Variation
                             <input value={variant.label} onChange={event => updateVariationDraft(index, { label: event.target.value })} placeholder="Classic" className="w-full min-w-0 bg-white border border-slate-200 rounded-lg p-2 text-xs text-slate-800" />
                           </label>
