@@ -665,7 +665,7 @@ export default function DashboardPOS({
     }
 
     const shopQty = getPosShopStock(prod);
-    if (sellingChannel === 'wholesale' && shopQty < (prod.minWholesaleQty ?? 10)) {
+    if (sellingChannel === 'wholesale' && prod.variationParentId && shopQty < (prod.minWholesaleQty ?? 10)) {
       setPosWarning(getWholesaleQuantityViolation(prod, shopQty) || 'Insufficient shop stock for wholesale minimum.');
       return 'out-of-stock';
     }
