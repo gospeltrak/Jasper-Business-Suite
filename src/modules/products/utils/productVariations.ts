@@ -128,6 +128,8 @@ export const buildVariationProducts = (
       id: existing?.id || `pv-${crypto.randomUUID()}`,
       name: `${parent.name} — ${label}`,
       variationLabel: label,
+      // Attribute changes on the parent apply to existing children as well.
+      variationOptionName: parent.variationOptionName,
       variationParentId: parent.id,
       isVariationParent: false,
       barcode: code,
