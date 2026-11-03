@@ -954,7 +954,8 @@ export default function DashboardProducts({
   const [hasVariations, setHasVariations] = useState(false);
   const [variationOptionName, setVariationOptionName] = useState('Size / Volume');
   const emptyVariation = emptyVariationDraft;
-  const [variationDrafts, setVariationDrafts] = useState<VariationDraft[]>([emptyVariation(), emptyVariation()]);
+  // Variation cards appear only after Add Variation is tapped.
+  const [variationDrafts, setVariationDrafts] = useState<VariationDraft[]>([]);
   const [name, setName] = useState('');
   const [barcode, setBarcode] = useState('');
   const [category, setCategory] = useState(categoriesList[0] || '');
@@ -1707,7 +1708,7 @@ export default function DashboardProducts({
       setName('');
       setHasVariations(false);
       setVariationOptionName('Size / Volume');
-      setVariationDrafts([emptyVariation(), emptyVariation()]);
+      setVariationDrafts([]);
       setBrand('');
       setBarcode('');
       setCategory(categoriesList[0] || '');
@@ -3571,6 +3572,7 @@ export default function DashboardProducts({
 
                 {!isTabletWidthOrWider && pharmacyUnitHierarchySection}
 
+                {!hasVariations && (
                 <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
                 {/* Column 2: Barcode Actions & Stock level details */}
                 <div className={isDesktopAddProductLayout ? "space-y-4" : "bg-gradient-to-br from-amber-50/60 via-white to-white dark:from-slate-800 dark:via-slate-800 dark:to-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl p-4 space-y-4"}>
@@ -3826,6 +3828,7 @@ export default function DashboardProducts({
                   )}
                 </div>
                 </div>
+                )}
 
               </div>
 
@@ -5858,7 +5861,8 @@ export default function DashboardProducts({
                   </div>
                 </div>
 
-                {/* Stock levels block */}
+                {/* Stock and barcode are edited on each child SKU when variations are enabled. */}
+                {!editHasVariations && (
                 <div className={isDesktopAddProductLayout ? "space-y-4" : "bg-gradient-to-br from-amber-50/60 via-white to-white dark:from-slate-800 dark:via-slate-800 dark:to-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl p-4 space-y-4"}>
                   {isDesktopAddProductLayout ? (
                     <h5 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-200 pb-1.5 font-mono">2. Barcode & Stocking</h5>
@@ -5953,6 +5957,7 @@ export default function DashboardProducts({
                     <p className="text-2xl font-black text-teal-800 mt-1">{formatProductQuantity((editForm.shopStockQty ?? 0) + (editForm.storeStockQty ?? 0), editForm as Product)}</p>
                   </div>
                 </div>
+                )}
 
                 {/* Sells & Margin statistics */}
                 <div className={isDesktopAddProductLayout ? "space-y-4 font-mono" : "bg-gradient-to-br from-blue-50/60 via-white to-white dark:from-slate-800 dark:via-slate-800 dark:to-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl p-4 space-y-4 font-mono"}>
@@ -6452,7 +6457,7 @@ export default function DashboardProducts({
                   cannotDisable={isVariationParent(editingProduct)}
                   onEnabledChange={next => {
                     setEditHasVariations(next);
-                    if (next && editVariationDrafts.length === 0) setEditVariationDrafts([emptyVariation(), emptyVariation()]);
+                    // Keep the editor empty until the user taps Add Variation.
                   }}
                   attribute={editVariationOptionName}
                   onAttributeChange={setEditVariationOptionName}
