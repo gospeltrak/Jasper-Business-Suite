@@ -3129,3 +3129,13 @@ button:active:not(:disabled),
     grid-column: auto;
   }
 }
+
+
+/* Keep native-PWA variation cards short when Wholesale is switched OFF.
+   Desktop retains all its approved fields; enabling Wholesale reveals them
+   automatically on phone/tablet without losing any stored values. */
+@media (max-width: 1279px) {
+  #dashboard-scaffold .orvix-variation-prices-grid .orvix-variant-hide-inactive-wholesale {
+    display: none !important;
+  }
+}
