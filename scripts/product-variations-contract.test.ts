@@ -344,3 +344,25 @@ test('variation editor is inside the product descriptor flow and preserves nativ
   assert.match(editor, /variation-toggle-status/);
   assert.doesNotMatch(editor, /Size, flavor, color, material, formula or your own option\./);
 });
+
+test('add one variation at a time: single SKU allowed and zero-child parent rejected', () => {
+  const parent = makeVariationParent({ ...base, variationOptionName: 'Size / Volume' });
+  assert.match(validateVariations(parent, [], []), /Add at least one variation/);
+  const children = buildVariationProducts(parent, [drafts[0]], []);
+  assert.equal(children.length, 1);
+  assert.equal(children[0].variationParentId, parent.id);
+  assert.equal(children[0].shopStockQty, 30);
+});
+
+test('variation cards are user-triggered, removable before save and parent barcode-stock cards are hidden', async () => {
+  const source = await readFile(new URL('../src/modules/products/DashboardProducts.tsx', import.meta.url), 'utf8');
+  const editor = await readFile(new URL('../src/modules/products/ProductVariationEditor.tsx', import.meta.url), 'utf8');
+  assert.ok(source.includes('useState<VariationDraft[]>([])'));
+  assert.ok(source.includes('{!hasVariations && ('));
+  assert.ok(source.includes('{!editHasVariations && ('));
+  assert.ok(editor.includes('data-testid="add-variation-card"'));
+  assert.ok(editor.includes('removeUnsavedDraft(index)'));
+  assert.ok(editor.includes('disabled={!!draft.id}'));
+  assert.ok(!editor.includes('drafts.length > 2'));
+  assert.ok(!editor.includes('Variation Values'));
+});
