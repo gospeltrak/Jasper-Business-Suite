@@ -118,7 +118,9 @@ function TestWorkbench() {
     products: state.products.map(p=>({
       id:p.id,name:p.name,parent:p.variationParentId || null,
       isParent:!!p.isVariationParent,shop:p.shopStockQty,store:p.storeStockQty,
-      price:p.sellingPrice,barcode:p.barcode
+      price:p.sellingPrice,barcode:p.barcode,option:p.variationOptionName,
+      retail:p.sellInRetail,wholesale:p.sellInWholesale,wholesalePrice:p.wholesalePrice,
+      wholesaleMin:p.minWholesaleQty,wholesaleMax:p.maxWholesaleQty
     })),
     sales: state.sales.map(s=>({
       id:s.id,total:s.total,items:s.items.map(i=>({
