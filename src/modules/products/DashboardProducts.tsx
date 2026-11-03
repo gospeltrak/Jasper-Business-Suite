@@ -3294,9 +3294,9 @@ export default function DashboardProducts({
                 {/* Descriptor, image and its variation attributes stay together.
                     Native/PWA tablet uses the same responsive flow, no hover-only controls. */}
                 {/* Column 1: Core Title, Category and Daymode Compression Upload */}
-                <div className={isDesktopAddProductLayout ? "space-y-4" : "bg-gradient-to-br from-emerald-50/60 via-white to-white dark:from-slate-800 dark:via-slate-800 dark:to-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl p-4 space-y-4"}>
+                <div className={isDesktopAddProductLayout ? "grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-start" : "grid grid-cols-1 gap-4 rounded-2xl border border-slate-100 bg-gradient-to-br from-emerald-50/60 via-white to-white p-4 dark:border-slate-700 dark:from-slate-800 dark:via-slate-800 dark:to-slate-800 lg:grid-cols-2 lg:items-start"}>
                   {isDesktopAddProductLayout ? (
-                    <h5 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-1.5">1. Descriptor & Visual Assets</h5>
+                    <h5 className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 pb-1.5 lg:col-span-2">1. Descriptor & Visual Assets</h5>
                   ) : (
                     <div className="flex items-center space-x-2 pb-1.5 border-b border-slate-200/70">
                       <span className="w-6 h-6 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 text-white flex items-center justify-center flex-shrink-0 shadow-sm shadow-emerald-500/30">
@@ -3306,7 +3306,7 @@ export default function DashboardProducts({
                     </div>
                   )}
                   
-                  <div className="space-y-1">
+                  <div className="min-w-0 space-y-1 lg:col-start-1 lg:row-start-2">
                     <label className="text-[10px] font-bold text-slate-500 uppercase block">Product Name / Title</label>
                     <input 
                       type="text" 
@@ -3319,7 +3319,7 @@ export default function DashboardProducts({
                   </div>
 
                   <div
-                    className="grid gap-3"
+                    className="grid min-w-0 gap-3 lg:col-start-1 lg:row-start-3"
                     style={{
                       gridTemplateColumns: isDesktopAddProductLayout && isPharmacyLike
                         ? '1fr'
@@ -3465,7 +3465,7 @@ export default function DashboardProducts({
                     </div>
                   )}
 
-                  <div className={isDesktopAddProductLayout ? "space-y-4" : "grid gap-3"} style={isDesktopAddProductLayout ? undefined : { display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.75rem' }}>
+                  <div className={isDesktopAddProductLayout ? "min-w-0 space-y-4 lg:col-start-2 lg:row-start-2 lg:row-span-3" : "min-w-0 grid gap-3 lg:col-start-2 lg:row-start-2 lg:row-span-3"} style={isDesktopAddProductLayout ? undefined : { gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.75rem' }}>
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-slate-500 uppercase block">Product Brand</label>
                     <input 
@@ -3557,7 +3557,10 @@ export default function DashboardProducts({
                 {!isPharmacyLike && (
                   <ProductVariationEditor
                     enabled={hasVariations}
-                    onEnabledChange={setHasVariations}
+                    onEnabledChange={next => {
+                      setHasVariations(next);
+                      if (next) { setShopStockQty(0); setStoreStockQty(0); }
+                    }}
                     attribute={variationOptionName}
                     onAttributeChange={setVariationOptionName}
                     drafts={variationDrafts}
@@ -3620,6 +3623,7 @@ export default function DashboardProducts({
                         min="0"
                         step={isBulkProduct || allowScaleSelling || isPharmacyLike ? 0.001 : 1}
                         value={shopStockQty}
+                        disabled={hasVariations}
                         onChange={(e) => setShopStockQty(Math.max(0, parseFloat(e.target.value) || 0))}
                         className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-800 font-mono transition-all outline-none"
                       />
@@ -3631,6 +3635,7 @@ export default function DashboardProducts({
                         min="0"
                         step={isBulkProduct || allowScaleSelling || isPharmacyLike ? 0.001 : 1}
                         value={storeStockQty}
+                        disabled={hasVariations}
                         onChange={(e) => setStoreStockQty(Math.max(0, parseFloat(e.target.value) || 0))}
                         className="w-full bg-slate-50 border border-slate-200 focus:border-emerald-500 text-xs px-3 py-2.5 rounded-xl text-slate-800 font-mono transition-all outline-none"
                       />
@@ -3664,6 +3669,15 @@ export default function DashboardProducts({
                     </div>
                   )}
                   
+                  {/* Prices and quantity limits belong to each variation
+                      when variations are enabled, not the zero-stock parent. */}
+                  {hasVariations ? (
+                    <div className="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4 text-xs text-emerald-900">
+                      <h5 className="font-extrabold">Variation-based Pricing</h5>
+                      <p className="mt-1 leading-relaxed">Buying price, Retail / Wholesale switches, and wholesale minimum / maximum are configured per variation above. Parent product does not carry selling stock.</p>
+                    </div>
+                  ) : (
+                  <>
                   {/* Channel Toggles Section */}
                   <div className={isDesktopAddProductLayout ? "bg-slate-50 p-3 rounded-2xl border border-slate-200/60 space-y-2" : "bg-white p-3 rounded-2xl border border-slate-200/60 space-y-2"}>
                     <span className="text-[10px] font-bold text-slate-500 uppercase block tracking-wider font-mono">Active Selling Channels</span>
@@ -3807,6 +3821,8 @@ export default function DashboardProducts({
                         <span>{currency}{Math.round(wholesaleProfit).toLocaleString()}</span>
                       </div>
                     </div>
+                  )}
+                  </>
                   )}
                 </div>
                 </div>
