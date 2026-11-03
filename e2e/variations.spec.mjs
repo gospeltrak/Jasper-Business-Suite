@@ -64,7 +64,7 @@ test('Add Product registers two unique child variations exactly once and reload 
     await page.getByRole('button',{name:'Open new product form'}).click();
   }
   await page.getByPlaceholder('e.g. Pure Groundnut Oil (5 Litre)').fill('QA Milk');
-  await page.getByRole('checkbox',{name:/Product Variations/}).check();
+  await page.getByRole('switch',{name:'Product Variations'}).check();
   const rows = page.getByTestId('variation-create-row');
   await expect(rows).toHaveCount(2);
   await rows.nth(0).getByRole('textbox',{name:'Variation 1 value'}).fill('250ml');
@@ -119,8 +119,18 @@ test('native phone and tablet Variation UI has tagged types and independent whol
   } else {
     await page.getByRole('button',{name:'Open new product form'}).click();
   }
-  await page.getByRole('checkbox',{name:'Product Variations'}).check();
   const form = page.getByTestId('product-variations-editor');
+  const variationSwitch = form.getByRole('switch',{name:'Product Variations'});
+  await expect(variationSwitch).toBeVisible();
+  await expect(form.getByTestId('variation-toggle-status')).toHaveText('OFF');
+  await expect(form.getByText('Size, flavor, color, material, formula or your own option.')).toHaveCount(0);
+  await variationSwitch.check();
+  await expect(form.getByTestId('variation-toggle-status')).toHaveText('ON');
+  await expect(page.getByTestId('variation-create-row')).toHaveCount(2);
+  await variationSwitch.uncheck();
+  await expect(form.getByTestId('variation-toggle-status')).toHaveText('OFF');
+  await expect(page.getByTestId('variation-create-row')).toHaveCount(0);
+  await variationSwitch.check();
   await expect(form.getByRole('button',{name:'Flavor'})).toBeVisible();
   await form.getByRole('button',{name:'Flavor'}).click();
   await expect(form.getByRole('textbox',{name:'Variation Name'})).toHaveValue('Flavor');
@@ -130,6 +140,15 @@ test('native phone and tablet Variation UI has tagged types and independent whol
   await first.getByRole('spinbutton',{name:'Variation 1 min wholesale quantity'}).fill('6');
   await first.getByRole('spinbutton',{name:'Variation 1 max wholesale quantity'}).fill('24');
   await expect(first.getByRole('spinbutton',{name:'Variation 1 max wholesale quantity'})).toHaveValue('24');
+  // Regression for dashboard's global mobile safety CSS which previously
+  // collapsed all "grid-cols-*" UI to one column even on phone/tablet.
+  const priceCols = await first.getByTestId('variation-prices-grid').evaluate(el =>
+    getComputedStyle(el).gridTemplateColumns.split(' ').filter(Boolean).length);
+  expect(priceCols).toBe(page.viewportSize().width >= 1280 ? 6 : 2);
+  await first.getByRole('button',{name:'Edit Stock & Barcode'}).click();
+  const stockCols = await first.getByTestId('variation-stock-grid').evaluate(el =>
+    getComputedStyle(el).gridTemplateColumns.split(' ').filter(Boolean).length);
+  expect(stockCols).toBe(page.viewportSize().width >= 1280 ? 3 : 2);
   const sizing = await page.evaluate(() => ({
     documentWidth: document.documentElement.scrollWidth,
     viewportWidth: document.documentElement.clientWidth,

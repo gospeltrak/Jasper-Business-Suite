@@ -63,20 +63,28 @@ export default function ProductVariationEditor({
   return (
     <section data-testid="product-variations-editor"
       className="min-w-0 overflow-hidden rounded-2xl border border-emerald-100 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-800">
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-gradient-to-r from-emerald-50 via-white to-teal-50 px-4 py-3 dark:from-emerald-950/30 dark:via-slate-800 dark:to-slate-800">
-        <div className="flex min-w-0 items-start gap-2.5">
-          <div className="rounded-xl bg-emerald-100 p-2 text-emerald-700"><Layers3 size={17} /></div>
-          <div className="min-w-0">
-            <h4 className="text-sm font-extrabold text-slate-900 dark:text-white">Product Variations</h4>
-            <p className="mt-0.5 text-[11px] leading-snug text-slate-500 dark:text-slate-300">Size, flavor, color, material, formula or your own option.</p>
-          </div>
+      <div className="flex min-w-0 items-center justify-between gap-3 bg-gradient-to-r from-emerald-50 via-white to-teal-50 px-3 py-2.5 sm:px-4 dark:from-emerald-950/30 dark:via-slate-800 dark:to-slate-800">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700"><Layers3 size={16} /></span>
+          <h4 className="text-sm font-extrabold text-slate-900 dark:text-white">Product Variations</h4>
         </div>
-        <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 text-[11px] font-bold text-slate-700 dark:text-slate-100">
-          <input type="checkbox" className="h-4 w-4 accent-emerald-600" checked={enabled}
-            disabled={cannotDisable && enabled}
-            onChange={event => onEnabledChange(event.target.checked)}
-            aria-label="Product Variations" />
-          Enable Variations
+        <label className={`inline-flex min-h-10 shrink-0 items-center gap-2 ${cannotDisable && enabled ? 'cursor-not-allowed' : 'cursor-pointer'}`}>
+          <span data-testid="variation-toggle-status" className={`text-[11px] font-extrabold ${enabled ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'}`}>
+            {enabled ? 'ON' : 'OFF'}
+          </span>
+          <span className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors focus-within:ring-2 focus-within:ring-emerald-400 focus-within:ring-offset-2 ${enabled ? 'bg-emerald-600' : 'bg-slate-300 dark:bg-slate-600'}`}>
+            <input
+              type="checkbox"
+              role="switch"
+              aria-label="Product Variations"
+              aria-checked={enabled}
+              checked={enabled}
+              disabled={cannotDisable && enabled}
+              onChange={event => onEnabledChange(event.target.checked)}
+              className="absolute inset-0 z-10 h-full w-full cursor-inherit opacity-0"
+            />
+            <span aria-hidden="true" className={`pointer-events-none absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${enabled ? 'translate-x-5' : 'translate-x-0'}`} />
+          </span>
         </label>
       </div>
 
@@ -161,7 +169,7 @@ export default function ProductVariationEditor({
                     </button>}
                   </div>
                 </div>
-                <div className="grid min-w-0 grid-cols-2 gap-2.5 p-3 sm:grid-cols-3 lg:grid-cols-6">
+                <div data-testid="variation-prices-grid" className="orvix-variation-prices-grid min-w-0 p-3">
                   <label className={fieldLabel}>Variation
                     <input aria-label={`Variation ${index + 1} value`} value={draft.label}
                       onChange={event => change(index, { label: event.target.value })}
@@ -203,7 +211,7 @@ export default function ProductVariationEditor({
                     {detailsOpen ? <ChevronUp size={14}/> : <ChevronDown size={14}/>}
                     {detailsOpen ? 'Hide' : 'Edit'} Stock & Barcode
                   </button>
-                  {detailsOpen && <div className="grid grid-cols-1 gap-2.5 pb-3 sm:grid-cols-3">
+                  {detailsOpen && <div data-testid="variation-stock-grid" className="orvix-variation-stock-grid min-w-0 pb-3">
                     <label className={fieldLabel}>Shop Stock
                       <input type="number" aria-label={`Variation ${index + 1} shop stock`} min="0" step="0.001"
                         value={draft.shopStockQty} onChange={event => change(index, { shopStockQty: Number(event.target.value) })}
@@ -214,7 +222,7 @@ export default function ProductVariationEditor({
                         value={draft.storeStockQty} onChange={event => change(index, { storeStockQty: Number(event.target.value) })}
                         className={compactInput}/>
                     </label>
-                    <label className={fieldLabel}>Barcode / SKU
+                    <label className={fieldLabel + ' orvix-variation-barcode-field'}>Barcode / SKU
                       <input type="text" aria-label={`Variation ${index + 1} barcode`} value={draft.barcode}
                         onChange={event => change(index, { barcode: event.target.value })} placeholder="Generate automatically"
                         className={compactInput}/>
