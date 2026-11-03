@@ -34,10 +34,25 @@ jobs:
         run: npm install --no-save --package-lock=false @playwright/test@1.56.1
       - name: Install isolated Chromium browser
         run: npx playwright install --with-deps chromium
+      - name: Diagnose isolated Vite test server
+        run: |
+          npx vite --host 127.0.0.1 --port 4173 --strictPort > /tmp/orvix-vite.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error http://127.0.0.1:4173/e2e/variations.html -o /tmp/orvix-e2e-page.html; then
+              echo "Isolated fixture served successfully"
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/orvix-vite.log
+          exit 1
       - name: Browser E2E against local fixture (no production credentials)
         run: npx playwright test --config=e2e/playwright.config.mjs
         env:
           CI: 'true'
+          DEBUG: 'pw:webserver'
       - name: Attach failure evidence
         if: failure()
         uses: actions/upload-artifact@v4
