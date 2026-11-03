@@ -3,7 +3,7 @@ import test from 'node:test';
 import { readFile } from 'node:fs/promises';
 import {
   buildVariationProducts, getPosVariationCards, getProductVariations,
-  makeVariationParent, validateVariations,
+  makeVariationParent, validateVariations, getWholesaleQuantityViolation,
 } from '../src/modules/products/utils/productVariations';
 import {
   createProductCatalogueBackup, prepareBackedUpProductsForImport,
@@ -287,4 +287,49 @@ test('invoice and receipt totals use the selected variation price and immutable 
   // Editing the parent or the child later must not change a historical sale.
   assert.equal(getSaleItemLineTotal(snapshot), 14000);
   assert.equal(getSaleItemUnitCost(snapshot, { costPrice: 100 }), 5000);
+});
+
+test('each variation has independent Retail/Wholesale flags, buying/selling prices and min/max limits', () => {
+  const parent = makeVariationParent({ ...base, variationOptionName: 'Size / Volume', sellInWholesale: true });
+  const variants = buildVariationProducts(parent, [
+    { ...drafts[0], label: '350ml', sellInRetail: true, sellInWholesale: true, wholesalePrice: 7500, minWholesaleQty: 6, maxWholesaleQty: 18 },
+    { ...drafts[1], label: '1 Litre', sellInRetail: false, sellInWholesale: true, wholesalePrice: 6300, minWholesaleQty: 4 },
+  ], []);
+  assert.equal(variants[0].variationOptionName, 'Size / Volume');
+  assert.equal(variants[0].costPrice, 6000);
+  assert.equal(variants[0].sellingPrice, 8500);
+  assert.equal(variants[0].wholesalePrice, 7500);
+  assert.equal(variants[0].minWholesaleQty, 6);
+  assert.equal(variants[0].maxWholesaleQty, 18);
+  assert.equal(variants[1].sellInRetail, false);
+  assert.equal(variants[1].sellInWholesale, true);
+  assert.equal(variants[1].maxWholesaleQty, undefined);
+  assert.match(getWholesaleQuantityViolation(variants[0], 5) || '', /minimum/);
+  assert.equal(getWholesaleQuantityViolation(variants[0], 6), null);
+  assert.equal(getWholesaleQuantityViolation(variants[0], 18), null);
+  assert.match(getWholesaleQuantityViolation(variants[0], 19) || '', /maximum/);
+  assert.equal(getWholesaleQuantityViolation(variants[1], 100), null);
+  // Existing non-variation wholesale catalog remains backward-compatible.
+  assert.equal(getWholesaleQuantityViolation({ ...base, sellInWholesale: true, minWholesaleQty: 10 }, 1), null);
+});
+
+test('invalid variation wholesale bounds and disabled channels fail before creating stock rows', () => {
+  const parent = makeVariationParent(base);
+  const onlyWholesale = { ...drafts[0], sellInRetail: false, sellInWholesale: true, wholesalePrice: 7000, minWholesaleQty: 6, maxWholesaleQty: 5 };
+  assert.throws(() => buildVariationProducts(parent, [onlyWholesale, drafts[1]], []), /Maximum wholesale quantity/);
+  assert.throws(() => buildVariationProducts(parent, [{ ...drafts[0], sellInRetail: false, sellInWholesale: false }, drafts[1]], []), /Enable Retail or Wholesale/);
+  assert.throws(() => buildVariationProducts(parent, [{ ...onlyWholesale, maxWholesaleQty: 8, minWholesaleQty: 0 }, drafts[1]], []), /Minimum wholesale quantity/);
+});
+
+test('variation editor is inside the product descriptor flow and preserves native PWA tap controls', async () => {
+  const source = await readFile(new URL('../src/modules/products/DashboardProducts.tsx', import.meta.url), 'utf8');
+  const editor = await readFile(new URL('../src/modules/products/ProductVariationEditor.tsx', import.meta.url), 'utf8');
+  const descriptorStart = source.indexOf('1. Descriptor & Visual Assets');
+  const imageStart = source.indexOf('Product Image', descriptorStart);
+  const variationStart = source.indexOf('<ProductVariationEditor', imageStart);
+  const barcodeStart = source.indexOf('2. Barcode Controls & Stock', variationStart);
+  assert.ok(descriptorStart >= 0 && imageStart > descriptorStart && variationStart > imageStart && barcodeStart > variationStart);
+  assert.match(editor, /Size \/ Volume.*Flavor.*Color.*Material.*Formula.*Custom/);
+  assert.match(editor, /min-h-10/);
+  assert.match(editor, /sm:grid-cols-3 lg:grid-cols-6/);
 });

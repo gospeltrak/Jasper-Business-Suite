@@ -208,6 +208,8 @@ export interface Product {
   variationParentId?: string;
   /** Human-readable option such as "Fresh Rolls" or "Classic". */
   variationLabel?: string;
+  /** Display attribute for this product family, e.g. Size / Volume, Flavor or Formula. */
+  variationOptionName?: string;
   sku: string;
   barcode: string;
   category: string;
@@ -245,6 +247,8 @@ export interface Product {
   sellInWholesale?: boolean;
   wholesalePrice?: number;
   minWholesaleQty?: number;
+  /** Optional cap on a single wholesale sale for this SKU; undefined means unlimited. */
+  maxWholesaleQty?: number;
   
   // Bulk-to-Unit Selling feature fields
   isBulkProduct?: boolean;

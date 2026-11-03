@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Tenant, Product, Sale, SaleItem, SystemSettings } from '../../types';
-import { getPosVariationCards, getProductVariations, isVariationParent } from '../products/utils/productVariations';
+import { getWholesaleQuantityViolation, getPosVariationCards, getProductVariations, isVariationParent } from '../products/utils/productVariations';
 import {
   calculateWeightedAverageCost,
   deductBatchesForSale,
@@ -665,6 +665,10 @@ export default function DashboardPOS({
     }
 
     const shopQty = getPosShopStock(prod);
+    if (sellingChannel === 'wholesale' && prod.variationParentId && shopQty < (prod.minWholesaleQty ?? 10)) {
+      setPosWarning(getWholesaleQuantityViolation(prod, shopQty) || 'Insufficient shop stock for wholesale minimum.');
+      return 'out-of-stock';
+    }
     if (shopQty <= 0) {
       setPosWarning(posBarcodeMessage('out-of-stock', receiptLanguage, prod.name));
       return 'out-of-stock';
@@ -693,6 +697,11 @@ export default function DashboardPOS({
           setPosWarning(posBarcodeMessage('out-of-stock', receiptLanguage, prod.name));
           return prev;
         }
+        const quantityWarning = sellingChannel === 'wholesale' && getWholesaleQuantityViolation(prod, nextQty);
+        if (quantityWarning) {
+          setPosWarning(quantityWarning);
+          return prev;
+        }
         outcome = 'added';
         return prev.map(i => i.product.id === prod.id ? { ...i, qty: nextQty } : i);
       }
@@ -717,6 +726,11 @@ export default function DashboardPOS({
         setPosWarning(posBarcodeMessage('out-of-stock', receiptLanguage, prod.name));
         return prev;
       }
+      const quantityWarning = sellingChannel === 'wholesale' && getWholesaleQuantityViolation(prod, initialQty);
+      if (quantityWarning) {
+        setPosWarning(quantityWarning);
+        return prev;
+      }
       outcome = 'added';
       return [...prev, {
         product: prod,
@@ -738,7 +752,9 @@ export default function DashboardPOS({
         if (i.product.id === id) {
           const nextQty = i.qty + delta;
           if (nextQty <= 0) return null;
-          
+          const quantityWarning = sellingChannel === 'wholesale' && getWholesaleQuantityViolation(i.product, nextQty);
+          if (quantityWarning) { setPosWarning(quantityWarning); return i; }
+
           const shopQty = i.product.shopStockQty ?? 0;
           const boxWeight = getCartStockWeight(i);
 
@@ -751,7 +767,7 @@ export default function DashboardPOS({
         return i;
       }).filter(Boolean) as any;
     });
-  }, [getCartStockWeight]);
+  }, [getCartStockWeight, sellingChannel]);
 
   const updateCartQtyDirect = (id: string, newQty: number) => {
     if (newQty <= 0) {
@@ -761,6 +777,8 @@ export default function DashboardPOS({
     setCart(prev => {
       return prev.map(i => {
         if (i.product.id === id) {
+          const quantityWarning = sellingChannel === 'wholesale' && getWholesaleQuantityViolation(i.product, newQty);
+          if (quantityWarning) { setPosWarning(quantityWarning); return i; }
           const shopQty = i.product.shopStockQty ?? 0;
           const boxWeight = getCartStockWeight(i);
 
@@ -1271,6 +1289,10 @@ export default function DashboardPOS({
   // Checkout Execution
   const triggerCheckout = () => {
     if (cart.length === 0) return;
+    if (sellingChannel === 'wholesale') {
+      const invalidLine = cart.map(item => getWholesaleQuantityViolation(item.product, item.qty)).find(Boolean);
+      if (invalidLine) { setPosWarning(invalidLine); return; }
+    }
 
     setPaymentStatus('idle');
     setCheckoutError(null);
@@ -1325,6 +1347,10 @@ export default function DashboardPOS({
   };
 
   const finalizeSale = async () => {
+    if (sellingChannel === 'wholesale') {
+      const invalidLine = cart.map(item => getWholesaleQuantityViolation(item.product, item.qty)).find(Boolean);
+      if (invalidLine) throw new Error(invalidLine);
+    }
     const pendingBatchUpdates: Record<string, import('../../types').ProductBatch[]> = {};
 
     // Generate sale item models

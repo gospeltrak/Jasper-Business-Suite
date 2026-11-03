@@ -67,16 +67,18 @@ test('Add Product registers two unique child variations exactly once and reload 
   await page.getByRole('checkbox',{name:/Product Variations/}).check();
   const rows = page.getByTestId('variation-create-row');
   await expect(rows).toHaveCount(2);
-  await rows.nth(0).locator('input').nth(0).fill('250ml');
-  await rows.nth(0).locator('input').nth(1).fill('200');
-  await rows.nth(0).locator('input').nth(2).fill('500');
-  await rows.nth(0).locator('input').nth(3).fill('6');
-  await rows.nth(0).locator('input').nth(5).fill('6155555000001');
-  await rows.nth(1).locator('input').nth(0).fill('1 Litre');
-  await rows.nth(1).locator('input').nth(1).fill('600');
-  await rows.nth(1).locator('input').nth(2).fill('1200');
-  await rows.nth(1).locator('input').nth(3).fill('4');
-  await rows.nth(1).locator('input').nth(5).fill('6155555000002');
+  await rows.nth(0).getByRole('textbox',{name:'Variation 1 value'}).fill('250ml');
+  await rows.nth(0).getByRole('spinbutton',{name:'Variation 1 buying price'}).fill('200');
+  await rows.nth(0).getByRole('spinbutton',{name:'Variation 1 retail price'}).fill('500');
+  await rows.nth(0).getByRole('button',{name:'Edit Stock & Barcode'}).click();
+  await rows.nth(0).getByRole('spinbutton',{name:'Variation 1 shop stock'}).fill('6');
+  await rows.nth(0).getByRole('textbox',{name:'Variation 1 barcode'}).fill('6155555000001');
+  await rows.nth(1).getByRole('textbox',{name:'Variation 2 value'}).fill('1 Litre');
+  await rows.nth(1).getByRole('spinbutton',{name:'Variation 2 buying price'}).fill('600');
+  await rows.nth(1).getByRole('spinbutton',{name:'Variation 2 retail price'}).fill('1200');
+  await rows.nth(1).getByRole('button',{name:'Edit Stock & Barcode'}).click();
+  await rows.nth(1).getByRole('spinbutton',{name:'Variation 2 shop stock'}).fill('4');
+  await rows.nth(1).getByRole('textbox',{name:'Variation 2 barcode'}).fill('6155555000002');
 
   const submit = page.locator('form button[type="submit"]').last();
   await submit.dispatchEvent('click');
@@ -108,4 +110,54 @@ test('catalog retains compact variation dropdown without horizontal overflow', a
   }));
   expect(sizing.documentWidth).toBeLessThanOrEqual(sizing.viewportWidth+2);
   expect(sizing.columns).toBe(3);
+});
+
+test('native phone and tablet Variation UI has tagged types and independent wholesale price/min/max', async ({page}) => {
+  await page.getByTestId('open-products').click();
+  if (page.viewportSize().width >= 1280) {
+    await page.getByRole('button',{name:'Add Product',exact:true}).click();
+  } else {
+    await page.getByRole('button',{name:'Open new product form'}).click();
+  }
+  await page.getByRole('checkbox',{name:'Product Variations'}).check();
+  const form = page.getByTestId('product-variations-editor');
+  await expect(form.getByRole('button',{name:'Flavor'})).toBeVisible();
+  await form.getByRole('button',{name:'Flavor'}).click();
+  await expect(form.getByRole('textbox',{name:'Variation Name'})).toHaveValue('Flavor');
+  const first = page.getByTestId('variation-create-row').first();
+  await first.getByRole('checkbox',{name:'Sell Wholesale 1'}).check();
+  await first.getByRole('spinbutton',{name:'Variation 1 wholesale price'}).fill('400');
+  await first.getByRole('spinbutton',{name:'Variation 1 min wholesale quantity'}).fill('6');
+  await first.getByRole('spinbutton',{name:'Variation 1 max wholesale quantity'}).fill('24');
+  await expect(first.getByRole('spinbutton',{name:'Variation 1 max wholesale quantity'})).toHaveValue('24');
+  const sizing = await page.evaluate(() => ({
+    documentWidth: document.documentElement.scrollWidth,
+    viewportWidth: document.documentElement.clientWidth,
+  }));
+  expect(sizing.documentWidth).toBeLessThanOrEqual(sizing.viewportWidth + 2);
+
+  await page.getByPlaceholder('e.g. Pure Groundnut Oil (5 Litre)').fill('QA Flavored Drink');
+  await first.getByRole('textbox',{name:'Variation 1 value'}).fill('Vanilla');
+  await first.getByRole('spinbutton',{name:'Variation 1 buying price'}).fill('200');
+  await first.getByRole('spinbutton',{name:'Variation 1 retail price'}).fill('500');
+  const second = page.getByTestId('variation-create-row').nth(1);
+  await second.getByRole('textbox',{name:'Variation 2 value'}).fill('Orange');
+  await second.getByRole('spinbutton',{name:'Variation 2 buying price'}).fill('300');
+  await second.getByRole('spinbutton',{name:'Variation 2 retail price'}).fill('800');
+  await page.locator('form button[type="submit"]').last().click();
+  await expect.poll(async () => (await ledger(page)).products.filter(p => p.name.startsWith('QA Flavored Drink')).length).toBe(3);
+  let state = await ledger(page);
+  const newlyCreated = state.products.filter(p => p.name.startsWith('QA Flavored Drink'));
+  const parent = newlyCreated.find(p => p.isParent);
+  expect(parent?.option).toBe('Flavor');
+  const vanilla = newlyCreated.find(p => p.parent === parent.id && p.name.endsWith('Vanilla'));
+  expect(vanilla).toMatchObject({
+    option:'Flavor',retail:true,wholesale:true,wholesalePrice:400,
+    wholesaleMin:6,wholesaleMax:24,price:500
+  });
+  await page.reload();
+  state = await ledger(page);
+  expect(state.products.find(p => p.id === vanilla.id)).toMatchObject({
+    option:'Flavor',wholesale:true,wholesaleMin:6,wholesaleMax:24
+  });
 });
