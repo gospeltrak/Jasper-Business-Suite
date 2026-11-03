@@ -133,7 +133,11 @@ test('native phone and tablet Variation UI has tagged types and independent whol
   await variationSwitch.check();
   await expect(form.getByRole('button',{name:'Flavor'})).toBeVisible();
   await form.getByRole('button',{name:'Flavor'}).click();
-  await expect(form.getByRole('textbox',{name:'Variation Value'})).toHaveValue('Flavor');
+  await expect(form.getByRole('textbox',{name:'Variation Name'})).toHaveValue('Flavor');
+  // Redundant inline Value-entry control was removed. Values live in the SKU rows.
+  await expect(form.getByText('Variation Values',{exact:true})).toHaveCount(0);
+  await expect(form.locator('#orvix-add-variation-value')).toHaveCount(0);
+  await expect(form.getByRole('textbox',{name:'Variation 1 value'})).toBeVisible();
   const first = page.getByTestId('variation-create-row').first();
   await first.getByRole('checkbox',{name:'Sell Wholesale 1'}).check();
   await first.getByRole('spinbutton',{name:'Variation 1 wholesale price'}).fill('400');
