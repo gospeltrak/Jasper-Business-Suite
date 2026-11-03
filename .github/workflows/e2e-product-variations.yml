@@ -1,0 +1,49 @@
+name: Orvix variations browser E2E
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'e2e/**'
+      - 'src/modules/pos/**'
+      - 'src/modules/products/**'
+      - 'src/modules/sales/utils/**'
+      - 'src/index.css'
+      - '.github/workflows/e2e-product-variations.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  isolated-browser-e2e:
+    name: Browser E2E / local fixtures only
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Install test-only Playwright runner
+        run: npm install --no-save --package-lock=false @playwright/test@1.56.1
+      - name: Install isolated Chromium browser
+        run: npx playwright install --with-deps chromium
+      - name: Browser E2E against local fixture (no production credentials)
+        run: npx playwright test --config=e2e/playwright.config.mjs
+        env:
+          CI: 'true'
+      - name: Attach failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: orvix-variations-e2e-failures
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
