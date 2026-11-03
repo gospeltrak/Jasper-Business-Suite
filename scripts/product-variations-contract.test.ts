@@ -331,5 +331,16 @@ test('variation editor is inside the product descriptor flow and preserves nativ
   assert.ok(descriptorStart >= 0 && imageStart > descriptorStart && variationStart > imageStart && barcodeStart > variationStart);
   assert.match(editor, /Size \/ Volume.*Flavor.*Color.*Material.*Formula.*Custom/);
   assert.match(editor, /min-h-10/);
-  assert.match(editor, /sm:grid-cols-3 lg:grid-cols-6/);
+  const css = await readFile(new URL('../src/index.css', import.meta.url), 'utf8');
+  // The dashboard's global mobile grid rule forcibly collapses grid-cols-*.
+  // Dedicated scoped classes keep the compact UI at two columns through tablet.
+  assert.match(editor, /data-testid="variation-prices-grid"/);
+  assert.match(editor, /data-testid="variation-stock-grid"/);
+  assert.match(css, /#dashboard-scaffold \.orvix-variation-prices-grid/);
+  assert.match(css, /grid-template-columns: repeat\(2, minmax\(0, 1fr\)\) !important/);
+  assert.match(css, /@media \(min-width: 1280px\)/);
+  assert.match(css, /grid-template-columns: repeat\(6, minmax\(0, 1fr\)\) !important/);
+  assert.match(editor, /role="switch"/);
+  assert.match(editor, /variation-toggle-status/);
+  assert.doesNotMatch(editor, /Size, flavor, color, material, formula or your own option\./);
 });
