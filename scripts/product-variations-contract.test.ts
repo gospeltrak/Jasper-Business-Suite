@@ -14,6 +14,8 @@ import {
 import type { Product, Sale } from '../src/types';
 import { reverseSaleInventory } from '../src/modules/sales/utils/saleSync';
 import { scopeProductsForBranch } from '../src/modules/branches/branchScope';
+import { findBarcodeProduct, fitsPosShopStock, getPosShopStock } from '../src/shared/utils/barcodeScan';
+import { getSaleItemLineTotal, getSaleItemUnitCost } from '../src/modules/sales/utils/saleItemTotals';
 
 const base: Product = {
   id: 'domestic', name: 'Domestic', sku: '61500001', barcode: '61500001',
@@ -247,4 +249,42 @@ test('product registration blocks a second submit while the first SKU bundle is 
   assert.match(create, /productCreationInFlightRef\.current = true/);
   assert.match(create, /finally \{[\s\S]*?productCreationInFlightRef\.current = false/);
   assert.match(source, /disabled=\{formSuccess \|\| isProcessingImage \|\| isCreatingProduct\}/);
+});
+
+test('barcode scanning resolves the exact variation SKU and never substitutes warehouse stock', () => {
+  const { parent, variants } = make();
+  const catalogue = [parent, ...variants];
+  assert.equal(findBarcodeProduct(catalogue, variants[1].barcode)?.id, variants[1].id);
+  assert.equal(findBarcodeProduct(catalogue, variants[0].sku.toLowerCase())?.id, variants[0].id);
+  assert.equal(findBarcodeProduct(catalogue, parent.barcode)?.isVariationParent, true);
+  assert.equal(findBarcodeProduct(catalogue, 'unregistered'), null);
+
+  // A child with zero shop stock cannot be scanned into a POS sale even if
+  // the same SKU has units in the warehouse or another branch.
+  const backroomOnly = { ...variants[1], shopStockQty: 0, storeStockQty: 25, stockQty: 25 };
+  assert.equal(getPosShopStock(backroomOnly), 0);
+  assert.equal(fitsPosShopStock(backroomOnly, 1), false);
+  assert.equal(fitsPosShopStock(variants[0], 3), true);
+  assert.equal(fitsPosShopStock({ ...variants[0], shopStockQty: 2 }, 3), false);
+});
+
+test('invoice and receipt totals use the selected variation price and immutable sale-time cost', () => {
+  const { parent, variants } = make();
+  const soldChild = variants[1];
+  const snapshot = {
+    productId: soldChild.id,
+    productName: soldChild.name,
+    variationParentId: parent.id,
+    variationLabel: soldChild.variationLabel,
+    qty: 2,
+    price: soldChild.sellingPrice,
+    costPriceAtSale: soldChild.costPrice,
+    discount: 0,
+    discountType: 'percent' as const,
+  };
+  assert.equal(getSaleItemLineTotal(snapshot), 14000);
+  assert.equal(getSaleItemUnitCost(snapshot, { costPrice: 99999 }), 5000);
+  // Editing the parent or the child later must not change a historical sale.
+  assert.equal(getSaleItemLineTotal(snapshot), 14000);
+  assert.equal(getSaleItemUnitCost(snapshot, { costPrice: 100 }), 5000);
 });
