@@ -25,6 +25,9 @@ export interface VariationDraft {
 
 /** Validated for each selected SKU, not for a parent product or whole basket. */
 export const getWholesaleQuantityViolation = (product: Product, quantity: number): string | null => {
+  // Legacy ordinary products keep their established min-qty price threshold.
+  // Only variant SKUs (or products explicitly given a maximum) get a hard cap.
+  if (!product.variationParentId && product.maxWholesaleQty === undefined) return null;
   const minimum = product.minWholesaleQty ?? 10;
   const maximum = product.maxWholesaleQty;
   if (!Number.isFinite(quantity) || quantity < minimum) {
