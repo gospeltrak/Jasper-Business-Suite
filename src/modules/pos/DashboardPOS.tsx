@@ -767,7 +767,7 @@ export default function DashboardPOS({
         return i;
       }).filter(Boolean) as any;
     });
-  }, [getCartStockWeight]);
+  }, [getCartStockWeight, sellingChannel]);
 
   const updateCartQtyDirect = (id: string, newQty: number) => {
     if (newQty <= 0) {
