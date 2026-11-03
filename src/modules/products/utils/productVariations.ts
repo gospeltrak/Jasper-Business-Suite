@@ -23,6 +23,19 @@ export interface VariationDraft {
   maxWholesaleQty?: number;
 }
 
+/** Validated for each selected SKU, not for a parent product or whole basket. */
+export const getWholesaleQuantityViolation = (product: Product, quantity: number): string | null => {
+  const minimum = product.minWholesaleQty ?? 10;
+  const maximum = product.maxWholesaleQty;
+  if (!Number.isFinite(quantity) || quantity < minimum) {
+    return `Wholesale minimum for "${product.name}" is ${minimum} units.`;
+  }
+  if (maximum !== undefined && quantity > maximum) {
+    return `Wholesale maximum for "${product.name}" is ${maximum} units.`;
+  }
+  return null;
+};
+
 export const isVariationChild = (product: Product) => Boolean(product.variationParentId);
 export const isVariationParent = (product: Product) => product.isVariationParent === true;
 export const getProductVariations = (products: readonly Product[], parentId: string): Product[] =>
