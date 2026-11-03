@@ -35,7 +35,7 @@ const qtyValue = (raw: string) => raw === '' ? undefined : Number(raw);
 
 export default function ProductVariationEditor({
   enabled, onEnabledChange, attribute, onAttributeChange, drafts, onDraftsChange,
-  currency = 'TZS', editing = false, cannotDisable = false,
+  editing = false, cannotDisable = false,
 }: ProductVariationEditorProps) {
   const [expandedRows, setExpandedRows] = useState<number[]>([]);
 
@@ -84,7 +84,7 @@ export default function ProductVariationEditor({
         </label>
       </div>
 
-      {enabled && <div className="space-y-4 px-3 py-4 sm:px-4">
+      {enabled && <div className="space-y-3 px-2.5 py-3 sm:px-3">
         <div className="space-y-2">
           <p className="text-[11px] font-bold text-slate-800 dark:text-white">Variation Attributes (Tags)</p>
           <div role="group" aria-label="Variation Attributes" className="flex flex-wrap gap-2">
