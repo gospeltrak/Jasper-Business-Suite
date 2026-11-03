@@ -37,23 +37,10 @@ export default function ProductVariationEditor({
   enabled, onEnabledChange, attribute, onAttributeChange, drafts, onDraftsChange,
   currency = 'TZS', editing = false, cannotDisable = false,
 }: ProductVariationEditorProps) {
-  const [newValue, setNewValue] = useState('');
   const [expandedRows, setExpandedRows] = useState<number[]>([]);
 
   const change = (index: number, patch: Partial<VariationDraft>) =>
     onDraftsChange(current => current.map((draft, i) => i === index ? { ...draft, ...patch } : draft));
-
-  const addValue = () => {
-    const value = newValue.trim();
-    if (!value || drafts.some(item => item.label.trim().toLocaleLowerCase() === value.toLocaleLowerCase())) return;
-    onDraftsChange(current => {
-      const emptyIndex = current.findIndex(row => !row.label.trim());
-      return emptyIndex >= 0
-        ? current.map((row, i) => i === emptyIndex ? { ...row, label: value } : row)
-        : [...current, { ...emptyVariationDraft(), label: value }];
-    });
-    setNewValue('');
-  };
 
   const toggleDetails = (index: number) =>
     setExpandedRows(current => current.includes(index) ? current.filter(i => i !== index) : [...current, index]);
@@ -103,29 +90,11 @@ export default function ProductVariationEditor({
               </button>;
             })}
           </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <label className={fieldLabel}>Variation Value
-              <input type="text" aria-label="Variation Value" className={compactInput}
-                value={attribute} onChange={event => onAttributeChange(event.target.value)}
-                placeholder="e.g. Size / Volume" maxLength={48} />
-            </label>
-            <div className="min-w-0 space-y-1">
-              <label className={fieldLabel} htmlFor="orvix-add-variation-value">Variation Values</label>
-              <div className="flex min-w-0 gap-2">
-                <input id="orvix-add-variation-value" className={compactInput} value={newValue}
-                  onChange={event => setNewValue(event.target.value)} placeholder="e.g. 350ml, Vanilla, Blue"
-                  onKeyDown={event => { if (event.key === 'Enter') { event.preventDefault(); addValue(); } }} />
-                <button type="button" onClick={addValue} disabled={!newValue.trim()}
-                  className="inline-flex min-h-10 shrink-0 items-center gap-1 rounded-xl border border-emerald-200 px-3 text-[11px] font-bold text-emerald-700 disabled:opacity-40">
-                  <Plus size={14} /> Add
-                </button>
-              </div>
-            </div>
-          </div>
-          {drafts.some(item => item.label.trim()) && <div aria-label="Selected variation values" className="flex flex-wrap gap-1.5">
-            {drafts.filter(item => item.label.trim()).map((item, index) =>
-              <span key={item.id || index} className="rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-[10px] font-semibold text-emerald-800">{item.label}</span>)}
-          </div>}
+          <label className={fieldLabel}>Variation Name
+            <input type="text" aria-label="Variation Name" className={compactInput}
+              value={attribute} onChange={event => onAttributeChange(event.target.value)}
+              placeholder="e.g. Size / Volume" maxLength={48} />
+          </label>
         </div>
 
         <div className="border-t border-slate-100 pt-3 dark:border-slate-700">
