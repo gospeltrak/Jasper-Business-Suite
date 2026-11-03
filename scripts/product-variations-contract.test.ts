@@ -309,6 +309,8 @@ test('each variation has independent Retail/Wholesale flags, buying/selling pric
   assert.equal(getWholesaleQuantityViolation(variants[0], 18), null);
   assert.match(getWholesaleQuantityViolation(variants[0], 19) || '', /maximum/);
   assert.equal(getWholesaleQuantityViolation(variants[1], 100), null);
+  // Existing non-variation wholesale catalog remains backward-compatible.
+  assert.equal(getWholesaleQuantityViolation({ ...base, sellInWholesale: true, minWholesaleQty: 10 }, 1), null);
 });
 
 test('invalid variation wholesale bounds and disabled channels fail before creating stock rows', () => {
