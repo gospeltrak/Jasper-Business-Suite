@@ -53,8 +53,9 @@ export const validateVariations = (
   catalogue: readonly Product[],
   previousVariants: readonly Product[] = [],
 ): string | null => {
-  if (drafts.length < 2 && previousVariants.length === 0) return 'Enter at least two variations.';
-  if (drafts.length === 0) return 'Enter at least one variation.';
+  // Users add one card at a time. One saved variation is a valid family;
+  // prevent zero-child parents, which cannot be sold or tracked.
+  if (drafts.length === 0) return 'Add at least one variation before saving.';
   const names = new Set<string>();
   const draftProducts = drafts.map((row, index) => {
     const label = row.label.trim();
