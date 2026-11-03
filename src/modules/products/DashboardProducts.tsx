@@ -3091,6 +3091,8 @@ export default function DashboardProducts({
                 </div>
                 {/* Add product FAB */}
                 <button
+                  type="button"
+                  aria-label={isOpen ? 'Close new product form' : 'Open new product form'}
                   onClick={() => setIsOpen(!isOpen)}
                   className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 active:scale-95"
                   style={{ background: isOpen ? '#ef4444' : '#22c55e' }}
