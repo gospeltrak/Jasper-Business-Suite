@@ -3096,3 +3096,36 @@ button:active:not(:disabled),
   outline: 2px solid #10b981;
   outline-offset: 2px;
 }
+
+
+/* Orvix Product Variations: native/PWA phone and tablet fields must be two
+   columns. The dashboard's generic mobile safety net collapses classes with
+   "grid-cols-*" to a single column, so these scoped grids intentionally use
+   dedicated names. All unrelated dashboard grids remain untouched. */
+#dashboard-scaffold .orvix-variation-prices-grid,
+#dashboard-scaffold .orvix-variation-stock-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 0.625rem;
+  align-items: start;
+  min-width: 0;
+}
+#dashboard-scaffold .orvix-variation-prices-grid > *,
+#dashboard-scaffold .orvix-variation-stock-grid > * {
+  min-width: 0;
+}
+#dashboard-scaffold .orvix-variation-stock-grid .orvix-variation-barcode-field {
+  grid-column: 1 / -1;
+}
+@media (min-width: 1280px) {
+  /* Keep the approved desktop layout unchanged. */
+  #dashboard-scaffold .orvix-variation-prices-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+  }
+  #dashboard-scaffold .orvix-variation-stock-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+  #dashboard-scaffold .orvix-variation-stock-grid .orvix-variation-barcode-field {
+    grid-column: auto;
+  }
+}
