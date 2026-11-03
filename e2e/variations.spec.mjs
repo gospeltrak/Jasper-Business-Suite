@@ -154,7 +154,14 @@ test('native phone and tablet Variation UI has tagged types and independent whol
   await form.getByTestId('add-variation-card').click();
   await expect(rows).toHaveCount(1);
   const first = rows.first();
+  const firstWholesale = first.locator('input[aria-label="Variation 1 wholesale price"]');
+  if (page.viewportSize().width < 1280) {
+    await expect(firstWholesale).toBeHidden();
+  } else {
+    await expect(firstWholesale).toBeVisible();
+  }
   await first.getByRole('checkbox',{name:'Sell Wholesale 1'}).check();
+  await expect(firstWholesale).toBeVisible();
   await first.getByRole('spinbutton',{name:'Variation 1 wholesale price'}).fill('400');
   await first.getByRole('spinbutton',{name:'Variation 1 min wholesale quantity'}).fill('6');
   await first.getByRole('spinbutton',{name:'Variation 1 max wholesale quantity'}).fill('24');
