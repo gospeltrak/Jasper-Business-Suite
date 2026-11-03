@@ -3,10 +3,10 @@ import { defineConfig, devices } from '@playwright/test';
 export default defineConfig({
   testDir: './',
   testMatch: /variations\.spec\.mjs$/,
-  timeout: 45000,
+  timeout: 25000,
   expect: { timeout: 10000 },
   workers: 1,
-  retries: process.env.CI ? 1 : 0,
+  retries: 0,
   reporter: process.env.CI ? [['list'], ['html', { outputFolder:'playwright-report',open:'never' }]] : 'list',
   use: {
     baseURL:'http://127.0.0.1:4173',
@@ -16,7 +16,7 @@ export default defineConfig({
   projects:[
     {name:'chromium-desktop', use:{...devices['Desktop Chrome'], viewport:{width:1365,height:900}}},
     {name:'chromium-phone', use:{...devices['Pixel 5']}},
-    {name:'chromium-tablet', use:{...devices['iPad (gen 7)']}}
+    {name:'chromium-tablet', use:{...devices['iPad (gen 7)'], browserName:'chromium'}}
   ],
   webServer: {
     command:'npx vite --host 127.0.0.1 --port 4173 --strictPort',
