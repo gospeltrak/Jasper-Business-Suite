@@ -3284,10 +3284,12 @@ export default function DashboardProducts({
                   <span>⚠️ {formError}</span>
                 </div>
               )}
-              <div className={isDesktopAddProductLayout
-                ? "absolute top-0 right-6 -translate-y-1/2 bg-emerald-50 text-emerald-800 border border-emerald-100 px-3 py-1 rounded-full text-[10px] font-bold flex items-center space-x-1"
-                : "absolute top-0 right-6 -translate-y-1/2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white border border-emerald-500 px-3 py-1 rounded-full text-[10px] font-bold flex items-center space-x-1 shadow-sm shadow-emerald-500/30"}>
-                <Sparkles className={isDesktopAddProductLayout ? "w-3.5 h-3.5 text-emerald-600 animate-pulse" : "w-3.5 h-3.5 text-white animate-pulse"} />
+              {/* A quiet context label, not a floating CTA or decorative AI badge. */}
+              <div
+                data-testid="new-product-context-label"
+                className="absolute right-6 top-0 inline-flex h-7 -translate-y-1/2 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 text-[10px] font-semibold text-slate-600 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+              >
+                <Package className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
                 <span>New Product</span>
               </div>
 

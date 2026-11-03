@@ -242,3 +242,56 @@ test('one variation can be added and saved, and parent barcode-stock is hidden o
   state=await ledger(page);
   expect(state.products.filter(p=>p.name.startsWith('QA Solo Variant')).length).toBe(2);
 });
+
+
+test('product form uses restrained professional context label and compact solid Add Variation button', async ({page}) => {
+  await page.getByTestId('open-products').click();
+  if (page.viewportSize().width >= 1280) {
+    await page.getByRole('button',{name:'Add Product',exact:true}).click();
+  } else {
+    await page.getByRole('button',{name:'Open new product form'}).click();
+  }
+
+  // New Product is contextual text, not a glowing, animated fake button.
+  const contextLabel = page.getByTestId('new-product-context-label');
+  await expect(contextLabel).toHaveText('New Product');
+  const labelStyle = await contextLabel.evaluate(node => {
+    const css = getComputedStyle(node);
+    return {
+      backgroundImage: css.backgroundImage,
+      width: node.getBoundingClientRect().width,
+      animationName: css.animationName,
+      radius: parseFloat(css.borderTopLeftRadius),
+    };
+  });
+  expect(labelStyle.backgroundImage).toBe('none');
+  expect(labelStyle.animationName).toBe('none');
+  expect(labelStyle.width).toBeLessThan(180);
+  expect(labelStyle.radius).toBeLessThanOrEqual(12);
+
+  const variationForm = page.getByTestId('product-variations-editor');
+  await variationForm.getByRole('switch',{name:'Product Variations'}).check();
+  const addVariation = variationForm.getByTestId('add-variation-card');
+  await expect(addVariation).toBeVisible();
+  const buttonStyle = await addVariation.evaluate(node => {
+    const css = getComputedStyle(node);
+    const rect = node.getBoundingClientRect();
+    return {
+      width: rect.width,
+      height: rect.height,
+      borderStyle: css.borderTopStyle,
+      backgroundImage: css.backgroundImage,
+      radius: parseFloat(css.borderTopLeftRadius),
+    };
+  });
+  expect(buttonStyle.borderStyle).toBe('solid');
+  expect(buttonStyle.backgroundImage).toBe('none');
+  expect(buttonStyle.height).toBeGreaterThanOrEqual(40);
+  expect(buttonStyle.width).toBeLessThan(220);
+  expect(buttonStyle.radius).toBeLessThanOrEqual(12);
+  await addVariation.click();
+  await expect(page.getByTestId('variation-create-row')).toHaveCount(1);
+
+  // The actual save action is unchanged and still present.
+  await expect(page.locator('form button[type="submit"]').last()).toBeVisible();
+});
