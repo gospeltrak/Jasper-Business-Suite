@@ -104,8 +104,8 @@ export default function ProductVariationEditor({
             })}
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <label className={fieldLabel}>Variation Name
-              <input type="text" aria-label="Variation Name" className={compactInput}
+            <label className={fieldLabel}>Variation Value
+              <input type="text" aria-label="Variation Value" className={compactInput}
                 value={attribute} onChange={event => onAttributeChange(event.target.value)}
                 placeholder="e.g. Size / Volume" maxLength={48} />
             </label>
