@@ -21,7 +21,7 @@ export default defineConfig({
   webServer: {
     command:'npx vite --host 127.0.0.1 --port 4173 --strictPort',
     url:'http://127.0.0.1:4173/',
-    reuseExistingServer:false,
+    reuseExistingServer:true,
     timeout:45000,
     env:{VITE_SUPABASE_URL:'',VITE_SUPABASE_ANON_KEY:''}
   }
