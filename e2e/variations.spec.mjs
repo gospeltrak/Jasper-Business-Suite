@@ -24,7 +24,7 @@ test('POS enforces variation selection, records exact child SKU and preserves si
   await add.click();
   await expect(page.getByText('Shopping Cart')).toBeVisible();
 
-  if(testInfo.project.name === 'chromium-desktop'){
+  if(testInfo.project.name !== 'chromium-phone'){
     await page.locator('#pos-checkout-btn').click();
   } else {
     await page.getByRole('button',{name:'Checkout',exact:true}).click();
@@ -58,7 +58,11 @@ test('POS enforces variation selection, records exact child SKU and preserves si
 
 test('Add Product registers two unique child variations exactly once and reload retains them', async ({ page }) => {
   await page.getByTestId('open-products').click();
-  await page.getByRole('button',{name:'Add Product',exact:true}).click();
+  if (page.viewportSize().width >= 1280) {
+    await page.getByRole('button',{name:'Add Product',exact:true}).click();
+  } else {
+    await page.getByRole('button',{name:'Open new product form'}).click();
+  }
   await page.getByPlaceholder('e.g. Pure Groundnut Oil (5 Litre)').fill('QA Milk');
   await page.getByRole('checkbox',{name:/Product Variations/}).check();
   const rows = page.getByTestId('variation-create-row');
