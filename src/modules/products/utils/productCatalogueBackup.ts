@@ -41,13 +41,26 @@ export const prepareBackedUpProductsForImport = (backup: ProductCatalogueBackup,
   const existingKeys = new Set(existingProducts.flatMap(product => [product.barcode, product.sku])
     .map(value => String(value || '').trim().toLowerCase()).filter(Boolean));
   const timestamp = Date.now().toString(36);
-  return backup.products.filter(product => {
+  const selected = backup.products.filter(product => {
     const keys = [product.barcode, product.sku].map(value => String(value || '').trim().toLowerCase()).filter(Boolean);
     return keys.length === 0 || !keys.some(key => existingKeys.has(key));
-  }).map((product, index) => {
-    const newId = `p-${timestamp}-${index.toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+  });
+  // A restored variant must point to its newly imported parent, never the
+  // old tenant's parent ID. If its parent collided/skipped, skip that child
+  // rather than orphaning an invisible, unsellable stock record.
+  const acceptedIds = new Set(selected.map(product => product.id));
+  const safeProducts = selected.filter(product =>
+    !product.variationParentId || acceptedIds.has(product.variationParentId));
+  const idMap = new Map(safeProducts.map((product, index) => [
+    product.id,
+    `p-${timestamp}-${index.toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+  ]));
+  return safeProducts.map((product, index) => {
+    const newId = idMap.get(product.id)!;
     return {
-      ...product, id: newId, branchId: undefined, syncUpdatedAt: undefined, updatedAt: undefined,
+      ...product, id: newId,
+      variationParentId: product.variationParentId ? idMap.get(product.variationParentId) : undefined,
+      branchId: undefined, syncUpdatedAt: undefined, updatedAt: undefined,
       batches: product.batches?.map((batch, batchIndex) => ({
         ...batch, id: `batch-${timestamp}-${index.toString(36)}-${batchIndex.toString(36)}`, productId: newId,
       })),

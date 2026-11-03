@@ -248,7 +248,7 @@ export default function DashboardOverview({
   
   // Low stock warning alerts
   const lowStockProducts = useMemo(() => {
-    return products.filter(p => (p.shopStockQty ?? 0) <= p.alertQty);
+    return products.filter(p => !p.isVariationParent && (p.shopStockQty ?? 0) <= p.alertQty);
   }, [products]);
 
   // Handle mock purchase stats context matching
@@ -546,10 +546,10 @@ export default function DashboardOverview({
   // Dynamic Low Stock Alert computation
   const lowStockAlertProducts = useMemo(() => {
     // Items with stockTime <= threshold alertQty (defualting to 15 if missing)
-    let low = products.filter(p => p.stockQty <= (p.alertQty || 15));
+    let low = products.filter(p => !p.isVariationParent && p.stockQty <= (p.alertQty || 15));
     // If no products meet this criteria, fallback to items with stockQty <= 45 to ensure we display something relevant
     if (low.length === 0) {
-      low = products.filter(p => p.stockQty <= 45);
+      low = products.filter(p => !p.isVariationParent && p.stockQty <= 45);
     }
     // Sort ascending by stock quantity so most critical items are listed first
     return low.sort((a, b) => a.stockQty - b.stockQty).slice(0, 7);

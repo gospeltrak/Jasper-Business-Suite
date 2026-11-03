@@ -2639,7 +2639,6 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     if (!currentDelivery || !recordBelongsToActiveBranch(currentDelivery, activeBranchSelection)) return false;
     let treasuryJournalId = currentDelivery.treasuryJournalId;
     let treasuryBranchId = currentDelivery.branchId;
-    let collectedAccountId = currentDelivery.deliveryPaymentAccountId;
 
     const deliveryIncomeAmount = Math.max(0, Number(currentDelivery.deliveryCost || 0));
     // POS checkout already booked Delivery Treasury. Mark Delivered without
@@ -2711,7 +2710,9 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
 
     setDeliveriesMap(prev => {
       const currentTenantDels = prev[activeTenant.id] || [];
-      const collectedAt = status === 'Delivered' ? new Date().toISOString() : undefined;
+      // Delivered status is fully handled and persisted above. Only pending,
+      // dispatched or cancelled states can reach this branch.
+      const collectedAt: string | undefined = undefined;
       return {
         ...prev,
         [activeTenant.id]: currentTenantDels.map(del => 
@@ -2725,11 +2726,9 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                     ? 'cancelled'
                     : del.deliveryPaymentStatus === 'collected'
                       ? 'collected'
-                      : status === 'Delivered' ? 'collected' : 'pending',
+                      : 'pending',
                   paymentCollectedAt: collectedAt || del.paymentCollectedAt,
-                  deliveryPaymentAccountId: status === 'Delivered'
-                    ? collectedAccountId
-                    : del.deliveryPaymentAccountId,
+                  deliveryPaymentAccountId: del.deliveryPaymentAccountId,
                   treasuryJournalId,
                   branchId: treasuryBranchId,
                 };
@@ -2742,7 +2741,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     const newLog: SyncLog = {
       id: 'l-' + Math.random().toString(36).substr(2, 9),
       type: 'product_update',
-      status: status === 'Delivered' ? 'success' : 'failed',
+      status: 'failed',
       message: `Delivery dispatch ${deliveryId} status updated: ${status}.`,
       timestamp: new Date().toISOString()
     };
@@ -2887,7 +2886,12 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       branchId: activeBranchSelection.activeBranchId || undefined,
     }));
     const updatedProducts = [...branchScopedProducts, ...(productsMap[activeTenant.id] || [])];
-    const { products: syncedProducts, saved } = persistTenantProductsNow(updatedProducts);
+    // Only send newly-created parent/child SKU rows to the normalized RPC.
+    // Rewriting the whole catalogue can overwrite stock changed by another
+    // sale or branch while this product-creation request was in flight.
+    const { products: syncedProducts, saved } = persistTenantProductsNow(
+      updatedProducts, undefined, branchScopedProducts.map(product => product.id),
+    );
     setProductsMap(prev => {
       return {
         ...prev,
@@ -2925,6 +2929,18 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     const tenantProducts = productsMap[activeTenant.id] || [];
     const product = tenantProducts.find(item => item.id === id);
     if (!product || !activeProducts.some(item => item.id === id)) return;
+    // Removing a grouping parent without its children would orphan live
+    // stock, transactions and receipts. A destructive cascade is forbidden.
+    if (product.isVariationParent) {
+      addToast('This product has variations. Its stock and sales history must remain linked; the parent cannot be deleted.', 'error');
+      return;
+    }
+    // A child variation is a permanent SKU identity referenced by purchases,
+    // sales, stock transactions and receipts. Never silently delete its ledger.
+    if (product.variationParentId) {
+      addToast('This variation is linked to product and inventory history. Its SKU must be preserved for audit.', 'error');
+      return;
+    }
     if (!recordBelongsToActiveBranch(product, activeBranchSelection)) {
       if (!activeBranchSelection.activeBranchId) return;
       setBranchStocksMap(previous => ({

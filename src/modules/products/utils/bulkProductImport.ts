@@ -103,6 +103,7 @@ export function downloadableUniversalTemplate(): string {
 
 export interface ImportRowResult {
   rowNumber: number;
+  variationParentName?: string;
   status: 'ready' | 'warning' | 'error';
   product?: Product;
   messages: string[];
@@ -123,6 +124,12 @@ export function parseUniversalImportRow(
 
   const productType: ProductType = PRODUCT_TYPE_LABEL_TO_VALUE[get('Product Type').toLowerCase()] || 'general_retail';
   const isMedicine = productType === 'medicine';
+  const variationParentName = get('Variation Parent');
+  const variationLabel = get('Variation Label');
+  const isVariationParent = parseBool(get('Is Variation Parent'));
+  if ((variationParentName && !variationLabel) || (variationParentName && isVariationParent)) {
+    return { rowNumber, status: 'error', messages: ['A variation needs a label and cannot also be its own parent.'] };
+  }
 
   const baseUnit = get('Base Unit') || 'Unit';
   const costPrice = parseNum(get('Cost Price')) ?? 0;
@@ -176,6 +183,8 @@ export function parseUniversalImportRow(
     const product: Product = {
       id: 'p-' + Math.random().toString(36).slice(2, 11),
       name,
+      isVariationParent: isVariationParent || undefined,
+      variationLabel: variationParentName ? variationLabel : undefined,
       sku: barcode,
       barcode,
       category: get('Category') || 'Medicine',
@@ -207,13 +216,15 @@ export function parseUniversalImportRow(
       pharmacyUnitLevels: packageLevels.length > 0 ? legacyLevels : undefined,
       tabPrice: packageLevels.length > 0 ? baseSellingPrice : undefined,
     };
-    return { rowNumber, status: messages.length > 0 ? 'warning' : 'ready', product, messages };
+    return { rowNumber, status: messages.length > 0 ? 'warning' : 'ready', product, messages, variationParentName };
   }
 
   const barcode = get('Barcode') || String(Math.floor(10000000 + Math.random() * 90000000));
   const product: Product = {
     id: 'p-' + Math.random().toString(36).slice(2, 11),
     name,
+    isVariationParent: isVariationParent || undefined,
+    variationLabel: variationParentName ? variationLabel : undefined,
     sku: barcode,
     barcode,
     category: get('Category') || 'General',
@@ -236,7 +247,7 @@ export function parseUniversalImportRow(
     bulkUnit: packageLevels.length > 0 ? packageLevels[packageLevels.length - 1].label : undefined,
     bulkPurchaseQty: packageLevels.length > 0 ? packageLevels[packageLevels.length - 1].quantityInBaseUnit : undefined,
   };
-  return { rowNumber, status: messages.length > 0 ? 'warning' : 'ready', product, messages };
+  return { rowNumber, status: messages.length > 0 ? 'warning' : 'ready', product, messages, variationParentName };
 }
 
 export interface UniversalImportSummary {
@@ -268,7 +279,10 @@ const yesNo = (value?: boolean) => (value ? 'Yes' : 'No');
 // Retail/Wholesale fields (not through the pharmacy-style package levels
 // above), so the full catalogue export needs its own trailing columns for
 // them -- the Universal bulk-import template/parser is left untouched.
-const CATALOGUE_EXTRA_HEADERS = ['Sell Retail', 'Sell Wholesale', 'Wholesale Price', 'Min Wholesale Qty'] as const;
+const CATALOGUE_EXTRA_HEADERS = [
+  'Sell Retail', 'Sell Wholesale', 'Wholesale Price', 'Min Wholesale Qty',
+  'Variation Parent', 'Variation Label', 'Is Variation Parent',
+] as const;
 
 /**
  * Converts the tenant's real products into rows matching UNIVERSAL_IMPORT_HEADERS
@@ -277,6 +291,7 @@ const CATALOGUE_EXTRA_HEADERS = ['Sell Retail', 'Sell Wholesale', 'Wholesale Pri
  */
 export function exportProductsToUniversalRows(products: Product[]): string[][] {
   const rows: string[][] = [[...UNIVERSAL_IMPORT_HEADERS, ...CATALOGUE_EXTRA_HEADERS]];
+  const productById = new Map(products.map(product => [product.id, product]));
   products.forEach(product => {
     const levels = product.packageLevels || [];
     const level1 = levels[0];
@@ -314,6 +329,9 @@ export function exportProductsToUniversalRows(products: Product[]): string[][] {
       yesNo(product.sellInWholesale),
       product.wholesalePrice != null ? String(product.wholesalePrice) : '',
       product.minWholesaleQty != null ? String(product.minWholesaleQty) : '',
+      product.variationParentId ? productById.get(product.variationParentId)?.name || '' : '',
+      product.variationLabel || '',
+      yesNo(product.isVariationParent),
     ]);
   });
   return rows;
@@ -329,6 +347,23 @@ export function classifyUniversalImportRows(text: string): UniversalImportSummar
   rows[0].forEach((label, index) => { headerIndex[label.trim()] = index; });
 
   const results = rows.slice(1).map((columns, index) => parseUniversalImportRow(headerIndex, columns, index + 2));
+  const parentsByName = new Map(results
+    .filter(result => result.product?.isVariationParent)
+    .map(result => [result.product!.name.trim().toLocaleLowerCase(), result.product!]));
+  for (const result of results) {
+    if (!result.product || !result.variationParentName) continue;
+    const parent = parentsByName.get(result.variationParentName.trim().toLocaleLowerCase());
+    if (!parent) {
+      result.status = 'error';
+      result.product = undefined;
+      result.messages.push('Variation parent must be included as a parent product row in the same spreadsheet.');
+      continue;
+    }
+    result.product.variationParentId = parent.id;
+    // Export already includes the full child name (Parent — Variation).
+    // Re-importing must not duplicate the prefix on every round-trip.
+    result.product.name = `${parent.name} — ${result.product.variationLabel}`;
+  }
   const readyProducts = results
     .filter(result => (result.status === 'ready' || result.status === 'warning') && result.product)
     .map(result => result.product!) as Product[];

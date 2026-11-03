@@ -21,6 +21,7 @@ import { compressImageFile } from '../../shared/utils/imageCompression';
 import { prepareManualStockAdjustment, type ManualStockAudit } from './utils/manualStockAdjustment';
 import { generateUniqueEan13Barcode } from './barcode';
 import { findProductBarcodeConflict, findBatchBarcodeConflict } from './utils/barcodeUniqueness';
+import { buildVariationProducts, getProductVariations, isVariationParent, makeVariationParent, type VariationDraft } from './utils/productVariations';
 import { calculateFractionSalePacketPrice } from '../sales/utils/fractionSale';
 import ModernSelect, { ModernSelectOption } from '../../shared/components/ModernSelect';
 import DashboardBarcodeScanner from '../../shared/components/LazyDashboardBarcodeScanner';
@@ -170,6 +171,10 @@ export default function DashboardProducts({
 
   const [viewingProduct, setViewingProduct] = useState<Product | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editHasVariations, setEditHasVariations] = useState(false);
+  const [editVariationDrafts, setEditVariationDrafts] = useState<VariationDraft[]>([]);
+  const updateEditVariation = (index: number, patch: Partial<VariationDraft>) =>
+    setEditVariationDrafts(current => current.map((draft, i) => i === index ? { ...draft, ...patch } : draft));
   const [isSavingProductEdit, setIsSavingProductEdit] = useState(false);
   const [isProductEditTakingLong, setIsProductEditTakingLong] = useState(false);
   const productEditInFlightRef = useRef(false);
@@ -189,6 +194,9 @@ export default function DashboardProducts({
   const [replenishPriceAction, setReplenishPriceAction] = useState<'suggested' | 'keep' | 'custom'>('suggested');
   const [replenishCustomPrice, setReplenishCustomPrice] = useState<number | ''>('');
   const [replenishCostingMethod, setReplenishCostingMethod] = useState<'fifo' | 'average_price' | 'batch_price'>('fifo');
+  const [isSavingReplenish, setIsSavingReplenish] = useState(false);
+  const [replenishSaveError, setReplenishSaveError] = useState<string | null>(null);
+  const replenishInFlightRef = useRef(false);
 
   // Stock Adjustment
   const [adjustProduct, setAdjustProduct] = useState<Product | null>(null);
@@ -200,16 +208,48 @@ export default function DashboardProducts({
   const [adjustSearch, setAdjustSearch] = useState<string>('');
   const [adjustSearchResults, setAdjustSearchResults] = useState<Product[]>([]);
   const [adjustShowSearch, setAdjustShowSearch] = useState(false);
+  // A grouping parent has no sellable stock. The existing stock actions must
+  // operate on one real child row instead of silently updating the parent.
+  type VariantStockAction = 'replenish' | 'adjust' | 'transfer';
+  const [variantStockAction, setVariantStockAction] = useState<{ parent: Product; action: VariantStockAction } | null>(null);
+  const openVariantStockAction = (product: Product, action: VariantStockAction) => {
+    if (isVariationParent(product)) {
+      setVariantStockAction({ parent: product, action });
+      return;
+    }
+    if (action === 'replenish') {
+      setReplenishSaveError(null);
+      setReplenishProduct(product);
+      setReplenishCost('');
+      setReplenishQty('');
+      setReplenishSupplier('');
+      setReplenishPriceAction('suggested');
+      setReplenishCostingMethod(product.costingMethod || product.inventorySettings?.costingMethod || 'fifo');
+    } else if (action === 'adjust') {
+      setAdjustProduct(product);
+      setAdjustQty('');
+      setAdjustReason('');
+      setAdjustSearch(product.name);
+      setAdjustShowSearch(false);
+      setAdjustSaveError(null);
+    } else {
+      setTransferProduct(product);
+      setTransferQty(1);
+      setTransferDirection('store_to_shop');
+      setTransferError(null);
+      setTransferSuccess(false);
+    }
+  };
 
   // Lock body scroll when product overlays are open
   useEffect(() => {
-    if (mobileProductMenu || editingProduct || replenishProduct || adjustProduct || viewingProduct || productToDelete) {
+    if (mobileProductMenu || editingProduct || replenishProduct || adjustProduct || variantStockAction || viewingProduct || productToDelete) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = '';
     }
     return () => { document.body.style.overflow = ''; };
-  }, [mobileProductMenu, editingProduct, replenishProduct, adjustProduct, viewingProduct, productToDelete]);
+  }, [mobileProductMenu, editingProduct, replenishProduct, adjustProduct, variantStockAction, viewingProduct, productToDelete]);
 
   // Mobile/tablet Add Product form gets a polished card layout below the xl
   // breakpoint; desktop keeps the original plain layout unchanged.
@@ -344,6 +384,14 @@ export default function DashboardProducts({
       return String(value);
     };
     setEditingProduct(prod);
+    const previousVariations = getProductVariations(products, prod.id);
+    setEditHasVariations(isVariationParent(prod));
+    setEditVariationDrafts(previousVariations.map(v => ({
+      id: v.id, label: v.variationLabel || v.name, barcode: v.barcode,
+      costPrice: v.costPrice, sellingPrice: v.sellingPrice,
+      shopStockQty: v.shopStockQty, storeStockQty: v.storeStockQty,
+      wholesalePrice: v.wholesalePrice,
+    })));
     setEditSaveError(null);
     setEditForm({ ...prod });
     setEditStockDraft({
@@ -611,7 +659,44 @@ export default function DashboardProducts({
         return p;
       });
 
-      const saved = await onUpdateProducts(updated, [editingProduct.id]);
+      let updatedWithVariations = updated;
+      let changedProductIds = [editingProduct.id];
+      if (editHasVariations && !isPharmacyLike) {
+        try {
+          const originalVariants = getProductVariations(products, editingProduct.id);
+          if (!isVariationParent(editingProduct) && (editingProduct.batches || []).some(batch => batch.status === 'active')) {
+            throw new Error('Existing active FIFO batches must be reconciled before enabling variations.');
+          }
+          if (!isVariationParent(editingProduct) &&
+              ((editingProduct.shopStockQty || 0) !== 0 || (editingProduct.storeStockQty || 0) !== 0)) {
+            throw new Error('Reconcile existing shop and store stock to zero before converting this product to variations. No stock will be deleted.');
+          }
+          if (isVariationParent(editingProduct) &&
+              originalVariants.some(existing => !editVariationDrafts.some(draft => draft.id === existing.id))) {
+            throw new Error('Existing variations cannot be deleted here because they may have sales and stock history.');
+          }
+          // Once a legacy product becomes a grouping parent, its historical
+          // prices remain the fallback for old sales lacking cost snapshots.
+          // Editing child prices must never reprice past parent transactions.
+          const parent = makeVariationParent({
+            ...updated.find(p => p.id === editingProduct.id)!,
+            costPrice: editingProduct.costPrice,
+            sellingPrice: editingProduct.sellingPrice,
+            wholesalePrice: editingProduct.wholesalePrice,
+          });
+          const children = buildVariationProducts(parent, editVariationDrafts, products, originalVariants);
+          const changedById = new Map([parent, ...children].map(product => [product.id, product]));
+          updatedWithVariations = [
+            ...updated.map(product => changedById.get(product.id) || product),
+            ...children.filter(child => !updated.some(product => product.id === child.id)),
+          ];
+          changedProductIds = [parent.id, ...children.map(child => child.id)];
+        } catch (error) {
+          setEditSaveError(error instanceof Error ? error.message : 'Please check your variations.');
+          return;
+        }
+      }
+      const saved = await onUpdateProducts(updatedWithVariations, changedProductIds);
       // Keep the tenant's draft and the edit modal open when the durable
       // workspace write fails. Closing optimistically made hierarchy changes
       // appear saved until the next hydration restored the cloud copy.
@@ -690,9 +775,16 @@ export default function DashboardProducts({
     };
   };
 
-  const handleReplenishSubmit = (e: React.FormEvent) => {
+  const handleReplenishSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!replenishProduct || !replenishQty || Number(replenishQty) <= 0 || !replenishCost) return;
+    if (replenishInFlightRef.current || !replenishProduct || !replenishQty || Number(replenishQty) <= 0 || !replenishCost) return;
+    if (isVariationParent(replenishProduct)) {
+      setReplenishSaveError('Choose a specific variation before replenishing stock.');
+      return;
+    }
+    replenishInFlightRef.current = true;
+    setIsSavingReplenish(true);
+    setReplenishSaveError(null);
     
     const receivedPackageQty = Number(replenishQty);
     const receivedPackageCost = Number(replenishCost);
@@ -758,15 +850,28 @@ export default function DashboardProducts({
       },
     };
 
-    onUpdateProducts(products.map(p => p.id === replenishProduct.id ? updatedProduct : p));
-
-    setReplenishProduct(null);
-    setReplenishQty('');
-    setReplenishCost('');
-    setReplenishSupplier('');
-    setReplenishPriceAction('suggested');
-    setReplenishCostingMethod('fifo');
-    setReplenishCustomPrice('');
+    try {
+      const saved = await onUpdateProducts(
+        products.map(p => p.id === replenishProduct.id ? updatedProduct : p),
+        [replenishProduct.id],
+      );
+      if (!saved) {
+        setReplenishSaveError('Replenishment could not be saved. Existing stock is unchanged. Check your connection and retry.');
+        return;
+      }
+      setReplenishProduct(null);
+      setReplenishQty('');
+      setReplenishCost('');
+      setReplenishSupplier('');
+      setReplenishPriceAction('suggested');
+      setReplenishCostingMethod('fifo');
+      setReplenishCustomPrice('');
+    } catch (error) {
+      setReplenishSaveError(error instanceof Error ? error.message : 'Replenishment could not be saved. Please retry.');
+    } finally {
+      replenishInFlightRef.current = false;
+      setIsSavingReplenish(false);
+    }
   };
 
   const adjustSearchProducts = (query: string) => {
@@ -790,6 +895,7 @@ export default function DashboardProducts({
     try {
       const freshProduct = products.find(product => product.id === adjustProduct.id);
       if (!freshProduct) throw new Error('This product is no longer available. Refresh the stock list.');
+      if (isVariationParent(freshProduct)) throw new Error('Select a variation stock item, not the parent product group.');
       const qty = Number(adjustQty);
       const adjustment = prepareManualStockAdjustment(freshProduct, type, qty);
       const audit: ManualStockAudit = {
@@ -837,6 +943,14 @@ export default function DashboardProducts({
 
   // Add Product Panel state
   const [isOpen, setIsOpen] = useState(false);
+  const [hasVariations, setHasVariations] = useState(false);
+  const emptyVariation = (): VariationDraft => ({
+    label: '', barcode: '', costPrice: 0, sellingPrice: 0, shopStockQty: 0, storeStockQty: 0,
+  });
+  const [variationDrafts, setVariationDrafts] = useState<VariationDraft[]>([emptyVariation(), emptyVariation()]);
+  const updateVariationDraft = (index: number, patch: Partial<VariationDraft>) => {
+    setVariationDrafts(current => current.map((entry, i) => i === index ? { ...entry, ...patch } : entry));
+  };
   const [name, setName] = useState('');
   const [barcode, setBarcode] = useState('');
   const [category, setCategory] = useState(categoriesList[0] || '');
@@ -876,6 +990,8 @@ export default function DashboardProducts({
   // Form notifications
   const [formSuccess, setFormSuccess] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [isCreatingProduct, setIsCreatingProduct] = useState(false);
+  const productCreationInFlightRef = useRef(false);
 
   // Retail & Wholesale Form states
   const [sellInRetail, setSellInRetail] = useState(true);
@@ -1259,6 +1375,9 @@ export default function DashboardProducts({
   // Handle Create Product
   const handleCreateProduct = async (e: FormEvent) => {
     e.preventDefault();
+    // The same form can be submitted twice before a cloud write returns.
+    // One submission must create exactly one parent and its child SKU rows.
+    if (productCreationInFlightRef.current) return;
     setFormError(null);
 
     if (!name) {
@@ -1272,7 +1391,11 @@ export default function DashboardProducts({
     }
 
     const openingStockQuantity = getTotalStockQty(shopStockQty, storeStockQty);
-    if (isPharmacyLike && productType === 'medicine' && trackExpiry && openingStockQuantity > 0 && !initialExpiryDate) {
+    if (hasVariations && openingStockQuantity !== 0) {
+      setFormError('Set opening stock for each variation below. Leave the parent product stock at zero.');
+      return;
+    }
+    if (isPharmacyLike && productType === 'medicine' && trackExpiry && (hasVariations ? variationDrafts.some(v => v.shopStockQty + v.storeStockQty > 0) : openingStockQuantity > 0) && !initialExpiryDate) {
       setFormError('Expiry date is required when registering opening stock for a medicine that tracks expiry.');
       return;
     }
@@ -1281,7 +1404,7 @@ export default function DashboardProducts({
     const finalWholesalePrice = sellInWholesale ? wholesalePrice : 0;
     const finalMinWholesaleQty = sellInWholesale ? minWholesaleQty : 0;
 
-    if (sellInRetail && finalSellingPrice <= 0) {
+    if (!hasVariations && sellInRetail && finalSellingPrice <= 0) {
       setFormError('Retail price must be greater than zero when selling in retail.');
       return;
     }
@@ -1292,7 +1415,7 @@ export default function DashboardProducts({
       return;
     }
 
-    if (sellInWholesale) {
+    if (sellInWholesale && !hasVariations) {
       if (finalWholesalePrice <= 0) {
         setFormError('Wholesale price must be greater than zero when selling in wholesale.');
         return;
@@ -1312,7 +1435,10 @@ export default function DashboardProducts({
         onTriggerUpgrade?.('expired');
         return;
       }
-      if (products.length >= subscriptionStatus.plan.maxProducts) {
+      // Every variation has a real stock-ledger product identity. Count all
+      // child SKUs up front so a multi-variation create cannot bypass plan limits.
+      const incomingCount = hasVariations ? 1 + variationDrafts.length : 1;
+      if (products.length + incomingCount > subscriptionStatus.plan.maxProducts) {
         onTriggerUpgrade?.('products');
         return;
       }
@@ -1502,6 +1628,9 @@ export default function DashboardProducts({
     // productImage = canvas-processed base64 (background removed, 500x500px)
     // We upload this processed result directly — NOT the raw file —
     // because the canvas pipeline may have transformed it significantly.
+    productCreationInFlightRef.current = true;
+    setIsCreatingProduct(true);
+    try {
     let finalImageUrl: string | undefined = productImage || undefined;
 
     if (productImage && productImage.startsWith('data:image')) {
@@ -1536,7 +1665,29 @@ export default function DashboardProducts({
       image: finalImageUrl,
       batches: openingStockBatch ? [openingStockBatch] : newProd.batches,
     };
-    if (!(await onAddProduct(finalProd))) {
+    let recordsToCreate: Product[] = [finalProd];
+    if (hasVariations) {
+      try {
+        const group = makeVariationParent(finalProd);
+        const variants = buildVariationProducts(group, variationDrafts, products);
+        recordsToCreate = [
+          group,
+          ...variants.map(variant => ({
+            ...variant,
+            batches: productType === 'medicine' && trackExpiry && variant.stockQty > 0
+              ? [createInventoryBatch(variant, variant.stockQty, variant.costPrice, {
+                  finalSellingPrice: variant.sellingPrice,
+                  expiryDate: initialExpiryDate,
+                })]
+              : variant.batches,
+          })),
+        ];
+      } catch (error) {
+        setFormError(error instanceof Error ? error.message : 'Please check the variation names, barcodes and prices.');
+        return;
+      }
+    }
+    if (!(await (hasVariations ? onAddProducts(recordsToCreate) : onAddProduct(finalProd)))) {
       setFormError('Product registration could not be confirmed. Check your connection or barcode and try again.');
       return;
     }
@@ -1545,6 +1696,8 @@ export default function DashboardProducts({
     setTimeout(() => {
       // Reset Registry form
       setName('');
+      setHasVariations(false);
+      setVariationDrafts([emptyVariation(), emptyVariation()]);
       setBrand('');
       setBarcode('');
       setCategory(categoriesList[0] || '');
@@ -1587,11 +1740,21 @@ export default function DashboardProducts({
       setFormSuccess(false);
       setFormError(null);
     }, 1100);
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : 'Could not create the product. Please retry.');
+    } finally {
+      productCreationInFlightRef.current = false;
+      setIsCreatingProduct(false);
+    }
   };
 
   // Stock Transfer Actions
   const handleExecuteTransfer = async () => {
-    if (!transferProduct) return;
+    if (!transferProduct || transferSubmitting) return;
+    if (isVariationParent(transferProduct)) {
+      setTransferError('Select a specific variation to transfer its stock.');
+      return;
+    }
     const qty = Number(transferQty) || 0;
     if (qty <= 0) {
       setTransferError('Please specify a positive unit quantity.');
@@ -1662,15 +1825,27 @@ export default function DashboardProducts({
       return p;
     });
     
-    onUpdateProducts(updatedProducts);
-    setTransferSuccess(true);
+    // The transfer is complete only when the authoritative products/branch-stock
+    // RPC confirms the child SKU was saved. Never report success optimistically.
+    setTransferSubmitting(true);
     setTransferError(null);
-    
-    setTimeout(() => {
-      setTransferProduct(null);
-      setTransferSuccess(false);
-      setTransferQty(1);
-    }, 1200);
+    try {
+      const saved = await onUpdateProducts(updatedProducts, [transferProduct.id]);
+      if (!saved) {
+        setTransferError('Stock transfer could not be saved. Your previous stock was kept; please retry.');
+        return;
+      }
+      setTransferSuccess(true);
+      setTimeout(() => {
+        setTransferProduct(null);
+        setTransferSuccess(false);
+        setTransferQty(1);
+      }, 1200);
+    } catch (error) {
+      setTransferError(error instanceof Error ? error.message : 'Stock transfer could not be saved.');
+    } finally {
+      setTransferSubmitting(false);
+    }
   };
 
   // 3. GOOGLE FORM TEMPLATE SHEET EXCEL EXPORTER / IMPORTER
@@ -1963,14 +2138,27 @@ export default function DashboardProducts({
   // (modal input, scanner state, print status, etc). Only products/search change it.
   const filteredProducts = useMemo(() => {
     const search = searchTerm.toLowerCase();
+    // Keep the original product-card layout: a variation child is a ledger
+    // stock item, never an extra catalogue card. Searching child names and
+    // barcodes still finds the one parent grouping card.
     return products.filter(p =>
-      String(p.name || '').toLowerCase().includes(search) ||
-      String(p.barcode || '').toLowerCase().includes(search) ||
-      String(p.category || '').toLowerCase().includes(search) ||
-      String(p.brand || '').toLowerCase().includes(search)
+      !p.variationParentId && (
+        String(p.name || '').toLowerCase().includes(search) ||
+        String(p.barcode || '').toLowerCase().includes(search) ||
+        String(p.category || '').toLowerCase().includes(search) ||
+        String(p.brand || '').toLowerCase().includes(search) ||
+        (isVariationParent(p) && getProductVariations(products, p.id).some(child =>
+          String(child.variationLabel || child.name).toLowerCase().includes(search) ||
+          String(child.barcode || child.sku).toLowerCase().includes(search)
+        ))
+      )
     ).sort((a, b) => {
-      const stockA = a.shopStockQty ?? a.stockQty ?? 0;
-      const stockB = b.shopStockQty ?? b.stockQty ?? 0;
+      const stockA = isVariationParent(a)
+        ? getProductVariations(products, a.id).reduce((sum, child) => sum + Number(child.shopStockQty || 0), 0)
+        : a.shopStockQty ?? a.stockQty ?? 0;
+      const stockB = isVariationParent(b)
+        ? getProductVariations(products, b.id).reduce((sum, child) => sum + Number(child.shopStockQty || 0), 0)
+        : b.shopStockQty ?? b.stockQty ?? 0;
       const aOut = stockA <= 0 ? 1 : 0;
       const bOut = stockB <= 0 ? 1 : 0;
       return aOut - bOut; // stable sort preserves the original order within each group
@@ -2903,6 +3091,8 @@ export default function DashboardProducts({
                 </div>
                 {/* Add product FAB */}
                 <button
+                  type="button"
+                  aria-label={isOpen ? 'Close new product form' : 'Open new product form'}
                   onClick={() => setIsOpen(!isOpen)}
                   className="w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 active:scale-95"
                   style={{ background: isOpen ? '#ef4444' : '#22c55e' }}
@@ -3613,10 +3803,56 @@ export default function DashboardProducts({
               {isTabletWidthOrWider && pharmacyUnitHierarchySection}
               {isTabletWidthOrWider && smartBatchCostingSection}
 
+              {/* Compact, opt-in variations; the existing three-column form remains unchanged. */}
+              {!isPharmacyLike && (
+                <div className="rounded-xl border border-slate-200 bg-slate-50/60 px-3 py-2.5 space-y-2 normal-case">
+                  <label className="flex items-center justify-between gap-2 cursor-pointer">
+                    <span className="text-[11px] font-bold text-slate-700">Product Variations <span className="text-[10px] font-normal text-slate-500">(e.g. Fresh Rolls, Classic)</span></span>
+                    <input type="checkbox" checked={hasVariations} onChange={event => setHasVariations(event.target.checked)} className="accent-emerald-600 w-4 h-4" />
+                  </label>
+                  {hasVariations && (
+                    <>
+                      <p className="text-[10px] text-slate-500">Each variation has its own selling price, cost, barcode and stock. Leave the regular stock fields above at zero.</p>
+                      {variationDrafts.map((variant, index) => (
+                        <div key={index} data-testid="variation-create-row" className="grid grid-cols-2 sm:grid-cols-6 gap-2 items-end border-t border-slate-200 pt-2">
+                          <label className="col-span-2 sm:col-span-1 text-[9px] font-semibold text-slate-500">Variation
+                            <input value={variant.label} onChange={event => updateVariationDraft(index, { label: event.target.value })} placeholder="Classic" className="w-full min-w-0 bg-white border border-slate-200 rounded-lg p-2 text-xs text-slate-800" />
+                          </label>
+                          <label className="text-[9px] font-semibold text-slate-500">Cost
+                            <input type="number" min="0" value={variant.costPrice} onChange={event => updateVariationDraft(index, { costPrice: Number(event.target.value) })} className="w-full min-w-0 bg-white border border-slate-200 rounded-lg p-2 text-xs" />
+                          </label>
+                          <label className="text-[9px] font-semibold text-slate-500">Retail Price
+                            <input type="number" min="0" value={variant.sellingPrice} onChange={event => updateVariationDraft(index, { sellingPrice: Number(event.target.value) })} className="w-full min-w-0 bg-white border border-slate-200 rounded-lg p-2 text-xs" />
+                          </label>
+                          {sellInWholesale && (
+                            <label className="text-[9px] font-semibold text-slate-500">Wholesale Price
+                              <input type="number" min="0" value={variant.wholesalePrice ?? wholesalePrice}
+                                onChange={event => updateVariationDraft(index, { wholesalePrice: Number(event.target.value) })}
+                                className="w-full min-w-0 bg-white border border-slate-200 rounded-lg p-2 text-xs" />
+                            </label>
+                          )}
+                          <label className="text-[9px] font-semibold text-slate-500">Shop Qty
+                            <input type="number" min="0" step="0.001" value={variant.shopStockQty} onChange={event => updateVariationDraft(index, { shopStockQty: Number(event.target.value) })} className="w-full min-w-0 bg-white border border-slate-200 rounded-lg p-2 text-xs" />
+                          </label>
+                          <label className="text-[9px] font-semibold text-slate-500">Store Qty
+                            <input type="number" min="0" step="0.001" value={variant.storeStockQty} onChange={event => updateVariationDraft(index, { storeStockQty: Number(event.target.value) })} className="w-full min-w-0 bg-white border border-slate-200 rounded-lg p-2 text-xs" />
+                          </label>
+                          <label className="col-span-2 sm:col-span-1 text-[9px] font-semibold text-slate-500">Barcode (optional)
+                            <input value={variant.barcode} onChange={event => updateVariationDraft(index, { barcode: event.target.value })} placeholder="Auto" className="w-full min-w-0 bg-white border border-slate-200 rounded-lg p-2 text-xs" />
+                          </label>
+                          {variationDrafts.length > 2 && <button type="button" onClick={() => setVariationDrafts(rows => rows.filter((_, i) => i !== index))} className="text-[9px] text-red-600 text-left">Remove</button>}
+                        </div>
+                      ))}
+                      <button type="button" onClick={() => setVariationDrafts(rows => [...rows, emptyVariation()])} className="text-[10px] font-bold text-emerald-700">+ Add Variation</button>
+                    </>
+                  )}
+                </div>
+              )}
+
               {/* Commit Trigger */}
               <button
                 type="submit"
-                disabled={formSuccess || isProcessingImage}
+                disabled={formSuccess || isProcessingImage || isCreatingProduct}
                 className={isDesktopAddProductLayout
                   ? "w-full py-3.5 bg-emerald-600 hover:bg-emerald-505 disabled:bg-slate-150 disabled:text-slate-400 text-white font-bold rounded-xl text-xs uppercase tracking-wider transition-all flex items-center justify-center space-x-1.5 cursor-pointer shadow-md shadow-emerald-550/10"
                   : "w-full py-3.5 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 disabled:bg-slate-150 disabled:bg-none disabled:text-slate-400 text-white font-bold rounded-xl text-xs uppercase tracking-wider transition-all flex items-center justify-center space-x-1.5 cursor-pointer active:scale-[0.98] shadow-md shadow-emerald-600/25"}
@@ -3659,8 +3895,13 @@ export default function DashboardProducts({
             {/* ── MOBILE STOCK CARDS ── */}
             <div className="stock-cards-tablet-grid xl:hidden bg-slate-50 dark:bg-slate-950 px-3 pt-3 pb-[calc(80px+env(safe-area-inset-bottom))] space-y-3">
               {filteredProducts.map((prod) => {
-                  const shopQty = prod.shopStockQty ?? 0;
-                  const storeQty = prod.storeStockQty ?? 0;
+                  const variations = isVariationParent(prod) ? getProductVariations(products, prod.id) : [];
+                  const shopQty = isVariationParent(prod)
+                    ? variations.reduce((sum, v) => sum + (v.shopStockQty || 0), 0)
+                    : prod.shopStockQty ?? 0;
+                  const storeQty = isVariationParent(prod)
+                    ? variations.reduce((sum, v) => sum + (v.storeStockQty || 0), 0)
+                    : prod.storeStockQty ?? 0;
                   const totalQty = getTotalStockQty(shopQty, storeQty);
                   const isOutOfStock = totalQty <= 0;
                   const isLow = !isOutOfStock && shopQty <= (prod.alertQty || 5);
@@ -3700,7 +3941,10 @@ export default function DashboardProducts({
 
                         {/* Name + meta */}
                         <div className="flex-1 min-w-0">
-                          <p translate="no" className="font-bold text-slate-900 dark:text-white text-[13px] leading-snug truncate">{prod.name}</p>
+                          <p translate="no" className="font-bold text-slate-900 dark:text-white text-[13px] leading-snug truncate">
+                            {prod.name}
+                            {isVariationParent(prod) && <span className="ml-1 text-[9px] text-emerald-700">({variations.length} variations)</span>}
+                          </p>
                           <div className="flex items-center gap-1.5 mt-0.5">
                             {prod.category && <span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 truncate max-w-[100px]">{prod.category}</span>}
                             {prod.brand && <><span className="text-slate-200 dark:text-slate-700">·</span><span className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 truncate max-w-[80px]">{prod.brand}</span></>}
@@ -3801,8 +4045,13 @@ export default function DashboardProducts({
                 </thead>
                 <tbody className="divide-y divide-slate-150/50 text-slate-600 text-xs font-sans pb-32">
                   {filteredProducts.map(prod => {
-                    const shopQty = prod.shopStockQty ?? 0;
-                    const storeQty = prod.storeStockQty ?? 0;
+                    const variations = isVariationParent(prod) ? getProductVariations(products, prod.id) : [];
+                    const shopQty = isVariationParent(prod)
+                      ? variations.reduce((sum, v) => sum + (v.shopStockQty || 0), 0)
+                      : prod.shopStockQty ?? 0;
+                    const storeQty = isVariationParent(prod)
+                      ? variations.reduce((sum, v) => sum + (v.storeStockQty || 0), 0)
+                      : prod.storeStockQty ?? 0;
                     const totalQty = getTotalStockQty(shopQty, storeQty);
                     
                     const isOutOfStock = totalQty <= 0;
@@ -3830,6 +4079,7 @@ export default function DashboardProducts({
                             <div className="space-y-0.5">
                               <p className="font-bold text-slate-800 text-[12.5px] leading-tight">
                                 {prod.name}
+                                {isVariationParent(prod) && <span className="ml-1 text-[10px] font-semibold text-emerald-600">{variations.length} variations</span>}
                                 {prod.unit && <span className="ml-2 font-mono text-slate-400 font-semibold bg-slate-100 px-1.5 py-0.5 rounded leading-none text-[10px]">({prod.unit})</span>}
                               </p>
                             </div>
@@ -3914,13 +4164,7 @@ export default function DashboardProducts({
                         <td className="py-4 px-5 text-center relative">
                           <div className="flex items-center justify-center space-x-1">
                             <button
-                              onClick={() => {
-                                setTransferProduct(prod);
-                                setTransferQty(1);
-                                setTransferDirection('store_to_shop');
-                                setTransferError(null);
-                                setTransferSuccess(false);
-                              }}
+                              onClick={() => openVariantStockAction(prod, 'transfer')}
                               className="p-1.5 hover:bg-emerald-50 text-slate-400 hover:text-emerald-600 rounded-lg cursor-pointer transition-colors"
                               title="Transfer Warehouse Stock"
                             >
@@ -3946,9 +4190,9 @@ export default function DashboardProducts({
                                     {[
                                       { label: 'View Details',   icon: Eye,     color: 'text-slate-700',   action: () => { setViewingProduct(prod); setDesktopMenuId(null); } },
                                       { label: 'Edit Item',      icon: Edit,    color: 'text-slate-700',   action: () => { handleBeginEdit(prod); setDesktopMenuId(null); } },
-                                      { label: 'Replenish Stock',icon: Package, color: 'text-emerald-700', action: () => { setReplenishProduct(prod); setReplenishCost(''); setReplenishQty(''); setReplenishSupplier(''); setReplenishPriceAction('suggested'); setReplenishCostingMethod(prod.costingMethod || prod.inventorySettings?.costingMethod || 'fifo'); setDesktopMenuId(null); } },
-                                      { label: 'Adjust Stock', icon: ArrowLeftRight, color: 'text-blue-600', action: () => { setAdjustProduct(prod); setAdjustQty(''); setAdjustReason(''); setAdjustSearch(prod.name); setAdjustShowSearch(false); setDesktopMenuId(null); } },
-                                      { label: 'Transfer Stock', icon: ArrowLeftRight, color: 'text-indigo-700', action: () => { setTransferProduct(prod); setTransferQty(1); setTransferDirection('store_to_shop'); setTransferError(null); setTransferSuccess(false); setDesktopMenuId(null); } },
+                                      { label: 'Replenish Stock',icon: Package, color: 'text-emerald-700', action: () => { openVariantStockAction(prod, 'replenish'); setDesktopMenuId(null); } },
+                                      { label: 'Adjust Stock', icon: ArrowLeftRight, color: 'text-blue-600', action: () => { openVariantStockAction(prod, 'adjust'); setDesktopMenuId(null); } },
+                                      { label: 'Transfer Stock', icon: ArrowLeftRight, color: 'text-indigo-700', action: () => { openVariantStockAction(prod, 'transfer'); setDesktopMenuId(null); } },
                                     ].map(item => {
                                       const Icon = item.icon;
                                       return (
@@ -4571,6 +4815,36 @@ export default function DashboardProducts({
               </button>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* Only grouping products show this compact chooser; ordinary products
+          keep the same original replenishment, adjustment and transfer screens. */}
+      {variantStockAction && (
+        <div className="tenant-modal-overlay fixed inset-0 z-[240] flex items-center justify-center bg-slate-950/60 p-4" onClick={event => { if (event.target === event.currentTarget) setVariantStockAction(null); }}>
+          <div className="tenant-form-screen w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-4 shadow-xl space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <h3 className="text-sm font-black text-slate-900">Choose Variation</h3>
+                <p className="text-[11px] text-slate-500 truncate">{variantStockAction.parent.name}</p>
+              </div>
+              <button type="button" onClick={() => setVariantStockAction(null)} aria-label="Close variation selection" className="rounded-lg p-2 text-slate-500"><X className="h-4 w-4" /></button>
+            </div>
+            <div className="max-h-56 space-y-1 overflow-y-auto">
+              {getProductVariations(products, variantStockAction.parent.id).map(variation => (
+                <button key={variation.id} type="button"
+                  onClick={() => {
+                    const selectedAction = variantStockAction.action;
+                    setVariantStockAction(null);
+                    openVariantStockAction(variation, selectedAction);
+                  }}
+                  className="flex w-full items-center justify-between gap-2 rounded-xl border border-slate-100 bg-slate-50 p-2.5 text-left hover:border-emerald-400">
+                  <span className="min-w-0 truncate text-xs font-bold text-slate-800">{variation.variationLabel || variation.name}</span>
+                  <span className="shrink-0 text-[10px] font-semibold text-emerald-700">Stock {variation.shopStockQty ?? 0}</span>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -6174,6 +6448,44 @@ export default function DashboardProducts({
                 </div>
               </div>
               )}
+            {!isPharmacyLike && !editingProduct.variationParentId && (
+              <div className="mx-4 sm:mx-6 mb-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3 normal-case space-y-2">
+                <label className="flex items-center justify-between text-[11px] font-bold text-slate-700">
+                  Product Variations
+                  <input type="checkbox" checked={editHasVariations} disabled={isVariationParent(editingProduct)}
+                    onChange={event => {
+                      setEditHasVariations(event.target.checked);
+                      if (event.target.checked && editVariationDrafts.length === 0) setEditVariationDrafts([emptyVariation(), emptyVariation()]);
+                    }} className="accent-emerald-600 w-4 h-4" />
+                </label>
+                {editHasVariations && (
+                  <>
+                    <p className="text-[10px] text-slate-500">Each variation has its own barcode, price and stock. Existing variations cannot be deleted here; old parent stock and active FIFO batches must be reconciled first.</p>
+                    <div className="max-h-44 overflow-y-auto space-y-2">
+                      {editVariationDrafts.map((v, index) => (
+                        <div key={v.id || index} className="grid grid-cols-3 sm:grid-cols-6 gap-2 border-t border-slate-200 pt-2 text-[9px]">
+                          <label>Variation<input value={v.label} onChange={e => updateEditVariation(index,{label:e.target.value})} className="block w-full min-w-0 p-1 border rounded" /></label>
+                          <label>Cost<input type="number" min="0" value={v.costPrice} onChange={e => updateEditVariation(index,{costPrice:Number(e.target.value)})} className="block w-full min-w-0 p-1 border rounded" /></label>
+                          <label>Retail<input type="number" min="0" value={v.sellingPrice} onChange={e => updateEditVariation(index,{sellingPrice:Number(e.target.value)})} className="block w-full min-w-0 p-1 border rounded" /></label>
+                          {editForm.sellInWholesale && (
+                            <label>Wholesale<input type="number" min="0"
+                              value={v.wholesalePrice ?? editForm.wholesalePrice ?? 0}
+                              onChange={e => updateEditVariation(index,{wholesalePrice:Number(e.target.value)})}
+                              className="block w-full min-w-0 p-1 border rounded" /></label>
+                          )}
+                          <label>Shop<input type="number" min="0" step="0.001" value={v.shopStockQty} onChange={e => updateEditVariation(index,{shopStockQty:Number(e.target.value)})} className="block w-full min-w-0 p-1 border rounded" /></label>
+                          <label>Store<input type="number" min="0" step="0.001" value={v.storeStockQty} onChange={e => updateEditVariation(index,{storeStockQty:Number(e.target.value)})} className="block w-full min-w-0 p-1 border rounded" /></label>
+                          <label>Barcode<input value={v.barcode} placeholder="Auto" onChange={e => updateEditVariation(index,{barcode:e.target.value})} className="block w-full min-w-0 p-1 border rounded" /></label>
+                          {!v.id && editVariationDrafts.length > 2 &&
+                            <button type="button" onClick={() => setEditVariationDrafts(rows => rows.filter((_,i)=>i!==index))} className="text-red-600 text-left">Remove</button>}
+                        </div>
+                      ))}
+                    </div>
+                    <button type="button" onClick={() => setEditVariationDrafts(rows => [...rows, emptyVariation()])} className="text-[10px] font-bold text-emerald-700">+ Add Variation</button>
+                  </>
+                )}
+              </div>
+            )}
             </div>
 
             {/* Fixed-height form footer: a flex sibling, not a second sticky overlay.
@@ -6222,14 +6534,14 @@ export default function DashboardProducts({
       {/* REPLENISH BATCH MODAL */}
       {replenishProduct && (
         <div className="tenant-modal-overlay fixed inset-0 z-[110] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in font-sans" style={{paddingBottom: `calc(${'var(--dashboard-bottom-nav-height, 60px)'} + env(safe-area-inset-bottom))`}}>
-          <form onSubmit={handleReplenishSubmit} className="tenant-form-screen bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col">
+          <form onSubmit={handleReplenishSubmit} aria-busy={isSavingReplenish} className="tenant-form-screen bg-white border border-slate-200 rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col">
             <div className="tenant-form-header px-6 py-4 bg-slate-50 border-b border-slate-200 flex flex-col space-y-1">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <Package className="w-4 h-4 text-emerald-600" />
                   <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider font-mono">Stock Restock & Prices</h4>
                 </div>
-                <button type="button" onClick={() => setReplenishProduct(null)} className="text-slate-500 hover:text-slate-700 cursor-pointer">
+                <button type="button" disabled={isSavingReplenish} onClick={() => setReplenishProduct(null)} className="text-slate-500 hover:text-slate-700 cursor-pointer disabled:opacity-50" aria-label="Close replenishment">
                   <X className="w-4 h-4" />
                 </button>
               </div>
@@ -6352,11 +6664,14 @@ export default function DashboardProducts({
               )}
             </div>
 
-            <div className="tenant-form-footer bg-slate-50 p-4 flex justify-between space-x-2 border-t border-slate-200">
-              <span className="text-[10px] text-slate-500 max-w-[240px] leading-tight flex items-center"><Package className="w-3 h-3 mr-1 shrink-0"/> {replenishCostingMethod === 'average_price' ? 'Saves batch and updates POS average price' : replenishCostingMethod === 'batch_price' ? 'Saves batch for batch-price selling' : 'Saves batch for FIFO selling'}</span>
-              <div className="flex space-x-2">
-                <button type="button" onClick={() => setReplenishProduct(null)} className="px-4 py-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-lg uppercase tracking-wider text-[10px] cursor-pointer">Cancel</button>
-                <button type="submit" disabled={!replenishCost || !replenishQty} className="px-5 py-2 bg-emerald-600 disabled:opacity-50 hover:bg-emerald-500 text-white font-bold rounded-lg uppercase tracking-wider text-[10px] cursor-pointer">Add Batch</button>
+            <div className="tenant-form-footer bg-slate-50 p-4 flex flex-col gap-2 border-t border-slate-200">
+              {replenishSaveError && <p role="alert" className="text-xs font-semibold text-red-700">{replenishSaveError}</p>}
+              <div className="flex justify-between gap-2">
+                <span className="text-[10px] text-slate-500 max-w-[240px] leading-tight flex items-center"><Package className="w-3 h-3 mr-1 shrink-0"/> {replenishCostingMethod === 'average_price' ? 'Saves batch and updates POS average price' : replenishCostingMethod === 'batch_price' ? 'Saves batch for batch-price selling' : 'Saves batch for FIFO selling'}</span>
+                <div className="flex space-x-2">
+                  <button type="button" disabled={isSavingReplenish} onClick={() => setReplenishProduct(null)} className="px-4 py-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 font-bold rounded-lg uppercase tracking-wider text-[10px] cursor-pointer disabled:opacity-50">Cancel</button>
+                  <button type="submit" disabled={isSavingReplenish || !replenishCost || !replenishQty} className="px-5 py-2 bg-emerald-600 disabled:opacity-50 hover:bg-emerald-500 text-white font-bold rounded-lg uppercase tracking-wider text-[10px] cursor-pointer">{isSavingReplenish ? 'Saving…' : 'Add Batch'}</button>
+                </div>
               </div>
             </div>
           </form>
@@ -6458,14 +6773,7 @@ export default function DashboardProducts({
                 <button type="button" aria-label="Replenish stock"
                   onClick={() => {
                     const prod = mobileProductMenu;
-                    if (prod) runAfterMobileMenuClose(() => {
-                      setReplenishProduct(prod);
-                      setReplenishCost('');
-                      setReplenishQty('');
-                      setReplenishSupplier('');
-                      setReplenishPriceAction('suggested');
-                      setReplenishCostingMethod(prod.costingMethod || prod.inventorySettings?.costingMethod || 'fifo');
-                    });
+                    if (prod) runAfterMobileMenuClose(() => openVariantStockAction(prod, 'replenish'));
                   }}
                   className="w-full flex items-center gap-4 px-4 py-3.5 bg-white rounded-2xl active:bg-slate-50 text-left border border-slate-100"
                 >
@@ -6476,13 +6784,7 @@ export default function DashboardProducts({
                 <button type="button" aria-label="Adjust stock"
                   onClick={() => {
                     const prod = mobileProductMenu;
-                    if (prod) runAfterMobileMenuClose(() => {
-                      setAdjustProduct(prod);
-                      setAdjustQty('');
-                      setAdjustReason('');
-                      setAdjustSearch(prod.name);
-                      setAdjustShowSearch(false);
-                    });
+                    if (prod) runAfterMobileMenuClose(() => openVariantStockAction(prod, 'adjust'));
                   }}
                   className="w-full flex items-center gap-4 px-4 py-3.5 bg-white rounded-2xl active:bg-slate-50 text-left border border-slate-100"
                 >
@@ -6493,13 +6795,7 @@ export default function DashboardProducts({
                 <button type="button" aria-label="Transfer stock"
                   onClick={() => {
                     const prod = mobileProductMenu;
-                    if (prod) runAfterMobileMenuClose(() => {
-                      setTransferProduct(prod);
-                      setTransferQty(1);
-                      setTransferDirection('store_to_shop');
-                      setTransferError(null);
-                      setTransferSuccess(false);
-                    });
+                    if (prod) runAfterMobileMenuClose(() => openVariantStockAction(prod, 'transfer'));
                   }}
                   className="w-full flex items-center gap-4 px-4 py-3.5 bg-white rounded-2xl active:bg-indigo-50 text-left border border-indigo-100"
                 >

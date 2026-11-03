@@ -825,13 +825,15 @@ export default function DashboardSalesList({
   const [docWizardSelectedQty, setDocWizardSelectedQty] = useState(1);
   const [docWizardProductSearchQuery, setDocWizardProductSearchQuery] = useState('');
   const documentPickerProducts = React.useMemo(() => {
-    if (!canUseCrossBranchDocuments || !crossBranchSources) return products;
+    // Variation parents are catalogue groups, never document line items.
+    const sellableProducts = products.filter(product => !product.isVariationParent);
+    if (!canUseCrossBranchDocuments || !crossBranchSources) return sellableProducts;
     // Sourcing from your own current branch always searches the full,
     // authoritative dashboard catalogue -- branch_stock only tracks products
     // that have gone through an explicit branch-scoped purchase, so a newer
     // or not-yet-allocated product would otherwise silently vanish from
     // invoicing even though it's right there in Products.
-    if (docWizardSourceBranchId === activeBranchId) return products;
+    if (docWizardSourceBranchId === activeBranchId) return sellableProducts;
     // Sourcing from a *different* branch is built entirely from the server's
     // own branch-scoped response (it includes name/unit/barcode/sku) rather
     // than cross-referenced against the browser's local product cache --
@@ -5256,7 +5258,7 @@ export default function DashboardSalesList({
                       onClick={() => {
                         if (!docWizardSelectedProductId) return;
                         const found = documentPickerProducts.find(p => p.id === docWizardSelectedProductId);
-                        if (!found) return;
+                        if (!found || found.isVariationParent) return;
                         const source = crossBranchSources?.products.find(product =>
                           product.branchId === docWizardSourceBranchId && product.productId === found.id
                         );

@@ -153,7 +153,9 @@ test('repeated cart additions do not regenerate the entire POS product grid', as
   assert.match(memoizedGrid[1], /filteredProducts\.map\(prod => \{/);
   assert.match(memoizedGrid[1], /key=\{prod\.id\}/);
   assert.match(memoizedGrid[1], /addToCart\(prod\)/);
-  assert.match(memoizedGrid[2], /filteredProducts, productPriceMap, productRemainingMap, addToCart/);
+  for (const dependency of ['filteredProducts', 'productPriceMap', 'productRemainingMap', 'addToCart', 'products', 'selectedCardVariations', 'sellingChannel']) {
+    assert.ok(memoizedGrid[2].includes(dependency), `Product cards must update when ${dependency} changes`);
+  }
   assert.doesNotMatch(memoizedGrid[2], /\bcart\b|grandTotal|subtotal|orderDiscount|deliveryCost/);
   assert.match(pos, /id="pos-product-grid"[\s\S]*?\{\s*filteredProducts\.length === 0 \? \([\s\S]*?\)\s*:\s*\(\s*productCards\s*\)\}/);
   assert.doesNotMatch(pos.slice(pos.indexOf('id="pos-product-grid"'), pos.indexOf('Cart Summary right panel')), /filteredProducts\.map\(prod =>/);

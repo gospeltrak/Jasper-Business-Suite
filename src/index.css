@@ -703,9 +703,10 @@ body.rtl { font-family: 'Cairo', "Plus Jakarta Sans", "Inter", system-ui, sans-s
   width: 100%;
 }
 
-/* POS product catalog: 2-up on phone, 3-up on tablet, and 4-up on desktop. */
+/* POS product catalog stays 3-up on phone, tablet and desktop.
+   Compact variation selectors live inside their existing cards. */
 #dashboard-scaffold #pos-product-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
   /* Keep product rows at content height when search has only one row.
      The scrollable catalog may fill the viewport, but the rows must not. */
   align-content: start;
@@ -720,7 +721,7 @@ body.rtl { font-family: 'Cairo', "Plus Jakarta Sans", "Inter", system-ui, sans-s
 
 @media (min-width: 1280px) {
   #dashboard-scaffold #pos-product-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
   }
 }
 
