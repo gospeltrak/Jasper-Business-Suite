@@ -17,6 +17,10 @@ export interface VariationDraft {
   shopStockQty: number;
   storeStockQty: number;
   wholesalePrice?: number;
+  sellInRetail?: boolean;
+  sellInWholesale?: boolean;
+  minWholesaleQty?: number;
+  maxWholesaleQty?: number;
 }
 
 export const isVariationChild = (product: Product) => Boolean(product.variationParentId);
@@ -42,15 +46,28 @@ export const validateVariations = (
     const key = label.toLocaleLowerCase();
     if (names.has(key)) throw new Error(`Duplicate variation name: ${label}`);
     names.add(key);
-    if (parent.sellInRetail !== false && (!Number.isFinite(row.sellingPrice) || row.sellingPrice <= 0)) {
+    const retailEnabled = row.sellInRetail ?? (parent.sellInRetail !== false);
+    const wholesaleEnabled = row.sellInWholesale ?? (parent.sellInWholesale === true);
+    if (!retailEnabled && !wholesaleEnabled) {
+      throw new Error(`Enable Retail or Wholesale for ${label}.`);
+    }
+    if (retailEnabled && (!Number.isFinite(row.sellingPrice) || row.sellingPrice <= 0)) {
       throw new Error(`Set a valid retail price for ${label}.`);
     }
     const wholesalePrice = row.wholesalePrice ?? parent.wholesalePrice ?? 0;
-    if (parent.sellInWholesale && (!Number.isFinite(wholesalePrice) || wholesalePrice <= 0)) {
+    const minWholesaleQty = row.minWholesaleQty ?? parent.minWholesaleQty ?? 10;
+    const maxWholesaleQty = row.maxWholesaleQty;
+    if (wholesaleEnabled && (!Number.isFinite(wholesalePrice) || wholesalePrice <= 0)) {
       throw new Error(`Set a valid wholesale price for ${label}.`);
     }
-    if (parent.sellInWholesale && parent.sellInRetail !== false && wholesalePrice >= row.sellingPrice) {
+    if (wholesaleEnabled && retailEnabled && wholesalePrice >= row.sellingPrice) {
       throw new Error(`Wholesale price must be lower than the retail price for ${label}.`);
+    }
+    if (wholesaleEnabled && (!Number.isSafeInteger(minWholesaleQty) || minWholesaleQty < 1)) {
+      throw new Error(`Minimum wholesale quantity must be at least 1 for ${label}.`);
+    }
+    if (wholesaleEnabled && maxWholesaleQty !== undefined && (!Number.isSafeInteger(maxWholesaleQty) || maxWholesaleQty < minWholesaleQty)) {
+      throw new Error(`Maximum wholesale quantity cannot be less than minimum for ${label}.`);
     }
     if (!Number.isFinite(row.costPrice) || row.costPrice < 0
       || !Number.isFinite(row.shopStockQty) || row.shopStockQty < 0
@@ -108,7 +125,14 @@ export const buildVariationProducts = (
       stockQty: qty(shop + store),
       costPrice: cost,
       sellingPrice: price,
-      wholesalePrice: parent.sellInWholesale ? money(draft.wholesalePrice ?? parent.wholesalePrice ?? 0) : undefined,
+      sellInRetail: draft.sellInRetail ?? (parent.sellInRetail !== false),
+      sellInWholesale: draft.sellInWholesale ?? (parent.sellInWholesale === true),
+      wholesalePrice: (draft.sellInWholesale ?? (parent.sellInWholesale === true))
+        ? money(draft.wholesalePrice ?? parent.wholesalePrice ?? 0) : undefined,
+      minWholesaleQty: (draft.sellInWholesale ?? (parent.sellInWholesale === true))
+        ? (draft.minWholesaleQty ?? parent.minWholesaleQty ?? 10) : undefined,
+      maxWholesaleQty: (draft.sellInWholesale ?? (parent.sellInWholesale === true))
+        ? draft.maxWholesaleQty : undefined,
       // Existing batch history on an unchanged child is retained. A parent
       // with existing batches cannot safely be converted automatically.
       batches: existing?.batches,
