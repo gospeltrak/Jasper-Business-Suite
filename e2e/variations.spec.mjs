@@ -4,6 +4,10 @@ const ledger = async page => JSON.parse(await page.getByTestId('ledger').textCon
 const product = (data,id) => data.products.find(entry=>entry.id===id);
 
 test.beforeEach(async ({ page }) => {
+  page.on('pageerror', error => console.error('[E2E browser runtime]', error.message));
+  page.on('console', message => {
+    if (message.type() === 'error') console.error('[E2E browser console]', message.text());
+  });
   await page.goto('/e2e/variations.html');
   await expect(page.locator('[data-pos-product-card]').first()).toBeVisible();
 });
