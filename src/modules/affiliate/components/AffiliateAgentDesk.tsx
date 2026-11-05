@@ -1,7 +1,7 @@
 /**
  * AffiliateAgentDesk — Super Agent / Partner Dashboard
  * Implements all 19 parts of the partner dashboard spec:
- * - 20% commission split (5% manager + 15% sub-affiliate)
+ * - 10% commission split (5% manager + 10% sub-affiliate)
  * - Withholding tax preparation (currently not active)
  * - Sub-affiliate management with disable/suspend (NO delete)
  * - Mirror mode for viewing sub-affiliate accounts
@@ -64,7 +64,7 @@ type ReferredTenantRow = {
 
 const NAV_TABS: { id: DashTab; label: string; icon: any; desc: string }[] = [
   { id: 'overview',       label: 'Network Overview',       icon: BarChart3,     desc: 'Team performance & earnings' },
-  { id: 'reconciliation', label: 'Monthly Reconciliation', icon: Coins,         desc: '20% split & withholding' },
+  { id: 'reconciliation', label: 'Monthly Reconciliation', icon: Coins,         desc: '15% split & withholding' },
   { id: 'affiliates',     label: 'Manage Sub-Affiliates',  icon: Users,         desc: 'Recruit, suspend, mirror' },
   { id: 'customers',      label: 'Network Customers',      icon: ShieldCheck,   desc: 'Customers from your team' },
   { id: 'code-link',      label: 'Code & Link',            icon: Copy,          desc: 'Your partner code & referral link' },
@@ -105,7 +105,7 @@ function WhtNotice({ tinStatus }: { tinStatus?: TinStatus }) {
       <div className="text-[11px] text-amber-200/80 leading-relaxed">
         {!tinStatus || tinStatus === 'not_submitted' ? (
           <>
-            <strong className="text-amber-400">Important:</strong> For now, sub-affiliates receive the full 15% commission.
+            <strong className="text-amber-400">Important:</strong> For now, sub-affiliates receive the full 10% commission.
             Later, 5% withholding tax will be deducted and submitted to TRA.
             Please ensure all sub-affiliates add their TIN number.
             <strong className="text-amber-400"> Payouts will be blocked without a valid TIN when WHT becomes active.</strong>
@@ -989,7 +989,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
               { label: 'Revenue Generated',   value: formatTZS(mirrorTarget.revenueGenerated),   color: 'text-white' },
-              { label: 'Gross Commission 15%', value: formatTZS(bd.subAffiliateGrossCommission15), color: 'text-emerald-400' },
+              { label: 'Gross Commission 10%', value: formatTZS(bd.subAffiliateGrossCommission15), color: 'text-emerald-400' },
               { label: 'WHT 5%',              value: WITHHOLDING_TAX_ACTIVE ? formatTZS(bd.withholdingTax5) : 'Not active', color: 'text-amber-400' },
               { label: 'Net Payout',          value: formatTZS(bd.subAffiliateNetPayout),        color: 'text-blue-400' },
             ].map(k => (
@@ -1175,7 +1175,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
             <div className="space-y-6">
               <div>
                 <h2 className="text-lg font-black text-white">Network Overview</h2>
-                <p className="text-xs text-slate-400 mt-0.5">20% commission pool — your 5% + sub-affiliate 15%</p>
+                <p className="text-xs text-slate-400 mt-0.5">10% commission pool — your 5% + sub-affiliate 15%</p>
               </div>
 
               {/* ── DASHBOARD AD PLACEMENT ── same slot as tenant dashboard ── */}
@@ -1218,9 +1218,9 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
                 {[
                   { label: 'Sub-Affiliates',      value: totals.subAffiliateCount,                    sub: `${totals.activeSubAffiliates} active`,    color: 'text-white',       bg: 'bg-slate-800' },
                   { label: 'Network Revenue',     value: formatTZS(totals.networkRevenue),            sub: 'Total generated',                          color: 'text-blue-400',    bg: 'bg-blue-500/10' },
-                  { label: '20% Pool Total',      value: formatTZS(totals.networkPool20),             sub: 'Total network commission',                 color: 'text-purple-400',  bg: 'bg-purple-500/10' },
+                  { label: '15% Pool Total',      value: formatTZS(totals.networkPool20),             sub: 'Total network commission',                 color: 'text-purple-400',  bg: 'bg-purple-500/10' },
                   { label: 'Your 5% Earnings',    value: formatTZS(totals.managerCommission5),        sub: 'Manager commission',                       color: 'text-amber-400',   bg: 'bg-amber-500/10' },
-                  { label: 'Sub-Affiliate 15%',   value: formatTZS(totals.subAffiliateShare15),      sub: 'Gross commission pool',                    color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+                  { label: 'Sub-Affiliate 10%',   value: formatTZS(totals.subAffiliateShare15),      sub: 'Gross commission pool',                    color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
                   { label: 'Pending Payouts',     value: formatTZS(totals.pendingPayout),             sub: 'Unpaid to sub-affiliates',                 color: 'text-rose-400',    bg: 'bg-rose-500/10' },
                   { label: 'Paid This Month',     value: formatTZS(totals.paidAmount),               sub: 'Paid out',                                 color: 'text-teal-400',    bg: 'bg-teal-500/10' },
                   { label: 'Active Sub-Affiliates',value: totals.activeSubAffiliates,                 sub: 'Producing revenue',                        color: 'text-white',       bg: 'bg-slate-800' },
@@ -1238,12 +1238,12 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
               {/* Commission breakdown example */}
               <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
                 <h3 className="text-sm font-black text-white mb-4 flex items-center gap-2">
-                  <Info className="w-4 h-4 text-amber-400" /> How the 20% Commission Split Works
+                  <Info className="w-4 h-4 text-amber-400" /> How the 15% Commission Split Works
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
                   <div className="bg-slate-800 rounded-xl p-4">
                     <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Total Network Pool</p>
-                    <p className="text-2xl font-black text-purple-400 mt-1">20%</p>
+                    <p className="text-2xl font-black text-purple-400 mt-1">10%</p>
                     <p className="text-[10px] text-slate-500 mt-1">of Revenue Generated</p>
                   </div>
                   <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4">
@@ -1253,7 +1253,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
                   </div>
                   <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4">
                     <p className="text-[10px] text-emerald-400/70 uppercase font-bold tracking-wider">Sub-Affiliate</p>
-                    <p className="text-2xl font-black text-emerald-400 mt-1">15%</p>
+                    <p className="text-2xl font-black text-emerald-400 mt-1">10%</p>
                     <p className="text-[10px] text-slate-500 mt-1">Gross Commission</p>
                   </div>
                 </div>
@@ -1271,7 +1271,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <h2 className="text-lg font-black text-white">Monthly Reconciliation</h2>
-                  <p className="text-xs text-slate-400 mt-0.5">20% split: 5% manager + 15% sub-affiliate gross · WHT shown for all affiliates</p>
+                  <p className="text-xs text-slate-400 mt-0.5">15% split: 5% manager + 10% sub-affiliate gross · WHT shown for all affiliates</p>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <input type="month" value={reconMonth} onChange={e => setReconMonth(e.target.value)}
@@ -1303,9 +1303,9 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
                             'Payout Number',
                             'Network',
                             'Revenue',
-                            '20% Pool',
+                            '15% Pool',
                             'Your 5%',
-                            '15% Gross',
+                            '10% Gross',
                             'WHT 5%',
                             'Net Payout',
                             'Status',
@@ -1432,7 +1432,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
                               <p className="text-[11px] font-black text-white mt-0.5">{formatTZS(aff.revenueGenerated)}</p>
                             </div>
                             <div className="bg-emerald-500/10 rounded-lg p-2 text-center">
-                              <p className="text-[8px] text-emerald-400/70 uppercase">15% Gross</p>
+                              <p className="text-[8px] text-emerald-400/70 uppercase">10% Gross</p>
                               <p className="text-[11px] font-black text-emerald-400 mt-0.5">{formatTZS(bd.subAffiliateGrossCommission15)}</p>
                             </div>
                             <div className="bg-amber-500/10 rounded-lg p-2 text-center">
@@ -1653,7 +1653,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
                 <AlertCircle className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
                 <p className="text-xs text-slate-500 leading-relaxed">
                   Affiliates who register using your partner code or referral link will be added to your network.
-                  You earn <strong className="text-amber-400">5% override commission</strong> on all their referrals, on top of your own <strong className="text-amber-400">15% direct commission</strong>.
+                  You earn <strong className="text-amber-400">5% override commission</strong> on all their referrals, on top of your own <strong className="text-amber-400">10% direct commission</strong>.
                 </p>
               </div>
             </div>
