@@ -106,6 +106,33 @@ begin
       case when v_aff.affiliate_type='sub_affiliate' then 'sub_affiliate' else 'organic_affiliate' end,
       v_code,v_code,v_aff.id,'registered','verified_registration');
   end if;
+  -- Maintain a zero-revenue legacy attribution row for existing administrative reports.
+  -- This is independent from, and cannot create, any revenue commission.
+  if not exists(select 1 from public.referred_customers where customer_id=p_tenant_id::text) then
+    insert into public.referred_customers(
+      customer_id,tenant_id,customer_name,source_type,affiliate_id,sub_affiliate_id,
+      referral_code_used,promo_code_used,package_name,package_price,amount_paid,
+      payment_status,commission_status,commission_amount
+    ) values (
+      p_tenant_id::text,p_tenant_id::text,
+      coalesce((select name from public.tenants where id=p_tenant_id),'New Business'),
+      case when v_aff.affiliate_type='sub_affiliate' then 'sub_affiliate' else 'organic_affiliate' end,
+      v_aff.id::text,v_aff.id::text,v_code,v_code,'Trial',0,0,'pending','pending',0
+    );
+  end if;
+  if not exists(select 1 from public.commission_ledger where customer_id=p_tenant_id::text) then
+    insert into public.commission_ledger(
+      customer_id,source_type,affiliate_id,sub_affiliate_id,
+      revenue_amount,network_pool_20,manager_commission_5,
+      sub_affiliate_gross_commission_15,withholding_tax_rate,
+      withholding_tax_amount,sub_affiliate_net_payout,
+      tin_number_available,withholding_status,status,currency
+    ) values (
+      p_tenant_id::text,
+      case when v_aff.affiliate_type='sub_affiliate' then 'sub_affiliate' else 'organic_affiliate' end,
+      v_aff.id::text,v_aff.id::text,0,0,0,0,0.05,0,0,false,'not_active','pending','TZS'
+    );
+  end if;
   return true;
 end;
 $function$;
@@ -151,6 +178,22 @@ begin
   ) values (v_aff,p_tenant_id,'payment:'||p_payment_proof_id::text,'subscription_commission',
       v_gross,v_amount,0,v_gross,p_payment_proof_id::text)
   on conflict(source_key) do nothing returning id into v_inserted;
+  if v_inserted is not null then
+    -- Legacy first-payment summaries remain numerically consistent with V2.
+    -- Never rewrite previously approved or paid historical rows.
+    update public.referred_customers set
+      amount_paid=v_amount,payment_status='paid',
+      commission_status='approved',commission_amount=v_gross,
+      package_price=v_amount
+      where customer_id=p_tenant_id::text and payment_status='pending';
+    update public.commission_ledger set
+      revenue_amount=v_amount,network_pool_20=round(v_amount*0.15,2),
+      manager_commission_5=round(v_amount*0.05,2),
+      sub_affiliate_gross_commission_15=v_gross,
+      withholding_tax_amount=0,withholding_status='not_active',
+      sub_affiliate_net_payout=v_gross,status='approved',approved_at=now()
+      where customer_id=p_tenant_id::text and status='pending';
+  end if;
   return v_inserted is not null;
 end;
 $function$;
