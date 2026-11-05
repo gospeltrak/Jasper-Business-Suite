@@ -1,6 +1,7 @@
 import { getSecureDataBridgeClient } from '../../../shared/dataBridge/secureDataBridge';
 import { loadPlatformRecord } from '../../platform-admin/utils/superAdminPlatformRecords';
 import { isSettledPaymentStatus } from '../../../shared/utils/financialStatus';
+import type { AffiliateRewardEntry } from './affiliatePolicy';
 
 export type AffiliateTaskStatus = 'new' | 'pending' | 'completed' | 'reviewed';
 export type AffiliateMeetingStatus = 'upcoming' | 'live' | 'completed' | 'cancelled';
@@ -121,6 +122,11 @@ export interface AffiliatePayout {
   requested_at: string;
   processed_at: string | null;
   notes: string | null;
+  payout_month?: string | null;
+  net_payout?: number | null;
+  provider_fee_tzs?: number | null;
+  registration_component?: number | null;
+  commission_component?: number | null;
 }
 
 export interface AffiliateActivityEvent {
@@ -150,6 +156,8 @@ export interface AffiliateWorkspaceData {
   referrals: AffiliateReferral[];
   subscribers: AffiliateSubscriber[];
   commissions: AffiliateCommission[];
+  rewards: AffiliateRewardEntry[];
+  walletSummary: {bonus:number;commission:number;totalRevenue:number;grossCommission:number;withholding:number;earned:number;paid:number} | null;
   payouts: AffiliatePayout[];
   activities: AffiliateActivityEvent[];
   notifications: AffiliateNotification[];
@@ -303,7 +311,7 @@ export async function loadAffiliateWorkspace(options: AffiliateWorkspaceLoadOpti
     promoCode ? `referral_code_used.eq.${promoCode}` : '',
   ].filter(Boolean).join(',');
 
-  const [tasksResult, meetingsResult, assignmentsResult, sspBanners, referralsResult, subscribersResult, sourceTrackingResult, commissionsResult, payoutsResult, activitiesResult, notificationsResult] = await Promise.all([
+  const [tasksResult, meetingsResult, assignmentsResult, sspBanners, referralsResult, subscribersResult, sourceTrackingResult, commissionsResult, payoutsResult, activitiesResult, notificationsResult, rewardsResult, walletSummaryResult] = await Promise.all([
     requiredQuery('affiliate_tasks', () => client.from('affiliate_tasks').select('*').eq('affiliate_id', profile.id).order('created_at', { ascending: false }).limit(50)),
     requiredQuery('affiliate_meetings', () => client.from('affiliate_meetings').select('*').eq('affiliate_id', profile.id).order('starts_at', { ascending: true }).limit(50)),
     requiredQuery('affiliate_ad_assignments', () => client.from('affiliate_ad_assignments').select('campaign:affiliate_ad_campaigns(*)').eq('affiliate_id', profile.id).order('created_at', { ascending: false }).limit(50)),
@@ -314,9 +322,11 @@ export async function loadAffiliateWorkspace(options: AffiliateWorkspaceLoadOpti
       : Promise.resolve({ data: [] }),
     requiredQuery('subscriber_source_tracking', () => client.from('subscriber_source_tracking').select('*').or(ownReferralScope).order('created_at', { ascending: false }).limit(1000)),
     requiredQuery('affiliate_commissions', () => client.from('affiliate_commissions').select('id, amount, gross_revenue, gross_commission, withholding_tax, net_payout, currency, status, created_at, available_at, paid_at').eq('affiliate_id', profile.id).order('created_at', { ascending: false }).limit(500)),
-    requiredQuery('affiliate_payouts', () => client.from('affiliate_payouts').select('id, amount, currency, payout_method, payout_reference, status, requested_at, processed_at, notes').eq('affiliate_id', profile.id).order('requested_at', { ascending: false }).limit(100)),
+    requiredQuery('affiliate_payouts', () => client.from('affiliate_payouts').select('id, amount, currency, payout_method, payout_reference, status, requested_at, processed_at, notes, payout_month, net_payout, provider_fee_tzs, registration_component, commission_component').eq('affiliate_id', profile.id).order('requested_at', { ascending: false }).limit(100)),
     requiredQuery('affiliate_activity_events', () => client.from('affiliate_activity_events').select('*').eq('affiliate_id', profile.id).order('created_at', { ascending: false }).limit(200)),
     optionalQuery('affiliate_notification_events', () => client.from('affiliate_notification_events').select('id, title, message, priority, created_at, read_at').eq('affiliate_id', profile.id).order('created_at', { ascending: false }).limit(100)),
+    optionalQuery('affiliate_reward_entries', () => client.from('affiliate_reward_entries').select('id, tenant_id, reward_type, source_revenue, gross_amount, withholding_tax, net_amount, status, created_at, paid_at').eq('affiliate_id', profile.id).order('created_at', { ascending: false }).limit(1000)),
+    optionalQuery('affiliate_reward_summary', () => client.rpc('get_affiliate_reward_balance_v2')),
   ]);
 
   const assignedCampaigns = asArray<any>(assignmentsResult.data)
@@ -353,6 +363,22 @@ export async function loadAffiliateWorkspace(options: AffiliateWorkspaceLoadOpti
       withholding_tax: Number(commission.withholding_tax),
       net_payout: Number(commission.net_payout),
     })),
+    rewards: asArray<AffiliateRewardEntry>(rewardsResult.data).map((entry) => ({
+      ...entry,
+      source_revenue: Number(entry.source_revenue || 0),
+      gross_amount: Number(entry.gross_amount),
+      withholding_tax: Number(entry.withholding_tax),
+      net_amount: Number(entry.net_amount),
+    })),
+    walletSummary: walletSummaryResult.data ? {
+      bonus: Number(walletSummaryResult.data.bonus || 0),
+      commission: Number(walletSummaryResult.data.commission || 0),
+      totalRevenue: Number(walletSummaryResult.data.totalRevenue || 0),
+      grossCommission: Number(walletSummaryResult.data.grossCommission || 0),
+      withholding: Number(walletSummaryResult.data.withholding || 0),
+      earned: Number(walletSummaryResult.data.earned || 0),
+      paid: Number(walletSummaryResult.data.paid || 0),
+    } : null,
     payouts: asArray<AffiliatePayout>(payoutsResult.data).map((payout) => ({
       ...payout,
       amount: Number(payout.amount),

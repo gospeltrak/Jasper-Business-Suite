@@ -1,16 +1,16 @@
 /**
  * commissionEngine.ts — Central commission calculation service
  *
- * 20% Network Commission Pool Rule:
- *   - Total Network Pool = Revenue × 20%
+ * 15% Network Commission Pool Rule:
+ *   - Total Network Pool = Revenue × 15%
  *   - Super Agent / Partner earns  = Revenue × 5%
  *   - Sub-Affiliate gross earns    = Revenue × 15%
- *   - Validation: 5% + 15% must equal 20% exactly
+ *   - Validation: 5% + 10% must equal 15% exactly
  *
  * Withholding Tax (CURRENTLY NOT ACTIVE):
  *   - WHT = 5% of sub-affiliate GROSS commission (not of revenue)
  *   - Net Payout = Gross Commission - WHT
- *   - Currently: WHT = 0, Net = Gross (full 15%)
+ *   - Currently: WHT = 0, Net = Gross (full 10%)
  */
 
 export type WithholdingStatus = 'not_active' | 'pending_tin' | 'deducted' | 'exempted';
@@ -23,9 +23,9 @@ export type AccountType = 'affiliate' | 'sub_affiliate' | 'partner' | 'super_age
 
 export interface CommissionBreakdown {
   revenueAmount: number;
-  networkPool20: number;           // Revenue × 20%
+  networkPool20: number;           // Revenue × 15%
   managerCommission5: number;      // Revenue × 5%  (goes to Super Agent)
-  subAffiliateGrossCommission15: number; // Revenue × 15% (goes to sub-affiliate)
+  subAffiliateGrossCommission15: number; // Revenue × 10% (goes to sub-affiliate)
   withholdingTax5: number;         // 5% of grossCommission15 (NOT of revenue)
   subAffiliateNetPayout: number;   // gross15 - withholdingTax5
   withholdingStatus: WithholdingStatus;
@@ -151,16 +151,16 @@ export const WITHHOLDING_TAX_ACTIVE = false;
 export const WITHHOLDING_TAX_RATE = 0.05;
 
 /** Network pool rate */
-export const NETWORK_POOL_RATE = 0.20;
+export const NETWORK_POOL_RATE = 0.15;
 
 /** Manager/Super Agent cut */
 export const MANAGER_RATE = 0.05;
 
 /** Sub-affiliate gross commission rate */
-export const SUB_AFFILIATE_RATE = 0.15;
+export const SUB_AFFILIATE_RATE = 0.10;
 
 /**
- * Full 20% network pool from revenue
+ * Full 15% network pool from revenue
  */
 export function calculateNetworkPool(revenueAmount: number): number {
   return Math.round(revenueAmount * NETWORK_POOL_RATE * 100) / 100;
@@ -174,7 +174,7 @@ export function calculateManagerCommission(revenueAmount: number): number {
 }
 
 /**
- * Sub-affiliate gross commission: 15% of revenue
+ * Sub-affiliate gross commission: 10% of revenue
  */
 export function calculateSubAffiliateGrossCommission(revenueAmount: number): number {
   return Math.round(revenueAmount * SUB_AFFILIATE_RATE * 100) / 100;
@@ -227,8 +227,8 @@ export function calculateCommissionBreakdown(
 }
 
 /**
- * Validates the 20% commission split
- * manager5 + subAffiliate15 must equal network20
+ * Validates the 15% commission split
+ * manager5 + subAffiliate10 must equal network15
  */
 export function validateCommissionSplit(breakdown: CommissionBreakdown): boolean {
   const sum = breakdown.managerCommission5 + breakdown.subAffiliateGrossCommission15;

@@ -164,8 +164,8 @@ export default function SuperAffiliateControlCenter({ initialTab = 'agents', isU
     downloadExcelFileFromRows(`${filename}-${formatLocalDate()}`, [{ name: 'Export', aoa: [headers, ...rows] }]);
   };
 
-  const exportAgentPayouts = () => exportCsv('agent-monitoring-payouts', ['Agent Name', 'Agent ID', 'Phone', 'Agent Code', 'Agent Link', 'Sub-affiliates', 'Subscribers', 'Revenue', '20% Pool', 'Agent 5% Cut', 'Sub-affiliate 15% Allocation', '5% WHT on Agent Cut', 'Agent Net', 'Mobile Money Number', 'Provider', 'Status'], agentRows.map((row) => [row.agentName, row.agentId, row.phone, row.agentCode, row.agentLink, row.subAffiliates, row.subscribers, row.revenue, row.poolTotal, row.agentCut, row.subAffiliatePool, row.withholdingTax, row.netPayout, row.mobileMoneyNumber, row.mobileMoneyProvider, row.status]));
-  const exportSubPayouts = () => exportCsv('sub-affiliate-monitoring-payouts', ['Sub-affiliate Name', 'Sub-affiliate ID', 'Parent Agent', 'Agent Code', 'Phone', 'Promo Code', 'Referral Link', 'Subscribers', 'Revenue', '15% Commission', '5% WHT', 'Net Payout', 'Mobile Money Number', 'Provider', 'Payout Status', 'Account Status'], subAffiliateRows.map((row) => [row.name, row.id, row.parentAgentName, row.parentAgentCode, row.phone, row.promoCode, row.referralLink, row.subscribers, row.revenue, row.commission, row.withholdingTax, row.netPayout, row.mobileMoneyNumber, row.mobileMoneyProvider, row.payoutStatus, row.status]));
+  const exportAgentPayouts = () => exportCsv('agent-monitoring-payouts', ['Agent Name', 'Agent ID', 'Phone', 'Agent Code', 'Agent Link', 'Sub-affiliates', 'Subscribers', 'Revenue', '15% Pool', 'Agent 5% Cut', 'Sub-affiliate 10% Allocation', '5% WHT on Agent Cut', 'Agent Net', 'Mobile Money Number', 'Provider', 'Status'], agentRows.map((row) => [row.agentName, row.agentId, row.phone, row.agentCode, row.agentLink, row.subAffiliates, row.subscribers, row.revenue, row.poolTotal, row.agentCut, row.subAffiliatePool, row.withholdingTax, row.netPayout, row.mobileMoneyNumber, row.mobileMoneyProvider, row.status]));
+  const exportSubPayouts = () => exportCsv('sub-affiliate-monitoring-payouts', ['Sub-affiliate Name', 'Sub-affiliate ID', 'Parent Agent', 'Agent Code', 'Phone', 'Promo Code', 'Referral Link', 'Subscribers', 'Revenue', '10% Commission', '5% WHT', 'Net Payout', 'Mobile Money Number', 'Provider', 'Payout Status', 'Account Status'], subAffiliateRows.map((row) => [row.name, row.id, row.parentAgentName, row.parentAgentCode, row.phone, row.promoCode, row.referralLink, row.subscribers, row.revenue, row.commission, row.withholdingTax, row.netPayout, row.mobileMoneyNumber, row.mobileMoneyProvider, row.payoutStatus, row.status]));
 
   if (state === 'loading') return <div className="min-h-[420px] grid place-items-center text-slate-400"><LoaderCircle className="animate-spin w-6 h-6" /></div>;
   if (state === 'error') return <div className="rounded-2xl border border-slate-800/80 bg-slate-900 p-6 text-center shadow-sm shadow-black/20"><ShieldCheck className="mx-auto w-7 h-7 text-amber-400" /><h2 className="mt-3 font-bold text-white">Live Super Admin access required</h2><p className="mt-2 text-sm text-slate-400">{error}</p><button onClick={refresh} className="mt-4 rounded-xl bg-slate-800 px-3.5 py-2.5 text-xs font-bold text-slate-200 transition-colors hover:bg-slate-700"><RefreshCw className="inline w-4 h-4 mr-2" />Retry</button></div>;
@@ -306,14 +306,14 @@ function AgentMonitoringSection({ rows, totals, onExport, isUnlocked, onDelete }
       <div className="affiliate-summary-metrics-grid gap-3">
         <Metric label="Agents" value={rows.length.toLocaleString()} />
         <Metric label="Network revenue" value={totals.revenue > 0 ? money.format(totals.revenue) : 'No earnings yet'} />
-        <Metric label="20% pool" value={totals.pool > 0 ? money.format(totals.pool) : '—'} />
+        <Metric label="15% pool" value={totals.pool > 0 ? money.format(totals.pool) : '—'} />
         <Metric label="Agent 5% cut" value={totals.agentCut > 0 ? money.format(totals.agentCut) : '—'} />
       </div>
       <div className="hidden overflow-x-auto rounded-2xl border border-slate-800/80 shadow-sm shadow-black/20 lg:block">
         <table className="w-full text-sm">
           <thead className="bg-slate-900 text-xs text-slate-400">
             <tr>
-              <th className="p-3 text-left">Agent</th><th className="p-3 text-left">Code / link</th><th className="p-3 text-center">Sub-affiliates</th><th className="p-3 text-center">Subscribers</th><th className="p-3 text-right">Revenue</th><th className="p-3 text-right">20% pool</th><th className="p-3 text-right">5% cut</th><th className="p-3 text-right">15% sub allocation</th><th className="p-3 text-right">Net</th><th className="p-3 text-left">Status</th><th className="p-3" />
+              <th className="p-3 text-left">Agent</th><th className="p-3 text-left">Code / link</th><th className="p-3 text-center">Sub-affiliates</th><th className="p-3 text-center">Subscribers</th><th className="p-3 text-right">Revenue</th><th className="p-3 text-right">15% pool</th><th className="p-3 text-right">5% cut</th><th className="p-3 text-right">15% sub allocation</th><th className="p-3 text-right">Net</th><th className="p-3 text-left">Status</th><th className="p-3" />
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-800/80 bg-slate-900">
@@ -372,7 +372,7 @@ function SubAffiliateSection({ rows, totals, onExport, onEdit, loadingAffiliateI
       <div className="affiliate-summary-metrics-grid gap-3">
         <Metric label="Sub-affiliates" value={rows.length.toLocaleString()} />
         <Metric label="Revenue" value={money.format(totals.revenue)} />
-        <Metric label="15% commission" value={money.format(totals.commission)} />
+        <Metric label="10% commission" value={money.format(totals.commission)} />
         <Metric label="5% WHT (future)" value={money.format(totals.tax)} />
       </div>
       {/* Desktop table */}
@@ -385,7 +385,7 @@ function SubAffiliateSection({ rows, totals, onExport, onEdit, loadingAffiliateI
               <th className="p-3 text-left">Promo / link</th>
               <th className="p-3 text-center">Subscribers</th>
               <th className="p-3 text-right">Revenue</th>
-              <th className="p-3 text-right">15% Gross</th>
+              <th className="p-3 text-right">10% Gross</th>
               <th className="p-3 text-right">5% WHT</th>
               <th className="p-3 text-right">Net Payout</th>
               <th className="p-3 text-left">Payout Info</th>

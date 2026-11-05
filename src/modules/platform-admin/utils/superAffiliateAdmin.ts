@@ -128,7 +128,7 @@ export async function loadAffiliateMonitoringData(): Promise<AffiliateMonitoring
   const totalsByEntity = new Map<string, { ledgerRevenue: number; referralRevenue: number; gross: number; wht: number; net: number; customers: number }>();
   const emptyTotals = () => ({ ledgerRevenue: 0, referralRevenue: 0, gross: 0, wht: 0, net: 0, customers: 0 });
   const settledRevenue = (totals: ReturnType<typeof emptyTotals>) => totals.ledgerRevenue || totals.referralRevenue;
-  const gross15 = (totals: ReturnType<typeof emptyTotals>) => totals.gross || settledRevenue(totals) * 0.15;
+  const gross15 = (totals: ReturnType<typeof emptyTotals>) => totals.gross || settledRevenue(totals) * 0.10;
   const manager5 = (totals: ReturnType<typeof emptyTotals>) => totals.gross || settledRevenue(totals) * 0.05;
   const taxOn = (amount: number) => amount * 0.05;
 
@@ -250,9 +250,9 @@ export async function loadAffiliateMonitoringData(): Promise<AffiliateMonitoring
       subAffiliates: networkSubs.length,
       subscribers: totals.customers || networkSubs.reduce((sum, s) => sum + s.subscribers, 0),
       revenue,
-      poolTotal: revenue * 0.20,
+      poolTotal: revenue * 0.15,
       agentCut,
-      subAffiliatePool: revenue * 0.15,
+      subAffiliatePool: revenue * 0.10,
       withholdingTax: taxOn(agentCut),
       netPayout: agentCut,
     };
@@ -274,7 +274,7 @@ export async function loadSuperAffiliateDetail(id: string): Promise<SuperAffilia
   if (error) throw error;
   if (!data) throw new Error('Affiliate account was not found.');
   const grossRevenue = numberValue(data.total_revenue);
-  const grossCommission = numberValue(data.gross_commission) || grossRevenue * 0.15;
+  const grossCommission = numberValue(data.gross_commission) || grossRevenue * 0.10;
   return {
     id: data.id, display_name: data.display_name,
     referral_code: data.referral_code || data.promo_code || '',

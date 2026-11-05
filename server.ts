@@ -2870,56 +2870,18 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       if (error) throw error;
       void sendTelegramAlert(`✅ <b>Payment approved</b>\n${packageId.charAt(0).toUpperCase() + packageId.slice(1)} package activated for ${durationDays} days.\nReason: ${reason}`);
 
-      // Real, paid activation: if this tenant was referred by an affiliate
-      // (a pending referred_customers/commission_ledger row from signup-time
-      // attribution), recognize the revenue and commission now. Never runs
-      // for free/emergency admin grants, since those never carry a
-      // paymentProofId. Best-effort — must never fail the activation itself.
-      if (paymentProofId && paidAmount !== null) {
+      // Commission V2: each independently approved paid subscription (including
+      // renewals) yields exactly one 10% event; free trials and grants yield none.
+      // A unique payment-proof key inside the database prevents retries from duplicating rewards.
+      if (paymentProofId && paidAmount !== null && data?.applied !== false) {
         try {
-          const { data: referral } = await adminTable('referred_customers')
-            .select('id')
-            .eq('customer_id', tenantId)
-            .eq('payment_status', 'pending')
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-          if (referral?.id) {
-            const subAffiliateGross15 = paidAmount * 0.15;
-            const managerCommission5 = paidAmount * 0.05;
-            const networkPool20 = paidAmount * 0.20;
-            const withholdingTax = subAffiliateGross15 * 0.05;
-            const netPayout = subAffiliateGross15 - withholdingTax;
-            const approvedAt = new Date().toISOString();
-
-            await adminTable('referred_customers')
-              .update({
-                amount_paid: paidAmount,
-                payment_status: 'paid',
-                commission_status: 'approved',
-                commission_amount: subAffiliateGross15,
-                package_name: packageId,
-                package_price: paidAmount,
-              })
-              .eq('id', referral.id);
-
-            await adminTable('commission_ledger')
-              .update({
-                revenue_amount: paidAmount,
-                network_pool_20: networkPool20,
-                manager_commission_5: managerCommission5,
-                sub_affiliate_gross_commission_15: subAffiliateGross15,
-                withholding_tax_amount: withholdingTax,
-                sub_affiliate_net_payout: netPayout,
-                status: 'approved',
-                currency: paidCurrency || 'TZS',
-                approved_at: approvedAt,
-              })
-              .eq('customer_id', tenantId)
-              .eq('status', 'pending');
-          }
-        } catch (commissionError) {
-          console.warn('[activate-package] affiliate commission update failed (non-blocking):', commissionError);
+          const { error: creditError } = await supabaseAdmin!.rpc('credit_affiliate_subscription_v2', {
+            p_tenant_id: tenantId,
+            p_payment_proof_id: paymentProofId,
+          });
+          if (creditError) console.warn('[affiliate-v2] Paid renewal credit deferred:', normalizeText(creditError.message, 200));
+        } catch (err: any) {
+          console.warn('[affiliate-v2] Paid renewal credit unavailable:', normalizeText(err?.message, 200));
         }
       }
 
@@ -4423,6 +4385,20 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       const { error: tenantDataError } = await adminTable('tenant_data').upsert(tenantDataRows, { onConflict: 'tenant_id,data_key' });
       if (tenantDataError) console.warn('[google registration] legacy tenant_data seed deferred:', tenantDataError.message);
       try { await supabaseAdmin!.rpc('provision_primary_branch_for_new_tenant', { p_tenant_id: (tenant as any).id, p_actor_user_id: authUser.id }); } catch { /* additive compatibility */ }
+      // A verified new account earns TZS 2,000 ONCE for its valid referrer, even on trial.
+      // Authenticated Google provisioning is authoritative; browser-supplied bonus is never trusted.
+      if (String(req.body?.referralCode || '').trim()) {
+        try {
+          const { error: referralRewardError } = await supabaseAdmin!.rpc('credit_affiliate_signup_v2', {
+            p_tenant_id: (tenant as any).id,
+            p_user_id: authUser.id,
+            p_referral_code: String(req.body.referralCode),
+          });
+          if (referralRewardError) console.warn('[affiliate-v2] Google signup reward not recorded:', referralRewardError.message);
+        } catch (err: any) {
+          console.warn('[affiliate-v2] Google signup reward unavailable:', normalizeText(err?.message, 160));
+        }
+      }
       return res.json({ tenant: { id: (tenant as any).id, name: (tenant as any).name, country: 'Tanzania', city, currency: 'TSh', currencyCode: 'TZS', taxRate: 0.18, mobileMoneyProviders: [], businessType }, user: { id: authUser.id, email: authUser.email, name: normalizeText(authUser.user_metadata?.full_name, 160) || authUser.email.split('@')[0], phone } });
     } catch (error: any) {
       return sendUnexpectedSafeApiError(req, res, error, { fallbackCode: 'SAVE_ERROR', context: 'registration', operation: 'google_tenant_provision' });
@@ -4675,6 +4651,21 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         }
       } catch (primaryBranchError: any) {
         console.warn('[registration] Account created; Primary Branch provisioning deferred:', normalizeText(primaryBranchError?.message, 240));
+      }
+
+      // The back-end credits a one-time signup bonus only after the new tenant,
+      // user and canonical workspace exist. An invalid code cannot earn funds.
+      if (normalizedReferralCode) {
+        try {
+          const { error: referralRewardError } = await supabaseAdmin.rpc('credit_affiliate_signup_v2', {
+            p_tenant_id: (tenantData as any).id,
+            p_user_id: authUserId,
+            p_referral_code: normalizedReferralCode,
+          });
+          if (referralRewardError) console.warn('[affiliate-v2] Signup reward not recorded:', referralRewardError.message);
+        } catch (err: any) {
+          console.warn('[affiliate-v2] Signup reward unavailable:', normalizeText(err?.message, 160));
+        }
       }
 
       // Done.

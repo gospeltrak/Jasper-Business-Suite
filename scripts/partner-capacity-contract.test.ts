@@ -10,7 +10,7 @@ test('partner registration allows capacity up to ten and rejects the eleventh', 
   assert.match(server, /MAX_AFFILIATE_PARTNERS = 10/);
   assert.match(server, /count \|\| 0\) >= MAX_AFFILIATE_PARTNERS/);
   assert.match(portal, /count \?\? 0\) >= 10/);
-  assert.match(portal, /Maximum 10/);
+  assert.match(portal, /(?:Maximum 10|Nafasi 10)/);
 });
 
 test('database serializes concurrent partner inserts before enforcing capacity', () => {

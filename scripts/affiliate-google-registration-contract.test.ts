@@ -31,7 +31,7 @@ test('registration copy does not instruct Google users to use phone passwords', 
 
 test('affiliate and partner login offers email/password alongside Google', () => {
   const loginUi = portal.slice(portal.indexOf("{authMode === 'login' ? ("), portal.indexOf(") : portalRole === 'partner'"));
-  assert.match(loginUi, /Continue with Google/);
+  assert.match(loginUi, /(?:Continue with Google|Endelea kwa Google)/);
   assert.match(loginUi, /handleLoginAffiliate/);
   assert.match(loginUi, /type="email"/);
   assert.match(loginUi, /type=\{showLoginPassword \? 'text' : 'password'\}/);
@@ -40,8 +40,8 @@ test('affiliate and partner login offers email/password alongside Google', () =>
 
 test('registration offers both an email/password path and a Google path, each gated by its own identity check', () => {
   const registerUi = portal.slice(portal.indexOf('/* EMAIL-OR-GOOGLE REGISTER ENTRY */'), portal.indexOf(') : activeAffiliate?.isSuper ? ('));
-  assert.match(registerUi, /Continue with Email/);
-  assert.match(registerUi, /Continue with Google/);
+  assert.match(registerUi, /(?:Continue with Email|Endelea kwa Barua Pepe)/);
+  assert.match(registerUi, /(?:Continue with Google|Endelea kwa Google)/);
   assert.match(registerUi, /useEmailRegistration/);
   // The hidden, impossible-to-fill WhatsApp phone field that previously
   // blocked every registration submission must not come back.
