@@ -57,15 +57,15 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
   // Auth Form Input States
   const [email, setEmail] = useState("");
   const [payoutPhone, setPayoutPhone] = useState("");
-  const [password, setNenosiri] = useState("");
+  const [password, setPassword] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("m-pesa");
   const [promoCode, setPromoCode] = useState("");
   const [parentSuperCode, setParentSuperCode] = useState("");
   const [claimMessage, setClaimMessage] = useState("");
   const [claimSuccess, setClaimSuccess] = useState(false);
   const [loginEmail, setLoginEmail] = useState("");
-  const [loginNenosiri, setLoginNenosiri] = useState("");
-  const [showLoginNenosiri, setShowLoginNenosiri] = useState(false);
+  const [loginPassword, setLoginPassword] = useState("");
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [portalRole, setPortalRole] = useState<"affiliate" | "partner">(
     forcedRole ?? "affiliate",
   );
@@ -79,7 +79,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
   const [tinNumber, setTinNumber] = useState("");
   const [firstName, setFirstName] = useState("");
   const [secondName, setSecondName] = useState("");
-  const [showNenosiri, setShowNenosiri] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [googleRegistrationVerified, setGoogleRegistrationVerified] = useState(false);
   const [useEmailRegistration, setUseEmailRegistration] = useState(false);
 
@@ -291,7 +291,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
   const [addAffPhone, setAddAffPhone] = useState("");
   const [addAffPromo, setAddAffPromo] = useState("");
   const [addAffPhoneMethod, setAddAffPhoneMethod] = useState("m-pesa");
-  const [addAffNenosiri, setAddAffNenosiri] = useState("pass123");
+  const [addAffPassword, setAddAffPassword] = useState("pass123");
   const [addAffTarget, setAddAffTarget] = useState(150);
   const [addAffNida, setAddAffNida] = useState("");
   const [addAffTin, setAddAffTin] = useState("");
@@ -506,7 +506,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       phone: addAffPhone.trim(),
       promoCode: addAffPromo.trim().toUpperCase(),
       paymentMethod: addAffPhoneMethod,
-      password: addAffNenosiri,
+      password: addAffPassword,
       isSuper: false,
       conversionsPromo: 0,
       revenueDate: 0,
@@ -835,7 +835,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
         return;
       }
       if (!(password.length >= 10 && /[A-Za-z]/.test(password) && /\d/.test(password))) {
-        alert('Nenosiri must be at least 10 characters and include letters and numbers.');
+        alert('Nenosiri liwe na herufi angalau 10 na namba.');
         return;
       }
     }
@@ -945,7 +945,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
         sessionToken = googleToken;
         mappedAffiliate = { id: profile.id, name: profile.display_name, email: result.authEmail || '', phone: profile.phone_whatsapp || payoutPhone, paymentMethod: profile.payout_method || paymentMethod, promoCode: profile.promo_code || profile.referral_code || generatedReferralCode, parentSuperId: profile.parent_super_agent_id, isSuper: resolved.portalRole === 'partner', nidaNumber: profile.nida_number || '', tinNumber: profile.tin_number || '', payoutPhone: profile.payout_account || payoutPhone };
       } else {
-        const { data: signInData, error: signInError } = await client.auth.signInWithNenosiri({ email: result.authEmail, password });
+        const { data: signInData, error: signInError } = await client.auth.signInWithPassword({ email: result.authEmail, password });
         if (signInError) throw new Error('Your akaunti was created, but automatic sign-in failed. Please sign in manually.');
         sessionToken = signInData?.session?.access_token;
         const profile = result.affiliate;
@@ -980,7 +980,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
   const handleLoginAffiliate = async (e: any) => {
     e.preventDefault();
-    if (!loginEmail || !loginNenosiri) {
+    if (!loginEmail || !loginPassword) {
       alert("Please enter your email and password");
       return;
     }
@@ -1003,9 +1003,9 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       // profile lookup that determines which dashibodi to open.
       await client.auth.signOut().catch(() => {});
 
-      const { data: authData, error: authError } = await client.auth.signInWithNenosiri({
+      const { data: authData, error: authError } = await client.auth.signInWithPassword({
         email: authEmail,
-        password: loginNenosiri,
+        password: loginPassword,
       });
 
       if (authError || !authData?.user) {
@@ -1603,11 +1603,11 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                     <div className="space-y-1.5">
                       <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Nenosiri</label>
                       <div className="relative">
-                        <input type={showLoginNenosiri ? 'text' : 'password'} required placeholder="••••••••" value={loginNenosiri} onChange={e => setLoginNenosiri(e.target.value)}
+                        <input type={showLoginPassword ? 'text' : 'password'} required placeholder="••••••••" value={loginPassword} onChange={e => setLoginPassword(e.target.value)}
                           className="w-full bg-slate-950 border border-slate-700 text-white placeholder-slate-600 outline-none rounded-2xl px-4 py-3 pr-11 text-sm focus:border-emerald-500" />
-                        <button type="button" onClick={() => setShowLoginNenosiri(p => !p)}
+                        <button type="button" onClick={() => setShowLoginPassword(p => !p)}
                           className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 cursor-pointer">
-                          {showLoginNenosiri ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </button>
                       </div>
                     </div>
@@ -1708,11 +1708,11 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                         <div className="space-y-1.5">
                           <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Nenosiri</label>
                           <div className="relative">
-                            <input type={showNenosiri ? 'text' : 'password'} required placeholder="••••••••" value={password} onChange={e => setNenosiri(e.target.value)}
+                            <input type={showPassword ? 'text' : 'password'} required placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)}
                               className="w-full bg-slate-950 border border-slate-700 text-white placeholder-slate-600 outline-none rounded-2xl px-4 py-3 pr-10 text-sm focus:border-emerald-500" />
-                            <button type="button" onClick={() => setShowNenosiri(p => !p)}
+                            <button type="button" onClick={() => setShowPassword(p => !p)}
                               className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 cursor-pointer">
-                              {showNenosiri ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                             </button>
                           </div>
                           <p className="text-[9px] text-slate-500">Angalau herufi 10, zikiwemo namba.</p>
@@ -2395,7 +2395,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                             Reconciliation Report
                           </h3>
                           <p className="text-[11px] text-slate-400 mt-1">
-                            Automated breakdown of your 15% ya mtandao.
+                            Mgawanyo wa kamisheni ya mtandao wa 15%.
                           </p>
                         </div>
                         <div className="mt-4 md:mt-0 flex flex-col sm:flex-row gap-2">
@@ -2498,7 +2498,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                           TSh {superAgentWithholdingTax.toLocaleString()}
                         </div>
                         <div className="text-[9px] text-slate-500 mt-2 leading-tight relative z-10">
-                          Calculated on the 15% Jumla ya Mtandao pending TRA transfer.
+                          Hesabu ya withholding kwa mtandao wa 15%; hutumika tu sera ya makato ikiwa imewashwa.
                         </div>
                       </div>
                     </div>
@@ -3519,13 +3519,13 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
                       <div className="space-y-1.5">
                         <label className="text-[10px] uppercase font-mono text-slate-500 block font-bold">
-                          Default User Nenosiri
+                          Nenosiri la Mtumiaji
                         </label>
                         <input
                           type="text"
                           required
-                          value={addAffNenosiri}
-                          onChange={(e) => setAddAffNenosiri(e.target.value)}
+                          value={addAffPassword}
+                          onChange={(e) => setAddAffPassword(e.target.value)}
                           placeholder="pass123"
                           className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white outline-none focus:border-teal-500"
                         />
