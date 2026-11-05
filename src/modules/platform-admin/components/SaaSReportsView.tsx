@@ -127,12 +127,12 @@ export default function SaaSReportsView() {
   const organicAffsRevenue = affiliates
     .filter((a) => !a.isSuper && !a.parentSuperId)
     .reduce((sum, a) => sum + (a.revenueGenerated || 0), 0);
-  const organicCommissions = organicAffsRevenue * 0.15; // 15% for organic
+  const organicCommissions = organicAffsRevenue * 0.10; // 10% for organic
 
   const superAffsRevenue = affiliates
     .filter((a) => a.isSuper || a.parentSuperId)
     .reduce((sum, a) => sum + (a.revenueGenerated || 0), 0);
-  const superCommissions = superAffsRevenue * 0.2; // 20% for super network (15% affiliate + 5% super)
+  const superCommissions = superAffsRevenue * 0.15; // 15% for super network (10% affiliate + 5% super)
 
   const calculatedCommissions = organicCommissions + superCommissions;
 
@@ -183,8 +183,8 @@ export default function SaaSReportsView() {
   }
 
   let expenseData = [
-    { name: "Comm (Organic 15%)", value: organicCommissions, color: "#f43f5e" },
-    { name: "Comm (Super 20%)", value: superCommissions, color: "#ec4899" },
+    { name: "Comm (Organic 10%)", value: organicCommissions, color: "#f43f5e" },
+    { name: "Comm (Super 15%)", value: superCommissions, color: "#ec4899" },
     { name: "Salaries", value: salaryExpenses, color: "#14b8a6" },
     { name: "Operational", value: operationalExpensesGroup, color: "#8b5cf6" },
     { name: "Hardware COGS", value: hardwareCostOfGoods, color: "#f59e0b" },
@@ -777,9 +777,9 @@ export default function SaaSReportsView() {
 
           <div className="flex justify-between items-center py-2.5 border-b border-slate-850 text-slate-400 font-light italic mt-4">
             <span className="flex flex-col">
-              <span>Less: Organic Affiliate Payouts (15%)</span>
+              <span>Less: Organic Affiliate Payouts (10%)</span>
               <span className="text-[9px] text-slate-500 font-sans">
-                15% of TSh {organicAffsRevenue.toLocaleString()} conversion
+                10% of TSh {organicAffsRevenue.toLocaleString()} conversion
                 revenue
               </span>
             </span>
@@ -790,9 +790,9 @@ export default function SaaSReportsView() {
 
           <div className="flex justify-between items-center py-2.5 border-b border-slate-850 text-slate-400 font-light italic">
             <span className="flex flex-col">
-              <span>Less: Super Recruiter Payouts (20%)</span>
+              <span>Less: Super Recruiter Payouts (15%)</span>
               <span className="text-[9px] text-slate-500 font-sans">
-                20% of TSh {superAffsRevenue.toLocaleString()} conversion
+                15% of TSh {superAffsRevenue.toLocaleString()} conversion
                 revenue
               </span>
             </span>
