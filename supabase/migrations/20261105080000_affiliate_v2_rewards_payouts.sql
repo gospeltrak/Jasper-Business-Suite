@@ -226,6 +226,11 @@ begin
   if not found or v_aff.status<>'active' or coalesce(v_aff.is_disabled,false) then
     raise exception using errcode='42501',message='Affiliate account is not active.';
   end if;
+  -- The wallet provider comes from the verified affiliate profile, not
+  -- from an arbitrary request claiming the zero-fee AzamPesa channel.
+  if v_provider <> lower(btrim(coalesce(v_aff.payout_method,''))) then
+    raise exception using errcode='22023',message='Payout provider does not match the saved affiliate account.';
+  end if;
   v_month_end:=(date_trunc('month',v_today::timestamp)+interval '1 month - 1 day')::date;
   v_last_friday:=v_month_end-((extract(dow from v_month_end)::int-5+7)%7);
   if v_today<>v_last_friday then
