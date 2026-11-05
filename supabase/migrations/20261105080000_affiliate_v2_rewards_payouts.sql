@@ -10,6 +10,7 @@ create table if not exists public.affiliate_reward_entries (
   source_key text not null unique,
   reward_type text not null check (reward_type in ('registration_bonus','subscription_commission')),
   gross_amount numeric(14,2) not null check (gross_amount > 0),
+  source_revenue numeric(14,2) not null default 0,
   withholding_tax numeric(14,2) not null default 0 check (withholding_tax >= 0),
   net_amount numeric(14,2) not null check (net_amount > 0),
   currency text not null default 'TZS' check (currency = 'TZS'),
@@ -74,8 +75,8 @@ begin
     select 1 from public.users refowner
     where refowner.id=v_aff.user_id
       and (lower(coalesce(refowner.email,''))=lower(coalesce(v_user.email,''))
-       or (length(regexp_replace(coalesce(refowner.phone,''),'\\D','','g')) >= 9
-        and regexp_replace(coalesce(refowner.phone,''),'\\D','','g')=regexp_replace(coalesce(v_user.phone,''),'\\D','','g')))
+       or (length(regexp_replace(coalesce(refowner.phone,''),'[^0-9]','','g')) >= 9
+        and regexp_replace(coalesce(refowner.phone,''),'[^0-9]','','g')=regexp_replace(coalesce(v_user.phone,''),'[^0-9]','','g')))
   ) then return false; end if;
   perform pg_advisory_xact_lock(hashtextextended(p_tenant_id::text,42));
   select affiliate_id into v_existing_affiliate
@@ -146,9 +147,9 @@ begin
   v_gross:=round(v_amount*0.10,2);
   if v_gross<=0 then return false; end if;
   insert into public.affiliate_reward_entries(
-    affiliate_id,tenant_id,source_key,reward_type,gross_amount,withholding_tax,net_amount,source_reference
+    affiliate_id,tenant_id,source_key,reward_type,gross_amount,source_revenue,withholding_tax,net_amount,source_reference
   ) values (v_aff,p_tenant_id,'payment:'||p_payment_proof_id::text,'subscription_commission',
-      v_gross,0,v_gross,p_payment_proof_id::text)
+      v_gross,v_amount,0,v_gross,p_payment_proof_id::text)
   on conflict(source_key) do nothing returning id into v_inserted;
   return v_inserted is not null;
 end;
