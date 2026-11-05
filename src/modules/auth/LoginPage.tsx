@@ -1102,6 +1102,11 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         : `${window.location.origin}/login?oauth=google`;
       const callback = new URL(callbackUrl);
       if (staffInvite) callback.searchParams.set('staffInvite', staffInvite);
+      // Preserve verified referral attribution across Google's off-site redirect.
+      // Otherwise a signup through ?ref=CODE could lose its registration bonus.
+      if (!isSaasAdminPortal && !isTenantDomainLogin && affiliateCode.trim()) {
+        callback.searchParams.set('ref', affiliateCode.trim());
+      }
       const { error: oauthError } = await client.auth.signInWithOAuth({
         provider: 'google',
         options: { redirectTo: callback.toString() }
