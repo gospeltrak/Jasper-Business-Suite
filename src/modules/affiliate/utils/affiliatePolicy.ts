@@ -9,6 +9,7 @@ export const AFFILIATE_AZAMPAY_EXTERNAL_FEE_TZS = 200;
 
 export type AffiliateRewardEntry = {
   id: string;
+  tenant_id: string;
   reward_type: 'registration_bonus' | 'subscription_commission';
   source_revenue: number;
   gross_amount: number;
