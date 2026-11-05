@@ -927,108 +927,9 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     }, 600);
   };
 
-  const numberValue = (value: unknown): number => Number(value || 0);
-
-  const registerAffiliateReferral = async (code: string, subscriberName: string, tenantId?: string) => {
-    const upperCode = code.toUpperCase();
-
-    // ── 1. Update onlineStorage (immediate, offline-safe) ──────────
-    const raw = onlineStorage.getItem('saas_immersive_affiliates');
-    let affiliates: any[] = [];
-    if (raw) {
-      try { affiliates = JSON.parse(raw); } catch {}
-    }
-    const matchIndex = affiliates.findIndex((a: any) => a.promoCode?.toUpperCase() === upperCode);
-    const trialPackagePrice = 1500000; // List price only; trial registration is not a payment.
-    if (matchIndex !== -1) {
-      affiliates[matchIndex].conversionsPromo = (affiliates[matchIndex].conversionsPromo || 0) + 1;
-      if (affiliates[matchIndex].parentSuperId) {
-        const superId = affiliates[matchIndex].parentSuperId;
-        const superIndex = affiliates.findIndex((a: any) => a.id === superId);
-        if (superIndex !== -1) {
-          affiliates[superIndex].conversionsPromo = (affiliates[superIndex].conversionsPromo || 0) + 1;
-        }
-      }
-      onlineStorage.setItem('saas_immersive_affiliates', JSON.stringify(affiliates));
-      window.dispatchEvent(new Event('saas_logs_updated'));
-    }
-
-    // ── 2. Save to encrypted database — referred_customers + commission_ledger ──
-    try {
-      const client: any = await getSecureDataBridgeClient();
-
-      // Find sub-affiliate record in encrypted database
-      const { data: subAff } = await client
-        .from('affiliates')
-        .select('id, display_name, parent_super_agent_id, account_type')
-        .ilike('promo_code', upperCode)
-        .maybeSingle();
-
-      const subAffiliateId = subAff?.id || (matchIndex !== -1 ? affiliates[matchIndex].id : null);
-      const parentSuperAgentId = subAff?.parent_super_agent_id || (matchIndex !== -1 ? affiliates[matchIndex].parentSuperId : null);
-      const now = new Date().toISOString();
-
-      // 2a. referred_customers — track which tenant came from which sub-affiliate
-      await client.from('referred_customers').insert({
-        id: `rc-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,
-        customer_id: tenantId || null,
-        customer_name: subscriberName,
-        source_type: parentSuperAgentId ? 'sub_affiliate' : 'organic_affiliate',
-        affiliate_id: subAffiliateId,
-        sub_affiliate_id: subAffiliateId,
-        parent_super_agent_id: parentSuperAgentId || null,
-        promo_code_used: upperCode,
-        referral_code_used: upperCode,
-        package_name: 'Trial',
-        package_price: trialPackagePrice,
-        amount_paid: 0,
-        payment_status: 'pending',
-        commission_status: 'pending',
-        commission_amount: 0,
-        created_at: now,
-      });
-
-      // 2b. Keep a zero-value pending audit row. Revenue and commissions are
-      // recognized only by the confirmed subscription-payment flow.
-      await client.from('commission_ledger').insert({
-        id: `cl-${Date.now()}-${Math.random().toString(36).slice(2,7)}`,
-        customer_id: tenantId || null,
-        source_type: parentSuperAgentId ? 'sub_affiliate' : 'organic_affiliate',
-        affiliate_id: subAffiliateId,
-        sub_affiliate_id: subAffiliateId,
-        parent_super_agent_id: parentSuperAgentId || null,
-        revenue_amount: 0,
-        network_pool_20: 0,
-        manager_commission_5: 0,
-        sub_affiliate_gross_commission_15: 0,
-        withholding_tax_rate: 0.05,
-        withholding_tax_amount: 0,
-        sub_affiliate_net_payout: 0,
-        tin_number_available: false,
-        withholding_status: 'not_active',
-        status: 'pending',
-        currency: 'TZS',
-        created_at: now,
-      });
-
-      // 2c. A trial is a referral/customer, but it is not revenue.
-      if (subAffiliateId) {
-        const { data: currentRow } = await client
-          .from('affiliates')
-          .select('customers_count')
-          .eq('id', subAffiliateId)
-          .maybeSingle();
-        await client.from('affiliates')
-          .update({
-            customers_count: numberValue(currentRow?.customers_count) + 1,
-          })
-          .eq('id', subAffiliateId);
-      }
-
-    } catch (dbErr) {
-      console.warn('[referral] secure database tracking failed — onlineStorage tracking active:', dbErr);
-    }
-  };
+  // Referral attribution and the TZS 2,000 bonus are recorded by the
+  // authenticated registration server, not a browser-writeable client ledger.
+  // This prevents duplicate tracking rows and forged registration bonuses.
 
   // Perform dynamic tenant/business registration
   const handleRegisterSubmit = async (e: FormEvent) => {
@@ -1164,11 +1065,6 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
         autoRenewEnabled: true,
         paymentStatus: 'active'
       }));
-
-      // Track affiliate referral if code was used
-      if (affiliateCode.trim()) {
-        registerAffiliateReferral(affiliateCode.trim(), orgName, newTenant.id);
-      }
 
       setIsLoading(false);
       setSuccessMessage(`Success! Registered "${orgName}" as an isolated business tenant.`);
