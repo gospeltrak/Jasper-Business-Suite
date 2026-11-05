@@ -7,8 +7,10 @@ const server=fs.readFileSync('server.ts','utf8');
 const policy=fs.readFileSync('src/modules/affiliate/utils/affiliatePolicy.ts','utf8');
 const workspace=fs.readFileSync('src/modules/affiliate/components/AffiliateWorkspace.tsx','utf8');
 const portal=fs.readFileSync('src/modules/affiliate/components/AffiliatePortal.tsx','utf8');
+const login=fs.readFileSync('src/modules/auth/LoginPage.tsx','utf8');
 
 test('signup uses authenticated server identity and awards one bonus of TZS 2,000',()=>{
+ assert.match(login,/callback\.searchParams\.set\('ref', affiliateCode\.trim\(\)\)/);
  assert.match(server,/app\.post\('\/api\/auth\/google\/provision'/);
  assert.match(server,/credit_affiliate_signup_v2/g);
  assert.match(migration,/registration:'\|\|p_tenant_id::text/);
