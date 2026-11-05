@@ -22,7 +22,7 @@ import { isEarnedCommissionStatus, isSettledPaymentStatus } from '../../../share
 import GlobalStickyAd from '../../../shared/components/GlobalStickyAd';
 import { formatLocalMonth } from '../../../shared/utils/localDate';
 import { getSecureDataBridgeClient } from '../../../shared/dataBridge/secureDataBridge';
-import { AFFILIATE_MIN_WITHDRAWAL_TZS, AFFILIATE_RECURRING_RATE, getAzamPayFee, getTanzaniaMonthEndWithdrawalDate, sumRewardBalance } from '../utils/affiliatePolicy';
+import { AFFILIATE_MIN_WITHDRAWAL_TZS, getAzamPayFee, getTanzaniaMonthEndWithdrawalDate, sumRewardBalance } from '../utils/affiliatePolicy';
 
 const currency = new Intl.NumberFormat('en-TZ', { style: 'currency', currency: 'TZS', maximumFractionDigits: 0 });
 
@@ -1050,7 +1050,11 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
                         {monthlySubscribers.map((subscriber) => {
                           const isPaidSubscriber = isSettledPaymentStatus(subscriber.payment_status);
                           const paidAmount = isPaidSubscriber ? subscriber.amount_paid : 0;
-                          const commission = isPaidSubscriber ? (subscriber.commission_amount || paidAmount * 0.15) : 0;
+                          const commission = (workspace?.rewards || [])
+                            .filter(reward => reward.reward_type === 'subscription_commission'
+                              && reward.tenant_id === subscriber.tenant_id
+                              && reward.created_at.startsWith(reportMonth))
+                            .reduce((sum, reward) => sum + Number(reward.gross_amount || 0), 0);
                           return (
                             <tr key={subscriber.id}>
                               <td className="px-4 py-3">
@@ -1128,7 +1132,7 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
               {/* Header */}
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-lg font-black text-slate-900">Payouts</h2>
+                  <h2 className="text-lg font-black text-slate-900">Malipo ya Affiliate</h2>
                   <p className="text-xs text-slate-500 mt-0.5">Historia ya bonus, kamisheni na malipo</p>
                 </div>
                 <input
@@ -1153,12 +1157,12 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
                   <div className="flex items-center gap-4 mt-3 pt-3 border-t border-white/20">
                     <div>
                       <p className="text-[10px] text-emerald-200">Kamisheni (10%)</p>
-                      <p className="text-sm font-black">{currency.format(monthStats.grossCommission)}</p>
+                      <p className="text-sm font-black">{currency.format(metrics.commissionAvailable)}</p>
                     </div>
                     <div className="w-px h-8 bg-white/20" />
                     <div>
                       <p className="text-[10px] text-emerald-200">Withholding</p>
-                      <p className="text-sm font-black text-rose-200">-{currency.format(monthStats.withholding)}</p>
+                      <p className="text-sm font-black text-rose-200">-{currency.format(metrics.withholdingTax)}</p>
                     </div>
                     <div className="w-px h-8 bg-white/20" />
                     <div>
