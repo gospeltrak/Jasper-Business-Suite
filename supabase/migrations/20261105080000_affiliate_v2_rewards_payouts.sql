@@ -34,6 +34,34 @@ revoke all on public.affiliate_reward_entries from public,anon,authenticated;
 grant select on public.affiliate_reward_entries to authenticated;
 grant all on public.affiliate_reward_entries to service_role;
 
+-- Aggregated account balance prevents the client's default 1,000-row page limit
+-- from hiding legitimately earned balance after many subscribers or renewals.
+create or replace function public.get_affiliate_reward_balance_v2()
+returns jsonb language plpgsql stable security definer set search_path = ''
+as $function$
+declare
+  v_affiliate_id uuid := private.current_affiliate_id();
+  v_summary jsonb;
+begin
+  if (select auth.uid()) is null or v_affiliate_id is null then
+    raise exception using errcode='42501',message='Affiliate login is required.';
+  end if;
+  select jsonb_build_object(
+    'bonus',coalesce(sum(net_amount) filter(where reward_type='registration_bonus' and status='available'),0),
+    'commission',coalesce(sum(net_amount) filter(where reward_type='subscription_commission' and status='available'),0),
+    'totalRevenue',coalesce(sum(source_revenue) filter(where reward_type='subscription_commission' and status<>'void'),0),
+    'grossCommission',coalesce(sum(gross_amount) filter(where reward_type='subscription_commission' and status<>'void'),0),
+    'withholding',coalesce(sum(withholding_tax) filter(where status<>'void'),0),
+    'earned',coalesce(sum(net_amount) filter(where status<>'void'),0),
+    'paid',coalesce(sum(net_amount) filter(where status='paid'),0)
+  ) into v_summary
+  from public.affiliate_reward_entries where affiliate_id=v_affiliate_id;
+  return v_summary;
+end;
+$function$;
+revoke all on function public.get_affiliate_reward_balance_v2() from public,anon;
+grant execute on function public.get_affiliate_reward_balance_v2() to authenticated;
+
 alter table public.affiliate_payouts
   add column if not exists payout_month date,
   add column if not exists provider_fee_tzs numeric(14,2),
