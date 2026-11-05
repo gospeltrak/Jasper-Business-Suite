@@ -1205,7 +1205,7 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
                     </div>
                     <div className="text-left">
                       <p className="text-sm font-black">Omba Malipo</p>
-                      <p className="text-[11px] text-emerald-200">Ada ya AzamPay: TZS 200 (mitandao mingine)</p>
+                      <p className="text-[11px] text-emerald-200">Ada ya AzamPay: {currency.format(transferFee)}</p>
                     </div>
                   </div>
                   <ChevronRight className="w-5 h-5 text-white/70" />
