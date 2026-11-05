@@ -1446,7 +1446,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
         <div className="sticky top-0 z-50 flex items-center justify-center gap-2 bg-amber-500 text-slate-950 text-xs font-bold py-2 px-4">
           <span>⚠️</span>
 	          <span>Huna mtandao — Unganisha intaneti kabla ya kusave mabadiliko.</span>
-	          <span className="hidden sm:inline">| Offline sync is disabled to protect akaunti data.</span>
+	          <span className="hidden sm:inline">| Usawazishaji wa offline umezimwa ili kulinda taarifa za akaunti.</span>
         </div>
       )}
       {/* Background radial effects */}
@@ -1514,7 +1514,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                   <p className="text-slate-400 text-sm sm:text-base leading-relaxed font-light">
                     Kama Mshirika wa Orvix, unaweza kusimamia timu ya mawakala nchini Tanzania na Afrika Mashariki. Unapata{" "}
                     <strong className="text-amber-400">10% ya wateja unaowaleta mwenyewe</strong>{" "}
-                    plus{" "}
+                    pamoja na{" "}
                     <strong className="text-amber-400">kamisheni ya usimamizi ya 5%</strong>{" "}
                     kwa malipo ya wateja wa mawakala wa timu yako. Masharti yanatumika.
                   </p>
@@ -1587,7 +1587,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                   </h2>
                   {(isPartnerSetupMode || authMode === 'login') && (
                     <p className="text-xs text-slate-400">
-                      {isPartnerSetupMode ? 'Fungua akaunti ya mshirika ikiwa nafasi inapatikana' : `Ingia kwenye ${portalRole === 'partner' ? 'Partner' : 'Affiliate'} dashibodi`}
+                      {isPartnerSetupMode ? 'Fungua akaunti ya mshirika ikiwa nafasi inapatikana' : `Ingia kwenye dashibodi ya ${portalRole === 'partner' ? 'Mshirika' : 'Affiliate'}`}
                     </p>
                   )}
                 </div>
