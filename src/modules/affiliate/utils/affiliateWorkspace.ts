@@ -157,6 +157,7 @@ export interface AffiliateWorkspaceData {
   subscribers: AffiliateSubscriber[];
   commissions: AffiliateCommission[];
   rewards: AffiliateRewardEntry[];
+  walletSummary: {bonus:number;commission:number;totalRevenue:number;grossCommission:number;withholding:number;earned:number;paid:number} | null;
   payouts: AffiliatePayout[];
   activities: AffiliateActivityEvent[];
   notifications: AffiliateNotification[];
@@ -310,7 +311,7 @@ export async function loadAffiliateWorkspace(options: AffiliateWorkspaceLoadOpti
     promoCode ? `referral_code_used.eq.${promoCode}` : '',
   ].filter(Boolean).join(',');
 
-  const [tasksResult, meetingsResult, assignmentsResult, sspBanners, referralsResult, subscribersResult, sourceTrackingResult, commissionsResult, payoutsResult, activitiesResult, notificationsResult, rewardsResult] = await Promise.all([
+  const [tasksResult, meetingsResult, assignmentsResult, sspBanners, referralsResult, subscribersResult, sourceTrackingResult, commissionsResult, payoutsResult, activitiesResult, notificationsResult, rewardsResult, walletSummaryResult] = await Promise.all([
     requiredQuery('affiliate_tasks', () => client.from('affiliate_tasks').select('*').eq('affiliate_id', profile.id).order('created_at', { ascending: false }).limit(50)),
     requiredQuery('affiliate_meetings', () => client.from('affiliate_meetings').select('*').eq('affiliate_id', profile.id).order('starts_at', { ascending: true }).limit(50)),
     requiredQuery('affiliate_ad_assignments', () => client.from('affiliate_ad_assignments').select('campaign:affiliate_ad_campaigns(*)').eq('affiliate_id', profile.id).order('created_at', { ascending: false }).limit(50)),
@@ -325,6 +326,7 @@ export async function loadAffiliateWorkspace(options: AffiliateWorkspaceLoadOpti
     requiredQuery('affiliate_activity_events', () => client.from('affiliate_activity_events').select('*').eq('affiliate_id', profile.id).order('created_at', { ascending: false }).limit(200)),
     optionalQuery('affiliate_notification_events', () => client.from('affiliate_notification_events').select('id, title, message, priority, created_at, read_at').eq('affiliate_id', profile.id).order('created_at', { ascending: false }).limit(100)),
     optionalQuery('affiliate_reward_entries', () => client.from('affiliate_reward_entries').select('id, tenant_id, reward_type, source_revenue, gross_amount, withholding_tax, net_amount, status, created_at, paid_at').eq('affiliate_id', profile.id).order('created_at', { ascending: false }).limit(1000)),
+    optionalQuery('affiliate_reward_summary', () => client.rpc('get_affiliate_reward_balance_v2')),
   ]);
 
   const assignedCampaigns = asArray<any>(assignmentsResult.data)
@@ -368,6 +370,15 @@ export async function loadAffiliateWorkspace(options: AffiliateWorkspaceLoadOpti
       withholding_tax: Number(entry.withholding_tax),
       net_amount: Number(entry.net_amount),
     })),
+    walletSummary: walletSummaryResult.data ? {
+      bonus: Number(walletSummaryResult.data.bonus || 0),
+      commission: Number(walletSummaryResult.data.commission || 0),
+      totalRevenue: Number(walletSummaryResult.data.totalRevenue || 0),
+      grossCommission: Number(walletSummaryResult.data.grossCommission || 0),
+      withholding: Number(walletSummaryResult.data.withholding || 0),
+      earned: Number(walletSummaryResult.data.earned || 0),
+      paid: Number(walletSummaryResult.data.paid || 0),
+    } : null,
     payouts: asArray<AffiliatePayout>(payoutsResult.data).map((payout) => ({
       ...payout,
       amount: Number(payout.amount),
