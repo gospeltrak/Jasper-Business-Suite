@@ -5,9 +5,9 @@ import SaaSHardwareInventory from "../../../shared/components/SaaSHardwareInvent
 import AffiliateWorkspace from "./AffiliateWorkspace";
 import AffiliateAgentDesk from "./AffiliateAgentDesk";
 // loadAffiliateAgentWorkspace / loadAffiliateWorkspace intentionally NOT
-// imported here — the dashboards themselves (AffiliateAgentDesk.tsx,
+// imported here — the dashibodis themselves (AffiliateAgentDesk.tsx,
 // AffiliateWorkspace.tsx) load their own workspace data after an explicit
-// login, so this portal-level component never auto-loads a dashboard.
+// login, so this portal-level component never auto-loads a dashibodi.
 import { getSecureDataBridgeClient } from "../../../shared/dataBridge/secureDataBridge";
 import { downloadExcelFileFromRows } from "../../../shared/utils/excelExport";
 import { formatLocalDate } from "../../../shared/utils/localDate";
@@ -57,15 +57,15 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
   // Auth Form Input States
   const [email, setEmail] = useState("");
   const [payoutPhone, setPayoutPhone] = useState("");
-  const [password, setPassword] = useState("");
+  const [password, setNenosiri] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("m-pesa");
   const [promoCode, setPromoCode] = useState("");
   const [parentSuperCode, setParentSuperCode] = useState("");
   const [claimMessage, setClaimMessage] = useState("");
   const [claimSuccess, setClaimSuccess] = useState(false);
   const [loginEmail, setLoginEmail] = useState("");
-  const [loginPassword, setLoginPassword] = useState("");
-  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [loginNenosiri, setLoginNenosiri] = useState("");
+  const [showLoginNenosiri, setShowLoginNenosiri] = useState(false);
   const [portalRole, setPortalRole] = useState<"affiliate" | "partner">(
     forcedRole ?? "affiliate",
   );
@@ -79,7 +79,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
   const [tinNumber, setTinNumber] = useState("");
   const [firstName, setFirstName] = useState("");
   const [secondName, setSecondName] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+  const [showNenosiri, setShowNenosiri] = useState(false);
   const [googleRegistrationVerified, setGoogleRegistrationVerified] = useState(false);
   const [useEmailRegistration, setUseEmailRegistration] = useState(false);
 
@@ -103,7 +103,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
   // The app is online-only: every visit to /affiliate or /partner requires
   // a fresh login against Supabase. We deliberately do NOT trust whatever
   // is sitting in jasper_logged_affiliate from a previous session/device —
-  // that was causing stale or demo accounts to silently auto-login.
+  // that was causing stale or demo akauntis to silently auto-login.
 
   // ── INIT ONLINE INDICATOR ────────────────────────────────────────────────
   const [isNetworkOnline, setIsNetworkOnline] = useState(isOnline());
@@ -170,12 +170,12 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       // Note: the ?role=partner query param is intentionally no longer
       // honored — partner registration is not publicly available.
       // /affiliate and /partner both resolve to the same shared
-      // affiliate login/register flow; account type after login is
+      // affiliate login/register flow; akaunti type after login is
       // determined by which table the credentials actually match.
       //
       // ONE-TIME EXCEPTION: a single-use secret link can briefly unlock
       // the Partner registration form to create the one Super Affiliate
-      // Agent account. This is intentionally NOT documented anywhere in
+      // Agent akaunti. This is intentionally NOT documented anywhere in
       // the UI and is independently re-verified against the live
       // database at submit time (see handleRegisterAffiliate) — it
       // cannot be used to create a second Partner even if reused.
@@ -195,7 +195,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
   // ── NO AUTO-LOGIN ON MOUNT ────────────────────────────────────────────
   // Deliberately does NOT call loadAffiliateAgentWorkspace()/auto-jump to
-  // the dashboard here, even if Supabase still has a valid persisted
+  // the dashibodi here, even if Supabase still has a valid persisted
   // session. Every visit to /partner must start at the login screen and
   // require the user to actually submit their credentials.
 
@@ -291,7 +291,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
   const [addAffPhone, setAddAffPhone] = useState("");
   const [addAffPromo, setAddAffPromo] = useState("");
   const [addAffPhoneMethod, setAddAffPhoneMethod] = useState("m-pesa");
-  const [addAffPassword, setAddAffPassword] = useState("pass123");
+  const [addAffNenosiri, setAddAffNenosiri] = useState("pass123");
   const [addAffTarget, setAddAffTarget] = useState(150);
   const [addAffNida, setAddAffNida] = useState("");
   const [addAffTin, setAddAffTin] = useState("");
@@ -506,7 +506,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       phone: addAffPhone.trim(),
       promoCode: addAffPromo.trim().toUpperCase(),
       paymentMethod: addAffPhoneMethod,
-      password: addAffPassword,
+      password: addAffNenosiri,
       isSuper: false,
       conversionsPromo: 0,
       revenueDate: 0,
@@ -695,8 +695,8 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
   }, []);
 
   useEffect(() => {
-    // Affiliate dashboards are database-backed. Old browser-only demo sessions
-    // must not reopen the legacy dashboard or show disconnected affiliate data.
+    // Affiliate dashibodis are database-backed. Old browser-only demo sessions
+    // must not reopen the legacy dashibodi or show disconnected affiliate data.
     onlineStorage.removeItem("jasper_logged_affiliate");
   }, []);
 
@@ -835,7 +835,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
         return;
       }
       if (!(password.length >= 10 && /[A-Za-z]/.test(password) && /\d/.test(password))) {
-        alert('Password must be at least 10 characters and include letters and numbers.');
+        alert('Nenosiri must be at least 10 characters and include letters and numbers.');
         return;
       }
     }
@@ -851,7 +851,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     }
 
     if (!payoutPhone || payoutPhone.trim().length === 0) {
-      alert("Commission Payout Number is required.");
+      alert("Namba ya Kupokea Malipo is required.");
       return;
     }
 
@@ -865,7 +865,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     // below (?secret_partner_setup=...). This is a second, independent
     // check against the live database — re-verified at submit time, not
     // just page-load — so even if the secret were somehow reused, it
-    // cannot create a second Partner account once one already exists.
+    // cannot create a second Partner akaunti once one already exists.
     if (portalRole === 'partner') {
       try {
         const client: any = await getSecureDataBridgeClient();
@@ -873,7 +873,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
           .from('affiliate_partners')
           .select('id', { count: 'exact', head: true });
         if ((count ?? 0) >= 10) {
-          alert('The maximum of 10 Partner accounts has been reached.');
+          alert('The maximum of 10 Partner akauntis has been reached.');
           setPortalRole('affiliate');
           return;
         }
@@ -945,8 +945,8 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
         sessionToken = googleToken;
         mappedAffiliate = { id: profile.id, name: profile.display_name, email: result.authEmail || '', phone: profile.phone_whatsapp || payoutPhone, paymentMethod: profile.payout_method || paymentMethod, promoCode: profile.promo_code || profile.referral_code || generatedReferralCode, parentSuperId: profile.parent_super_agent_id, isSuper: resolved.portalRole === 'partner', nidaNumber: profile.nida_number || '', tinNumber: profile.tin_number || '', payoutPhone: profile.payout_account || payoutPhone };
       } else {
-        const { data: signInData, error: signInError } = await client.auth.signInWithPassword({ email: result.authEmail, password });
-        if (signInError) throw new Error('Your account was created, but automatic sign-in failed. Please sign in manually.');
+        const { data: signInData, error: signInError } = await client.auth.signInWithNenosiri({ email: result.authEmail, password });
+        if (signInError) throw new Error('Your akaunti was created, but automatic sign-in failed. Please sign in manually.');
         sessionToken = signInData?.session?.access_token;
         const profile = result.affiliate;
         mappedAffiliate = { id: profile.id, name: profile.display_name, email: result.authEmail || email.trim(), phone: payoutPhone, paymentMethod, promoCode: profile.promo_code || profile.referral_code || generatedReferralCode, parentSuperId: profile.parent_super_agent_id, isSuper: isPartnerAccount, nidaNumber, tinNumber, payoutPhone };
@@ -980,7 +980,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
   const handleLoginAffiliate = async (e: any) => {
     e.preventDefault();
-    if (!loginEmail || !loginPassword) {
+    if (!loginEmail || !loginNenosiri) {
       alert("Please enter your email and password");
       return;
     }
@@ -999,13 +999,13 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
         : `affiliate-${normalizedLogin.replace(/\D/g, '')}@jasper.local`;
 
       // Clear any stale session before signing in — prevents a previous
-      // session (e.g. from a different account) from interfering with the
-      // profile lookup that determines which dashboard to open.
+      // session (e.g. from a different akaunti) from interfering with the
+      // profile lookup that determines which dashibodi to open.
       await client.auth.signOut().catch(() => {});
 
-      const { data: authData, error: authError } = await client.auth.signInWithPassword({
+      const { data: authData, error: authError } = await client.auth.signInWithNenosiri({
         email: authEmail,
-        password: loginPassword,
+        password: loginNenosiri,
       });
 
       if (authError || !authData?.user) {
@@ -1014,12 +1014,12 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       }
 
       {
-        // ── Supabase login success — auto-detect account type ──────────
+        // ── Supabase login success — auto-detect akaunti type ──────────
         // Both /affiliate and /partner now share this one login form.
         // Check affiliate_partners first (there is only ever one Super
         // Affiliate Agent), then fall back to affiliates. Whichever
         // table actually has a row for this user_id determines which
-        // dashboard opens — this is no longer driven by which URL the
+        // dashibodi opens — this is no longer driven by which URL the
         // person visited.
         let profile: any = null;
         let isPartnerAccount = false;
@@ -1090,8 +1090,8 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
     // If we reach here, Supabase authenticated the password successfully
     // but no matching affiliate_partners or affiliates row was found for
-    // this account.
-    alert('❌ Akaunti hii haikupatikana.\n\nThis account could not be found. Please confirm your phone number and password, or register a new affiliate account.');
+    // this akaunti.
+    alert('❌ Akaunti hii haikupatikana.\n\nThis akaunti could not be found. Please confirm your phone number and password, or register a new affiliate akaunti.');
   };
 
   const handleGooglePortalLogin = async () => {
@@ -1140,7 +1140,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
         if (resolved.portalRole === 'partner') setDatabaseAgentWorkspaceEnabled(true); else setDatabaseWorkspaceEnabled(true);
         setAuthMode('dashboard');
         window.history.replaceState({}, document.title, resolved.portalRole === 'partner' ? '/partner' : '/affiliate');
-      } catch { if (!cancelled) alert('This Google account is not linked to an active Partner or Affiliate account.'); }
+      } catch { if (!cancelled) alert('This Google akaunti is not linked to an active Partner or Affiliate akaunti.'); }
     };
     resolve(); return () => { cancelled = true; };
   }, []);
@@ -1446,7 +1446,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
         <div className="sticky top-0 z-50 flex items-center justify-center gap-2 bg-amber-500 text-slate-950 text-xs font-bold py-2 px-4">
           <span>⚠️</span>
 	          <span>Huna mtandao — Unganisha intaneti kabla ya kusave mabadiliko.</span>
-	          <span className="hidden sm:inline">| Offline sync is disabled to protect account data.</span>
+	          <span className="hidden sm:inline">| Offline sync is disabled to protect akaunti data.</span>
         </div>
       )}
       {/* Background radial effects */}
@@ -1471,7 +1471,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                 <span className="text-emerald-400 font-normal">Affiliate</span>
               </span>
               <span className="block text-[8px] text-slate-400 font-mono tracking-widest uppercase">
-                Earn 15% Recurring commission
+                Pata kamisheni ya 10% kila mwezi
               </span>
             </div>
           </div>
@@ -1481,7 +1481,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
             className="flex items-center space-x-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-xs font-semibold text-slate-300 hover:text-white rounded-xl transition-all border border-slate-800 cursor-pointer"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Back to Homepage</span>
+            <span>Rudi Ukurasa wa Mwanzo</span>
           </button>
         </header>
 
@@ -1503,26 +1503,26 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                 <>
                   <div className="inline-flex items-center space-x-2 bg-amber-500/10 text-amber-400 px-3.5 py-1.5 rounded-full border border-amber-500/15 text-xs font-mono">
                     <Sparkles className="w-3.5 h-3.5" />
-                    <span>Orvix Partner Program</span>
+                    <span>Mpango wa Washirika wa Orvix</span>
                   </div>
                   <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-white leading-tight">
-                    Lead a Network.{" "}
+                    Jenga Timu ya Mawakala.{" "}
                     <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-300">
-                      Earn More as a Partner.
+                      Ongeza Mapato kama Mshirika.
                     </span>
                   </h1>
                   <p className="text-slate-400 text-sm sm:text-base leading-relaxed font-light">
-                    As a Orvix Partner (Super Affiliate Agent), you build and manage your own team of affiliates across Tanzania and East Africa. You earn{" "}
-                    <strong className="text-amber-400">15% on your direct referrals</strong>{" "}
+                    Kama Mshirika wa Orvix, unaweza kusimamia timu ya mawakala nchini Tanzania na Afrika Mashariki. Unapata{" "}
+                    <strong className="text-amber-400">10% ya wateja unaowaleta mwenyewe</strong>{" "}
                     plus{" "}
-                    <strong className="text-amber-400">5% oversight commission</strong>{" "}
-                    on every sale made by affiliates under your network. No cap. No fine print.
+                    <strong className="text-amber-400">kamisheni ya usimamizi ya 5%</strong>{" "}
+                    kwa malipo ya wateja wa mawakala wa timu yako. Masharti yanatumika.
                   </p>
                   <div className="space-y-4">
                     {[
-                      { title: 'Recruit & Manage Affiliates', desc: 'Onboard affiliates under your network, assign promo codes, track their performance and send direct messages to your team.' },
-                      { title: '5% Override on Every Team Sale', desc: 'Every time an affiliate under you makes a referral, you automatically earn 5% on top — paid monthly to your mobile wallet.' },
-                      { title: 'Partner Command Dashboard', desc: 'Access a dedicated dashboard with network overview, monthly reconciliation, team management, and training tools for your downlines.' },
+                      { title: 'Sajili na Simamia Mawakala', desc: 'Sajili mawakala kwenye timu yako, wape misimbo ya rufaa na fuatilia mafanikio yao.' },
+                      { title: '5% ya Kamisheni ya Usimamizi', desc: 'Wakala wa timu yako akileta mteja anayelipa, unapata 5% ya malipo yake kulingana na masharti.' },
+                      { title: 'Dashibodi ya Mshirika', desc: 'Angalia ripoti za timu, malipo, mafunzo na maendeleo ya mawakala.' },
                     ].map(item => (
                       <div key={item.title} className="flex items-start space-x-3">
                         <div className="p-1 bg-amber-500/10 text-amber-400 rounded mt-0.5 shrink-0"><Check className="w-4 h-4" /></div>
@@ -1538,23 +1538,23 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                 <>
                   <div className="inline-flex items-center space-x-2 bg-emerald-500/10 text-emerald-400 px-3.5 py-1.5 rounded-full border border-emerald-500/15 text-xs font-mono">
                     <Sparkles className="w-3.5 h-3.5" />
-                    <span>Orvix Affiliate Program</span>
+                    <span>Mpango wa Affiliate wa Orvix</span>
                   </div>
                   <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-white leading-tight">
-                    Empower African Merchants.{" "}
+                    Saidia Biashara Kukua.{" "}
                     <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-300">
-                      Share & Earn 15%.
+                      Leta Mteja, Pata Zawadi.
                     </span>
                   </h1>
                   <p className="text-slate-400 text-sm sm:text-base leading-relaxed font-light">
-                    Join Tanzania and East Africa's fastest-growing retail suite. Recommend Orvix to shop owners and Pharmacy owners. For every monthly subscription they complete, you receive{" "}
-                    <strong className="text-emerald-400">15% commission recurring</strong>, paid straight to your mobile wallet. No fine print. Just beautiful tools.
+                    Tangaza Orvix kwa maduka, biashara za jumla na maduka ya dawa. Kila mteja halali anayefungua akaunti kupitia msimbo wako anakuletea bonus ya TZS 2,000. Anapolipia usajili wa kila mwezi, unapata{" "}
+                    <strong className="text-emerald-400">kamisheni ya 10% kila anapolipia</strong>. Bonus na kamisheni huhifadhiwa tofauti. Unaomba malipo mara moja Ijumaa ya mwisho wa mwezi, salio likifikia TZS 10,000.
                   </p>
                   <div className="space-y-4">
                     {[
-                      { title: 'Instant Verification Linking', desc: 'Custom reference URLs and Coupon registration inputs match sub-accounts.' },
-                      { title: 'Guaranteed Monthly Payouts', desc: 'Funds are aggregated and dispatched 1 time every month on the last week Friday afternoon. Guaranteed.' },
-                      { title: 'High Conversion Kits', desc: 'Get pre-designed HTML marketing copy banners, ready-made email newsletters, and templates to start referring today.' },
+                      { title: 'Msimbo na Link ya Rufaa', desc: 'Shiriki link yako; akaunti mpya inayofunguliwa kwa msimbo wako inahesabiwa mara moja tu.' },
+                      { title: 'Ombi la Malipo Kila Mwezi', desc: 'Omba kutoa pesa mara moja tu Ijumaa ya mwisho wa mwezi (saa za Tanzania). Malipo yatatumwa baada ya uhakiki.' },
+                      { title: 'Vifaa vya Kutangaza', desc: 'Pata picha na ujumbe wa matangazo ili kuwafikia wateja zaidi.' },
                     ].map(item => (
                       <div key={item.title} className="flex items-start space-x-3">
                         <div className="p-1 bg-emerald-500/10 text-emerald-400 rounded mt-0.5 shrink-0"><Check className="w-4 h-4" /></div>
@@ -1576,18 +1576,18 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                 <div className="text-center space-y-2">
                   {isPartnerSetupMode && (
                     <div className="mb-2 px-3 py-1.5 bg-amber-500/15 border border-amber-500/30 rounded-full text-amber-400 text-[10px] font-black uppercase tracking-wider inline-block">
-                      Partner Registration · Maximum 10
+                      Usajili wa Washirika · Nafasi 10
                     </div>
                   )}
                   <div className={`inline-flex p-3 rounded-2xl border items-center justify-center mb-1 ${portalRole === 'partner' ? 'bg-amber-500/10 border-amber-500/20' : 'bg-emerald-500/10 border-emerald-500/20'}`}>
                     <img src="/jb-logo.png" alt="Orvix" className="w-10 h-10 object-contain" />
                   </div>
                   <h2 className="text-2xl font-black text-white tracking-tight">
-                    {isPartnerSetupMode ? 'Create Partner Account' : (portalRole === 'partner' ? 'Partner Login' : (authMode === 'login' ? 'Affiliate Login' : 'Affiliate Portal'))}
+                    {isPartnerSetupMode ? 'Fungua Akaunti ya Mshirika' : (portalRole === 'partner' ? 'Ingia kama Mshirika' : (authMode === 'login' ? 'Ingia kama Affiliate' : 'Ukurasa wa Affiliate'))}
                   </h2>
                   {(isPartnerSetupMode || authMode === 'login') && (
                     <p className="text-xs text-slate-400">
-                      {isPartnerSetupMode ? 'Create a Partner account while capacity is available' : `Sign in to your ${portalRole === 'partner' ? 'Partner' : 'Affiliate'} dashboard`}
+                      {isPartnerSetupMode ? 'Fungua akaunti ya mshirika ikiwa nafasi inapatikana' : `Ingia kwenye ${portalRole === 'partner' ? 'Partner' : 'Affiliate'} dashibodi`}
                     </p>
                   )}
                 </div>
@@ -1601,20 +1601,20 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                         className="w-full bg-slate-950 border border-slate-700 text-white placeholder-slate-600 outline-none rounded-2xl px-4 py-3 text-sm focus:border-emerald-500" />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Password</label>
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Nenosiri</label>
                       <div className="relative">
-                        <input type={showLoginPassword ? 'text' : 'password'} required placeholder="••••••••" value={loginPassword} onChange={e => setLoginPassword(e.target.value)}
+                        <input type={showLoginNenosiri ? 'text' : 'password'} required placeholder="••••••••" value={loginNenosiri} onChange={e => setLoginNenosiri(e.target.value)}
                           className="w-full bg-slate-950 border border-slate-700 text-white placeholder-slate-600 outline-none rounded-2xl px-4 py-3 pr-11 text-sm focus:border-emerald-500" />
-                        <button type="button" onClick={() => setShowLoginPassword(p => !p)}
+                        <button type="button" onClick={() => setShowLoginNenosiri(p => !p)}
                           className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 cursor-pointer">
-                          {showLoginPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          {showLoginNenosiri ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </button>
                       </div>
                     </div>
 
                     <div className="flex justify-center"><TurnstileWidget onVerify={setTurnstileToken} onExpire={() => setTurnstileToken(null)} /></div>
 
-                    <button type="submit" className="w-full py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm uppercase tracking-wider transition-all cursor-pointer border-none">Sign In</button>
+                    <button type="submit" className="w-full py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm uppercase tracking-wider transition-all cursor-pointer border-none">Ingia</button>
 
                     <div className="flex items-center gap-3 py-1">
                       <div className="flex-1 h-px bg-slate-800" />
@@ -1622,7 +1622,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                       <div className="flex-1 h-px bg-slate-800" />
                     </div>
 
-                    <button type="button" onClick={handleGooglePortalLogin} className="w-full py-3.5 rounded-2xl border border-slate-700 bg-white text-slate-800 font-black text-sm cursor-pointer">Continue with Google</button>
+                    <button type="button" onClick={handleGooglePortalLogin} className="w-full py-3.5 rounded-2xl border border-slate-700 bg-white text-slate-800 font-black text-sm cursor-pointer">Endelea kwa Google</button>
 
                     {/* Become an affiliate link — hidden on the Partner login, since that
                         portal is for the single Super Affiliate Agent signing in, not
@@ -1630,11 +1630,11 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                     {portalRole !== 'partner' && (
                       <div className="text-center pt-2 border-t border-slate-800">
                         <p className="text-xs text-slate-500">
-                          Don't have an affiliate account?
+                          Bado huna akaunti ya affiliate?
                         </p>
                         <button type="button" onClick={() => setAuthMode('register')}
                           className="text-xs font-bold mt-1 cursor-pointer bg-transparent border-none text-emerald-400 hover:text-emerald-300">
-                          Become an Affiliate →
+                          Jisajili kuwa Affiliate →
                         </button>
                       </div>
                     )}
@@ -1643,19 +1643,19 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                   /* PARTNER CAPACITY REACHED */
                   <form onSubmit={handleWaitlistSubmit} className="space-y-5">
                     <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 text-center">
-                      <p className="text-xs text-amber-400 font-bold uppercase tracking-wider mb-1">Partner Program Full</p>
-                      <p className="text-xs text-slate-400">Leave your details and we'll notify you when spots open.</p>
+                      <p className="text-xs text-amber-400 font-bold uppercase tracking-wider mb-1">Nafasi za Washirika Zimejaa</p>
+                      <p className="text-xs text-slate-400">Weka taarifa zako ili upate ujumbe nafasi zitakapopatikana.</p>
                     </div>
-                    <input type="text" required placeholder="Your Full Name" value={waitlistName} onChange={e => setWaitlistName(e.target.value)}
+                    <input type="text" required placeholder="Majina Yako Kamili" value={waitlistName} onChange={e => setWaitlistName(e.target.value)}
                       className="w-full bg-slate-950 border border-slate-700 text-white placeholder-slate-600 outline-none rounded-2xl px-4 py-3 text-sm focus:border-amber-500" />
-                    <input type="tel" required placeholder="Phone Number" value={waitlistPhone} onChange={e => setWaitlistPhone(e.target.value)}
+                    <input type="tel" required placeholder="Namba ya Simu" value={waitlistPhone} onChange={e => setWaitlistPhone(e.target.value)}
                       className="w-full bg-slate-950 border border-slate-700 text-white placeholder-slate-600 outline-none rounded-2xl px-4 py-3 text-sm focus:border-amber-500 font-mono" />
                     <button type="submit" className="w-full py-3.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-sm cursor-pointer border-none">
-                      Join Waitlist
+                      Jiunge na Orodha ya Kusubiri
                     </button>
                     <button type="button" onClick={() => setAuthMode('login')}
                       className="w-full text-xs text-slate-500 hover:text-slate-300 cursor-pointer bg-transparent border-none">
-                      ← Back to Login
+                      ← Rudi to Login
                     </button>
                   </form>
                 ) : (
@@ -1663,36 +1663,36 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                   !googleRegistrationVerified && !useEmailRegistration ? (
                     <div className="space-y-5">
                       <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4 text-center">
-                        <h3 className="text-sm font-black text-white">Create your {portalRole === 'partner' ? 'Partner' : 'Affiliate'} account</h3>
-                        <p className="mt-1 text-xs leading-relaxed text-slate-400">Choose how you'd like to sign up.</p>
+                        <h3 className="text-sm font-black text-white">Fungua {portalRole === 'partner' ? 'Partner' : 'Affiliate'} akaunti</h3>
+                        <p className="mt-1 text-xs leading-relaxed text-slate-400">Chagua njia ya kufungua akaunti.</p>
                       </div>
                       <div className="flex justify-center"><TurnstileWidget onVerify={setTurnstileToken} onExpire={() => setTurnstileToken(null)} /></div>
                       <button type="button" onClick={() => setUseEmailRegistration(true)}
                         className="w-full py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm uppercase tracking-wider transition-all cursor-pointer border-none flex items-center justify-center gap-2.5">
                         <Mail className="w-4 h-4 shrink-0" />
-                        <span>Continue with Email</span>
+                        <span>Endelea kwa Barua Pepe</span>
                       </button>
-                      <button type="button" onClick={handleGooglePortalLogin} className="w-full py-3.5 rounded-2xl border border-slate-700 bg-white text-slate-800 font-black text-sm cursor-pointer">Continue with Google</button>
-                      <button type="button" onClick={() => setAuthMode('login')} className="w-full text-xs text-slate-500 hover:text-slate-300 cursor-pointer bg-transparent border-none">Already have an account? Sign In</button>
+                      <button type="button" onClick={handleGooglePortalLogin} className="w-full py-3.5 rounded-2xl border border-slate-700 bg-white text-slate-800 font-black text-sm cursor-pointer">Endelea kwa Google</button>
+                      <button type="button" onClick={() => setAuthMode('login')} className="w-full text-xs text-slate-500 hover:text-slate-300 cursor-pointer bg-transparent border-none">Already have an akaunti? Ingia</button>
                     </div>
                   ) : (
                   <form onSubmit={handleRegisterAffiliate} className="space-y-4">
                     {googleRegistrationVerified ? (
-                      <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-center text-[10px] font-bold text-emerald-300">Google account verified. Complete your details below.</div>
+                      <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-center text-[10px] font-bold text-emerald-300">Google akaunti verified. Complete your details below.</div>
                     ) : (
                       <button type="button" onClick={() => setUseEmailRegistration(false)}
                         className="text-[11px] font-bold text-slate-400 hover:text-emerald-400 cursor-pointer bg-transparent border-none">
-                        ← Back
+                        ← Rudi
                       </button>
                     )}
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1.5">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">First Name</label>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Jina la Kwanza</label>
                         <input type="text" required placeholder="e.g. Sarah" value={firstName} onChange={e => setFirstName(e.target.value)}
                           className="w-full bg-slate-950 border border-slate-700 text-white placeholder-slate-600 outline-none rounded-2xl px-3 py-3 text-sm focus:border-emerald-500" />
                       </div>
                       <div className="space-y-1.5">
-                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Second Name</label>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Jina la Pili</label>
                         <input type="text" required placeholder="e.g. Mwakasege" value={secondName} onChange={e => setSecondName(e.target.value)}
                           className="w-full bg-slate-950 border border-slate-700 text-white placeholder-slate-600 outline-none rounded-2xl px-3 py-3 text-sm focus:border-emerald-500" />
                       </div>
@@ -1706,23 +1706,23 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                             className="w-full bg-slate-950 border border-slate-700 text-white placeholder-slate-600 outline-none rounded-2xl px-4 py-3 text-sm focus:border-emerald-500" />
                         </div>
                         <div className="space-y-1.5">
-                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Password</label>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Nenosiri</label>
                           <div className="relative">
-                            <input type={showPassword ? 'text' : 'password'} required placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)}
+                            <input type={showNenosiri ? 'text' : 'password'} required placeholder="••••••••" value={password} onChange={e => setNenosiri(e.target.value)}
                               className="w-full bg-slate-950 border border-slate-700 text-white placeholder-slate-600 outline-none rounded-2xl px-4 py-3 pr-10 text-sm focus:border-emerald-500" />
-                            <button type="button" onClick={() => setShowPassword(p => !p)}
+                            <button type="button" onClick={() => setShowNenosiri(p => !p)}
                               className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 cursor-pointer">
-                              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                              {showNenosiri ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                             </button>
                           </div>
-                          <p className="text-[9px] text-slate-500">At least 10 characters, with letters and numbers.</p>
+                          <p className="text-[9px] text-slate-500">Angalau herufi 10, zikiwemo namba.</p>
                         </div>
                       </div>
                     )}
 
                     <div className="space-y-1.5">
                       <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                        Commission Payout Number <span className="text-[9px] text-slate-500 normal-case font-normal">(mobile money)</span>
+                        Namba ya Kupokea Malipo <span className="text-[9px] text-slate-500 normal-case font-normal">(mobile money)</span>
                       </label>
                       <input type="tel" required placeholder="e.g. 0754 002 991" value={payoutPhone} onChange={e => setPayoutPhone(e.target.value)}
                         className="w-full bg-slate-950 border border-slate-700 text-white placeholder-slate-600 outline-none rounded-2xl px-4 py-3 text-sm font-mono focus:border-emerald-500" />
@@ -1735,19 +1735,20 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Payout Provider</label>
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Mtandao wa Kupokea Malipo</label>
                       <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}
                         className="w-full bg-slate-950 border border-slate-700 text-slate-300 outline-none rounded-2xl px-4 py-3 text-sm focus:border-emerald-500 cursor-pointer">
                         <option value="m-pesa">Vodacom M-Pesa</option>
                         <option value="tigo_yas">Mixx by Yas</option>
                         <option value="airtel_money">Airtel Money</option>
                         <option value="halopesa">Halopesa</option>
+                        <option value="azampesa">AzamPesa</option>
                       </select>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
                       <div className="space-y-1.5">
-                        <label className="text-[10px] font-bold text-amber-400 uppercase tracking-wider block">NIDA ID <span className="text-rose-400">*</span></label>
+                        <label className="text-[10px] font-bold text-amber-400 uppercase tracking-wider block">Namba ya NIDA <span className="text-rose-400">*</span></label>
                         <input type="text" required placeholder="19951204-45129-00001-44" value={nidaNumber} onChange={e => setNidaNumber(e.target.value)}
                           className="w-full bg-slate-950 border border-slate-700 text-white placeholder-slate-600 outline-none rounded-2xl px-3 py-3 text-xs font-mono focus:border-amber-500" />
                       </div>
@@ -1762,20 +1763,20 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                     {portalRole !== 'partner' && (
                       <div className="space-y-1.5">
                         <label className="text-[10px] font-bold text-teal-400 uppercase tracking-wider block">
-                          Partner Code <span className="text-rose-400">*</span>
+                          Msimbo wa Mshirika <span className="text-rose-400">*</span>
                         </label>
                         <input type="text" placeholder="e.g. LANGA" value={parentSuperCode} onChange={e => setParentSuperCode(e.target.value)}
                           className={`w-full bg-slate-950 border text-white placeholder-slate-600 outline-none rounded-2xl px-4 py-3 text-sm font-mono text-center tracking-widest uppercase focus:border-teal-500 ${parentSuperCode.trim() ? 'border-teal-500' : 'border-rose-500/50'}`} />
-                        <p className="text-[9px] text-slate-500">Enter the promo code of the Partner who recruited you. Required.</p>
+                        <p className="text-[9px] text-slate-500">Weka msimbo wa mshirika aliyekusajili. Ni lazima.</p>
                       </div>
                     )}
 
                     <div className="flex items-start gap-2.5 p-3 bg-slate-950 border border-slate-800 rounded-xl">
                       <input type="checkbox" id="terms-check" checked={acceptedTerms} onChange={e => setAcceptedTerms(e.target.checked)} className="mt-0.5 cursor-pointer" />
                       <label htmlFor="terms-check" className="text-[10px] text-slate-400 leading-relaxed cursor-pointer">
-                        I agree to the{' '}
+                        Nimekubali{' '}
                         <button type="button" onClick={() => setShowTermsModal(true)} className="text-emerald-400 hover:text-emerald-300 cursor-pointer bg-transparent border-none font-bold">
-                          Terms & Conditions
+                          Sheria na Masharti
                         </button>
                       </label>
                     </div>
@@ -1786,13 +1787,13 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
                     <button type="submit" disabled={!acceptedTerms}
                       className={`w-full py-3.5 rounded-2xl font-black text-sm uppercase tracking-wider transition-all cursor-pointer border-none ${acceptedTerms ? portalRole === 'partner' ? 'bg-amber-500 hover:bg-amber-400 text-slate-950' : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}`}>
-                      {portalRole === 'partner' ? 'Create Partner Account' : 'Create Affiliate Account'}
+                      {portalRole === 'partner' ? 'Fungua Akaunti ya Mshirika' : 'Fungua Akaunti ya Affiliate'}
                     </button>
 
                     <div className="text-center">
                       <button type="button" onClick={() => setAuthMode('login')}
                         className="text-xs text-slate-500 hover:text-slate-300 cursor-pointer bg-transparent border-none">
-                        Already have an account? Sign In
+                        Already have an akaunti? Ingia
                       </button>
                     </div>
                   </form>)
@@ -2039,7 +2040,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                           TSh {totalEarnings.toLocaleString()}
                         </dd>
                         <div className="text-[10px] text-slate-400 font-mono">
-                          Generated by 15% standard downlines
+                          Imetokana na malipo ya mawakala (10%)
                         </div>
                       </div>
 
@@ -2374,9 +2375,9 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
               // 1.5 RECONCILIATION SCREEN
               if (superActiveTab === "reconciliation") {
-                const superCommissionTotal = totalRevenue * 0.2;
+                const superCommissionTotal = totalRevenue * 0.15;
                 const superAgentCut = totalRevenue * 0.05;
-                const subAffiliatesCut = totalRevenue * 0.15;
+                const subAffiliatesCut = totalRevenue * 0.10;
                 const hasTIN =
                   !!activeAffiliate?.tinNumber &&
                   activeAffiliate?.tinNumber.trim() !== "" &&
@@ -2394,7 +2395,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                             Reconciliation Report
                           </h3>
                           <p className="text-[11px] text-slate-400 mt-1">
-                            Automated breakdown of your 20% team payout fund.
+                            Automated breakdown of your 15% ya mtandao.
                           </p>
                         </div>
                         <div className="mt-4 md:mt-0 flex flex-col sm:flex-row gap-2">
@@ -2415,8 +2416,8 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                               const csvRows = [
                                 ["Description", "Amount (TSh)"],
                                 ["Generated Network Revenue", totalRevenue],
-                                ["20% Total Payout Fund", superCommissionTotal],
-                                ["15% Share to Sub-Affiliates", subAffiliatesCut],
+                                ["15% Jumla ya Kamisheni ya Mtandao", superCommissionTotal],
+                                ["10% ya Mawakala", subAffiliatesCut],
                                 ["5% Master Agent Cut", superAgentCut],
                                 [
                                   "Withholding Tax (TRA)",
@@ -2453,7 +2454,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
                         <div className="bg-amber-950/20 p-4 rounded-xl border border-amber-900/40 flex flex-col justify-center">
                           <div className="text-[10px] text-amber-500 uppercase font-mono tracking-wider font-bold mb-1">
-                            20% Total Fund
+                            15% Jumla ya Mtandao
                           </div>
                           <div className="text-xl font-bold font-mono text-amber-400">
                             TSh {superCommissionTotal.toLocaleString()}
@@ -2465,7 +2466,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
                         <div className="bg-indigo-950/20 p-4 rounded-xl border border-indigo-900/40 flex flex-col justify-center">
                           <div className="text-[10px] text-indigo-400 uppercase font-mono tracking-wider font-bold mb-1">
-                            15% Sub-Affiliate Due
+                            10% ya Affiliate
                           </div>
                           <div className="text-xl font-bold font-mono text-indigo-400">
                             TSh {subAffiliatesCut.toLocaleString()}
@@ -2497,7 +2498,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                           TSh {superAgentWithholdingTax.toLocaleString()}
                         </div>
                         <div className="text-[9px] text-slate-500 mt-2 leading-tight relative z-10">
-                          Calculated on the 20% Total Fund pending TRA transfer.
+                          Calculated on the 15% Jumla ya Mtandao pending TRA transfer.
                         </div>
                       </div>
                     </div>
@@ -3235,7 +3236,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                               type="button"
                               onClick={() =>
                                 alert(
-                                  "🚨 Master Recording initiated. Session backup will be stored in Affiliate Portal Archives.",
+                                  "🚨 Master Recording initiated. Session backup will be stored in Ukurasa wa Affiliate Archives.",
                                 )
                               }
                               className="px-3 py-1.5 bg-slate-900 hover:bg-slate-850 text-red-400 rounded-lg text-[10.5px] font-mono font-bold uppercase cursor-pointer border border-slate-850 flex items-center gap-1.5"
@@ -3482,7 +3483,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                       </div>
                       <div className="space-y-1.5">
                         <label className="text-[10px] uppercase font-mono text-slate-500 block font-bold">
-                          Wallet Phone Number
+                          Wallet Namba ya Simu
                         </label>
                         <input
                           type="tel"
@@ -3518,13 +3519,13 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
                       <div className="space-y-1.5">
                         <label className="text-[10px] uppercase font-mono text-slate-500 block font-bold">
-                          Default User Password
+                          Default User Nenosiri
                         </label>
                         <input
                           type="text"
                           required
-                          value={addAffPassword}
-                          onChange={(e) => setAddAffPassword(e.target.value)}
+                          value={addAffNenosiri}
+                          onChange={(e) => setAddAffNenosiri(e.target.value)}
                           placeholder="pass123"
                           className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white outline-none focus:border-teal-500"
                         />
@@ -3534,7 +3535,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                     <div className="grid grid-cols-2 gap-3.5">
                       <div className="space-y-1.5">
                         <label className="text-[10px] uppercase font-mono text-slate-500 block font-bold">
-                          NIDA ID Registration (TRA compliance)
+                          Namba ya NIDA Registration (TRA compliance)
                         </label>
                         <input
                           type="text"
@@ -3659,7 +3660,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                       </div>
                       <div className="space-y-1.5">
                         <label className="text-[10px] uppercase font-mono text-slate-500 block font-bold">
-                          Wallet Phone Number
+                          Wallet Namba ya Simu
                         </label>
                         <input
                           type="text"
@@ -4009,7 +4010,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                   <DollarSign className="w-6 h-6" />
                 </div>
                 <dt className="text-xs uppercase font-mono tracking-widest text-slate-400 text-[9px]">
-                  Monthly 15% Share Earn
+                  Kamisheni ya 10% kwa mwezi
                 </dt>
                 <dd className="text-3xl font-extrabold text-emerald-400 font-mono">
                   TSh {totalEarnedCommissions.toLocaleString()}
