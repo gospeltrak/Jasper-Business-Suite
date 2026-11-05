@@ -21,6 +21,8 @@ import { sanitizeTrustedHtml } from '../../../shared/utils/safeHtml';
 import { isEarnedCommissionStatus, isSettledPaymentStatus } from '../../../shared/utils/financialStatus';
 import GlobalStickyAd from '../../../shared/components/GlobalStickyAd';
 import { formatLocalMonth } from '../../../shared/utils/localDate';
+import { getSecureDataBridgeClient } from '../../../shared/dataBridge/secureDataBridge';
+import { AFFILIATE_MIN_WITHDRAWAL_TZS, AFFILIATE_RECURRING_RATE, getAzamPayFee, getTanzaniaMonthEndWithdrawalDate, sumRewardBalance } from '../utils/affiliatePolicy';
 
 const currency = new Intl.NumberFormat('en-TZ', { style: 'currency', currency: 'TZS', maximumFractionDigits: 0 });
 
@@ -74,7 +76,8 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
   const [tenantSearch, setTenantSearch] = useState('');
   const [tenantStatusFilter, setTenantStatusFilter] = useState<string>('all');
   const [selectedTenant, setSelectedTenant] = useState<any>(null);
-  const TRANSACTION_FEE_PERCENT = 0.02; // 2% transaction fee
+  const payoutWindow = getTanzaniaMonthEndWithdrawalDate();
+  const transferFee = getAzamPayFee(workspace?.profile?.payout_method);
   const adSettings = useGlobalAdSettings();
 
   useEffect(() => {
@@ -212,25 +215,32 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
     const commissions = workspace?.commissions || [];
     const activities = workspace?.activities || [];
     const subscribers = workspace?.subscribers || [];
-    const settledSubscribers = subscribers.filter((subscriber) => isSettledPaymentStatus(subscriber.payment_status));
-    const totalRevenue = settledSubscribers.reduce((sum, subscriber) => sum + Number(subscriber.amount_paid || 0), 0);
-    const grossCommission15 = totalRevenue * 0.15;
-    const withholdingTax5 = grossCommission15 * 0.05;
-    const totalPayout = grossCommission15 - withholdingTax5;
-    const available = commissions.filter((commission) => commission.status === 'available').reduce((sum, commission) => sum + commission.net_payout, 0);
-    const earned = commissions.filter((commission) => isEarnedCommissionStatus(commission.status)).reduce((sum, commission) => sum + commission.net_payout, 0);
-    const paid = commissions.filter((commission) => commission.status === 'paid').reduce((sum, commission) => sum + commission.net_payout, 0);
+    const rewards = workspace?.rewards || [];
+    const balance = sumRewardBalance(rewards);
+    const totalRevenue = rewards.filter(reward => reward.reward_type === 'subscription_commission')
+      .reduce((sum, reward) => sum + Number(reward.source_revenue || 0), 0);
+    const grossCommission10 = rewards.filter(reward => reward.reward_type === 'subscription_commission')
+      .reduce((sum, reward) => sum + Number(reward.gross_amount || 0), 0);
+    const withholdingTax = rewards.reduce((sum, reward) => sum + Number(reward.withholding_tax || 0), 0);
+    const earnedRewards = rewards.filter(reward => reward.status !== 'void');
+    const available = balance.bonus + balance.commission;
+    const earned = earnedRewards.reduce((sum, reward) => sum + Number(reward.net_amount || 0), 0);
+    const paid = rewards.filter(reward => reward.status === 'paid')
+      .reduce((sum, reward) => sum + Number(reward.net_amount || 0), 0);
+    void commissions; // Historical commissions are displayed separately and never silently recalculated.
     return {
       clicks: referrals.filter((referral) => referral.status === 'clicked').length,
-      registrations: subscribers.length || referrals.filter((referral) => ['registered', 'converted'].includes(referral.status)).length,
+      registrations: subscribers.length || referrals.filter((referral) => ['registered','converted'].includes(referral.status)).length,
       conversions: referrals.filter((referral) => referral.status === 'converted').length,
       downloads: activities.filter((event) => event.event_type === 'ad_download' || event.event_type === 'task_download').length,
       meetingJoins: activities.filter((event) => event.event_type === 'meeting_join').length,
       copiedLinks: activities.filter((event) => event.event_type === 'campaign_link_copy').length,
       totalRevenue,
-      grossCommission15,
-      withholdingTax5,
-      totalPayout,
+      grossCommission10,
+      withholdingTax,
+      totalPayout: earned,
+      bonusAvailable: balance.bonus,
+      commissionAvailable: balance.commission,
       available,
       earned,
       paid,
@@ -243,22 +253,21 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
   }, [workspace?.subscribers, reportMonth]);
 
   const monthStats = useMemo(() => {
-    const revenue = monthlySubscribers
-      .filter((subscriber) => isSettledPaymentStatus(subscriber.payment_status))
-      .reduce((sum, subscriber) => sum + Number(subscriber.amount_paid || 0), 0);
-    const grossCommission = revenue * 0.15;
-    const withholding = grossCommission * 0.05;
-    const payout = grossCommission - withholding;
+    const monthlyRewards = (workspace?.rewards || []).filter(reward => reward.created_at.slice(0,7) === reportMonth);
+    const registrationBonuses = monthlyRewards.filter(reward => reward.reward_type === 'registration_bonus');
+    const paidCommissions = monthlyRewards.filter(reward => reward.reward_type === 'subscription_commission');
+    const revenue = paidCommissions.reduce((sum, reward) => sum + Number(reward.source_revenue || 0), 0);
+    const grossCommission = paidCommissions.reduce((sum, reward) => sum + Number(reward.gross_amount || 0), 0);
+    const withholding = monthlyRewards.reduce((sum, reward) => sum + Number(reward.withholding_tax || 0), 0);
+    const bonus = registrationBonuses.reduce((sum, reward) => sum + Number(reward.gross_amount || 0), 0);
+    const payout = monthlyRewards.reduce((sum, reward) => sum + Number(reward.net_amount || 0), 0);
     return {
       registrations: monthlySubscribers.length,
       active: monthlySubscribers.filter((subscriber) => subscriber.status === 'active').length,
       inactive: monthlySubscribers.filter((subscriber) => subscriber.status !== 'active').length,
-      revenue,
-      grossCommission,
-      withholding,
-      payout,
+      revenue, grossCommission, withholding, bonus, payout,
     };
-  }, [monthlySubscribers]);
+  }, [monthlySubscribers, workspace?.rewards, reportMonth]);
 
   const taskProgress = useMemo(() => {
     const tasks = workspace?.tasks || [];
@@ -308,7 +317,11 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
   }, [workspace?.tasks, workspace?.subscribers, reportMonth]);
 
   const isAgentApprovedForWithdrawals = workspace?.profile?.status === 'active';
-  const canWithdraw = monthStats.payout >= 5000 && isAgentApprovedForWithdrawals;
+  const hasMonthWithdrawal = (workspace?.payouts || []).some(payout =>
+    payout.payout_month?.slice(0,7) === payoutWindow.currentMonth
+  );
+  const canWithdraw = metrics.available >= AFFILIATE_MIN_WITHDRAWAL_TZS
+    && payoutWindow.isLastFriday && !hasMonthWithdrawal && isAgentApprovedForWithdrawals;
 
   const copyReferralLink = async () => {
     if (!workspace) return;
@@ -378,56 +391,38 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
     setNotice('Profile settings saved.');
   };
 
-	  const handleWithdrawSubmit = async () => {
-	    if (!workspace?.profile) return;
-	    if (!isNetworkOnline) {
-	      setWithdrawError(ONLINE_ONLY_WRITE_MESSAGE);
-	      return;
-	    }
-    const { name, phone, amount, password } = withdrawForm;
-    if (!name.trim()) { setWithdrawError('Please enter the account holder name.'); return; }
-    if (!phone.trim()) { setWithdrawError('Please enter the phone number.'); return; }
-    if (!amount || Number(amount) <= 0) { setWithdrawError('Please enter a valid amount.'); return; }
-    if (Number(amount) > monthStats.payout) { setWithdrawError(`Amount cannot exceed your available balance of ${currency.format(monthStats.payout)}.`); return; }
-    if (Number(amount) < 5000) { setWithdrawError('Minimum withdrawal is TZS 5,000.'); return; }
-    if (!password.trim()) { setWithdrawError('Please enter your password to confirm.'); return; }
-
+  const handleWithdrawSubmit = async () => {
+    if (!workspace?.profile || withdrawing) return;
+    if (!isNetworkOnline) { setWithdrawError(ONLINE_ONLY_WRITE_MESSAGE); return; }
+    if (!canWithdraw) {
+      setWithdrawError('Unaweza kuomba kutoa pesa mara moja tu Ijumaa ya mwisho wa mwezi, salio likiwa angalau TZS 10,000.');
+      return;
+    }
+    const { name, phone } = withdrawForm;
+    if (name.trim().length < 2 || phone.replace(/\D/g,'').length < 10) {
+      setWithdrawError('Weka jina na namba sahihi ya kupokea malipo.');
+      return;
+    }
     setWithdrawing(true);
     setWithdrawError(null);
-
-    const fee = Math.round(Number(amount) * TRANSACTION_FEE_PERCENT);
-    const netAmount = Math.round(Number(amount)) - fee;
-
-    const result = await dbWrite(
-      'affiliate_payouts',
-      'insert',
-      {
-        affiliate_id: workspace.profile.id,
-        amount: Math.round(Number(amount)),
-        net_amount: netAmount,
-        transaction_fee: fee,
-        currency: 'TZS',
-        payout_method: workspace.profile.payout_method || 'Mobile Money',
-        payout_reference: phone.trim(),
-        recipient_name: name.trim(),
-        recipient_phone: phone.trim(),
-        status: 'requested',
-        requested_at: new Date().toISOString(),
-        notes: `Withdrawal request. Gross: ${Math.round(Number(amount)).toLocaleString()}, Fee (2%): ${fee.toLocaleString()}, Net: ${netAmount.toLocaleString()}.`,
-      },
-      undefined,
-      workspace.profile.id,
-    );
-
-    setWithdrawing(false);
-	    if (result.success) {
-	      setShowWithdrawModal(false);
-	      setWithdrawForm({ name: '', phone: '', amount: '', password: '' });
-	      setNotice(`✅ Withdrawal of ${currency.format(netAmount)} submitted successfully (after ${currency.format(fee)} fee).`);
-	      await refresh();
-	    } else {
-	      setWithdrawError(result.error || 'Failed to submit withdrawal. Please try again.');
-	    }
+    try {
+      // Atomic, server-validated RPC: no self-reported balance, fee or payout date.
+      const client = await getSecureDataBridgeClient();
+      const { data, error } = await client.rpc('request_affiliate_month_end_withdrawal_v2', {
+        p_recipient_name: name.trim(),
+        p_recipient_phone: phone.trim(),
+        p_provider: workspace.profile.payout_method || 'm-pesa',
+      });
+      if (error) throw error;
+      setShowWithdrawModal(false);
+      setWithdrawForm({ name:'', phone:'', amount:'', password:'' });
+      setNotice(`Ombi limepokelewa: TZS ${Number(data?.net || 0).toLocaleString()} baada ya ada ya AzamPay. Linasubiri uhakiki na malipo.`);
+      await refresh();
+    } catch (error: any) {
+      setWithdrawError(error?.message || 'Ombi la kutoa pesa halikukamilika.');
+    } finally {
+      setWithdrawing(false);
+    }
   };
 
   const downloadUrl = (url: string, fileName?: string | null) => {
@@ -604,8 +599,8 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
             <section className="grid grid-cols-2 gap-3 xl:grid-cols-4">
               <Metric label="Registrations" value={metrics.registrations.toString()} sub="Subscribers using your promo code" />
               <Metric label="Total amount entered" value={currency.format(metrics.totalRevenue)} sub="All-time subscriber payments" />
-              <Metric label="Your 15%" value={currency.format(metrics.grossCommission15)} sub="Gross affiliate commission" />
-              <Metric label="Total payout" value={currency.format(metrics.totalPayout)} sub="15% commission minus 5% WHT" />
+              <Metric label="Kamisheni ya 10%" value={currency.format(metrics.grossCommission10)} sub="Gross affiliate commission" />
+              <Metric label="Jumla ya mapato" value={currency.format(metrics.totalPayout)} sub="10% ya malipo; withholding ikitumika" />
             </section>
 
             {(() => {
@@ -1032,7 +1027,7 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
               <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
                 <Metric label="Subscriber report" value={monthStats.registrations.toString()} sub={`${monthStats.active} active · ${monthStats.inactive} inactive`} />
                 <Metric label="Payment report" value={currency.format(monthStats.revenue)} sub="Amount entered system" />
-                <Metric label="Commission" value={currency.format(monthStats.grossCommission)} sub="15% for this month" />
+                <Metric label="Commission" value={currency.format(monthStats.grossCommission)} sub="10% ya malipo ya mwezi huu" />
                 <Metric label="Task report" value={`${taskProgress.monthProgress}%`} sub={`${taskProgress.monthCompleted}/${taskProgress.monthTotal} monthly tasks`} />
               </div>
 
@@ -1082,9 +1077,9 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
               <Panel title="Payment report">
                 <div className="grid gap-3 p-4 sm:grid-cols-4">
                   <Metric label="Entered system" value={currency.format(monthStats.revenue)} />
-                  <Metric label="Your 15%" value={currency.format(monthStats.grossCommission)} />
-                  <Metric label="Withholding 5%" value={currency.format(monthStats.withholding)} />
-                  <Metric label="Total payout" value={currency.format(monthStats.payout)} />
+                  <Metric label="Kamisheni ya 10%" value={currency.format(monthStats.grossCommission)} />
+                  <Metric label="Withholding" value={currency.format(monthStats.withholding)} />
+                  <Metric label="Jumla ya mapato" value={currency.format(monthStats.payout)} />
                 </div>
               </Panel>
 
@@ -1134,7 +1129,7 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-lg font-black text-slate-900">Payouts</h2>
-                  <p className="text-xs text-slate-500 mt-0.5">Your commission & withdrawal history</p>
+                  <p className="text-xs text-slate-500 mt-0.5">Historia ya bonus, kamisheni na malipo</p>
                 </div>
                 <input
                   type="month"
@@ -1149,22 +1144,22 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
                 <div className="absolute -top-6 -right-6 w-32 h-32 rounded-full bg-white/10" />
                 <div className="absolute -bottom-8 -left-4 w-24 h-24 rounded-full bg-white/5" />
                 <div className="relative">
-                  <p className="text-[11px] font-bold uppercase tracking-widest text-emerald-100">Available to Withdraw</p>
+                  <p className="text-[11px] font-bold uppercase tracking-widest text-emerald-100">Salio linaloweza kuombewa</p>
                   <p className="text-3xl font-black mt-1 tracking-tight">{currency.format(monthStats.payout)}</p>
                   <div className="flex items-center gap-4 mt-3">
                     <div>
-                      <p className="text-[10px] text-emerald-200">Gross (15%)</p>
+                      <p className="text-[10px] text-emerald-200">Kamisheni (10%)</p>
                       <p className="text-sm font-black">{currency.format(monthStats.grossCommission)}</p>
                     </div>
                     <div className="w-px h-8 bg-white/20" />
                     <div>
-                      <p className="text-[10px] text-emerald-200">Tax (5%)</p>
+                      <p className="text-[10px] text-emerald-200">Withholding</p>
                       <p className="text-sm font-black text-rose-200">-{currency.format(monthStats.withholding)}</p>
                     </div>
                     <div className="w-px h-8 bg-white/20" />
                     <div>
-                      <p className="text-[10px] text-emerald-200">Min. withdrawal</p>
-                      <p className="text-sm font-black">TZS 5,000</p>
+                      <p className="text-[10px] text-emerald-200">Kiwango cha chini</p>
+                      <p className="text-sm font-black">TZS 10,000</p>
                     </div>
                   </div>
                 </div>
@@ -1174,7 +1169,7 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
               {mirrorMode ? (
                 <div className="w-full flex items-center gap-3 rounded-2xl border border-cyan-200 bg-cyan-50 px-5 py-4">
                   <ShieldCheck className="w-5 h-5 shrink-0 text-cyan-700" />
-                  <div><p className="text-sm font-bold text-cyan-950">Read-only mirror</p><p className="text-[11px] text-cyan-700">Withdrawal actions are disabled while viewing from Super Admin.</p></div>
+                  <div><p className="text-sm font-bold text-cyan-950">Read-only mirror</p><p className="text-[11px] text-cyan-700">Ombi la malipo haliruhusiwi kwenye mwonekano wa Admin.</p></div>
                 </div>
               ) : canWithdraw ? (
                 <button
@@ -1183,7 +1178,7 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
                     setWithdrawForm({
                       name: workspace?.profile?.display_name || '',
                       phone: workspace?.profile?.phone_whatsapp || '',
-                      amount: String(Math.round(monthStats.payout)),
+                      amount: String(Math.round(metrics.available)),
                       password: '',
                     });
                     setWithdrawError(null);
@@ -1197,7 +1192,7 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
                     </div>
                     <div className="text-left">
                       <p className="text-sm font-black">Withdraw Funds</p>
-                      <p className="text-[11px] text-emerald-200">2% transaction fee applies</p>
+                      <p className="text-[11px] text-emerald-200">Ada ya AzamPay: TZS 200 (mitandao mingine)</p>
                     </div>
                   </div>
                   <ChevronRight className="w-5 h-5 text-white/70" />
@@ -1206,11 +1201,11 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
                 <div className="w-full flex items-center gap-3 bg-slate-100 rounded-2xl px-5 py-4">
                   <AlertCircle className="w-5 h-5 text-slate-400 shrink-0" />
                   <div>
-                    <p className="text-sm font-bold text-slate-500">Withdrawal not available</p>
+                    <p className="text-sm font-bold text-slate-500">Bado huwezi kuomba malipo</p>
                     <p className="text-[11px] text-slate-400">
                       {!isAgentApprovedForWithdrawals
                         ? 'Waiting for affiliate agent approval'
-                        : `Need at least TZS 5,000 (current: ${currency.format(monthStats.payout)})`}
+                        : `Salio ni TZS 10,000 au zaidi? Siku ya kutoa ni Ijumaa ya mwisho wa mwezi.`}
                     </p>
                   </div>
                 </div>
@@ -1269,7 +1264,7 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
                         </div>
                         <div>
                           <h3 className="text-[15px] font-black text-slate-900">Withdraw Funds</h3>
-                          <p className="text-[11px] text-slate-400">2% transaction fee will be deducted</p>
+                          <p className="text-[11px] text-slate-400">Ada ya AzamPay itaonyeshwa kabla ya ombi</p>
                         </div>
                       </div>
                       <button type="button" onClick={() => setShowWithdrawModal(false)}
@@ -1286,9 +1281,9 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
                         <div>
                           <p className="text-[11px] font-black text-amber-700">Transaction Fee Notice</p>
                           <p className="text-[11px] text-amber-600 mt-0.5">
-                            A 2% processing fee will be charged on your withdrawal amount.
+                            Ada ya AzamPay: TZS 200 kwenda mtandao mwingine, bila ada kwenda AzamPesa.
                             {withdrawForm.amount && Number(withdrawForm.amount) > 0 && (
-                              <span className="font-black"> You will receive {currency.format(Math.round(Number(withdrawForm.amount) * (1 - TRANSACTION_FEE_PERCENT)))} after fee of {currency.format(Math.round(Number(withdrawForm.amount) * TRANSACTION_FEE_PERCENT))}.</span>
+                              <span className="font-black"> You will receive {currency.format(Math.max(0,Math.round(Number(withdrawForm.amount)) - transferFee))} after fee of {currency.format(transferFee)}.</span>
                             )}
                           </p>
                         </div>
@@ -1327,21 +1322,21 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
                       {/* Amount */}
                       <div className="space-y-1.5">
                         <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">
-                          Amount (TZS) <span className="font-normal text-slate-400">— Available: {currency.format(monthStats.payout)}</span>
+                          Amount (TZS) <span className="font-normal text-slate-400">— Salio: {currency.format(metrics.available)}</span>
                         </label>
                         <input
                           type="number"
-                          min="5000"
-                          max={monthStats.payout}
+                          min="10000"
+                          max={metrics.available}
                           value={withdrawForm.amount}
                           onChange={(e) => setWithdrawForm(f => ({ ...f, amount: e.target.value }))}
-                          placeholder="Minimum TZS 5,000…"
+                          placeholder="TZS 10,000 au zaidi"
                           className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:border-emerald-400 outline-none text-sm font-semibold text-slate-800 bg-slate-50 focus:bg-white transition-colors"
                         />
-                        {withdrawForm.amount && Number(withdrawForm.amount) >= 5000 && (
+                        {withdrawForm.amount && Number(withdrawForm.amount) >= 10000 && (
                           <div className="bg-emerald-50 rounded-xl px-3 py-2 flex justify-between text-[11px]">
-                            <span className="text-slate-500">You receive (after 2% fee)</span>
-                            <span className="font-black text-emerald-700">{currency.format(Math.round(Number(withdrawForm.amount) * 0.98))}</span>
+                            <span className="text-slate-500">Utapokea baada ya ada</span>
+                            <span className="font-black text-emerald-700">{currency.format(Math.round(Number(withdrawForm.amount) - transferFee))}</span>
                           </div>
                         )}
                       </div>
