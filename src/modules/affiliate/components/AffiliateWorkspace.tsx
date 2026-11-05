@@ -216,7 +216,7 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
     const activities = workspace?.activities || [];
     const subscribers = workspace?.subscribers || [];
     const rewards = workspace?.rewards || [];
-    const balance = sumRewardBalance(rewards);
+    const balance = workspace?.walletSummary || sumRewardBalance(rewards);
     const totalRevenue = rewards.filter(reward => reward.reward_type === 'subscription_commission')
       .reduce((sum, reward) => sum + Number(reward.source_revenue || 0), 0);
     const grossCommission10 = rewards.filter(reward => reward.reward_type === 'subscription_commission')
@@ -235,15 +235,15 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
       downloads: activities.filter((event) => event.event_type === 'ad_download' || event.event_type === 'task_download').length,
       meetingJoins: activities.filter((event) => event.event_type === 'meeting_join').length,
       copiedLinks: activities.filter((event) => event.event_type === 'campaign_link_copy').length,
-      totalRevenue,
-      grossCommission10,
-      withholdingTax,
-      totalPayout: earned,
+      totalRevenue: workspace?.walletSummary?.totalRevenue ?? totalRevenue,
+      grossCommission10: workspace?.walletSummary?.grossCommission ?? grossCommission10,
+      withholdingTax: workspace?.walletSummary?.withholding ?? withholdingTax,
+      totalPayout: workspace?.walletSummary?.earned ?? earned,
       bonusAvailable: balance.bonus,
       commissionAvailable: balance.commission,
       available,
-      earned,
-      paid,
+      earned: workspace?.walletSummary?.earned ?? earned,
+      paid: workspace?.walletSummary?.paid ?? paid,
     };
   }, [workspace]);
 
