@@ -324,7 +324,7 @@ export async function loadAffiliateWorkspace(options: AffiliateWorkspaceLoadOpti
     requiredQuery('affiliate_payouts', () => client.from('affiliate_payouts').select('id, amount, currency, payout_method, payout_reference, status, requested_at, processed_at, notes, payout_month, net_payout, provider_fee_tzs, registration_component, commission_component').eq('affiliate_id', profile.id).order('requested_at', { ascending: false }).limit(100)),
     requiredQuery('affiliate_activity_events', () => client.from('affiliate_activity_events').select('*').eq('affiliate_id', profile.id).order('created_at', { ascending: false }).limit(200)),
     optionalQuery('affiliate_notification_events', () => client.from('affiliate_notification_events').select('id, title, message, priority, created_at, read_at').eq('affiliate_id', profile.id).order('created_at', { ascending: false }).limit(100)),
-    optionalQuery('affiliate_reward_entries', () => client.from('affiliate_reward_entries').select('id, reward_type, source_revenue, gross_amount, withholding_tax, net_amount, status, created_at, paid_at').eq('affiliate_id', profile.id).order('created_at', { ascending: false }).limit(1000)),
+    optionalQuery('affiliate_reward_entries', () => client.from('affiliate_reward_entries').select('id, tenant_id, reward_type, source_revenue, gross_amount, withholding_tax, net_amount, status, created_at, paid_at').eq('affiliate_id', profile.id).order('created_at', { ascending: false }).limit(1000)),
   ]);
 
   const assignedCampaigns = asArray<any>(assignmentsResult.data)
