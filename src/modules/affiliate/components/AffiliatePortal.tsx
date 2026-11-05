@@ -1596,7 +1596,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                 {authMode === 'login' ? (
                   <form onSubmit={handleLoginAffiliate} className="space-y-4">
                     <div className="space-y-1.5">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Email</label>
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Barua Pepe</label>
                       <input type="email" required placeholder="you@example.com" value={loginEmail} onChange={e => setLoginEmail(e.target.value)}
                         className="w-full bg-slate-950 border border-slate-700 text-white placeholder-slate-600 outline-none rounded-2xl px-4 py-3 text-sm focus:border-emerald-500" />
                     </div>
@@ -1618,7 +1618,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
                     <div className="flex items-center gap-3 py-1">
                       <div className="flex-1 h-px bg-slate-800" />
-                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">OR</span>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">AU</span>
                       <div className="flex-1 h-px bg-slate-800" />
                     </div>
 
@@ -1673,7 +1673,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                         <span>Endelea kwa Barua Pepe</span>
                       </button>
                       <button type="button" onClick={handleGooglePortalLogin} className="w-full py-3.5 rounded-2xl border border-slate-700 bg-white text-slate-800 font-black text-sm cursor-pointer">Endelea kwa Google</button>
-                      <button type="button" onClick={() => setAuthMode('login')} className="w-full text-xs text-slate-500 hover:text-slate-300 cursor-pointer bg-transparent border-none">Already have an akaunti? Ingia</button>
+                      <button type="button" onClick={() => setAuthMode('login')} className="w-full text-xs text-slate-500 hover:text-slate-300 cursor-pointer bg-transparent border-none">Una akaunti tayari? Ingia</button>
                     </div>
                   ) : (
                   <form onSubmit={handleRegisterAffiliate} className="space-y-4">
@@ -1701,7 +1701,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                     {!googleRegistrationVerified && (
                       <div className="space-y-3">
                         <div className="space-y-1.5">
-                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Email</label>
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Barua Pepe</label>
                           <input type="email" required placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)}
                             className="w-full bg-slate-950 border border-slate-700 text-white placeholder-slate-600 outline-none rounded-2xl px-4 py-3 text-sm focus:border-emerald-500" />
                         </div>
@@ -1793,7 +1793,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                     <div className="text-center">
                       <button type="button" onClick={() => setAuthMode('login')}
                         className="text-xs text-slate-500 hover:text-slate-300 cursor-pointer bg-transparent border-none">
-                        Already have an akaunti? Ingia
+                        Una akaunti tayari? Ingia
                       </button>
                     </div>
                   </form>)
