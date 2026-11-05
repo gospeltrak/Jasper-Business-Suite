@@ -1145,8 +1145,12 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
                 <div className="absolute -bottom-8 -left-4 w-24 h-24 rounded-full bg-white/5" />
                 <div className="relative">
                   <p className="text-[11px] font-bold uppercase tracking-widest text-emerald-100">Salio linaloweza kuombewa</p>
-                  <p className="text-3xl font-black mt-1 tracking-tight">{currency.format(monthStats.payout)}</p>
-                  <div className="flex items-center gap-4 mt-3">
+                  <p className="text-3xl font-black mt-1 tracking-tight" data-testid="affiliate-available-balance">{currency.format(metrics.available)}</p>
+                  <div className="grid grid-cols-2 gap-3 mt-3" data-testid="affiliate-balance-breakdown">
+                    <div><p className="text-[10px] text-emerald-100">Bonus za usajili · TZS 2,000 kila akaunti</p><p className="text-sm font-black">{currency.format(metrics.bonusAvailable)}</p></div>
+                    <div><p className="text-[10px] text-emerald-100">Kamisheni za malipo · 10%</p><p className="text-sm font-black">{currency.format(metrics.commissionAvailable)}</p></div>
+                  </div>
+                  <div className="flex items-center gap-4 mt-3 pt-3 border-t border-white/20">
                     <div>
                       <p className="text-[10px] text-emerald-200">Kamisheni (10%)</p>
                       <p className="text-sm font-black">{currency.format(monthStats.grossCommission)}</p>
@@ -1165,6 +1169,11 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
                 </div>
               </div>
 
+              <p className="text-xs text-slate-500" data-testid="affiliate-withdrawal-schedule">
+                Ombi moja tu kila mwezi, Ijumaa ya mwisho (saa za Tanzania).
+                Tarehe ya mwezi huu: {payoutWindow.dateISO}. Kiwango cha chini TZS 10,000.
+                {hasMonthWithdrawal ? ' Ombi la mwezi huu tayari limewasilishwa.' : ''}
+              </p>
               {/* Withdraw button */}
               {mirrorMode ? (
                 <div className="w-full flex items-center gap-3 rounded-2xl border border-cyan-200 bg-cyan-50 px-5 py-4">
@@ -1191,7 +1200,7 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
                       <ArrowDownToLine className="w-5 h-5" />
                     </div>
                     <div className="text-left">
-                      <p className="text-sm font-black">Withdraw Funds</p>
+                      <p className="text-sm font-black">Omba Malipo</p>
                       <p className="text-[11px] text-emerald-200">Ada ya AzamPay: TZS 200 (mitandao mingine)</p>
                     </div>
                   </div>
@@ -1204,8 +1213,10 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
                     <p className="text-sm font-bold text-slate-500">Bado huwezi kuomba malipo</p>
                     <p className="text-[11px] text-slate-400">
                       {!isAgentApprovedForWithdrawals
-                        ? 'Waiting for affiliate agent approval'
-                        : `Salio ni TZS 10,000 au zaidi? Siku ya kutoa ni Ijumaa ya mwisho wa mwezi.`}
+                        ? 'Unasubiri akaunti ya affiliate kuidhinishwa.'
+                        : hasMonthWithdrawal ? 'Umeshafanya ombi la mwezi huu.'
+                        : !payoutWindow.isLastFriday ? 'Withdrawal hufunguliwa Ijumaa ya mwisho tu.'
+                        : `Unahitaji salio angalau TZS 10,000 (sasa: ${currency.format(metrics.available)}).`}
                     </p>
                   </div>
                 </div>
@@ -1213,12 +1224,12 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
 
               {/* Payout history */}
               <div className="space-y-2">
-                <p className="text-[11px] font-black text-slate-400 uppercase tracking-wider px-1">Payout History</p>
+                <p className="text-[11px] font-black text-slate-400 uppercase tracking-wider px-1">Historia ya malipo</p>
                 {workspace!.payouts.length === 0 ? (
                   <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-white p-8 text-center">
                     <Wallet className="w-8 h-8 mx-auto text-slate-300 mb-2" />
-                    <p className="text-sm font-bold text-slate-400">No withdrawals yet</p>
-                    <p className="text-xs text-slate-400 mt-1">Your payout history will appear here</p>
+                    <p className="text-sm font-bold text-slate-400">Hakuna malipo yaliyotolewa bado</p>
+                    <p className="text-xs text-slate-400 mt-1">Historia ya malipo itaonekana hapa</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -1263,7 +1274,7 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
                           <ArrowDownToLine className="w-5 h-5 text-emerald-600" />
                         </div>
                         <div>
-                          <h3 className="text-[15px] font-black text-slate-900">Withdraw Funds</h3>
+                          <h3 className="text-[15px] font-black text-slate-900">Omba Malipo</h3>
                           <p className="text-[11px] text-slate-400">Ada ya AzamPay itaonyeshwa kabla ya ombi</p>
                         </div>
                       </div>
@@ -1279,11 +1290,11 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
                       <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 flex items-start gap-2">
                         <AlertCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
                         <div>
-                          <p className="text-[11px] font-black text-amber-700">Transaction Fee Notice</p>
+                          <p className="text-[11px] font-black text-amber-700">Ada ya AzamPay</p>
                           <p className="text-[11px] text-amber-600 mt-0.5">
                             Ada ya AzamPay: TZS 200 kwenda mtandao mwingine, bila ada kwenda AzamPesa.
                             {withdrawForm.amount && Number(withdrawForm.amount) > 0 && (
-                              <span className="font-black"> You will receive {currency.format(Math.max(0,Math.round(Number(withdrawForm.amount)) - transferFee))} after fee of {currency.format(transferFee)}.</span>
+                              <span className="font-black"> Utapokea {currency.format(Math.max(0,Math.round(Number(withdrawForm.amount)) - transferFee))} baada ya ada ya {currency.format(transferFee)}.</span>
                             )}
                           </p>
                         </div>
@@ -1291,7 +1302,7 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
 
                       {/* Name */}
                       <div className="space-y-1.5">
-                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">Account Holder Name</label>
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">Jina la mmiliki wa akaunti</label>
                         <div className="relative">
                           <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                           <input
@@ -1306,7 +1317,7 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
 
                       {/* Phone */}
                       <div className="space-y-1.5">
-                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">Phone Number (Money will be sent here)</label>
+                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">Namba ya kupokea pesa</label>
                         <div className="relative">
                           <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                           <input
@@ -1322,15 +1333,16 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
                       {/* Amount */}
                       <div className="space-y-1.5">
                         <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">
-                          Amount (TZS) <span className="font-normal text-slate-400">— Salio: {currency.format(metrics.available)}</span>
+                          Kiasi (TZS) <span className="font-normal text-slate-400">— Salio: {currency.format(metrics.available)}</span>
                         </label>
                         <input
                           type="number"
                           min="10000"
                           max={metrics.available}
                           value={withdrawForm.amount}
-                          onChange={(e) => setWithdrawForm(f => ({ ...f, amount: e.target.value }))}
-                          placeholder="TZS 10,000 au zaidi"
+                          readOnly
+                          aria-readonly="true"
+                          placeholder="Salio lote linalopatikana"
                           className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:border-emerald-400 outline-none text-sm font-semibold text-slate-800 bg-slate-50 focus:bg-white transition-colors"
                         />
                         {withdrawForm.amount && Number(withdrawForm.amount) >= 10000 && (
@@ -1341,20 +1353,7 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
                         )}
                       </div>
 
-                      {/* Password */}
-                      <div className="space-y-1.5">
-                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">Your Password (to confirm)</label>
-                        <div className="relative">
-                          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                          <input
-                            type="password"
-                            value={withdrawForm.password}
-                            onChange={(e) => setWithdrawForm(f => ({ ...f, password: e.target.value }))}
-                            placeholder="Enter your login password…"
-                            className="w-full pl-9 pr-4 py-3 rounded-2xl border border-slate-200 focus:border-emerald-400 outline-none text-sm font-semibold text-slate-800 bg-slate-50 focus:bg-white transition-colors"
-                          />
-                        </div>
-                      </div>
+                      <p className="text-[11px] text-slate-500">Ombi linathibitishwa kupitia akaunti ya Orvix uliyoingia nayo. Malipo yanahitaji uhakiki wa Admin.</p>
 
                       {/* Error */}
                       {withdrawError && (
@@ -1372,9 +1371,9 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
                         className="w-full py-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 disabled:opacity-50 text-white font-black text-sm transition-colors cursor-pointer border-none flex items-center justify-center gap-2 mb-2"
                       >
                         {withdrawing ? (
-                          <><LoaderCircle className="w-4 h-4 animate-spin" /> Processing…</>
+                          <><LoaderCircle className="w-4 h-4 animate-spin" /> Inawasilisha…</>
                         ) : (
-                          <><ArrowDownToLine className="w-4 h-4" /> Withdraw Funds</>
+                          <><ArrowDownToLine className="w-4 h-4" /> Omba Malipo</>
                         )}
                       </button>
                     </div>
