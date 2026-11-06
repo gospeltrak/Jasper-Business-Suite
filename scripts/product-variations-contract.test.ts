@@ -158,7 +158,8 @@ test('quotation and invoice item picker excludes non-sellable variation parents'
 
 test('overview stock warnings only inspect sellable variation stock lines', async () => {
   const source = await readFile(new URL('../src/modules/overview/DashboardOverview.tsx', import.meta.url), 'utf8');
-  assert.match(source, /products\.filter\(p => !p\.isVariationParent && \(p\.shopStockQty/);
+  // An unused lowStockProducts memo was removed. Verify only the two
+  // sellable-stock filters that are actually rendered in Overview.
   assert.match(source, /products\.filter\(p => !p\.isVariationParent && p\.stockQty <= \(p\.alertQty/);
   assert.match(source, /products\.filter\(p => !p\.isVariationParent && p\.stockQty <= 45/);
 });
