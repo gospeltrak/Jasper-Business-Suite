@@ -46,12 +46,10 @@ export default function ToolsHub({ onNavigate, isDark, onToggleTheme }: ToolsHub
   // States for Background Remover & Scaler
   const [bgImage, setBgImage] = useState<string | null>(null);
   const [loadingBg, setLoadingBg] = useState(false);
-  const [bgError, setBgError] = useState<string | null>(null);
   const [bgOutput, setBgOutput] = useState<string | null>(null);
 
   const [scaleImage, setScaleImage] = useState<string | null>(null);
   const [loadingScale, setLoadingScale] = useState(false);
-  const [scaleError, setScaleError] = useState<string | null>(null);
   const [scaleOutput, setScaleOutput] = useState<string | null>(null);
 
   // States for Barcode
@@ -299,7 +297,6 @@ export default function ToolsHub({ onNavigate, isDark, onToggleTheme }: ToolsHub
       reader.onloadend = () => {
         setBgImage(reader.result as string);
         setBgOutput(null);
-        setBgError(null);
       };
       reader.readAsDataURL(file);
     }
@@ -312,7 +309,6 @@ export default function ToolsHub({ onNavigate, isDark, onToggleTheme }: ToolsHub
       reader.onloadend = () => {
         setScaleImage(reader.result as string);
         setScaleOutput(null);
-        setScaleError(null);
       };
       reader.readAsDataURL(file);
     }
@@ -429,7 +425,6 @@ export default function ToolsHub({ onNavigate, isDark, onToggleTheme }: ToolsHub
     }
 
     setLoadingBg(true);
-    setBgError(null);
 
     // Consume 1 token
     setTokens(prev => Math.max(0, prev - 1));
@@ -497,7 +492,6 @@ export default function ToolsHub({ onNavigate, isDark, onToggleTheme }: ToolsHub
     }
 
     setLoadingScale(true);
-    setScaleError(null);
 
     // Consume 1 token
     setTokens(prev => Math.max(0, prev - 1));
