@@ -32,7 +32,7 @@ describe('customer payment totals', () => {
   });
   it('shows the real unpaid balance even for a partially paid Cash transaction', () => {
     const record = sale({ paymentMethod: 'Cash', amountPaid: 25 });
-    expect(getProductSalesCollected(record)).toBe(25000);
+    expect(getProductSalesCollected(record)).toBe(25);
     expect(getProductSalesDue(record)).toBe(75);
   });
   it('fails safe for nonfinite, invalid and negative persisted amounts', () => {
