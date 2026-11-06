@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import type { PaymentChannel } from '../../types';
 import { transferTreasuryFunds } from './utils/treasuryApi';
 
