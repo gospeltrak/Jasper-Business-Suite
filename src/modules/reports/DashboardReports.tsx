@@ -959,7 +959,7 @@ export default function DashboardReports({
             ].map((tab, i) => (
               <button
                 key={tab.id}
-                onClick={() => { setReportTab(tab.id as any); setMobileView('report'); }}
+                onClick={() => setReportTab(tab.id as any)}
                 className={`px-3 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap ${
                   reportTab === tab.id
                     ? 'bg-emerald-600 text-white shadow-md'
