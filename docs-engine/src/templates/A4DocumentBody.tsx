@@ -1,4 +1,3 @@
-import React from 'react';
 import type { DocsDocumentData, DocsDocumentType } from '../types';
 
 // Shared by Quotation, Proforma Invoice, Sales Invoice, and Delivery Note —
