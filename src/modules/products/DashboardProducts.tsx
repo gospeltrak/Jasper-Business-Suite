@@ -22,7 +22,7 @@ import { prepareManualStockAdjustment, type ManualStockAudit } from './utils/man
 import { generateUniqueEan13Barcode } from './barcode';
 import { findProductBarcodeConflict, findBatchBarcodeConflict } from './utils/barcodeUniqueness';
 import { buildVariationProducts, getProductVariations, isVariationParent, makeVariationParent, type VariationDraft } from './utils/productVariations';
-import ProductVariationEditor, { emptyVariationDraft } from './ProductVariationEditor';
+import ProductVariationEditor from './ProductVariationEditor';
 import { calculateFractionSalePacketPrice } from '../sales/utils/fractionSale';
 import ModernSelect, { ModernSelectOption } from '../../shared/components/ModernSelect';
 import DashboardBarcodeScanner from '../../shared/components/LazyDashboardBarcodeScanner';
@@ -180,7 +180,6 @@ export default function DashboardProducts({
   const productEditInFlightRef = useRef(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [editStockDraft, setEditStockDraft] = useState({ shop: '', store: '', alert: '' });
-  const [editImageFile, setEditImageFile] = useState<File | null>(null);
   const [editForm, setEditForm] = useState<Partial<Product>>({});
   const [editSaveError, setEditSaveError] = useState<string | null>(null);
   const [isEditScannerOpen, setIsEditScannerOpen] = useState(false);
@@ -496,8 +495,7 @@ export default function DashboardProducts({
         } catch (err) {
           console.warn('[DashboardProducts] Edit image upload failed, keeping preview:', err);
         }
-        setEditImageFile(null);
-      }
+          }
 
       // Evict old image from CachedImage memory + browser cache so new image shows immediately
       const oldImage = editingProduct?.image;
@@ -953,7 +951,6 @@ export default function DashboardProducts({
   const [isOpen, setIsOpen] = useState(false);
   const [hasVariations, setHasVariations] = useState(false);
   const [variationOptionName, setVariationOptionName] = useState('Size / Volume');
-  const emptyVariation = emptyVariationDraft;
   // Variation cards appear only after Add Variation is tapped.
   const [variationDrafts, setVariationDrafts] = useState<VariationDraft[]>([]);
   const [name, setName] = useState('');
@@ -985,7 +982,6 @@ export default function DashboardProducts({
   const [storeStockQty, setStoreStockQty] = useState(0);
   const [alertQty, setAlertQty] = useState(0);
   const [productImage, setProductImage] = useState<string>('');
-  const [productImageFile, setProductImageFile] = useState<File | null>(null); // raw file for Supabase Storage upload
 
   // Image Processing state
   const [isProcessingImage, setIsProcessingImage] = useState(false);
@@ -1010,8 +1006,6 @@ export default function DashboardProducts({
   // 'open-ended': total quantity isn't known upfront (e.g. a cable roll) — only
   // a price per unit is set, and stock is depleted manually via "Mark as Finished".
   const [stockTrackingMode, setStockTrackingMode] = useState<'quantity' | 'open-ended'>('quantity');
-  const [bulkUnit, setBulkUnit] = useState('KG');
-  const [bulkPurchaseQty, setBulkPurchaseQty] = useState<number | ''>('');
   const [sellUnit, setSellUnit] = useState(() => unit);
   const [sellUnitQty, setSellUnitQty] = useState<number | ''>('');
   const [sellUnitPrice, setSellUnitPrice] = useState<number | ''>('');
@@ -1260,7 +1254,6 @@ export default function DashboardProducts({
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setProductImageFile(file); // store raw file for Supabase Storage upload
 
     setIsProcessingImage(true);
     setProcessingStatus('Reading image asset...');
@@ -1319,7 +1312,6 @@ export default function DashboardProducts({
                     const r = data[i];
                     const g = data[i+1];
                     const b = data[i+2];
-                    const a = data[i+3];
 
                     // Distance from sampled background color
                     const dist = Math.sqrt(
@@ -1727,7 +1719,6 @@ export default function DashboardProducts({
       setStoreStockQty(0);
       setAlertQty(0);
       setProductImage('');
-      setProductImageFile(null);
       setSellInRetail(true);
       setSellInWholesale(false);
       setWholesalePrice(0);
@@ -5846,7 +5837,6 @@ export default function DashboardProducts({
                           onChange={async (e) => {
                             const file = e.target.files?.[0];
                             if (file) {
-                              setEditImageFile(file);
                               // Compress to 400×400px JPEG 75% before preview and upload
                               const compressed = await compressImageFile(file, { maxWidth: 400, maxHeight: 400, quality: 0.75 });
                               setEditForm(prev => ({ ...prev, image: compressed }));
