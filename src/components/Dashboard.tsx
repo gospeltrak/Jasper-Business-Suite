@@ -52,7 +52,7 @@ import { createCleanTenantSettings, isDemoTenant } from '../shared/utils/tenantI
 import { addTenantPurchasePayment, cancelTenantSaleAtomically, flushPendingTenantWorkspace, hasPendingTenantWorkspaceSave, loadTenantProductFresh, loadTenantWorkspace, loadTenantWorkspaceCore, markTenantProductsUpdated, readCachedWorkspace, reloadTenantWorkspace, saveTenantDeliveriesOnly, saveTenantExpensesOnly, saveTenantProductsOnly, saveTenantPurchasesOnly, saveTenantSalesOnly, saveTenantSettings, scheduleTenantWorkspaceSave, subscribeToTenantBusinessType, subscribeToTenantWorkspace, TenantWorkspace, waitForTenantWorkspaceLoad, workspaceHasBusinessData } from '../shared/utils/tenantWorkspace';
 import { safeSetJsonItem, safeSetTenantMapItem } from '../shared/utils/dataSafety';
 import { findPaymentChannel, getDebtCollectionPaymentChannels, getTreasuryPaymentMethods, reconcilePaymentChannels } from '../shared/utils/paymentAccounts';
-import { attachPayloadProductTombstones, markLocalProductTombstones, mergeProductTombstones, mergeProductsForSync, readLocalProductTombstones, stampProductsForSync, writeLocalProductTombstones } from '../modules/products/utils/productSync';
+import { markLocalProductTombstones, mergeProductTombstones, mergeProductsForSync, readLocalProductTombstones, stampProductsForSync, writeLocalProductTombstones } from '../modules/products/utils/productSync';
 import { pharmacyHierarchyMatches } from '../modules/verticals/utils/pharmacyHierarchyPersistence';
 import {
   attachPayloadSaleTombstones,
@@ -60,7 +60,6 @@ import {
   readLocalSaleTombstones,
   reverseSaleInventory,
   saleHasTenantConflict,
-  writeLocalSaleTombstones,
 } from '../modules/sales/utils/saleSync';
 import { mergeSettingsForSync, stampSettingsForSync } from '../shared/utils/settingsSync';
 import { BranchProvider, useBranchContext, useOptionalBranchContext } from '../modules/branches/BranchContext';
@@ -504,7 +503,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     return getDefaultDashboardTab();
   });
 
-  const [actingStaffId, setActingStaffId] = useState<string>('logged-in-user');
+  const [actingStaffId] = useState<string>('logged-in-user');
   const [productsMap, setProductsMap] = useState<Record<string, Product[]>>(() => isDemoTenant(activeTenant.id) ? DEFAULT_PRODUCTS : {});
   const [salesMap, setSalesMap] = useState<Record<string, Sale[]>>(() => isDemoTenant(activeTenant.id) ? MOCK_SALES_HISTORY : {});
   const [expensesMap, setExpensesMap] = useState<Record<string, Expense[]>>(() => isDemoTenant(activeTenant.id) ? MOCK_EXPENSES_HISTORY : {});
@@ -3356,10 +3355,6 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
   const offlinePendingCount = activeSales.filter(s => s.syncStatus === 'pending').length;
 
   // Dynamic branding selectors to personalize the user's Orvix
-  const currentThemeMode = systemSettings.company?.themeMode || 'light';
-  const customBrandingLogo = currentThemeMode === 'dark'
-    ? (systemSettings.business?.businessLogoDark || systemSettings.business?.businessLogoLight || systemSettings.business?.businessLogo)
-    : (systemSettings.business?.businessLogoLight || systemSettings.business?.businessLogoDark || systemSettings.business?.businessLogo);
   
   const activeProfileBusinessName = String(databaseBusinessName || '').trim();
   const branchContextBusinessName = String(
@@ -3377,7 +3372,6 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     || activeBranchBusinessName
     || activeProfileBusinessName
     || 'My Business';
-  const onlineBusinessName = activeProfileBusinessName;
   const customSidebarItems = activeRoleName === 'SuperAdmin' ? [
     { id: 'admin-dashboard', label: 'Dashboard', icon: LayoutDashboard, tabId: 'admin-dashboard' },
     { id: 'admin-subscribers', label: 'Subscribers', icon: Users, tabId: 'admin-subscribers' },
