@@ -194,6 +194,13 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
     setTurnstileToken(null);
     setTurnstileResetKey(value => value + 1);
   };
+  useEffect(() => {
+    // Switching login, registration and the email entry must not reuse a
+    // token issued to the previous Cloudflare widget.
+    setTurnstileToken(null);
+    setTurnstileResetKey(value => value + 1);
+  }, [authTab, showEmailRegisterForm]);
+
   const [showRegPassword, setShowRegPassword] = useState(false);
   const [orgName, setOrgName] = useState('');
   const [businessType, setBusinessType] = useState<string>('Retail');
@@ -1531,9 +1538,8 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
             <>
               {!showEmailRegisterForm ? (
                 <div className="space-y-4 animate-fade-in">
-                  <div className="flex justify-center">
-                    <TurnstileWidget resetKey={turnstileResetKey} onVerify={setTurnstileToken} onExpire={() => setTurnstileToken(null)} />
-                  </div>
+                  {/* Choosing an email registration method is not a protected
+                      submit: do not force a redundant Cloudflare challenge. */}
                   <button
                     type="button"
                     onClick={() => setShowEmailRegisterForm(true)}
