@@ -1408,6 +1408,10 @@ export default function DashboardSalesList({
           discountAmount: newDocDiscountAmount,
           taxAmount: newDocTaxAmount,
           deliveryAmount: Number(newDocDeliveryCost) || 0,
+          paymentMethod: newDocPaymentMethod,
+          paymentAccountNumber: ['cash','credit'].includes(newDocPaymentMethod.toLowerCase()) ? '' : newDocPaymentAccountNumber.trim(),
+          paymentAccountName: ['cash','credit'].includes(newDocPaymentMethod.toLowerCase()) ? '' : newDocPaymentAccountName.trim(),
+          paymentAmount: newDocPaymentMethod.toLowerCase() === 'credit' ? 0 : newDocGrandTotal,
           items: newDocItems.map(item => ({
             sourceBranchId: item.sourceBranchId!,
             productId: String(item.productId),
@@ -1427,6 +1431,10 @@ export default function DashboardSalesList({
           discountAmount: newDocDiscountAmount,
           tax: newDocTaxAmount,
           deliveryCost: Number(newDocDeliveryCost) || 0,
+          paymentMethod: newDocPaymentMethod,
+          paymentAccountNumber: ['cash','credit'].includes(newDocPaymentMethod.toLowerCase()) ? '' : newDocPaymentAccountNumber.trim(),
+          paymentAccountName: ['cash','credit'].includes(newDocPaymentMethod.toLowerCase()) ? '' : newDocPaymentAccountName.trim(),
+          paymentAmount: newDocPaymentMethod.toLowerCase() === 'credit' ? 0 : newDocGrandTotal,
           timestamp: editedTimestamp,
         }) : d));
         resetNewDocumentForm();
@@ -1498,7 +1506,7 @@ export default function DashboardSalesList({
       paymentMethod: newDocPaymentMethod,
       paymentAccountNumber: newDocPaymentAccountNumber.trim() || undefined,
       paymentAccountName: newDocPaymentAccountName.trim() || undefined,
-      paymentAmount: newDocGrandTotal,
+      paymentAmount: newDocPaymentMethod.toLowerCase() === 'credit' ? 0 : newDocGrandTotal,
       timestamp: localDateToIso(newDocDate || formatLocalDate(), new Date(), 12),
       tenantId: activeTenant.id,
       status: 'pending',
@@ -1539,6 +1547,10 @@ export default function DashboardSalesList({
         discountAmount: newDocDiscountAmount,
         taxAmount: newDocTaxAmount,
         deliveryAmount: Number(newDocDeliveryCost) || 0,
+        paymentMethod: newDocPaymentMethod,
+        paymentAccountNumber: ['cash','credit'].includes(newDocPaymentMethod.toLowerCase()) ? '' : newDocPaymentAccountNumber.trim(),
+        paymentAccountName: ['cash','credit'].includes(newDocPaymentMethod.toLowerCase()) ? '' : newDocPaymentAccountName.trim(),
+        paymentAmount: newDocPaymentMethod.toLowerCase() === 'credit' ? 0 : newDocGrandTotal,
         items: newDocItems.map(item => ({
           sourceBranchId: item.sourceBranchId!,
           productId: String(item.productId),
