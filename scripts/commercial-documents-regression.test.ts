@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { calculateSalesDocumentTotals } from '../src/modules/sales/utils/salesDocumentTotals';
 
-const sql = fs.readFileSync('supabase/migrations/20261106190000_fix_consolidated_invoice_staff_permissions.sql','utf8');
+const sql = fs.readFileSync('supabase/migrations/20261106160342_fix_consolidated_invoice_staff_permissions_20261106.sql','utf8');
 const sales = fs.readFileSync('src/modules/sales/DashboardSalesList.tsx','utf8');
 const branchApi = fs.readFileSync('src/modules/branches/branchApi.ts','utf8');
 const server = fs.readFileSync('server.ts','utf8');
