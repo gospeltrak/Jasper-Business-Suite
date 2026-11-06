@@ -1816,9 +1816,13 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                       </label>
                     </div>
 
-                    <div className="flex justify-center">
-                      <TurnstileWidget resetKey={turnstileResetKey} onVerify={setTurnstileToken} onExpire={() => setTurnstileToken(null)} />
-                    </div>
+                    {/* Google's identity was already verified by OAuth. The server
+                        still requires Turnstile for email/password registration. */}
+                    {!googleRegistrationVerified && (
+                      <div className="flex justify-center">
+                        <TurnstileWidget resetKey={turnstileResetKey} onVerify={setTurnstileToken} onExpire={() => setTurnstileToken(null)} />
+                      </div>
+                    )}
 
                     <button type="submit" disabled={!acceptedTerms}
                       className={`w-full py-3.5 rounded-2xl font-black text-sm uppercase tracking-wider transition-all cursor-pointer border-none ${acceptedTerms ? portalRole === 'partner' ? 'bg-amber-500 hover:bg-amber-400 text-slate-950' : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}`}>
