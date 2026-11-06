@@ -12,6 +12,7 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
+    "audit:dead-code": "node scripts/audit-unused.mjs",
     "lint:prisma-server": "tsc --noEmit --pretty false --skipLibCheck --module esnext --moduleResolution bundler --target es2022 src/server/prisma.ts src/server/workspaceNormalizationWorker.ts",
     "test:error-contract": "tsx --test scripts/safe-error-contract.test.ts scripts/auth-error-contract.test.ts",
     "test:deploy": "tsx --test scripts/deployment-contract.test.ts scripts/niche-scope-contract.test.ts scripts/platform-admin-authorization-contract.test.ts scripts/sales-delivery-accounting.test.ts scripts/ui-saving-performance.test.ts",
