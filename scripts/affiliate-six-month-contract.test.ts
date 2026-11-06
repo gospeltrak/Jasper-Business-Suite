@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-const sql = fs.readFileSync('supabase/migrations/20261106193000_affiliate_six_month_commission_cap.sql', 'utf8');
+const sql = fs.readFileSync('supabase/migrations/20261106153744_affiliate_six_month_commission_cap_20261106.sql', 'utf8');
 const policy = fs.readFileSync('src/modules/affiliate/utils/affiliatePolicy.ts', 'utf8');
 const portal = fs.readFileSync('src/modules/affiliate/components/AffiliatePortal.tsx', 'utf8');
 const terms = fs.readFileSync('src/modules/affiliate/components/TermsTranslations.tsx', 'utf8');
