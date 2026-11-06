@@ -652,6 +652,7 @@ export default function DashboardSalesList({
   const [documentSendPhone, setDocumentSendPhone] = useState('');
   const [pdfShareStatus, setPdfShareStatus] = useState<string | null>(null);
   const [selectedDocTypeFilter, setSelectedDocTypeFilter] = useState<'all' | 'price quote' | 'proforma invoice'>('all');
+  const [documentSearchTerm, setDocumentSearchTerm] = useState('');
   const [docToDelete, setDocToDelete] = useState<SalesDocument | null>(null);
   // Non-null while the wizard below is editing an existing pending document
   // (opened via openEditDocument) instead of creating a new one.
@@ -1519,6 +1520,8 @@ export default function DashboardSalesList({
       try {
         const savedDocument = await createStandardCommercialDocument(localDocument);
         setDocuments(prev => [normalizeDocumentDiscount(savedDocument), ...prev]);
+        setSelectedDocTypeFilter('all');
+        setDocumentSearchTerm('');
         setDocumentsLoadRetry(counter => counter + 1);
         resetNewDocumentForm();
       } catch (error) {
@@ -1568,6 +1571,8 @@ export default function DashboardSalesList({
         total: saved.total,
         brandingSnapshot: saved.brandingSnapshot,
       }, ...prev]);
+      setSelectedDocTypeFilter('all');
+      setDocumentSearchTerm('');
       setDocumentsLoadRetry(counter => counter + 1);
       resetNewDocumentForm();
     } catch (error) {
@@ -3410,8 +3415,12 @@ export default function DashboardSalesList({
       {activeSubTab === 'documents' && (() => {
         const filteredDocs = documents.filter(doc => {
           if (doc.deletedAt) return false;
-          const matchType = selectedDocTypeFilter === 'all' || doc.type === selectedDocTypeFilter;
-          const matchSearch = (doc.customerName || '').toLowerCase().includes(searchTerm.toLowerCase()) || doc.documentNumber.toLowerCase().includes(searchTerm.toLowerCase());
+          const matchType = selectedDocTypeFilter === 'all' || normalizeDocType(doc.type) === selectedDocTypeFilter;
+          // Receipts/debts share searchTerm; never hide newly saved documents
+          // because a previously opened Sales tab had a different search.
+          const query = documentSearchTerm.trim().toLowerCase();
+          const matchSearch = (doc.customerName || '').toLowerCase().includes(query)
+            || (doc.documentNumber || '').toLowerCase().includes(query);
           return matchType && matchSearch;
         });
 
@@ -3431,8 +3440,8 @@ export default function DashboardSalesList({
                   <input
                     type="text"
                     placeholder="Search docs or clients..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    value={documentSearchTerm}
+                    onChange={(e) => setDocumentSearchTerm(e.target.value)}
                     className="w-full pl-9 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-emerald-500"
                   />
                   <Search className="absolute left-3 top-3 w-4 h-4 text-slate-400" />
