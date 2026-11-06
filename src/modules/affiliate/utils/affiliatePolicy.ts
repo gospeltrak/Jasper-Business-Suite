@@ -4,6 +4,8 @@
  */
 export const AFFILIATE_REGISTRATION_BONUS_TZS = 2_000;
 export const AFFILIATE_RECURRING_RATE = 0.10;
+/** Applies per referred tenant, counted from its first approved paid billing cycle. */
+export const AFFILIATE_COMMISSION_MONTH_LIMIT = 6;
 export const AFFILIATE_MIN_WITHDRAWAL_TZS = 10_000;
 export const AFFILIATE_AZAMPAY_EXTERNAL_FEE_TZS = 200;
 

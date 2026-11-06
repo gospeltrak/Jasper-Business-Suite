@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   AFFILIATE_REGISTRATION_BONUS_TZS,
   AFFILIATE_RECURRING_RATE,
+  AFFILIATE_COMMISSION_MONTH_LIMIT,
   AFFILIATE_MIN_WITHDRAWAL_TZS,
   getAzamPayFee,
   getTanzaniaMonthEndWithdrawalDate,
@@ -13,6 +14,7 @@ describe('Orvix Affiliate V2: financial policy', () => {
   it('pays TZS 2,000 once at signup, 10% for verified recurring revenue, and starts withdrawal at TZS 10,000', () => {
     expect(AFFILIATE_REGISTRATION_BONUS_TZS).toBe(2000);
     expect(AFFILIATE_RECURRING_RATE).toBe(0.10);
+    expect(AFFILIATE_COMMISSION_MONTH_LIMIT).toBe(6);
     expect(50_000 * AFFILIATE_RECURRING_RATE).toBe(5_000);
     expect(AFFILIATE_MIN_WITHDRAWAL_TZS).toBe(10_000);
     expect(AFFILIATE_REGISTRATION_BONUS_TZS * 5).toBe(AFFILIATE_MIN_WITHDRAWAL_TZS);

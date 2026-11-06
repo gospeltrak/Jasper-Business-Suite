@@ -1506,7 +1506,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                 <span className="text-emerald-400 font-normal">Affiliate</span>
               </span>
               <span className="block text-[8px] text-slate-400 font-mono tracking-widest uppercase">
-                Pata kamisheni ya 10% kila mwezi
+                Pata kamisheni ya 10% kwa miezi 6 ya kwanza
               </span>
             </div>
           </div>
@@ -1583,7 +1583,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                   </h1>
                   <p className="text-slate-400 text-sm sm:text-base leading-relaxed font-light">
                     Tangaza Orvix kwa maduka, biashara za jumla na maduka ya dawa. Kila mteja halali anayefungua akaunti kupitia msimbo wako anakuletea bonus ya TZS 2,000. Anapolipia usajili wa kila mwezi, unapata{" "}
-                    <strong className="text-emerald-400">kamisheni ya 10% kila anapolipia</strong>. Bonus na kamisheni huhifadhiwa tofauti. Unaomba malipo mara moja Ijumaa ya mwisho wa mwezi, salio likifikia TZS 10,000.
+                    <strong className="text-emerald-400">kamisheni ya 10% kwa malipo yanayostahili ndani ya miezi 6 ya kwanza</strong>. Bonus na kamisheni huhifadhiwa tofauti. Unaomba malipo mara moja Ijumaa ya mwisho wa mwezi, salio likifikia TZS 10,000.
                   </p>
                   <div className="space-y-4">
                     {[

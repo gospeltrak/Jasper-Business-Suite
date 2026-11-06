@@ -112,7 +112,7 @@ function renderPartnerTerms() {
           As a Partner, you earn:
         </p>
         <ul className="list-disc list-inside space-y-1 pl-2">
-          <li><strong className="text-amber-400">10% recurring commission</strong> on each monthly subscription payment made by businesses you directly referred to Orvix, as long as that business remains an active paying subscriber.</li>
+          <li><strong className="text-amber-400">10% recurring commission</strong> on eligible monthly subscription payments during the first six months from each directly referred business's first approved paid billing cycle, up to six paid cycles per business.</li>
           <li><strong className="text-amber-400">5% override commission</strong> on every commission earned by affiliates operating under your partner network (your downlines).</li>
         </ul>
         <p>
@@ -289,7 +289,7 @@ export function renderTermsContent(lang: string, portalRole?: string) {
         <p className="font-bold text-slate-100 text-[13px] pt-2">Ushiriki, Utambulisho na Uhalali wa Akaunti</p>
         <p>Kwa kujiunga na mtandao wa washirika wa Orvix, unathibitisha una umri kuanzia miaka 18 na unaishi au una uwepo kisheria wa kifedha nchini Tanzania au Afrika Mashariki. Ili kuzuia ulaghai, wanachama wote lazima watoe Jina la Kwanza na Jina la Pili kama ilivyoandikwa kwenye Kitambulisho chao cha Taifa (NIDA) pamoja na Nambari halali ya Kitambulisho cha NIDA, namba ya simu ya kupokelea malipo na namba ya TIN ya mlipakodi.</p>
         <p className="font-bold text-slate-100 text-[13px] pt-2">Kamisheni na Malipo</p>
-        <p>Utapokea kamisheni ya asilimia 15 (10% recurring commission) ya malipo ya kila mwezi ya usajili wa maduka, maduka ya dawa au migahawa uliyowaunganisha kwenye Orvix.</p>
+        <p>Utapokea kamisheni ya 10% kwa malipo ya usajili ya miezi 6 ya kwanza kutoka malipo ya kwanza yaliyoidhinishwa ya kila biashara uliyoiunganisha kwenye Orvix, hadi mizunguko 6 ya malipo. Kuanzia mwezi wa 7 hakuna kamisheni mpya kwa mteja huyo.</p>
         <p>Kamisheni ya 10% huhesabiwa kwenye mapato yaliyolipwa na kuthibitishwa pekee. Bonus ya usajili ni tofauti na kamisheni ya malipo. Hakuna kamisheni kwa akaunti za majaribio, akaunti bandia, chargebacks, refunds, malipo yanayopingwa au biashara uliyojisajili mwenyewe kwa code yako.</p>
         <p>Unaweza kuomba kutoa pesa mara moja kwa mwezi, Ijumaa ya mwisho kwa saa za Tanzania, ikiwa bonus na kamisheni kwa pamoja zimefikisha TZS 10,000. Salio dogo linasalia mwezi unaofuata. Ada ya AzamPay ni TZS 200 kwenda mtandao mwingine na TZS 0 kwenda AzamPesa, tofauti na withholding tax. Maombi hulipwa baada ya uhakiki.</p>
         <p className="font-bold text-slate-100 text-[13px] pt-2">Utii wa Kodi na Taarifa Sahihi</p>
@@ -317,7 +317,7 @@ export function renderTermsContent(lang: string, portalRole?: string) {
         <p className="font-bold text-slate-100 text-[13px] pt-2">1. ÉLIGIBILITÉ À L'INSCRIPTION</p>
         <p>En vous inscrivant au réseau de partenaires affiliés de Orvix, vous déclarez que vous êtes âgé d'au moins 18 ans et que vous résidez légalement ou possédez une présence financière légale en Tanzanie ou en Afrique de l'Est.</p>
         <p className="font-bold text-slate-100 text-[13px] pt-2">2. RÈGLEMENTS DES COMMISSIONS</p>
-        <p>Vous recevrez une commission récurrente de 10% sur toutes les factures d'abonnement mensuelles payées en totalité par les commerces que vous parrainez sur Orvix.</p>
+        <p>Vous recevrez une commission de 10 % sur les abonnements mensuels éligibles pendant les six premiers mois suivant le premier cycle d'abonnement payé et approuvé, avec un maximum de six cycles payants par client.</p>
         <p className="font-bold text-slate-100 text-[13px] pt-2">3. DISPOSITIONS FISCALES ET CONFORMITÉ (TRA)</p>
         <p>Tous les paiements effectués dans le cadre du programme d'affiliation Orvix sont soumis aux lois fiscales locales de la Tanzania Revenue Authority (TRA).</p>
       </div>
@@ -348,7 +348,7 @@ export function renderTermsContent(lang: string, portalRole?: string) {
       <p>By enrolling in the Orvix affiliate partner network, you declare that you are at least 18 years of age and currently reside or possess a legal financial presence in Tanzania or East Africa. To prevent identity and financial fraud, all members must supply their first name and second name exactly as they appear on their National ID card, Tanzania National ID Number (NIDA Number), and Taxpayer Identification Number (TIN Number) upon registration.</p>
       <p>Any attempt to submit false NIDA IDs or non-matching taxpayer certificates to circumvent local revenue withholding mandates will result in registration rejection, account forfeiture, and permanent blacklisting from our retail suite.</p>
       <p className="font-bold text-slate-100 text-[13px] pt-2">Revenue Commission Schedule</p>
-      <p>You shall receive a one-time TZS 2,000 bonus when a genuine referred business account is registered (including during free trial), and a separate 10% recurring commission on all monthly subscription invoices paid in full by retail, wholesale, or pharmacy operators whom you refer to Orvix. No commissions shall accrue on cancelled accounts, test accounts, credit balances, or transactions disputed for suspicious charge activity.</p>
+      <p>You shall receive a one-time TZS 2,000 bonus when a genuine referred business account is registered (including during free trial), and a separate 10% commission on eligible monthly subscription payments during the first six months after each referred business's first approved paid billing cycle, with a maximum of six paid billing cycles per business. No commissions shall accrue on cancelled accounts, test accounts, credit balances, or transactions disputed for suspicious charge activity.</p>
       <p>You may submit only one withdrawal request each month, on its last Friday in Tanzania, once your combined bonus and commission available balance reaches TZS 10,000. Disbursement follows administrative verification via AzamPay; provider fees apply (TZS 200 to other networks, free to AzamPesa) separately from applicable withholding.</p>
       <p>Commission is calculated only on settled revenue actually received by Orvix. Free trials, refunds, chargebacks, disputed payments, internal demos, fraudulent tenants, self-referrals, duplicate tenants and accounts registered for artificial commission generation do not qualify.</p>
       <p className="font-bold text-slate-100 text-[13px] pt-2">Taxation & Withholding Compliance</p>
