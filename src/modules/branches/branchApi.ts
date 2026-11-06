@@ -190,6 +190,11 @@ export interface CrossBranchCommercialDocumentInput {
   discountAmount: number;
   taxAmount: number;
   deliveryAmount: number;
+  // Informational invoice payment instructions; no posting to a money ledger.
+  paymentMethod?: string;
+  paymentAccountNumber?: string;
+  paymentAccountName?: string;
+  paymentAmount?: number;
   notes?: string;
   items: Array<{
     sourceBranchId: string;
@@ -281,6 +286,10 @@ export interface CrossBranchCommercialDocumentUpdateInput {
   discountAmount: number;
   taxAmount: number;
   deliveryAmount: number;
+  paymentMethod?: string;
+  paymentAccountNumber?: string;
+  paymentAccountName?: string;
+  paymentAmount?: number;
   notes?: string;
   items: Array<{
     sourceBranchId: string;
