@@ -1006,6 +1006,8 @@ export default function DashboardProducts({
   // 'open-ended': total quantity isn't known upfront (e.g. a cable roll) — only
   // a price per unit is set, and stock is depleted manually via "Mark as Finished".
   const [stockTrackingMode, setStockTrackingMode] = useState<'quantity' | 'open-ended'>('quantity');
+  const [bulkUnit] = useState('KG');
+  const [bulkPurchaseQty] = useState<number | ''>('');
   const [sellUnit, setSellUnit] = useState(() => unit);
   const [sellUnitQty, setSellUnitQty] = useState<number | ''>('');
   const [sellUnitPrice, setSellUnitPrice] = useState<number | ''>('');
