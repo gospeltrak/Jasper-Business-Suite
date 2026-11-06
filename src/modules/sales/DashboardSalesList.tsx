@@ -2265,7 +2265,7 @@ export default function DashboardSalesList({
                                   className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
                                   <Eye className="w-3.5 h-3.5 text-slate-400 shrink-0" /> View Sale
                                 </button>
-                                <button onClick={() => { setEditingSale(sale); setEditFormFields({customerName:sale.customerName||'',customerPhone:sale.customerPhone||'',paymentMethod:sale.paymentMethod,amountPaid:initialPaid,amountDue:calculatedDue,items:[...(sale.items || [])],saleDate:computeSaleDateStr(sale)}); setEditCartEmptyWarning(null); setActiveMenuId(null); setMenuPos(null); }}
+                                <button onClick={() => { setEditingSale(sale); setEditFormFields({customerName:sale.customerName||'',customerPhone:sale.customerPhone||'',paymentMethod:sale.paymentMethod,amountPaid:calculatedPaid,amountDue:calculatedDue,items:[...(sale.items || [])],saleDate:computeSaleDateStr(sale)}); setEditCartEmptyWarning(null); setActiveMenuId(null); setMenuPos(null); }}
                                   className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
                                   <Edit className="w-3.5 h-3.5 text-amber-400 shrink-0" /> Edit Sale
                                 </button>
@@ -3708,6 +3708,7 @@ export default function DashboardSalesList({
                       <p className="text-slate-400">No: <strong className="text-slate-800">{selectedSale.reference || `INV-${selectedSale.id.toUpperCase().slice(0, 8)}`}</strong></p>
                       <p className="text-slate-400">Date: <span className="text-slate-700">{new Date(selectedSale.timestamp).toLocaleDateString([], { dateStyle: 'long' })}</span></p>
                       {(() => {
+                        const paid = getProductSalesCollected(selectedSale);
                         const isPaid = paid >= getProductSalesTotal(selectedSale);
                         const isPartial = !isPaid && paid > 0;
                         const label = isPaid ? 'Paid' : isPartial ? 'Partially Paid' : 'Unpaid';
