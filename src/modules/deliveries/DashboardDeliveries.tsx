@@ -878,8 +878,6 @@ Vehicle Plate Number: ${plateNumber}
     del.deliveryPaymentStatus === 'collected' && !!del.treasuryJournalId;
   const deliveryIncomeTotal = deliveries.reduce((sum, del) =>
     sum + (isDeliveryCollected(del) ? (del.deliveryCost || 0) : 0), 0);
-  const pendingDeliveryFees = deliveries.reduce((sum, del) =>
-    sum + (del.status !== 'Cancelled' && !isDeliveryCollected(del) ? (del.deliveryCost || 0) : 0), 0);
   const deliveryStats = [
     { label: 'Pending', value: pendingDeliveries, icon: Clock, accent: '#d97706' },
     { label: 'On Route', value: dispatchedDeliveries, icon: Bike, accent: '#0284c7' },

@@ -59,7 +59,6 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
   const [payoutPhone, setPayoutPhone] = useState("");
   const [password, setPassword] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("m-pesa");
-  const [promoCode, setPromoCode] = useState("");
   const [parentSuperCode, setParentSuperCode] = useState("");
   const [claimMessage, setClaimMessage] = useState("");
   const [claimSuccess, setClaimSuccess] = useState(false);

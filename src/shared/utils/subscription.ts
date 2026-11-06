@@ -367,9 +367,6 @@ export function checkSubscriptionStatus(
     ? estimatedNowMs >= authoritativeEndMs
     : daysPassed >= durationAllowed;
 
-  const productsLimitExceeded = currentProductCount >= plan.maxProducts;
-  const storesLimitExceeded = currentStoreCount >= plan.maxStores;
-  const staffLimitExceeded = currentStaffCount >= plan.maxStaff;
   return {
     state: { ...state, planId: normalizedPlanId },
     plan,

@@ -30,13 +30,6 @@ import { ONLINE_ONLY_WRITE_MESSAGE, canWriteBusinessDataOnline, warnOfflineWrite
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-interface SyncRecord {
-  tenant_id: string;
-  data_key: string;      // e.g. 'products', 'sales', 'settings', 'channels'
-  payload: any;          // the full JSON blob
-  updated_at: string;    // ISO timestamp
-}
-
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function now(): string {

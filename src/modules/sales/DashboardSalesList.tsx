@@ -1,4 +1,4 @@
-import { getSaleCollected, getSaleCheckoutPaid, getProductSalesTotal, getProductSalesCollected, getProductSalesDue } from './utils/salePaymentTotals';
+import { getSaleCheckoutPaid, getProductSalesTotal, getProductSalesCollected, getProductSalesDue } from './utils/salePaymentTotals';
 import React, { useState, useRef, useEffect, FormEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { Sale, Tenant, SaleItem, Product, SystemSettings, SalesDocument, User as AppUser } from '../../types';
@@ -593,7 +593,6 @@ export default function DashboardSalesList({
 
   useEffect(() => {
     if (systemSettings?.business?.tagline) {
-      setNewDocTagline(systemSettings.business.tagline);
     }
   }, [systemSettings]);
 
@@ -673,7 +672,6 @@ export default function DashboardSalesList({
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   });
   const [newDocItems, setNewDocItems] = useState<SaleItem[]>([]);
-  const [newDocTagline, setNewDocTagline] = useState(() => systemSettings?.business?.tagline || '');
   const [newDocDeliveryCost, setNewDocDeliveryCost] = useState(0);
   const [newDocDiscountValue, setNewDocDiscountValue] = useState(0);
   const [newDocDiscountType, setNewDocDiscountType] = useState<'percent' | 'cash'>('percent');
@@ -2135,12 +2133,10 @@ export default function DashboardSalesList({
                 {visibleSales.map((sale, idx) => {
                   const saleItems = sale.items || [];
                   const totalVal = getProductSalesTotal(sale);
-                  const isCredit = sale.paymentMethod === 'Credit';
-                  const initialPaid = sale.amountPaid !== undefined ? sale.amountPaid : (isCredit ? 0 : totalVal);
-                  const installments = installmentRecords[sale.id] || [];
-                  const extraPaid = installments.reduce((sum, inst) => sum + inst.amount, 0);
-                  const calculatedPaid = Math.min(totalVal, initialPaid);
-                  const calculatedDue = Math.max(0, totalVal - calculatedPaid);
+                  // The server's amountPaid is already cumulative (including
+                  // previous installment pay-ins).
+                  const calculatedPaid = getProductSalesCollected(sale);
+                  const calculatedDue = getProductSalesDue(sale);
                   let paymentStatus: 'Paid' | 'Not Paid' | 'Partially Paid' = 'Paid';
                   if (calculatedPaid <= 0.05) paymentStatus = 'Not Paid';
                   else if (calculatedDue <= 0.05) paymentStatus = 'Paid';
@@ -2268,7 +2264,7 @@ export default function DashboardSalesList({
                                   className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
                                   <Eye className="w-3.5 h-3.5 text-slate-400 shrink-0" /> View Sale
                                 </button>
-                                <button onClick={() => { setEditingSale(sale); setEditFormFields({customerName:sale.customerName||'',customerPhone:sale.customerPhone||'',paymentMethod:sale.paymentMethod,amountPaid:initialPaid,amountDue:calculatedDue,items:[...(sale.items || [])],saleDate:computeSaleDateStr(sale)}); setEditCartEmptyWarning(null); setActiveMenuId(null); setMenuPos(null); }}
+                                <button onClick={() => { setEditingSale(sale); setEditFormFields({customerName:sale.customerName||'',customerPhone:sale.customerPhone||'',paymentMethod:sale.paymentMethod,amountPaid:calculatedPaid,amountDue:calculatedDue,items:[...(sale.items || [])],saleDate:computeSaleDateStr(sale)}); setEditCartEmptyWarning(null); setActiveMenuId(null); setMenuPos(null); }}
                                   className="w-full flex items-center gap-2.5 px-3 py-2 text-[11px] font-semibold text-slate-600 hover:bg-slate-50">
                                   <Edit className="w-3.5 h-3.5 text-amber-400 shrink-0" /> Edit Sale
                                 </button>
@@ -2343,19 +2339,10 @@ export default function DashboardSalesList({
         // payments fully cover it, it must disappear from this list entirely
         // (it still shows as paid under the Sales tab), not linger here
         // showing a owed-now of 0.
-        const debtSales = sales.filter(s => {
-          const initialPaid = s.amountPaid !== undefined ? s.amountPaid : (s.paymentMethod === 'Credit' ? 0 : getProductSalesTotal(s));
-          const installmentsVal = (installmentRecords[s.id] || []).reduce((sum, i) => sum + i.amount, 0);
-          const calculatedPaid = Math.min(getProductSalesTotal(s), initialPaid);
-          return (getProductSalesTotal(s) - calculatedPaid) > 0;
-        });
+        const debtSales = sales.filter(s => getProductSalesDue(s) > 0);
         const totalDebtIssued = debtSales.reduce((sum, s) => sum + getProductSalesTotal(s), 0);
 
-        const totalDebtPaidIn = debtSales.reduce((sum, s) => {
-          const initialPaid = s.amountPaid !== undefined ? s.amountPaid : 0;
-          const installmentsVal = (installmentRecords[s.id] || []).reduce((instTot, i) => instTot + i.amount, 0);
-          return sum + Math.min(getProductSalesTotal(s), initialPaid);
-        }, 0);
+        const totalDebtPaidIn = debtSales.reduce((sum, s) => sum + getProductSalesCollected(s), 0);
 
         const totalDebtOutstanding = Math.max(0, totalDebtIssued - totalDebtPaidIn);
 
@@ -2426,12 +2413,7 @@ export default function DashboardSalesList({
                 parallel payment UI only on this tab. */}
             <div className="flex flex-col space-y-3">
               {filteredDebtSales.slice(0, visibleDebtCount).map(s => {
-                const totalVal = getProductSalesTotal(s);
-                const initialPaid = s.amountPaid !== undefined ? s.amountPaid : 0;
-                const installments = installmentRecords[s.id] || [];
-                const extraPaid = installments.reduce((sum, inst) => sum + inst.amount, 0);
-                const calculatedPaid = Math.min(totalVal, initialPaid);
-                const calculatedDue = Math.max(0, totalVal - calculatedPaid);
+                const calculatedDue = getProductSalesDue(s);
                 const isCleared = calculatedDue === 0;
 
                 return (
@@ -3766,7 +3748,6 @@ export default function DashboardSalesList({
                     <div className="w-72 space-y-2 font-mono text-xs shrink-0">
                       {(() => {
                         const subtotal = (selectedSale.items || []).reduce((sum, item) => sum + getSaleItemLineTotal(item), 0);
-                        const paid = getProductSalesCollected(selectedSale);
                         const balance = getProductSalesDue(selectedSale);
                         return <>
                           <div className="flex justify-between text-slate-500"><span>Subtotal</span><strong className="text-slate-800">{currency}{Math.round(subtotal).toLocaleString()}</strong></div>
@@ -4546,8 +4527,6 @@ export default function DashboardSalesList({
                   const grandTotalVal = getProductSalesTotal(viewingSaleDetail);
                   const isCredit = viewingSaleDetail.paymentMethod === 'Credit';
                   const initialPaid = viewingSaleDetail.amountPaid !== undefined ? viewingSaleDetail.amountPaid : (isCredit ? 0 : grandTotalVal);
-                  const installments = installmentRecords[viewingSaleDetail.id] || [];
-                  const extraPaid = installments.reduce((sum, inst) => sum + inst.amount, 0);
                   const totalPaid = Math.min(grandTotalVal, initialPaid);
                   const remainingDue = Math.max(0, grandTotalVal - totalPaid);
 
@@ -5582,6 +5561,30 @@ export default function DashboardSalesList({
               </div>
             )}
 
+            {/* Show a phone entry when a customer has no saved number.
+                Previously Send toggled documentSendOpen but never rendered it. */}
+            {documentSendOpen && (
+              <form className="shrink-0 flex items-center gap-2 px-3 py-2 bg-slate-900 text-white print:hidden"
+                onSubmit={event => {
+                  event.preventDefault();
+                  const phone = documentSendPhone.trim();
+                  if (!phone) return;
+                  setDocumentSendOpen(false);
+                  void sharePdfDocument(viewingDocument, phone);
+                }}>
+                <label htmlFor="commercial-document-send-phone" className="text-xs font-semibold shrink-0">WhatsApp</label>
+                <input id="commercial-document-send-phone" type="tel" required
+                  autoFocus value={documentSendPhone}
+                  onChange={event => setDocumentSendPhone(event.target.value)}
+                  placeholder="+255 7XX XXX XXX"
+                  className="min-w-0 flex-1 rounded-lg bg-white text-slate-900 border border-slate-300 px-3 py-2 text-xs" />
+                <button type="submit" disabled={!documentSendPhone.trim()}
+                  className="rounded-lg bg-emerald-600 disabled:opacity-50 px-3 py-2 text-xs font-bold">Send</button>
+                <button type="button" onClick={() => setDocumentSendOpen(false)}
+                  aria-label="Cancel WhatsApp send" className="rounded-lg p-2 bg-slate-700 text-white"><X className="w-4 h-4" /></button>
+              </form>
+            )}
+
             {/* ── BOTTOM ACTION BAR — Record as Sale / Send / Download / Close, one row, all screen sizes ── */}
             <div className="shrink-0 bg-[#1e1e1e] border-t border-[#2a2a2a] px-3 py-2 flex items-center justify-center gap-2 print:hidden">
               {viewingDocument.status === 'pending' && !isMixedBranchDocument(viewingDocument) && (
@@ -5927,8 +5930,6 @@ export default function DashboardSalesList({
                     const totalVal = getProductSalesTotal(mobileActionsSale);
                     const isCredit = mobileActionsSale.paymentMethod === 'Credit';
                     const initialPaid = mobileActionsSale.amountPaid !== undefined ? mobileActionsSale.amountPaid : (isCredit ? 0 : totalVal);
-                    const installments = installmentRecords[mobileActionsSale.id] || [];
-                    const extraPaid = installments.reduce((sum, inst) => sum + inst.amount, 0);
                     const calculatedPaid = Math.min(totalVal, initialPaid);
                     const calculatedDue = Math.max(0, totalVal - calculatedPaid);
 
@@ -5958,8 +5959,6 @@ export default function DashboardSalesList({
                     const totalVal = getProductSalesTotal(mobileActionsSale);
                     const isCredit = mobileActionsSale.paymentMethod === 'Credit';
                     const initialPaid = mobileActionsSale.amountPaid !== undefined ? mobileActionsSale.amountPaid : (isCredit ? 0 : totalVal);
-                    const installments = installmentRecords[mobileActionsSale.id] || [];
-                    const extraPaid = installments.reduce((sum, inst) => sum + inst.amount, 0);
                     const calculatedPaid = Math.min(totalVal, initialPaid);
                     const calculatedDue = Math.max(0, totalVal - calculatedPaid);
 

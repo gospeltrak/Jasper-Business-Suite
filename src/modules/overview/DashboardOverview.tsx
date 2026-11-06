@@ -127,45 +127,6 @@ export default function DashboardOverview({
     return filteredSales.reduce((sum, s) => sum + saleProductRevenue(s), 0);
   }, [filteredSales]);
 
-  const monthlyGrowthValue = useMemo(() => {
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
-
-    const thisMonthSalesNum = sales
-      .filter(s => {
-        if (!s.timestamp) return false;
-        const d = new Date(s.timestamp);
-        return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-      })
-      .reduce((sum, s) => sum + saleProductRevenue(s), 0);
-
-    const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
-    const prevYear = currentMonth === 0 ? currentYear - 1 : currentYear;
-
-    const lastMonthSalesNum = sales
-      .filter(s => {
-        if (!s.timestamp) return false;
-        const d = new Date(s.timestamp);
-        return d.getMonth() === prevMonth && d.getFullYear() === prevYear;
-      })
-      .reduce((sum, s) => sum + saleProductRevenue(s), 0);
-
-    if (lastMonthSalesNum <= 0) return 0; // no previous month data — show 0 not fake number
-    return ((thisMonthSalesNum - lastMonthSalesNum) / lastMonthSalesNum) * 100;
-  }, [sales]);
-
-  const pendingPayoutsValue = useMemo(() => {
-    // Unpaid/Credit sales, or 12.5% of total revenue as realistic commercial ledger outstanding
-    const creditSalesTotal = sales
-      .filter(s => {
-        const method = (s.paymentMethod || '').toLowerCase();
-        return method === 'credit' || method === 'unpaid' || method === 'pending';
-      })
-      .reduce((sum, s) => sum + saleProductRevenue(s), 0);
-    return creditSalesTotal > 0 ? creditSalesTotal : (sales.length === 0 ? 0 : Math.round(totalRevenue * 0.125));
-  }, [sales, totalRevenue]);
-
   const isActualExpense = (expense: any) => {
     const markers = [
       expense?.type,
@@ -246,11 +207,6 @@ export default function DashboardOverview({
     return totalRevenue - totalCost - totalExpensesAmt;
   }, [totalRevenue, totalCost, totalExpensesAmt]);
   
-  // Low stock warning alerts
-  const lowStockProducts = useMemo(() => {
-    return products.filter(p => !p.isVariationParent && (p.shopStockQty ?? 0) <= p.alertQty);
-  }, [products]);
-
   // Handle mock purchase stats context matching
   const simulatedPurchases = useMemo(() => {
     return totalPurchasesAmt;
@@ -463,24 +419,8 @@ export default function DashboardOverview({
     });
   }, [sales, products, statusTimeframe, totalRevenue, simulatedPurchases]);
 
-  const maxChartVal = useMemo(() => {
-    return Math.max(...chartData.map(d => Math.max(d.target, d.sales, d.purchases)), 10000);
-  }, [chartData]);
-
   const barWidth = statusTimeframe === 'week' ? 8 : 12;
 
-
-  const startXList = useMemo(() => {
-    if (statusTimeframe === 'today') {
-      return chartData.map((_, idx) => 65 + idx * 105);
-    } else if (statusTimeframe === 'week') {
-      return chartData.map((_, idx) => 38 + idx * 61);
-    } else if (statusTimeframe === 'month') {
-      return chartData.map((_, idx) => 65 + idx * 105);
-    } else { // 3month
-      return chartData.map((_, idx) => 95 + idx * 135);
-    }
-  }, [statusTimeframe, chartData]);
 
   // Filter sales list based on selected payment method filter ("All", or matching paymentMethod)
   const posFilteredSalesList = useMemo(() => {

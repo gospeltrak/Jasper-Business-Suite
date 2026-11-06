@@ -140,8 +140,6 @@ export default function DashboardReports({
   };
 
   const [selectedMonitoredProductId, setSelectedMonitoredProductId] = useState<string>('all');
-  const [productSearchQuery, setProductSearchQuery] = useState<string>('');
-
 
   useEffect(() => {
     if (!selectedMonitoredProductId) {
@@ -152,18 +150,6 @@ export default function DashboardReports({
       setSelectedMonitoredProductId('all');
     }
   }, [selectedMonitoredProductId, products]);
-
-  const monitoredProductSearchOptions = useMemo(() => {
-    const q = productSearchQuery.trim().toLowerCase();
-    if (!q) return products;
-    return products.filter(p =>
-      String(p.name || '').toLowerCase().includes(q) ||
-      String(p.sku || '').toLowerCase().includes(q) ||
-      String(p.barcode || '').toLowerCase().includes(q)
-    );
-  }, [products, productSearchQuery]);
-
-  const [mobileView, setMobileView] = useState<'menu' | 'report'>('menu');
 
   const ALL_TIME_START = '2000-01-01';
 
@@ -615,8 +601,8 @@ export default function DashboardReports({
   // a day-by-day trend, instead of only the ranked list above.
   const productDrilldownOptions = useMemo(() => [
     { value: 'all', label: 'All Products', description: `${products.length} tracked` },
-    ...monitoredProductSearchOptions.map(p => ({ value: p.id, label: p.name, description: p.sku || p.category || undefined })),
-  ], [products.length, monitoredProductSearchOptions]);
+    ...products.map(p => ({ value: p.id, label: p.name, description: p.sku || p.category || undefined })),
+  ], [products]);
 
   const productDrilldownStats = useMemo(() => {
     const isAll = selectedMonitoredProductId === 'all';
@@ -973,7 +959,7 @@ export default function DashboardReports({
             ].map((tab, i) => (
               <button
                 key={tab.id}
-                onClick={() => { setReportTab(tab.id as any); setMobileView('report'); }}
+                onClick={() => setReportTab(tab.id as any)}
                 className={`px-3 py-2.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap ${
                   reportTab === tab.id
                     ? 'bg-emerald-600 text-white shadow-md'

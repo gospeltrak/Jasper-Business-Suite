@@ -1,12 +1,10 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Product, Sale, Tenant } from '../../types';
 import { getSecureDataBridgeClient } from '../../shared/dataBridge/secureDataBridge';
 import { 
   ResponsiveContainer, 
   LineChart, 
   Line, 
-  BarChart,
-  Bar,
   XAxis, 
   YAxis, 
   CartesianGrid, 
@@ -665,14 +663,30 @@ export default function DashboardForecasting({
                   <p className="text-[11px] text-slate-450">Suggested stock changes</p>
                 </div>
                 
-                {/* Search Term */}
-                <input
-                  type="text"
-                  placeholder="Filter name or codes..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="bg-slate-50 border border-slate-250 px-3 py-1.5 rounded-xl text-xs focus:outline-none focus:border-emerald-500 focus:bg-white text-slate-800 font-sans"
-                />
+                {/* Search and working category/risk filters; previously the
+                    state stayed at All because there were no controls. */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    type="search"
+                    aria-label="Search forecast products"
+                    placeholder="Filter name or codes..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="bg-slate-50 border border-slate-250 px-3 py-1.5 rounded-xl text-xs focus:outline-none focus:border-emerald-500 focus:bg-white text-slate-800 font-sans"
+                  />
+                  <select aria-label="Forecast category" value={selectedCategory}
+                    onChange={e => setSelectedCategory(e.target.value)}
+                    className="bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl text-xs text-slate-700">
+                    {categories.map(category => <option key={category} value={category}>{category}</option>)}
+                  </select>
+                  <select aria-label="Forecast risk" value={riskFilter}
+                    onChange={e => setRiskFilter(e.target.value)}
+                    className="bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl text-xs text-slate-700">
+                    <option value="All">All Risks</option>
+                    {Array.from(new Set((forecastData?.forecasts || []).map(item => item.riskLevel).filter(Boolean)))
+                      .map(risk => <option key={risk} value={risk}>{risk}</option>)}
+                  </select>
+                </div>
               </div>
 
               {/* TABLE */}
@@ -769,7 +783,7 @@ export default function DashboardForecasting({
                     {filteredForecasts.length === 0 && (
                       <tr>
                         <td colSpan={7} className="p-12 text-center text-slate-400 font-sans">
-                          No forecasting recommendations match your search keyword.
+                          No forecasting recommendations match the selected filters.
                         </td>
                       </tr>
                     )}

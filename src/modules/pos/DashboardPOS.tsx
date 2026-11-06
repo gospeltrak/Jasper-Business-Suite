@@ -356,19 +356,6 @@ export default function DashboardPOS({
   const [recipientWhatsApp, setRecipientWhatsApp] = useState('');
   const [receiptPdfStatus, setReceiptPdfStatus] = useState<string | null>(null);
 
-  // Checkout modal mobile/tablet-only layout gate (desktop stays pixel-identical)
-  const [isDesktopCheckoutLayout, setIsDesktopCheckoutLayout] = useState<boolean>(() =>
-    typeof window !== 'undefined' ? window.matchMedia('(min-width: 1280px)').matches : true
-  );
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const mql = window.matchMedia('(min-width: 1280px)');
-    const handleChange = () => setIsDesktopCheckoutLayout(mql.matches);
-    handleChange();
-    mql.addEventListener('change', handleChange);
-    return () => mql.removeEventListener('change', handleChange);
-  }, []);
-
   // Deterministic decorative barcode — same visual-only hashing approach used
   // by DashboardSalesList's POS Receipt viewer and printed product labels,
   // not a real scannable symbology.

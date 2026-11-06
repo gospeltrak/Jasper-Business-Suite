@@ -1,4 +1,3 @@
-import React from 'react';
 import { downloadPdfFromElement, printPdfFromElement, shareElementPdfToWhatsApp } from '../../src/shared/utils/pdfShare';
 import { DocumentShell } from './templates/DocumentShell';
 import { A4DocumentBody } from './templates/A4DocumentBody';
