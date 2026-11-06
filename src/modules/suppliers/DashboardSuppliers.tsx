@@ -41,7 +41,7 @@ export default function DashboardSuppliers({
       name: name.trim(),
       contactPerson,
       phone,
-      email: email || 'procurement@' + name.toLowerCase().replace(/\\s+/g, '') + '.com',
+      email: email || 'procurement@' + name.toLowerCase().replace(/\s+/g, '') + '.com',
       categories: categoryInput ? categoryInput.split(',').map(s => s.trim()) : ['Groceries'],
     };
 
