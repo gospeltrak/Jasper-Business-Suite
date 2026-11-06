@@ -28,28 +28,30 @@ export default function DashboardSuppliers({
   const [categoryInput, setCategoryInput] = useState('');
   const [formSuccess, setFormSuccess] = useState(false);
   const [formError, setFormError] = useState('');
+  const [supplierSaving, setSupplierSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [viewingCustomer, setViewingCustomer] = useState<{ name: string; phone: string; sales: Sale[]; totalSpent: number; totalDue: number } | null>(null);
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!name) return;
+    if (!name.trim() || supplierSaving) return;
 
     const newSup: Supplier = {
-      id: 's-' + Math.random().toString(36).substr(2, 9),
-      name,
+      id: 's-' + Math.random().toString(36).slice(2, 11),
+      name: name.trim(),
       contactPerson,
       phone,
-      email: email || 'procurement@' + name.toLowerCase().replace(/\s+/g, '') + '.com',
+      email: email || 'procurement@' + name.toLowerCase().replace(/\\s+/g, '') + '.com',
       categories: categoryInput ? categoryInput.split(',').map(s => s.trim()) : ['Groceries'],
     };
 
+    setSupplierSaving(true);
+    setFormSuccess(false);
     setFormError('');
-    void Promise.resolve(onAddSupplier(newSup)).then(saved => {
-      if (saved === false) {
-        setFormError('Supplier could not be saved. Please try again.');
-        return;
-      }
+    try {
+      // Save is authoritative: only close the form after the server confirms.
+      const saved = await onAddSupplier(newSup);
+      if (saved === false) throw new Error('Supplier could not be saved. Please try again.');
       setFormSuccess(true);
       setTimeout(() => {
         setName('');
@@ -60,7 +62,11 @@ export default function DashboardSuppliers({
         setIsOpen(false);
         setFormSuccess(false);
       }, 1000);
-    });
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : 'Supplier could not be saved. Please try again.');
+    } finally {
+      setSupplierSaving(false);
+    }
   };
 
   // A sale's own amountPaid already reflects any installments recorded
@@ -237,6 +243,7 @@ export default function DashboardSuppliers({
           <form onSubmit={handleSubmit} className="bg-white border border-slate-200 p-6 rounded-3xl space-y-6 shadow-xl">
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <h5 className="text-sm font-black text-slate-800 uppercase">New Supplier Details</h5>
+              {supplierSaving && <span role="status" className="text-xs text-slate-500">Saving…</span>}
               <button type="button" onClick={() => setIsOpen(false)} className="p-1 hover:bg-slate-100 rounded-full transition-colors">
                 <X className="w-5 h-5 text-slate-400" />
               </button>
@@ -269,9 +276,11 @@ export default function DashboardSuppliers({
                 <input type="text" placeholder="Electronics, Logistics, Office Supplies" value={categoryInput} onChange={e => setCategoryInput(e.target.value)} className="w-full bg-slate-50 border border-slate-200 px-4 py-3 rounded-2xl text-sm focus:outline-none focus:border-emerald-500 transition-all" />
               </div>
             </div>
+            {formError && <p role="alert" className="text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2">{formError}</p>}
+            {formSuccess && <p role="status" className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">Supplier saved successfully.</p>}
             <div className="flex items-center justify-end gap-3 pt-2">
               <button type="button" onClick={() => setIsOpen(false)} className="px-6 py-3 rounded-2xl text-xs font-bold text-slate-500 hover:bg-slate-100 transition-all">Cancel</button>
-              <button type="submit" className="bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-3 rounded-2xl text-xs font-bold uppercase tracking-widest transition-all active:scale-95 shadow-lg shadow-emerald-100">Save Supplier</button>
+              <button type="submit" disabled={supplierSaving} className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed text-white px-8 py-3 rounded-2xl text-xs font-bold uppercase tracking-widest transition-all active:scale-95 shadow-lg shadow-emerald-100">{supplierSaving ? 'Saving…' : 'Save Supplier'}</button>
             </div>
           </form>
         </div>
