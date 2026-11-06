@@ -1,0 +1,45 @@
+name: Orvix Cloudflare Turnstile browser E2E
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/shared/components/TurnstileWidget.tsx'
+      - 'src/modules/affiliate/components/AffiliatePortal.tsx'
+      - 'src/modules/auth/LoginPage.tsx'
+      - 'e2e/turnstile*'
+      - 'e2e/playwright.turnstile.config.mjs'
+      - '.github/workflows/e2e-turnstile.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  isolated-browser-e2e:
+    name: Cloudflare recovery / phone tablet desktop
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Install test-only Playwright runner
+        run: npm install --no-save --package-lock=false @playwright/test@1.56.1
+      - name: Install isolated Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Browser E2E (mocked Cloudflare; no real user or secrets)
+        run: npx playwright test --config=e2e/playwright.turnstile.config.mjs
+        env:
+          CI: 'true'
+      - name: Attach failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: orvix-turnstile-e2e-failures
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
