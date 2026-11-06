@@ -26,5 +26,8 @@ jobs:
       - name: Verify frontend TypeScript
         run: npm run lint
 
+      - name: Audit unused code candidates (informational)
+        run: npm run audit:dead-code
+
       - name: Verify production deployment build
         run: npm run build
