@@ -189,6 +189,18 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   const [regPhone, setRegPhone] = useState('');
   const [regPassword, setRegPassword] = useState('');
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
+  const resetTurnstile = () => {
+    setTurnstileToken(null);
+    setTurnstileResetKey(value => value + 1);
+  };
+  useEffect(() => {
+    // Switching login, registration and the email entry must not reuse a
+    // token issued to the previous Cloudflare widget.
+    setTurnstileToken(null);
+    setTurnstileResetKey(value => value + 1);
+  }, [authTab, showEmailRegisterForm]);
+
   const [showRegPassword, setShowRegPassword] = useState(false);
   const [orgName, setOrgName] = useState('');
   const [businessType, setBusinessType] = useState<string>('Retail');
@@ -584,12 +596,28 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
 
   const verifyLoginTurnstile = async () => {
     if ((import.meta as any).env?.VITE_TURNSTILE_SITE_KEY && !turnstileToken) {
-      setError('Please complete the security verification before signing in.');
+      setError('Kamilisha uthibitishaji wa Cloudflare kwanza. Ikikwama, bonyeza Jaribu tena.');
       return false;
     }
-    const response = await fetch('/api/auth/turnstile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ turnstileToken }) });
-    if (!response.ok) { setError('Security verification expired. Please complete it again.'); setTurnstileToken(null); return false; }
-    return true;
+    try {
+      const response = await fetch('/api/auth/turnstile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ turnstileToken }),
+      });
+      if (!response.ok) {
+        setError('Uthibitishaji wa Cloudflare umeisha muda au umekataliwa. Jaribu tena.');
+        return false;
+      }
+      return true;
+    } catch {
+      setError('Cloudflare haipatikani kwa sasa. Kagua intaneti kisha jaribu tena.');
+      return false;
+    } finally {
+      // Every server verification attempt consumes this token, including
+      // attempts followed by an incorrect password or a failed Google redirect.
+      resetTurnstile();
+    }
   };
 
   const handleLoginSubmit = async (e: FormEvent) => {
@@ -1081,6 +1109,9 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
       console.warn('[auth] Secure registration did not complete.', safeError.code, safeError.reference || '');
       setError(safeError.message);
       setIsLoading(false);
+    } finally {
+      // The registration API verifies single-use Turnstile before saving.
+      resetTurnstile();
     }
   };
 
@@ -1411,7 +1442,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
                     <h3 className="mt-2 text-sm font-black text-slate-900">Google + Authenticator required</h3>
                   </div>
                   <div className="flex justify-center">
-                    <TurnstileWidget onVerify={setTurnstileToken} onExpire={() => setTurnstileToken(null)} />
+                    <TurnstileWidget resetKey={turnstileResetKey} onVerify={setTurnstileToken} onExpire={() => setTurnstileToken(null)} />
                   </div>
                   <button
                     type="button"
@@ -1480,7 +1511,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
               </div>
 
               <div className="flex justify-center">
-                <TurnstileWidget onVerify={setTurnstileToken} onExpire={() => setTurnstileToken(null)} />
+                <TurnstileWidget resetKey={turnstileResetKey} onVerify={setTurnstileToken} onExpire={() => setTurnstileToken(null)} />
               </div>
 
               <button
@@ -1507,9 +1538,8 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
             <>
               {!showEmailRegisterForm ? (
                 <div className="space-y-4 animate-fade-in">
-                  <div className="flex justify-center">
-                    <TurnstileWidget onVerify={setTurnstileToken} onExpire={() => setTurnstileToken(null)} />
-                  </div>
+                  {/* Choosing an email registration method is not a protected
+                      submit: do not force a redundant Cloudflare challenge. */}
                   <button
                     type="button"
                     onClick={() => setShowEmailRegisterForm(true)}
@@ -1706,7 +1736,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
               </div>
 
               <div className="flex justify-center">
-                <TurnstileWidget onVerify={setTurnstileToken} onExpire={() => setTurnstileToken(null)} />
+                <TurnstileWidget resetKey={turnstileResetKey} onVerify={setTurnstileToken} onExpire={() => setTurnstileToken(null)} />
               </div>
 
               {!acceptedTenantLegal && (

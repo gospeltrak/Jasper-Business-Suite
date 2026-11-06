@@ -76,12 +76,49 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
   const [showRosterModal, setShowRosterModal] = useState(false);
   const [nidaNumber, setNidaNumber] = useState("");
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
   const [tinNumber, setTinNumber] = useState("");
   const [firstName, setFirstName] = useState("");
   const [secondName, setSecondName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [googleRegistrationVerified, setGoogleRegistrationVerified] = useState(false);
   const [useEmailRegistration, setUseEmailRegistration] = useState(false);
+
+  // Turnstile tokens are single-use. Every completed verification request,
+  // whether the credentials succeed or fail, requires a fresh challenge.
+  const resetTurnstile = () => {
+    setTurnstileToken(null);
+    setTurnstileResetKey(value => value + 1);
+  };
+
+  const verifyAffiliateTurnstile = async (): Promise<boolean> => {
+    if ((import.meta as any).env?.VITE_TURNSTILE_SITE_KEY && !turnstileToken) {
+      alert('Kamilisha uthibitishaji wa Cloudflare kwanza. Ikikwama, bonyeza Jaribu tena.');
+      return false;
+    }
+    try {
+      const response = await fetch('/api/auth/turnstile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ turnstileToken }),
+      });
+      if (!response.ok) {
+        alert('Uthibitishaji wa Cloudflare umekwisha muda wake au umekataliwa. Jaribu tena.');
+        return false;
+      }
+      return true;
+    } catch {
+      alert('Imeshindikana kuwasiliana na Cloudflare. Kagua intaneti kisha jaribu tena.');
+      return false;
+    } finally {
+      resetTurnstile();
+    }
+  };
+
+  // A challenge from the login form must never carry over to a new form.
+  useEffect(() => {
+    resetTurnstile();
+  }, [authMode, useEmailRegistration, googleRegistrationVerified]);
 
   // Active Logged In Affiliate Info state representation
   const [activeAffiliate, setActiveAffiliate] = useState<Affiliate | null>(
@@ -883,8 +920,10 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       }
     }
 
-    if ((import.meta as any).env?.VITE_TURNSTILE_SITE_KEY && !turnstileToken) {
-      alert('Please complete the security verification before continuing.');
+    // Google registration has a separately authenticated OAuth session checked
+    // server-side; email/password registration still requires Turnstile.
+    if (!usingGoogle && (import.meta as any).env?.VITE_TURNSTILE_SITE_KEY && !turnstileToken) {
+      alert('Kamilisha uthibitishaji wa Cloudflare kwanza. Ikikwama bonyeza Jaribu tena.');
       return;
     }
 
@@ -973,8 +1012,11 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       return;
     } catch (registrationError: any) {
       console.error('[affiliate registration] API registration failed:', registrationError);
-      alert(`❌ Registration failed: ${registrationError?.message || 'Could not connect your affiliate profile. Please try again.'}`);
+      alert(`❌ Usajili umeshindikana: ${registrationError?.message || 'Jaribu tena.'}`);
       return;
+    } finally {
+      // Registration consumed the one-time token even if later steps failed.
+      if (!usingGoogle) resetTurnstile();
     }
   };
 
@@ -984,12 +1026,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       alert("Please enter your email and password");
       return;
     }
-    if ((import.meta as any).env?.VITE_TURNSTILE_SITE_KEY && !turnstileToken) {
-      alert('Please complete the security verification before signing in.');
-      return;
-    }
-    const challenge = await fetch('/api/auth/turnstile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ turnstileToken }) });
-    if (!challenge.ok) { setTurnstileToken(null); alert('Security verification expired. Please complete it again.'); return; }
+    if (!(await verifyAffiliateTurnstile())) return;
 
     try {
       const client: any = await getSecureDataBridgeClient();
@@ -1095,9 +1132,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
   };
 
   const handleGooglePortalLogin = async () => {
-    if ((import.meta as any).env?.VITE_TURNSTILE_SITE_KEY && !turnstileToken) { alert('Please complete the security verification before signing in.'); return; }
-    const challenge = await fetch('/api/auth/turnstile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ turnstileToken }) });
-    if (!challenge.ok) { setTurnstileToken(null); alert('Security verification expired. Please complete it again.'); return; }
+    if (!(await verifyAffiliateTurnstile())) return;
     const isGoogleRegistration = authMode !== 'login' || isPartnerSetupMode;
     if (isGoogleRegistration) {
       sessionStorage.setItem('orvix_google_portal_registration_intent', portalRole);
@@ -1612,7 +1647,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                       </div>
                     </div>
 
-                    <div className="flex justify-center"><TurnstileWidget onVerify={setTurnstileToken} onExpire={() => setTurnstileToken(null)} /></div>
+                    <div className="flex justify-center"><TurnstileWidget resetKey={turnstileResetKey} onVerify={setTurnstileToken} onExpire={() => setTurnstileToken(null)} /></div>
 
                     <button type="submit" className="w-full py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm uppercase tracking-wider transition-all cursor-pointer border-none">Ingia</button>
 
@@ -1666,7 +1701,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                         <h3 className="text-sm font-black text-white">Fungua {portalRole === 'partner' ? 'Partner' : 'Affiliate'} akaunti</h3>
                         <p className="mt-1 text-xs leading-relaxed text-slate-400">Chagua njia ya kufungua akaunti.</p>
                       </div>
-                      <div className="flex justify-center"><TurnstileWidget onVerify={setTurnstileToken} onExpire={() => setTurnstileToken(null)} /></div>
+                      <div className="flex justify-center"><TurnstileWidget resetKey={turnstileResetKey} onVerify={setTurnstileToken} onExpire={() => setTurnstileToken(null)} /></div>
                       <button type="button" onClick={() => setUseEmailRegistration(true)}
                         className="w-full py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm uppercase tracking-wider transition-all cursor-pointer border-none flex items-center justify-center gap-2.5">
                         <Mail className="w-4 h-4 shrink-0" />
@@ -1781,9 +1816,13 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                       </label>
                     </div>
 
-                    <div className="flex justify-center">
-                      <TurnstileWidget onVerify={setTurnstileToken} onExpire={() => setTurnstileToken(null)} />
-                    </div>
+                    {/* Google's identity was already verified by OAuth. The server
+                        still requires Turnstile for email/password registration. */}
+                    {!googleRegistrationVerified && (
+                      <div className="flex justify-center">
+                        <TurnstileWidget resetKey={turnstileResetKey} onVerify={setTurnstileToken} onExpire={() => setTurnstileToken(null)} />
+                      </div>
+                    )}
 
                     <button type="submit" disabled={!acceptedTerms}
                       className={`w-full py-3.5 rounded-2xl font-black text-sm uppercase tracking-wider transition-all cursor-pointer border-none ${acceptedTerms ? portalRole === 'partner' ? 'bg-amber-500 hover:bg-amber-400 text-slate-950' : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}`}>

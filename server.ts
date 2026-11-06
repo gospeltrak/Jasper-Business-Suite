@@ -235,10 +235,23 @@ const verifyTurnstileToken = async (token: unknown, remoteIp?: string): Promise<
     const res = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      signal: AbortSignal.timeout(10000),
       body,
     });
+    if (!res.ok) {
+      console.warn('[Turnstile] Siteverify endpoint unavailable:', res.status);
+      return false;
+    }
     const data = await res.json();
-    return data?.success === true;
+    if (data?.success !== true) {
+      // Log only non-secret error categories: never log the token, IP or secret.
+      const codes = Array.isArray(data?.['error-codes'])
+        ? data['error-codes'].map((code: unknown) => String(code).slice(0, 48)).slice(0, 4)
+        : [];
+      console.warn('[Turnstile] Siteverify declined:', codes.join(',') || 'unknown');
+      return false;
+    }
+    return true;
   } catch (err) {
     console.error('[Turnstile] Verification request failed:', err);
     return false;
