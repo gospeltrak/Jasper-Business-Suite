@@ -485,13 +485,20 @@ export default function DashboardSalesList({
     });
   }, [documents, activeTenant.id]);
 
+  // Database records remain authoritative; failed remote reads must be visible
+  // rather than silently presenting an empty list as though documents vanished.
+  const [documentsLoadError, setDocumentsLoadError] = useState('');
+  const [documentsLoadRetry, setDocumentsLoadRetry] = useState(0);
   // The database is authoritative. onlineStorage above remains only a fast UI
   // cache for legacy sessions; it must never be the source that decides whether
   // an invoice survives a reload or appears on another device.
   useEffect(() => {
     let disposed = false;
     const refreshDocuments = async () => {
-      if (!navigator.onLine) return;
+      if (!navigator.onLine) {
+        if (!disposed) setDocumentsLoadError('You are offline. Saved documents will be refreshed when internet returns.');
+        return;
+      }
       try {
         const remoteDocuments = await loadCommercialDocuments();
         const normalized = remoteDocuments.map((document: SalesDocument) => {
@@ -512,13 +519,15 @@ export default function DashboardSalesList({
           });
         });
         if (!disposed) {
+          setDocumentsLoadError('');
           setDocuments(current => {
             const merged = mergeDocumentsForSync(normalized, current);
             return JSON.stringify(current) === JSON.stringify(merged) ? current : merged;
           });
         }
-      } catch {
-        // Keep the last valid cached list during a temporary network failure.
+      } catch (error) {
+        // Keep the last valid cached list, but don't hide denied/failed reads.
+        if (!disposed) setDocumentsLoadError(error instanceof Error ? error.message : 'Could not load saved quotes or invoices.');
       }
     };
 
@@ -534,7 +543,7 @@ export default function DashboardSalesList({
       window.removeEventListener('focus', refreshDocuments);
       document.removeEventListener('visibilitychange', refreshWhenVisible);
     };
-  }, [activeTenant.id]);
+  }, [activeTenant.id, activeSubTab, documentsLoadRetry]);
 
   // Search state
   const [searchTerm, setSearchTerm] = useState('');
@@ -703,7 +712,10 @@ export default function DashboardSalesList({
         channel.status !== 'inactive' && channel.status !== 'archived'
       );
     });
-    return [...new Set(enabled.length > 0 ? enabled : ['Cash'])];
+    // A quote/invoice states an intended payment method. It is not a POS
+    // settlement: Cash and Credit must work without a configured bank/till
+    // channel. Preserve additional enabled tenant methods (Mpesa, Mixx, etc).
+    return [...new Set(['Cash', 'Credit', ...enabled])];
   }, [systemSettings?.business?.paymentModes, systemSettings?.paymentChannels]);
   // The debts form must use the same resolved account identities as
   // Money & Bank. Configured modes (e.g. Mpesa) do not always exist yet in
@@ -719,6 +731,10 @@ export default function DashboardSalesList({
     [debtCollectionChannels],
   );
   const getDocumentPaymentAccount = React.useCallback((method: string) => {
+    // Neither physical cash nor credit requires a mobile-money account.
+    if (['cash', 'credit'].includes(method.trim().toLowerCase())) {
+      return { accountNumber: '', accountName: '' };
+    }
     const channel = findPaymentChannel(systemSettings?.paymentChannels || [], method);
     return {
       accountNumber: channel?.accountNumber || systemSettings?.invoiceSettings?.accountNumber || '',
@@ -1439,7 +1455,7 @@ export default function DashboardSalesList({
         paymentMethod: newDocPaymentMethod,
         paymentAccountNumber: newDocPaymentAccountNumber.trim() || undefined,
         paymentAccountName: newDocPaymentAccountName.trim() || undefined,
-        paymentAmount: newDocGrandTotal,
+        paymentAmount: newDocPaymentMethod.toLowerCase() === 'credit' ? 0 : newDocGrandTotal,
         timestamp: localDateToIso(newDocDate || formatLocalDate(), new Date(), 12),
       };
       setDocumentMutationPending(true);
@@ -1495,6 +1511,7 @@ export default function DashboardSalesList({
       try {
         const savedDocument = await createStandardCommercialDocument(localDocument);
         setDocuments(prev => [normalizeDocumentDiscount(savedDocument), ...prev]);
+        setDocumentsLoadRetry(counter => counter + 1);
         resetNewDocumentForm();
       } catch (error) {
         alert(error instanceof Error ? error.message : 'The document could not be saved.');
@@ -1539,6 +1556,7 @@ export default function DashboardSalesList({
         total: saved.total,
         brandingSnapshot: saved.brandingSnapshot,
       }, ...prev]);
+      setDocumentsLoadRetry(counter => counter + 1);
       resetNewDocumentForm();
     } catch (error) {
       alert(error instanceof Error ? error.message : 'The document could not be saved.');
@@ -3387,6 +3405,13 @@ export default function DashboardSalesList({
 
         return (
           <div className="space-y-6 animate-fade-in" id="sales-documents-view">
+            {documentsLoadError && (
+              <div role="alert" className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 flex items-center justify-between gap-2">
+                <p className="text-xs font-semibold text-amber-800">Saved documents could not be refreshed: {documentsLoadError}</p>
+                <button type="button" onClick={() => setDocumentsLoadRetry(value => value + 1)}
+                  className="shrink-0 rounded-lg border border-amber-300 px-3 py-1.5 text-xs font-bold text-amber-800 cursor-pointer">Retry</button>
+              </div>
+            )}
             {/* Header control block */}
             <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
               <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
@@ -5101,8 +5126,8 @@ export default function DashboardSalesList({
                   </div>
                   <div>
                     <label className="text-[10px] font-bold text-slate-500 block mb-1">Delivery ({currency})</label>
-                    <input type="number" min="0" placeholder="0" value={newDocDeliveryCost || ''}
-                      onChange={e => setNewDocDeliveryCost(Math.max(0, Number(e.target.value)))}
+                    <input type="number" min="0" step="any" placeholder="Optional · 0" aria-label="Optional delivery fee" value={newDocDeliveryCost || ''}
+                      onChange={e => setNewDocDeliveryCost(e.target.value.trim() === '' ? 0 : Math.max(0, Number(e.target.value) || 0))}
                       className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-2.5 py-2.5 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500 font-mono" />
                   </div>
                 </div>
@@ -5396,7 +5421,13 @@ export default function DashboardSalesList({
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
                   <div className="min-w-0">
                     <label className="text-[10px] font-bold text-slate-500 block mb-1">Payment Mode</label>
-                    <select value={newDocPaymentMethod} onChange={e => setNewDocPaymentMethod(e.target.value)}
+                    <select value={newDocPaymentMethod} onChange={e => {
+                      const method = e.target.value;
+                      setNewDocPaymentMethod(method);
+                      const account = getDocumentPaymentAccount(method);
+                      setNewDocPaymentAccountNumber(account.accountNumber);
+                      setNewDocPaymentAccountName(account.accountName);
+                    }}
                       className="w-full min-h-[42px] bg-white dark:bg-slate-900 border border-indigo-100 dark:border-indigo-900 rounded-xl px-2.5 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500 cursor-pointer">
                       {documentPaymentMethods.map(modeName => (
                         <option key={modeName} value={modeName}>{modeName}</option>
