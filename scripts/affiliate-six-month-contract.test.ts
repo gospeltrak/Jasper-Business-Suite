@@ -9,27 +9,27 @@ const terms = fs.readFileSync('src/modules/affiliate/components/TermsTranslation
 const server = fs.readFileSync('server.ts', 'utf8');
 
 test('verified paid subscription billing history limits each tenant to 6 cycles within 6 months', () => {
-  assert.match(sql, /create or replace function public\\.credit_affiliate_subscription_v2/);
-  assert.match(sql, /from public\\.tenant_subscription_renewals r/);
-  assert.match(sql, /join public\\.tenant_payment_proofs proof/);
-  assert.match(sql, /proof\\.tenant_id=r\\.tenant_id/);
-  assert.match(sql, /r\\.tenant_id=p_tenant_id/);
-  assert.match(sql, /r\\.renewal_source='payment_approval'/);
-  assert.match(sql, /proof\\.status='approved' and proof\\.amount>0/);
-  assert.match(sql, /row_number\\(\\) over/);
+  assert.match(sql, /create or replace function public\.credit_affiliate_subscription_v2/);
+  assert.match(sql, /from public\.tenant_subscription_renewals r/);
+  assert.match(sql, /join public\.tenant_payment_proofs proof/);
+  assert.match(sql, /proof\.tenant_id=r\.tenant_id/);
+  assert.match(sql, /r\.tenant_id=p_tenant_id/);
+  assert.match(sql, /r\.renewal_source='payment_approval'/);
+  assert.match(sql, /proof\.status='approved' and proof\.amount>0/);
+  assert.match(sql, /row_number\(\) over/);
   assert.match(sql, /v_cycle_number > 6/);
-  assert.match(sql, /v_cycle_start >= v_first_cycle_start \\+ interval '6 months'/);
+  assert.match(sql, /v_cycle_start >= v_first_cycle_start \+ interval '6 months'/);
   assert.match(sql, /where payment_proof_id=p_payment_proof_id/);
   assert.match(sql, /pg_advisory_xact_lock/);
 });
 
 test('financial history remains immutable; rewards are idempotent and server-only', () => {
-  assert.doesNotMatch(sql, /\\b(delete from|truncate|drop table|update public\\.affiliate_reward_entries)\\b/i);
-  assert.match(sql, /'payment:'\\|\\|p_payment_proof_id::text/);
-  assert.match(sql, /on conflict\\(source_key\\) do nothing/);
-  assert.match(sql, /auth\\.role\\(\\)\\) is distinct from 'service_role'/);
-  assert.match(sql, /revoke all on function public\\.credit_affiliate_subscription_v2/);
-  assert.match(sql, /grant execute on function public\\.credit_affiliate_subscription_v2\\(uuid,uuid\\) to service_role/);
+  assert.doesNotMatch(sql, /\b(delete from|truncate|drop table|update public\.affiliate_reward_entries)\b/i);
+  assert.match(sql, /'payment:'\|\|p_payment_proof_id::text/);
+  assert.match(sql, /on conflict\(source_key\) do nothing/);
+  assert.match(sql, /auth\.role\(\)\) is distinct from 'service_role'/);
+  assert.match(sql, /revoke all on function public\.credit_affiliate_subscription_v2/);
+  assert.match(sql, /grant execute on function public\.credit_affiliate_subscription_v2\(uuid,uuid\) to service_role/);
   assert.match(server, /credit_affiliate_subscription_v2/);
 });
 
