@@ -1179,17 +1179,17 @@ export default function DashboardProducts({
   const [labelSize, setLabelSize] = useState<'thermal' | 'a4'>('thermal');
   const [printLayoutOption, setPrintLayoutOption] = useState<'name_price' | 'name_barcode' | 'only_barcode'>('name_price');
   const [labelSearchQuery, setLabelSearchQuery] = useState('');
-  const [connectionType, setConnectionType] = useState<'usb' | 'wifi' | 'bluetooth'>('usb');
+  const [connectionType] = useState<'usb' | 'wifi' | 'bluetooth'>('usb');
   
   // Printer config variables
   
   
-  const [wifiIpAddress, setWifiIpAddress] = useState('192.168.1.120');
-  const [wifiPort, setWifiPort] = useState('9100');
+  const [wifiIpAddress] = useState('192.168.1.120');
+  const [wifiPort] = useState('9100');
   
-  const [isPrinterConnected, setIsPrinterConnected] = useState(true);
+  const [isPrinterConnected] = useState(true);
   const [showTestPrintModal, setShowTestPrintModal] = useState(false);
-  const [isPrintingJob, setIsPrintingJob] = useState(false);
+  const [isPrintingJob] = useState(false);
   const [printJobSuccess, setPrintJobSuccess] = useState(false);
 
   // Profit/Telemetry calculations
