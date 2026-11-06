@@ -2133,7 +2133,6 @@ export default function DashboardSalesList({
                 {visibleSales.map((sale, idx) => {
                   const saleItems = sale.items || [];
                   const totalVal = getProductSalesTotal(sale);
-                  const isCredit = sale.paymentMethod === 'Credit';
                   // The server's amountPaid is already cumulative (including
                   // previous installment pay-ins).
                   const calculatedPaid = getProductSalesCollected(sale);
@@ -2414,8 +2413,6 @@ export default function DashboardSalesList({
                 parallel payment UI only on this tab. */}
             <div className="flex flex-col space-y-3">
               {filteredDebtSales.slice(0, visibleDebtCount).map(s => {
-                const totalVal = getProductSalesTotal(s);
-                const calculatedPaid = getProductSalesCollected(s);
                 const calculatedDue = getProductSalesDue(s);
                 const isCleared = calculatedDue === 0;
 
@@ -3751,7 +3748,6 @@ export default function DashboardSalesList({
                     <div className="w-72 space-y-2 font-mono text-xs shrink-0">
                       {(() => {
                         const subtotal = (selectedSale.items || []).reduce((sum, item) => sum + getSaleItemLineTotal(item), 0);
-                        const paid = getProductSalesCollected(selectedSale);
                         const balance = getProductSalesDue(selectedSale);
                         return <>
                           <div className="flex justify-between text-slate-500"><span>Subtotal</span><strong className="text-slate-800">{currency}{Math.round(subtotal).toLocaleString()}</strong></div>
