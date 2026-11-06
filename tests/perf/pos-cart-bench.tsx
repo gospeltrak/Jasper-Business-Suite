@@ -1,6 +1,5 @@
 // Isolated QA performance fixture for the REAL DashboardPOS component.
 // No production backend, tenant writes, or actual customer data are used.
-import React from 'react';
 import { createRoot } from 'react-dom/client';
 import DashboardPOS from '../../src/modules/pos/DashboardPOS';
 import { LanguageProvider } from '../../src/shared/contexts/LanguageContext';
