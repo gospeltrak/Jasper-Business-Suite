@@ -297,7 +297,7 @@ export default function LoginPage({ onLogin, onNavigate, redirectMessage, isDark
   }, []);
 
   // Translation support
-  const { lang: currentLang, setLang: setCurrentLang, t: tContext } = useTranslation();
+  const { lang: currentLang } = useTranslation();
 
   const t = (key: string, variables?: Record<string, string>) => {
     const dict = LOGIN_TRANSLATIONS[currentLang] || LOGIN_TRANSLATIONS['en'];
