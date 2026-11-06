@@ -34,6 +34,9 @@ test('save and load are backed by server RPCs, and remote read errors cannot dis
   assert.match(server,/branchClient\.rpc\('save_current_sales_document'/);
   assert.match(server,/branchClient\.rpc\('list_current_commercial_documents'/);
   assert.match(sales,/Saved documents could not be refreshed:/);
+  assert.match(sales,/const \[documentSearchTerm, setDocumentSearchTerm\]/);
+  assert.match(sales,/normalizeDocType\(doc\.type\) === selectedDocTypeFilter/);
+  assert.match(sales,/setDocumentSearchTerm\(''\)/);
   assert.match(sales,/setDocumentsLoadRetry\(counter => counter \+ 1\)/);
   assert.match(branchApi,/createStandardCommercialDocument/);
   assert.match(branchApi,/loadCommercialDocuments/);
