@@ -1264,22 +1264,6 @@ export default function DashboardCashBank({
           {/* CHANNELS */}
           {channels.filter(chan => chan.category !== 'person').map((chan) => {
             const isSelected = selectedChannelId === chan.id;
-            const sums = channelBalances[chan.id] || { current: 0 };
-            
-            // Calculate total based on dates (using activeTenantFilterLedger)
-            let periodMoneyIn = 0;
-            let periodMoneyOut = 0;
-            activeTenantFilterLedger.forEach(entry => {
-              if (entry.channelId === chan.id) {
-                if (entry.amount > 0) {
-                  periodMoneyIn += entry.amount;
-                } else {
-                  periodMoneyOut += Math.abs(entry.amount);
-                }
-              }
-            });
-            const periodNet = periodMoneyIn - periodMoneyOut;
-
             let iconOfChan = <Coins className="w-4 h-4 shrink-0" />;
             let basePillStyle = 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100/80';
             let activePillStyle = 'bg-amber-100 border-amber-300 text-amber-900 shadow-xs ring-1 ring-amber-400/20';
