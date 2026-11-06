@@ -30,10 +30,29 @@ jobs:
         run: npm install --no-save --package-lock=false @playwright/test@1.56.1
       - name: Install isolated Chromium
         run: npx playwright install --with-deps chromium
+      - name: Diagnose isolated Vite test fixture
+        run: |
+          npx vite --host 127.0.0.1 --port 4174 --strictPort > /tmp/orvix-turnstile-vite.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error http://127.0.0.1:4174/e2e/turnstile.html -o /tmp/orvix-turnstile-e2e.html; then
+              echo "Isolated Turnstile fixture served successfully"
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/orvix-turnstile-vite.log
+          exit 1
+        env:
+          VITE_SUPABASE_URL: ''
+          VITE_SUPABASE_ANON_KEY: ''
+          VITE_TURNSTILE_SITE_KEY: isolated-e2e-test-site-key
       - name: Browser E2E (mocked Cloudflare; no real user or secrets)
         run: npx playwright test --config=e2e/playwright.turnstile.config.mjs
         env:
           CI: 'true'
+          DEBUG: 'pw:webserver'
       - name: Attach failure evidence
         if: failure()
         uses: actions/upload-artifact@v4
