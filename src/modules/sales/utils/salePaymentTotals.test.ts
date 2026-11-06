@@ -31,7 +31,7 @@ describe('customer payment totals', () => {
     expect(getSaleCheckoutPaid(record)).toBe(20000);
   });
   it('shows the real unpaid balance even for a partially paid Cash transaction', () => {
-    const record = sale({ paymentMethod: 'Cash', amountPaid: 25000 });
+    const record = sale({ paymentMethod: 'Cash', amountPaid: 25 });
     expect(getProductSalesCollected(record)).toBe(25000);
     expect(getProductSalesDue(record)).toBe(75);
   });
