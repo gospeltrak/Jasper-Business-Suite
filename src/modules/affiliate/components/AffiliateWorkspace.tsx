@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { BarChart3, CalendarClock, CheckCircle2, ClipboardList, Copy, Download, ExternalLink, Film, Link as LinkIcon, LogOut, LoaderCircle, Menu, Pencil as PencilIcon, PlayCircle, RefreshCw, Settings, ShieldCheck, TrendingUp, Wallet, X, AlertCircle, ArrowDownToLine, Phone, User, Lock, ChevronRight, Clock, CheckCheck, Users, Search, MapPin, Building2, Calendar, Bell, type LucideIcon } from "lucide-react";
+import { BarChart3, CalendarClock, CheckCircle2, ClipboardList, Copy, Download, ExternalLink, Film, Link as LinkIcon, LogOut, LoaderCircle, Menu, Pencil as PencilIcon, PlayCircle, RefreshCw, Settings, ShieldCheck, TrendingUp, Wallet, X, AlertCircle, ArrowDownToLine, Phone, User, ChevronRight, Clock, CheckCheck, Users, Search, MapPin, Building2, Calendar, Bell, type LucideIcon } from "lucide-react";
 import {
   AffiliateCampaign,
   AffiliateNotification,
@@ -18,7 +18,7 @@ import {
 import { ONLINE_ONLY_WRITE_MESSAGE } from '../../../shared/utils/onlineOnly';
 import { canShowDashboardAd, useGlobalAdSettings } from '../../../shared/utils/adPlacement';
 import { sanitizeTrustedHtml } from '../../../shared/utils/safeHtml';
-import { isEarnedCommissionStatus, isSettledPaymentStatus } from '../../../shared/utils/financialStatus';
+import { isSettledPaymentStatus } from '../../../shared/utils/financialStatus';
 import GlobalStickyAd from '../../../shared/components/GlobalStickyAd';
 import { formatLocalMonth } from '../../../shared/utils/localDate';
 import { getSecureDataBridgeClient } from '../../../shared/dataBridge/secureDataBridge';
