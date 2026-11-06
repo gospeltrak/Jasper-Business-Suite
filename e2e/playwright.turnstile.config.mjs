@@ -1,7 +1,7 @@
 import {defineConfig, devices} from '@playwright/test';
 export default defineConfig({
  testDir:'./',
- testMatch:/turnstile\\.spec\\.mjs$/,
+ testMatch:/turnstile\.spec\.mjs$/,
  timeout:25000,
  expect:{timeout:9000},
  workers:1,
