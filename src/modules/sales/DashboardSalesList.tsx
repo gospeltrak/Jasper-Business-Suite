@@ -1129,12 +1129,9 @@ export default function DashboardSalesList({
 
   // KPI Calculations
   const totalVolume = filteredSales.reduce((acc, s) => acc + getProductSalesTotal(s), 0);
-  const pendingSyncCount = filteredSales.filter(s => s.syncStatus === 'pending').length;
-  const creditsCount = filteredSales.filter(s => s.paymentMethod === 'Credit').length;
   const creditsVolume = filteredSales.filter(s => s.paymentMethod === 'Credit').reduce((acc, s) => acc + getProductSalesDue(s), 0);
-  const getAmountPaidForSale = getProductSalesCollected;
-  const amountCollectedVolume = filteredSales.reduce((acc, s) => acc + getAmountPaidForSale(s), 0);
-  const amountCollectedCount = filteredSales.filter(s => getAmountPaidForSale(s) > 0).length;
+  const amountCollectedVolume = filteredSales.reduce((acc, s) => acc + getProductSalesCollected(s), 0);
+  const amountCollectedCount = filteredSales.filter(s => getProductSalesCollected(s) > 0).length;
   const pendingCount = filteredSales.filter(s => {
     return s.paymentMethod === 'Credit' && getProductSalesDue(s) > 0;
   }).length;
@@ -2003,13 +2000,12 @@ export default function DashboardSalesList({
             const totalVal = getProductSalesTotal(sale);
             const isCredit = sale.paymentMethod === 'Credit';
             const amountPaid = getProductSalesCollected(sale);
-            const pastInstallments = (installmentRecords[sale.id] || []).reduce((sum, inst) => sum + inst.amount, 0);
-            const totalCollectedSoFar = isCredit ? amountPaid : totalVal;
-            const amountDueRaw = isCredit ? Math.max(0, totalVal - totalCollectedSoFar) : 0;
+            const amountDueRaw = Math.max(0, totalVal - amountPaid);
 
-            const isPaid = !isCredit;
+            // A partially collected non-credit payment is not "Paid" either.
+            const isPaid = !isCredit && amountDueRaw <= 0;
             const isSettled = isCredit && amountDueRaw <= 0;
-            const isPartial = isCredit && totalCollectedSoFar > 0 && amountDueRaw > 0;
+            const isPartial = amountPaid > 0 && amountDueRaw > 0;
             
 
             const statusLabel = isPaid ? 'Paid' : isSettled ? 'Settled' : isPartial ? 'Partial' : 'Unpaid';
@@ -3959,10 +3955,10 @@ export default function DashboardSalesList({
                     ? (selectedSale.discountType === 'cash' ? taxableSub + discVal : taxableSub / (1 - discVal / 100))
                     : taxableSub;
                   const discAmt = originalSub - taxableSub;
-                  const initialPaid = selectedSale.amountPaid !== undefined ? selectedSale.amountPaid : (selectedSale.paymentMethod === 'Credit' ? 0 : selectedSale.total);
-                  const extra = (installmentRecords[selectedSale.id] || []).reduce((sum, inst) => sum + inst.amount, 0);
-                  const totalPaidNow = Math.min(getProductSalesTotal(selectedSale), initialPaid);
-                  const dueRemainder = Math.max(0, getProductSalesTotal(selectedSale) - totalPaidNow);
+                  // amountPaid already includes installments. Reusing the shared
+                  // helpers keeps receipt and Sales/Bank figures in sync.
+                  const totalPaidNow = getProductSalesCollected(selectedSale);
+                  const dueRemainder = getProductSalesDue(selectedSale);
                   return (
                     <>
                       <div className="space-y-1.5 text-[11px] text-black">
