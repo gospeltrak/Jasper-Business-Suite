@@ -85,9 +85,482 @@ CREATE TRIGGER sync_pharmacy_product_levels
   FOR EACH ROW EXECUTE FUNCTION private.sync_pharmacy_product_levels();
 
 -- Backfill only pharmacy-specific columns for existing rows, without touching stock.
-UPDATE public.products SET source_record = source_record
-WHERE source_active AND (source_record ? 'pharmacyUnitLevels'
-  OR source_record ? 'tabsPerDose' OR source_record ? 'pharmacyProductType');
+UPDATE public.products p SET
+  pharmacy_product_type = nullif(p.source_record->>'pharmacyProductType',''),
+  pharmacy_hierarchy_start = nullif(p.source_record->>'pharmacyHierarchyStart',''),
+  pharmacy_base_unit = nullif(p.source_record->>'pharmacyBaseUnit',''),
+  doses_per_packet = CASE WHEN p.source_record->>'dosesPerPacket' ~ '^[0-9]+([.][0-9]+)?
+
+-- Insert hierarchy levels only for products with well-formed arrays.
+INSERT INTO public.product_pharmacy_unit_levels
+  (product_id, level_id, ordinal, label, unit, quantity_to_base_unit)
+SELECT p.id, item.value->>'id', (item.ordinality - 1)::integer,
+       coalesce(item.value->>'label',''), coalesce(item.value->>'unit',''),
+       (item.value->>'quantityToBaseUnit')::numeric
+FROM public.products p
+CROSS JOIN LATERAL jsonb_array_elements(
+  CASE WHEN jsonb_typeof(p.source_record->'pharmacyUnitLevels') = 'array'
+    THEN p.source_record->'pharmacyUnitLevels' ELSE '[]'::jsonb END
+) WITH ORDINALITY AS item(value, ordinality)
+WHERE p.source_active
+  AND nullif(item.value->>'id','') IS NOT NULL
+  AND (item.value->>'quantityToBaseUnit') ~ '^[0-9]+([.][0-9]+)?$'
+  AND (item.value->>'quantityToBaseUnit')::numeric > 0
+ON CONFLICT (product_id, level_id) DO NOTHING;
+
+-- Single-row authoritative product readback: no whole-workspace download.
+-- Permission is checked against the current selected branch and tenant.
+CREATE OR REPLACE FUNCTION public.get_current_branch_product_fresh(p_product_id text)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = '' AS $$
+DECLARE
+  v_tenant uuid := private.current_tenant_id();
+  v_context jsonb;
+  v_branch uuid;
+  v_product jsonb;
+BEGIN
+  IF (SELECT auth.uid()) IS NULL OR v_tenant IS NULL OR nullif(p_product_id,'') IS NULL THEN
+    RAISE EXCEPTION USING errcode='42501', message='Active tenant and product required';
+  END IF;
+  v_context := public.get_current_branch_context();
+  v_branch := nullif(v_context->>'activeBranchId','')::uuid;
+  IF v_context->>'activeScope' <> 'branch' OR v_branch IS NULL
+    OR NOT private.can_write_branch(v_tenant,v_branch,'products.write') THEN
+    RAISE EXCEPTION USING errcode='42501', message='Product permission required';
+  END IF;
+  SELECT p.source_record || jsonb_strip_nulls(jsonb_build_object(
+    'pharmacyProductType', p.pharmacy_product_type,
+    'pharmacyHierarchyStart', p.pharmacy_hierarchy_start,
+    'pharmacyBaseUnit', p.pharmacy_base_unit,
+    'dosesPerPacket', p.doses_per_packet,
+    'tabsPerDose', p.tabs_per_dose,
+    'tabsPerPack', p.tabs_per_pack,
+    'packetPrice', p.packet_price,
+    'stripPrice', p.strip_price,
+    'fullDosePrice', p.full_dose_price,
+    'halfDosePrice', p.half_dose_price,
+    'tabPrice', p.tab_price,
+    'allowsDosageDividing', p.allows_dosage_dividing,
+    'pharmacyUnitLevels', coalesce((
+      SELECT jsonb_agg(jsonb_build_object(
+        'id', l.level_id, 'label', l.label, 'unit', l.unit,
+        'quantityToBaseUnit', l.quantity_to_base_unit) ORDER BY l.ordinal)
+      FROM public.product_pharmacy_unit_levels l WHERE l.product_id=p.id
+    ),'[]'::jsonb)
+  )) INTO v_product
+  FROM public.products p
+  WHERE p.tenant_id=v_tenant AND p.legacy_id=p_product_id AND p.source_active
+  LIMIT 1;
+  RETURN v_product;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.get_current_branch_product_fresh(text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.get_current_branch_product_fresh(text) TO authenticated;
+ THEN (p.source_record->>'dosesPerPacket')::numeric ELSE NULL END,
+  tabs_per_dose = CASE WHEN p.source_record->>'tabsPerDose' ~ '^[0-9]+([.][0-9]+)?
+
+-- Insert hierarchy levels only for products with well-formed arrays.
+INSERT INTO public.product_pharmacy_unit_levels
+  (product_id, level_id, ordinal, label, unit, quantity_to_base_unit)
+SELECT p.id, item.value->>'id', (item.ordinality - 1)::integer,
+       coalesce(item.value->>'label',''), coalesce(item.value->>'unit',''),
+       (item.value->>'quantityToBaseUnit')::numeric
+FROM public.products p
+CROSS JOIN LATERAL jsonb_array_elements(
+  CASE WHEN jsonb_typeof(p.source_record->'pharmacyUnitLevels') = 'array'
+    THEN p.source_record->'pharmacyUnitLevels' ELSE '[]'::jsonb END
+) WITH ORDINALITY AS item(value, ordinality)
+WHERE p.source_active
+  AND nullif(item.value->>'id','') IS NOT NULL
+  AND (item.value->>'quantityToBaseUnit') ~ '^[0-9]+([.][0-9]+)?$'
+  AND (item.value->>'quantityToBaseUnit')::numeric > 0
+ON CONFLICT (product_id, level_id) DO NOTHING;
+
+-- Single-row authoritative product readback: no whole-workspace download.
+-- Permission is checked against the current selected branch and tenant.
+CREATE OR REPLACE FUNCTION public.get_current_branch_product_fresh(p_product_id text)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = '' AS $$
+DECLARE
+  v_tenant uuid := private.current_tenant_id();
+  v_context jsonb;
+  v_branch uuid;
+  v_product jsonb;
+BEGIN
+  IF (SELECT auth.uid()) IS NULL OR v_tenant IS NULL OR nullif(p_product_id,'') IS NULL THEN
+    RAISE EXCEPTION USING errcode='42501', message='Active tenant and product required';
+  END IF;
+  v_context := public.get_current_branch_context();
+  v_branch := nullif(v_context->>'activeBranchId','')::uuid;
+  IF v_context->>'activeScope' <> 'branch' OR v_branch IS NULL
+    OR NOT private.can_write_branch(v_tenant,v_branch,'products.write') THEN
+    RAISE EXCEPTION USING errcode='42501', message='Product permission required';
+  END IF;
+  SELECT p.source_record || jsonb_strip_nulls(jsonb_build_object(
+    'pharmacyProductType', p.pharmacy_product_type,
+    'pharmacyHierarchyStart', p.pharmacy_hierarchy_start,
+    'pharmacyBaseUnit', p.pharmacy_base_unit,
+    'dosesPerPacket', p.doses_per_packet,
+    'tabsPerDose', p.tabs_per_dose,
+    'tabsPerPack', p.tabs_per_pack,
+    'packetPrice', p.packet_price,
+    'stripPrice', p.strip_price,
+    'fullDosePrice', p.full_dose_price,
+    'halfDosePrice', p.half_dose_price,
+    'tabPrice', p.tab_price,
+    'allowsDosageDividing', p.allows_dosage_dividing,
+    'pharmacyUnitLevels', coalesce((
+      SELECT jsonb_agg(jsonb_build_object(
+        'id', l.level_id, 'label', l.label, 'unit', l.unit,
+        'quantityToBaseUnit', l.quantity_to_base_unit) ORDER BY l.ordinal)
+      FROM public.product_pharmacy_unit_levels l WHERE l.product_id=p.id
+    ),'[]'::jsonb)
+  )) INTO v_product
+  FROM public.products p
+  WHERE p.tenant_id=v_tenant AND p.legacy_id=p_product_id AND p.source_active
+  LIMIT 1;
+  RETURN v_product;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.get_current_branch_product_fresh(text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.get_current_branch_product_fresh(text) TO authenticated;
+ THEN (p.source_record->>'tabsPerDose')::numeric ELSE NULL END,
+  packet_price = CASE WHEN p.source_record->>'packetPrice' ~ '^[0-9]+([.][0-9]+)?
+
+-- Insert hierarchy levels only for products with well-formed arrays.
+INSERT INTO public.product_pharmacy_unit_levels
+  (product_id, level_id, ordinal, label, unit, quantity_to_base_unit)
+SELECT p.id, item.value->>'id', (item.ordinality - 1)::integer,
+       coalesce(item.value->>'label',''), coalesce(item.value->>'unit',''),
+       (item.value->>'quantityToBaseUnit')::numeric
+FROM public.products p
+CROSS JOIN LATERAL jsonb_array_elements(
+  CASE WHEN jsonb_typeof(p.source_record->'pharmacyUnitLevels') = 'array'
+    THEN p.source_record->'pharmacyUnitLevels' ELSE '[]'::jsonb END
+) WITH ORDINALITY AS item(value, ordinality)
+WHERE p.source_active
+  AND nullif(item.value->>'id','') IS NOT NULL
+  AND (item.value->>'quantityToBaseUnit') ~ '^[0-9]+([.][0-9]+)?$'
+  AND (item.value->>'quantityToBaseUnit')::numeric > 0
+ON CONFLICT (product_id, level_id) DO NOTHING;
+
+-- Single-row authoritative product readback: no whole-workspace download.
+-- Permission is checked against the current selected branch and tenant.
+CREATE OR REPLACE FUNCTION public.get_current_branch_product_fresh(p_product_id text)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = '' AS $$
+DECLARE
+  v_tenant uuid := private.current_tenant_id();
+  v_context jsonb;
+  v_branch uuid;
+  v_product jsonb;
+BEGIN
+  IF (SELECT auth.uid()) IS NULL OR v_tenant IS NULL OR nullif(p_product_id,'') IS NULL THEN
+    RAISE EXCEPTION USING errcode='42501', message='Active tenant and product required';
+  END IF;
+  v_context := public.get_current_branch_context();
+  v_branch := nullif(v_context->>'activeBranchId','')::uuid;
+  IF v_context->>'activeScope' <> 'branch' OR v_branch IS NULL
+    OR NOT private.can_write_branch(v_tenant,v_branch,'products.write') THEN
+    RAISE EXCEPTION USING errcode='42501', message='Product permission required';
+  END IF;
+  SELECT p.source_record || jsonb_strip_nulls(jsonb_build_object(
+    'pharmacyProductType', p.pharmacy_product_type,
+    'pharmacyHierarchyStart', p.pharmacy_hierarchy_start,
+    'pharmacyBaseUnit', p.pharmacy_base_unit,
+    'dosesPerPacket', p.doses_per_packet,
+    'tabsPerDose', p.tabs_per_dose,
+    'tabsPerPack', p.tabs_per_pack,
+    'packetPrice', p.packet_price,
+    'stripPrice', p.strip_price,
+    'fullDosePrice', p.full_dose_price,
+    'halfDosePrice', p.half_dose_price,
+    'tabPrice', p.tab_price,
+    'allowsDosageDividing', p.allows_dosage_dividing,
+    'pharmacyUnitLevels', coalesce((
+      SELECT jsonb_agg(jsonb_build_object(
+        'id', l.level_id, 'label', l.label, 'unit', l.unit,
+        'quantityToBaseUnit', l.quantity_to_base_unit) ORDER BY l.ordinal)
+      FROM public.product_pharmacy_unit_levels l WHERE l.product_id=p.id
+    ),'[]'::jsonb)
+  )) INTO v_product
+  FROM public.products p
+  WHERE p.tenant_id=v_tenant AND p.legacy_id=p_product_id AND p.source_active
+  LIMIT 1;
+  RETURN v_product;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.get_current_branch_product_fresh(text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.get_current_branch_product_fresh(text) TO authenticated;
+ THEN (p.source_record->>'packetPrice')::numeric ELSE NULL END,
+  strip_price = CASE WHEN p.source_record->>'stripPrice' ~ '^[0-9]+([.][0-9]+)?
+
+-- Insert hierarchy levels only for products with well-formed arrays.
+INSERT INTO public.product_pharmacy_unit_levels
+  (product_id, level_id, ordinal, label, unit, quantity_to_base_unit)
+SELECT p.id, item.value->>'id', (item.ordinality - 1)::integer,
+       coalesce(item.value->>'label',''), coalesce(item.value->>'unit',''),
+       (item.value->>'quantityToBaseUnit')::numeric
+FROM public.products p
+CROSS JOIN LATERAL jsonb_array_elements(
+  CASE WHEN jsonb_typeof(p.source_record->'pharmacyUnitLevels') = 'array'
+    THEN p.source_record->'pharmacyUnitLevels' ELSE '[]'::jsonb END
+) WITH ORDINALITY AS item(value, ordinality)
+WHERE p.source_active
+  AND nullif(item.value->>'id','') IS NOT NULL
+  AND (item.value->>'quantityToBaseUnit') ~ '^[0-9]+([.][0-9]+)?$'
+  AND (item.value->>'quantityToBaseUnit')::numeric > 0
+ON CONFLICT (product_id, level_id) DO NOTHING;
+
+-- Single-row authoritative product readback: no whole-workspace download.
+-- Permission is checked against the current selected branch and tenant.
+CREATE OR REPLACE FUNCTION public.get_current_branch_product_fresh(p_product_id text)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = '' AS $$
+DECLARE
+  v_tenant uuid := private.current_tenant_id();
+  v_context jsonb;
+  v_branch uuid;
+  v_product jsonb;
+BEGIN
+  IF (SELECT auth.uid()) IS NULL OR v_tenant IS NULL OR nullif(p_product_id,'') IS NULL THEN
+    RAISE EXCEPTION USING errcode='42501', message='Active tenant and product required';
+  END IF;
+  v_context := public.get_current_branch_context();
+  v_branch := nullif(v_context->>'activeBranchId','')::uuid;
+  IF v_context->>'activeScope' <> 'branch' OR v_branch IS NULL
+    OR NOT private.can_write_branch(v_tenant,v_branch,'products.write') THEN
+    RAISE EXCEPTION USING errcode='42501', message='Product permission required';
+  END IF;
+  SELECT p.source_record || jsonb_strip_nulls(jsonb_build_object(
+    'pharmacyProductType', p.pharmacy_product_type,
+    'pharmacyHierarchyStart', p.pharmacy_hierarchy_start,
+    'pharmacyBaseUnit', p.pharmacy_base_unit,
+    'dosesPerPacket', p.doses_per_packet,
+    'tabsPerDose', p.tabs_per_dose,
+    'tabsPerPack', p.tabs_per_pack,
+    'packetPrice', p.packet_price,
+    'stripPrice', p.strip_price,
+    'fullDosePrice', p.full_dose_price,
+    'halfDosePrice', p.half_dose_price,
+    'tabPrice', p.tab_price,
+    'allowsDosageDividing', p.allows_dosage_dividing,
+    'pharmacyUnitLevels', coalesce((
+      SELECT jsonb_agg(jsonb_build_object(
+        'id', l.level_id, 'label', l.label, 'unit', l.unit,
+        'quantityToBaseUnit', l.quantity_to_base_unit) ORDER BY l.ordinal)
+      FROM public.product_pharmacy_unit_levels l WHERE l.product_id=p.id
+    ),'[]'::jsonb)
+  )) INTO v_product
+  FROM public.products p
+  WHERE p.tenant_id=v_tenant AND p.legacy_id=p_product_id AND p.source_active
+  LIMIT 1;
+  RETURN v_product;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.get_current_branch_product_fresh(text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.get_current_branch_product_fresh(text) TO authenticated;
+ THEN (p.source_record->>'stripPrice')::numeric ELSE NULL END,
+  full_dose_price = CASE WHEN p.source_record->>'fullDosePrice' ~ '^[0-9]+([.][0-9]+)?
+
+-- Insert hierarchy levels only for products with well-formed arrays.
+INSERT INTO public.product_pharmacy_unit_levels
+  (product_id, level_id, ordinal, label, unit, quantity_to_base_unit)
+SELECT p.id, item.value->>'id', (item.ordinality - 1)::integer,
+       coalesce(item.value->>'label',''), coalesce(item.value->>'unit',''),
+       (item.value->>'quantityToBaseUnit')::numeric
+FROM public.products p
+CROSS JOIN LATERAL jsonb_array_elements(
+  CASE WHEN jsonb_typeof(p.source_record->'pharmacyUnitLevels') = 'array'
+    THEN p.source_record->'pharmacyUnitLevels' ELSE '[]'::jsonb END
+) WITH ORDINALITY AS item(value, ordinality)
+WHERE p.source_active
+  AND nullif(item.value->>'id','') IS NOT NULL
+  AND (item.value->>'quantityToBaseUnit') ~ '^[0-9]+([.][0-9]+)?$'
+  AND (item.value->>'quantityToBaseUnit')::numeric > 0
+ON CONFLICT (product_id, level_id) DO NOTHING;
+
+-- Single-row authoritative product readback: no whole-workspace download.
+-- Permission is checked against the current selected branch and tenant.
+CREATE OR REPLACE FUNCTION public.get_current_branch_product_fresh(p_product_id text)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = '' AS $$
+DECLARE
+  v_tenant uuid := private.current_tenant_id();
+  v_context jsonb;
+  v_branch uuid;
+  v_product jsonb;
+BEGIN
+  IF (SELECT auth.uid()) IS NULL OR v_tenant IS NULL OR nullif(p_product_id,'') IS NULL THEN
+    RAISE EXCEPTION USING errcode='42501', message='Active tenant and product required';
+  END IF;
+  v_context := public.get_current_branch_context();
+  v_branch := nullif(v_context->>'activeBranchId','')::uuid;
+  IF v_context->>'activeScope' <> 'branch' OR v_branch IS NULL
+    OR NOT private.can_write_branch(v_tenant,v_branch,'products.write') THEN
+    RAISE EXCEPTION USING errcode='42501', message='Product permission required';
+  END IF;
+  SELECT p.source_record || jsonb_strip_nulls(jsonb_build_object(
+    'pharmacyProductType', p.pharmacy_product_type,
+    'pharmacyHierarchyStart', p.pharmacy_hierarchy_start,
+    'pharmacyBaseUnit', p.pharmacy_base_unit,
+    'dosesPerPacket', p.doses_per_packet,
+    'tabsPerDose', p.tabs_per_dose,
+    'tabsPerPack', p.tabs_per_pack,
+    'packetPrice', p.packet_price,
+    'stripPrice', p.strip_price,
+    'fullDosePrice', p.full_dose_price,
+    'halfDosePrice', p.half_dose_price,
+    'tabPrice', p.tab_price,
+    'allowsDosageDividing', p.allows_dosage_dividing,
+    'pharmacyUnitLevels', coalesce((
+      SELECT jsonb_agg(jsonb_build_object(
+        'id', l.level_id, 'label', l.label, 'unit', l.unit,
+        'quantityToBaseUnit', l.quantity_to_base_unit) ORDER BY l.ordinal)
+      FROM public.product_pharmacy_unit_levels l WHERE l.product_id=p.id
+    ),'[]'::jsonb)
+  )) INTO v_product
+  FROM public.products p
+  WHERE p.tenant_id=v_tenant AND p.legacy_id=p_product_id AND p.source_active
+  LIMIT 1;
+  RETURN v_product;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.get_current_branch_product_fresh(text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.get_current_branch_product_fresh(text) TO authenticated;
+ THEN (p.source_record->>'fullDosePrice')::numeric ELSE NULL END,
+  half_dose_price = CASE WHEN p.source_record->>'halfDosePrice' ~ '^[0-9]+([.][0-9]+)?
+
+-- Insert hierarchy levels only for products with well-formed arrays.
+INSERT INTO public.product_pharmacy_unit_levels
+  (product_id, level_id, ordinal, label, unit, quantity_to_base_unit)
+SELECT p.id, item.value->>'id', (item.ordinality - 1)::integer,
+       coalesce(item.value->>'label',''), coalesce(item.value->>'unit',''),
+       (item.value->>'quantityToBaseUnit')::numeric
+FROM public.products p
+CROSS JOIN LATERAL jsonb_array_elements(
+  CASE WHEN jsonb_typeof(p.source_record->'pharmacyUnitLevels') = 'array'
+    THEN p.source_record->'pharmacyUnitLevels' ELSE '[]'::jsonb END
+) WITH ORDINALITY AS item(value, ordinality)
+WHERE p.source_active
+  AND nullif(item.value->>'id','') IS NOT NULL
+  AND (item.value->>'quantityToBaseUnit') ~ '^[0-9]+([.][0-9]+)?$'
+  AND (item.value->>'quantityToBaseUnit')::numeric > 0
+ON CONFLICT (product_id, level_id) DO NOTHING;
+
+-- Single-row authoritative product readback: no whole-workspace download.
+-- Permission is checked against the current selected branch and tenant.
+CREATE OR REPLACE FUNCTION public.get_current_branch_product_fresh(p_product_id text)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = '' AS $$
+DECLARE
+  v_tenant uuid := private.current_tenant_id();
+  v_context jsonb;
+  v_branch uuid;
+  v_product jsonb;
+BEGIN
+  IF (SELECT auth.uid()) IS NULL OR v_tenant IS NULL OR nullif(p_product_id,'') IS NULL THEN
+    RAISE EXCEPTION USING errcode='42501', message='Active tenant and product required';
+  END IF;
+  v_context := public.get_current_branch_context();
+  v_branch := nullif(v_context->>'activeBranchId','')::uuid;
+  IF v_context->>'activeScope' <> 'branch' OR v_branch IS NULL
+    OR NOT private.can_write_branch(v_tenant,v_branch,'products.write') THEN
+    RAISE EXCEPTION USING errcode='42501', message='Product permission required';
+  END IF;
+  SELECT p.source_record || jsonb_strip_nulls(jsonb_build_object(
+    'pharmacyProductType', p.pharmacy_product_type,
+    'pharmacyHierarchyStart', p.pharmacy_hierarchy_start,
+    'pharmacyBaseUnit', p.pharmacy_base_unit,
+    'dosesPerPacket', p.doses_per_packet,
+    'tabsPerDose', p.tabs_per_dose,
+    'tabsPerPack', p.tabs_per_pack,
+    'packetPrice', p.packet_price,
+    'stripPrice', p.strip_price,
+    'fullDosePrice', p.full_dose_price,
+    'halfDosePrice', p.half_dose_price,
+    'tabPrice', p.tab_price,
+    'allowsDosageDividing', p.allows_dosage_dividing,
+    'pharmacyUnitLevels', coalesce((
+      SELECT jsonb_agg(jsonb_build_object(
+        'id', l.level_id, 'label', l.label, 'unit', l.unit,
+        'quantityToBaseUnit', l.quantity_to_base_unit) ORDER BY l.ordinal)
+      FROM public.product_pharmacy_unit_levels l WHERE l.product_id=p.id
+    ),'[]'::jsonb)
+  )) INTO v_product
+  FROM public.products p
+  WHERE p.tenant_id=v_tenant AND p.legacy_id=p_product_id AND p.source_active
+  LIMIT 1;
+  RETURN v_product;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.get_current_branch_product_fresh(text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.get_current_branch_product_fresh(text) TO authenticated;
+ THEN (p.source_record->>'halfDosePrice')::numeric ELSE NULL END,
+  tab_price = CASE WHEN p.source_record->>'tabPrice' ~ '^[0-9]+([.][0-9]+)?
+
+-- Insert hierarchy levels only for products with well-formed arrays.
+INSERT INTO public.product_pharmacy_unit_levels
+  (product_id, level_id, ordinal, label, unit, quantity_to_base_unit)
+SELECT p.id, item.value->>'id', (item.ordinality - 1)::integer,
+       coalesce(item.value->>'label',''), coalesce(item.value->>'unit',''),
+       (item.value->>'quantityToBaseUnit')::numeric
+FROM public.products p
+CROSS JOIN LATERAL jsonb_array_elements(
+  CASE WHEN jsonb_typeof(p.source_record->'pharmacyUnitLevels') = 'array'
+    THEN p.source_record->'pharmacyUnitLevels' ELSE '[]'::jsonb END
+) WITH ORDINALITY AS item(value, ordinality)
+WHERE p.source_active
+  AND nullif(item.value->>'id','') IS NOT NULL
+  AND (item.value->>'quantityToBaseUnit') ~ '^[0-9]+([.][0-9]+)?$'
+  AND (item.value->>'quantityToBaseUnit')::numeric > 0
+ON CONFLICT (product_id, level_id) DO NOTHING;
+
+-- Single-row authoritative product readback: no whole-workspace download.
+-- Permission is checked against the current selected branch and tenant.
+CREATE OR REPLACE FUNCTION public.get_current_branch_product_fresh(p_product_id text)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = '' AS $$
+DECLARE
+  v_tenant uuid := private.current_tenant_id();
+  v_context jsonb;
+  v_branch uuid;
+  v_product jsonb;
+BEGIN
+  IF (SELECT auth.uid()) IS NULL OR v_tenant IS NULL OR nullif(p_product_id,'') IS NULL THEN
+    RAISE EXCEPTION USING errcode='42501', message='Active tenant and product required';
+  END IF;
+  v_context := public.get_current_branch_context();
+  v_branch := nullif(v_context->>'activeBranchId','')::uuid;
+  IF v_context->>'activeScope' <> 'branch' OR v_branch IS NULL
+    OR NOT private.can_write_branch(v_tenant,v_branch,'products.write') THEN
+    RAISE EXCEPTION USING errcode='42501', message='Product permission required';
+  END IF;
+  SELECT p.source_record || jsonb_strip_nulls(jsonb_build_object(
+    'pharmacyProductType', p.pharmacy_product_type,
+    'pharmacyHierarchyStart', p.pharmacy_hierarchy_start,
+    'pharmacyBaseUnit', p.pharmacy_base_unit,
+    'dosesPerPacket', p.doses_per_packet,
+    'tabsPerDose', p.tabs_per_dose,
+    'tabsPerPack', p.tabs_per_pack,
+    'packetPrice', p.packet_price,
+    'stripPrice', p.strip_price,
+    'fullDosePrice', p.full_dose_price,
+    'halfDosePrice', p.half_dose_price,
+    'tabPrice', p.tab_price,
+    'allowsDosageDividing', p.allows_dosage_dividing,
+    'pharmacyUnitLevels', coalesce((
+      SELECT jsonb_agg(jsonb_build_object(
+        'id', l.level_id, 'label', l.label, 'unit', l.unit,
+        'quantityToBaseUnit', l.quantity_to_base_unit) ORDER BY l.ordinal)
+      FROM public.product_pharmacy_unit_levels l WHERE l.product_id=p.id
+    ),'[]'::jsonb)
+  )) INTO v_product
+  FROM public.products p
+  WHERE p.tenant_id=v_tenant AND p.legacy_id=p_product_id AND p.source_active
+  LIMIT 1;
+  RETURN v_product;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.get_current_branch_product_fresh(text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.get_current_branch_product_fresh(text) TO authenticated;
+ THEN (p.source_record->>'tabPrice')::numeric ELSE NULL END
+WHERE p.source_active AND (
+  p.source_record ? 'pharmacyUnitLevels' OR p.source_record ? 'tabsPerDose'
+  OR p.source_record ? 'pharmacyProductType');
 
 -- Insert hierarchy levels only for products with well-formed arrays.
 INSERT INTO public.product_pharmacy_unit_levels
