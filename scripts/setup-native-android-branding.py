@@ -32,7 +32,12 @@ BRAND_BG = (255, 255, 255, 255)
 
 def assert_project() -> None:
     if not SOURCE.is_file() or not RES.is_dir() or not MANIFEST.is_file():
-        raise RuntimeError("Orvix icon or generated Android project is missing; run after cap sync android")
+        raise RuntimeError(
+            "Orvix branding input missing after cap sync: "
+            f"icon={SOURCE.is_file()} ({SOURCE}), "
+            f"resources={RES.is_dir()} ({RES}), "
+            f"manifest={MANIFEST.is_file()} ({MANIFEST})"
+        )
 
 
 def render(source: Image.Image, size: int, content_fraction: float) -> Image.Image:
