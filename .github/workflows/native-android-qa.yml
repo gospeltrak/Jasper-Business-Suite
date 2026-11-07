@@ -141,7 +141,7 @@ jobs:
           import struct
           from pathlib import Path
           b=Path('public/brand/orvix-qa-logo.png').read_bytes()
-          assert b[:8] == b'\\x89PNG\\r\\n\\x1a\\n', 'Android logo must be PNG'
+          assert b[:8] == b'\x89PNG\r\n\x1a\n', 'Android logo must be PNG'
           width,height=struct.unpack('>II',b[16:24])
           assert width >= 256 and height >= 256
           print('Orvix Android logo size:', width, height)
