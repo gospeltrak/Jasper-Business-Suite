@@ -130,6 +130,9 @@ jobs:
           mkdir -p public/brand
           if [[ -n "$ORVIX_BETA_APPROVED_LOGO_B64" ]]; then
             printf '%s' "$ORVIX_BETA_APPROVED_LOGO_B64" | base64 --decode > public/brand/orvix-qa-logo.png
+            # Byte-for-byte checksum of the PNG explicitly approved by owner.
+            # Do not accidentally substitute a redesigned/older Orvix symbol.
+            echo 'e2a04bc80328f75f1df2bd5f01379530f012ec0f6cf51e8829d008bda5f83be6  public/brand/orvix-qa-logo.png' | sha256sum --check
             echo "approved=true" >> "$GITHUB_OUTPUT"
           else
             # An internal CI build can use the old repo asset to test Java.
