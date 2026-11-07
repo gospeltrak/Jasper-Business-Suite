@@ -74,6 +74,10 @@ jobs:
       - name: Native isolation and security contracts
         run: npm run native:verify
 
+      - name: Verify native opt-in updater invariants
+        if: startsWith(github.head_ref || github.ref_name, 'feature/orvix-android-in-app-updates-')
+        run: node --test scripts/native-android-updater.contract.test.mjs
+
       - name: Validate TypeScript
         run: npm run lint
 
