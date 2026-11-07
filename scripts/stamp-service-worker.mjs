@@ -32,5 +32,20 @@ const sha = /^[a-f0-9]{7,64}$/i.test(fromEnvironment)
     : '';
 // A non-Git build should still force SW revalidation (never reuse 'placeholder').
 const version = sha || `build-${Date.now().toString(36)}`;
+const htmlPath = resolve('dist/index.html');
+const html = await readFile(htmlPath, 'utf8');
+if (!html.includes(marker)) {
+  throw new Error('Missing Orvix app-shell release marker: refusing an unversioned deployment');
+}
+
 await writeFile(workerPath, template.replaceAll(marker, version), 'utf8');
-console.log(`Orvix service worker release stamped: ${version.slice(0, 12)}`);
+await writeFile(htmlPath, html.replaceAll(marker, version), 'utf8');
+// The tiny public marker works in browsers and remote-URL Android WebViews
+// (even if the native WebView does not support service workers).
+// It contains no tenant data or download link, and is never executable code.
+await writeFile(resolve('dist/orvix-release.json'), JSON.stringify({
+  schemaVersion: 1,
+  webVersion: version,
+  updateStrategy: 'next-launch',
+}) + '\n', 'utf8');
+console.log(`Orvix web release stamped: ${version.slice(0, 12)}`);

@@ -34,6 +34,21 @@ if (artifactMode) {
   await assertFile('dist/index.html', 500);
   await assertFile('dist/server.cjs', 10_000);
   await assertFile('dist/sw.js', 150);
+  await assertFile('dist/orvix-release.json', 60);
+  try {
+    const appShell = await readFile(join(projectRoot, 'dist/index.html'), 'utf8');
+    const worker = await readFile(join(projectRoot, 'dist/sw.js'), 'utf8');
+    const release = JSON.parse(await readFile(join(projectRoot, 'dist/orvix-release.json'), 'utf8'));
+    const htmlVersion = /<meta name="orvix-web-release" content="([^"]+)"/.exec(appShell)?.[1];
+    const swVersion = /ORVIX_BUILD_VERSION = '([^']+)'/.exec(worker)?.[1];
+    if (!htmlVersion || htmlVersion.includes('__ORVIX_BUILD_VERSION__') ||
+        release.schemaVersion !== 1 || release.updateStrategy !== 'next-launch' ||
+        release.webVersion !== htmlVersion || release.webVersion !== swVersion) {
+      fail('Build must stamp matching app shell, service worker, and release manifest versions.');
+    }
+  } catch {
+    fail('Release manifest is missing or invalid JSON.');
+  }
   try {
     const sw = await readFile(join(projectRoot, 'dist/sw.js'), 'utf8');
     if (sw.includes('__ORVIX_BUILD_VERSION__') || !/const ORVIX_BUILD_VERSION = '[^']{7,}'/.test(sw)) {
