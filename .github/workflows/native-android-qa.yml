@@ -65,7 +65,9 @@ jobs:
           node scripts/verify-native-ui-freeze.mjs --self-test
           # A branding-only QA branch is based on the native development
           # branch, not the ever-changing production web UI.
-          if [[ "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" == qa/orvix-branded-apk-* ]]; then
+          if [[ "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" == qa/orvix-exact-logo-intro-apk-* ]]; then
+            node scripts/verify-native-branding-qa.mjs
+          elif [[ "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" == qa/orvix-branded-apk-* ]]; then
             node scripts/verify-native-ui-freeze.mjs --base origin/feature/orvix-native-offline-v1
           else
             node scripts/verify-native-ui-freeze.mjs --base origin/main
