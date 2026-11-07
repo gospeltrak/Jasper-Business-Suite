@@ -27,6 +27,10 @@
       ]
     },
     {
+      "source": "/android-beta-release.json",
+      "headers": [{ "key": "Cache-Control", "value": "no-store, max-age=0, must-revalidate" }]
+    },
+    {
       "source": "/orvix-release.json",
       "headers": [{ "key": "Cache-Control", "value": "no-store, max-age=0, must-revalidate" }]
     },
