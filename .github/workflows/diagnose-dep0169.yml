@@ -16,9 +16,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          url='https://jasper-business-suite-ghy8x0o3o-pix-01-projects.vercel.app/api/tenant/resolve?host=orvix.africa'
-          code=$(curl --connect-timeout 10 --max-time 35 -sS -o /tmp/resolve-body.txt -w '%{http_code}' "$url")
-          printf 'Diagnostic preview HTTP status: %s\n' "$code"
+          url='https://jasper-business-suite-1w4spzt6h-pix-01-projects.vercel.app/api/tenant/resolve?host=orvix.africa'
+          code='000'
+          for attempt in $(seq 1 15); do
+            code=$(curl --connect-timeout 10 --max-time 35 -sS -o /tmp/resolve-body.txt -w '%{http_code}' "$url" || true)
+            printf 'Preview HTTP attempt %s: status %s\n' "$attempt" "$code"
+            if [ "$code" = 200 ]; then break; fi
+            sleep 8
+          done
           if [ "$code" != 200 ]; then
             echo 'The preview HTTP endpoint is unavailable or protected.'
             exit 1
