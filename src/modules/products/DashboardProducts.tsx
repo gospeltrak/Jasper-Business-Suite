@@ -41,6 +41,24 @@ const getProductImageUploadToken = async (): Promise<string> => {
   return token;
 };
 
+const PharmacyPositiveIntegerInput: React.FC<{ value: number; onCommit: (value: number) => void; className: string }> = ({ value, onCommit, className }) => {
+  const [draft, setDraft] = useState<string | null>(null);
+  return <input type="number" min={1} step={1} inputMode="numeric"
+    value={draft ?? String(value)}
+    onChange={e => {
+      const raw = e.target.value;
+      setDraft(raw);
+      const next = Number(raw);
+      if (raw !== '' && Number.isSafeInteger(next) && next > 0) onCommit(next);
+    }}
+    onBlur={() => {
+      const next = Number(draft ?? value);
+      if (draft !== null && draft !== '' && Number.isSafeInteger(next) && next > 0) onCommit(next);
+      setDraft(null);
+    }}
+    className={className} />;
+};
+
 interface DashboardProductsProps {
   activeTenant: Tenant;
   products: Product[];
@@ -6245,7 +6263,7 @@ export default function DashboardProducts({
                           {structure.productType === 'pharmaceutical' && (
                             <div className="space-y-1">
                               <label className="text-[9px] font-bold text-slate-500 uppercase">{structure.base}s per Dose</label>
-                              <input type="number" min={1} step={1} key={editingProduct?.id || 'new'} defaultValue={structure.doseQty} onChange={e => { const raw = e.target.value; if (raw === '') return; const next = Number(raw); if (Number.isSafeInteger(next) && next > 0) setEditForm(prev => ({ ...prev, pharmacyDoseContains: next, tabsPerDose: next } as any)); }} onBlur={e => { const next = Number(e.target.value); if (!Number.isSafeInteger(next) || next < 1) { e.target.value = String(structure.doseQty); return; } setEditForm(prev => ({ ...prev, pharmacyDoseContains: next, tabsPerDose: next } as any)); }} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                              <PharmacyPositiveIntegerInput key={`dose-${editingProduct?.id}`} value={structure.doseQty} onCommit={next => setEditForm(prev => ({ ...prev, pharmacyDoseContains: next, tabsPerDose: next } as any))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
                             </div>
                           )}
                           <div className="space-y-1">
