@@ -51,6 +51,10 @@ describe('pharmacy hierarchy persistence', () => {
     expect(pharmacyHierarchyMatches(submitted, stored)).toBe(true);
   });
 
+  it('rejects a real strip price change', () => {
+    expect(pharmacyHierarchyMatches(medicine({ stripPrice: 600 }), medicine({ stripPrice: 700 }))).toBe(false);
+  });
+
   it('still rejects a real change in dose quantity', () => {
     expect(pharmacyHierarchyMatches(medicine(), medicine({ tabsPerDose: 6 }))).toBe(false);
   });
