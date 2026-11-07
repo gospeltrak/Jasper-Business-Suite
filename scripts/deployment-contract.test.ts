@@ -1261,6 +1261,31 @@ test('POS sale emits one localized confirmation while keeping audit and manual s
   assert.equal(match?.[1], 'POS-42');
 });
 
+test('web and remote-URL Android WebView detect releases without reloading an active sale', async () => {
+  const html = await read('index.html');
+  const client = await read('src/shared/utils/orvixWebRelease.ts');
+  const main = await read('src/main.tsx');
+  const stamp = await read('scripts/stamp-service-worker.mjs');
+  const verifier = await read('scripts/verify-deploy.mjs');
+  const vercel = JSON.parse(await read('vercel.json'));
+
+  assert.match(html, /name="orvix-web-release" content="__ORVIX_BUILD_VERSION__"/);
+  assert.match(main, /startOrvixWebReleaseChecks\(\)/);
+  assert.match(stamp, /dist\/orvix-release\.json/);
+  assert.match(stamp, /dist\/index\.html/);
+  assert.match(verifier, /release\.webVersion !== htmlVersion/);
+  assert.match(verifier, /release\.webVersion !== swVersion/);
+  assert.match(client, /cache: 'no-store'/);
+  assert.match(client, /credentials: 'omit'/);
+  assert.match(client, /visibilitychange/);
+  assert.match(client, /orvix:web-release-available/);
+  assert.doesNotMatch(client, /location\.(?:reload|replace|assign)|window\.open|caches\.open/);
+  const rule = vercel.headers.find((item: { source: string }) => item.source === '/orvix-release.json');
+  assert.ok(rule, 'A release manifest must never be served from stale cache.');
+  assert.ok(rule.headers.some((item: { key: string; value: string }) =>
+    item.key.toLowerCase() === 'cache-control' && item.value.includes('no-store')));
+});
+
 test('browser gets a fresh service worker and dashboard shell after each deployment', async () => {
   const pkg = JSON.parse(await read('package.json'));
   const verifier = await read('scripts/verify-deploy.mjs');
