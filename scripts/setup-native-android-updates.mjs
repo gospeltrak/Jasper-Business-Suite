@@ -84,7 +84,7 @@ const provider = `        <provider
 `;
 // Capacitor already has its own FileProvider. Install a DISTINCT provider
 // authority and subclass rather than replacing or merging Capacitor's provider.
-if (!manifest.includes('\\${applicationId}.updatefiles')) {
+if (!manifest.includes('${applicationId}.updatefiles')) {
   if (!manifest.includes('</application>')) throw new Error('Android application element missing');
   manifest = manifest.replace('</application>', provider + '    </application>');
 }
