@@ -146,7 +146,7 @@ BEGIN
     ),'[]'::jsonb)
   )) INTO v_product
   FROM public.products p
-  WHERE p.tenant_id=v_tenant AND p.legacy_id=p_product_id AND p.source_active
+  WHERE p.tenant_id=v_tenant AND (p.legacy_id=p_product_id OR (p.legacy_id IS NULL AND p.source_record->>'id'=p_product_id)) AND p.source_active
   LIMIT 1;
   RETURN v_product;
 END;
