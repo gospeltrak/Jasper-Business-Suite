@@ -101,7 +101,7 @@ jobs:
           s=f.read_text()
           needle="  server: {"
           assert needle in s and "    cleartext: false," in s
-          s=s.replace(needle,needle+"\\n    url: 'https://orvix.africa',\\n    allowNavigation: ['orvix.africa', '*.orvix.africa'],",1)
+          s=s.replace(needle,needle+"\n    url: 'https://orvix.africa',\n    allowNavigation: ['orvix.africa', '*.orvix.africa'],",1)
           f.write_text(s)
           print('Online-only QA shell loads Orvix Production; local native builds remain unchanged.')
           PY
