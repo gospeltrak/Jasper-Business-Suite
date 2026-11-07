@@ -146,7 +146,7 @@ BEGIN
     OR NOT private.can_write_branch(v_tenant,v_branch,'products.write') THEN
     RAISE EXCEPTION USING errcode='42501', message='Product permission required';
   END IF;
-  SELECT p.source_record || jsonb_build_object(
+  SELECT p.source_record || jsonb_strip_nulls(jsonb_build_object(
     'pharmacyProductType', p.pharmacy_product_type,
     'pharmacyHierarchyStart', p.pharmacy_hierarchy_start,
     'pharmacyBaseUnit', p.pharmacy_base_unit,
@@ -165,7 +165,7 @@ BEGIN
         'quantityToBaseUnit', l.quantity_to_base_unit) ORDER BY l.ordinal)
       FROM public.product_pharmacy_unit_levels l WHERE l.product_id=p.id
     ),'[]'::jsonb)
-  ) INTO v_product
+  )) INTO v_product
   FROM public.products p
   WHERE p.tenant_id=v_tenant AND p.legacy_id=p_product_id AND p.source_active
   LIMIT 1;
