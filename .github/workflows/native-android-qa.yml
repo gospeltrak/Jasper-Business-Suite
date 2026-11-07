@@ -120,35 +120,31 @@ jobs:
         run: |
           node -e "const a=require('./android/app/src/main/assets/capacitor.config.json');if(a.server?.url !== 'https://orvix.africa' || a.server?.cleartext!==false)process.exit(1);console.log('Online beta URL and HTTPS verified')"
 
-      - name: Prepare owner-approved Orvix PNG for Android branding
+      - name: Verify owner-approved Orvix PNG for Android branding
         id: brand_logo
         shell: bash
-        env:
-          ORVIX_BETA_APPROVED_LOGO_B64: ${{ secrets.ORVIX_BETA_APPROVED_LOGO_B64 }}
         run: |
           set -euo pipefail
-          mkdir -p public/brand
-          if [[ -n "$ORVIX_BETA_APPROVED_LOGO_B64" ]]; then
-            printf '%s' "$ORVIX_BETA_APPROVED_LOGO_B64" | base64 --decode > public/brand/orvix-qa-logo.png
-            # Byte-for-byte checksum of the PNG explicitly approved by owner.
-            # Do not accidentally substitute a redesigned/older Orvix symbol.
+          if [[ -f public/brand/orvix-qa-logo.png ]]; then
+            # Original approved transparent PNG, byte-for-byte, not a redesign.
             echo 'e2a04bc80328f75f1df2bd5f01379530f012ec0f6cf51e8829d008bda5f83be6  public/brand/orvix-qa-logo.png' | sha256sum --check
             echo "approved=true" >> "$GITHUB_OUTPUT"
           else
-            # An internal CI build can use the old repo asset to test Java.
-            # Never distribute this fallback as the approved tenant beta.
+            # QA-only fallback for compiler tests. It MUST NOT be signed
+            # for tenant distribution; logo mismatches were reported before.
+            mkdir -p public/brand
             cp public/icon-512.png public/brand/orvix-qa-logo.png
             echo "approved=false" >> "$GITHUB_OUTPUT"
-            echo 'Missing approved original PNG secret: QA only. Release signing is blocked.'
+            echo 'Approved Orvix PNG is not committed yet: compile QA only, release signing prohibited.'
           fi
           python3 - <<'PY'
           import struct
           from pathlib import Path
           b=Path('public/brand/orvix-qa-logo.png').read_bytes()
-          assert b[:8] == b'\x89PNG\r\n\x1a\n', 'Owner logo must be PNG'
+          assert b[:8] == b'\\x89PNG\\r\\n\\x1a\\n', 'Android logo must be PNG'
           width,height=struct.unpack('>II',b[16:24])
-          assert width >= 256 and height >= 256, 'Android icon source must be at least 256 pixels'
-          print('Android logo PNG validated, dimensions:',width,height)
+          assert width >= 256 and height >= 256
+          print('Orvix Android logo size:', width, height)
           PY
 
       - name: Use the official Orvix launcher and splash logo
