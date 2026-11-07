@@ -120,6 +120,34 @@ jobs:
         run: |
           node -e "const a=require('./android/app/src/main/assets/capacitor.config.json');if(a.server?.url !== 'https://orvix.africa' || a.server?.cleartext!==false)process.exit(1);console.log('Online beta URL and HTTPS verified')"
 
+      - name: Prepare owner-approved Orvix PNG for Android branding
+        id: brand_logo
+        shell: bash
+        env:
+          ORVIX_BETA_APPROVED_LOGO_B64: ${{ secrets.ORVIX_BETA_APPROVED_LOGO_B64 }}
+        run: |
+          set -euo pipefail
+          mkdir -p public/brand
+          if [[ -n "$ORVIX_BETA_APPROVED_LOGO_B64" ]]; then
+            printf '%s' "$ORVIX_BETA_APPROVED_LOGO_B64" | base64 --decode > public/brand/orvix-qa-logo.png
+            echo "approved=true" >> "$GITHUB_OUTPUT"
+          else
+            # An internal CI build can use the old repo asset to test Java.
+            # Never distribute this fallback as the approved tenant beta.
+            cp public/icon-512.png public/brand/orvix-qa-logo.png
+            echo "approved=false" >> "$GITHUB_OUTPUT"
+            echo 'Missing approved original PNG secret: QA only. Release signing is blocked.'
+          fi
+          python3 - <<'PY'
+          import struct
+          from pathlib import Path
+          b=Path('public/brand/orvix-qa-logo.png').read_bytes()
+          assert b[:8] == b'\x89PNG\r\n\x1a\n', 'Owner logo must be PNG'
+          width,height=struct.unpack('>II',b[16:24])
+          assert width >= 256 and height >= 256, 'Android icon source must be at least 256 pixels'
+          print('Android logo PNG validated, dimensions:',width,height)
+          PY
+
       - name: Use the official Orvix launcher and splash logo
         shell: bash
         run: |
@@ -184,7 +212,7 @@ jobs:
           ORVIX_BETA_KEY_PASSWORD: ${{ secrets.ORVIX_BETA_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          if [[ -z "$ORVIX_BETA_KEYSTORE_B64" || -z "$ORVIX_BETA_STORE_PASSWORD" || -z "$ORVIX_BETA_KEY_ALIAS" || -z "$ORVIX_BETA_KEY_PASSWORD" ]]; then
+          if [[ "${{ steps.brand_logo.outputs.approved }}" != "true" || -z "$ORVIX_BETA_KEYSTORE_B64" || -z "$ORVIX_BETA_STORE_PASSWORD" || -z "$ORVIX_BETA_KEY_ALIAS" || -z "$ORVIX_BETA_KEY_PASSWORD" ]]; then
             echo "enabled=false" >> "$GITHUB_OUTPUT"
             echo 'Persistent signing secrets missing: only QA/debug APK will be built. DO NOT distribute to tenants.'
             exit 0
