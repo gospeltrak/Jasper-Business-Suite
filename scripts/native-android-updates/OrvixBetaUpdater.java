@@ -39,10 +39,14 @@ public final class OrvixBetaUpdater {
   private static final long DOWNLOAD_TIMEOUT_MS = 5L * 60 * 1000;
   private static final Handler UI = new Handler(Looper.getMainLooper());
   private static final AtomicBoolean BUSY = new AtomicBoolean(false);
+  private static final AtomicBoolean CHECKED_THIS_LAUNCH = new AtomicBoolean(false);
 
   private OrvixBetaUpdater() {}
 
   public static void onResume(Activity activity) {
+    // A resumed cashier may have unsaved cart/form edits: only check once
+    // per cold application launch, never on every focus/phone unlock.
+    if (!CHECKED_THIS_LAUNCH.compareAndSet(false, true)) return;
     if (!BUSY.compareAndSet(false, true)) return;
     long now = System.currentTimeMillis();
     android.content.SharedPreferences prefs = activity.getSharedPreferences("orvix_beta_updater", Context.MODE_PRIVATE);
