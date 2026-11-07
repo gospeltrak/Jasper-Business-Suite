@@ -33,6 +33,26 @@ export default async function handler(req: any, res: any) {
   incomingUrl.searchParams.delete('path');
   req.url = `/api/${forwardedPath}${incomingUrl.search}`;
 
+  // Vercel also installs a legacy req.query getter which Express 4's query
+  // middleware reads before our route handlers. Shadow it with an own data
+  // property so neither Vercel nor Express invokes deprecated url.parse().
+  // Preserve Vercel/querystring-style duplicate keys as string arrays.
+  const query: Record<string, string | string[]> = Object.create(null);
+  incomingUrl.searchParams.forEach((value, key) => {
+    if (Object.prototype.hasOwnProperty.call(query, key)) {
+      const current = query[key];
+      query[key] = Array.isArray(current) ? [...current, value] : [current, value];
+    } else {
+      query[key] = value;
+    }
+  });
+  Object.defineProperty(req, 'query', {
+    configurable: true,
+    enumerable: true,
+    writable: true,
+    value: query,
+  });
+
   const app = await appPromise;
   return app(req as any, res as any);
 }
