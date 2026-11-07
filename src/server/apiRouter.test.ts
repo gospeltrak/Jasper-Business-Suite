@@ -47,9 +47,12 @@ describe('single production API entry point', () => {
     };
     Object.defineProperty(req, 'query', {
       get() { throw new Error('Vercel legacy req.query getter was accessed'); },
+      configurable: true,
     });
     await handler(req, {});
     expect(req.url).toBe('/api/tenant/resolve?host=shop.example&lang=sw');
+    expect(req.query).toEqual({ host: 'shop.example', lang: 'sw' });
+    expect(Object.getPrototypeOf(req.query)).toBe(null);
     // Reference identity avoids Vitest's deep comparison invoking the
     // intentionally throwing req.query getter in this regression test.
     expect(server.app.mock.calls[0]?.[0]).toBe(req);
@@ -63,6 +66,17 @@ describe('single production API entry point', () => {
     await handler(alreadyRewritten, {});
     expect(withRepeatedPath.url).toBe('/api/auth/register?mode=staff-login');
     expect(alreadyRewritten.url).toBe('/api/tenant/resolve?host=shop.example');
+    expect((alreadyRewritten as any).query.host).toBe('shop.example');
+  });
+
+  it('keeps repeated non-routing query parameters as arrays without prototype pollution', async () => {
+    const { default: handler } = await import('../../api/router');
+    const req: any = { url: '/api/router?path=health&tag=one&tag=two&__proto__=ignored' };
+    await handler(req, {});
+    expect(req.url).toBe('/api/health?tag=one&tag=two&__proto__=ignored');
+    expect(req.query.tag).toEqual(['one', 'two']);
+    expect(Object.getPrototypeOf(req.query)).toBe(null);
+    expect(Object.prototype.hasOwnProperty.call(req.query, '__proto__')).toBe(true);
   });
 
   it('deploys one API function while retaining public routes and forecasting', () => {
