@@ -1,0 +1,26 @@
+name: Preview Node DEP0169 diagnostic
+
+on:
+  push:
+    branches:
+      - fix/node24-url-parse-deprecation-20261107
+
+permissions:
+  contents: read
+
+jobs:
+  preview-request:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Exercise public tenant resolver on tracing preview
+        shell: bash
+        run: |
+          set -euo pipefail
+          url='https://jasper-business-suite-ghy8x0o3o-pix-01-projects.vercel.app/api/tenant/resolve?host=orvix.africa'
+          code=$(curl --connect-timeout 10 --max-time 35 -sS -o /tmp/resolve-body.txt -w '%{http_code}' "$url")
+          printf 'Diagnostic preview HTTP status: %s\n' "$code"
+          if [ "$code" != 200 ]; then
+            echo 'The preview HTTP endpoint is unavailable or protected.'
+            exit 1
+          fi
+          node -e "const fs=require('fs');const v=JSON.parse(fs.readFileSync('/tmp/resolve-body.txt','utf8'));if(!v.kind)process.exit(1);console.log('Public response kind:',v.kind)"
