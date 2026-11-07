@@ -23,4 +23,12 @@ const logoAfter = "splashRequest.mode === 'tenant' ? splashRequest.logoSrc : isO
 assert.equal(old.split(logoBefore).length, 2, 'Native logo hook changed unexpectedly');
 assert.equal(readFileSync('src/App.tsx', 'utf8'), old.replace(logoBefore, logoAfter),
   'App.tsx contains unauthorized changes beyond native intro logo');
+const baselineContract = execFileSync('git', ['show', base + ':scripts/verify-native-contract.mjs'], {encoding:'utf8'});
+const contractOld = "isOrvixNativeApp\\(\\) \\? '\\/icon-512\\.png' : undefined";
+const contractNew = "isOrvixNativeApp\\(\\) \\? '\\/brand\\/orvix-qa-logo\\.png' : undefined";
+assert.equal(baselineContract.split(contractOld).length, 2, 'Original native splash assertion changed');
+assert.equal(readFileSync('scripts/verify-native-contract.mjs', 'utf8'),
+  baselineContract.replace(contractOld, contractNew),
+  'Native regression test contains unexpected changes besides splash path');
+
 console.log('Branding QA isolation passed — no other native or business logic changed.');
