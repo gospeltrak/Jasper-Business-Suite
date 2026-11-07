@@ -14,10 +14,14 @@ installs. Web features continue loading from the Production website as before.
    - `ORVIX_BETA_STORE_PASSWORD`
    - `ORVIX_BETA_KEY_ALIAS`
    - `ORVIX_BETA_KEY_PASSWORD`
-   - `ORVIX_BETA_APPROVED_LOGO_B64`: Base64 of the exact user-approved transparent Orvix PNG, never a generated substitute
 3. Build this QA branch. The workflow creates an
-   `orvix-android-beta-permanent-key-signed` APK **only when all five
-   private secrets exist**, including the owner-approved logo. Without them, its debug APK is **not suitable for
+   `orvix-android-beta-permanent-key-signed` APK **only when all four
+   private signing secrets exist** AND the exact owner-approved logo is
+   present at `public/brand/orvix-qa-logo.png` with SHA-256
+   `e2a04bc80328f75f1df2bd5f01379530f012ec0f6cf51e8829d008bda5f83be6`.
+   Upload the original 1254×1254 transparent PNG byte-for-byte to that
+   repository path (not a compressed redesign). A missing/wrong logo blocks
+   tenant distribution; the fallback asset is for internal CI only. Without them, its debug APK is **not suitable for
    distribution** because cache eviction can replace the signing key.
 4. Verify SHA-256, package `africa.orvix.app`, expected signing certificate
    and a higher `versionCode` on the resulting APK. Test upgrade on a real
