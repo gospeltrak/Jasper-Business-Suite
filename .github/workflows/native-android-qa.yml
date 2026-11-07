@@ -4,16 +4,17 @@ on:
   workflow_dispatch:
   # Build a fresh internal QA APK when the native development branch changes.
   push:
-    branches: [feature/orvix-native-offline-v1]
+    branches: [feature/orvix-native-offline-v1, 'qa/orvix-branded-apk-*']
     paths:
       - 'src/**'
       - 'scripts/**'
+      - 'public/icon-512.png'
       - 'package.json'
       - 'package-lock.json'
       - 'supabase/migrations/**'
       - '.github/workflows/native-android-qa.yml'
   pull_request:
-    branches: [main]
+    branches: [main, feature/orvix-native-offline-v1]
     paths:
       - 'capacitor.config.ts'
       - 'package.json'
@@ -23,6 +24,7 @@ on:
       - 'index.html'
       - 'scripts/verify-native-*.mjs'
       - '.github/workflows/native-android-qa.yml'
+      - 'scripts/setup-native-android-branding.py'
 
 permissions:
   contents: read
@@ -59,9 +61,15 @@ jobs:
 
       - name: Verify UI is unchanged from main
         run: |
-          git fetch --no-tags origin main
+          git fetch --no-tags origin main feature/orvix-native-offline-v1
           node scripts/verify-native-ui-freeze.mjs --self-test
-          node scripts/verify-native-ui-freeze.mjs --base origin/main
+          # A branding-only QA branch is based on the native development
+          # branch, not the ever-changing production web UI.
+          if [[ "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" == qa/orvix-branded-apk-* ]]; then
+            node scripts/verify-native-ui-freeze.mjs --base origin/feature/orvix-native-offline-v1
+          else
+            node scripts/verify-native-ui-freeze.mjs --base origin/main
+          fi
 
       - name: Native isolation and security contracts
         run: npm run native:verify
@@ -82,6 +90,14 @@ jobs:
         run: |
           npx cap add android
           npx cap sync android
+
+      - name: Use the official Orvix launcher and splash logo
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/orvix-branding-env"
+          "$RUNNER_TEMP/orvix-branding-env/bin/python" -m pip install --disable-pip-version-check "Pillow==11.3.0"
+          "$RUNNER_TEMP/orvix-branding-env/bin/python" scripts/setup-native-android-branding.py
 
       - name: Install Android camera permission recovery
         run: node scripts/setup-native-android-camera.mjs
@@ -109,6 +125,19 @@ jobs:
       - name: Compile signed QA/debug APK
         working-directory: android
         run: ./gradlew :app:assembleDebug --no-daemon
+
+      - name: Verify built APK has the Orvix app label
+        shell: bash
+        run: |
+          set -euo pipefail
+          apk="android/app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$apk"
+          aapt="$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -type f -name aapt -print | sort -V | tail -n 1)"
+          test -x "$aapt" || { echo 'Android aapt missing, cannot verify branding'; exit 1; }
+          "$aapt" dump badging "$apk" > "$RUNNER_TEMP/orvix-apk-badging.txt"
+          grep -F "application-label:'Orvix'" "$RUNNER_TEMP/orvix-apk-badging.txt"
+          grep -F "package: name='africa.orvix.app'" "$RUNNER_TEMP/orvix-apk-badging.txt"
+          echo 'Orvix Android QA branding verification passed.'
 
       - name: Keep debug APK as internal QA artifact
         uses: actions/upload-artifact@v4
