@@ -6253,12 +6253,12 @@ export default function DashboardProducts({
                           {topLabel && (
                             <div className="space-y-1">
                               <label className="text-[9px] font-bold text-slate-500 uppercase">{topLabel}</label>
-                              <input type="number" min={1} value={structure.topQty} onChange={e => setEditForm(prev => ({ ...prev, pharmacyTopContains: Number(e.target.value) || 1 } as any))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                              <PharmacyPositiveIntegerInput key={`top-${editingProduct?.id}`} value={structure.topQty} onCommit={next => setEditForm(prev => ({ ...prev, pharmacyTopContains: next } as any))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
                             </div>
                           )}
                           <div className="space-y-1">
                             <label className="text-[9px] font-bold text-slate-500 uppercase">{middleLabel}</label>
-                            <input type="number" min={1} value={structure.middleQty} onChange={e => setEditForm(prev => ({ ...prev, pharmacyMiddleContains: Number(e.target.value) || 1, dosesPerPacket: Number(e.target.value) || 1 } as any))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                            <PharmacyPositiveIntegerInput key={`middle-${editingProduct?.id}`} value={structure.middleQty} onCommit={next => setEditForm(prev => ({ ...prev, pharmacyMiddleContains: next, dosesPerPacket: next } as any))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
                           </div>
                           {structure.productType === 'pharmaceutical' && (
                             <div className="space-y-1">
