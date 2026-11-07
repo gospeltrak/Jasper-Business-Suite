@@ -1,5 +1,6 @@
 import './shared/utils/onlineStorage';
 import './shared/utils/pwaInstallPrompt';
+import { startOrvixWebReleaseChecks } from './shared/utils/orvixWebRelease';
 import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App';
@@ -200,3 +201,6 @@ createRoot(document.getElementById('root')!).render(
     </ThemeProvider>
   </StrictMode>,
 );
+
+// Release checks only signal an available version; they never force reloads.
+startOrvixWebReleaseChecks();
