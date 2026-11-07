@@ -84,12 +84,10 @@ CREATE TRIGGER sync_pharmacy_product_levels
   AFTER INSERT OR UPDATE OF source_record ON public.products
   FOR EACH ROW EXECUTE FUNCTION private.sync_pharmacy_product_levels();
 
--- Backfill only pharmacy-specific columns for existing rows, without touching stock.
-UPDATE public.products p SET
-  pharmacy_product_type = nullif(p.source_record->>'pharmacyProductType',''),
-  pharmacy_hierarchy_start = nullif(p.source_record->>'pharmacyHierarchyStart',''),
-  pharmacy_base_unit = nullif(p.source_record->>'pharmacyBaseUnit',''),
-  doses_per_packet = CASE WHEN p.source_record->>'dosesPerPacket' ~ '^[0-9]+([.][0-9]+)?
+-- Backfill pharmacy columns through the same atomic trigger without touching stock.
+UPDATE public.products SET source_record = source_record
+WHERE source_active AND (source_record ? 'pharmacyUnitLevels'
+  OR source_record ? 'tabsPerDose' OR source_record ? 'pharmacyProductType');
 
 -- Insert hierarchy levels only for products with well-formed arrays.
 INSERT INTO public.product_pharmacy_unit_levels
