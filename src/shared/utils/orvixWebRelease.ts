@@ -38,6 +38,9 @@ declare global {
 
 export function startOrvixWebReleaseChecks(): () => void {
   if (typeof window === 'undefined' || typeof document === 'undefined') return () => {};
+  // Bundled Android assets use capacitor:/file: origins and cannot be hot-
+  // swapped from the website. Only remote-URL WebViews receive web releases.
+  if (window.location.protocol !== 'https:' && window.location.protocol !== 'http:') return () => {};
   const currentVersion = document.querySelector<HTMLMetaElement>(
     'meta[name="orvix-web-release"]'
   )?.content || '';
@@ -70,7 +73,7 @@ export function startOrvixWebReleaseChecks(): () => void {
       // Ignore HTML rather than treating it as a release manifest.
       if (!response.ok || !response.headers.get('content-type')?.includes('application/json')) return;
       const release: unknown = await response.json();
-      if (isNewOrvixWebRelease(currentVersion, release)) {
+      if (!stopped && isNewOrvixWebRelease(currentVersion, release)) {
         const latestVersion = (release as OrvixWebRelease).webVersion;
         if (latestVersion !== lastNotifiedVersion) {
           lastNotifiedVersion = latestVersion;
