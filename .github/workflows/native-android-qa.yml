@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   # Build a fresh internal QA APK when the native development branch changes.
   push:
-    branches: [feature/orvix-native-offline-v1, 'qa/orvix-branded-apk-*']
+    branches: [feature/orvix-native-offline-v1, 'qa/orvix-branded-apk-*', 'qa/orvix-live-web-branded-apk-*', 'feature/orvix-android-in-app-updates-*']
     paths:
       - 'src/**'
       - 'scripts/**'
@@ -59,23 +59,13 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
-      - name: Verify and assemble original Orvix beta logo
-        if: ${{ hashFiles('scripts/assets/orvix-logo.01.b64') != '' }}
-        run: python3 scripts/assemble-native-orvix-logo.py
-
       - name: Verify UI is unchanged from main
         run: |
           git fetch --no-tags origin main feature/orvix-native-offline-v1
           node scripts/verify-native-ui-freeze.mjs --self-test
           # A branding-only QA branch is based on the native development
           # branch, not the ever-changing production web UI.
-          if [[ "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" == feature/orvix-native-offline-v1 ]] && test -f scripts/assets/orvix-logo.01.b64; then
-            # Pin this particular branding QA release to its reviewed native
-            # pre-logo parent; future unrelated edits must be separately reviewed.
-            ORVIX_BRANDING_BASE_SHA=bf7a55dd34cbae207ba7abb4f47eea1371a6ca50 node scripts/verify-native-branding-qa.mjs
-          elif [[ "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" == qa/orvix-exact-logo-intro-apk-* ]]; then
-            node scripts/verify-native-branding-qa.mjs
-          elif [[ "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" == qa/orvix-branded-apk-* ]]; then
+          if [[ "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" == qa/orvix-branded-apk-* || "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" == qa/orvix-live-web-branded-apk-* || "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" == feature/orvix-android-in-app-updates-* ]]; then
             node scripts/verify-native-ui-freeze.mjs --base origin/feature/orvix-native-offline-v1
           else
             node scripts/verify-native-ui-freeze.mjs --base origin/main
@@ -83,6 +73,10 @@ jobs:
 
       - name: Native isolation and security contracts
         run: npm run native:verify
+
+      - name: Verify native opt-in updater invariants
+        if: startsWith(github.head_ref || github.ref_name, 'feature/orvix-android-in-app-updates-')
+        run: node --test scripts/native-android-updater.contract.test.mjs
 
       - name: Validate TypeScript
         run: npm run lint
@@ -96,10 +90,35 @@ jobs:
           test -n "$VITE_TURNSTILE_SITE_KEY" || { echo 'ERROR: set GitHub Actions variable VITE_TURNSTILE_SITE_KEY (Cloudflare public site key) before building native QA'; exit 1; }
           npm run native:build:web
 
+      # Explicitly isolated tenant-feedback beta: use the exact live Production
+      # website so UI/product/Pharmacy fixes come from main, not the older
+      # native branch. The packaged offline app remains unchanged elsewhere.
+      # This beta needs Internet and is NOT the offline/native printer release.
+      - name: Point feedback beta at current Orvix Production website
+        if: startsWith(github.head_ref || github.ref_name, 'qa/orvix-live-web-branded-apk-') || startsWith(github.head_ref || github.ref_name, 'feature/orvix-android-in-app-updates-')
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          f=Path('capacitor.config.ts')
+          s=f.read_text()
+          needle="  server: {"
+          assert needle in s and "    cleartext: false," in s
+          s=s.replace(needle,needle+"\n    url: 'https://orvix.africa',\n    allowNavigation: ['orvix.africa', '*.orvix.africa'],",1)
+          f.write_text(s)
+          print('Online-only QA shell loads Orvix Production; local native builds remain unchanged.')
+          PY
+
       - name: Create Android shell and sync packaged assets
         run: |
           npx cap add android
           npx cap sync android
+
+      - name: Verify online beta routes to current Orvix website
+        if: startsWith(github.head_ref || github.ref_name, 'qa/orvix-live-web-branded-apk-')
+        run: |
+          node -e "const a=require('./android/app/src/main/assets/capacitor.config.json');if(a.server?.url !== 'https://orvix.africa' || a.server?.cleartext!==false)process.exit(1);console.log('Online beta URL and HTTPS verified')"
 
       - name: Use the official Orvix launcher and splash logo
         shell: bash
@@ -112,6 +131,25 @@ jobs:
       - name: Install Android camera permission recovery
         run: node scripts/setup-native-android-camera.mjs
 
+      - name: Install opt-in Android beta update checker
+        if: startsWith(github.head_ref || github.ref_name, 'feature/orvix-android-in-app-updates-')
+        env:
+          ORVIX_BETA_VERSION_CODE: ${{ github.run_number }}
+        run: node scripts/setup-native-android-updates.mjs
+
+      - name: Verify opt-in updater contract
+        if: startsWith(github.head_ref || github.ref_name, 'feature/orvix-android-in-app-updates-')
+        shell: bash
+        env:
+          ORVIX_BETA_VERSION_CODE: ${{ github.run_number }}
+        run: |
+          set -euo pipefail
+          grep -F 'OrvixBetaUpdater.onResume(this)' android/app/src/main/java/africa/orvix/app/MainActivity.java
+          grep -F 'REQUEST_INSTALL_PACKAGES' android/app/src/main/AndroidManifest.xml
+          grep -F 'FileProvider' android/app/src/main/AndroidManifest.xml
+          grep -F "versionCode $ORVIX_BETA_VERSION_CODE" android/app/build.gradle
+          test -s android/app/src/main/res/xml/orvix_update_paths.xml
+
       # Stable *internal QA only* signing, not for release/Play Store.
       # Cache the explicit workspace file. The prior ~/.android path did not
       # exist at cache-save time, silently changing signers between builds.
@@ -119,7 +157,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: android/app/orvix-qa-debug.keystore
-          key: orvix-android-qa-debug-signing-${{ runner.os }}-${{ github.ref }}-v2
+          key: orvix-android-qa-debug-signing-${{ runner.os }}-orvix-beta-v3
 
       - name: Initialize Android QA debug signer
         shell: bash
@@ -131,6 +169,33 @@ jobs:
           fi
           cp android/app/orvix-qa-debug.keystore "$HOME/.android/debug.keystore"
           test -s "$HOME/.android/debug.keystore"
+
+      # A debug keystore in Actions cache is NOT durable distribution signing.
+      # Only a user-owned, backed-up keystore stored in protected repository
+      # secrets may sign an APK to be shared with real tenants.
+      - name: Configure permanent beta signing when secrets are available
+        id: beta_signing
+        if: startsWith(github.head_ref || github.ref_name, 'feature/orvix-android-in-app-updates-')
+        shell: bash
+        env:
+          ORVIX_BETA_KEYSTORE_B64: ${{ secrets.ORVIX_BETA_KEYSTORE_B64 }}
+          ORVIX_BETA_STORE_PASSWORD: ${{ secrets.ORVIX_BETA_STORE_PASSWORD }}
+          ORVIX_BETA_KEY_ALIAS: ${{ secrets.ORVIX_BETA_KEY_ALIAS }}
+          ORVIX_BETA_KEY_PASSWORD: ${{ secrets.ORVIX_BETA_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$ORVIX_BETA_KEYSTORE_B64" || -z "$ORVIX_BETA_STORE_PASSWORD" || -z "$ORVIX_BETA_KEY_ALIAS" || -z "$ORVIX_BETA_KEY_PASSWORD" ]]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo 'Persistent signing secrets missing: only QA/debug APK will be built. DO NOT distribute to tenants.'
+            exit 0
+          fi
+          umask 077
+          export ORVIX_BETA_KEYSTORE_PATH="$RUNNER_TEMP/orvix-beta-release.jks"
+          printf '%s' "$ORVIX_BETA_KEYSTORE_B64" | base64 --decode > "$ORVIX_BETA_KEYSTORE_PATH"
+          test -s "$ORVIX_BETA_KEYSTORE_PATH"
+          echo "ORVIX_BETA_KEYSTORE_PATH=$ORVIX_BETA_KEYSTORE_PATH" >> "$GITHUB_ENV"
+          node scripts/setup-native-android-beta-signing.mjs
+          echo "enabled=true" >> "$GITHUB_OUTPUT"
 
       - name: Compile signed QA/debug APK
         working-directory: android
@@ -148,6 +213,20 @@ jobs:
           grep -F "application-label:'Orvix'" "$RUNNER_TEMP/orvix-apk-badging.txt"
           grep -F "package: name='africa.orvix.app'" "$RUNNER_TEMP/orvix-apk-badging.txt"
           echo 'Orvix Android QA branding verification passed.'
+
+      - name: Compile signed release candidate with permanent beta key
+        if: steps.beta_signing.outputs.enabled == 'true'
+        working-directory: android
+        run: ./gradlew :app:assembleRelease --no-daemon
+
+      - name: Upload signed beta candidate for owner approval
+        if: steps.beta_signing.outputs.enabled == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: orvix-android-beta-permanent-key-signed
+          path: android/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Keep debug APK as internal QA artifact
         uses: actions/upload-artifact@v4
