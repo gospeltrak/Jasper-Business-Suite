@@ -4,6 +4,18 @@
 import { readFile, writeFile, mkdir, readdir } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 
+const gradlePath = resolve('android/app/build.gradle');
+const versionCode = Number(process.env.ORVIX_BETA_VERSION_CODE);
+if (!Number.isSafeInteger(versionCode) || versionCode <= 1 || versionCode > 1_000_000) {
+  throw new Error('ORVIX_BETA_VERSION_CODE must be a positive monotonically increasing build number > 1');
+}
+let gradle = await readFile(gradlePath, 'utf8');
+if (!/\\bversionCode\\s+1\\b/.test(gradle)) {
+  throw new Error('Unexpected Android Gradle versionCode; manual review required');
+}
+gradle = gradle.replace(/\\bversionCode\\s+1\\b/, 'versionCode ' + versionCode);
+await writeFile(gradlePath, gradle, 'utf8');
+
 const root = resolve('android/app/src/main');
 const manifestPath = join(root, 'AndroidManifest.xml');
 const javaRoot = join(root, 'java');
