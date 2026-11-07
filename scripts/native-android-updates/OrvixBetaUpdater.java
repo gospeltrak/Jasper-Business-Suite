@@ -40,10 +40,19 @@ public final class OrvixBetaUpdater {
   private static final Handler UI = new Handler(Looper.getMainLooper());
   private static final AtomicBoolean BUSY = new AtomicBoolean(false);
   private static final AtomicBoolean CHECKED_THIS_LAUNCH = new AtomicBoolean(false);
+  private static volatile File pendingInstall;
 
   private OrvixBetaUpdater() {}
 
   public static void onResume(Activity activity) {
+    // Return from Android's install-permission settings: use the already
+    // verified file rather than downloading a second APK.
+    File ready = pendingInstall;
+    if (ready != null && ready.isFile() &&
+        (Build.VERSION.SDK_INT < 26 || activity.getPackageManager().canRequestPackageInstalls())) {
+      pendingInstall = null;
+      UI.post(() -> launchInstaller(activity, ready));
+    }
     // A resumed cashier may have unsaved cart/form edits: only check once
     // per cold application launch, never on every focus/phone unlock.
     if (!CHECKED_THIS_LAUNCH.compareAndSet(false, true)) return;
@@ -190,6 +199,7 @@ public final class OrvixBetaUpdater {
   private static void launchInstaller(Activity activity, File file) {
     if (activity.isFinishing() || activity.isDestroyed()) return;
     if (Build.VERSION.SDK_INT >= 26 && !activity.getPackageManager().canRequestPackageInstalls()) {
+      pendingInstall = file;
       new AlertDialog.Builder(activity)
         .setTitle("Ruhusa ya kusakinisha update")
         .setMessage("Android inahitaji ruhusa ya kusakinisha updates kutoka Orvix. Washa ruhusa kwenye Settings kisha fungua Orvix tena.")
