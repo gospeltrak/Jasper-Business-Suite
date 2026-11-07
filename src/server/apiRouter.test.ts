@@ -19,7 +19,7 @@ describe('single production API entry point', () => {
     ['tenant/logo-by-domain', 'GET'],
   ])('forwards %s through the shared authenticated app', async (route, method) => {
     const { default: handler } = await import('../../api/router');
-    const req = { method, url: '/api/router?path=unused&tenantId=example', query: { path: route }, headers: { authorization: 'Bearer test-session' }, body: { value: 1 } };
+    const req = { method, url: `/api/router?path=${encodeURIComponent(route)}&tenantId=example`, query: { path: 'wrong-path' }, headers: { authorization: 'Bearer test-session' }, body: { value: 1 } };
     const res = {};
     await handler(req, res);
     expect(req.url).toBe(`/api/${route}?tenantId=example`);
@@ -31,11 +31,36 @@ describe('single production API entry point', () => {
 
   it('keeps staff-login query parameters and shares one app initialization', async () => {
     const { default: handler } = await import('../../api/router');
-    const first = { url: '/api/router?path=auth%2Fregister&mode=staff-login', query: { path: ['auth', 'register'] } };
+    const first = { url: '/api/router?path=auth%2Fregister&mode=staff-login' };
     await Promise.all([handler(first, {}), handler({ url: '/api/router?path=health', query: { path: 'health' } }, {})]);
     expect(first.url).toBe('/api/auth/register?mode=staff-login');
     expect(server.createApp).toHaveBeenCalledTimes(1);
     expect(server.createApp).toHaveBeenCalledWith({ serveClient: false });
+  });
+
+  it('does not access Vercel req.query, whose getter calls deprecated url.parse()', async () => {
+    const { default: handler } = await import('../../api/router');
+    const req: Record<string, unknown> = {
+      url: '/api/router?path=tenant%2Fresolve&host=shop.example&lang=sw',
+      method: 'GET',
+      headers: {},
+    };
+    Object.defineProperty(req, 'query', {
+      get() { throw new Error('Vercel legacy req.query getter was accessed'); },
+    });
+    await handler(req, {});
+    expect(req.url).toBe('/api/tenant/resolve?host=shop.example&lang=sw');
+    expect(server.app).toHaveBeenCalledWith(req, {});
+  });
+
+  it('preserves repeated path segments and works when the raw path is already rewritten', async () => {
+    const { default: handler } = await import('../../api/router');
+    const withRepeatedPath = { url: '/api/router?path=auth&path=register&mode=staff-login' };
+    const alreadyRewritten = { url: '/api/tenant/resolve?host=shop.example' };
+    await handler(withRepeatedPath, {});
+    await handler(alreadyRewritten, {});
+    expect(withRepeatedPath.url).toBe('/api/auth/register?mode=staff-login');
+    expect(alreadyRewritten.url).toBe('/api/tenant/resolve?host=shop.example');
   });
 
   it('deploys one API function while retaining public routes and forecasting', () => {
