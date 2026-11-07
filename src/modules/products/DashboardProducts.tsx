@@ -6245,7 +6245,7 @@ export default function DashboardProducts({
                           {structure.productType === 'pharmaceutical' && (
                             <div className="space-y-1">
                               <label className="text-[9px] font-bold text-slate-500 uppercase">{structure.base}s per Dose</label>
-                              <input type="number" min={1} value={structure.doseQty} onChange={e => setEditForm(prev => ({ ...prev, pharmacyDoseContains: Number(e.target.value) || 1, tabsPerDose: Number(e.target.value) || 1 } as any))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                              <input type="number" min={1} step={1} key={editingProduct?.id || 'new'} defaultValue={structure.doseQty} onChange={e => { const raw = e.target.value; if (raw === '') return; const next = Number(raw); if (Number.isSafeInteger(next) && next > 0) setEditForm(prev => ({ ...prev, pharmacyDoseContains: next, tabsPerDose: next } as any)); }} onBlur={e => { const next = Number(e.target.value); if (!Number.isSafeInteger(next) || next < 1) { e.target.value = String(structure.doseQty); return; } setEditForm(prev => ({ ...prev, pharmacyDoseContains: next, tabsPerDose: next } as any)); }} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
                             </div>
                           )}
                           <div className="space-y-1">
