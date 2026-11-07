@@ -34,7 +34,7 @@ if len(encoded) != 8260:
     raise RuntimeError(f"Expected 8260 base64 characters, received {len(encoded)}")
 
 png = base64.b64decode(encoded, validate=True)
-if len(png) != 6193 or not png.startswith(b"\\x89PNG\\r\\n\\x1a\\n"):
+if len(png) != 6193 or not png.startswith(b"\x89PNG\r\n\x1a\n"):
     raise RuntimeError("Not a complete transparent Orvix PNG")
 if hashlib.sha256(png).hexdigest() != EXPECTED_IMAGE_SHA256:
     raise RuntimeError("Orvix PNG differs from the user-selected transparent logo")
