@@ -21,8 +21,15 @@ const getForwardedPath = (value: unknown) => {
 export default async function handler(req: any, res: any) {
   if (!appPromise) appPromise = createApp({ serveClient: false });
 
-  const forwardedPath = getForwardedPath(req.query?.path);
+  // Vercel's req.query getter calls Node's deprecated url.parse() in its runtime.
+  // Read the raw URL using the WHATWG API instead, preserving query parameters.
   const incomingUrl = new URL(req.url || '/', 'http://localhost');
+  const forwardedPathParam = incomingUrl.searchParams.getAll('path');
+  const forwardedPath = getForwardedPath(
+    forwardedPathParam.length
+      ? forwardedPathParam
+      : incomingUrl.pathname.replace(/^\/api\/(?:router\/?|)/, '')
+  );
   incomingUrl.searchParams.delete('path');
   req.url = `/api/${forwardedPath}${incomingUrl.search}`;
 
