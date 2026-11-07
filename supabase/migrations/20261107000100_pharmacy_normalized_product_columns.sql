@@ -57,7 +57,7 @@ CREATE TRIGGER sync_pharmacy_product_columns
 
 -- Keep child hierarchy rows current for every product edit in the same transaction.
 CREATE OR REPLACE FUNCTION private.sync_pharmacy_product_levels()
-RETURNS trigger LANGUAGE plpgsql SET search_path = '' AS $
+RETURNS trigger LANGUAGE plpgsql SET search_path = '' AS $function$
 BEGIN
   IF TG_OP = 'UPDATE' AND NEW.source_record->'pharmacyUnitLevels'
     IS NOT DISTINCT FROM OLD.source_record->'pharmacyUnitLevels' THEN
@@ -74,32 +74,11 @@ BEGIN
       THEN NEW.source_record->'pharmacyUnitLevels' ELSE '[]'::jsonb END
   ) WITH ORDINALITY AS level(value, ordinality)
   WHERE nullif(level.value->>'id','') IS NOT NULL
-    AND (level.value->>'quantityToBaseUnit') ~ '^[0-9]+([.][0-9]+)?
-UPDATE public.products SET source_record = source_record
-WHERE source_active AND (source_record ? 'pharmacyUnitLevels'
-  OR source_record ? 'tabsPerDose' OR source_record ? 'pharmacyProductType');
-
--- Insert hierarchy levels only for products with well-formed arrays.
-INSERT INTO public.product_pharmacy_unit_levels
-  (product_id, level_id, ordinal, label, unit, quantity_to_base_unit)
-SELECT p.id, item.value->>'id', (item.ordinality - 1)::integer,
-       coalesce(item.value->>'label',''), coalesce(item.value->>'unit',''),
-       (item.value->>'quantityToBaseUnit')::numeric
-FROM public.products p
-CROSS JOIN LATERAL jsonb_array_elements(
-  CASE WHEN jsonb_typeof(p.source_record->'pharmacyUnitLevels') = 'array'
-    THEN p.source_record->'pharmacyUnitLevels' ELSE '[]'::jsonb END
-) WITH ORDINALITY AS item(value, ordinality)
-WHERE p.source_active
-  AND nullif(item.value->>'id','') IS NOT NULL
-  AND (item.value->>'quantityToBaseUnit') ~ '^[0-9]+([.][0-9]+)?$'
-  AND (item.value->>'quantityToBaseUnit')::numeric > 0
-ON CONFLICT (product_id, level_id) DO NOTHING;
-
+    AND (level.value->>'quantityToBaseUnit') ~ '^[0-9]+([.][0-9]+)?$'
     AND (level.value->>'quantityToBaseUnit')::numeric > 0;
   RETURN NEW;
 END;
-$;
+$function$;
 DROP TRIGGER IF EXISTS sync_pharmacy_product_levels ON public.products;
 CREATE TRIGGER sync_pharmacy_product_levels
   AFTER INSERT OR UPDATE OF source_record ON public.products
