@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   # Build a fresh internal QA APK when the native development branch changes.
   push:
-    branches: [feature/orvix-native-offline-v1, 'qa/orvix-branded-apk-*']
+    branches: [feature/orvix-native-offline-v1, 'qa/orvix-branded-apk-*', 'qa/orvix-live-web-branded-apk-*']
     paths:
       - 'src/**'
       - 'scripts/**'
@@ -65,7 +65,7 @@ jobs:
           node scripts/verify-native-ui-freeze.mjs --self-test
           # A branding-only QA branch is based on the native development
           # branch, not the ever-changing production web UI.
-          if [[ "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" == qa/orvix-branded-apk-* ]]; then
+          if [[ "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" == qa/orvix-branded-apk-* || "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" == qa/orvix-live-web-branded-apk-* ]]; then
             node scripts/verify-native-ui-freeze.mjs --base origin/feature/orvix-native-offline-v1
           else
             node scripts/verify-native-ui-freeze.mjs --base origin/main
@@ -86,10 +86,35 @@ jobs:
           test -n "$VITE_TURNSTILE_SITE_KEY" || { echo 'ERROR: set GitHub Actions variable VITE_TURNSTILE_SITE_KEY (Cloudflare public site key) before building native QA'; exit 1; }
           npm run native:build:web
 
+      # Explicitly isolated tenant-feedback beta: use the exact live Production
+      # website so UI/product/Pharmacy fixes come from main, not the older
+      # native branch. The packaged offline app remains unchanged elsewhere.
+      # This beta needs Internet and is NOT the offline/native printer release.
+      - name: Point feedback beta at current Orvix Production website
+        if: startsWith(github.head_ref || github.ref_name, 'qa/orvix-live-web-branded-apk-')
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          f=Path('capacitor.config.ts')
+          s=f.read_text()
+          needle="  server: {"
+          assert needle in s and "    cleartext: false," in s
+          s=s.replace(needle,needle+"\\n    url: 'https://orvix.africa',\\n    allowNavigation: ['orvix.africa', '*.orvix.africa'],",1)
+          f.write_text(s)
+          print('Online-only QA shell loads Orvix Production; local native builds remain unchanged.')
+          PY
+
       - name: Create Android shell and sync packaged assets
         run: |
           npx cap add android
           npx cap sync android
+
+      - name: Verify online beta routes to current Orvix website
+        if: startsWith(github.head_ref || github.ref_name, 'qa/orvix-live-web-branded-apk-')
+        run: |
+          node -e "const a=require('./android/app/src/main/assets/capacitor.config.json');if(a.server?.url !== 'https://orvix.africa' || a.server?.cleartext!==false)process.exit(1);console.log('Online beta URL and HTTPS verified')"
 
       - name: Use the official Orvix launcher and splash logo
         shell: bash
