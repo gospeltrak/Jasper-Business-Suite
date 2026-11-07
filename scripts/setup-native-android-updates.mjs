@@ -48,7 +48,7 @@ const marker = 'public class MainActivity extends BridgeActivity {';
 if (!main.text.includes(marker)) throw new Error('Unknown generated MainActivity class');
 const patchedActivity = main.text.replace(marker, marker + `
   @Override
-  protected void onResume() {
+  public void onResume() {
     super.onResume();
     // Never refresh checkout or interrupt forms; only check for a native beta.
     OrvixBetaUpdater.onResume(this);
