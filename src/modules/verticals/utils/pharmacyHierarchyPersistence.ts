@@ -10,6 +10,7 @@ export type PharmacyHierarchySnapshot = Pick<Product,
   | 'tabsPerDose'
   | 'tabsPerPack'
   | 'packetPrice'
+  | 'stripPrice'
   | 'fullDosePrice'
   | 'halfDosePrice'
   | 'tabPrice'
@@ -36,6 +37,7 @@ export const getPharmacyHierarchySnapshot = (product: Partial<Product>): Pharmac
   tabsPerDose: optionalFiniteNumber(product.tabsPerDose),
   tabsPerPack: optionalFiniteNumber(product.tabsPerPack),
   packetPrice: optionalFiniteNumber(product.packetPrice),
+  stripPrice: optionalFiniteNumber(product.stripPrice),
   fullDosePrice: optionalFiniteNumber(product.fullDosePrice),
   halfDosePrice: optionalFiniteNumber(product.halfDosePrice),
   tabPrice: optionalFiniteNumber(product.tabPrice),
