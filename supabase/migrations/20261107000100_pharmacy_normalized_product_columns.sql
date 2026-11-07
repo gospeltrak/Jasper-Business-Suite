@@ -40,13 +40,13 @@ BEGIN
   NEW.pharmacy_base_unit := nullif(v->>'pharmacyBaseUnit','');
   NEW.doses_per_packet := CASE WHEN (v->>'dosesPerPacket') ~ '^[0-9]+([.][0-9]+)?$' THEN (v->>'dosesPerPacket')::numeric ELSE NULL END;
   NEW.tabs_per_dose := CASE WHEN (v->>'tabsPerDose') ~ '^[0-9]+([.][0-9]+)?$' THEN (v->>'tabsPerDose')::numeric ELSE NULL END;
-  NEW.tabs_per_pack := CASE WHEN (v->>'tabsPerPack') ~ '^[0-9]+$' THEN (v->>'tabsPerPack')::integer ELSE NULL END;
+  NEW.tabs_per_pack := CASE WHEN (v->>'tabsPerPack') ~ '^[0-9]+$' THEN (v->>'tabsPerPack')::integer ELSE NEW.tabs_per_pack END;
   NEW.packet_price := CASE WHEN (v->>'packetPrice') ~ '^[0-9]+([.][0-9]+)?$' THEN (v->>'packetPrice')::numeric ELSE NULL END;
   NEW.strip_price := CASE WHEN (v->>'stripPrice') ~ '^[0-9]+([.][0-9]+)?$' THEN (v->>'stripPrice')::numeric ELSE NULL END;
   NEW.full_dose_price := CASE WHEN (v->>'fullDosePrice') ~ '^[0-9]+([.][0-9]+)?$' THEN (v->>'fullDosePrice')::numeric ELSE NULL END;
   NEW.half_dose_price := CASE WHEN (v->>'halfDosePrice') ~ '^[0-9]+([.][0-9]+)?$' THEN (v->>'halfDosePrice')::numeric ELSE NULL END;
   NEW.tab_price := CASE WHEN (v->>'tabPrice') ~ '^[0-9]+([.][0-9]+)?$' THEN (v->>'tabPrice')::numeric ELSE NULL END;
-  NEW.allows_dosage_dividing := CASE WHEN v ? 'allowsDosageDividing' THEN (v->>'allowsDosageDividing')::boolean ELSE NULL END;
+  NEW.allows_dosage_dividing := CASE WHEN v ? 'allowsDosageDividing' THEN (v->>'allowsDosageDividing')::boolean ELSE NEW.allows_dosage_dividing END;
   RETURN NEW;
 END;
 $$;
