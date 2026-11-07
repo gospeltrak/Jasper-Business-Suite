@@ -1,3 +1,11 @@
+-- Each psql invocation uses its own session; set fixture claims explicitly.
+SELECT set_config('test.auth_uid','99999999-9999-4999-8999-999999999999', false);
+SELECT set_config('test.tenant_id','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', false);
+SELECT set_config('test.scope','branch', false);
+SELECT set_config('test.is_admin','false', false);
+SELECT set_config('test.can_read','true', false);
+SELECT set_config('test.can_write','true', false);
+
 -- Assertions for isolated Pharmacy normalization migration.
 DO $test$
 DECLARE
