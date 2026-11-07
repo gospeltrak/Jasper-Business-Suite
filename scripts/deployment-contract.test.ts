@@ -1286,6 +1286,20 @@ test('web and remote-URL Android WebView detect releases without reloading an ac
     item.key.toLowerCase() === 'cache-control' && item.value.includes('no-store')));
 });
 
+test('Android beta release manifest stays disabled until a verified signed APK is published', async () => {
+  const manifest = JSON.parse(await read('public/android-beta-release.json'));
+  const vercel = JSON.parse(await read('vercel.json'));
+  assert.equal(manifest.schemaVersion, 1);
+  assert.equal(manifest.packageName, 'africa.orvix.app');
+  assert.equal(manifest.versionCode, 0, 'No update should be offered without a signed release');
+  assert.equal(manifest.apkUrl, '');
+  assert.equal(manifest.sha256, '');
+  const headers = vercel.headers.find((rule: { source: string }) => rule.source === '/android-beta-release.json');
+  assert.ok(headers);
+  assert.ok(headers.headers.some((entry: { key: string; value: string }) =>
+    entry.key.toLowerCase() === 'cache-control' && entry.value.includes('no-store')));
+});
+
 test('browser gets a fresh service worker and dashboard shell after each deployment', async () => {
   const pkg = JSON.parse(await read('package.json'));
   const verifier = await read('scripts/verify-deploy.mjs');
