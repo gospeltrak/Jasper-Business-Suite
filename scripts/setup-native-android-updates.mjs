@@ -10,10 +10,10 @@ if (!Number.isSafeInteger(versionCode) || versionCode <= 1 || versionCode > 1_00
   throw new Error('ORVIX_BETA_VERSION_CODE must be a positive monotonically increasing build number > 1');
 }
 let gradle = await readFile(gradlePath, 'utf8');
-if (!/\\bversionCode\\s+1\\b/.test(gradle)) {
+if (!/\bversionCode\s+1\b/.test(gradle)) {
   throw new Error('Unexpected Android Gradle versionCode; manual review required');
 }
-gradle = gradle.replace(/\\bversionCode\\s+1\\b/, 'versionCode ' + versionCode);
+gradle = gradle.replace(/\bversionCode\s+1\b/, 'versionCode ' + versionCode);
 await writeFile(gradlePath, gradle, 'utf8');
 
 const root = resolve('android/app/src/main');
