@@ -38,14 +38,14 @@ BEGIN
   NEW.pharmacy_product_type := nullif(v->>'pharmacyProductType','');
   NEW.pharmacy_hierarchy_start := nullif(v->>'pharmacyHierarchyStart','');
   NEW.pharmacy_base_unit := nullif(v->>'pharmacyBaseUnit','');
-  NEW.doses_per_packet := CASE WHEN (v->>'dosesPerPacket') ~ '^[0-9]+(\\.[0-9]+)?$' THEN (v->>'dosesPerPacket')::numeric ELSE NULL END;
-  NEW.tabs_per_dose := CASE WHEN (v->>'tabsPerDose') ~ '^[0-9]+(\\.[0-9]+)?$' THEN (v->>'tabsPerDose')::numeric ELSE NULL END;
+  NEW.doses_per_packet := CASE WHEN (v->>'dosesPerPacket') ~ '^[0-9]+([.][0-9]+)?$' THEN (v->>'dosesPerPacket')::numeric ELSE NULL END;
+  NEW.tabs_per_dose := CASE WHEN (v->>'tabsPerDose') ~ '^[0-9]+([.][0-9]+)?$' THEN (v->>'tabsPerDose')::numeric ELSE NULL END;
   NEW.tabs_per_pack := CASE WHEN (v->>'tabsPerPack') ~ '^[0-9]+$' THEN (v->>'tabsPerPack')::integer ELSE NULL END;
-  NEW.packet_price := CASE WHEN (v->>'packetPrice') ~ '^[0-9]+(\\.[0-9]+)?$' THEN (v->>'packetPrice')::numeric ELSE NULL END;
-  NEW.strip_price := CASE WHEN (v->>'stripPrice') ~ '^[0-9]+(\\.[0-9]+)?$' THEN (v->>'stripPrice')::numeric ELSE NULL END;
-  NEW.full_dose_price := CASE WHEN (v->>'fullDosePrice') ~ '^[0-9]+(\\.[0-9]+)?$' THEN (v->>'fullDosePrice')::numeric ELSE NULL END;
-  NEW.half_dose_price := CASE WHEN (v->>'halfDosePrice') ~ '^[0-9]+(\\.[0-9]+)?$' THEN (v->>'halfDosePrice')::numeric ELSE NULL END;
-  NEW.tab_price := CASE WHEN (v->>'tabPrice') ~ '^[0-9]+(\\.[0-9]+)?$' THEN (v->>'tabPrice')::numeric ELSE NULL END;
+  NEW.packet_price := CASE WHEN (v->>'packetPrice') ~ '^[0-9]+([.][0-9]+)?$' THEN (v->>'packetPrice')::numeric ELSE NULL END;
+  NEW.strip_price := CASE WHEN (v->>'stripPrice') ~ '^[0-9]+([.][0-9]+)?$' THEN (v->>'stripPrice')::numeric ELSE NULL END;
+  NEW.full_dose_price := CASE WHEN (v->>'fullDosePrice') ~ '^[0-9]+([.][0-9]+)?$' THEN (v->>'fullDosePrice')::numeric ELSE NULL END;
+  NEW.half_dose_price := CASE WHEN (v->>'halfDosePrice') ~ '^[0-9]+([.][0-9]+)?$' THEN (v->>'halfDosePrice')::numeric ELSE NULL END;
+  NEW.tab_price := CASE WHEN (v->>'tabPrice') ~ '^[0-9]+([.][0-9]+)?$' THEN (v->>'tabPrice')::numeric ELSE NULL END;
   NEW.allows_dosage_dividing := CASE WHEN v ? 'allowsDosageDividing' THEN (v->>'allowsDosageDividing')::boolean ELSE NULL END;
   RETURN NEW;
 END;
@@ -54,6 +54,56 @@ DROP TRIGGER IF EXISTS sync_pharmacy_product_columns ON public.products;
 CREATE TRIGGER sync_pharmacy_product_columns
   BEFORE INSERT OR UPDATE OF source_record ON public.products
   FOR EACH ROW EXECUTE FUNCTION private.sync_pharmacy_product_columns();
+
+-- Keep child hierarchy rows current for every product edit in the same transaction.
+CREATE OR REPLACE FUNCTION private.sync_pharmacy_product_levels()
+RETURNS trigger LANGUAGE plpgsql SET search_path = '' AS $
+BEGIN
+  IF TG_OP = 'UPDATE' AND NEW.source_record->'pharmacyUnitLevels'
+    IS NOT DISTINCT FROM OLD.source_record->'pharmacyUnitLevels' THEN
+    RETURN NEW;
+  END IF;
+  DELETE FROM public.product_pharmacy_unit_levels WHERE product_id = NEW.id;
+  INSERT INTO public.product_pharmacy_unit_levels
+    (product_id, level_id, ordinal, label, unit, quantity_to_base_unit)
+  SELECT NEW.id, level.value->>'id', (level.ordinality - 1)::integer,
+    coalesce(level.value->>'label',''), coalesce(level.value->>'unit',''),
+    (level.value->>'quantityToBaseUnit')::numeric
+  FROM jsonb_array_elements(
+    CASE WHEN jsonb_typeof(NEW.source_record->'pharmacyUnitLevels') = 'array'
+      THEN NEW.source_record->'pharmacyUnitLevels' ELSE '[]'::jsonb END
+  ) WITH ORDINALITY AS level(value, ordinality)
+  WHERE nullif(level.value->>'id','') IS NOT NULL
+    AND (level.value->>'quantityToBaseUnit') ~ '^[0-9]+([.][0-9]+)?
+UPDATE public.products SET source_record = source_record
+WHERE source_active AND (source_record ? 'pharmacyUnitLevels'
+  OR source_record ? 'tabsPerDose' OR source_record ? 'pharmacyProductType');
+
+-- Insert hierarchy levels only for products with well-formed arrays.
+INSERT INTO public.product_pharmacy_unit_levels
+  (product_id, level_id, ordinal, label, unit, quantity_to_base_unit)
+SELECT p.id, item.value->>'id', (item.ordinality - 1)::integer,
+       coalesce(item.value->>'label',''), coalesce(item.value->>'unit',''),
+       (item.value->>'quantityToBaseUnit')::numeric
+FROM public.products p
+CROSS JOIN LATERAL jsonb_array_elements(
+  CASE WHEN jsonb_typeof(p.source_record->'pharmacyUnitLevels') = 'array'
+    THEN p.source_record->'pharmacyUnitLevels' ELSE '[]'::jsonb END
+) WITH ORDINALITY AS item(value, ordinality)
+WHERE p.source_active
+  AND nullif(item.value->>'id','') IS NOT NULL
+  AND (item.value->>'quantityToBaseUnit') ~ '^[0-9]+([.][0-9]+)?$'
+  AND (item.value->>'quantityToBaseUnit')::numeric > 0
+ON CONFLICT (product_id, level_id) DO NOTHING;
+
+    AND (level.value->>'quantityToBaseUnit')::numeric > 0;
+  RETURN NEW;
+END;
+$;
+DROP TRIGGER IF EXISTS sync_pharmacy_product_levels ON public.products;
+CREATE TRIGGER sync_pharmacy_product_levels
+  AFTER INSERT OR UPDATE OF source_record ON public.products
+  FOR EACH ROW EXECUTE FUNCTION private.sync_pharmacy_product_levels();
 
 -- Backfill only pharmacy-specific columns for existing rows, without touching stock.
 UPDATE public.products SET source_record = source_record
@@ -73,6 +123,6 @@ CROSS JOIN LATERAL jsonb_array_elements(
 ) WITH ORDINALITY AS item(value, ordinality)
 WHERE p.source_active
   AND nullif(item.value->>'id','') IS NOT NULL
-  AND (item.value->>'quantityToBaseUnit') ~ '^[0-9]+(\\.[0-9]+)?$'
+  AND (item.value->>'quantityToBaseUnit') ~ '^[0-9]+([.][0-9]+)?$'
   AND (item.value->>'quantityToBaseUnit')::numeric > 0
 ON CONFLICT (product_id, level_id) DO NOTHING;
