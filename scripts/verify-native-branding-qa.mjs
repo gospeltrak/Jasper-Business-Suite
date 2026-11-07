@@ -9,6 +9,11 @@ const base = 'origin/feature/orvix-native-offline-v1';
 const allowed = new Set([
   '.github/workflows/native-android-qa.yml',
   'scripts/setup-native-android-branding.py',
+  'scripts/assemble-native-orvix-logo.py',
+  'scripts/assets/orvix-logo.01.b64',
+  'scripts/assets/orvix-logo.02.b64',
+  'scripts/assets/orvix-logo.03.b64',
+  'scripts/assets/orvix-logo.04.b64',
   'scripts/verify-native-contract.mjs',
   'scripts/verify-native-branding-qa.mjs',
   'src/App.tsx',
