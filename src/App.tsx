@@ -887,7 +887,7 @@ export default function App() {
     <div id="jasper-app-root" className="app-shell min-h-[100dvh] bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans antialiased selection:bg-emerald-100 selection:text-emerald-900 transition-colors duration-300">
       {splashRequest && (
         <JasperSplashScreen
-          logoSrc={splashRequest.mode === 'tenant' ? splashRequest.logoSrc : isOrvixNativeApp() ? '/icon-512.png' : undefined}
+          logoSrc={splashRequest.mode === 'tenant' ? splashRequest.logoSrc : isOrvixNativeApp() ? '/brand/orvix-qa-logo.png' : undefined}
           duration={splashRequest.mode === 'tenant' ? 2000 : 1200}
           showTagline={splashRequest.showTagline}
           onFinish={() => {
