@@ -62,8 +62,8 @@ if (!updaterSource.includes('package africa.orvix.app;')) {
 }
 await writeFile(join(dirname(main.path), 'OrvixBetaUpdater.java'), updaterSource, 'utf8');
 await writeFile(join(dirname(main.path), 'OrvixUpdateFileProvider.java'),
-  'package africa.orvix.app;\\n' +
-  'public final class OrvixUpdateFileProvider extends androidx.core.content.FileProvider {}\\n',
+  'package africa.orvix.app;\n' +
+  'public final class OrvixUpdateFileProvider extends androidx.core.content.FileProvider {}\n',
   'utf8');
 
 let manifest = await readFile(manifestPath, 'utf8');
