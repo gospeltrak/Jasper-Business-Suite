@@ -166,6 +166,33 @@ jobs:
           cp android/app/orvix-qa-debug.keystore "$HOME/.android/debug.keystore"
           test -s "$HOME/.android/debug.keystore"
 
+      # A debug keystore in Actions cache is NOT durable distribution signing.
+      # Only a user-owned, backed-up keystore stored in protected repository
+      # secrets may sign an APK to be shared with real tenants.
+      - name: Configure permanent beta signing when secrets are available
+        id: beta_signing
+        if: startsWith(github.head_ref || github.ref_name, 'feature/orvix-android-in-app-updates-')
+        shell: bash
+        env:
+          ORVIX_BETA_KEYSTORE_B64: ${{ secrets.ORVIX_BETA_KEYSTORE_B64 }}
+          ORVIX_BETA_STORE_PASSWORD: ${{ secrets.ORVIX_BETA_STORE_PASSWORD }}
+          ORVIX_BETA_KEY_ALIAS: ${{ secrets.ORVIX_BETA_KEY_ALIAS }}
+          ORVIX_BETA_KEY_PASSWORD: ${{ secrets.ORVIX_BETA_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$ORVIX_BETA_KEYSTORE_B64" || -z "$ORVIX_BETA_STORE_PASSWORD" || -z "$ORVIX_BETA_KEY_ALIAS" || -z "$ORVIX_BETA_KEY_PASSWORD" ]]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo 'Persistent signing secrets missing: only QA/debug APK will be built. DO NOT distribute to tenants.'
+            exit 0
+          fi
+          umask 077
+          export ORVIX_BETA_KEYSTORE_PATH="$RUNNER_TEMP/orvix-beta-release.jks"
+          printf '%s' "$ORVIX_BETA_KEYSTORE_B64" | base64 --decode > "$ORVIX_BETA_KEYSTORE_PATH"
+          test -s "$ORVIX_BETA_KEYSTORE_PATH"
+          echo "ORVIX_BETA_KEYSTORE_PATH=$ORVIX_BETA_KEYSTORE_PATH" >> "$GITHUB_ENV"
+          node scripts/setup-native-android-beta-signing.mjs
+          echo "enabled=true" >> "$GITHUB_OUTPUT"
+
       - name: Compile signed QA/debug APK
         working-directory: android
         run: ./gradlew :app:assembleDebug --no-daemon
@@ -182,6 +209,20 @@ jobs:
           grep -F "application-label:'Orvix'" "$RUNNER_TEMP/orvix-apk-badging.txt"
           grep -F "package: name='africa.orvix.app'" "$RUNNER_TEMP/orvix-apk-badging.txt"
           echo 'Orvix Android QA branding verification passed.'
+
+      - name: Compile signed release candidate with permanent beta key
+        if: steps.beta_signing.outputs.enabled == 'true'
+        working-directory: android
+        run: ./gradlew :app:assembleRelease --no-daemon
+
+      - name: Upload signed beta candidate for owner approval
+        if: steps.beta_signing.outputs.enabled == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: orvix-android-beta-permanent-key-signed
+          path: android/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Keep debug APK as internal QA artifact
         uses: actions/upload-artifact@v4
