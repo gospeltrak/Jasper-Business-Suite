@@ -113,17 +113,35 @@ RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = '' AS $
 DECLARE
   v_tenant uuid := private.current_tenant_id();
   v_context jsonb;
+  v_scope text;
   v_branch uuid;
+  v_is_admin boolean;
   v_product jsonb;
 BEGIN
   IF (SELECT auth.uid()) IS NULL OR v_tenant IS NULL OR nullif(p_product_id,'') IS NULL THEN
     RAISE EXCEPTION USING errcode='42501', message='Active tenant and product required';
   END IF;
   v_context := public.get_current_branch_context();
+  v_scope := coalesce(v_context->>'activeScope', 'no_branch_access');
   v_branch := nullif(v_context->>'activeBranchId','')::uuid;
-  IF v_context->>'activeScope' <> 'branch' OR v_branch IS NULL
-    OR NOT private.can_write_branch(v_tenant,v_branch,'products.write') THEN
-    RAISE EXCEPTION USING errcode='42501', message='Product permission required';
+  v_is_admin := private.is_tenant_branch_administrator(v_tenant);
+  -- Mirror authorization modes of save_current_branch_products. A successful
+  -- legacy save must never appear to fail just because readback rejects its scope.
+  IF v_scope = 'branch' THEN
+    IF v_branch IS NULL OR NOT private.can_read_branch(v_tenant,v_branch)
+      OR (NOT v_is_admin AND NOT private.can_write_branch(v_tenant,v_branch,'products.write')) THEN
+      RAISE EXCEPTION USING errcode='42501', message='Product write permission required';
+    END IF;
+  ELSIF v_scope = 'compatibility_primary' THEN
+    IF NOT v_is_admin THEN
+      RAISE EXCEPTION USING errcode='42501', message='Tenant administrator required';
+    END IF;
+  ELSIF v_scope = 'all_branches' THEN
+    IF NOT v_is_admin OR NOT coalesce((v_context->>'canViewAllBranches')::boolean,false) THEN
+      RAISE EXCEPTION USING errcode='42501', message='All branches access not permitted';
+    END IF;
+  ELSE
+    RAISE EXCEPTION USING errcode='42501', message='No writable branch selected';
   END IF;
   SELECT p.source_record || jsonb_strip_nulls(jsonb_build_object(
     'pharmacyProductType', p.pharmacy_product_type,
@@ -146,7 +164,13 @@ BEGIN
     ),'[]'::jsonb)
   )) INTO v_product
   FROM public.products p
-  WHERE p.tenant_id=v_tenant AND (p.legacy_id=p_product_id OR (p.legacy_id IS NULL AND p.source_record->>'id'=p_product_id)) AND p.source_active
+  WHERE p.tenant_id=v_tenant
+    AND (p.legacy_id=p_product_id OR (p.legacy_id IS NULL AND p.source_record->>'id'=p_product_id))
+    AND p.source_active
+    -- A staff member in one branch cannot read a different branch's product.
+    AND (v_scope <> 'branch'
+      OR nullif(coalesce(p.source_record->>'branchId',p.source_record->>'branch_id'),'') IS NULL
+      OR coalesce(p.source_record->>'branchId',p.source_record->>'branch_id')=v_branch::text)
   LIMIT 1;
   RETURN v_product;
 END;
