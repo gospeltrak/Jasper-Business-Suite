@@ -16,7 +16,7 @@ from pathlib import Path
 from PIL import Image, ImageOps
 
 ROOT = Path(__file__).resolve().parent.parent
-SOURCE = ROOT / "public" / "icon-512.png"
+SOURCE = ROOT / "public" / "brand" / "orvix-qa-logo.png"
 RES = ROOT / "android" / "app" / "src" / "main" / "res"
 MANIFEST = ROOT / "android" / "app" / "src" / "main" / "AndroidManifest.xml"
 
