@@ -61,6 +61,10 @@ if (!updaterSource.includes('package africa.orvix.app;')) {
   throw new Error('Unexpected updater package');
 }
 await writeFile(join(dirname(main.path), 'OrvixBetaUpdater.java'), updaterSource, 'utf8');
+await writeFile(join(dirname(main.path), 'OrvixUpdateFileProvider.java'),
+  'package africa.orvix.app;\\n' +
+  'public final class OrvixUpdateFileProvider extends androidx.core.content.FileProvider {}\\n',
+  'utf8');
 
 let manifest = await readFile(manifestPath, 'utf8');
 if (!manifest.includes('xmlns:android=')) throw new Error('Android manifest namespace missing');
@@ -69,7 +73,7 @@ if (!manifest.includes('android.permission.REQUEST_INSTALL_PACKAGES')) {
     '  <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />\n</manifest>');
 }
 const provider = `        <provider
-          android:name="androidx.core.content.FileProvider"
+          android:name="africa.orvix.app.OrvixUpdateFileProvider"
           android:authorities="\${applicationId}.updatefiles"
           android:exported="false"
           android:grantUriPermissions="true">
@@ -78,7 +82,9 @@ const provider = `        <provider
             android:resource="@xml/orvix_update_paths" />
         </provider>
 `;
-if (!manifest.includes('android.support.FILE_PROVIDER_PATHS')) {
+// Capacitor already has its own FileProvider. Install a DISTINCT provider
+// authority and subclass rather than replacing or merging Capacitor's provider.
+if (!manifest.includes('\\${applicationId}.updatefiles')) {
   if (!manifest.includes('</application>')) throw new Error('Android application element missing');
   manifest = manifest.replace('</application>', provider + '    </application>');
 }
