@@ -38,8 +38,14 @@ declare global {
 
 export function startOrvixWebReleaseChecks(): () => void {
   if (typeof window === 'undefined' || typeof document === 'undefined') return () => {};
-  // Bundled Android assets use capacitor:/file: origins and cannot be hot-
-  // swapped from the website. Only remote-URL WebViews receive web releases.
+  // Capacitor 8 may serve BUNDLED Android files on a local HTTPS origin.
+  // A website deploy cannot replace a signed native APK's local JS/CSS.
+  // Do not imply native binary updates are available through this watcher.
+  const capacitor = (window as Window & {
+    Capacitor?: { isNativePlatform?: () => boolean };
+  }).Capacitor;
+  if (capacitor?.isNativePlatform?.()) return () => {};
+  // Other app:/file:/capacitor: origins likewise cannot receive web releases.
   if (window.location.protocol !== 'https:' && window.location.protocol !== 'http:') return () => {};
   const currentVersion = document.querySelector<HTMLMetaElement>(
     'meta[name="orvix-web-release"]'
