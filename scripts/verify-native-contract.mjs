@@ -65,7 +65,7 @@ test('native app opens animated logo/login instead of public landing, preserving
   assert.match(experience, /window\.history\.replaceState\(window\.history\.state, '', entry\)/);
   assert.match(experience, /orvix-native-app/);
   assert.match(app, /nativeEntryPath\(path\)/);
-  assert.match(app, /isOrvixNativeApp\(\) \? '\/icon-512\.png' : undefined/);
+  assert.match(app, /isOrvixNativeApp\(\) \? '\/brand\/orvix-qa-logo\.png' : undefined/);
   assert.match(config, /server:\s*\{[\s\S]*hostname:\s*['"]app\.orvix\.africa['"]/);
   // Android must remain HTTPS so the local asset origin is an authorized
   // orvix.africa subdomain and cross-site protections can stay enabled.
