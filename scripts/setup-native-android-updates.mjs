@@ -94,6 +94,9 @@ await writeFile(join(xmlDir, 'orvix_update_paths.xml'),
 if (!patchedActivity.includes('OrvixBetaUpdater.onResume(this);') ||
     !manifest.includes('REQUEST_INSTALL_PACKAGES') ||
     !manifest.includes('orvix_update_paths')) {
-  throw new Error('Android update integration contract failed');
+  throw new Error('Android update integration contract failed: activity=' +
+    patchedActivity.includes('OrvixBetaUpdater.onResume(this);') +
+    ' permission=' + manifest.includes('REQUEST_INSTALL_PACKAGES') +
+    ' fileProvider=' + manifest.includes('orvix_update_paths'));
 }
 console.log('Orvix beta updater installed: explicit consent, SHA-256, package/signature checks delegated to Android.');
