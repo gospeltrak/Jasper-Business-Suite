@@ -59,6 +59,10 @@ jobs:
       - name: Install locked dependencies
         run: npm ci
 
+      - name: Verify and assemble original Orvix beta logo
+        if: ${{ hashFiles('scripts/assets/orvix-logo.01.b64') != '' }}
+        run: python3 scripts/assemble-native-orvix-logo.py
+
       - name: Verify UI is unchanged from main
         run: |
           git fetch --no-tags origin main feature/orvix-native-offline-v1
