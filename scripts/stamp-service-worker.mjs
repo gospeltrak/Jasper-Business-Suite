@@ -47,5 +47,5 @@ await writeFile(resolve('dist/orvix-release.json'), JSON.stringify({
   schemaVersion: 1,
   webVersion: version,
   updateStrategy: 'next-launch',
-}) + '\\n', 'utf8');
+}) + '\n', 'utf8');
 console.log(`Orvix web release stamped: ${version.slice(0, 12)}`);
