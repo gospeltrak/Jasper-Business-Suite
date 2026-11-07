@@ -41,6 +41,24 @@ const getProductImageUploadToken = async (): Promise<string> => {
   return token;
 };
 
+const PharmacyPositiveIntegerInput: React.FC<{ value: number; onCommit: (value: number) => void; className: string }> = ({ value, onCommit, className }) => {
+  const [draft, setDraft] = useState<string | null>(null);
+  return <input type="number" min={1} step={1} inputMode="numeric"
+    value={draft ?? String(value)}
+    onChange={e => {
+      const raw = e.target.value;
+      setDraft(raw);
+      const next = Number(raw);
+      if (raw !== '' && Number.isSafeInteger(next) && next > 0) onCommit(next);
+    }}
+    onBlur={() => {
+      const next = Number(draft ?? value);
+      if (draft !== null && draft !== '' && Number.isSafeInteger(next) && next > 0) onCommit(next);
+      setDraft(null);
+    }}
+    className={className} />;
+};
+
 interface DashboardProductsProps {
   activeTenant: Tenant;
   products: Product[];
@@ -6235,17 +6253,17 @@ export default function DashboardProducts({
                           {topLabel && (
                             <div className="space-y-1">
                               <label className="text-[9px] font-bold text-slate-500 uppercase">{topLabel}</label>
-                              <input type="number" min={1} value={structure.topQty} onChange={e => setEditForm(prev => ({ ...prev, pharmacyTopContains: Number(e.target.value) || 1 } as any))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                              <PharmacyPositiveIntegerInput key={`top-${editingProduct?.id}`} value={structure.topQty} onCommit={next => setEditForm(prev => ({ ...prev, pharmacyTopContains: next } as any))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
                             </div>
                           )}
                           <div className="space-y-1">
                             <label className="text-[9px] font-bold text-slate-500 uppercase">{middleLabel}</label>
-                            <input type="number" min={1} value={structure.middleQty} onChange={e => setEditForm(prev => ({ ...prev, pharmacyMiddleContains: Number(e.target.value) || 1, dosesPerPacket: Number(e.target.value) || 1 } as any))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                            <PharmacyPositiveIntegerInput key={`middle-${editingProduct?.id}`} value={structure.middleQty} onCommit={next => setEditForm(prev => ({ ...prev, pharmacyMiddleContains: next, dosesPerPacket: next } as any))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
                           </div>
                           {structure.productType === 'pharmaceutical' && (
                             <div className="space-y-1">
                               <label className="text-[9px] font-bold text-slate-500 uppercase">{structure.base}s per Dose</label>
-                              <input type="number" min={1} value={structure.doseQty} onChange={e => setEditForm(prev => ({ ...prev, pharmacyDoseContains: Number(e.target.value) || 1, tabsPerDose: Number(e.target.value) || 1 } as any))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
+                              <PharmacyPositiveIntegerInput key={`dose-${editingProduct?.id}`} value={structure.doseQty} onCommit={next => setEditForm(prev => ({ ...prev, pharmacyDoseContains: next, tabsPerDose: next } as any))} className="w-full bg-white border border-slate-200 text-xs px-3 py-2 rounded-xl" />
                             </div>
                           )}
                           <div className="space-y-1">

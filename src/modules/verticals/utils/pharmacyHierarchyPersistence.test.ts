@@ -34,6 +34,31 @@ describe('pharmacy hierarchy persistence', () => {
     expect(pharmacyHierarchyMatches(submitted, hydrated)).toBe(true);
   });
 
+  it('accepts a database JSONB read-back with reordered object keys', () => {
+    const submitted = medicine();
+    const stored = medicine({
+      pharmacyUnitBreakdown: {
+        tabletsPerStrip: 10, stripsPerBox: 2, baseUnit: 'Tablet',
+        stripUnit: 'Dose', purchaseUnit: 'Packet',
+      },
+      pharmacyUnitLevels: submitted.pharmacyUnitLevels?.map(level => ({
+        quantityToBaseUnit: level.quantityToBaseUnit,
+        unit: level.unit,
+        label: level.label,
+        id: level.id,
+      })),
+    });
+    expect(pharmacyHierarchyMatches(submitted, stored)).toBe(true);
+  });
+
+  it('rejects a real strip price change', () => {
+    expect(pharmacyHierarchyMatches(medicine({ stripPrice: 600 }), medicine({ stripPrice: 700 }))).toBe(false);
+  });
+
+  it('still rejects a real change in dose quantity', () => {
+    expect(pharmacyHierarchyMatches(medicine(), medicine({ tabsPerDose: 6 }))).toBe(false);
+  });
+
   it('does not let a delayed stale autosave overwrite a newer manual hierarchy save', () => {
     const stale = medicine({
       dosesPerPacket: 1,

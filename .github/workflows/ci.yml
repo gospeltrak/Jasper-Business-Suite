@@ -31,3 +31,37 @@ jobs:
 
       - name: Verify production deployment build
         run: npm run build
+
+  pharmacy-postgres-smoke:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: pharmacy_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d pharmacy_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      PGHOST: localhost
+      PGPORT: '5432'
+      PGDATABASE: pharmacy_test
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Initialize isolated Pharmacy fixture
+        run: psql -v ON_ERROR_STOP=1 -f tests/sql/pharmacy_normalization_setup.sql
+
+      - name: Apply additive Pharmacy migration
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261107083002_20261107000100_pharmacy_normalized_product_columns.sql
+
+      - name: Verify backfill, product edits, authorization, and stock safety
+        run: psql -v ON_ERROR_STOP=1 -f tests/sql/pharmacy_normalization_smoke.sql

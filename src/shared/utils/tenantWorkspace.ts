@@ -665,6 +665,21 @@ export async function reloadTenantWorkspace(tenantId: string): Promise<TenantWor
 /** Performs an uncached authoritative core read for post-save verification. */
 export async function loadTenantProductFresh(tenantId: string, productId: string): Promise<Product | null> {
   if (!tenantId || !productId) return null;
+  const client = await getConfiguredClient();
+  if (!client) return null;
+  // The normalized endpoint returns only one authorized product, avoiding a
+  // full workspace read and the stale-snapshot verification failure.
+  if (typeof client.rpc === 'function') {
+    const { data, error } = await client.rpc('get_current_branch_product_fresh', {
+      p_product_id: productId,
+    });
+    if (!error) return (data as Product | null) || null;
+    if (!['PGRST202', '42883'].includes(String(error.code || ''))) {
+      console.warn('[workspace] normalized product readback failed:', error.message);
+      return null; // Never silently accept a stale workspace after an RPC failure.
+    }
+  }
+  // Compatibility only until the additive migration reaches all environments.
   const fresh = await fetchWorkspaceCore(tenantId);
   return fresh?.payload.products?.find(product => product.id === productId) || null;
 }
