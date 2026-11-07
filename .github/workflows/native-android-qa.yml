@@ -14,7 +14,7 @@ on:
       - 'supabase/migrations/**'
       - '.github/workflows/native-android-qa.yml'
   pull_request:
-    branches: [main]
+    branches: [main, feature/orvix-native-offline-v1]
     paths:
       - 'capacitor.config.ts'
       - 'package.json'
@@ -24,6 +24,7 @@ on:
       - 'index.html'
       - 'scripts/verify-native-*.mjs'
       - '.github/workflows/native-android-qa.yml'
+      - 'scripts/setup-native-android-branding.py'
 
 permissions:
   contents: read
@@ -64,7 +65,7 @@ jobs:
           node scripts/verify-native-ui-freeze.mjs --self-test
           # A branding-only QA branch is based on the native development
           # branch, not the ever-changing production web UI.
-          if [[ "${GITHUB_REF_NAME}" == qa/orvix-branded-apk-* ]]; then
+          if [[ "${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}" == qa/orvix-branded-apk-* ]]; then
             node scripts/verify-native-ui-freeze.mjs --base origin/feature/orvix-native-offline-v1
           else
             node scripts/verify-native-ui-freeze.mjs --base origin/main
