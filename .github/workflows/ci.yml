@@ -61,7 +61,7 @@ jobs:
         run: psql -v ON_ERROR_STOP=1 -f tests/sql/pharmacy_normalization_setup.sql
 
       - name: Apply additive Pharmacy migration
-        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261107000100_pharmacy_normalized_product_columns.sql
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261107083002_20261107000100_pharmacy_normalized_product_columns.sql
 
       - name: Verify backfill, product edits, authorization, and stock safety
         run: psql -v ON_ERROR_STOP=1 -f tests/sql/pharmacy_normalization_smoke.sql
