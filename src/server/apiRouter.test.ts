@@ -50,7 +50,9 @@ describe('single production API entry point', () => {
     });
     await handler(req, {});
     expect(req.url).toBe('/api/tenant/resolve?host=shop.example&lang=sw');
-    expect(server.app).toHaveBeenCalledWith(req, {});
+    // Reference identity avoids Vitest's deep comparison invoking the
+    // intentionally throwing req.query getter in this regression test.
+    expect(server.app.mock.calls[0]?.[0]).toBe(req);
   });
 
   it('preserves repeated path segments and works when the raw path is already rewritten', async () => {
