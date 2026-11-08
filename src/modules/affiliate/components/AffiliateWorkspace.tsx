@@ -23,6 +23,7 @@ import GlobalStickyAd from '../../../shared/components/GlobalStickyAd';
 import { formatLocalMonth } from '../../../shared/utils/localDate';
 import { getSecureDataBridgeClient } from '../../../shared/dataBridge/secureDataBridge';
 import { AFFILIATE_MIN_WITHDRAWAL_TZS, getAzamPayFee, getTanzaniaMonthEndWithdrawalDate, sumRewardBalance } from '../utils/affiliatePolicy';
+import { getAffiliateDashboardSummary, getAffiliateCustomerState } from '../utils/affiliateDashboardSummary';
 
 const currency = new Intl.NumberFormat('en-TZ', { style: 'currency', currency: 'TZS', maximumFractionDigits: 0 });
 
@@ -416,7 +417,7 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
       if (error) throw error;
       setShowWithdrawModal(false);
       setWithdrawForm({ name:'', phone:'', amount:'', password:'' });
-      setNotice(`Ombi limepokelewa: TZS ${Number(data?.net || 0).toLocaleString()} baada ya ada ya AzamPay. Linasubiri uhakiki na malipo.`);
+      setNotice(`Ombi limepokelewa: TZS ${Number(data?.net || 0).toLocaleString()} baada ya ada. Linasubiri uhakiki na malipo ya manual.`);
       await refresh();
     } catch (error: any) {
       setWithdrawError(error?.message || 'Ombi la kutoa pesa halikukamilika.');
@@ -508,15 +509,26 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
   const openTasks = workspace!.tasks.filter((task) => !['completed', 'reviewed'].includes(task.status));
   const upcomingMeetings = workspace!.meetings.filter((meeting) => ['upcoming', 'live'].includes(meeting.status));
   const notifications = workspace!.notifications || [];
+  const earnedByType = (workspace?.rewards || []).filter(reward => reward.status !== 'void').reduce(
+    (value, reward) => {
+      if (reward.reward_type === 'registration_bonus') value.bonus += Number(reward.net_amount || 0);
+      if (reward.reward_type === 'subscription_commission') value.commission += Number(reward.net_amount || 0);
+      return value;
+    }, { bonus: 0, commission: 0 }
+  );
+  const customerSummary = getAffiliateDashboardSummary(workspace?.subscribers || []);
+  const recentCustomers = [...(workspace?.subscribers || [])]
+    .sort((a,b) => String(b.created_at || '').localeCompare(String(a.created_at || '')))
+    .slice(0,3);
   const allNavItems: ReadonlyArray<readonly [TabId, string, LucideIcon]> = [
     ['overview', 'Overview', BarChart3],
-    ['tenants', 'My Subscribers', Users],
-    ['code-link', 'Code & Link', LinkIcon],
-    ['tasks', 'Tasks', ClipboardList],
-    ['ads', 'Ads by JB', Film],
-    ['meetings', 'Meetings', CalendarClock],
+    ['payouts', 'Payment Status', Wallet],
+    ['tenants', 'Customers', Users],
     ['reports', 'Reports', TrendingUp],
-    ['payouts', 'Payouts', Wallet],
+    ['tasks', 'Messages & Tasks', ClipboardList],
+    ['ads', 'Matangazo & Tutorials', Film],
+    ['meetings', 'Meetings', CalendarClock],
+    ['code-link', 'Code & Link', LinkIcon],
     ['settings', 'Settings', Settings],
   ];
   const navItems = allNavItems.filter(([id]) => !mirrorMode || id !== 'settings');
@@ -548,7 +560,7 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
   );
 
   return (
-    <main className="bg-slate-50 text-slate-900 pb-24 lg:pb-8 min-h-[100dvh]">
+    <main className="bg-slate-50 text-slate-900 dark:bg-[#061b16] dark:text-white pb-24 lg:pb-8 min-h-[100dvh]">
       {mirrorMode && (
         <div className="sticky top-0 z-50 flex items-center justify-between gap-3 border-b border-cyan-300 bg-slate-950 px-4 py-3 text-white shadow-lg sm:px-6">
           <div className="min-w-0">
@@ -567,24 +579,24 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
         </div>
       )}
       <div className="mx-auto grid min-h-screen max-w-[1440px] lg:grid-cols-[232px_minmax(0,1fr)]">
-        <aside className="hidden h-screen sticky top-0 lg:flex flex-col border-r border-slate-200 bg-white p-5">
+        <aside className="hidden h-screen sticky top-0 lg:flex flex-col border-r border-emerald-900 bg-[#063b2a] p-5">
           <div className="flex items-center gap-3">
-            <div className="grid h-9 w-9 place-items-center rounded-md bg-emerald-600 text-sm font-black text-white">JB</div>
-            <div><p className="text-sm font-black text-slate-950">Affiliate</p><p className="text-[11px] text-slate-500">Live workspace</p></div>
+            <div className="grid h-9 w-9 place-items-center rounded-md bg-emerald-700 text-sm font-semibold text-white">O</div>
+            <div><p className="text-sm font-semibold text-white">Affiliate</p><p className="text-[11px] text-emerald-100/70">Orvix</p></div>
           </div>
           <nav className="mt-8 space-y-1" aria-label="Affiliate workspace navigation">
-            {navItems.map(([id, label, Icon]) => <button key={id} type="button" onClick={() => setActiveTab(id)} className={`flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm font-semibold ${activeTab === id ? 'bg-emerald-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`}><Icon className="h-4 w-4" />{label}</button>)}
+            {navItems.map(([id, label, Icon]) => <button key={id} type="button" onClick={() => setActiveTab(id)} className={`flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm font-semibold ${activeTab === id ? 'bg-emerald-600 text-white' : 'text-emerald-100/80 hover:bg-emerald-900/50'}`}><Icon className="h-4 w-4" />{label}</button>)}
           </nav>
-          <button type="button" onClick={onLogout} className="mt-auto rounded-md border border-slate-300 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">{mirrorMode ? 'Back to Super Admin' : 'Sign out'}</button>
+          <button type="button" onClick={onLogout} className="mt-auto rounded-md border border-emerald-800 py-2.5 text-sm font-medium text-emerald-100 hover:bg-emerald-900">{mirrorMode ? 'Back to Super Admin' : 'Sign out'}</button>
         </aside>
 
-        <section className="min-w-0 px-4 py-5 sm:px-6 lg:px-8 lg:py-7">
-          <header className="mb-6 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        <section className="min-w-0 px-3 py-4 sm:px-5 lg:px-7 lg:py-6">
+          <header className="mb-4 rounded-xl border border-slate-200 bg-white p-3.5 dark:border-emerald-900 dark:bg-[#092c21] sm:p-4">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <p className="text-xs font-bold uppercase tracking-wide text-emerald-700">Connected affiliate account</p>
-                <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-950">Hello, {profile.display_name}</h1>
-                <p className="mt-1 text-sm text-slate-500">Code {profile.referral_code} · {profile.status}</p>
+                <p className="text-[11px] font-medium text-emerald-700">Orvix Affiliate</p>
+                <h1 className="mt-1 text-lg font-semibold tracking-tight text-slate-950 dark:text-white sm:text-xl">Karibu, {profile.display_name}</h1>
+                <p className="mt-1 text-xs text-slate-500 dark:text-emerald-100/60">Wateja, vifurushi na kamisheni zako.</p>
               </div>
               <div className="flex flex-wrap gap-2">
                 <button type="button" onClick={copyReferralLink} className="inline-flex items-center justify-center gap-2 rounded-md bg-emerald-600 px-4 py-2.5 text-sm font-bold text-white"><LinkIcon className="h-4 w-4" /> Share link</button>
@@ -595,82 +607,101 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
 
           {notice && <div className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">{notice}</div>}
 
-          {activeTab === 'overview' && <div className="space-y-5">
-            <section className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-              <Metric label="Registrations" value={metrics.registrations.toString()} sub="Subscribers using your promo code" />
-              <Metric label="Total amount entered" value={currency.format(metrics.totalRevenue)} sub="All-time subscriber payments" />
-              <Metric label="Kamisheni ya 10%" value={currency.format(metrics.grossCommission10)} sub="Gross affiliate commission" />
-              <Metric label="Jumla ya mapato" value={currency.format(metrics.totalPayout)} sub="10% ya malipo; withholding ikitumika" />
+          {activeTab === 'overview' && <div className="space-y-4 sm:space-y-5">
+            <section className="grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4">
+              {[
+                ['Wateja Wangu', String(customerSummary.total), 'tenants'],
+                ['Waliolipa', String(customerSummary.paid), 'tenants'],
+                ['Hawajalipa', String(customerSummary.unpaid), 'tenants'],
+                ['My Commission', currency.format(metrics.earned), 'payouts'],
+              ].map(([label, value, target]) => (
+                <button key={label} type="button" onClick={() => setActiveTab(target as TabId)}
+                  className="min-w-0 rounded-xl border border-slate-200 bg-white p-3 text-left hover:border-emerald-300 dark:border-emerald-900 dark:bg-[#092c21] sm:p-4">
+                  <p className="text-[10px] font-medium text-slate-500 dark:text-emerald-100/70 sm:text-xs">{label}</p>
+                  <p className="mt-1.5 break-words text-base font-semibold tabular-nums text-slate-950 dark:text-white sm:text-xl">{value}</p>
+                </button>
+              ))}
             </section>
-
-            {(() => {
-              const adCode = adSettings.dashboardAdCode?.trim();
-              if (canShowDashboardAd(adSettings)) {
-                return (
-                  <div className="flex min-h-[90px] w-full items-center justify-center overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-                    <div
-                      className="min-h-[90px] w-full max-w-[728px] overflow-hidden [&>*]:max-w-full"
-                      dangerouslySetInnerHTML={{ __html: sanitizeTrustedHtml(adCode) }}
-                    />
-                  </div>
-                );
-              }
-
-              return (
-                <div className="flex items-center gap-3 p-3 bg-emerald-50 border border-emerald-200 rounded-lg cursor-pointer hover:bg-emerald-100 transition-colors"
-                  onClick={() => setActiveTab('code-link')}>
-                  <LinkIcon className="h-4 w-4 text-emerald-700 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-emerald-900">{profile.referral_code}</p>
-                    <p className="text-xs text-emerald-700 truncate">{window.location.origin}/?ref={profile.referral_code}</p>
-                  </div>
-                  <span className="text-xs font-bold text-emerald-700 whitespace-nowrap">Code & Link →</span>
-                </div>
-              );
-            })()}
-            {notifications.length > 0 && (
-              <Panel title="Notifications">
-                {notifications.slice(0, 5).map((n) => <NotificationRow key={n.id} notification={n} onMarkRead={handleMarkNotificationRead} />)}
-              </Panel>
+            {canShowDashboardAd(adSettings) && (
+              <div className="overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-emerald-900 dark:bg-[#092c21]">
+                <div className="mx-auto w-full max-w-[728px] overflow-hidden [&>*]:max-w-full"
+                  dangerouslySetInnerHTML={{ __html: sanitizeTrustedHtml(adSettings.dashboardAdCode) }} />
+              </div>
             )}
-            <section className="grid gap-5 xl:grid-cols-2">
-              <Panel title="Latest tasks" action="View all" onAction={() => setActiveTab('tasks')}>
-                {openTasks.slice(0, 3).map((task) => <TaskRow key={task.id} task={task} busy={busyTaskId === task.id} readOnly={mirrorMode} onComplete={handleTaskComplete} onDownload={() => task.attachment_url && handleTrackedLink('task_download', 'task', task.id, task.attachment_url, task.attachment_name)} />)}
-                {openTasks.length === 0 && <Empty text="No pending tasks from your agent." />}
-              </Panel>
-              <Panel title="Task target progress" action="View report" onAction={() => setActiveTab('reports')}>
-                <div className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-black text-slate-950">{taskProgress.completed}/{taskProgress.total} tasks completed</p>
-                      <p className="mt-1 text-xs text-slate-500">{taskProgress.pending} pending · {taskProgress.overdue} overdue</p>
-                    </div>
-                    <span className="text-2xl font-black text-emerald-700">{taskProgress.progress}%</span>
-                  </div>
-                  <div className="mt-4 h-3 overflow-hidden rounded-full bg-slate-100">
-                    <div className="h-full rounded-full bg-emerald-600 transition-all" style={{ width: `${taskProgress.progress}%` }} />
-                  </div>
-                  {taskGoalCards.slice(0, 2).map((goal) => (
-                    <div key={goal.id} className="mt-4 rounded-lg border border-slate-100 bg-slate-50 p-3">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="truncate text-xs font-black text-slate-900">{goal.title}</p>
-                          <p className="mt-0.5 text-[11px] text-slate-500">{goal.scope}: {goal.progressValue}/{goal.target}</p>
-                        </div>
-                        <span className="text-sm font-black text-emerald-700">{goal.progress}%</span>
-                      </div>
-                      <div className="mt-2 h-2 overflow-hidden rounded-full bg-white">
-                        <div className="h-full rounded-full bg-emerald-500" style={{ width: `${goal.progress}%` }} />
-                      </div>
+            <div className="grid gap-3 xl:grid-cols-2">
+              <section className="min-w-0 rounded-xl border border-slate-200 bg-white dark:border-emerald-900 dark:bg-[#092c21]">
+                <div className="flex items-center justify-between gap-2 border-b border-slate-100 px-3.5 py-3 dark:border-emerald-900">
+                  <h2 className="text-xs font-semibold text-slate-950 dark:text-white sm:text-sm">Free Trial & Vifurushi</h2>
+                  <button type="button" onClick={() => setActiveTab('tenants')} className="text-[11px] font-medium text-emerald-700 dark:text-emerald-300">Zaidi</button>
+                </div>
+                <div className="grid grid-cols-4 divide-x divide-slate-100 py-4 dark:divide-emerald-900">
+                  {[
+                    ['Trial', customerSummary.trial],
+                    ['Ruby', customerSummary.ruby],
+                    ['Diamond', customerSummary.diamond],
+                    ['Tanzanite', customerSummary.tanzanite],
+                  ].map(([label, total]) => (
+                    <div key={label} className="min-w-0 px-1 text-center sm:px-2">
+                      <p className="truncate text-[10px] text-slate-500 dark:text-emerald-100/65">{label}</p>
+                      <p className="mt-1 text-base font-semibold tabular-nums text-emerald-800 dark:text-emerald-200">{total}</p>
                     </div>
                   ))}
                 </div>
-              </Panel>
+                <p className="px-3.5 pb-3 text-[10px] text-slate-400 dark:text-emerald-100/60">Vifurushi vya wateja waliolipa</p>
+              </section>
+              <section className="min-w-0 rounded-xl border border-slate-200 bg-white dark:border-emerald-900 dark:bg-[#092c21]">
+                <div className="flex items-center justify-between gap-2 border-b border-slate-100 px-3.5 py-3 dark:border-emerald-900">
+                  <h2 className="text-xs font-semibold text-slate-950 dark:text-white sm:text-sm">Wateja Hivi Karibuni</h2>
+                  <button type="button" onClick={() => setActiveTab('tenants')} className="text-[11px] font-medium text-emerald-700 dark:text-emerald-300">Wote</button>
+                </div>
+                {recentCustomers.length ? (
+                  <div className="divide-y divide-slate-100 dark:divide-emerald-900">
+                    {recentCustomers.map(customer => (
+                      <details key={customer.id} className="group px-3.5 py-2.5">
+                        <summary className="flex cursor-pointer list-none items-center gap-2.5">
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-xs font-medium text-slate-900 dark:text-white">{customer.customer_name}</span>
+                            <span className="mt-0.5 block truncate text-[10px] text-slate-500 dark:text-emerald-100/65">{customer.package_name || 'No plan'}</span>
+                          </span>
+                          <span className="shrink-0 text-[10px] text-emerald-700 dark:text-emerald-300">
+                            {getAffiliateCustomerState(customer) === 'paid' ? 'Amelipa' : getAffiliateCustomerState(customer) === 'trial' ? 'Trial' : 'Hajalipa'}
+                          </span>
+                          <ChevronRight className="h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform group-open:rotate-90" />
+                        </summary>
+                        <div className="mt-2 flex justify-between gap-2 border-t border-slate-100 pt-2 text-[10px] text-slate-500 dark:border-emerald-900 dark:text-emerald-100/65">
+                          <span>{customer.region || customer.location || '—'}</span>
+                          <span>{customer.created_at?.slice(0,10) || '—'}</span>
+                        </div>
+                      </details>
+                    ))}
+                  </div>
+                ) : <p className="p-4 text-xs text-slate-500 dark:text-emerald-100/65">Hakuna wateja bado.</p>}
+              </section>
+            </div>
+            <section className="rounded-xl border border-slate-200 bg-white dark:border-emerald-900 dark:bg-[#092c21]">
+              <div className="flex items-center justify-between gap-2 border-b border-slate-100 px-3.5 py-3 dark:border-emerald-900">
+                <h2 className="text-xs font-semibold text-slate-950 dark:text-white sm:text-sm">Matangazo & Tutorials</h2>
+                <button type="button" onClick={() => setActiveTab('ads')} className="text-[11px] font-medium text-emerald-700 dark:text-emerald-300">Zaidi</button>
+              </div>
+              {workspace!.campaigns.some(c => c.status === 'active') ? (
+                <div className="grid gap-2.5 p-3 sm:grid-cols-2">
+                  {workspace!.campaigns.filter(c => c.status === 'active').slice(0,2).map(c => (
+                    <button key={c.id} type="button" onClick={() => setActiveTab('ads')}
+                      className="flex min-w-0 items-center gap-2.5 rounded-lg bg-emerald-50 px-3 py-3 text-left dark:bg-emerald-950/70">
+                      <Film className="h-4 w-4 shrink-0 text-emerald-700 dark:text-emerald-300" />
+                      <span className="min-w-0 flex-1 truncate text-xs text-slate-900 dark:text-white">{c.title}</span>
+                      <ChevronRight className="h-3.5 w-3.5 text-slate-400" />
+                    </button>
+                  ))}
+                </div>
+              ) : <p className="p-4 text-xs text-slate-500 dark:text-emerald-100/65">Matangazo mapya yataonekana hapa.</p>}
             </section>
-            <Panel title="Upcoming meetings" action="View all" onAction={() => setActiveTab('meetings')}>
-              {upcomingMeetings.slice(0, 3).map((meeting) => <MeetingRow key={meeting.id} meeting={meeting} onJoin={() => handleTrackedLink('meeting_join', 'meeting', meeting.id, meeting.meeting_url)} />)}
-              {upcomingMeetings.length === 0 && <Empty text="No upcoming meetings have been scheduled." />}
-            </Panel>
+            {(openTasks.length > 0 || notifications.length > 0) && (
+              <button type="button" onClick={() => setActiveTab('tasks')}
+                className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-700 dark:border-emerald-900 dark:bg-[#092c21] dark:text-white">
+                <span>Ujumbe na malengo kutoka kwa Agent</span><span className="text-emerald-700 dark:text-emerald-300">{openTasks.length + notifications.length} mpya</span>
+              </button>
+            )}
           </div>}
 
           {activeTab === 'tenants' && (() => {
@@ -1132,8 +1163,8 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
               {/* Header */}
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-lg font-black text-slate-900">Malipo ya Affiliate</h2>
-                  <p className="text-xs text-slate-500 mt-0.5">Historia ya bonus, kamisheni na malipo</p>
+                  <h2 className="text-base font-semibold text-slate-900 dark:text-white">Payment Status</h2>
+                  <p className="mt-1 text-[11px] text-slate-500 dark:text-emerald-100/70">Referral bonus, commission na withdrawal requests.</p>
                 </div>
                 <input
                   type="month"
@@ -1143,41 +1174,27 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
                 />
               </div>
 
-              {/* Balance card */}
-              <div className="rounded-3xl bg-gradient-to-br from-emerald-600 to-teal-600 p-5 text-white shadow-xl shadow-emerald-500/20 relative overflow-hidden">
-                <div className="absolute -top-6 -right-6 w-32 h-32 rounded-full bg-white/10" />
-                <div className="absolute -bottom-8 -left-4 w-24 h-24 rounded-full bg-white/5" />
-                <div className="relative">
-                  <p className="text-[11px] font-bold uppercase tracking-widest text-emerald-100">Salio linaloweza kuombewa</p>
-                  <p className="text-3xl font-black mt-1 tracking-tight" data-testid="affiliate-available-balance">{currency.format(metrics.available)}</p>
-                  <div className="grid grid-cols-2 gap-3 mt-3" data-testid="affiliate-balance-breakdown">
-                    <div><p className="text-[10px] text-emerald-100">Bonus za usajili · TZS 2,000 kila akaunti</p><p className="text-sm font-black">{currency.format(metrics.bonusAvailable)}</p></div>
-                    <div><p className="text-[10px] text-emerald-100">Kamisheni za malipo · 10%</p><p className="text-sm font-black">{currency.format(metrics.commissionAvailable)}</p></div>
+              {/* Compact payment summary; all amounts come from the reward ledger. */}
+              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+                {[
+                  ['Referral Bonus', currency.format(earnedByType.bonus)],
+                  ['Commission (10%)', currency.format(earnedByType.commission)],
+                  ['My Commission', currency.format(metrics.earned)],
+                  ['Salio la kuomba', currency.format(metrics.available)],
+                  ['Already Paid', currency.format(metrics.paid)],
+                  ['Pending Requests', String((workspace?.payouts || []).filter(p => ['requested','processing'].includes(p.status)).length)],
+                ].map(([label, value]) => (
+                  <div key={label} className="min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-3 dark:border-emerald-900 dark:bg-[#092c21]">
+                    <p className="text-[10px] font-medium leading-4 text-slate-500 dark:text-emerald-100/70">{label}</p>
+                    <p className="mt-1 break-words text-sm font-semibold tabular-nums text-slate-950 dark:text-white sm:text-base">{value}</p>
                   </div>
-                  <div className="flex items-center gap-4 mt-3 pt-3 border-t border-white/20">
-                    <div>
-                      <p className="text-[10px] text-emerald-200">Kamisheni (10%)</p>
-                      <p className="text-sm font-black">{currency.format(metrics.commissionAvailable)}</p>
-                    </div>
-                    <div className="w-px h-8 bg-white/20" />
-                    <div>
-                      <p className="text-[10px] text-emerald-200">Withholding</p>
-                      <p className="text-sm font-black text-rose-200">-{currency.format(metrics.withholdingTax)}</p>
-                    </div>
-                    <div className="w-px h-8 bg-white/20" />
-                    <div>
-                      <p className="text-[10px] text-emerald-200">Kiwango cha chini</p>
-                      <p className="text-sm font-black">TZS 10,000</p>
-                    </div>
-                  </div>
-                </div>
+                ))}
               </div>
-
-              <p className="text-xs text-slate-500" data-testid="affiliate-withdrawal-schedule">
-                Ombi moja tu kila mwezi, Ijumaa ya mwisho (saa za Tanzania).
-                Tarehe ya mwezi huu: {payoutWindow.dateISO}. Kiwango cha chini TZS 10,000.
+              <div className="rounded-lg border border-emerald-100 bg-emerald-50/60 px-3.5 py-3 text-[11px] leading-5 text-emerald-950 dark:border-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-100">
+                Withdrawal: salio lote tu, kuanzia TZS 10,000. Ombi moja kwa mwezi, Ijumaa ya mwisho ({payoutWindow.dateISO}).
+                Malipo yanafanywa manually baada ya uhakiki. Ada ya kutuma pesa inakatwa kwenye payout.
                 {hasMonthWithdrawal ? ' Ombi la mwezi huu tayari limewasilishwa.' : ''}
-              </p>
+              </div>
               {/* Withdraw button */}
               {mirrorMode ? (
                 <div className="w-full flex items-center gap-3 rounded-2xl border border-cyan-200 bg-cyan-50 px-5 py-4">
@@ -1228,7 +1245,7 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
 
               {/* Payout history */}
               <div className="space-y-2">
-                <p className="text-[11px] font-black text-slate-400 uppercase tracking-wider px-1">Historia ya malipo</p>
+                <p className="px-1 text-xs font-semibold text-slate-700 dark:text-emerald-100">Historia ya Maombi ya Malipo</p>
                 {workspace!.payouts.length === 0 ? (
                   <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-white p-8 text-center">
                     <Wallet className="w-8 h-8 mx-auto text-slate-300 mb-2" />
@@ -1265,6 +1282,35 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
                 )}
               </div>
 
+              {/* Details stay in Payment Status, not Overview. */}
+              <section className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-emerald-900 dark:bg-[#092c21]">
+                <div className="flex items-center justify-between gap-2 border-b border-slate-100 px-3.5 py-3 dark:border-emerald-900">
+                  <h3 className="text-xs font-semibold text-slate-900 dark:text-white">Wateja Wangu</h3>
+                  <button type="button" onClick={() => setActiveTab('tenants')} className="text-[11px] text-emerald-700 dark:text-emerald-300">Tazama wote</button>
+                </div>
+                <div className="divide-y divide-slate-100 dark:divide-emerald-900">
+                  {recentCustomers.map(customer => (
+                    <details key={customer.id} className="group px-3.5 py-2.5">
+                      <summary className="flex cursor-pointer list-none items-center gap-2.5">
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-xs font-medium text-slate-900 dark:text-white">{customer.customer_name}</span>
+                          <span className="block truncate text-[10px] text-slate-500 dark:text-emerald-100/60">{customer.package_name || 'No plan'}</span>
+                        </span>
+                        <span className="text-[10px] text-slate-500 dark:text-emerald-100/70">
+                          {getAffiliateCustomerState(customer) === 'paid' ? 'Amelipa' : getAffiliateCustomerState(customer) === 'trial' ? 'Trial' : 'Hajalipa'}
+                        </span>
+                        <ChevronRight className="h-3.5 w-3.5 text-slate-400 transition-transform group-open:rotate-90" />
+                      </summary>
+                      <div className="mt-2 flex justify-between gap-3 border-t border-slate-100 pt-2 text-[10px] text-slate-500 dark:border-emerald-900 dark:text-emerald-100/70">
+                        <span>{customer.region || customer.location || '—'}</span>
+                        <span>{customer.created_at?.slice(0,10)}</span>
+                      </div>
+                    </details>
+                  ))}
+                  {!recentCustomers.length && <p className="px-3.5 py-4 text-xs text-slate-500 dark:text-emerald-100/65">Hakuna wateja bado.</p>}
+                </div>
+              </section>
+
               {/* Withdraw Modal */}
               {showWithdrawModal && (
                 <div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4"
@@ -1296,7 +1342,7 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
                         <div>
                           <p className="text-[11px] font-black text-amber-700">Ada ya AzamPay</p>
                           <p className="text-[11px] text-amber-600 mt-0.5">
-                            Ada ya AzamPay: TZS 200 kwenda mtandao mwingine, bila ada kwenda AzamPesa.
+                            Makadirio ya ada hutegemea njia ya malipo. Ada halisi inathibitishwa na mfumo wakati wa kutuma ombi.
                             {withdrawForm.amount && Number(withdrawForm.amount) > 0 && (
                               <span className="font-black"> Utapokea {currency.format(Math.max(0,Math.round(Number(withdrawForm.amount)) - transferFee))} baada ya ada ya {currency.format(transferFee)}.</span>
                             )}
@@ -1427,7 +1473,7 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
         </section>
       </div>
 
-      <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)] lg:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)] dark:border-emerald-900 dark:bg-[#08271d] lg:hidden">
         {mobilePrimaryNav.map(([id, label, Icon]) => <button key={id} type="button" onClick={() => { setActiveTab(id); setMobileMoreOpen(false); }} className={`grid min-h-16 place-items-center gap-1 text-[10px] font-bold ${activeTab === id ? 'text-emerald-700' : 'text-slate-500'}`}><Icon className="h-5 w-5" />{label}</button>)}
         <button type="button" onClick={() => setMobileMoreOpen(true)} className={`grid min-h-16 place-items-center gap-1 text-[10px] font-bold ${mobileMoreOpen || mobileMoreNav.some(([id]) => id === activeTab) ? 'text-emerald-700' : 'text-slate-500'}`}><Menu className="h-5 w-5" />More</button>
       </nav>
