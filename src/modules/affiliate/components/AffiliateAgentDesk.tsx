@@ -1324,7 +1324,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
                   <p className="text-slate-400 text-sm">Data appears when sub-affiliates generate revenue</p>
                 </div>
               ) : (
-                <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+                <div className="hidden md:block bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs">
                       <thead>
