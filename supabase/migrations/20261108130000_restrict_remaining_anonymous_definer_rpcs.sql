@@ -6,7 +6,7 @@ DO $hardening$
 DECLARE fn record;
 BEGIN
   FOR fn IN
-    SELECT p.oid::regprocedure AS signature
+    SELECT format('%I.%I(%s)', n.nspname, p.proname, pg_get_function_identity_arguments(p.oid)) AS signature
     FROM pg_proc p
     JOIN pg_namespace n ON n.oid = p.pronamespace
     WHERE n.nspname = 'public'
