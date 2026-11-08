@@ -65,3 +65,38 @@ jobs:
 
       - name: Verify backfill, product edits, authorization, and stock safety
         run: psql -v ON_ERROR_STOP=1 -f tests/sql/pharmacy_normalization_smoke.sql
+
+  security-postgres-smoke:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: security_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d security_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      PGHOST: localhost
+      PGPORT: '5432'
+      PGDATABASE: security_test
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - name: Initialize isolated security fixture
+        run: psql -v ON_ERROR_STOP=1 -f tests/sql/security_rpc_permissions_setup.sql
+      - name: Apply backend-only provisioning hardening
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261108110000_lock_primary_branch_provisioning_rpc.sql
+      - name: Apply admin RPC and search-path hardening
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261108120000_lock_admin_rpc_anon_and_timestamp_search_path.sql
+      - name: Apply remaining anonymous RPC hardening
+        run: psql -v ON_ERROR_STOP=1 -f supabase/migrations/20261108130000_restrict_remaining_anonymous_definer_rpcs.sql
+      - name: Assert least privilege without breaking authenticated requests
+        run: psql -v ON_ERROR_STOP=1 -f tests/sql/security_rpc_permissions_smoke.sql
