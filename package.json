@@ -32,7 +32,7 @@
     "test:turnstile-recovery": "tsx --test scripts/turnstile-recovery-contract.test.ts",
     "test:partner-capacity": "tsx --test scripts/partner-capacity-contract.test.ts",
     "test:super-admin-google-mfa": "tsx --test scripts/super-admin-google-mfa-contract.test.ts",
-    "test:partner-dashboard": "tsx --test scripts/partner-dashboard-wiring-contract.test.ts",
+    "test:partner-dashboard": "tsx --test scripts/partner-dashboard-wiring-contract.test.ts && node --test scripts/affiliate-agent-responsive-ui-contract.test.mjs",
     "test:security-hardening": "tsx --test scripts/security-hardening-contract.test.ts && node --test scripts/primary-branch-rpc-permissions.test.mjs scripts/admin-rpc-anon-permissions.test.mjs scripts/remaining-anon-rpcs.test.mjs",
     "security:secrets": "node scripts/security-repository-audit.mjs",
     "i18n:gap": "node scripts/i18n-gap.mjs",
