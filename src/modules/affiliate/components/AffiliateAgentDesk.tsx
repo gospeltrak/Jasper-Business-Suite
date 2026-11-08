@@ -63,18 +63,18 @@ type ReferredTenantRow = {
 };
 
 const NAV_TABS: { id: DashTab; label: string; icon: any; desc: string }[] = [
-  { id: 'overview',       label: 'Network Overview',       icon: BarChart3,     desc: 'Team performance & earnings' },
-  { id: 'reconciliation', label: 'Monthly Reconciliation', icon: Coins,         desc: '15% split & withholding' },
-  { id: 'affiliates',     label: 'Manage Sub-Affiliates',  icon: Users,         desc: 'Recruit, suspend, mirror' },
-  { id: 'customers',      label: 'Network Customers',      icon: ShieldCheck,   desc: 'Customers from your team' },
+  { id: 'overview',       label: 'Overview',               icon: BarChart3,     desc: 'Network summary' },
+  { id: 'reconciliation', label: 'Payment Status',         icon: Coins,         desc: 'Manual payout overview' },
+  { id: 'affiliates',     label: 'Affiliates',  icon: Users,         desc: 'Recruit, suspend, mirror' },
+  { id: 'customers',      label: 'Customers',      icon: ShieldCheck,   desc: 'Customers from your team' },
   { id: 'code-link',      label: 'Code & Link',            icon: Copy,          desc: 'Your partner code & referral link' },
-  { id: 'tutorials',      label: 'Tutorials & Tasks',      icon: FileText,      desc: 'Training for your team' },
-  { id: 'conferencing',   label: 'Video Conferencing',     icon: Video,         desc: 'Schedule team calls' },
+  { id: 'tutorials',      label: 'Messages & Targets',      icon: FileText,      desc: 'Training for your team' },
+  { id: 'conferencing',   label: 'Meetings',     icon: Video,         desc: 'Schedule team calls' },
   { id: 'hw-pos',         label: 'Hardware POS',           icon: Monitor,       desc: 'POS orders in network' },
   { id: 'hw-inventory',   label: 'Hardware Inventory',     icon: HardDrive,     desc: 'Devices in network' },
   { id: 'settings',       label: 'Settings',               icon: Settings,      desc: 'Profile & preferences' },
 ];
-const MOBILE_PRIMARY_TAB_IDS: DashTab[] = ['overview', 'affiliates', 'customers'];
+const MOBILE_PRIMARY_TAB_IDS: DashTab[] = ['overview', 'reconciliation', 'affiliates', 'customers'];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -1096,7 +1096,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
   // ── Main Dashboard ────────────────────────────────────────────
 
   return (
-    <div className="flex min-h-0 flex-col bg-slate-950 text-white" style={{ height: '100dvh', maxHeight: '100dvh', overflow: 'hidden' }}>
+    <div className="flex min-h-0 flex-col bg-[#061b16] text-white" style={{ height: '100dvh', maxHeight: '100dvh', overflow: 'hidden' }}>
 
       {/* Offline banner */}
       {!isNetworkOnline && (
@@ -1106,7 +1106,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
       )}
 
       {/* Header */}
-      <header style={{ background: 'linear-gradient(135deg,#0a0f1e,#0d1b2e)' }}
+      <header style={{ background: 'linear-gradient(135deg,#052e23,#064e3b)' }}
         className="border-b border-slate-800 px-4 py-3 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-xl bg-amber-500/20 flex items-center justify-center">
@@ -1135,15 +1135,15 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
       <div className="flex flex-1 min-h-0 overflow-hidden">
 
         {/* Sidebar — desktop only */}
-        <aside className="hidden md:flex md:min-h-0 md:flex-col w-60 border-r border-slate-800 bg-slate-900/50 flex-shrink-0 overflow-y-auto">
+        <aside className="hidden md:flex md:min-h-0 md:flex-col w-52 lg:w-56 border-r border-emerald-950 bg-[#062a21] flex-shrink-0 overflow-y-auto">
           <nav className="p-3 space-y-0.5">
             {NAV_TABS.map(tab => {
               const Icon = tab.icon;
               const active = activeTab === tab.id;
               return (
                 <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                  className={`w-full flex items-start gap-3 px-3 py-2.5 rounded-xl text-left transition-all cursor-pointer border-none ${active ? 'bg-amber-500/15 text-amber-300' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
-                  <Icon className={`w-4 h-4 mt-0.5 shrink-0 ${active ? 'text-amber-400' : ''}`} />
+                  className={`w-full flex items-start gap-3 px-3 py-2.5 rounded-xl text-left transition-all cursor-pointer border-none ${active ? 'bg-emerald-700/50 text-emerald-50' : 'text-emerald-100/70 hover:bg-emerald-900/40 hover:text-white'}`}>
+                  <Icon className={`w-4 h-4 mt-0.5 shrink-0 ${active ? 'text-emerald-300' : ''}`} />
                   <div>
                     <p className="text-[11px] font-bold leading-tight">{tab.label}</p>
                     <p className="text-[9px] text-slate-600 mt-0.5 hidden lg:block">{tab.desc}</p>
@@ -1162,7 +1162,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
         </aside>
 
         {/* Main — add bottom padding on mobile for the nav */}
-        <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain p-4 pb-[calc(88px+env(safe-area-inset-bottom))] md:p-6 md:pb-6 [-webkit-overflow-scrolling:touch]">
+        <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain p-3.5 sm:p-5 pb-[calc(88px+env(safe-area-inset-bottom))] md:pb-6 [-webkit-overflow-scrolling:touch]">
           {notice && (
             <div className="flex items-center gap-2 p-3 mb-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-sm text-emerald-400">
               <CheckCircle className="w-4 h-4 shrink-0" /> {notice}
@@ -1170,98 +1170,106 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
             </div>
           )}
 
-          {/* ══ OVERVIEW ══ */}
+          {/* Compact overview: details belong to dedicated tabs, not stacked cards. */}
           {activeTab === 'overview' && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-lg font-black text-white">Network Overview</h2>
-                <p className="text-xs text-slate-400 mt-0.5">10% commission pool — your 5% + sub-affiliate 15%</p>
+            <div className="space-y-4 sm:space-y-5">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <h2 className="text-base sm:text-lg font-semibold text-white">Overview</h2>
+                  <p className="text-[11px] sm:text-xs text-slate-400 mt-1">Your affiliate network at a glance</p>
+                </div>
+                <button type="button" onClick={refresh}
+                  aria-label="Refresh overview"
+                  className="shrink-0 p-2 rounded-lg border border-emerald-800/50 text-emerald-300 hover:bg-emerald-900/30">
+                  <RefreshCw className="h-4 w-4" />
+                </button>
               </div>
 
-              {/* ── DASHBOARD AD PLACEMENT ── same slot as tenant dashboard ── */}
-              {(() => {
-                const adCode = adSettings.dashboardAdCode;
-                if (!canShowDashboardAd(adSettings)) return null;
-                return (
-                  <div className="w-full overflow-hidden rounded-2xl"
-                    dangerouslySetInnerHTML={{ __html: sanitizeTrustedHtml(adCode) }} />
-                );
-              })()}
-
-              <WhtNotice />
-
-              {partnerNotifications.length > 0 && (
-                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-1">
-                  <h3 className="text-sm font-black text-white mb-3 flex items-center gap-2">
-                    <Bell className="w-4 h-4 text-amber-400" /> Notifications
-                  </h3>
-                  <div className="divide-y divide-slate-800">
-                    {partnerNotifications.slice(0, 5).map(n => (
-                      <div key={n.id}
-                        className={`py-3 cursor-pointer ${!n.read_at ? 'bg-amber-500/5 -mx-2 px-2 rounded-lg' : ''}`}
-                        onClick={() => !n.read_at && handleMarkPartnerNotificationRead(n.id)}
-                      >
-                        <div className="flex items-center gap-2">
-                          <p className="text-xs font-bold text-white">{n.title}</p>
-                          {!n.read_at && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" />}
-                        </div>
-                        <p className="mt-1 text-xs text-slate-400 leading-5">{n.message}</p>
-                        <p className="mt-1 text-[10px] text-slate-600">{new Date(n.created_at).toLocaleString()}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+              {canShowDashboardAd(adSettings) && (
+                <div className="w-full overflow-hidden rounded-lg"
+                  dangerouslySetInnerHTML={{ __html: sanitizeTrustedHtml(adSettings.dashboardAdCode) }} />
               )}
 
-              {/* 8 KPI cards */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
                 {[
-                  { label: 'Sub-Affiliates',      value: totals.subAffiliateCount,                    sub: `${totals.activeSubAffiliates} active`,    color: 'text-white',       bg: 'bg-slate-800' },
-                  { label: 'Network Revenue',     value: formatTZS(totals.networkRevenue),            sub: 'Total generated',                          color: 'text-blue-400',    bg: 'bg-blue-500/10' },
-                  { label: '15% Pool Total',      value: formatTZS(totals.networkPool20),             sub: 'Total network commission',                 color: 'text-purple-400',  bg: 'bg-purple-500/10' },
-                  { label: 'Your 5% Earnings',    value: formatTZS(totals.managerCommission5),        sub: 'Manager commission',                       color: 'text-amber-400',   bg: 'bg-amber-500/10' },
-                  { label: 'Sub-Affiliate 10%',   value: formatTZS(totals.subAffiliateShare15),      sub: 'Gross commission pool',                    color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
-                  { label: 'Pending Payouts',     value: formatTZS(totals.pendingPayout),             sub: 'Unpaid to sub-affiliates',                 color: 'text-rose-400',    bg: 'bg-rose-500/10' },
-                  { label: 'Paid This Month',     value: formatTZS(totals.paidAmount),               sub: 'Paid out',                                 color: 'text-teal-400',    bg: 'bg-teal-500/10' },
-                  { label: 'Active Sub-Affiliates',value: totals.activeSubAffiliates,                 sub: 'Producing revenue',                        color: 'text-white',       bg: 'bg-slate-800' },
-                ].map(k => (
-                  <div key={k.label} className={`${k.bg} border border-slate-800 rounded-2xl p-4 space-y-2`}>
-                    <p className={`text-lg font-black ${k.color}`}>{k.value}</p>
-                    <div>
-                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">{k.label}</p>
-                      <p className="text-[9px] text-slate-600">{k.sub}</p>
-                    </div>
-                  </div>
+                  { label: 'My Affiliates', value: String(totals.subAffiliateCount), action: 'affiliates' as DashTab },
+                  { label: 'Joined Customers', value: String(customers.length), action: 'customers' as DashTab },
+                  { label: 'Affiliate Commission (10%)', value: formatTZS(totals.subAffiliateShare15), action: 'reconciliation' as DashTab },
+                  { label: 'My Commission (5%)', value: formatTZS(totals.managerCommission5), action: 'reconciliation' as DashTab },
+                ].map((item) => (
+                  <button key={item.label} type="button" onClick={() => setActiveTab(item.action)}
+                    className="min-w-0 text-left border border-emerald-900/60 bg-[#09291f] hover:bg-emerald-950/70 rounded-xl px-3 py-3 sm:px-4 sm:py-4 transition-colors">
+                    <p className="text-[10px] sm:text-[11px] leading-4 text-emerald-100/75">{item.label}</p>
+                    <p className="mt-1.5 text-sm sm:text-base lg:text-lg font-semibold text-white tabular-nums break-words">{item.value}</p>
+                  </button>
                 ))}
               </div>
 
-              {/* Commission breakdown example */}
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
-                <h3 className="text-sm font-black text-white mb-4 flex items-center gap-2">
-                  <Info className="w-4 h-4 text-amber-400" /> How the 15% Commission Split Works
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
-                  <div className="bg-slate-800 rounded-xl p-4">
-                    <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">Total Network Pool</p>
-                    <p className="text-2xl font-black text-purple-400 mt-1">10%</p>
-                    <p className="text-[10px] text-slate-500 mt-1">of Revenue Generated</p>
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 sm:gap-4">
+                <section className="min-w-0 border border-emerald-900/50 bg-[#09221c] rounded-xl overflow-hidden">
+                  <div className="flex items-center justify-between gap-3 px-3.5 py-3 border-b border-emerald-900/40">
+                    <h3 className="font-semibold text-xs sm:text-sm text-white">Top Affiliates</h3>
+                    <button type="button" onClick={() => setActiveTab('affiliates')} className="text-[11px] text-emerald-300 hover:text-emerald-200">View all</button>
                   </div>
-                  <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4">
-                    <p className="text-[10px] text-amber-400/70 uppercase font-bold tracking-wider">Your Commission</p>
-                    <p className="text-2xl font-black text-amber-400 mt-1">5%</p>
-                    <p className="text-[10px] text-slate-500 mt-1">Manager / Partner Cut</p>
+                  {subAffiliates.length === 0 ? (
+                    <p className="text-xs text-slate-400 px-3.5 py-4">No affiliates yet.</p>
+                  ) : (
+                    <div className="divide-y divide-emerald-900/30">
+                      {[...subAffiliates].sort((left, right) => right.customersGenerated - left.customersGenerated).slice(0, 3).map((aff, index) => (
+                        <div key={aff.id} className="flex items-center gap-3 px-3.5 py-3 min-w-0">
+                          <span className="w-5 text-center text-[11px] font-semibold text-emerald-300 tabular-nums">{index + 1}</span>
+                          <span translate="no" className="min-w-0 flex-1 truncate text-xs text-slate-100">{aff.name}</span>
+                          <span className="shrink-0 text-[11px] text-slate-400 tabular-nums">{aff.customersGenerated} customers</span>
+                          <button type="button" aria-label={`View ${aff.name}`} onClick={() => enterMirror(aff)}
+                            className="shrink-0 rounded-lg p-1.5 text-slate-300 hover:text-emerald-300 hover:bg-emerald-900/30">
+                            <Eye className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </section>
+
+                <section className="min-w-0 border border-emerald-900/50 bg-[#09221c] rounded-xl overflow-hidden">
+                  <div className="flex items-center justify-between gap-3 px-3.5 py-3 border-b border-emerald-900/40">
+                    <h3 className="font-semibold text-xs sm:text-sm text-white">Recent Customers</h3>
+                    <button type="button" onClick={() => setActiveTab('customers')} className="text-[11px] text-emerald-300 hover:text-emerald-200">View all</button>
                   </div>
-                  <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4">
-                    <p className="text-[10px] text-emerald-400/70 uppercase font-bold tracking-wider">Sub-Affiliate</p>
-                    <p className="text-2xl font-black text-emerald-400 mt-1">10%</p>
-                    <p className="text-[10px] text-slate-500 mt-1">Gross Commission</p>
-                  </div>
-                </div>
-                <div className="mt-4 bg-slate-800/50 rounded-xl p-3 text-xs text-slate-400 font-mono">
-                  Example: TZS 100,000 revenue → Pool TZS 20,000 → You get TZS 5,000 · Sub-affiliate gets TZS 15,000
-                  {WITHHOLDING_TAX_ACTIVE && ' → WHT TZS 750 → Net TZS 14,250'}
-                </div>
+                  {customers.length === 0 ? (
+                    <p className="text-xs text-slate-400 px-3.5 py-4">No referred customers yet.</p>
+                  ) : (
+                    <div className="divide-y divide-emerald-900/30">
+                      {customers.slice(0, 3).map((customer) => (
+                        <div key={customer.id} className="flex items-center gap-3 px-3.5 py-3 min-w-0">
+                          <span className="min-w-0 flex-1">
+                            <span translate="no" className="block truncate text-xs text-slate-100">{customer.tenantName}</span>
+                            <span className="block truncate mt-0.5 text-[10px] text-slate-400">{customer.packageName || 'No plan'}</span>
+                          </span>
+                          <span className={`shrink-0 text-[10px] font-medium ${isSettledPaymentStatus(customer.paymentStatus) ? 'text-emerald-300' : 'text-slate-400'}`}>
+                            {customer.paymentStatus || 'Pending'}
+                          </span>
+                          <button type="button" aria-label={`View ${customer.tenantName}`} onClick={() => setActiveTab('customers')}
+                            className="shrink-0 rounded-lg p-1.5 text-slate-300 hover:text-emerald-300 hover:bg-emerald-900/30">
+                            <Eye className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </section>
               </div>
+
+              <section className="min-w-0 border border-emerald-900/50 bg-[#09221c] rounded-xl p-3.5">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <h3 className="font-semibold text-xs sm:text-sm text-white">Messages & Targets</h3>
+                  <div className="flex gap-2">
+                    <button type="button" onClick={() => setActiveTab('tutorials')}
+                      className="rounded-lg bg-emerald-800/40 px-3 py-2 text-[11px] font-medium text-emerald-100 hover:bg-emerald-800/60">Send note / task</button>
+                    <button type="button" onClick={() => setActiveTab('conferencing')}
+                      className="rounded-lg border border-emerald-800/50 px-3 py-2 text-[11px] text-emerald-100 hover:bg-emerald-800/30">Meeting link</button>
+                  </div>
+                </div>
+              </section>
             </div>
           )}
 
@@ -1270,8 +1278,8 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
             <div className="space-y-6">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <h2 className="text-lg font-black text-white">Monthly Reconciliation</h2>
-                  <p className="text-xs text-slate-400 mt-0.5">15% split: 5% manager + 10% sub-affiliate gross · WHT shown for all affiliates</p>
+                  <h2 className="text-base sm:text-lg font-semibold text-white">Payment Status</h2>
+                  <p className="text-xs text-slate-400 mt-0.5">Review network earnings and affiliate payment records</p>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <input type="month" value={reconMonth} onChange={e => setReconMonth(e.target.value)}
@@ -1284,6 +1292,30 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
 
               <WhtNotice />
 
+              {recon.length > 0 && (
+                <div className="md:hidden divide-y divide-emerald-900/40 border border-emerald-900/50 rounded-xl bg-[#09221c]">
+                  {recon.map(row => (
+                    <details key={row.subAffiliateId} className="group px-3.5 py-3">
+                      <summary className="cursor-pointer list-none flex items-center gap-3 min-w-0">
+                        <span className="min-w-0 flex-1">
+                          <span translate="no" className="block truncate text-xs font-medium text-white">{row.subAffiliateName}</span>
+                          <span className="mt-1 block text-[10px] text-slate-400">Affiliate commission: {formatTZS(row.subAffiliateGrossCommission15)}</span>
+                        </span>
+                        <span className="text-right shrink-0">
+                          <span className="block text-[11px] font-medium text-emerald-300 tabular-nums">{formatTZS(row.amountPending)}</span>
+                          <span className="block mt-0.5 text-[10px] text-slate-400 capitalize">{row.payoutStatus}</span>
+                        </span>
+                        <Info aria-hidden="true" className="w-3.5 h-3.5 shrink-0 text-slate-400" />
+                      </summary>
+                      <dl className="mt-3 space-y-2 border-t border-emerald-900/40 pt-3 text-[11px]">
+                        <div className="flex justify-between gap-3"><dt className="text-slate-400">Revenue</dt><dd className="text-white tabular-nums">{formatTZS(row.networkRevenue)}</dd></div>
+                        <div className="flex justify-between gap-3"><dt className="text-slate-400">Agent commission (5%)</dt><dd className="text-white tabular-nums">{formatTZS(row.managerCommission5)}</dd></div>
+                        <div className="flex justify-between gap-3"><dt className="text-slate-400">Already paid</dt><dd className="text-white tabular-nums">{formatTZS(row.amountPaid)}</dd></div>
+                      </dl>
+                    </details>
+                  ))}
+                </div>
+              )}
               {recon.length === 0 ? (
                 <div className="bg-slate-900 border border-slate-800 rounded-2xl py-16 text-center space-y-3">
                   <Coins className="w-12 h-12 text-slate-700 mx-auto" />
@@ -1292,7 +1324,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
                   <p className="text-slate-400 text-sm">Data appears when sub-affiliates generate revenue</p>
                 </div>
               ) : (
-                <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+                <div className="hidden md:block bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
                   <div className="overflow-x-auto">
                     <table className="w-full text-xs">
                       <thead>
@@ -1304,8 +1336,8 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
                             'Network',
                             'Revenue',
                             '15% Pool',
-                            'Your 5%',
-                            '10% Gross',
+                            'My 5%',
+                            'Affiliate 10%',
                             'WHT 5%',
                             'Net Payout',
                             'Status',
@@ -1884,7 +1916,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
       )}
 
       {/* ── MOBILE BOTTOM NAV (Partner Dashboard — md:hidden) ── */}
-      <nav className="md:hidden fixed inset-x-0 bottom-0 z-40 bg-slate-900/95 backdrop-blur border-t border-slate-800"
+      <nav className="md:hidden fixed inset-x-0 bottom-0 z-40 bg-[#062a21]/95 backdrop-blur border-t border-emerald-900/60"
         style={{ height: 'calc(60px + env(safe-area-inset-bottom))', paddingBottom: 'env(safe-area-inset-bottom)' }}>
         <div className="flex items-stretch h-[60px]">
           {NAV_TABS.filter((tab) => MOBILE_PRIMARY_TAB_IDS.includes(tab.id)).map(tab => {
@@ -1892,14 +1924,14 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
             const active = activeTab === tab.id;
             return (
               <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                className={`flex-1 flex flex-col items-center justify-center gap-0.5 cursor-pointer border-none bg-transparent transition-all active:scale-90 ${active ? 'text-amber-400' : 'text-slate-500'}`}>
-                <div className={`flex items-center justify-center w-7 h-6 rounded-lg transition-all ${active ? 'bg-amber-500/15' : ''}`}>
+                className={`flex-1 flex flex-col items-center justify-center gap-0.5 cursor-pointer border-none bg-transparent transition-all active:scale-90 ${active ? 'text-emerald-300' : 'text-slate-400'}`}>
+                <div className={`flex items-center justify-center w-7 h-6 rounded-lg transition-all ${active ? 'bg-emerald-700/35' : ''}`}>
                   <Icon className={`w-5 h-5 ${active ? 'text-amber-400' : 'text-slate-500'}`} strokeWidth={active ? 2.5 : 1.8} />
                 </div>
-                <span className={`text-[8px] font-bold leading-none truncate max-w-[52px] ${active ? 'text-amber-400' : 'text-slate-500'}`}>
+                <span className={`text-[9px] font-medium leading-tight truncate max-w-[58px] ${active ? 'text-amber-400' : 'text-slate-500'}`}>
                   {tab.label.split(' ')[0]}
                 </span>
-                {active && <span className="absolute bottom-1 w-1 h-1 rounded-full bg-amber-400" />}
+                {active && <span className="absolute bottom-1 w-1 h-1 rounded-full bg-emerald-400" />}
               </button>
             );
           })}
@@ -1909,7 +1941,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
             <div className={`flex items-center justify-center w-7 h-6 rounded-lg ${NAV_TABS.some(tab => !MOBILE_PRIMARY_TAB_IDS.includes(tab.id) && tab.id === activeTab) || moreOpen ? 'bg-amber-500/15' : ''}`}>
               <Menu className="w-5 h-5" strokeWidth={1.8} />
             </div>
-            <span className="text-[8px] font-bold leading-none">More</span>
+            <span className="text-[9px] font-medium leading-tight">More</span>
           </button>
         </div>
       </nav>
@@ -1925,11 +1957,11 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
             <div className="mobile-more-features-grid gap-4">
               {NAV_TABS.filter((item) => !MOBILE_PRIMARY_TAB_IDS.includes(item.id)).map((item, index) => {
                 const Icon = item.icon;
-                const colors = ['bg-blue-600', 'bg-emerald-600', 'bg-cyan-600', 'bg-violet-600', 'bg-orange-500', 'bg-slate-700'];
+                const colors = ['bg-emerald-900', 'bg-emerald-900', 'bg-emerald-900', 'bg-emerald-900', 'bg-emerald-900', 'bg-emerald-900'];
                 return (
                   <button key={item.id} onClick={() => { setActiveTab(item.id as DashTab); setMoreOpen(false); }}
                     className="flex flex-col items-center gap-2 cursor-pointer bg-transparent border-none">
-                    <div className={`w-14 h-14 rounded-2xl ${colors[index] || 'bg-slate-700'} flex items-center justify-center shadow`}>
+                    <div className={`w-11 h-11 rounded-xl ${colors[index] || 'bg-emerald-900'} flex items-center justify-center shadow`}>
                       <Icon className="w-6 h-6 text-white" strokeWidth={2} />
                     </div>
                     <span className="text-[11px] font-semibold text-slate-400 text-center">{item.label.split(' ')[0]}</span>
