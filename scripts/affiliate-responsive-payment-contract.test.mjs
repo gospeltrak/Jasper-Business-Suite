@@ -8,12 +8,12 @@ const overview = ui.slice(ui.indexOf("{activeTab === 'overview' &&"),ui.indexOf(
 const payout = ui.slice(ui.indexOf("{activeTab === 'payouts' &&"),ui.indexOf("{activeTab === 'settings' &&"));
 
 test('Affiliate menu keeps payment status, customer records, reports, messages and real campaigns', () => {
-  for(const t of ["['overview', 'Overview'","['payouts', 'Payment Status'","['tenants', 'Customers'","['reports', 'Reports'","['tasks', 'Messages & Tasks'","['ads', 'Matangazo & Tutorials'","['settings', 'Settings'"]) assert.ok(ui.includes(t),t);
+  for(const t of ["['overview', 'Overview'","['payouts', 'Payment Status'","['tenants', 'Customers'","['reports', 'Reports'","['tasks', 'Messages & Tasks'","['ads', 'Ads & Tutorials'","['settings', 'Settings'"]) assert.ok(ui.includes(t),t);
   assert.match(ui,/handleTrackedLink\('ad_download'/);
   assert.match(ui,/completeAffiliateTask/);
 });
 test('Overview is small, paid vs trial counts are server sourced and commission not duplicated', () => {
-  for(const name of ['Wateja Wangu','Waliolipa','Hawajalipa','My Commission','Free Trial & Vifurushi','Wateja Hivi Karibuni','Matangazo & Tutorials']) assert.ok(overview.includes(name),name);
+  for(const name of ['My Customers','Paid Customers','Unpaid Customers','Commission & Referrals','Free Trial & Plans','Recent Customers','Ads & Tutorials']) assert.ok(overview.includes(name),name);
   assert.match(overview,/getAffiliateCustomerState\(customer\)/);
   assert.match(summary,/isSettledPaymentStatus\(customer.payment_status\)/);
   assert.doesNotMatch(overview,/Tuma Ombi la Withdraw|Pending Requests/);
