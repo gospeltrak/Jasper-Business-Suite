@@ -1278,8 +1278,8 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
             <div className="space-y-6">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div>
-                  <h2 className="text-lg font-black text-white">Monthly Reconciliation</h2>
-                  <p className="text-xs text-slate-400 mt-0.5">15% split: 5% manager + 10% sub-affiliate gross · WHT shown for all affiliates</p>
+                  <h2 className="text-base sm:text-lg font-semibold text-white">Payment Status</h2>
+                  <p className="text-xs text-slate-400 mt-0.5">Review network earnings and affiliate payment records</p>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <input type="month" value={reconMonth} onChange={e => setReconMonth(e.target.value)}
@@ -1292,6 +1292,30 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
 
               <WhtNotice />
 
+              {recon.length > 0 && (
+                <div className="md:hidden divide-y divide-emerald-900/40 border border-emerald-900/50 rounded-xl bg-[#09221c]">
+                  {recon.map(row => (
+                    <details key={row.subAffiliateId} className="group px-3.5 py-3">
+                      <summary className="cursor-pointer list-none flex items-center gap-3 min-w-0">
+                        <span className="min-w-0 flex-1">
+                          <span translate="no" className="block truncate text-xs font-medium text-white">{row.subAffiliateName}</span>
+                          <span className="mt-1 block text-[10px] text-slate-400">Affiliate commission: {formatTZS(row.subAffiliateGrossCommission15)}</span>
+                        </span>
+                        <span className="text-right shrink-0">
+                          <span className="block text-[11px] font-medium text-emerald-300 tabular-nums">{formatTZS(row.amountPending)}</span>
+                          <span className="block mt-0.5 text-[10px] text-slate-400 capitalize">{row.payoutStatus}</span>
+                        </span>
+                        <Info aria-hidden="true" className="w-3.5 h-3.5 shrink-0 text-slate-400" />
+                      </summary>
+                      <dl className="mt-3 space-y-2 border-t border-emerald-900/40 pt-3 text-[11px]">
+                        <div className="flex justify-between gap-3"><dt className="text-slate-400">Revenue</dt><dd className="text-white tabular-nums">{formatTZS(row.networkRevenue)}</dd></div>
+                        <div className="flex justify-between gap-3"><dt className="text-slate-400">Agent commission (5%)</dt><dd className="text-white tabular-nums">{formatTZS(row.managerCommission5)}</dd></div>
+                        <div className="flex justify-between gap-3"><dt className="text-slate-400">Already paid</dt><dd className="text-white tabular-nums">{formatTZS(row.amountPaid)}</dd></div>
+                      </dl>
+                    </details>
+                  ))}
+                </div>
+              )}
               {recon.length === 0 ? (
                 <div className="bg-slate-900 border border-slate-800 rounded-2xl py-16 text-center space-y-3">
                   <Coins className="w-12 h-12 text-slate-700 mx-auto" />
@@ -1312,8 +1336,8 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
                             'Network',
                             'Revenue',
                             '15% Pool',
-                            'Your 5%',
-                            '10% Gross',
+                            'My 5%',
+                            'Affiliate 10%',
                             'WHT 5%',
                             'Net Payout',
                             'Status',
