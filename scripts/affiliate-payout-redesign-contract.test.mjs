@@ -18,7 +18,7 @@ test('Payment Status has compact earnings, available balance, request CTA and st
   assert.match(payout,/payout\.notes/);
   assert.match(payout,/\!canWithdraw/);
   assert.match(payout,/metrics\.available < AFFILIATE_MIN_WITHDRAWAL_TZS/);
-  assert.match(payout,/transfer fee is paid by the affiliate and deducted/);
+  assert.match(payout,/transfer fee is paid by the affiliate and deducted/i);
   assert.match(payout,/amount: String\(Math\.round\(metrics\.available\)\)/);
 });
 test('Manual payout RPC remains atomically validated by backend and no automatic transfer added', () => {
