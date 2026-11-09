@@ -934,6 +934,26 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
             const commission = rewards.filter(r => r.reward_type === 'subscription_commission').reduce((v,r)=>v+Number(r.net_amount||0),0);
             const pendingPayout = payouts.filter(p=>p.status==='requested'||p.status==='processing').reduce((v,p)=>v+Number(p.amount||0),0);
             const paidPayout = payouts.filter(p=>p.status==='paid').reduce((v,p)=>v+Number(p.amount||0),0);
+            // Six compact history bars, calculated from the rows already in memory.
+            // No extra API, polling, timers or chart dependency.
+            const [selectedYear,selectedMonth] = reportMonth.split('-').map(Number);
+            const historyMonths = Array.from({length:6},(_,index)=>{
+              const date = new Date(selectedYear,selectedMonth - 1 - (5-index),1);
+              return {key:`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`,label:date.toLocaleDateString('en-TZ',{month:'short'})};
+            });
+            const subscriberHistory = new Map<string,number>();
+            for (const subscriber of workspace?.subscribers || []) {
+              const key = String(subscriber.created_at||'').slice(0,7);
+              subscriberHistory.set(key,(subscriberHistory.get(key)||0)+1);
+            }
+            const earningsHistory = new Map<string,number>();
+            for (const reward of workspace?.rewards || []) {
+              if (reward.status==='void') continue;
+              const key = String(reward.created_at||'').slice(0,7);
+              earningsHistory.set(key,(earningsHistory.get(key)||0)+Number(reward.net_amount||0));
+            }
+            const history = historyMonths.map(month=>({...month,value:reportTab==='subscribers'?(subscriberHistory.get(month.key)||0):(earningsHistory.get(month.key)||0)}));
+            const historyMax = Math.max(1,...history.map(month=>month.value));
             const reportCards = reportTab === 'subscribers'
               ? [['New Subscribers',subscribers.length],['Paid',paidSubscribers],['Free Trial',trials],['Other',subscribers.length-paidSubscribers-trials]]
               : reportTab === 'payments'
@@ -971,6 +991,20 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
                   <p className="mt-1 text-lg font-semibold tabular-nums text-slate-950 dark:text-white sm:text-xl">{value}</p>
                 </div>)}
               </div>
+              {(reportTab==='subscribers'||reportTab==='payments') && <section className="rounded-xl border border-slate-200 bg-white p-4 dark:border-emerald-900 dark:bg-[#092c21]" aria-label={reportTab==='subscribers'?'Subscriber growth':'Monthly earnings'}>
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">{reportTab==='subscribers'?'Subscriber Growth':'Monthly Earnings'}</h3>
+                <p className="mt-1 text-[11px] text-slate-500 dark:text-emerald-100/70">Last six months · from existing records</p>
+                <div className="mt-4 grid grid-cols-6 items-end gap-2 sm:gap-3">
+                  {history.map(month=><div key={month.key} className="flex min-w-0 flex-col items-center justify-end gap-1.5">
+                    <span className="truncate text-[10px] tabular-nums text-slate-600 dark:text-emerald-100/80">{reportTab==='subscribers'?month.value:month.value?Math.round(month.value/1000)+'k':'0'}</span>
+                    <div className="flex h-20 w-full max-w-10 items-end overflow-hidden rounded-md bg-emerald-50 dark:bg-emerald-950/60" title={`${month.key}: ${reportTab==='subscribers'?month.value:currency.format(month.value)}`}>
+                      <div className="w-full rounded-t-md bg-emerald-700" style={{height:`${Math.max(2,Math.round(month.value/historyMax*100))}%`}}/>
+                    </div>
+                    <span className="text-[10px] text-slate-500 dark:text-emerald-100/60">{month.label}</span>
+                  </div>)}
+                </div>
+                {reportTab==='payments' && <p className="mt-2 text-[10px] text-slate-500 dark:text-emerald-100/60">Values shown in thousands of TZS (k).</p>}
+              </section>}
               {reportTab==='subscribers' && <div className="space-y-3">
                 <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-emerald-900 dark:bg-[#092c21]">
                   <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Subscribers by Plan</h3>
