@@ -35,7 +35,7 @@ test('Client RPC submits saved registered phone and profile load selects that fi
 });
 
 test('Affiliate route is English without overriding shared tenant language', () => {
-  assert.match(language,/\/\^\\\/affiliate/);
+  assert.ok(language.includes('affiliate(?:'));
   assert.match(language,/affiliateRouteLanguage\(\)/);
   assert.match(language,/effectiveLang/);
   assert.match(language,/value=\{\{ lang: effectiveLang, setLang, t \}\}/);
