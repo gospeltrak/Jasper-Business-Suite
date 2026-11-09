@@ -1017,7 +1017,7 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
                 <div className="flex flex-wrap items-center gap-2">
                   <input type="month" aria-label="Report month" value={reportMonth} onChange={e=>setReportMonth(e.target.value)}
                     className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 dark:border-emerald-900 dark:bg-[#092c21] dark:text-white"/>
-                  <button type="button" onClick={()=>downloadExcelFileFromRows(`orvix-${reportTab}-${reportMonth}.xlsx`,[{name: 'Report',rows: exportRows}])}
+                  <button type="button" onClick={()=>downloadExcelFileFromRows(`orvix-${reportTab}-${reportMonth}.xlsx`,[{name: 'Report',aoa: exportRows}])}
                     className="rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs font-medium text-emerald-800 dark:border-emerald-800 dark:bg-[#092c21] dark:text-emerald-100">Export Excel</button>
                   <button type="button" onClick={()=>window.print()}
                     className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 dark:border-emerald-900 dark:bg-[#092c21] dark:text-white">Print / PDF</button>
