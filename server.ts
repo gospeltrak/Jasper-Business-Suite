@@ -1154,8 +1154,8 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         adminTable('affiliate_partners').select('id,user_id,display_name,status,is_disabled').order('created_at',{ascending:false}).limit(limit),
         adminTable('affiliates').select('id,display_name,location,status').order('created_at',{ascending:false}).limit(limit),
         adminTable('affiliate_agent_assignments').select('affiliate_id,agent_user_id').is('ended_at',null).limit(limit),
-        adminTable('referred_customers').select('id,tenant_id,affiliate_id,sub_affiliate_id,customer_name,location,payment_status').order('created_at',{ascending:false}).limit(limit),
-        adminTable('subscriber_source_tracking').select('tenant_id,affiliate_id,sub_affiliate_id').limit(limit),
+        adminTable('referred_customers').select('id,tenant_id,affiliate_id,sub_affiliate_id,customer_name,location,payment_status,amount_paid,created_at').order('created_at',{ascending:false}).limit(limit),
+        adminTable('subscriber_source_tracking').select('tenant_id,affiliate_id,sub_affiliate_id,status,created_at').order('created_at',{ascending:false}).limit(limit),
         adminTable('affiliate_payouts').select('id,affiliate_id,amount,net_payout,status,notes,payout_reference,requested_at').order('requested_at',{ascending:false}).limit(31),
       ]);
       for (const result of [agentsResult,affiliatesResult,assignmentsResult,referredResult,sourcesResult,payoutsResult]) {
@@ -1176,26 +1176,61 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         }
       }
       const affiliateById=new Map(affiliates.map((row:any)=>[String(row.id),row]));
-      const customerByTenant=new Map<string,{name:string;affiliateId:string;location:string;status:string}>();
-      const addCustomer=(row:any,fromReferred:boolean)=>{
+      // Resolve the actual registered businesses in one bounded read.
+      // Tracking rows do not contain customer names or locations.
+      const tenantIds=[...new Set([...referred,...sources].map((row:any)=>String(row.tenant_id||'')).filter(isUuid))];
+      const tenantLookup=tenantIds.length
+        ? await adminTable('tenants').select('id,name,business_name,city,country,subscription_status,active_package_id').in('id',tenantIds).limit(limit*2)
+        : {data:[],error:null};
+      if(tenantLookup.error)throw tenantLookup.error;
+      const tenantById=new Map((tenantLookup.data||[]).map((tenant:any)=>[String(tenant.id),tenant]));
+      type CustomerSummary={name:string;affiliateId:string;location:string;status:string;tenantId:string;createdAt:string};
+      const customerByTenant=new Map<string,CustomerSummary>();
+      // Use tracked attribution as the canonical source, never infer affiliates from names.
+      for(const row of sources){
         const tenantId=String(row.tenant_id||'');
         const affiliateId=String(row.sub_affiliate_id||row.affiliate_id||'');
-        if(!isUuid(tenantId)||!isUuid(affiliateId))return;
-        if(customerByTenant.has(tenantId))return;
-        customerByTenant.set(tenantId,{name:fromReferred?String(row.customer_name||'Not provided'):'Not provided',
-          affiliateId,location:fromReferred?String(row.location||''):'',status:fromReferred?String(row.payment_status||''):'Unknown'});
-      };
-      for(const row of referred)addCustomer(row,true);
-      for(const row of sources)addCustomer(row,false);
-      const customers=[...customerByTenant.entries()];
-      const affiliatesForAgent=(userId:string)=>[...ownerByAffiliate.values()].filter(id=>id===userId).length;
+        const tenant:any=tenantById.get(tenantId);
+        if(!isUuid(tenantId)||!affiliateById.has(affiliateId)||!tenant)continue;
+        customerByTenant.set(tenantId,{
+          tenantId,affiliateId,
+          name:String(tenant.business_name||tenant.name||'').trim()||'Unnamed registered business',
+          location:String(tenant.city||tenant.country||'').trim()||'Location not recorded',
+          status:String(tenant.subscription_status||'Unknown'),
+          createdAt:String(row.created_at||''),
+        });
+      }
+      for(const row of referred){
+        const tenantId=String(row.tenant_id||'');
+        const affiliateId=String(row.sub_affiliate_id||row.affiliate_id||'');
+        const tenant:any=tenantById.get(tenantId);
+        if(!isUuid(tenantId)||!affiliateById.has(affiliateId)||!tenant||customerByTenant.has(tenantId))continue;
+        customerByTenant.set(tenantId,{
+          tenantId,affiliateId,
+          name:String(tenant.business_name||tenant.name||row.customer_name||'').trim()||'Unnamed registered business',
+          location:String(tenant.city||tenant.country||row.location||'').trim()||'Location not recorded',
+          status:String(tenant.subscription_status||'Unknown'),
+          createdAt:String(row.created_at||''),
+        });
+      }
+      const customers=[...customerByTenant.values()].sort((a,b)=>b.createdAt.localeCompare(a.createdAt));
+      const agentAffiliateCounts=new Map<string,number>();
+      for(const userId of ownerByAffiliate.values())agentAffiliateCounts.set(userId,(agentAffiliateCounts.get(userId)||0)+1);
+      const affiliatesForAgent=(userId:string)=>agentAffiliateCounts.get(userId)||0;
       const customerCounts=new Map<string,number>();
-      for(const [,customer] of customers) customerCounts.set(customer.affiliateId,(customerCounts.get(customer.affiliateId)||0)+1);
+      for(const customer of customers)customerCounts.set(customer.affiliateId,(customerCounts.get(customer.affiliateId)||0)+1);
       const agentCustomerCounts=new Map<string,number>();
-      for(const [,customer] of customers){
+      for(const customer of customers){
         const agentUser=ownerByAffiliate.get(customer.affiliateId);
         if(agentUser)agentCustomerCounts.set(agentUser,(agentCustomerCounts.get(agentUser)||0)+1);
       }
+      // Historical records without a verified tenant ID must not be counted as registrations.
+      const unlinkedLegacyReferrals=referred.filter((row:any)=>!isUuid(String(row.tenant_id||''))&&affiliateById.has(String(row.sub_affiliate_id||row.affiliate_id||''))).map((row:any)=>({
+        name:String(row.customer_name||'Historical referral'),
+        affiliate:affiliateById.get(String(row.sub_affiliate_id||row.affiliate_id||''))?.display_name||'Affiliate',
+        location:String(row.location||'Location not recorded'),
+        status:'Historical referral · tenant unlinked',
+      }));
       const latestPayouts=(payoutsResult.data||[]).slice(0,30).map((p:any)=>({
         status:p.status,amount:Number(p.amount ?? p.net_payout ?? 0),reason:p.status==='rejected'?p.notes||null:null,
         affiliate:affiliateById.get(String(p.affiliate_id))?.display_name||'Affiliate',
@@ -1218,10 +1253,10 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
           agent:agentByUser.get(ownerByAffiliate.get(String(a.id))||'')?.display_name||'Unassigned',
           customers:customerCounts.get(String(a.id))||0,
         })),
-        customer_sources:customers.slice(0,50).map(([,c])=>({
+        customer_sources:[...customers.map(c=>({
           name:c.name,affiliate:affiliateById.get(c.affiliateId)?.display_name||'Affiliate',
-          location:c.location||'Not provided',status:c.status,
-        })),
+          location:c.location,status:c.status,
+        })),...unlinkedLegacyReferrals].slice(0,50),
         payout_audit:latestPayouts,
         payout_audit_more:(payoutsResult.data||[]).length>30,
       });
