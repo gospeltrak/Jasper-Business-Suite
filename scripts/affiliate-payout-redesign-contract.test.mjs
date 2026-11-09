@@ -43,3 +43,13 @@ test('Super Admin has scoped manual payout review requiring rejection reason or 
   assert.match(endpoints,/payout_reference: reference/);
   assert.doesNotMatch(endpoints,/azamPay\.disburse|paymentGateway\.send/);
 });
+
+test('Overview cards and mobile navigation use subtle premium emerald shadows', () => {
+  const overview = ui.slice(ui.indexOf("{activeTab === 'overview' && <div"),ui.indexOf("{activeTab === 'tenants' &&"));
+  const nav = ui.slice(ui.indexOf('<nav className="fixed inset-x-0 bottom-0'),ui.indexOf('{mobileMoreOpen &&'));
+  assert.match(overview,/shadow-\[0_5px_18px_-9px_rgba\(15,80,57,0\.24\)\]/);
+  assert.match(overview,/hover:shadow-\[0_10px_24px_-12px_rgba\(4,120,87,0\.33\)\]/);
+  assert.match(nav,/backdrop-blur-md/);
+  assert.match(nav,/shadow-\[0_-7px_22px_-15px_rgba\(15,65,45,0\.32\)\]/);
+  assert.match(nav,/bg-emerald-50 dark:bg-emerald-900\/50/);
+});
