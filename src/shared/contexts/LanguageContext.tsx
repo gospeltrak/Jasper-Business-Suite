@@ -2007,14 +2007,20 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // Affiliate portal deliberately stays in English even when the tenant's
+  // saved language is Kiswahili. Do not mutate the shared stored preference.
+  const affiliateRouteLanguage = (): LanguageType =>
+    /^\/affiliate(?:\/|$)/.test(window.location.pathname) ? 'en' : lang;
+  const effectiveLang = affiliateRouteLanguage();
+
   // Use absolute real-time MutationObserver to translate the DOM in place
   useEffect(() => {
     document.documentElement.removeAttribute('dir');
-    document.documentElement.lang = lang;
+    document.documentElement.lang = affiliateRouteLanguage();
     document.body.classList.remove('rtl');
 
     const runGlobalTranslation = () => {
-      translateNode(document.body, lang);
+      translateNode(document.body, affiliateRouteLanguage());
     };
 
     runGlobalTranslation();
@@ -2031,7 +2037,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
         } else if (mutation.type === 'characterData') {
           const originalVal = (mutation.target as any).__originalText;
           const currentVal = mutation.target.nodeValue;
-          const expectedTranslated = originalVal !== undefined ? translateString(originalVal, lang) : undefined;
+          const expectedTranslated = originalVal !== undefined ? translateString(originalVal, affiliateRouteLanguage()) : undefined;
           if (originalVal === undefined || currentVal !== expectedTranslated) {
             // React reused this text node for a different cart total; update
             // its un-translated source rather than displaying the stale value.
@@ -2059,7 +2065,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
         for (const node of changedList) {
           // An added container already includes its new descendants.
           if (changedList.some(other => other !== node && other.contains(node))) continue;
-          translateNode(node, lang);
+          translateNode(node, affiliateRouteLanguage());
         }
       } finally {
         observer.observe(document.body, {
@@ -2086,11 +2092,11 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   }, [lang]);
 
   const t = (text: string): string => {
-    return translateString(text, lang);
+    return translateString(text, effectiveLang);
   };
 
   return (
-    <LanguageContext.Provider value={{ lang, setLang, t }}>
+    <LanguageContext.Provider value={{ lang: effectiveLang, setLang, t }}>
       {children}
     </LanguageContext.Provider>
   );
