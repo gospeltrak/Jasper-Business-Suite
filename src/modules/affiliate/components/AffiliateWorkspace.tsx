@@ -70,6 +70,7 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
   const [profilePrefs, setProfilePrefs] = useState({ emailUpdates: true, compactView: false });
   const [reportMonth, setReportMonth] = useState(formatLocalMonth());
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
+  const [payoutFilter, setPayoutFilter] = useState<'all' | 'pending' | 'paid' | 'rejected'>('all');
   const [withdrawForm, setWithdrawForm] = useState({ name: '', phone: '', amount: '', password: '' });
   const [withdrawing, setWithdrawing] = useState(false);
   const [withdrawError, setWithdrawError] = useState<string | null>(null);
@@ -1151,157 +1152,137 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
             </section>
           )}
           {activeTab === 'payouts' && (
-            <section className="space-y-4 pb-4">
-
-              {/* Header */}
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-base font-semibold text-slate-900 dark:text-white">Payment Status</h2>
-                  <p className="mt-1 text-[11px] text-slate-500 dark:text-emerald-100/70">Referral bonus, commission na withdrawal requests.</p>
-                </div>
-                <input
-                  type="month"
-                  value={reportMonth}
-                  onChange={(e) => setReportMonth(e.target.value)}
-                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-emerald-500 shadow-sm"
-                />
+            <section className="space-y-4 pb-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Payment Status</h2>
+                <input type="month" aria-label="Select payout month"
+                  value={reportMonth} onChange={e => setReportMonth(e.target.value)}
+                  className="max-w-[172px] rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 shadow-sm outline-none focus:border-emerald-500 dark:border-emerald-900 dark:bg-[#092c21] dark:text-white" />
               </div>
 
-              {/* Compact payment summary; all amounts come from the reward ledger. */}
-              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
-                {[
-                  ['Referral Bonus', currency.format(earnedByType.bonus)],
-                  ['Commission (10%)', currency.format(earnedByType.commission)],
-                  ['My Commission', currency.format(metrics.earned)],
-                  ['Salio la kuomba', currency.format(metrics.available)],
-                  ['Already Paid', currency.format(metrics.paid)],
-                  ['Pending Requests', String((workspace?.payouts || []).filter(p => ['requested','processing'].includes(p.status)).length)],
-                ].map(([label, value]) => (
-                  <div key={label} className="min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-3 dark:border-emerald-900 dark:bg-[#092c21]">
-                    <p className="text-[10px] font-medium leading-4 text-slate-500 dark:text-emerald-100/70">{label}</p>
-                    <p className="mt-1 break-words text-sm font-semibold tabular-nums text-slate-950 dark:text-white sm:text-base">{value}</p>
-                  </div>
-                ))}
-              </div>
-              <div className="rounded-lg border border-emerald-100 bg-emerald-50/60 px-3.5 py-3 text-[11px] leading-5 text-emerald-950 dark:border-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-100">
-                Withdrawal: salio lote tu, kuanzia TZS 10,000. Ombi moja kwa mwezi, Ijumaa ya mwisho ({payoutWindow.dateISO}).
-                Malipo yanafanywa manually baada ya uhakiki. Ada ya kutuma pesa inakatwa kwenye payout.
-                {hasMonthWithdrawal ? ' Ombi la mwezi huu tayari limewasilishwa.' : ''}
-              </div>
-              {/* Withdraw button */}
-              {mirrorMode ? (
-                <div className="w-full flex items-center gap-3 rounded-2xl border border-cyan-200 bg-cyan-50 px-5 py-4">
-                  <ShieldCheck className="w-5 h-5 shrink-0 text-cyan-700" />
-                  <div><p className="text-sm font-bold text-cyan-950">Read-only mirror</p><p className="text-[11px] text-cyan-700">Ombi la malipo haliruhusiwi kwenye mwonekano wa Admin.</p></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-xl border border-emerald-100 bg-white p-3.5 shadow-[0_5px_18px_-10px_rgba(5,77,54,0.28)] dark:border-emerald-900 dark:bg-[#092c21] sm:p-4">
+                  <p className="text-[11px] text-slate-500 dark:text-emerald-100/65">Referral Bonus</p>
+                  <p className="mt-2 text-base font-semibold tabular-nums text-slate-950 dark:text-white sm:text-xl">{currency.format(earnedByType.bonus)}</p>
                 </div>
-              ) : canWithdraw ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setWithdrawForm({
-                      name: workspace?.profile?.display_name || '',
-                      phone: workspace?.profile?.phone_whatsapp || '',
-                      amount: String(Math.round(metrics.available)),
-                      password: '',
-                    });
-                    setWithdrawError(null);
-                    setShowWithdrawModal(true);
-                  }}
-                  className="w-full flex items-center justify-between bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white rounded-2xl px-5 py-4 shadow-lg shadow-emerald-500/25 transition-all active:scale-[0.98]"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center">
-                      <ArrowDownToLine className="w-5 h-5" />
+                <div className="rounded-xl border border-emerald-100 bg-white p-3.5 shadow-[0_5px_18px_-10px_rgba(5,77,54,0.28)] dark:border-emerald-900 dark:bg-[#092c21] sm:p-4">
+                  <p className="text-[11px] text-slate-500 dark:text-emerald-100/65">Commission (10%)</p>
+                  <p className="mt-2 text-base font-semibold tabular-nums text-slate-950 dark:text-white sm:text-xl">{currency.format(earnedByType.commission)}</p>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 px-4 py-3.5 shadow-[0_5px_18px_-10px_rgba(5,77,54,0.15)] dark:border-emerald-800 dark:bg-[#103c2e]">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-xs font-medium text-emerald-900 dark:text-emerald-100">Total Earnings</span>
+                  <span className="text-lg font-semibold tabular-nums text-emerald-900 dark:text-emerald-100">{currency.format(metrics.earned)}</span>
+                </div>
+                <div className="mt-3 flex items-center justify-between gap-3 border-t border-emerald-200/70 pt-3 dark:border-emerald-700">
+                  <span className="text-xs text-emerald-800 dark:text-emerald-200">Available to Request</span>
+                  <span className="text-base font-semibold tabular-nums text-emerald-900 dark:text-white" data-testid="affiliate-available-balance">{currency.format(metrics.available)}</span>
+                </div>
+              </div>
+
+              <button type="button" onClick={() => {
+                if (mirrorMode) return;
+                setWithdrawForm({
+                  name: workspace?.profile?.display_name || '',
+                  phone: workspace?.profile?.phone_whatsapp || '',
+                  amount: String(Math.round(metrics.available)),
+                  password: '',
+                });
+                setWithdrawError(null);
+                setShowWithdrawModal(true);
+              }} disabled={mirrorMode}
+                className="flex w-full items-center gap-3 rounded-xl border border-emerald-500 bg-emerald-700 px-4 py-4 text-left text-white shadow-[0_10px_22px_-10px_rgba(4,120,87,0.7)] transition-colors hover:bg-emerald-800 disabled:opacity-60 dark:border-emerald-600 dark:bg-emerald-700">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/15"><Wallet className="h-5 w-5" /></span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold">Request Funds</span>
+                  <span className="mt-0.5 block text-[11px] text-emerald-50/85">
+                    {metrics.available < AFFILIATE_MIN_WITHDRAWAL_TZS
+                      ? 'Minimum balance TZS 10,000'
+                      : hasMonthWithdrawal ? 'Monthly request already submitted'
+                      : !payoutWindow.isLastFriday ? `Next payout day: ${payoutWindow.dateISO}`
+                      : 'Request your full available balance'}
+                  </span>
+                </span>
+                <ChevronRight className="h-4 w-4 shrink-0 text-white/80" />
+              </button>
+
+              <section className="overflow-hidden rounded-xl border border-slate-200 bg-white p-3.5 shadow-[0_5px_18px_-10px_rgba(5,77,54,0.2)] dark:border-emerald-900 dark:bg-[#092c21] sm:p-4">
+                <h3 className="mb-3 text-sm font-semibold text-slate-950 dark:text-white">Withdrawal Summary</h3>
+                <div className="grid grid-cols-3 gap-2">
+                  {([
+                    ['Pending', (workspace?.payouts || []).filter(p => p.status === 'requested' || p.status === 'processing')],
+                    ['Paid', (workspace?.payouts || []).filter(p => p.status === 'paid')],
+                    ['Rejected', (workspace?.payouts || []).filter(p => p.status === 'rejected' || p.status === 'cancelled')],
+                  ] as const).map(([label, items]) => (
+                    <div key={label} className="min-w-0 rounded-lg bg-slate-50 px-1.5 py-3 text-center dark:bg-emerald-950/60 sm:px-2">
+                      <p className="text-[10px] text-slate-500 dark:text-emerald-100/70">{label}</p>
+                      <p className="mt-1 break-words text-[11px] font-semibold tabular-nums text-slate-950 dark:text-white sm:text-sm">
+                        {currency.format(items.reduce((sum, item) => sum + Number(item.amount || 0), 0))}
+                      </p>
+                      <p className="mt-1 text-[10px] text-slate-400 dark:text-emerald-100/60">{items.length} requests</p>
                     </div>
-                    <div className="text-left">
-                      <p className="text-sm font-black">Omba Malipo</p>
-                      <p className="text-[11px] text-emerald-200">Ada ya AzamPay: {currency.format(transferFee)}</p>
-                    </div>
-                  </div>
-                  <ChevronRight className="w-5 h-5 text-white/70" />
-                </button>
-              ) : (
-                <div className="w-full flex items-center gap-3 bg-slate-100 rounded-2xl px-5 py-4">
-                  <AlertCircle className="w-5 h-5 text-slate-400 shrink-0" />
-                  <div>
-                    <p className="text-sm font-bold text-slate-500">Bado huwezi kuomba malipo</p>
-                    <p className="text-[11px] text-slate-400">
-                      {!isAgentApprovedForWithdrawals
-                        ? 'Unasubiri akaunti ya affiliate kuidhinishwa.'
-                        : hasMonthWithdrawal ? 'Umeshafanya ombi la mwezi huu.'
-                        : !payoutWindow.isLastFriday ? 'Withdrawal hufunguliwa Ijumaa ya mwisho tu.'
-                        : `Unahitaji salio angalau TZS 10,000 (sasa: ${currency.format(metrics.available)}).`}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Payout history */}
-              <div className="space-y-2">
-                <p className="px-1 text-xs font-semibold text-slate-700 dark:text-emerald-100">Historia ya Maombi ya Malipo</p>
-                {workspace!.payouts.length === 0 ? (
-                  <div className="rounded-2xl border-2 border-dashed border-slate-200 bg-white p-8 text-center">
-                    <Wallet className="w-8 h-8 mx-auto text-slate-300 mb-2" />
-                    <p className="text-sm font-bold text-slate-400">Hakuna malipo yaliyotolewa bado</p>
-                    <p className="text-xs text-slate-400 mt-1">Historia ya malipo itaonekana hapa</p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {workspace!.payouts.map((payout) => {
-                      const statusColor = payout.status === 'paid'
-                        ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
-                        : payout.status === 'rejected'
-                        ? 'bg-rose-50 text-rose-600 border-rose-100'
-                        : 'bg-amber-50 text-amber-700 border-amber-100';
-                      const StatusIcon = payout.status === 'paid' ? CheckCheck : payout.status === 'rejected' ? X : Clock;
-                      return (
-                        <div key={payout.id} className="bg-white rounded-2xl border border-slate-100 px-4 py-3.5 shadow-sm flex items-center gap-3">
-                          <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border ${statusColor}`}>
-                            <StatusIcon className="w-4 h-4" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-black text-slate-900">{currency.format(payout.amount)}</p>
-                            <p className="text-[11px] text-slate-400 truncate">
-                              {payout.payout_method || 'Mobile Money'} · {formatDateTime(payout.requested_at)}
-                            </p>
-                          </div>
-                          <span className={`shrink-0 rounded-xl px-2.5 py-1 text-[10px] font-black uppercase tracking-wider border ${statusColor}`}>
-                            {payout.status}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* Details stay in Payment Status, not Overview. */}
-              <section className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-emerald-900 dark:bg-[#092c21]">
-                <div className="flex items-center justify-between gap-2 border-b border-slate-100 px-3.5 py-3 dark:border-emerald-900">
-                  <h3 className="text-xs font-semibold text-slate-900 dark:text-white">Wateja Wangu</h3>
-                  <button type="button" onClick={() => setActiveTab('tenants')} className="text-[11px] text-emerald-700 dark:text-emerald-300">Tazama wote</button>
-                </div>
-                <div className="divide-y divide-slate-100 dark:divide-emerald-900">
-                  {recentCustomers.map(customer => (
-                    <details key={customer.id} className="group px-3.5 py-2.5">
-                      <summary className="flex cursor-pointer list-none items-center gap-2.5">
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-xs font-medium text-slate-900 dark:text-white">{customer.customer_name}</span>
-                          <span className="block truncate text-[10px] text-slate-500 dark:text-emerald-100/60">{customer.package_name || 'No plan'}</span>
-                        </span>
-                        <span className="text-[10px] text-slate-500 dark:text-emerald-100/70">
-                          {getAffiliateCustomerState(customer) === 'paid' ? 'Amelipa' : getAffiliateCustomerState(customer) === 'trial' ? 'Trial' : 'Hajalipa'}
-                        </span>
-                        <ChevronRight className="h-3.5 w-3.5 text-slate-400 transition-transform group-open:rotate-90" />
-                      </summary>
-                      <div className="mt-2 flex justify-between gap-3 border-t border-slate-100 pt-2 text-[10px] text-slate-500 dark:border-emerald-900 dark:text-emerald-100/70">
-                        <span>{customer.region || customer.location || '—'}</span>
-                        <span>{customer.created_at?.slice(0,10)}</span>
-                      </div>
-                    </details>
                   ))}
-                  {!recentCustomers.length && <p className="px-3.5 py-4 text-xs text-slate-500 dark:text-emerald-100/65">Hakuna wateja bado.</p>}
                 </div>
+              </section>
+
+              <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-[0_5px_18px_-10px_rgba(5,77,54,0.2)] dark:border-emerald-900 dark:bg-[#092c21]">
+                <div className="px-3.5 pt-3.5 pb-2 sm:px-4">
+                  <h3 className="text-sm font-semibold text-slate-950 dark:text-white">Withdrawal History</h3>
+                  <div className="mt-3 flex flex-wrap gap-1.5" role="group" aria-label="Filter withdrawal history">
+                    {([
+                      ['all', 'All'],
+                      ['pending', 'Pending'],
+                      ['paid', 'Paid'],
+                      ['rejected', 'Rejected'],
+                    ] as const).map(([key, label]) => (
+                      <button key={key} type="button" onClick={() => setPayoutFilter(key)}
+                        aria-pressed={payoutFilter === key}
+                        className={`rounded-lg border px-3 py-1.5 text-[11px] font-medium transition-colors ${
+                          payoutFilter === key
+                            ? 'border-emerald-700 bg-emerald-700 text-white'
+                            : 'border-slate-200 bg-white text-slate-600 hover:border-emerald-300 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-100'
+                        }`}>{label}</button>
+                    ))}
+                  </div>
+                </div>
+                {(() => {
+                  const filtered = (workspace?.payouts || []).filter(payout => {
+                    if (reportMonth && payout.requested_at?.slice(0, 7) !== reportMonth) return false;
+                    if (payoutFilter === 'all') return true;
+                    if (payoutFilter === 'pending') return payout.status === 'requested' || payout.status === 'processing';
+                    if (payoutFilter === 'rejected') return payout.status === 'rejected' || payout.status === 'cancelled';
+                    return payout.status === 'paid';
+                  });
+                  if (!filtered.length) return <p className="px-4 py-7 text-center text-xs text-slate-500 dark:text-emerald-100/70">No {payoutFilter === 'all' ? '' : payoutFilter + ' '}withdrawal requests.</p>;
+                  return <div className="divide-y divide-slate-100 dark:divide-emerald-900/50">
+                    {filtered.map(payout => (
+                      <details key={payout.id} className="group px-3.5 py-3 sm:px-4">
+                        <summary className="flex cursor-pointer list-none items-center gap-3">
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-xs font-semibold tabular-nums text-slate-950 dark:text-white">{currency.format(payout.amount)}</span>
+                            <span className="mt-1 block text-[10px] text-slate-500 dark:text-emerald-100/65">{formatDateTime(payout.requested_at)}</span>
+                          </span>
+                          <span className={`shrink-0 rounded-md px-2 py-1 text-[10px] font-medium ${
+                            payout.status === 'paid' ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-100'
+                            : payout.status === 'rejected' || payout.status === 'cancelled' ? 'bg-rose-50 text-rose-700 dark:bg-rose-950 dark:text-rose-200'
+                            : 'bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-200'
+                          }`}>{payout.status === 'requested' || payout.status === 'processing' ? 'Pending' : payout.status === 'paid' ? 'Paid' : 'Rejected'}</span>
+                          <ChevronRight className="h-4 w-4 shrink-0 text-slate-400 transition-transform group-open:rotate-90" />
+                        </summary>
+                        <dl className="mt-3 grid grid-cols-2 gap-2 border-t border-slate-100 pt-3 text-[11px] dark:border-emerald-900/50">
+                          <div><dt className="text-slate-500 dark:text-emerald-100/65">Method</dt><dd className="mt-1 text-slate-900 dark:text-white">{payout.payout_method || 'Mobile Money'}</dd></div>
+                          <div><dt className="text-slate-500 dark:text-emerald-100/65">Net payout</dt><dd className="mt-1 text-slate-900 dark:text-white">{currency.format(payout.net_payout ?? payout.amount)}</dd></div>
+                          {payout.payout_reference && <div className="col-span-2"><dt className="text-slate-500 dark:text-emerald-100/65">Reference</dt><dd className="mt-1 break-all text-slate-900 dark:text-white">{payout.payout_reference}</dd></div>}
+                          {(payout.status === 'rejected' || payout.status === 'cancelled') && (
+                            <div className="col-span-2"><dt className="text-rose-600">Reason for rejection</dt><dd className="mt-1 whitespace-pre-wrap break-words text-slate-800 dark:text-rose-100">{payout.notes?.trim() || 'Please contact support for the rejection reason.'}</dd></div>
+                          )}
+                        </dl>
+                      </details>
+                    ))}
+                  </div>;
+                })()}
               </section>
 
               {/* Withdraw Modal */}
@@ -1318,7 +1299,7 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
                         </div>
                         <div>
                           <h3 className="text-[15px] font-black text-slate-900">Omba Malipo</h3>
-                          <p className="text-[11px] text-slate-400">Ada ya AzamPay itaonyeshwa kabla ya ombi</p>
+                          <p className="text-[11px] text-slate-500">Full available balance · Manual approval</p>
                         </div>
                       </div>
                       <button type="button" onClick={() => setShowWithdrawModal(false)}
@@ -1328,6 +1309,16 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
                     </div>
 
                     <div className="px-5 py-4 space-y-4">
+                      {!canWithdraw && (
+                        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-xs text-amber-900" role="status">
+                          {metrics.available < AFFILIATE_MIN_WITHDRAWAL_TZS
+                            ? `You cannot request funds yet. Your available balance is ${currency.format(metrics.available)}. Wait until you reach TZS 10,000.`
+                            : hasMonthWithdrawal ? 'You have already submitted a request this month.'
+                            : !isAgentApprovedForWithdrawals ? 'Your affiliate account must be approved first.'
+                            : `Requests open on the last Friday of the month (${payoutWindow.dateISO}).`}
+                        </div>
+                      )}
+                      <p className="text-xs leading-5 text-slate-600">The transfer fee is paid by the affiliate and deducted from the payout. The amount is verified before you submit your request.</p>
 
                       {/* Fee notice */}
                       <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 flex items-start gap-2">
@@ -1409,7 +1400,7 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
                       {/* Submit */}
                       <button
                         type="button"
-                        disabled={withdrawing}
+                        disabled={withdrawing || !canWithdraw || mirrorMode}
                         onClick={handleWithdrawSubmit}
                         className="w-full py-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 disabled:opacity-50 text-white font-black text-sm transition-colors cursor-pointer border-none flex items-center justify-center gap-2 mb-2"
                       >
