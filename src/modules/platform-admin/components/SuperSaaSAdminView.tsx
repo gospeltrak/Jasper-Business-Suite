@@ -1,26 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { Shield, Users, Volume2, Sparkles, Unlock, UploadCloud, Image as ImageIcon, MessageSquare, Video, BookOpen, Store, Pill, ArrowLeft, Laptop, Globe, Clock } from "lucide-react";
 
-import SaaSUserDesk from './SaaSUserDesk';
+const SaaSUserDesk = React.lazy(() => import('./SaaSUserDesk'));
 
-import SuperAffiliateControlCenter from './SuperAffiliateNetworkOverview';
-import Dashboard from '../../../components/Dashboard';
-import AffiliateWorkspace from '../../affiliate/components/AffiliateWorkspace';
+const SuperAffiliateControlCenter = React.lazy(() => import('./SuperAffiliateNetworkOverview'));
+const Dashboard = React.lazy(() => import('../../../components/Dashboard'));
+const AffiliateWorkspace = React.lazy(() => import('../../affiliate/components/AffiliateWorkspace'));
 import { User } from '../../../types';
-import SaaSStatusAndRequests from './SaaSStatusAndRequests';
-import SaaSReportsView from './SaaSReportsView';
-import SaaSUserActivityView from './SaaSUserActivityView';
-import SaaSDashboardMetrics from './SaaSDashboardMetrics';
-import SaaSExpensesView from './SaaSExpensesView';
-import SaaSInbox from './SaaSInbox';
-import SecurityActivityView from './SecurityActivityView';
-import SaaSHardwarePOS from '../../../shared/components/SaaSHardwarePOS';
-import SaaSHardwareInventory from '../../../shared/components/SaaSHardwareInventory';
-import SaaSHardwareSales from './SaaSHardwareSales';
-import SaaSStaffManager from './SaaSStaffManager';
+const SaaSStatusAndRequests = React.lazy(() => import('./SaaSStatusAndRequests'));
+const SaaSReportsView = React.lazy(() => import('./SaaSReportsView'));
+const SaaSUserActivityView = React.lazy(() => import('./SaaSUserActivityView'));
+const SaaSDashboardMetrics = React.lazy(() => import('./SaaSDashboardMetrics'));
+const SaaSExpensesView = React.lazy(() => import('./SaaSExpensesView'));
+const SaaSInbox = React.lazy(() => import('./SaaSInbox'));
+const SecurityActivityView = React.lazy(() => import('./SecurityActivityView'));
+const SaaSHardwarePOS = React.lazy(() => import('../../../shared/components/SaaSHardwarePOS'));
+const SaaSHardwareInventory = React.lazy(() => import('../../../shared/components/SaaSHardwareInventory'));
+const SaaSHardwareSales = React.lazy(() => import('./SaaSHardwareSales'));
+const SaaSStaffManager = React.lazy(() => import('./SaaSStaffManager'));
 import { initPlatformSync } from '../utils/superAdminPlatformRecords';
-import SaaSWebEditor from './SaaSWebEditor';
-import SaaSAdPlacementsPanel from './SaaSAdPlacementsPanel';
+const SaaSWebEditor = React.lazy(() => import('./SaaSWebEditor'));
+const SaaSAdPlacementsPanel = React.lazy(() => import('./SaaSAdPlacementsPanel'));
 import { loadPlatformRecord, savePlatformRecord } from '../utils/superAdminPlatformRecords';
 import { ONLINE_ONLY_WRITE_MESSAGE, canWriteBusinessDataOnline } from '../../../shared/utils/onlineOnly';
 
@@ -742,6 +742,7 @@ export default function SuperSaaSAdminView({
 
       {/* Main interactive subpage container */}
       <div id="saas-active-subpage-view" className="flex-1 min-h-0 overflow-y-auto flex flex-col w-full min-w-0 p-4 sm:p-5 lg:p-7 space-y-5 lg:space-y-7 pb-24 md:pb-8">
+        <React.Suspense fallback={<div role="status" className="rounded-xl border border-slate-800 bg-slate-900 p-5 text-sm text-slate-300">Loading workspace…</div>}>
         
         {/* ======================= TAB 1: USER DESK ======================= */}
         {activeTab === 'subscribers' && (
@@ -1378,7 +1379,7 @@ export default function SuperSaaSAdminView({
             <SaaSExpensesView />
           </div>
         )}
-
+        </React.Suspense>
       </div>
 
     </div>
