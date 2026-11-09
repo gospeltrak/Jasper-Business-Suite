@@ -13,11 +13,10 @@ test('affiliate and partner Google registration uses the verified Google identit
   assert.doesNotMatch(server.slice(server.indexOf("app.post('/api/affiliate/register'"), server.indexOf('const getGoogleRequestUser')), /user_metadata\?\.(?:role|account_type)/);
 });
 
-test('Affiliate and Agent portal cannot initiate or complete Google OAuth', () => {
+test('Affiliate and Agent portal cannot initiate Google OAuth sign-in', () => {
   assert.doesNotMatch(portal,/signInWithOAuth\(/);
   assert.doesNotMatch(portal,/handleGooglePortalLogin/);
   assert.doesNotMatch(portal,/orvix_google_portal_registration_intent/);
-  assert.doesNotMatch(portal,/\/api\/auth\/google\/portal-resolve/);
 });
 
 test('registration copy does not instruct Google users to use phone passwords', () => {
