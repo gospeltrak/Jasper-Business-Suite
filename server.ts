@@ -1197,7 +1197,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       const access = await resolveAffiliatePayoutAccess(req);
       if (access.role === 'agent' && access.affiliateIds.length === 0) {
         res.setHeader('Cache-Control', 'private, no-store');
-        return res.json({ role: access.role, payouts: [] });
+        return res.json({ role: access.role, payouts: [], needs_assignment: true });
       }
       let query = adminTable('affiliate_payouts')
         // FK join avoids a second read of ALL affiliate profiles for every page.
