@@ -97,7 +97,7 @@ import {
 
 const DashboardBranchesSettings = lazyWithReload('DashboardBranchesSettings', () => import('../modules/branches/components/DashboardBranchesSettings'));
 
-import { LogOut, LayoutDashboard, ShoppingCart, Package, Users, Activity, Database, Building, TrendingUp, FileText, Receipt, Truck, Globe, Clock, Settings as SettingsIcon, Wallet, ChevronLeft, ChevronRight, Award, MessageSquare, Inbox, MonitorPlay, Menu, X, Sun, Moon, PieChart, TrendingDown, CloudLightning, MapPin, MinusCircle, Handshake, LoaderCircle } from "lucide-react";
+import { LogOut, LayoutDashboard, ShoppingCart, Package, Users, Activity, Database, Building, TrendingUp, FileText, Receipt, Truck, Globe, Clock, Settings as SettingsIcon, Wallet, ChevronLeft, ChevronRight, Award, MessageSquare, Inbox, MonitorPlay, Menu, X, Sun, Moon, PieChart, TrendingDown, CloudLightning, MapPin, MinusCircle, Handshake, LoaderCircle, Network } from "lucide-react";
 
 // A high-fidelity composite component representing a rider on a motorcycle with a delivery basket on their back
 function DeliveryMotorcycleIcon({ className, size = 18 }: { className?: string; size?: number }) {
