@@ -5,6 +5,7 @@ type PayoutRow = {
   id: string;
   affiliate_id: string;
   affiliate_name: string;
+  payout_month: string | null;
   amount: number;
   net_payout: number | null;
   payout_method: string | null;
@@ -118,7 +119,8 @@ export default function SuperAffiliatePayoutReview() {
                   {row.status === 'paid' && <p className="mt-2 text-xs text-emerald-300">Reference: {row.payout_reference || '—'}</p>}
                 </div>
                 <span className="rounded-md border border-slate-700 px-2.5 py-1 text-[11px] capitalize text-slate-300">{row.status}</span>
-                {['requested','processing'].includes(row.status) && <div className="flex gap-2">
+                {!row.payout_month && ['requested','processing'].includes(row.status) && <span className="text-[10px] text-amber-400">Legacy payout · review separately</span>}
+                {['requested','processing'].includes(row.status) && row.payout_month && <div className="flex gap-2">
                   <button type="button" onClick={() => { setSelected({ row, action: 'reject' }); setReason(''); setReference(''); }} className="rounded-lg border border-rose-800 px-3 py-2 text-xs text-rose-300">Reject</button>
                   <button type="button" onClick={() => { setSelected({ row, action: 'mark_paid' }); setReason(''); setReference(''); }} className="rounded-lg bg-emerald-700 px-3 py-2 text-xs text-white">Mark Paid</button>
                 </div>}
