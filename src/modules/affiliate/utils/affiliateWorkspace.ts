@@ -313,9 +313,9 @@ export async function loadAffiliateWorkspace(options: AffiliateWorkspaceLoadOpti
   ].filter(Boolean).join(',');
 
   const [tasksResult, meetingsResult, assignmentsResult, sspBanners, referralsResult, subscribersResult, sourceTrackingResult, commissionsResult, payoutsResult, activitiesResult, notificationsResult, rewardsResult, walletSummaryResult] = await Promise.all([
-    requiredQuery('affiliate_tasks', () => client.from('affiliate_tasks').select('*').eq('affiliate_id', profile.id).order('created_at', { ascending: false }).limit(50)),
-    requiredQuery('affiliate_meetings', () => client.from('affiliate_meetings').select('*').eq('affiliate_id', profile.id).order('starts_at', { ascending: true }).limit(50)),
-    requiredQuery('affiliate_ad_assignments', () => client.from('affiliate_ad_assignments').select('campaign:affiliate_ad_campaigns(*)').eq('affiliate_id', profile.id).order('created_at', { ascending: false }).limit(50)),
+    requiredQuery('affiliate_tasks', () => client.from('affiliate_tasks').select('id,affiliate_id,group_id,assigned_by,sender_name,title,body,task_type,status,due_at,attachment_url,attachment_name,attachment_mime_type,created_at').eq('affiliate_id', profile.id).order('created_at', { ascending: false }).limit(50)),
+    requiredQuery('affiliate_meetings', () => client.from('affiliate_meetings').select('id,affiliate_id,title,host_name,notes,meeting_url,starts_at,ends_at,status,created_at').eq('affiliate_id', profile.id).order('starts_at', { ascending: true }).limit(50)),
+    requiredQuery('affiliate_ad_assignments', () => client.from('affiliate_ad_assignments').select('campaign:affiliate_ad_campaigns(id,campaign_name,title,description,recommended_caption,media_url,media_name,media_mime_type,media_size_bytes,duration_seconds,campaign_url,status,available_from,available_until)').eq('affiliate_id', profile.id).order('created_at', { ascending: false }).limit(50)),
     loadPlatformRecord<any[]>('promotional_banners', 'global', []),
     requiredQuery('affiliate_referrals', () => client.from('affiliate_referrals').select('id, status, created_at').or(affiliateScope).order('created_at', { ascending: false }).limit(500)),
     ownReferralScope
