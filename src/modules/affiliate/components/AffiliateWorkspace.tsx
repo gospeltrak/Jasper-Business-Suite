@@ -119,32 +119,20 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
     }
     const cleaned = newCode.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '');
     if (!cleaned) { setCodeError('Code must contain letters or numbers only.'); return; }
-    let cloudAffiliateCodes: any[] = [];
-    try {
-      const { getSecureDataBridgeClient } = await import('../../../shared/dataBridge/secureDataBridge');
-      const client: any = await getSecureDataBridgeClient();
-      const { data, error } = await client.from('affiliates').select('id, promo_code, referral_code');
-      if (error) throw error;
-      cloudAffiliateCodes = Array.isArray(data) ? data : [];
-    } catch (error: any) {
-      setCodeError(error?.message || ONLINE_ONLY_WRITE_MESSAGE);
+    if (workspace.profile.promo_code_changed_at) {
+      setCodeError('Promo code can only be changed once.');
       return;
     }
-
-    const taken = cloudAffiliateCodes.some((a: any) => (
-      String(a.promo_code || a.referral_code || '').toUpperCase() === cleaned &&
-      a.id !== workspace.profile.id
-    ));
-    if (taken) {
-      const sugg: string[] = [];
-      for (const sfx of ['1','2','3','_TZ','_EA','_PRO']) {
-        const s = `${cleaned}${sfx}`;
-        if (!cloudAffiliateCodes.some((a: any) => String(a.promo_code || a.referral_code || '').toUpperCase() === s)) { sugg.push(s); if (sugg.length >= 3) break; }
-      }
-      setCodeError(`"${cleaned}" is already taken.`);
-      setSuggestions(sugg);
+    if (cleaned.length < 3 || cleaned.length > 20) {
+      setCodeError('Promo code must be between 3 and 20 characters.');
       return;
     }
+    if (cleaned === (savedCode || workspace.profile.referral_code || '').toUpperCase()) {
+      setCodeError('Please choose a different code.');
+      return;
+    }
+    // Database unique indexes and authenticated row trigger check collisions
+    // and one-time eligibility atomically. Never load all Affiliate codes.
     // Save to DB first; local cache follows only after cloud confirms.
     const result = await dbWrite('affiliates', 'update',
       { promo_code: cleaned, referral_code: cleaned, referral_slug: cleaned.toLowerCase() },
@@ -165,11 +153,17 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
       onlineStorage.setItem('jasper_logged_affiliate', JSON.stringify(savedAff));
     }
     setSavedCode(cleaned); // update display immediately
-    setNotice(`✅ Promo code updated to ${cleaned}`);
+    setWorkspace(current => current ? { ...current, profile: {
+      ...current.profile,
+      referral_code: cleaned,
+      referral_slug: cleaned.toLowerCase(),
+      promo_code_changed_at: new Date().toISOString(),
+    } } : current);
+    setNotice(`Promo code updated to ${cleaned}. You cannot change it again.`);
     setEditingCode(false);
     setCodeError('');
     setSuggestions([]);
-    refresh(); // background refresh — savedCode already showing correct value
+    // No full workspace refresh: the profile is updated locally after verified save.
   };
 
   const refresh = useCallback(async () => {
@@ -840,7 +834,7 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
               {editingCode ? (
                 <div className="space-y-3">
                   <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-[11px] text-amber-700 leading-relaxed">
-                    Change this code carefully. A new code will affect referral tracking.
+                    You can change your promo code only once. Your referral link will update automatically.
                   </div>
                   <input autoFocus type="text" value={newCode}
                     onChange={e => { setNewCode(e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g,'')); setCodeError(''); setSuggestions([]); }}
@@ -881,7 +875,7 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
                       className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 font-bold rounded-lg cursor-pointer border-none flex items-center justify-center gap-2 text-sm">
                       <Copy className="h-4 w-4" /> Copy Code
                     </button>
-                    {!mirrorMode && <button type="button" onClick={() => { setEditingCode(true); setNewCode(getLiveCode(profile) || profile.referral_code); }}
+                    {!mirrorMode && !profile.promo_code_changed_at && <button type="button" onClick={() => { setEditingCode(true); setNewCode(getLiveCode(profile) || profile.referral_code); }}
                       className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg cursor-pointer border-none flex items-center justify-center gap-2 text-sm">
                       <PencilIcon className="h-4 w-4" /> Edit Code
                     </button>}
