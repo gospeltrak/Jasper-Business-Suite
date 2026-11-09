@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useSyncExternalStore } from "react";
 import { Users, DollarSign, MousePointer, Award, Clock, AlertTriangle, Copy, Check, ArrowLeft, Sparkles, Layers, Smartphone, Info, Download, Code, Target, Video, Mic, MicOff, PlusCircle, Trash2, Edit2, Send, Play, Tv, Eye, EyeOff, Mail, BookOpen, MessageSquare, ExternalLink, Search, ShoppingCart, Package, CheckCircle, XCircle } from "lucide-react";
 import SaaSHardwarePOS from "../../../shared/components/SaaSHardwarePOS";
 import SaaSHardwareInventory from "../../../shared/components/SaaSHardwareInventory";
@@ -8,7 +8,7 @@ import AffiliateAgentDesk from "./AffiliateAgentDesk";
 // imported here — the dashibodis themselves (AffiliateAgentDesk.tsx,
 // AffiliateWorkspace.tsx) load their own workspace data after an explicit
 // login, so this portal-level component never auto-loads a dashibodi.
-import { getSecureDataBridgeClient } from "../../../shared/dataBridge/secureDataBridge";
+import { getSecureDataBridgeClient, isPasswordRecoverySessionActive, subscribeToPasswordRecoverySession } from "../../../shared/dataBridge/secureDataBridge";
 import { downloadExcelFileFromRows } from "../../../shared/utils/excelExport";
 import { formatLocalDate } from "../../../shared/utils/localDate";
 import { isOnline, initOfflineSync, dbWrite, clearAffiliateSession, flushSyncQueue } from "../utils/offlineSync";
@@ -65,6 +65,15 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const isRecoverySession = useSyncExternalStore(subscribeToPasswordRecoverySession, isPasswordRecoverySessionActive);
+  const [recoveryView,setRecoveryView] = useState<'request'|'set'|null>(()=>isPasswordRecoverySessionActive()?'set':null);
+  const [recoveryEmail,setRecoveryEmail] = useState('');
+  const [recoveryPassword,setRecoveryPassword] = useState('');
+  const [recoveryConfirm,setRecoveryConfirm] = useState('');
+  const [recoveryNotice,setRecoveryNotice] = useState('');
+  const [recoveryBusy,setRecoveryBusy] = useState(false);
+  const [recoverySent,setRecoverySent] = useState(false);
+  useEffect(()=>{if(isRecoverySession){setRecoveryView('set');setRecoveryNotice('');}},[isRecoverySession]);
   const [portalRole, setPortalRole] = useState<"affiliate" | "partner">(
     forcedRole ?? "affiliate",
   );
@@ -1019,6 +1028,39 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     }
   };
 
+  const requestPasswordRecovery = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const target=recoveryEmail.trim().toLowerCase();
+    if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(target)) { setRecoveryNotice('Enter a valid email.'); return; }
+    setRecoveryBusy(true);setRecoveryNotice('');
+    try {
+      const client:any=await getSecureDataBridgeClient();
+      const {error}=await client.auth.resetPasswordForEmail(target,{redirectTo:`${window.location.origin}/${portalRole}`});
+      if(error)throw error;
+      setRecoverySent(true);
+      setRecoveryNotice('If this account exists, a reset link will be sent to the email address.');
+    }catch(err:any){setRecoveryNotice(err?.message||'Unable to send reset link.');}
+    finally{setRecoveryBusy(false);}
+  };
+  const finishPasswordRecovery = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if(recoveryPassword.length<10||!/[A-Za-z]/.test(recoveryPassword)||!/\\d/.test(recoveryPassword)){
+      setRecoveryNotice('Use at least 10 characters including a letter and number.');return;
+    }
+    if(recoveryPassword!==recoveryConfirm){setRecoveryNotice('Passwords do not match.');return;}
+    setRecoveryBusy(true);setRecoveryNotice('');
+    try{
+      const client:any=await getSecureDataBridgeClient();
+      const {error}=await client.auth.updateUser({password:recoveryPassword});
+      if(error)throw error;
+      const {error:logoutError}=await client.auth.signOut();
+      if(logoutError)throw logoutError;
+      setRecoveryPassword('');setRecoveryConfirm('');setRecoveryView(null);setAuthMode('login');
+      setRecoverySent(false);setRecoveryNotice('Password updated. Sign in with your email and new password.');
+      window.history.replaceState({},document.title,`/${portalRole}`);
+    }catch(err:any){setRecoveryNotice(err?.message||'Unable to update password.');}
+    finally{setRecoveryBusy(false);}
+  };
   const handleLoginAffiliate = async (e: any) => {
     e.preventDefault();
     if (!loginEmail || !loginPassword) {
@@ -1045,7 +1087,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       });
 
       if (authError || !authData?.user) {
-        alert('❌ Namba ya simu au nenosiri si sahihi.\n\nIncorrect phone number or password. Please try again.');
+        alert('❌ Namba ya simu au nenosiri si sahihi.\n\nIncorrect email or password. Please try again.');
         return;
       }
 
@@ -1627,7 +1669,32 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                 </div>
 
                 {/* Login form */}
-                {authMode === 'login' ? (
+                {recoveryView ? (
+                  <form onSubmit={recoveryView==='set'?finishPasswordRecovery:requestPasswordRecovery} className="space-y-4" data-testid="affiliate-agent-password-recovery">
+                    <h3 className="text-base font-semibold text-white">{recoveryView==='set'?'Set New Password':'Forgot Password'}</h3>
+                    <p className="text-xs text-slate-400">{recoveryView==='set'?'Choose a new password.':'Enter your registered email to receive a reset link.'}</p>
+                    {recoveryView==='request'?(
+                      <label className="block space-y-1.5 text-xs text-slate-300">Email
+                        <input type="email" required autoComplete="email" value={recoveryEmail} onChange={e=>setRecoveryEmail(e.target.value)}
+                          className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm text-white" placeholder="you@example.com"/>
+                      </label>
+                    ):(
+                      <>
+                        <label className="block space-y-1.5 text-xs text-slate-300">New Password
+                          <input type="password" required minLength={10} autoComplete="new-password" value={recoveryPassword} onChange={e=>setRecoveryPassword(e.target.value)} className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm text-white"/>
+                        </label>
+                        <label className="block space-y-1.5 text-xs text-slate-300">Confirm Password
+                          <input type="password" required minLength={10} autoComplete="new-password" value={recoveryConfirm} onChange={e=>setRecoveryConfirm(e.target.value)} className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm text-white"/>
+                        </label>
+                      </>
+                    )}
+                    {recoveryNotice&&<p role="status" className="text-xs text-emerald-200">{recoveryNotice}</p>}
+                    <button type="submit" disabled={recoveryBusy||(recoveryView==='request'&&recoverySent)} className="w-full rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white disabled:opacity-50">
+                      {recoveryBusy?'Please wait...':recoveryView==='set'?'Save New Password':recoverySent?'Reset Link Sent':'Send Reset Link'}
+                    </button>
+                    {recoveryView!=='set'&&<button type="button" className="w-full py-2 text-xs text-slate-400" onClick={()=>{setRecoveryView(null);setRecoveryNotice('');setRecoverySent(false);}}>Back to Sign In</button>}
+                  </form>
+                ) : authMode === 'login' ? (
                   <form onSubmit={handleLoginAffiliate} className="space-y-4">
                     <div className="space-y-1.5">
                       <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Barua Pepe</label>
@@ -1650,14 +1717,8 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
 
                     <button type="submit" className="w-full py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm uppercase tracking-wider transition-all cursor-pointer border-none">Ingia</button>
 
-                    <div className="flex items-center gap-3 py-1">
-                      <div className="flex-1 h-px bg-slate-800" />
-                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">AU</span>
-                      <div className="flex-1 h-px bg-slate-800" />
-                    </div>
-
-                    <button type="button" onClick={handleGooglePortalLogin} className="w-full py-3.5 rounded-2xl border border-slate-700 bg-white text-slate-800 font-black text-sm cursor-pointer">Endelea kwa Google</button>
-
+                    <button type="button" onClick={()=>{setRecoveryEmail(loginEmail);setRecoveryView('request');setRecoveryNotice('');setRecoverySent(false);}}
+                      className="w-full py-2 text-xs font-medium text-emerald-300">Forgot Password?</button>
                     {/* Become an affiliate link — hidden on the Partner login, since that
                         portal is for the single Super Affiliate Agent signing in, not
                         public registration */}
@@ -1706,7 +1767,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                         <Mail className="w-4 h-4 shrink-0" />
                         <span>Endelea kwa Barua Pepe</span>
                       </button>
-                      <button type="button" onClick={handleGooglePortalLogin} className="w-full py-3.5 rounded-2xl border border-slate-700 bg-white text-slate-800 font-black text-sm cursor-pointer">Endelea kwa Google</button>
+
                       <button type="button" onClick={() => setAuthMode('login')} className="w-full text-xs text-slate-500 hover:text-slate-300 cursor-pointer bg-transparent border-none">Una akaunti tayari? Ingia</button>
                     </div>
                   ) : (
