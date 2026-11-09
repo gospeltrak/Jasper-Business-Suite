@@ -1197,21 +1197,27 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       const access = await resolveAffiliatePayoutAccess(req);
       if (access.role === 'agent' && access.affiliateIds.length === 0) {
         res.setHeader('Cache-Control', 'private, no-store');
-        return res.json({ role: access.role, payouts: [], needs_assignment: true });
+        return res.json({ role: access.role, page: 0, has_more: false, payouts: [], needs_assignment: true });
       }
+      const pageParam = Number(req.query.page ?? 0);
+      const page = Number.isInteger(pageParam) && pageParam >= 0 && pageParam < 100 ? pageParam : 0;
+      const pageSize = 50;
       let query = adminTable('affiliate_payouts')
         // FK join avoids a second read of ALL affiliate profiles for every page.
         .select('id,affiliate_id,amount,net_payout,payout_month,payout_method,payout_phone,status,requested_at,processed_at,payout_reference,notes,provider_fee_tzs,affiliate:affiliates!affiliate_payouts_affiliate_id_fkey(display_name)')
-        .order('requested_at', { ascending: false }).limit(150);
+        .order('requested_at', { ascending: false })
+        .range(page * pageSize, page * pageSize + pageSize);
       if (access.role === 'agent') query = query.in('affiliate_id', access.affiliateIds);
       const { data, error } = await query;
       if (error) throw error;
       res.setHeader('Cache-Control', 'private, no-store');
-      return res.json({ role: access.role, payouts: (data || []).map((row: any) => ({
-        ...row,
-        affiliate_name: row.affiliate?.display_name || 'Affiliate',
-        affiliate: undefined,
-      })) });
+      const pageRows = (data || []).slice(0, pageSize);
+      return res.json({ role: access.role, page, has_more: (data || []).length > pageSize,
+        payouts: pageRows.map((row: any) => ({
+          ...row,
+          affiliate_name: row.affiliate?.display_name || 'Affiliate',
+          affiliate: undefined,
+        })) });
     } catch (error: any) {
       return platformAdminError(res, error);
     }
