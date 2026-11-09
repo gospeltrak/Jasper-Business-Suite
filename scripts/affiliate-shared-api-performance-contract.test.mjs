@@ -68,3 +68,22 @@ test('manual payout only, with no automatic external disbursement', () => {
   assert.match(payout,/status: 'paid'/);
   assert.match(payout,/status: 'rejected'/);
 });
+
+test('super admin renders a narrow read-only overview without loading full affiliate ledgers',()=>{
+  const view=readFileSync('src/modules/platform-admin/components/SuperSaaSAdminView.tsx','utf8');
+  const overview=readFileSync('src/modules/platform-admin/components/SuperAffiliateNetworkOverview.tsx','utf8');
+  const begin=server.indexOf("app.get('/api/platform/affiliate-network-overview'");
+  const end=server.indexOf('const resolveAffiliatePayoutAccess',begin);
+  assert.ok(begin>0&&end>begin);
+  const api=server.slice(begin,end);
+  assert.match(view,/import SuperAffiliateControlCenter from '\.\/SuperAffiliateNetworkOverview'/);
+  assert.match(overview,/affiliate-network-overview/);
+  assert.match(overview,/Read-only supervision/);
+  assert.doesNotMatch(overview,/approve|mark_paid|Reject Withdrawal|Payout Requests|loadAffiliateMonitoringData/);
+  assert.match(api,/await requirePlatformAdmin\(req\)/);
+  assert.match(api,/\.limit\(limit\)/);
+  assert.match(api,/const partial/);
+  assert.match(api,/customer_sources:customers\.slice\(0,50\)/);
+  assert.match(api,/payout_audit:latestPayouts/);
+  assert.doesNotMatch(api,/adminTable\('tenant_workspaces'\)|adminTable\('tenant_data'\)/);
+});
