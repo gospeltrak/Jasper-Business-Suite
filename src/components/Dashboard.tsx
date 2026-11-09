@@ -3457,7 +3457,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
   }
 
   return (
-    <div id="dashboard-scaffold" className="w-full h-dvh bg-[#f5f6fa] dark:bg-slate-950 flex text-slate-800 dark:text-slate-200 font-sans antialiased overflow-hidden select-none">
+    <div id="dashboard-scaffold" className={`${user.role === 'SuperAdmin' ? 'dark' : '' } w-full h-dvh bg-[#f5f6fa] dark:bg-slate-950 flex text-slate-800 dark:text-slate-200 font-sans antialiased overflow-hidden select-none`}>
 
       {/* Branch-switch data reload indicator. GlobalBranchSwitcher's own
           spinner only covers the quick branch-selection step; this covers
