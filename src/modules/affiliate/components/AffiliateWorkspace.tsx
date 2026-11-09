@@ -397,12 +397,13 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
     if (!workspace?.profile || withdrawing) return;
     if (!isNetworkOnline) { setWithdrawError(ONLINE_ONLY_WRITE_MESSAGE); return; }
     if (!canWithdraw) {
-      setWithdrawError('Unaweza kuomba kutoa pesa mara moja tu Ijumaa ya mwisho wa mwezi, salio likiwa angalau TZS 10,000.');
+      setWithdrawError('You can request your full balance on the last Friday of the month, starting at TZS 10,000.');
       return;
     }
-    const { name, phone } = withdrawForm;
+    const name = workspace.profile.display_name || '';
+    const phone = workspace.profile.phone_whatsapp || '';
     if (name.trim().length < 2 || phone.replace(/\D/g,'').length < 10) {
-      setWithdrawError('Weka jina na namba sahihi ya kupokea malipo.');
+      setWithdrawError('A valid registered phone number is required.');
       return;
     }
     setWithdrawing(true);
@@ -418,7 +419,7 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
       if (error) throw error;
       setShowWithdrawModal(false);
       setWithdrawForm({ name:'', phone:'', amount:'', password:'' });
-      setNotice(`Ombi limepokelewa: TZS ${Number(data?.net || 0).toLocaleString()} baada ya ada. Linasubiri uhakiki na malipo ya manual.`);
+      setNotice(`Request received: TZS ${Number(data?.net || 0).toLocaleString()} after fees. Awaiting manual review.`);
       await refresh();
     } catch (error: any) {
       setWithdrawError(error?.message || 'Ombi la kutoa pesa halikukamilika.');
@@ -1171,15 +1172,9 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
                 </div>
               </div>
 
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 px-4 py-3.5 shadow-[0_5px_18px_-10px_rgba(5,77,54,0.15)] dark:border-emerald-800 dark:bg-[#103c2e]">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-xs font-medium text-emerald-900 dark:text-emerald-100">Total Earnings</span>
-                  <span className="text-lg font-semibold tabular-nums text-emerald-900 dark:text-emerald-100">{currency.format(metrics.earned)}</span>
-                </div>
-                <div className="mt-3 flex items-center justify-between gap-3 border-t border-emerald-200/70 pt-3 dark:border-emerald-700">
-                  <span className="text-xs text-emerald-800 dark:text-emerald-200">Available to Request</span>
-                  <span className="text-base font-semibold tabular-nums text-emerald-900 dark:text-white" data-testid="affiliate-available-balance">{currency.format(metrics.available)}</span>
-                </div>
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-white px-4 py-3 shadow-[0_4px_16px_-9px_rgba(5,77,54,0.25)] dark:border-emerald-900 dark:bg-[#092c21]">
+                <span className="text-xs font-medium text-slate-600 dark:text-emerald-100/75">Available Balance</span>
+                <span className="text-lg font-semibold tabular-nums text-emerald-800 dark:text-emerald-300" data-testid="affiliate-available-balance">{currency.format(metrics.available)}</span>
               </div>
 
               <button type="button" onClick={() => {
@@ -1285,130 +1280,58 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
                 })()}
               </section>
 
-              {/* Withdraw Modal */}
+              {/* Compact, full-balance withdrawal review. The saved registration
+                  number is read-only: affiliates cannot substitute a payout recipient. */}
               {showWithdrawModal && (
-                <div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4"
-                  onClick={(e) => { if (e.target === e.currentTarget) setShowWithdrawModal(false); }}>
-                  <div className="w-full sm:max-w-md bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden">
-
-                    {/* Modal header */}
-                    <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-slate-100">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-2xl bg-emerald-50 flex items-center justify-center">
-                          <ArrowDownToLine className="w-5 h-5 text-emerald-600" />
-                        </div>
-                        <div>
-                          <h3 className="text-[15px] font-black text-slate-900">Omba Malipo</h3>
-                          <p className="text-[11px] text-slate-500">Full available balance · Manual approval</p>
-                        </div>
-                      </div>
-                      <button type="button" onClick={() => setShowWithdrawModal(false)}
-                        className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center cursor-pointer border-none">
-                        <X className="w-4 h-4 text-slate-500" />
+                <div className="fixed inset-0 z-[200] flex items-end justify-center bg-black/55 p-0 sm:items-center sm:p-4"
+                  onClick={e => { if (e.target === e.currentTarget && !withdrawing) setShowWithdrawModal(false); }}>
+                  <div role="dialog" aria-modal="true" aria-labelledby="withdraw-title" className="w-full max-w-md overflow-hidden rounded-t-2xl bg-white shadow-xl dark:bg-[#09251d] sm:rounded-2xl">
+                    <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3.5 dark:border-emerald-900">
+                      <h3 id="withdraw-title" className="text-base font-semibold text-slate-900 dark:text-white">Request Funds</h3>
+                      <button type="button" onClick={() => setShowWithdrawModal(false)} aria-label="Close request"
+                        className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:text-emerald-100 dark:hover:bg-emerald-900/40">
+                        <X className="h-4 w-4" />
                       </button>
                     </div>
-
-                    <div className="px-5 py-4 space-y-4">
+                    <div className="space-y-3.5 px-4 py-4">
                       {!canWithdraw && (
-                        <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 text-xs text-amber-900" role="status">
+                        <p role="status" className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-100">
                           {metrics.available < AFFILIATE_MIN_WITHDRAWAL_TZS
-                            ? `You cannot request funds yet. Your available balance is ${currency.format(metrics.available)}. Wait until you reach TZS 10,000.`
-                            : hasMonthWithdrawal ? 'You have already submitted a request this month.'
-                            : !isAgentApprovedForWithdrawals ? 'Your affiliate account must be approved first.'
-                            : `Requests open on the last Friday of the month (${payoutWindow.dateISO}).`}
-                        </div>
-                      )}
-                      <p className="text-xs leading-5 text-slate-600">The transfer fee is paid by the affiliate and deducted from the payout. The amount is verified before you submit your request.</p>
-
-                      {/* Fee notice */}
-                      <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 flex items-start gap-2">
-                        <AlertCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                        <div>
-                          <p className="text-[11px] font-black text-amber-700">Ada ya AzamPay</p>
-                          <p className="text-[11px] text-amber-600 mt-0.5">
-                            Makadirio ya ada hutegemea njia ya malipo. Ada halisi inathibitishwa na mfumo wakati wa kutuma ombi.
-                            {withdrawForm.amount && Number(withdrawForm.amount) > 0 && (
-                              <span className="font-black"> Utapokea {currency.format(Math.max(0,Math.round(Number(withdrawForm.amount)) - transferFee))} baada ya ada ya {currency.format(transferFee)}.</span>
-                            )}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Name */}
-                      <div className="space-y-1.5">
-                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">Jina la mmiliki wa akaunti</label>
-                        <div className="relative">
-                          <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                          <input
-                            type="text"
-                            value={withdrawForm.name}
-                            onChange={(e) => setWithdrawForm(f => ({ ...f, name: e.target.value }))}
-                            placeholder="Full name on account…"
-                            className="w-full pl-9 pr-4 py-3 rounded-2xl border border-slate-200 focus:border-emerald-400 outline-none text-sm font-semibold text-slate-800 bg-slate-50 focus:bg-white transition-colors"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Phone */}
-                      <div className="space-y-1.5">
-                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">Namba ya kupokea pesa</label>
-                        <div className="relative">
-                          <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                          <input
-                            type="tel"
-                            value={withdrawForm.phone}
-                            onChange={(e) => setWithdrawForm(f => ({ ...f, phone: e.target.value }))}
-                            placeholder="+255 7XX XXX XXX…"
-                            className="w-full pl-9 pr-4 py-3 rounded-2xl border border-slate-200 focus:border-emerald-400 outline-none text-sm font-semibold text-slate-800 bg-slate-50 focus:bg-white transition-colors"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Amount */}
-                      <div className="space-y-1.5">
-                        <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block">
-                          Kiasi (TZS) <span className="font-normal text-slate-400">— Salio: {currency.format(metrics.available)}</span>
-                        </label>
-                        <input
-                          type="number"
-                          min="10000"
-                          max={metrics.available}
-                          value={withdrawForm.amount}
-                          readOnly
-                          aria-readonly="true"
-                          placeholder="Salio lote linalopatikana"
-                          className="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:border-emerald-400 outline-none text-sm font-semibold text-slate-800 bg-slate-50 focus:bg-white transition-colors"
-                        />
-                        {withdrawForm.amount && Number(withdrawForm.amount) >= 10000 && (
-                          <div className="bg-emerald-50 rounded-xl px-3 py-2 flex justify-between text-[11px]">
-                            <span className="text-slate-500">Utapokea baada ya ada</span>
-                            <span className="font-black text-emerald-700">{currency.format(Math.round(Number(withdrawForm.amount) - transferFee))}</span>
-                          </div>
-                        )}
-                      </div>
-
-                      <p className="text-[11px] text-slate-500">Ombi linathibitishwa kupitia akaunti ya Orvix uliyoingia nayo. Malipo yanahitaji uhakiki wa Admin.</p>
-
-                      {/* Error */}
-                      {withdrawError && (
-                        <div className="bg-rose-50 border border-rose-200 rounded-2xl px-4 py-3 flex items-center gap-2">
-                          <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
-                          <p className="text-[12px] font-semibold text-rose-600">{withdrawError}</p>
-                        </div>
+                            ? 'Minimum balance: TZS 10,000.'
+                            : hasMonthWithdrawal ? 'Already requested this month.'
+                            : !isAgentApprovedForWithdrawals ? 'Account approval required.'
+                            : `Next request date: ${payoutWindow.dateISO}.`}
+                        </p>
                       )}
 
-                      {/* Submit */}
-                      <button
-                        type="button"
-                        disabled={withdrawing || !canWithdraw || mirrorMode}
-                        onClick={handleWithdrawSubmit}
-                        className="w-full py-4 rounded-2xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 disabled:opacity-50 text-white font-black text-sm transition-colors cursor-pointer border-none flex items-center justify-center gap-2 mb-2"
-                      >
-                        {withdrawing ? (
-                          <><LoaderCircle className="w-4 h-4 animate-spin" /> Inawasilisha…</>
-                        ) : (
-                          <><ArrowDownToLine className="w-4 h-4" /> Omba Malipo</>
-                        )}
+                      <div className="space-y-1">
+                        <label htmlFor="affiliate-registered-phone" className="block text-[11px] font-medium text-slate-500 dark:text-emerald-100/70">Registered phone</label>
+                        <input id="affiliate-registered-phone" type="tel" readOnly aria-readonly="true"
+                          value={workspace?.profile?.phone_whatsapp || ''} placeholder="No registered phone"
+                          className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-900 dark:border-emerald-800 dark:bg-emerald-950 dark:text-white" />
+                      </div>
+                      <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 dark:border-emerald-800 dark:bg-emerald-950">
+                        <span className="text-xs text-slate-500 dark:text-emerald-100/75">Request amount</span>
+                        <strong className="text-base tabular-nums text-slate-900 dark:text-white">{currency.format(metrics.available)}</strong>
+                      </div>
+                      <div className="space-y-1 rounded-lg border border-emerald-100 bg-emerald-50/60 px-3 py-2.5 dark:border-emerald-800 dark:bg-emerald-900/25">
+                        <div className="flex items-center justify-between gap-2 text-[11px] text-emerald-800 dark:text-emerald-100">
+                          <span>Transfer fee (estimate)</span><span>{currency.format(transferFee)}</span>
+                        </div>
+                        <div className="flex items-center justify-between gap-2 text-sm font-semibold text-emerald-900 dark:text-emerald-100">
+                          <span>Estimated payout</span><span>{currency.format(Math.max(0, metrics.available - transferFee))}</span>
+                        </div>
+                        <p className="text-[10px] text-emerald-700 dark:text-emerald-200">Fee is deducted from your payout. Final fee is verified on submission.</p>
+                      </div>
+                      {!workspace?.profile?.phone_whatsapp?.trim() && (
+                        <p role="alert" className="text-xs text-rose-700 dark:text-rose-200">Add a registered phone number to your affiliate profile first.</p>
+                      )}
+                      {withdrawError && <p role="alert" className="rounded-lg bg-rose-50 px-3 py-2.5 text-xs text-rose-700 dark:bg-rose-950 dark:text-rose-200">{withdrawError}</p>}
+                      <button type="button" onClick={handleWithdrawSubmit}
+                        disabled={withdrawing || !canWithdraw || mirrorMode || !workspace?.profile?.phone_whatsapp?.trim()}
+                        className="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-700 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50">
+                        {withdrawing && <LoaderCircle className="h-4 w-4 animate-spin" />}
+                        {withdrawing ? 'Submitting...' : 'Submit Request'}
                       </button>
                     </div>
                   </div>
