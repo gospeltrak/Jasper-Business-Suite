@@ -97,7 +97,7 @@ import {
 
 const DashboardBranchesSettings = lazyWithReload('DashboardBranchesSettings', () => import('../modules/branches/components/DashboardBranchesSettings'));
 
-import { LogOut, LayoutDashboard, ShoppingCart, Package, Users, Activity, Database, Building, TrendingUp, FileText, Receipt, Truck, Globe, Clock, Settings as SettingsIcon, Wallet, ChevronLeft, ChevronRight, Award, MessageSquare, Inbox, MonitorPlay, Menu, X, Sun, Moon, PieChart, TrendingDown, CloudLightning, MapPin, MinusCircle, Handshake, LoaderCircle, Network } from "lucide-react";
+import { BookOpen, LogOut, LayoutDashboard, ShoppingCart, Package, Users, Activity, Database, Building, TrendingUp, FileText, Receipt, Truck, Globe, Clock, Settings as SettingsIcon, Wallet, ChevronLeft, ChevronRight, Award, MessageSquare, Inbox, MonitorPlay, Menu, X, Sun, Moon, PieChart, TrendingDown, CloudLightning, MapPin, MinusCircle, Handshake, LoaderCircle, Network } from "lucide-react";
 
 // A high-fidelity composite component representing a rider on a motorcycle with a delivery basket on their back
 function DeliveryMotorcycleIcon({ className, size = 18 }: { className?: string; size?: number }) {
@@ -3388,8 +3388,10 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     { id: 'admin-expenses', label: 'Expenses', icon: Receipt, tabId: 'admin-expenses' },
     { id: 'admin-chats', label: 'Chats', icon: MessageSquare, tabId: 'admin-chats' },
     { id: 'admin-inbox', label: 'Inbox', icon: Inbox, tabId: 'admin-inbox' },
+    { id: 'admin-security', label: 'Security', icon: Shield, tabId: 'admin-security' },
     { id: 'admin-ad-placements', label: 'Ad Placements', icon: MonitorPlay, tabId: 'admin-ad-placements' },
     { id: 'admin-promotions', label: 'Ad Exchange SSP', icon: MonitorPlay, tabId: 'admin-promotions' },
+    { id: 'admin-tutorials', label: 'Tutorials', icon: BookOpen, tabId: 'admin-tutorials' },
     { id: 'admin-web-editor', label: 'Web Editor', icon: Globe, tabId: 'admin-web-editor' },
     { id: 'admin-settings', label: 'Settings', icon: SettingsIcon, tabId: 'admin-settings' }
   ] : (() => {
@@ -3535,7 +3537,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
 
       
       {/* 1. Left Sidebar (Fixed, Dark #1a1f2e with smooth transition) */}
-      <aside className={`hidden xl:flex flex-col ${sidebarCollapsed ? 'w-20' : 'w-64'} bg-[#1a1f2e] border-r border-[#262c3f]/50 text-white h-full shrink-0 sticky top-0 overflow-y-auto overflow-x-hidden select-none z-45 transition-all duration-300 ease-in-out`}>
+      <aside className={`hidden xl:flex flex-col ${sidebarCollapsed ? 'w-20' : user.role === 'SuperAdmin' ? 'w-72' : 'w-64'} bg-[#1a1f2e] border-r border-[#262c3f]/50 text-white h-full shrink-0 sticky top-0 overflow-y-auto overflow-x-hidden select-none z-45 transition-all duration-300 ease-in-out`}>
         
         {/* Fixed Header Section with Logo top left */}
         <div className="p-5 border-b border-[#262c3f]/50 shrink-0 select-none flex flex-col items-center justify-center">
@@ -3609,7 +3611,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                       setActiveTab(item.tabId as any);
                     }
                   }}
-                  className={`w-full flex items-center px-4 py-3 rounded-xl transition-all cursor-pointer group relative ${
+                  className={`w-full flex items-center px-4 ${user.role === 'SuperAdmin' ? 'py-3.5' : 'py-3'} rounded-xl transition-colors cursor-pointer group relative ${
                     sidebarCollapsed ? 'justify-center' : 'justify-start space-x-3.5'
                   } ${
                     isActive 
@@ -3621,7 +3623,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                   
                   {/* Label with clean fade transition */}
                   <span 
-                    className={`text-[12px] font-medium tracking-tight truncate transition-all duration-300 ease-in-out origin-left flex items-center justify-between flex-1 ${
+                    className={`text-[13px] font-medium tracking-tight truncate transition-all duration-300 ease-in-out origin-left flex items-center justify-between flex-1 ${
                       sidebarCollapsed 
                         ? 'opacity-0 scale-x-0 w-0 pointer-events-none' 
                         : 'opacity-100 scale-x-100 w-auto'
@@ -4778,6 +4780,8 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                   { id: 'admin-dashboard',   label: 'Dashboard',  icon: LayoutDashboard, bg: 'bg-emerald-600' },
                   { id: 'admin-subscribers', label: 'Subscribers',icon: Users,           bg: 'bg-blue-600' },
                   { id: 'admin-affiliates',  label: 'Affiliates', icon: Award,           bg: 'bg-amber-500' },
+                  { id: 'admin-affiliate-agents', label: 'Agents', icon: Users,           bg: 'bg-teal-600' },
+                  { id: 'admin-sub-affiliates', label: 'Sub-Affiliates', icon: Network,   bg: 'bg-emerald-600' },
                   { id: 'admin-status',      label: 'Approvals',  icon: Activity,        bg: 'bg-teal-600' },
                   { id: 'admin-hw-pos',      label: 'HW POS',     icon: ShoppingCart,    bg: 'bg-violet-600' },
                   { id: 'admin-hw-inventory',label: 'HW Stock',   icon: Database,        bg: 'bg-orange-500' },
@@ -4786,8 +4790,12 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                   { id: 'admin-user-activity', label: 'Activity', icon: Users,           bg: 'bg-sky-600' },
                   { id: 'admin-expenses',    label: 'Expenses',   icon: MinusCircle,     bg: 'bg-rose-600' },
                   { id: 'admin-chats',       label: 'Chats',      icon: MessageSquare,   bg: 'bg-cyan-600' },
+                  { id: 'admin-inbox',       label: 'Inbox',      icon: Inbox,          bg: 'bg-sky-600' },
+                  { id: 'admin-security',    label: 'Security',   icon: Shield,         bg: 'bg-rose-600' },
                   { id: 'admin-ad-placements', label: 'Placements', icon: MonitorPlay,   bg: 'bg-purple-600' },
                   { id: 'admin-promotions',  label: 'Ads',        icon: MonitorPlay,     bg: 'bg-pink-600' },
+                  { id: 'admin-tutorials',   label: 'Tutorials',  icon: BookOpen,      bg: 'bg-teal-600' },
+                  { id: 'admin-web-editor',  label: 'Web Editor', icon: Globe,         bg: 'bg-indigo-600' },
                   { id: 'admin-settings',    label: 'Settings',   icon: SettingsIcon,    bg: 'bg-slate-700' },
                 ] : [
                   // ── Tenant / business user more menu (UNCHANGED) ──
