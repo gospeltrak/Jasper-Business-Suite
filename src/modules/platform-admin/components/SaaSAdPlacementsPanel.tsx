@@ -66,16 +66,16 @@ export default function SaaSAdPlacementsPanel({ compact = false }: { compact?: b
   return (
     <div className={sectionShell}>
       {!compact && (
-        <header className="rounded-2xl border border-slate-800 bg-slate-900 p-4 shadow-xl sm:p-6">
+        <header className="rounded-2xl border border-slate-800 bg-slate-900 p-4  sm:p-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-purple-300">Ad placement control</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-purple-300">Ad placement control</p>
               <h2 className="mt-1 text-xl font-black tracking-tight text-white sm:text-2xl">Dashboard Ads</h2>
-              <p className="mt-1 max-w-2xl text-xs leading-relaxed text-slate-400 sm:text-sm">
+              <p className="mt-1 max-w-2xl text-sm leading-relaxed text-slate-400 sm:text-sm">
                 Control the horizontal dashboard banner and sticky bottom ad without opening the full website editor.
               </p>
             </div>
-            <div className="rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-slate-400">
+            <div className="rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
               728x90 ready
             </div>
           </div>
@@ -89,15 +89,15 @@ export default function SaaSAdPlacementsPanel({ compact = false }: { compact?: b
         </div>
       )}
 
-      <section className="grid gap-5 xl:grid-cols-2">
-        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 shadow-xl sm:p-5">
+      <section className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-6">
+        <div className="rounded-xl border border-slate-800 bg-slate-900 p-4 sm:p-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <MonitorPlay className="h-4 w-4 text-amber-400" />
                 <h3 className="text-sm font-black uppercase tracking-[0.18em] text-amber-300">Dashboard Ad Placement</h3>
               </div>
-              <p className="mt-2 text-xs leading-relaxed text-slate-400">
+              <p className="mt-2 text-sm leading-relaxed text-slate-400">
                 728x90 horizontal banner shown on tenant dashboards and affiliate Code & Link banner slot.
               </p>
             </div>
@@ -158,14 +158,14 @@ export default function SaaSAdPlacementsPanel({ compact = false }: { compact?: b
           </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 shadow-xl sm:p-5">
+        <div className="rounded-xl border border-slate-800 bg-slate-900 p-4 sm:p-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <Pin className="h-4 w-4 text-purple-300" />
                 <h3 className="text-sm font-black uppercase tracking-[0.18em] text-purple-300">Sticky Bottom Ad Banner</h3>
               </div>
-              <p className="mt-2 text-xs leading-relaxed text-slate-400">
+              <p className="mt-2 text-sm leading-relaxed text-slate-400">
                 Optional sticky banner shown at the bottom of subscriber, affiliate, and partner dashboards.
               </p>
             </div>
