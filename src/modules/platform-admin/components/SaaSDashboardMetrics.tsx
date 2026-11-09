@@ -53,7 +53,7 @@ export default function SaaSDashboardMetrics() {
   const colors = ['#34d399', '#60a5fa', '#f87171', '#f59e0b', '#a78bfa', '#22d3ee'];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       {loadError && (
         <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3 text-xs text-amber-200">
           {loadError}
@@ -61,7 +61,7 @@ export default function SaaSDashboardMetrics() {
       )}
 
       {/* Top Value Cards */}
-      <div className="mobile-tablet-kpi-grid gap-3 sm:gap-4" style={{ ['--desktop-kpi-columns' as any]: 'repeat(5, minmax(0, 1fr))' }}>
+      <div className="mobile-tablet-kpi-grid gap-3 sm:gap-4" style={{ ['--desktop-kpi-columns' as any]: 'repeat(3, minmax(0, 1fr))' }}>
         <KpiCard icon={Users} iconColor="blue" label="Subscribers" value={`${metrics?.subscribersCount || 0}`} />
         <KpiCard icon={DollarSign} iconColor="emerald" label="Total Revenue" value={`TZS ${(metrics?.totalIncome || 0).toLocaleString()}`} />
         <KpiCard icon={Share2} iconColor="amber" label="Affiliate Shares" value={`TZS ${(metrics?.affiliatePayouts || 0).toLocaleString()}`} />
