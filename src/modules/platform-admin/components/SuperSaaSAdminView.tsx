@@ -190,8 +190,8 @@ export default function SuperSaaSAdminView({
   };
 
   useEffect(() => {
-    initializeSaaSData();
-
+    // Load marketing records only when their workspace is actually opened.
+    // The ordinary dashboard must not fetch creatives, messages or tutorials.
     const handleEnterMirror = (e: any) => {
       if (e.detail && e.detail.account) {
         setMirroredAccount(e.detail.account);
@@ -237,6 +237,14 @@ export default function SuperSaaSAdminView({
     setMessages(currentMessages);
     setTutorials(currentTutorials);
   };
+
+  useEffect(() => {
+    if (!['promotions', 'chats', 'tutorials'].includes(activeTab)) return;
+    // Do not start unrelated marketing reads on ordinary dashboard navigation.
+    void initializeSaaSData().catch((error) => {
+      console.warn('[super-admin] Marketing records unavailable:', error);
+    });
+  }, [activeTab]);
 
   const saveData = async (placements: any[], activeBanners: any[], currentMessages: any[]) => {
     await Promise.all([
@@ -591,7 +599,7 @@ export default function SuperSaaSAdminView({
   }
 
   return (
-    <div id="super-saas-admin-container" className="flex-1 min-h-0 flex flex-col text-slate-100 font-sans text-left bg-slate-950 animate-fade-in select-text">
+    <div id="super-saas-admin-container" className="dark flex-1 min-h-0 flex flex-col text-slate-100 font-sans text-left bg-slate-950 animate-fade-in select-text">
 
       {/* ── MOBILE HEADER (md:hidden) ─────────────────────────── */}
       <div className="md:hidden sticky top-0 z-30 bg-slate-900/95 backdrop-blur border-b border-slate-800 px-4 py-3 flex items-center justify-between">
@@ -752,7 +760,7 @@ export default function SuperSaaSAdminView({
       )}
 
       {/* Main interactive subpage container */}
-      <div id="saas-active-subpage-view" className="flex-1 min-h-0 overflow-y-auto flex flex-col w-full p-3 md:p-6 space-y-4 md:space-y-6 pb-24 md:pb-8">
+      <div id="saas-active-subpage-view" className="flex-1 min-h-0 overflow-y-auto flex flex-col w-full min-w-0 p-4 sm:p-5 lg:p-7 space-y-5 lg:space-y-7 pb-24 md:pb-8">
         
         {/* ======================= TAB 1: USER DESK ======================= */}
         {activeTab === 'subscribers' && (
