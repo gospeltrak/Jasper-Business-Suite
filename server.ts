@@ -1093,21 +1093,20 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       if (!affiliate) return res.status(403).json({ error: 'Affiliate access required' });
 
       const affiliateId = String(affiliate.id);
+      // One scoped query per source table rather than separate queries for
+      // each identifier/code. Do not embed untrusted code in a PostgREST OR.
       const codeValues = Array.from(new Set([affiliate.promo_code, affiliate.referral_code]
-        .map((value: unknown) => String(value || '').trim()).filter(Boolean)));
-      const sources: Promise<any>[] = [
-        adminTable('subscriber_source_tracking').select('tenant_id')
-          .or(`affiliate_id.eq.${affiliateId},sub_affiliate_id.eq.${affiliateId}`).limit(1000),
-        adminTable('referred_customers').select('tenant_id')
-          .or(`affiliate_id.eq.${affiliateId},sub_affiliate_id.eq.${affiliateId}`).limit(1000),
-      ];
-      for (const code of codeValues) {
-        sources.push(adminTable('subscriber_source_tracking').select('tenant_id').eq('promo_code_used', code).limit(1000));
-        sources.push(adminTable('subscriber_source_tracking').select('tenant_id').eq('referral_code_used', code).limit(1000));
-        sources.push(adminTable('referred_customers').select('tenant_id').eq('promo_code_used', code).limit(1000));
-        sources.push(adminTable('referred_customers').select('tenant_id').eq('referral_code_used', code).limit(1000));
-      }
-      const results = await Promise.all(sources);
+        .map((value: unknown) => String(value || '').trim())
+        .filter(code => /^[A-Za-z0-9_-]{1,40}$/.test(code))));
+      const conditions = [
+        `affiliate_id.eq.${affiliateId}`,
+        `sub_affiliate_id.eq.${affiliateId}`,
+        ...codeValues.flatMap(code => [`promo_code_used.eq.${code}`, `referral_code_used.eq.${code}`]),
+      ].join(',');
+      const results = await Promise.all([
+        adminTable('subscriber_source_tracking').select('tenant_id').or(conditions).limit(1000),
+        adminTable('referred_customers').select('tenant_id').or(conditions).limit(1000),
+      ]);
       for (const result of results) if (result.error) throw result.error;
       const tenantIds = Array.from(new Set(results.flatMap(result => (result.data || [])
         .map((row: any) => String(row.tenant_id || '').toLowerCase())
@@ -1144,62 +1143,220 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     }
   });
 
-  // Super Admin only: manual affiliate payout ledger reconciliation.
-  // Recording a paid status does not send money; the operator must send it
-  // externally and enter the verified transaction reference.
-  app.get('/api/platform/affiliate-payouts', async (req, res) => {
+  // Lightweight read-only Super Admin network overview. Heavy affiliate details,
+  // commissions, actions and full transaction ledgers remain in the Agent desk.
+  // One bounded request, fixed number of narrow queries, no tenant workspace scan.
+  app.get('/api/platform/affiliate-network-overview', async (req, res) => {
     try {
       await requirePlatformAdmin(req);
-      const [{ data: payouts, error: payoutsError }, { data: affiliates, error: affiliatesError }] = await Promise.all([
-        adminTable('affiliate_payouts')
-          .select('id,affiliate_id,amount,net_payout,payout_month,payout_method,payout_phone,status,requested_at,processed_at,payout_reference,notes,provider_fee_tzs')
-          .order('requested_at', { ascending: false }).limit(300),
-        adminTable('affiliates').select('id,display_name').limit(2000),
+      const limit = 201; // last row is an explicit partial-data sentinel
+      const [agentsResult, affiliatesResult, assignmentsResult, referredResult, sourcesResult, payoutsResult] = await Promise.all([
+        adminTable('affiliate_partners').select('id,user_id,display_name,status,is_disabled').order('created_at',{ascending:false}).limit(limit),
+        adminTable('affiliates').select('id,display_name,location,status').order('created_at',{ascending:false}).limit(limit),
+        adminTable('affiliate_agent_assignments').select('affiliate_id,agent_user_id').is('ended_at',null).limit(limit),
+        adminTable('referred_customers').select('id,tenant_id,affiliate_id,sub_affiliate_id,customer_name,location,payment_status').order('created_at',{ascending:false}).limit(limit),
+        adminTable('subscriber_source_tracking').select('tenant_id,affiliate_id,sub_affiliate_id').limit(limit),
+        adminTable('affiliate_payouts').select('id,affiliate_id,status,notes,payout_reference,requested_at').order('requested_at',{ascending:false}).limit(31),
       ]);
-      if (payoutsError || affiliatesError) throw payoutsError || affiliatesError;
-      const names = new Map((affiliates || []).map((row: any) => [row.id, row.display_name]));
-      res.setHeader('Cache-Control', 'no-store');
-      return res.json({ payouts: (payouts || []).map((payout: any) => ({
-        ...payout, affiliate_name: names.get(payout.affiliate_id) || 'Affiliate',
-      })) });
+      for (const result of [agentsResult,affiliatesResult,assignmentsResult,referredResult,sourcesResult,payoutsResult]) {
+        if (result.error) throw result.error;
+      }
+      const partial = [agentsResult,affiliatesResult,assignmentsResult,referredResult,sourcesResult].some(result=>(result.data||[]).length >= limit);
+      const agents = (agentsResult.data||[]).slice(0,200);
+      const affiliates = (affiliatesResult.data||[]).slice(0,200);
+      const assignments = (assignmentsResult.data||[]).slice(0,200);
+      const referred = (referredResult.data||[]).slice(0,200);
+      const sources = (sourcesResult.data||[]).slice(0,200);
+      const agentByUser = new Map(agents.map((row:any)=>[String(row.user_id),row]));
+      const ownerByAffiliate = new Map<string,string>();
+      for(const assignment of assignments) {
+        const affiliateId=String(assignment.affiliate_id||'');
+        if (isUuid(affiliateId) && agentByUser.has(String(assignment.agent_user_id))) {
+          ownerByAffiliate.set(affiliateId,String(assignment.agent_user_id));
+        }
+      }
+      const affiliateById=new Map(affiliates.map((row:any)=>[String(row.id),row]));
+      const customerByTenant=new Map<string,{name:string;affiliateId:string;location:string;status:string}>();
+      const addCustomer=(row:any,fromReferred:boolean)=>{
+        const tenantId=String(row.tenant_id||'');
+        const affiliateId=String(row.sub_affiliate_id||row.affiliate_id||'');
+        if(!isUuid(tenantId)||!isUuid(affiliateId))return;
+        if(customerByTenant.has(tenantId))return;
+        customerByTenant.set(tenantId,{name:fromReferred?String(row.customer_name||'Not provided'):'Not provided',
+          affiliateId,location:fromReferred?String(row.location||''):'',status:fromReferred?String(row.payment_status||''):'Unknown'});
+      };
+      for(const row of referred)addCustomer(row,true);
+      for(const row of sources)addCustomer(row,false);
+      const customers=[...customerByTenant.entries()];
+      const affiliatesForAgent=(userId:string)=>[...ownerByAffiliate.values()].filter(id=>id===userId).length;
+      const customerCounts=new Map<string,number>();
+      for(const [,customer] of customers) customerCounts.set(customer.affiliateId,(customerCounts.get(customer.affiliateId)||0)+1);
+      const agentCustomerCounts=new Map<string,number>();
+      for(const [,customer] of customers){
+        const agentUser=ownerByAffiliate.get(customer.affiliateId);
+        if(agentUser)agentCustomerCounts.set(agentUser,(agentCustomerCounts.get(agentUser)||0)+1);
+      }
+      const latestPayouts=(payoutsResult.data||[]).slice(0,30).map((p:any)=>({
+        status:p.status,reason:p.status==='rejected'?p.notes||null:null,
+        affiliate:affiliateById.get(String(p.affiliate_id))?.display_name||'Affiliate',
+        reference:p.status==='paid'?p.payout_reference||null:null,
+        requested_at:p.requested_at,
+      }));
+      res.setHeader('Cache-Control','private, no-store');
+      return res.json({
+        partial, agents:agents.map((row:any)=>({
+          name:row.display_name||'Agent',status:row.is_disabled?'inactive':row.status,
+          affiliates:affiliatesForAgent(String(row.user_id)),
+          customers:agentCustomerCounts.get(String(row.user_id))||0,
+        })),
+        affiliate_total:affiliates.length,
+        assigned_affiliates:ownerByAffiliate.size,
+        unassigned_affiliates:affiliates.filter((a:any)=>!ownerByAffiliate.has(String(a.id))).length,
+        referred_customer_total:customers.length,
+        affiliates:affiliates.map((a:any)=>({
+          name:a.display_name||'Affiliate', location:a.location||'Not provided',
+          agent:agentByUser.get(ownerByAffiliate.get(String(a.id))||'')?.display_name||'Unassigned',
+          customers:customerCounts.get(String(a.id))||0,
+        })),
+        customer_sources:customers.slice(0,50).map(([,c])=>({
+          name:c.name,affiliate:affiliateById.get(c.affiliateId)?.display_name||'Affiliate',
+          location:c.location||'Not provided',status:c.status,
+        })),
+        payout_audit:latestPayouts,
+        payout_audit_more:(payoutsResult.data||[]).length>30,
+      });
+    } catch(error:any) { return platformAdminError(res,error); }
+  });
+
+  // One read/write service for Agent and Super Admin: identical payout source,
+  // filtered by authenticated role. No cross-user cache of financial records.
+  const resolveAffiliatePayoutAccess = async (req: express.Request) => {
+    if (!supabaseAdmin) throw new Error('Supabase backend client is not configured');
+    const token = getBearerToken(req);
+    if (!token) {
+      const denied: any = new Error('Authentication required');
+      denied.status = 401;
+      throw denied;
+    }
+    const { data: auth, error: authError } = await supabaseAdmin.auth.getUser(token);
+    if (authError || !auth.user) {
+      const denied: any = new Error('Invalid session');
+      denied.status = 401;
+      throw denied;
+    }
+    const user = auth.user;
+    const { data: profile, error: profileError } = await adminTable('users')
+      .select('id, tenant_id, active_tenant, account_type, role, role_key, is_active')
+      .eq('id', user.id).maybeSingle();
+    if (profileError) throw profileError;
+    if (profile?.is_active === false) {
+      const denied: any = new Error('Inactive account');
+      denied.status = 403;
+      throw denied;
+    }
+    if (isStrictPlatformAdminProfile(profile)) {
+      return { userId: user.id, role: 'admin' as const, affiliateIds: [] as string[] };
+    }
+
+    // No trusted client-supplied affiliate, partner, or payout scope.
+    const { data: partner, error: partnerError } = await adminTable('affiliate_partners')
+      .select('id,status,is_disabled')
+      .eq('user_id', user.id).maybeSingle();
+    if (partnerError) throw partnerError;
+    if (!partner || partner.is_disabled || partner.status !== 'active') {
+      const denied: any = new Error('Active affiliate agent access required');
+      denied.status = 403;
+      throw denied;
+    }
+    const { data: assignments, error: assignmentError } = await adminTable('affiliate_agent_assignments')
+      .select('affiliate_id')
+      .eq('agent_user_id', user.id)
+      .is('ended_at', null).limit(1000);
+    if (assignmentError) throw assignmentError;
+    const affiliateIds = [...new Set((assignments || []).map((row: any) => String(row.affiliate_id || '')).filter(isUuid))];
+    return { userId: user.id, role: 'agent' as const, affiliateIds };
+  };
+
+  const readAffiliatePayouts = async (req: express.Request, res: express.Response) => {
+    try {
+      const access = await resolveAffiliatePayoutAccess(req);
+      if (access.role === 'agent' && access.affiliateIds.length === 0) {
+        res.setHeader('Cache-Control', 'private, no-store');
+        return res.json({ role: access.role, page: 0, has_more: false, payouts: [], needs_assignment: true });
+      }
+      const pageParam = Number(req.query.page ?? 0);
+      const page = Number.isInteger(pageParam) && pageParam >= 0 && pageParam < 100 ? pageParam : 0;
+      const pageSize = 50;
+      let query = adminTable('affiliate_payouts')
+        // FK join avoids a second read of ALL affiliate profiles for every page.
+        .select('id,affiliate_id,amount,net_payout,payout_month,payout_method,payout_phone,status,requested_at,processed_at,payout_reference,notes,provider_fee_tzs,affiliate:affiliates!affiliate_payouts_affiliate_id_fkey(display_name)')
+        .order('requested_at', { ascending: false })
+        .range(page * pageSize, page * pageSize + pageSize);
+      if (access.role === 'agent') query = query.in('affiliate_id', access.affiliateIds);
+      const { data, error } = await query;
+      if (error) throw error;
+      res.setHeader('Cache-Control', 'private, no-store');
+      const pageRows = (data || []).slice(0, pageSize);
+      return res.json({ role: access.role, page, has_more: (data || []).length > pageSize,
+        payouts: pageRows.map((row: any) => ({
+          ...row,
+          affiliate_name: row.affiliate?.display_name || 'Affiliate',
+          affiliate: undefined,
+        })) });
     } catch (error: any) {
       return platformAdminError(res, error);
     }
-  });
+  };
 
-  app.post('/api/platform/affiliate-payouts/:payoutId/decision', async (req, res) => {
+  const decideAffiliatePayout = async (req: express.Request, res: express.Response) => {
     try {
-      const admin = await requirePlatformAdmin(req);
+      const access = await resolveAffiliatePayoutAccess(req);
+      if (access.role !== 'agent') return res.status(403).json({ error: 'Agent decision required; Super Admin reviews only.' });
       const payoutId = String(req.params.payoutId || '');
       const action = String(req.body?.action || '').trim();
       const reason = String(req.body?.reason || '').trim();
       const reference = String(req.body?.reference || '').trim();
-      if (!isUuid(payoutId) || !['reject', 'mark_paid'].includes(action)) {
+      if (!isUuid(payoutId) || !['approve','reject','mark_paid'].includes(action)) {
         return res.status(400).json({ error: 'Invalid payout decision.' });
       }
       if (action === 'reject' && (reason.length < 10 || reason.length > 500)) {
-        return res.status(400).json({ error: 'Rejection requires a reason of 10 to 500 characters.' });
+        return res.status(400).json({ error: 'A rejection reason of 10 to 500 characters is required.' });
       }
       if (action === 'mark_paid' && (reference.length < 5 || reference.length > 120)) {
-        return res.status(400).json({ error: 'A verified external payment reference is required.' });
+        return res.status(400).json({ error: 'Verified manual transfer reference required.' });
       }
-      const now = new Date().toISOString();
-      const changes = action === 'reject'
-        ? { status: 'rejected', notes: reason, processed_at: now, processed_by: admin.id }
-        : { status: 'paid', payout_reference: reference, processed_at: now, processed_by: admin.id };
+      if (!access.affiliateIds.length) return res.status(403).json({ error: 'No assigned affiliates.' });
+
+      // A state change must target an existing, unprocessed V2 request from
+      // this agent's ACTIVE assignment; no blind updates by arbitrary payout ID.
+      const expectedStatus = action === 'approve' ? ['requested']
+        : action === 'mark_paid' ? ['processing'] : ['requested','processing'];
+      const changes = action === 'approve'
+        ? { status: 'processing', agent_id: access.userId }
+        : action === 'reject'
+          ? { status: 'rejected', notes: reason, processed_at: new Date().toISOString(), processed_by: access.userId, agent_id: access.userId }
+          : { status: 'paid', payout_reference: reference, processed_at: new Date().toISOString(), processed_by: access.userId, agent_id: access.userId };
       const { data: payout, error } = await adminTable('affiliate_payouts')
-        .update(changes).eq('id', payoutId).in('status', ['requested', 'processing']).not('payout_month', 'is', null)
+        .update(changes).eq('id', payoutId)
+        .in('affiliate_id', access.affiliateIds)
+        .in('status', expectedStatus)
+        .not('payout_month', 'is', null)
         .select('id,status,notes,payout_reference,processed_at').maybeSingle();
       if (error) throw error;
-      if (!payout) return res.status(409).json({ error: 'This payout has already been processed or was not found.' });
-      // Existing database status trigger releases reserved rewards on rejection
-      // and marks reserved rewards paid after a verified manual transfer.
+      if (!payout) return res.status(409).json({ error: 'Not assigned, invalid state, or already processed.' });
       res.setHeader('Cache-Control', 'no-store');
       return res.json({ payout });
     } catch (error: any) {
       return platformAdminError(res, error);
     }
-  });
+  };
+
+  // Shared endpoints. Legacy Super Admin GET stays as an alias, using the
+  // same read service; its legacy decision URL now enforces agent-only rules.
+  app.get('/api/affiliate-operations/payouts', readAffiliatePayouts);
+  app.post('/api/affiliate-operations/payouts/:payoutId/decision', decideAffiliatePayout);
+  app.get('/api/platform/affiliate-payouts', readAffiliatePayouts);
+  app.post('/api/platform/affiliate-payouts/:payoutId/decision', decideAffiliatePayout);
 
   app.get('/api/notifications/inbox', async (req, res) => {
     try {

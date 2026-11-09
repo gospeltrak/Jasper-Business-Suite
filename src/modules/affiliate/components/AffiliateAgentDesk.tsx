@@ -28,6 +28,7 @@ import { isSettledPaymentStatus } from '../../../shared/utils/financialStatus';
 import GlobalStickyAd from '../../../shared/components/GlobalStickyAd';
 import SaaSHardwarePOS from '../../../shared/components/SaaSHardwarePOS';
 import SaaSHardwareInventory from '../../../shared/components/SaaSHardwareInventory';
+import SuperAffiliatePayoutReview from '../../platform-admin/components/SuperAffiliatePayoutReview';
 import { formatLocalMonth } from '../../../shared/utils/localDate';
 import {
   SubAffiliateProfile,
@@ -767,14 +768,10 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
     await loadSubAffiliates();
   }, [partnerName, loadSubAffiliates]);
 
-  useEffect(() => { refresh(); }, [refresh]);
-  useEffect(() => { loadSubAffiliates(); }, [reconMonth, loadSubAffiliates]);
-  // Re-run when partnerInfo.id becomes available (after loadFreshProfile resolves)
-  useEffect(() => {
-    if (partnerInfo?.id && partnerInfo.id !== 'partner-local') {
-      loadSubAffiliates();
-    }
-  }, [partnerInfo?.id, loadSubAffiliates]);
+  // Single load path: refresh() already loads sub-affiliates, and its
+  // dependencies update for month or partner-profile changes. Avoid duplicate
+  // network calls caused by parallel mount effects.
+  useEffect(() => { void refresh(); }, [refresh]);
 
   // ── Network totals ──────────────────────────────────────────
 
@@ -1289,6 +1286,9 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
                   </button>
                 </div>
               </div>
+
+              {/* Shared scoped payout manager, mounted only while Payment Status is open. */}
+              <SuperAffiliatePayoutReview mode="agent" />
 
               <WhtNotice />
 
