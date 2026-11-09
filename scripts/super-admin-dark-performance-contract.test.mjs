@@ -59,3 +59,28 @@ test('Admin affiliate navigation uses scoped read-only views and bounded payout 
   assert.match(network, /TZS \{\(p\.amount\|\|0\)\.toLocaleString\(\)\}/);
   assert.match(server, /affiliate_payouts'\)\.select\('id,affiliate_id,amount,net_payout,status/);
 });
+
+test('Admin shows real linked tenant details without placeholder tracker names', () => {
+  assert.match(server, /select\('id,name,business_name,city,country,subscription_status,active_package_id'\)/);
+  assert.match(server, /customerByTenant\.set\(tenantId/);
+  assert.match(server, /tenant\.business_name\|\|tenant\.name/);
+  assert.match(server, /unlinkedLegacyReferrals/);
+});
+
+test('Approved and rejected proof histories use one compact expandable group each', () => {
+  const statusView = read('src/modules/platform-admin/components/SaaSStatusAndRequests.tsx');
+  assert.match(statusView, /\['approved', 'rejected'\] as const/);
+  assert.match(statusView, /<details key=\{status\}/);
+  assert.match(statusView, /items\.map\(renderProof\)/);
+  assert.match(statusView, /filtered\.filter\(proof => proof\.status === 'pending'\)\.map\(renderProof\)/);
+});
+
+test('Mobile Admin and Agent avoid double bottom-nav spacer and clipped referral tables', () => {
+  const agentDesk=read('src/modules/affiliate/components/AffiliateAgentDesk.tsx');
+  assert.match(shell, /p-0 bg-slate-950 flex flex-col/);
+  assert.doesNotMatch(shell, /'p-0 bg-slate-950 flex flex-col' : [^}]*\} pb-\[calc\(72px/);
+  assert.match(agentDesk, /md:hidden relative z-40 shrink-0 bg-\[#062a21\]/);
+  assert.doesNotMatch(agentDesk, /pb-\[calc\(88px/);
+  assert.match(network, /sm:hidden/);
+  assert.match(network, /hidden overflow-x-auto sm:block/);
+});
