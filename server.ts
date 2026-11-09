@@ -1085,7 +1085,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       await requirePlatformAdmin(req);
       const [{ data: payouts, error: payoutsError }, { data: affiliates, error: affiliatesError }] = await Promise.all([
         adminTable('affiliate_payouts')
-          .select('id,affiliate_id,amount,net_payout,payout_method,payout_phone,status,requested_at,processed_at,payout_reference,notes,provider_fee_tzs')
+          .select('id,affiliate_id,amount,net_payout,payout_month,payout_method,payout_phone,status,requested_at,processed_at,payout_reference,notes,provider_fee_tzs')
           .order('requested_at', { ascending: false }).limit(300),
         adminTable('affiliates').select('id,display_name').limit(2000),
       ]);
@@ -1121,7 +1121,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         ? { status: 'rejected', notes: reason, processed_at: now, processed_by: admin.id }
         : { status: 'paid', payout_reference: reference, processed_at: now, processed_by: admin.id };
       const { data: payout, error } = await adminTable('affiliate_payouts')
-        .update(changes).eq('id', payoutId).in('status', ['requested', 'processing'])
+        .update(changes).eq('id', payoutId).in('status', ['requested', 'processing']).not('payout_month', 'is', null)
         .select('id,status,notes,payout_reference,processed_at').maybeSingle();
       if (error) throw error;
       if (!payout) return res.status(409).json({ error: 'This payout has already been processed or was not found.' });
