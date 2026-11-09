@@ -422,7 +422,7 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
       setNotice(`Request received: TZS ${Number(data?.net || 0).toLocaleString()} after fees. Awaiting manual review.`);
       await refresh();
     } catch (error: any) {
-      setWithdrawError(error?.message || 'Ombi la kutoa pesa halikukamilika.');
+      setWithdrawError(error?.message || 'Withdrawal request failed.');
     } finally {
       setWithdrawing(false);
     }
@@ -956,7 +956,7 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
               {editingCode ? (
                 <div className="space-y-3">
                   <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-[11px] text-amber-700 leading-relaxed">
-                    ⚠️ Badilisha mara moja tu. Code mpya itaathiri ufuatiliaji wa taarifa na malipo yako.
+                    Change this code carefully. A new code will affect referral tracking.
                   </div>
                   <input autoFocus type="text" value={newCode}
                     onChange={e => { setNewCode(e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g,'')); setCodeError(''); setSuggestions([]); }}
@@ -1053,7 +1053,7 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
               <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
                 <Metric label="Subscriber report" value={monthStats.registrations.toString()} sub={`${monthStats.active} active · ${monthStats.inactive} inactive`} />
                 <Metric label="Payment report" value={currency.format(monthStats.revenue)} sub="Amount entered system" />
-                <Metric label="Commission" value={currency.format(monthStats.grossCommission)} sub="10% ya malipo ya mwezi huu" />
+                <Metric label="Commission" value={currency.format(monthStats.grossCommission)} sub="10% of monthly payments" />
                 <Metric label="Task report" value={`${taskProgress.monthProgress}%`} sub={`${taskProgress.monthCompleted}/${taskProgress.monthTotal} monthly tasks`} />
               </div>
 
@@ -1107,7 +1107,7 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
               <Panel title="Payment report">
                 <div className="grid gap-3 p-4 sm:grid-cols-4">
                   <Metric label="Entered system" value={currency.format(monthStats.revenue)} />
-                  <Metric label="Kamisheni ya 10%" value={currency.format(monthStats.grossCommission)} />
+                  <Metric label="Commission (10%)" value={currency.format(monthStats.grossCommission)} />
                   <Metric label="Withholding" value={currency.format(monthStats.withholding)} />
                   <Metric label="Jumla ya mapato" value={currency.format(monthStats.payout)} />
                 </div>
