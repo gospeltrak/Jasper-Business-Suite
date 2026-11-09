@@ -41,6 +41,9 @@ async function sharedPayoutRequest(path: string, init?: RequestInit) {
 export default function SuperAffiliatePayoutReview({ mode = 'audit' }: { mode?: 'agent' | 'audit' }) {
   const [rows, setRows] = useState<PayoutRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
   const [needsAssignment, setNeedsAssignment] = useState(false);
   const [filter, setFilter] = useState<'pending' | 'paid' | 'rejected' | 'all'>('pending');
   const [selected, setSelected] = useState<{row: PayoutRow; action: Decision} | null>(null);
@@ -53,8 +56,10 @@ export default function SuperAffiliatePayoutReview({ mode = 'audit' }: { mode?: 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await sharedPayoutRequest('/api/affiliate-operations/payouts');
+      const data = await sharedPayoutRequest('/api/affiliate-operations/payouts?page=0');
       setRows(Array.isArray(data.payouts) ? data.payouts : []);
+      setPage(0);
+      setHasMore(Boolean(data.has_more));
       setNeedsAssignment(Boolean(data.needs_assignment));
       setError('');
     } catch (e: any) {
@@ -64,6 +69,24 @@ export default function SuperAffiliatePayoutReview({ mode = 'audit' }: { mode?: 
     }
   }, []);
   useEffect(() => { void load(); }, [load]);
+
+  const loadMore = async () => {
+    if (!hasMore || loadingMore || loading) return;
+    setLoadingMore(true);
+    try {
+      const data = await sharedPayoutRequest(`/api/affiliate-operations/payouts?page=${page + 1}`);
+      setRows(previous => {
+        const byId = new Map([...previous, ...(Array.isArray(data.payouts) ? data.payouts : [])].map(row => [row.id, row]));
+        return [...byId.values()];
+      });
+      setPage(previous => previous + 1);
+      setHasMore(Boolean(data.has_more));
+    } catch (e: any) {
+      setError(e?.message || 'Unable to load more payouts.');
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   const filtered = useMemo(() => rows.filter(row => {
     if (filter === 'all') return true;
@@ -131,6 +154,10 @@ export default function SuperAffiliatePayoutReview({ mode = 'audit' }: { mode?: 
               </article>
             ))}</div>}
       </div>
+      {hasMore && <button type="button" disabled={loadingMore || loading} onClick={() => void loadMore()}
+        className="w-full rounded-lg border border-emerald-800 bg-emerald-950/40 px-4 py-2.5 text-xs text-emerald-200 disabled:opacity-50">
+        {loadingMore ? 'Loading...' : 'Load more payout records'}
+      </button>}
 
       {selected && <div className="fixed inset-0 z-[100] grid place-items-center bg-black/70 p-3" onClick={e => { if (e.target === e.currentTarget && !busy) setSelected(null); }}>
         <form onSubmit={e => { e.preventDefault(); void submit(); }} className="w-full max-w-md space-y-4 rounded-xl border border-slate-700 bg-slate-950 p-5 shadow-2xl">
