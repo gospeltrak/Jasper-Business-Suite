@@ -83,7 +83,9 @@ test('super admin renders a narrow read-only overview without loading full affil
   assert.match(api,/await requirePlatformAdmin\(req\)/);
   assert.match(api,/\.limit\(limit\)/);
   assert.match(api,/const partial/);
-  assert.match(api,/customer_sources:customers\.slice\(0,50\)/);
+  assert.match(api,/customer_sources:\[\.\.\.customers\.map/);
+  assert.match(api,/\.\.\.unlinkedLegacyReferrals\]\.slice\(0,50\)/);
+  assert.match(api,/tenantLookup/);
   assert.match(api,/payout_audit:latestPayouts/);
   assert.doesNotMatch(api,/adminTable\('tenant_workspaces'\)|adminTable\('tenant_data'\)/);
 });
