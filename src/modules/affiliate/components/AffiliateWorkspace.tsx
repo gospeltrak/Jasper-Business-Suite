@@ -1211,7 +1211,7 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
               <section className="overflow-hidden rounded-xl border border-slate-200 bg-white p-3.5 shadow-[0_5px_18px_-10px_rgba(5,77,54,0.2)] dark:border-emerald-900 dark:bg-[#092c21] sm:p-4">
                 <h3 className="mb-3 text-sm font-semibold text-slate-950 dark:text-white">Withdrawal Summary</h3>
                 <div className="grid grid-cols-3 gap-2">
-                  {[
+                  {([
                     ['Pending', (workspace?.payouts || []).filter(p => p.status === 'requested' || p.status === 'processing')],
                     ['Paid', (workspace?.payouts || []).filter(p => p.status === 'paid')],
                     ['Rejected', (workspace?.payouts || []).filter(p => p.status === 'rejected' || p.status === 'cancelled')],
