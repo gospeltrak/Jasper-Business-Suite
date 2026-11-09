@@ -25,7 +25,7 @@
     "test:google-auth": "tsx --test scripts/google-auth-onboarding-contract.test.ts",
     "test:staff-google-invite": "tsx --test scripts/staff-google-invitation-contract.test.ts",
     "test:affiliate-google": "tsx --test scripts/affiliate-google-registration-contract.test.ts",
-    "test:affiliate-v2": "tsx --test scripts/affiliate-v2-contract.test.ts scripts/affiliate-dashboard-summary.test.ts && node --test scripts/affiliate-responsive-payment-contract.test.mjs scripts/affiliate-overview-cleanup.test.mjs",
+    "test:affiliate-v2": "tsx --test scripts/affiliate-v2-contract.test.ts scripts/affiliate-dashboard-summary.test.ts && node --test scripts/affiliate-responsive-payment-contract.test.mjs scripts/affiliate-overview-cleanup.test.mjs && node --test scripts/affiliate-payout-redesign-contract.test.mjs",
     "test:affiliate-six-month": "tsx --test scripts/affiliate-six-month-contract.test.ts",
     "test:commercial-documents": "tsx --test scripts/commercial-documents-regression.test.ts",
     "test:dead-code-stage-two": "tsx --test scripts/dead-code-stage-two-regression.test.ts",
