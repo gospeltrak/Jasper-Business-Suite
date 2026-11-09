@@ -611,7 +611,7 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
                 ['Commission & Referrals', currency.format(metrics.earned), 'payouts'],
               ].map(([label, value, target]) => (
                 <button key={label} type="button" onClick={() => setActiveTab(target as TabId)}
-                  className="min-w-0 rounded-xl border border-slate-200 bg-white p-3 text-left hover:border-emerald-300 dark:border-emerald-900 dark:bg-[#092c21] sm:p-4">
+                  className="min-w-0 rounded-xl border border-slate-200/90 bg-white p-3 text-left shadow-[0_5px_18px_-9px_rgba(15,80,57,0.24)] transition-[box-shadow,border-color,transform] duration-150 hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-[0_10px_24px_-12px_rgba(4,120,87,0.33)] active:translate-y-0 dark:border-emerald-900 dark:bg-[#092c21] dark:shadow-[0_7px_20px_-9px_rgba(0,0,0,0.5)] sm:p-4">
                   <p className="text-[10px] font-medium text-slate-500 dark:text-emerald-100/70 sm:text-xs">{label}</p>
                   <p className="mt-1.5 break-words text-base font-semibold tabular-nums text-slate-950 dark:text-white sm:text-xl">{value}</p>
                 </button>
@@ -1457,9 +1457,9 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
         </section>
       </div>
 
-      <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-slate-200 bg-white pb-[env(safe-area-inset-bottom)] dark:border-emerald-900 dark:bg-[#08271d] lg:hidden">
-        {mobilePrimaryNav.map(([id, label, Icon]) => <button key={id} type="button" onClick={() => { setActiveTab(id); setMobileMoreOpen(false); }} className={`grid min-h-16 place-items-center gap-1 text-[10px] font-bold ${activeTab === id ? 'text-emerald-700' : 'text-slate-500'}`}><Icon className="h-5 w-5" />{label}</button>)}
-        <button type="button" onClick={() => setMobileMoreOpen(true)} className={`grid min-h-16 place-items-center gap-1 text-[10px] font-bold ${mobileMoreOpen || mobileMoreNav.some(([id]) => id === activeTab) ? 'text-emerald-700' : 'text-slate-500'}`}><Menu className="h-5 w-5" />More</button>
+      <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-slate-200/80 bg-white/95 shadow-[0_-7px_22px_-15px_rgba(15,65,45,0.32)] backdrop-blur-md pb-[env(safe-area-inset-bottom)] dark:border-emerald-900 dark:bg-[#08271d]/95 dark:shadow-[0_-10px_24px_-12px_rgba(0,0,0,0.45)] lg:hidden">
+        {mobilePrimaryNav.map(([id, label, Icon]) => <button key={id} type="button" onClick={() => { setActiveTab(id); setMobileMoreOpen(false); }} className={`relative grid min-h-16 place-items-center gap-1 px-1 py-1 text-[10px] font-medium transition-colors ${activeTab === id ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-500 dark:text-emerald-100/65'}`}><span className={`grid h-8 w-9 place-items-center rounded-lg transition-colors ${activeTab === id ? 'bg-emerald-50 dark:bg-emerald-900/50' : 'bg-transparent'}`}><Icon className="h-[19px] w-[19px]" /></span>{label}</button>)}
+        <button type="button" onClick={() => setMobileMoreOpen(true)} className={`grid min-h-16 place-items-center gap-1 px-1 py-1 text-[10px] font-medium transition-colors ${mobileMoreOpen || mobileMoreNav.some(([id]) => id === activeTab) ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-500 dark:text-emerald-100/65'}`}><span className={`grid h-8 w-9 place-items-center rounded-lg ${mobileMoreOpen || mobileMoreNav.some(([id]) => id === activeTab) ? 'bg-emerald-50 dark:bg-emerald-900/50' : ''}`}><Menu className="h-[19px] w-[19px]" /></span>More</button>
       </nav>
       {mobileMoreOpen && (
         <div className="fixed inset-0 z-40 bg-slate-950/35 lg:hidden" onClick={() => setMobileMoreOpen(false)}>
