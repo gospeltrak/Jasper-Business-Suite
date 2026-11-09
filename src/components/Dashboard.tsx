@@ -3379,6 +3379,8 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     { id: 'admin-hw-inventory', label: 'HW Inventory', icon: Package, tabId: 'admin-hw-inventory' },
     { id: 'admin-hw-sales', label: 'HW Sales', icon: TrendingUp, tabId: 'admin-hw-sales' },
     { id: 'admin-affiliates', label: 'Affiliates', icon: Award, tabId: 'admin-affiliates' },
+    { id: 'admin-affiliate-agents', label: 'Agents', icon: Users, tabId: 'admin-affiliate-agents' },
+    { id: 'admin-sub-affiliates', label: 'Sub-Affiliates', icon: Network, tabId: 'admin-sub-affiliates' },
 
     { id: 'admin-status', label: 'Status & Requests', icon: Activity, tabId: 'admin-status' },
     { id: 'admin-reports', label: 'Reports', icon: Database, tabId: 'admin-reports' },
