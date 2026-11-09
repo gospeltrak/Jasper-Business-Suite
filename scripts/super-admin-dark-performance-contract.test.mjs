@@ -19,7 +19,11 @@ test('Super Admin keeps a dark-only scaffold without disabling tenant theme cont
 test('Super Admin does not fetch marketing records on initial dashboard mount', () => {
   assert.doesNotMatch(admin, /useEffect\(\(\) => \{\s*initializeSaaSData\(\)/);
   assert.match(admin, /\['promotions', 'chats', 'tutorials'\]\.includes\(activeTab\)/);
-  assert.match(admin, /void initializeSaaSData\(\)\.catch/);
+  assert.match(admin, /void initializeSaaSData\(activeTab\)\.catch/);
+  assert.match(admin, /section === 'chats'/);
+  assert.match(admin, /section === 'tutorials'/);
+  assert.match(admin, /saveMessages\(updated\)/);
+  assert.match(admin, /saveCampaignData\(updatedPlacements, updatedBanners\)/);
 });
 
 test('Admin cards avoid seven columns, unreadably small KPI labels and redundant dark shadows', () => {
