@@ -78,6 +78,7 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
   const [withdrawError, setWithdrawError] = useState<string | null>(null);
   // Tenants tab state
   const [tenantSearch, setTenantSearch] = useState('');
+  const [contentTab, setContentTab] = useState<'advertisements' | 'tutorials'>('advertisements');
   const [tenantStatusFilter, setTenantStatusFilter] = useState<string>('all');
   const [tenantPlanFilter, setTenantPlanFilter] = useState<string>('all');
   const [selectedTenant, setSelectedTenant] = useState<any>(null);
@@ -466,7 +467,7 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
     ['payouts', 'Payment Status', Wallet],
     ['tenants', 'Customers', Users],
     ['reports', 'Reports', TrendingUp],
-    ['tasks', 'Messages & Tasks', ClipboardList],
+    ['tasks', 'Tasks', ClipboardList],
     ['ads', 'Ads & Tutorials', Film],
     ['meetings', 'Meetings', CalendarClock],
     ['code-link', 'Code & Link', LinkIcon],
@@ -910,16 +911,58 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
             </section>
           </div>}
 
-          {activeTab === 'tasks' && <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">{workspace!.tasks.map((task) => <TaskRow key={task.id} task={task} busy={busyTaskId === task.id} readOnly={mirrorMode} onComplete={handleTaskComplete} onDownload={() => task.attachment_url && handleTrackedLink('task_download', 'task', task.id, task.attachment_url, task.attachment_name)} />)}{workspace!.tasks.length === 0 && <Empty text="No tasks, notes, or files have been assigned to you yet." />}</section>}
-          {activeTab === 'ads' && (
-            <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {workspace!.campaigns.map(renderCampaign)}
-              {workspace!.campaigns.length === 0 && (
-                <div className="md:col-span-2 xl:col-span-3"><Empty text="No Ads by JB campaigns are assigned to your account." /></div>
-              )}
+          {activeTab === 'tasks' && (
+            <section className="space-y-3" data-testid="affiliate-lightweight-tasks">
+              <h2 className="text-base font-semibold text-slate-950 dark:text-white">Tasks</h2>
+              <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-emerald-900 dark:bg-[#092a20]">
+                {workspace!.tasks.map(task=><TaskRow key={task.id} task={task} busy={busyTaskId===task.id} readOnly={mirrorMode}
+                  onComplete={handleTaskComplete} onDownload={()=>task.attachment_url && handleTrackedLink('task_download','task',task.id,task.attachment_url,task.attachment_name)}/>)}
+                {workspace!.tasks.length===0&&<div className="flex flex-col items-center gap-2 px-4 py-12 text-center">
+                  <ClipboardList className="h-8 w-8 text-emerald-700/55"/>
+                  <p className="text-sm font-semibold text-slate-800 dark:text-white">No tasks assigned</p>
+                  <p className="text-xs text-slate-500 dark:text-emerald-100/60">Tasks from your Agent will appear here.</p>
+                </div>}
+              </div>
             </section>
           )}
-          {activeTab === 'meetings' && <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">{workspace!.meetings.map((meeting) => <MeetingRow key={meeting.id} meeting={meeting} onJoin={() => handleTrackedLink('meeting_join', 'meeting', meeting.id, meeting.meeting_url)} />)}{workspace!.meetings.length === 0 && <Empty text="No agent meetings are scheduled for your account." />}</section>}
+          {activeTab === 'ads' && (
+            <section className="space-y-3" data-testid="affiliate-lightweight-content">
+              <h2 className="text-base font-semibold text-slate-950 dark:text-white">Ads & Tutorials</h2>
+              <div className="grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-white p-1.5 dark:border-emerald-900 dark:bg-[#092a20]">
+                {([['advertisements','Advertisements'],['tutorials','Tutorials']] as const).map(([id,label])=>(
+                  <button key={id} type="button" aria-pressed={contentTab===id} onClick={()=>setContentTab(id)}
+                    className={`rounded-lg px-2 py-2.5 text-xs font-medium sm:text-sm ${contentTab===id?'bg-emerald-700 text-white':'text-slate-600 dark:text-emerald-100'}`}>{label}</button>
+                ))}
+              </div>
+              {contentTab==='advertisements'
+                ? <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    {workspace!.campaigns.map(renderCampaign)}
+                    {workspace!.campaigns.length===0&&<div className="col-span-full flex flex-col items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-12 dark:border-emerald-900 dark:bg-[#092a20]">
+                      <Film className="h-8 w-8 text-emerald-700/55"/>
+                      <p className="text-sm font-semibold text-slate-800 dark:text-white">No advertisements assigned</p>
+                      <p className="text-xs text-slate-500 dark:text-emerald-100/60">Images, videos and campaign text will appear here.</p>
+                    </div>}
+                  </div>
+                : <div className="rounded-xl border border-slate-200 bg-white px-4 py-12 text-center dark:border-emerald-900 dark:bg-[#092a20]">
+                    <Film className="mx-auto mb-3 h-8 w-8 text-emerald-700/55"/>
+                    <p className="text-sm font-semibold text-slate-800 dark:text-white">Tutorials</p>
+                    <p className="mt-1 text-xs text-slate-500 dark:text-emerald-100/60">Training material will be displayed here when available. No video is loaded automatically.</p>
+                  </div>}
+            </section>
+          )}
+          {activeTab === 'meetings' && (
+            <section className="space-y-3" data-testid="affiliate-lightweight-meetings">
+              <h2 className="text-base font-semibold text-slate-950 dark:text-white">Meetings</h2>
+              <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-emerald-900 dark:bg-[#092a20]">
+                {workspace!.meetings.map(meeting=><MeetingRow key={meeting.id} meeting={meeting} onJoin={()=>handleTrackedLink('meeting_join','meeting',meeting.id,meeting.meeting_url)}/>)}
+                {workspace!.meetings.length===0&&<div className="flex flex-col items-center gap-2 px-4 py-12 text-center">
+                  <CalendarClock className="h-8 w-8 text-emerald-700/55"/>
+                  <p className="text-sm font-semibold text-slate-800 dark:text-white">No upcoming meetings</p>
+                  <p className="text-xs text-slate-500 dark:text-emerald-100/60">Meeting dates and joining links will appear here when scheduled.</p>
+                </div>}
+              </div>
+            </section>
+          )}
           {activeTab === 'reports' && (() => {
             const subscribers = monthlySubscribers;
             const rewards = (workspace?.rewards || []).filter(r => String(r.created_at || '').slice(0,7) === reportMonth && r.status !== 'void');
@@ -1279,7 +1322,7 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
                 </div>
                 <div className="mt-5 flex flex-col gap-3 sm:flex-row">
                   <button type="button" onClick={saveAffiliateSettings} className="inline-flex flex-1 items-center justify-center rounded-lg bg-emerald-600 px-4 py-3 text-sm font-black text-white hover:bg-emerald-500">Save Settings</button>
-                  <button type="button" onClick={onLogout} className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-rose-200 px-4 py-3 text-sm font-black text-rose-600 hover:bg-rose-50"><LogOut className="h-4 w-4" /> Sign out</button>
+
                 </div>
               </div>
             </section>
