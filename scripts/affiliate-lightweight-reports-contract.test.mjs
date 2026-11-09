@@ -31,7 +31,7 @@ test('task report only counts verified reviews as approved and uses same task st
   assert.match(reports,/t\.status === 'completed'/);
   assert.match(reports,/Awaiting Review/);
   assert.match(reports,/No background monitoring/);
-  assert.match(affiliate,/const completed = tasks\.filter\(\(task\) => task\.status === 'reviewed'\)/);
+  assert.match(reports,/const approved = tasks\.filter\(t => t\.status === 'reviewed'\)\.length/);
   assert.match(affiliate,/Mark as Done/);
 });
 test('task Agent review is manually triggered, server-authenticated and assignment scoped',()=>{
