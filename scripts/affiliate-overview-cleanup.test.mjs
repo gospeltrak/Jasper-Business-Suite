@@ -28,3 +28,20 @@ test('other functional tabs and full-balance withdrawal path remain', () => {
   assert.match(file, /request_affiliate_month_end_withdrawal_v2/);
   assert.match(file, /amount: String\(Math\.round\(metrics\.available\)\)/);
 });
+
+test('Free Trial & Plans is a compact emerald highlight with readable stats in light and dark modes', () => {
+  const cardStart = overview.indexOf('data-testid="affiliate-plan-summary"');
+  const cardEnd = overview.indexOf('Recent Customers', cardStart);
+  assert.ok(cardStart >= 0 && cardEnd > cardStart);
+  const card = overview.slice(cardStart, cardEnd);
+  assert.match(card, /bg-emerald-800/);
+  assert.match(card, /dark:bg-\[#07533f\]/);
+  assert.match(card, /shadow-\[0_9px_24px/);
+  assert.match(card, /text-white/);
+  assert.match(card, /customerSummary\.trial/);
+  assert.match(card, /customerSummary\.ruby/);
+  assert.match(card, /customerSummary\.diamond/);
+  assert.match(card, /customerSummary\.tanzanite/);
+  assert.match(card, /setActiveTab\('tenants'\)/);
+  assert.doesNotMatch(card, /Paid subscriptions by plan/);
+});
