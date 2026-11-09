@@ -634,22 +634,10 @@ export default function SuperSaaSAdminView({
       {/* Mobile password input */}
       {showPasswordInput && !isUnlocked && (
         <div className="md:hidden px-4 py-3 bg-slate-900 border-b border-slate-800 flex items-center gap-2">
-          {true ? (
-            <button onClick={beginMfaVerification} disabled={mfaBusy}
-              className="w-full px-4 py-2 bg-emerald-500 text-slate-950 rounded-xl text-xs font-black disabled:opacity-50">
-              {mfaBusy ? 'Preparing MFA…' : 'Verify Authenticator'}
-            </button>
-          ) : (
-            <>
-              <input type="hidden" value=""
-                readOnly
-                className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white font-mono outline-none" />
-              <button onClick={beginMfaVerification}
-                className="px-4 py-2 bg-emerald-500 text-slate-950 rounded-xl text-xs font-black cursor-pointer border-none">
-                Verify
-              </button>
-            </>
-          )}
+          <button onClick={beginMfaVerification} disabled={mfaBusy}
+            className="w-full px-4 py-2 bg-emerald-500 text-slate-950 rounded-xl text-xs font-semibold disabled:opacity-50">
+            {mfaBusy ? 'Preparing MFA…' : 'Verify Authenticator'}
+          </button>
         </div>
       )}
 
