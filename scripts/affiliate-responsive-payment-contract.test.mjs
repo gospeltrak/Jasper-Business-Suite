@@ -25,7 +25,7 @@ test('Payout requests are manual full-balance RPC and read-only mirrors cannot w
   assert.match(ui,/amount: String\(Math.round\(metrics.available\)\)/);
   assert.match(payout,/Referral Bonus/);
   assert.match(payout,/Commission \(10%\)/);
-  assert.match(payout,/Available to Request/);
+  assert.match(payout,/Available Balance/);
   assert.match(payout,/Withdrawal History/);
   assert.match(payout,/mirrorMode/);
 });
