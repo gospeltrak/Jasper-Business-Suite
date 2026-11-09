@@ -289,6 +289,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
 
   // Mirror mode
   const [mirrorTarget, setMirrorTarget] = useState<SubAffiliateProfile | null>(null);
+  const [mirrorTab, setMirrorTab] = useState<'overview' | 'customers' | 'payments' | 'tasks' | 'reports'>('overview');
 
   // Edit modal
   const [editModal, setEditModal] = useState<SubAffiliateProfile | null>(null);
@@ -994,132 +995,98 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
 
   // ── Mirror View ─────────────────────────────────────────────
 
+  // Compact read-only mirror. Uses Agent's already-scoped, loaded summaries;
+  // no affiliate impersonation, nested dashboards, or extra fetch per tab.
   if (mirrorTarget) {
-    const bd = calculateCommissionBreakdown(mirrorTarget.revenueGenerated);
-    const mirrorTenants = customers.filter((customer) => customer.subAffiliateId === mirrorTarget.id);
+    const mirrorTenants = customers.filter(row => row.subAffiliateId === mirrorTarget.id);
+    const paidTenants = mirrorTenants.filter(row => isSettledPaymentStatus(row.paymentStatus));
+    const mirrorTasks = taskReviews.filter(task => task.affiliate_id === mirrorTarget.id);
+    const mirrorNav = [
+      ['overview','Overview'],['customers','Customers'],['payments','Payments'],
+      ['tasks','Tasks'],['reports','Reports'],
+    ] as const;
+    const mirrorLines = mirrorTab === 'overview'
+      ? [
+        ['Affiliate',mirrorTarget.name],
+        ['Account Status',mirrorTarget.isDisabled ? 'Disabled' : 'Active'],
+        ['Subscribers',String(mirrorTenants.length)],
+        ['Paid Subscribers',String(paidTenants.length)],
+        ['Promo Code',mirrorTarget.promoCode || 'Not set'],
+        ['Joined',mirrorTarget.createdAt?.slice(0,10) || 'Not recorded'],
+      ]
+      : mirrorTab === 'payments'
+      ? [
+        ['Affiliate',mirrorTarget.name],
+        ['Account Status',mirrorTarget.isDisabled ? 'Disabled' : 'Active'],
+        ['Payment Records','View verified records in Payment Status'],
+      ]
+      : mirrorTab === 'reports'
+      ? [
+        ['Subscribers',String(mirrorTenants.length)],
+        ['Paid Subscribers',String(paidTenants.length)],
+        ['Unpaid / Trial',String(mirrorTenants.length-paidTenants.length)],
+        ['Account Status',mirrorTarget.isDisabled ? 'Disabled' : 'Active'],
+      ] : [];
     return (
-      <div className="min-h-[100dvh] max-h-[100dvh] overflow-y-auto overflow-x-hidden bg-slate-950 text-white [-webkit-overflow-scrolling:touch]">
-        {/* Mirror banner */}
-        <div className="bg-amber-500 text-slate-950 px-4 py-2 flex items-center justify-between">
-          <div className="flex items-center gap-2 font-black text-sm">
-            <Eye className="w-4 h-4" />
-            <span>MIRROR MODE — You are viewing this account as Super Agent / Partner</span>
+      <div className="flex min-h-0 flex-col bg-[#061b16] text-white" style={{height:'100dvh'}}>
+        <header className="flex shrink-0 items-center justify-between gap-3 border-b border-emerald-900 bg-[#092a20] px-3 py-3 sm:px-5">
+          <div className="min-w-0">
+            <h2 className="truncate text-sm font-semibold sm:text-base">{mirrorTarget.name}</h2>
+            <p className="mt-0.5 text-[11px] text-emerald-100/60">Affiliate Details · Read only</p>
           </div>
-          <button onClick={() => setMirrorTarget(null)}
-            className="flex items-center gap-1.5 px-3 py-1 bg-slate-950/20 hover:bg-slate-950/30 rounded-lg text-xs font-bold cursor-pointer border-none">
-            <ArrowLeft className="w-3.5 h-3.5" /> Exit Mirror
+          <button type="button" onClick={()=>{setMirrorTarget(null);setMirrorTab('overview');}}
+            className="flex shrink-0 items-center gap-1.5 rounded-lg border border-emerald-800 px-3 py-2 text-xs text-emerald-100 hover:bg-emerald-900/40">
+            <ArrowLeft className="h-3.5 w-3.5"/> Back
           </button>
-        </div>
-
-        <div className="p-6 max-w-5xl mx-auto space-y-6">
-          <div className="flex items-center gap-4 bg-slate-900 border border-slate-800 rounded-2xl p-5">
-            <div className="w-14 h-14 bg-amber-500/20 rounded-2xl flex items-center justify-center">
-              <Users className="w-7 h-7 text-amber-400" />
+        </header>
+        <main className="min-h-0 flex-1 overflow-y-auto px-3 py-4 sm:px-5">
+          <div className="mx-auto max-w-3xl space-y-4" data-testid="agent-compact-affiliate-mirror">
+            <div className="flex flex-nowrap gap-1.5 overflow-x-auto rounded-xl border border-emerald-900 bg-[#092a20] p-1.5" role="tablist" aria-label="Affiliate mirror sections">
+              {mirrorNav.map(([key,label])=>(
+                <button key={key} type="button" role="tab" aria-selected={mirrorTab===key}
+                  onClick={()=>setMirrorTab(key)}
+                  className={`shrink-0 whitespace-nowrap rounded-lg px-3 py-2.5 text-xs font-medium sm:text-sm ${mirrorTab===key?'bg-emerald-700 text-white':'text-emerald-100/75 hover:bg-emerald-900/40'}`}>{label}</button>
+              ))}
             </div>
-            <div>
-              <p className="text-[10px] text-amber-400/70 uppercase font-bold tracking-widest">Sub-Affiliate Account</p>
-              <h2 translate="no" className="text-xl font-black text-white">{mirrorTarget.name}</h2>
-              <div className="flex items-center gap-3 mt-1">
-                <span className="text-[10px] text-slate-400 font-mono">{mirrorTarget.promoCode}</span>
-                <TinBadge status={mirrorTarget.tinStatus} />
-                <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${mirrorTarget.isDisabled ? 'bg-rose-500/15 text-rose-400' : 'bg-emerald-500/15 text-emerald-400'}`}>
-                  {mirrorTarget.isDisabled ? 'Disabled' : 'Active'}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Commission breakdown */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[
-              { label: 'Revenue Generated',   value: formatTZS(mirrorTarget.revenueGenerated),   color: 'text-white' },
-              { label: 'Gross Commission 10%', value: formatTZS(bd.subAffiliateGrossCommission15), color: 'text-emerald-400' },
-              { label: 'WHT 5%',              value: WITHHOLDING_TAX_ACTIVE ? formatTZS(bd.withholdingTax5) : 'Not active', color: 'text-amber-400' },
-              { label: 'Net Payout',          value: formatTZS(bd.subAffiliateNetPayout),        color: 'text-blue-400' },
-            ].map(k => (
-              <div key={k.label} className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
-                <p className="text-[9px] text-slate-500 uppercase font-bold tracking-wider">{k.label}</p>
-                <p className={`text-lg font-black mt-1 ${k.color}`}>{k.value}</p>
-              </div>
-            ))}
-          </div>
-
-          <WhtNotice tinStatus={mirrorTarget.tinStatus} />
-
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
-            <div className="px-5 py-4 border-b border-slate-800 flex items-center justify-between gap-3">
-              <div>
-                <h3 className="text-sm font-black text-white">Registered Tenants</h3>
-                <p className="text-[10px] text-slate-500 mt-0.5">
-                  Tenants registered with {mirrorTarget.name}'s promo code
-                </p>
-              </div>
-              <span className="px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 text-[10px] font-black">
-                {mirrorTenants.length} tenants
-              </span>
-            </div>
-            {mirrorTenants.length === 0 ? (
-              <div className="py-10 text-center">
-                <ShieldCheck className="w-8 h-8 text-slate-700 mx-auto" />
-                <p className="text-sm text-slate-500 mt-2">No tenants registered with this promo code yet.</p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead className="bg-slate-800/50 text-slate-500 uppercase tracking-wider text-[9px]">
-                    <tr>
-                      <th className="py-3 px-4 text-left">Tenant</th>
-                      <th className="py-3 px-4 text-left">Package</th>
-                      <th className="py-3 px-4 text-left">Status</th>
-                      <th className="py-3 px-4 text-left">Days Left</th>
-                      <th className="py-3 px-4 text-left">Registered</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800">
-                    {mirrorTenants.map((tenant) => (
-                      <tr key={tenant.id} className="hover:bg-slate-800/25">
-                        <td className="py-3 px-4">
-                          <p className="font-bold text-white">{tenant.tenantName}</p>
-                          <p className="text-[10px] text-slate-500 font-mono mt-0.5">{tenant.promoCodeUsed || mirrorTarget.promoCode}</p>
-                        </td>
-                        <td className="py-3 px-4 text-slate-200 font-semibold">{tenant.packageName}</td>
-                        <td className="py-3 px-4">
-                          <span className="px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-[9px] font-bold text-slate-300">
-                            {tenant.paymentStatus}
-                          </span>
-                        </td>
-                        <td className="py-3 px-4 font-black text-amber-400">{tenant.daysRemaining} days</td>
-                        <td className="py-3 px-4 text-slate-400">{tenant.registeredAt ? tenant.registeredAt.split('T')[0] : 'Not recorded'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            {(mirrorTab==='overview'||mirrorTab==='payments'||mirrorTab==='reports') && (
+              <dl className="divide-y divide-emerald-900/50 overflow-hidden rounded-xl border border-emerald-900 bg-[#092a20] px-4">
+                {mirrorLines.map(([label,value])=>(
+                  <div key={label} className="flex min-w-0 items-center justify-between gap-3 py-3 text-xs sm:text-sm">
+                    <dt className="text-emerald-100/65">{label}</dt><dd className="max-w-[65%] break-words text-right font-medium">{value}</dd>
+                  </div>
+                ))}
+                {mirrorTab==='payments'&&<p className="py-3 text-[11px] text-emerald-100/55">Financial decisions remain in the Agent Payment Status page. No financial writes in mirror.</p>}
+              </dl>
+            )}
+            {mirrorTab==='customers'&&(
+              <div className="overflow-hidden rounded-xl border border-emerald-900 bg-[#092a20]">
+                <div className="flex items-center justify-between border-b border-emerald-900 px-4 py-3">
+                  <h3 className="text-sm font-semibold">Customers</h3><span className="text-xs text-emerald-100/60">{mirrorTenants.length} records</span>
+                </div>
+                {!mirrorTenants.length?<p className="px-4 py-7 text-xs text-emerald-100/60">No subscribers recorded.</p>:
+                  mirrorTenants.slice(0,50).map(row=>(
+                    <div key={row.id} className="flex items-center justify-between gap-3 border-b border-emerald-900/40 px-4 py-3 text-xs last:border-0">
+                      <div className="min-w-0"><p className="truncate font-medium">{row.tenantName}</p>
+                        <p className="mt-1 truncate text-emerald-100/60">{row.packageName} · {row.paymentStatus}</p></div>
+                      <span className="shrink-0 text-emerald-100/75">{row.registeredAt?.slice(0,10)||'—'}</span>
+                    </div>
+                  ))
+                }
+                {mirrorTenants.length>50&&<p className="px-4 py-3 text-xs text-emerald-100/55">Showing the first 50 records. Use the Agent Customers menu for more.</p>}
               </div>
             )}
-          </div>
-
-          {/* Profile details */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3">
-            <h3 className="text-sm font-black text-white border-b border-slate-800 pb-3">Profile Details</h3>
-            {[
-              { label: 'Phone / WhatsApp', value: mirrorTarget.phone },
-              { label: 'Payout Account',  value: mirrorTarget.payoutAccount },
-              { label: 'Payout Method',   value: mirrorTarget.payoutMethod },
-              { label: 'TIN Number',      value: mirrorTarget.tinNumber ? maskTIN(mirrorTarget.tinNumber) : 'Not submitted' },
-              { label: 'Tenants registered', value: String(mirrorTenants.length) },
-              { label: 'Joined',          value: mirrorTarget.createdAt.split('T')[0] },
-            ].map(f => (
-              <div key={f.label} className="flex items-center justify-between text-sm border-b border-slate-800/50 pb-2">
-                <span className="text-slate-400 text-xs">{f.label}</span>
-                <span className="text-white font-semibold text-xs">{f.value}</span>
+            {mirrorTab==='tasks'&&(
+              <div className="overflow-hidden rounded-xl border border-emerald-900 bg-[#092a20]">
+                <h3 className="border-b border-emerald-900 px-4 py-3 text-sm font-semibold">Tasks Awaiting Review</h3>
+                {!mirrorTasks.length?<p className="px-4 py-7 text-xs text-emerald-100/60">No pending task reviews loaded. Open Messages & Targets to refresh.</p>:
+                  mirrorTasks.map(task=><div key={task.id} className="border-b border-emerald-900/40 px-4 py-3 text-xs last:border-0">
+                    <p className="font-medium">{task.title}</p><p className="mt-1 text-emerald-100/60">Awaiting Review</p>
+                  </div>)}
               </div>
-            ))}
+            )}
+            <p className="px-1 text-[11px] text-emerald-100/50">Only information already available to the Agent is shown. No account impersonation or new background requests.</p>
           </div>
-
-          <p className="text-[10px] text-slate-600 text-center">
-            Mirror session audited · Viewer: {partnerName} · Target: {mirrorTarget.name} · {new Date().toLocaleString()}
-          </p>
-        </div>
+        </main>
       </div>
     );
   }
