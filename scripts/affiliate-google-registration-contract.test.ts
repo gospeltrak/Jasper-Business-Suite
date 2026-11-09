@@ -29,24 +29,32 @@ test('registration copy does not instruct Google users to use phone passwords', 
   assert.doesNotMatch(portal, /[â←].*Already have an account\? Sign In/);
 });
 
-test('affiliate and partner login offers email/password alongside Google', () => {
-  const loginUi = portal.slice(portal.indexOf("{authMode === 'login' ? ("), portal.indexOf(") : portalRole === 'partner'"));
-  assert.match(loginUi, /(?:Continue with Google|Endelea kwa Google)/);
-  assert.match(loginUi, /handleLoginAffiliate/);
-  assert.match(loginUi, /type="email"/);
-  assert.match(loginUi, /type=\{showLoginPassword \? 'text' : 'password'\}/);
-  assert.match(loginUi, /type="submit"/);
+test('Affiliate and Agent portal uses email/password without Google login buttons', () => {
+  const loginUi = portal.slice(portal.indexOf('{/* Login form */}'), portal.indexOf('/* PARTNER CAPACITY REACHED */'));
+  assert.match(loginUi,/handleLoginAffiliate/);
+  assert.match(loginUi,/type="email"/);
+  assert.match(loginUi,/type=\\{showLoginPassword \\? 'text' : 'password'\\}/);
+  assert.match(loginUi,/Forgot Password\\?/);
+  assert.doesNotMatch(loginUi,/Endelea kwa Google|Continue with Google|onClick=\\{handleGooglePortalLogin\\}/);
 });
 
-test('registration offers both an email/password path and a Google path, each gated by its own identity check', () => {
+test('Affiliate and Agent registration offers email only (legacy Google server checks remain safe)', () => {
   const registerUi = portal.slice(portal.indexOf('/* EMAIL-OR-GOOGLE REGISTER ENTRY */'), portal.indexOf(') : activeAffiliate?.isSuper ? ('));
-  assert.match(registerUi, /(?:Continue with Email|Endelea kwa Barua Pepe)/);
-  assert.match(registerUi, /(?:Continue with Google|Endelea kwa Google)/);
-  assert.match(registerUi, /useEmailRegistration/);
-  // The hidden, impossible-to-fill WhatsApp phone field that previously
-  // blocked every registration submission must not come back.
-  assert.doesNotMatch(portal, /className="hidden"[^>]*aria-hidden="true">\s*<label[^>]*>\s*WhatsApp Number/);
-  // Email + password only need to be collected (and are only required)
-  // when the account isn't already Google-verified.
-  assert.match(portal, /if \(!usingGoogle\) \{\s*if \(!email\.trim\(\)/s);
+  assert.match(registerUi,/Endelea kwa Barua Pepe/);
+  assert.doesNotMatch(registerUi,/Endelea kwa Google|Continue with Google|onClick=\\{handleGooglePortalLogin\\}/);
+  assert.match(registerUi,/useEmailRegistration/);
+  assert.match(portal,/if \\(!usingGoogle\\) \\{\\s*if \\(!email\\.trim\\(\\)/s);
+});
+
+test('Forgot Password and reset use the same Supabase auth flow as tenants', () => {
+  const tenant = fs.readFileSync('src/modules/auth/LoginPage.tsx','utf8');
+  assert.match(portal,/resetPasswordForEmail\\(target/);
+  assert.match(portal,/updateUser\\(\\{password:recoveryPassword\\}\\)/);
+  assert.match(portal,/isPasswordRecoverySessionActive/);
+  assert.match(portal,/subscribeToPasswordRecoverySession/);
+  assert.match(portal,/setRecoveryView\\('set'\\)/);
+  assert.match(portal,/client\\.auth\\.signOut\\(\\)/);
+  assert.match(tenant,/prepareSuperAdminMfa/);
+  assert.match(tenant,/verifySuperAdminMfa/);
+  assert.match(tenant,/Continue with Google/);
 });
