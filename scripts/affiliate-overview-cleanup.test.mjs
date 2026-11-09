@@ -34,10 +34,14 @@ test('Free Trial & Plans is a compact emerald highlight with readable stats in l
   const cardEnd = overview.indexOf('Recent Customers', cardStart);
   assert.ok(cardStart >= 0 && cardEnd > cardStart);
   const card = overview.slice(cardStart, cardEnd);
-  assert.match(card, /bg-emerald-800/);
-  assert.match(card, /dark:bg-\[#07533f\]/);
+  assert.match(card, /bg-\[linear-gradient\(112deg,#075c45/);
+  assert.match(card, /dark:bg-\[linear-gradient\(112deg,#064c3a/);
   assert.match(card, /shadow-\[0_9px_24px/);
   assert.match(card, /text-white/);
+  assert.match(card, /pointer-events-none/);
+  assert.match(card, /aria-hidden="true"/);
+  assert.match(card, /BarChart3 aria-hidden="true"/);
+  assert.match(card, /text-white\/\[0\.06\]/);
   assert.match(card, /customerSummary\.trial/);
   assert.match(card, /customerSummary\.ruby/);
   assert.match(card, /customerSummary\.diamond/);

@@ -625,12 +625,15 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
               </div>
             )}
             <div className="grid gap-3 xl:grid-cols-2">
-              <section data-testid="affiliate-plan-summary" className="min-w-0 overflow-hidden rounded-xl border border-emerald-700/70 bg-emerald-800 text-white shadow-[0_9px_24px_-13px_rgba(5,112,78,0.65)] dark:border-emerald-700/60 dark:bg-[#07533f] dark:shadow-[0_12px_26px_-13px_rgba(0,0,0,0.6)]">
-                <div className="flex items-center justify-between gap-2 border-b border-white/15 px-3.5 py-3">
+              <section data-testid="affiliate-plan-summary" className="relative isolate min-w-0 overflow-hidden rounded-xl border border-emerald-700/50 bg-[linear-gradient(112deg,#075c45_0%,#087658_58%,#086b51_100%)] text-white shadow-[0_9px_24px_-13px_rgba(5,112,78,0.48)] dark:border-emerald-700/50 dark:bg-[linear-gradient(112deg,#064c3a_0%,#076048_60%,#075640_100%)] dark:shadow-[0_12px_26px_-13px_rgba(0,0,0,0.55)]">
+                <div aria-hidden="true" className="pointer-events-none absolute -right-8 -top-9 z-0 h-32 w-32 rounded-full border border-white/[0.08]" />
+                <div aria-hidden="true" className="pointer-events-none absolute -right-3 -top-3 z-0 h-24 w-24 rounded-full border border-white/[0.07]" />
+                <BarChart3 aria-hidden="true" className="pointer-events-none absolute bottom-1 right-4 z-0 h-16 w-16 -rotate-12 text-white/[0.06]" />
+                <div className="relative z-10 flex items-center justify-between gap-2 border-b border-white/15 px-3.5 py-3">
                   <h2 className="text-xs font-semibold text-white sm:text-sm">Free Trial & Plans</h2>
                   <button type="button" onClick={() => setActiveTab('tenants')} className="rounded-md px-2 py-1 text-[11px] font-medium text-emerald-50 transition-colors hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">View all</button>
                 </div>
-                <div className="grid grid-cols-4 divide-x divide-white/15 px-1 py-4 sm:px-2">
+                <div className="relative z-10 grid grid-cols-4 divide-x divide-white/15 px-1 py-4 sm:px-2">
                   {[
                     ['Trial', customerSummary.trial],
                     ['Ruby', customerSummary.ruby],
