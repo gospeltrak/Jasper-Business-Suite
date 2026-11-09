@@ -220,37 +220,42 @@ export default function SuperSaaSAdminView({
     });
   };
 
-  const initializeSaaSData = async () => {
-    const [placements, activeBanners, currentMessages, currentTutorials] = await Promise.all([
-      loadPlatformRecord<any[]>('ad_placements', 'global', [
-        { id: 'place-1', size: '728x90', label: 'Leaderboard Header (Website)', activeBannersCount: 0, usedBy: 'Public landing pages' },
-        { id: 'place-2', size: '300x250', label: 'Medium Rectangle Sidebar', activeBannersCount: 0, usedBy: 'Dashboard placements' },
-        { id: 'place-3', size: '320x50', label: 'Mobile Ledger footer ad', activeBannersCount: 0, usedBy: 'Mobile screens' }
-      ]),
-      loadPlatformRecord<any[]>('promotional_banners', 'global', []),
-      loadPlatformRecord<any[]>('platform_messages', 'global', []),
-      loadPlatformRecord<any[]>('training_tutorials', 'global', [])
-    ]);
-
-    setAdPlacements(placements);
-    setBanners(activeBanners);
-    setMessages(currentMessages);
-    setTutorials(currentTutorials);
+  // Fetch only the active workspace's records. Opening Chats never fetches
+  // creative media, while opening Tutorials never reads ad placements.
+  const initializeSaaSData = async (section: SuperAdminWorkspaceTab) => {
+    if (section === 'promotions') {
+      const [placements, activeBanners] = await Promise.all([
+        loadPlatformRecord<any[]>('ad_placements', 'global', [
+          { id: 'place-1', size: '728x90', label: 'Leaderboard Header (Website)', activeBannersCount: 0, usedBy: 'Public landing pages' },
+          { id: 'place-2', size: '300x250', label: 'Medium Rectangle Sidebar', activeBannersCount: 0, usedBy: 'Dashboard placements' },
+          { id: 'place-3', size: '320x50', label: 'Mobile Ledger footer ad', activeBannersCount: 0, usedBy: 'Mobile screens' }
+        ]),
+        loadPlatformRecord<any[]>('promotional_banners', 'global', [])
+      ]);
+      setAdPlacements(placements);
+      setBanners(activeBanners);
+    } else if (section === 'chats') {
+      setMessages(await loadPlatformRecord<any[]>('platform_messages', 'global', []));
+    } else if (section === 'tutorials') {
+      setTutorials(await loadPlatformRecord<any[]>('training_tutorials', 'global', []));
+    }
   };
 
   useEffect(() => {
     if (!['promotions', 'chats', 'tutorials'].includes(activeTab)) return;
-    // Do not start unrelated marketing reads on ordinary dashboard navigation.
-    void initializeSaaSData().catch((error) => {
-      console.warn('[super-admin] Marketing records unavailable:', error);
+    void initializeSaaSData(activeTab).catch((error) => {
+      console.warn('[super-admin] Active workspace records unavailable:', error);
     });
   }, [activeTab]);
 
-  const saveData = async (placements: any[], activeBanners: any[], currentMessages: any[]) => {
+  const saveMessages = async (nextMessages: any[]) => {
+    await savePlatformRecord('platform_messages', 'global', nextMessages);
+  };
+
+  const saveCampaignData = async (placements: any[], activeBanners: any[]) => {
     await Promise.all([
       savePlatformRecord('ad_placements', 'global', placements),
-      savePlatformRecord('promotional_banners', 'global', activeBanners),
-      savePlatformRecord('platform_messages', 'global', currentMessages)
+      savePlatformRecord('promotional_banners', 'global', activeBanners)
     ]);
   };
 
@@ -349,7 +354,7 @@ export default function SuperSaaSAdminView({
 
     const updated = [newMsg, ...messages];
     try {
-      await saveData(adPlacements, banners, updated);
+      await saveMessages(updated);
       setMessages(updated);
     } catch (error: any) {
       alert(error?.message || ONLINE_ONLY_WRITE_MESSAGE);
@@ -376,7 +381,7 @@ export default function SuperSaaSAdminView({
 
     const updated = [newDm, ...messages];
     try {
-      await saveData(adPlacements, banners, updated);
+      await saveMessages(updated);
       setMessages(updated);
     } catch (error: any) {
       alert(error?.message || ONLINE_ONLY_WRITE_MESSAGE);
@@ -421,7 +426,7 @@ export default function SuperSaaSAdminView({
       return { ...placement, activeBannersCount: Math.max(0, Number(placement.activeBannersCount || 0) - 1) };
     });
     try {
-      await saveData(updatedPlacements, updatedBanners, messages);
+      await saveCampaignData(updatedPlacements, updatedBanners);
       setBanners(updatedBanners);
       setAdPlacements(updatedPlacements);
     } catch (error: any) {
@@ -481,7 +486,7 @@ export default function SuperSaaSAdminView({
       });
 
       try {
-        await saveData(updatedPlacements, updatedBanners, messages);
+        await saveCampaignData(updatedPlacements, updatedBanners);
         setBanners(updatedBanners);
         setAdPlacements(updatedPlacements);
       } catch (error: any) {
