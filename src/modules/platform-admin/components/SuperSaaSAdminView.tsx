@@ -778,7 +778,7 @@ export default function SuperSaaSAdminView({
                   ? 'agents'
                   : activeTab === 'sub-affiliates'
                     ? 'subAffiliates'
-                    : 'agents'
+                    : 'overview'
               }
               isUnlocked={isUnlocked}
             />
