@@ -1172,54 +1172,8 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
     alert('❌ Akaunti hii haikupatikana.\n\nThis akaunti could not be found. Please confirm your phone number and password, or register a new affiliate akaunti.');
   };
 
-  const handleGooglePortalLogin = async () => {
-    if (!(await verifyAffiliateTurnstile())) return;
-    const isGoogleRegistration = authMode !== 'login' || isPartnerSetupMode;
-    if (isGoogleRegistration) {
-      sessionStorage.setItem('orvix_google_portal_registration_intent', portalRole);
-    }
-    const client: any = await getSecureDataBridgeClient();
-    const { error } = await client.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: `${window.location.origin}/${portalRole}?oauth=google${isGoogleRegistration ? '&register=true' : ''}` } });
-    if (error) alert('Google sign-in could not start. Please try again.');
-  };
-
-  useEffect(() => {
-    if (new URLSearchParams(window.location.search).get('oauth') !== 'google') return;
-    let cancelled = false;
-    const resolve = async () => {
-      try {
-        const client: any = await getSecureDataBridgeClient();
-        const { data } = await client.auth.getSession();
-        const token = data?.session?.access_token;
-        if (!token) return;
-        const params = new URLSearchParams(window.location.search);
-        const isRegistrationReturn = params.get('register') === 'true';
-        const response = await fetch('/api/auth/google/portal-resolve', { headers: { Authorization: `Bearer ${token}` } });
-        const result = await response.json().catch(() => ({}));
-        if (cancelled) return;
-        if (isRegistrationReturn && !response.ok) {
-          const intendedRole = sessionStorage.getItem('orvix_google_portal_registration_intent');
-          if (intendedRole === 'partner' || intendedRole === 'affiliate') setPortalRole(intendedRole);
-          sessionStorage.removeItem('orvix_google_portal_registration_intent');
-          setGoogleRegistrationVerified(true);
-          setAuthMode('register');
-          window.history.replaceState({}, document.title, intendedRole === 'partner' ? '/partner' : '/affiliate');
-          return;
-        }
-        if (!response.ok) throw result;
-        sessionStorage.removeItem('orvix_google_portal_registration_intent');
-        const resolved = result;
-        if (!resolved?.profile) throw resolved;
-        const profile = resolved.profile;
-        const mappedAff: Affiliate = { id: profile.id, name: profile.display_name, email: data.session.user.email || '', phone: profile.phone_whatsapp || '', paymentMethod: profile.payout_method || 'm-pesa', promoCode: profile.promo_code || profile.referral_code, isSuper: resolved.portalRole === 'partner', nidaNumber: profile.nida_number || '', tinNumber: profile.tin_number || '', payoutPhone: profile.payout_account || '' };
-        void startCloudSession(token); onlineStorage.setItem('jasper_logged_affiliate', JSON.stringify(mappedAff)); setActiveAffiliate(mappedAff);
-        if (resolved.portalRole === 'partner') setDatabaseAgentWorkspaceEnabled(true); else setDatabaseWorkspaceEnabled(true);
-        setAuthMode('dashboard');
-        window.history.replaceState({}, document.title, resolved.portalRole === 'partner' ? '/partner' : '/affiliate');
-      } catch { if (!cancelled) alert('This Google akaunti is not linked to an active Partner or Affiliate akaunti.'); }
-    };
-    resolve(); return () => { cancelled = true; };
-  }, []);
+  // Affiliate and Agent authentication uses email/password only.
+  // The Super Admin Google + Authenticator flow remains in LoginPage.tsx.
 
   const handleLogoutAffiliate = async () => {
     // Stop presence tracking immediately on logout
