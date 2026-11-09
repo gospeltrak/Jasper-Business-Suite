@@ -44,3 +44,22 @@ test('never invent last activity using updated_at metadata', () => {
   assert.doesNotMatch(mapper,/last_activity_at: row\.last_activity_at \|\| row\.lastActivityAt \|\| row\.updated_at/);
   assert.match(ui,/return 'Not recorded'/);
 });
+
+test('last activity endpoint verifies affiliate identity and scopes tenants before reading session activity', () => {
+  const server = readFileSync('server.ts','utf8');
+  const routeStart = server.indexOf("app.get('/api/affiliate/subscriber-last-activity'");
+  const routeEnd = server.indexOf("app.get('/api/platform/affiliate-payouts'",routeStart);
+  assert.ok(routeStart >= 0 && routeEnd > routeStart);
+  const endpoint = server.slice(routeStart,routeEnd);
+  assert.match(endpoint,/supabaseAdmin\.auth\.getUser\(token\)/);
+  assert.match(endpoint,/\.eq\('user_id', auth\.user\.id\)/);
+  assert.match(endpoint,/\.select\('tenant_id'\)/);
+  assert.match(endpoint,/tenantIds\.includes\(tenantId\)/);
+  assert.match(endpoint,/\.in\('tenant_id', tenantIds\)/);
+  assert.match(endpoint,/\.select\('tenant_id,last_activity_at'\)/);
+  assert.match(endpoint,/Cache-Control', 'private, no-store'/);
+  assert.doesNotMatch(endpoint,/req\.query\.tenantId|req\.query\.affiliateId|\.select\('\*'\).*user_sessions/);
+  assert.match(mapper,/fetch\('\/api\/affiliate\/subscriber-last-activity'/);
+  assert.match(mapper,/String\(profile\.user_id\) === authData\.user\.id/);
+  assert.match(mapper,/if \(activityAt\) subscriber\.last_activity_at = activityAt/);
+});
