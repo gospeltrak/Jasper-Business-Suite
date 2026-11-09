@@ -1215,7 +1215,7 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
                     ['Pending', (workspace?.payouts || []).filter(p => p.status === 'requested' || p.status === 'processing')],
                     ['Paid', (workspace?.payouts || []).filter(p => p.status === 'paid')],
                     ['Rejected', (workspace?.payouts || []).filter(p => p.status === 'rejected' || p.status === 'cancelled')],
-                  ].map(([label, items]) => (
+                  ] as const).map(([label, items]) => (
                     <div key={label} className="min-w-0 rounded-lg bg-slate-50 px-1.5 py-3 text-center dark:bg-emerald-950/60 sm:px-2">
                       <p className="text-[10px] text-slate-500 dark:text-emerald-100/70">{label}</p>
                       <p className="mt-1 break-words text-[11px] font-semibold tabular-nums text-slate-950 dark:text-white sm:text-sm">
