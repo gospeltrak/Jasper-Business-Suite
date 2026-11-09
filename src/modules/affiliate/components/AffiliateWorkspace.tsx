@@ -481,6 +481,15 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
         </div>
         <Film className="w-5 h-5 text-slate-400 shrink-0" />
       </div>
+      {campaign.media_mime_type?.startsWith('image/') && isSafeExternalUrl(campaign.media_url) && (
+        <img src={campaign.media_url} alt={campaign.title} loading="lazy" decoding="async" className="mt-3 max-h-52 w-full rounded-lg bg-slate-50 object-contain" />
+      )}
+      {campaign.media_mime_type?.startsWith('video/') && (
+        <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-4 text-center">
+          <Film className="mx-auto h-6 w-6 text-emerald-700"/>
+          <p className="mt-2 text-xs text-slate-500">Video available on demand · no autoplay</p>
+        </div>
+      )}
       {campaign.description && <p className="mt-3 text-sm leading-5 text-slate-600">{campaign.description}</p>}
       {campaign.recommended_caption && <p className="mt-3 rounded-md border-l-2 border-emerald-500 bg-emerald-50 px-3 py-2 text-xs leading-5 text-emerald-950">{campaign.recommended_caption}</p>}
       <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-slate-500">
@@ -930,17 +939,21 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
               </div>
               {contentTab==='advertisements'
                 ? <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                    {workspace!.campaigns.map(renderCampaign)}
-                    {workspace!.campaigns.length===0&&<div className="col-span-full flex flex-col items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-12 dark:border-emerald-900 dark:bg-[#092a20]">
+                    {workspace!.campaigns.filter(c=>!/(tutorial|training|guide)/i.test(c.title+' '+c.campaign_name)).map(renderCampaign)}
+                    {workspace!.campaigns.filter(c=>!/(tutorial|training|guide)/i.test(c.title+' '+c.campaign_name)).length===0&&<div className="col-span-full flex flex-col items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-12 dark:border-emerald-900 dark:bg-[#092a20]">
                       <Film className="h-8 w-8 text-emerald-700/55"/>
                       <p className="text-sm font-semibold text-slate-800 dark:text-white">No advertisements assigned</p>
                       <p className="text-xs text-slate-500 dark:text-emerald-100/60">Images, videos and campaign text will appear here.</p>
                     </div>}
                   </div>
-                : <div className="rounded-xl border border-slate-200 bg-white px-4 py-12 text-center dark:border-emerald-900 dark:bg-[#092a20]">
-                    <Film className="mx-auto mb-3 h-8 w-8 text-emerald-700/55"/>
-                    <p className="text-sm font-semibold text-slate-800 dark:text-white">Tutorials</p>
-                    <p className="mt-1 text-xs text-slate-500 dark:text-emerald-100/60">Training material will be displayed here when available. No video is loaded automatically.</p>
+                : <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    {workspace!.campaigns.filter(c=>/(tutorial|training|guide)/i.test(c.title+' '+c.campaign_name)).map(renderCampaign)}
+                    {!workspace!.campaigns.some(c=>/(tutorial|training|guide)/i.test(c.title+' '+c.campaign_name))&&
+                      <div className="col-span-full rounded-xl border border-slate-200 bg-white px-4 py-12 text-center dark:border-emerald-900 dark:bg-[#092a20]">
+                        <Film className="mx-auto mb-3 h-8 w-8 text-emerald-700/55"/>
+                        <p className="text-sm font-semibold text-slate-800 dark:text-white">No tutorials assigned</p>
+                        <p className="mt-1 text-xs text-slate-500 dark:text-emerald-100/60">Training material will appear here when available. Videos do not autoplay.</p>
+                      </div>}
                   </div>}
             </section>
           )}
@@ -1394,6 +1407,20 @@ function NotificationRow({ notification, onMarkRead }: { key?: unknown; notifica
 }
 
 function MeetingRow({ meeting, onJoin }: { key?: unknown; meeting: any; onJoin: () => void }) {
-  return <article className="flex flex-col justify-between gap-3 p-4 sm:flex-row sm:items-center"><div><p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">{meeting.status}</p><h3 className="mt-1 text-sm font-bold text-slate-950">{meeting.title}</h3><p className="mt-1 text-sm text-slate-500">{formatDateTime(meeting.starts_at)}{meeting.host_name ? ` · ${meeting.host_name}` : ''}</p>{meeting.notes && <p className="mt-2 text-sm text-slate-600">{meeting.notes}</p>}</div>{['upcoming', 'live'].includes(meeting.status) && <button type="button" onClick={onJoin} className="inline-flex items-center justify-center gap-2 rounded-md bg-slate-900 px-3 py-2.5 text-xs font-semibold text-white"><PlayCircle className="h-4 w-4" /> Join<ExternalLink className="h-3.5 w-3.5" /></button>}</article>;
+  const start = new Date(meeting.starts_at).getTime();
+  const validStart = Number.isFinite(start);
+  const withinJoinWindow = validStart && Date.now() >= start - 30*60*1000;
+  const joinEnabled = ['upcoming','live'].includes(meeting.status) && withinJoinWindow && !!meeting.meeting_url;
+  return <article className="flex flex-col justify-between gap-3 border-b border-slate-100 p-4 last:border-0 dark:border-emerald-900/40 sm:flex-row sm:items-center">
+    <div className="min-w-0">
+      <p className="text-[11px] font-medium uppercase tracking-wide text-emerald-700 dark:text-emerald-200">{meeting.status}</p>
+      <h3 className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">{meeting.title}</h3>
+      <p className="mt-1 text-xs text-slate-500 dark:text-emerald-100/65">{formatDateTime(meeting.starts_at)}{meeting.host_name ? ` · ${meeting.host_name}` : ''}</p>
+      {meeting.notes && <p className="mt-2 text-xs text-slate-600 dark:text-emerald-100/70">{meeting.notes}</p>}
+    </div>
+    {['upcoming','live'].includes(meeting.status) && (joinEnabled
+      ? <button type="button" onClick={onJoin} className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-700 px-3 py-2.5 text-xs font-semibold text-white"><PlayCircle className="h-4 w-4"/> Join Meeting</button>
+      : <span className="shrink-0 text-[11px] text-slate-500 dark:text-emerald-100/60">Link available near meeting time</span>)}
+  </article>;
 }
 
