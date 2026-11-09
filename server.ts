@@ -1077,6 +1077,63 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
 
   app.use(express.json({ limit: '8mb' }));
 
+  // Super Admin only: manual affiliate payout ledger reconciliation.
+  // Recording a paid status does not send money; the operator must send it
+  // externally and enter the verified transaction reference.
+  app.get('/api/platform/affiliate-payouts', async (req, res) => {
+    try {
+      await requirePlatformAdmin(req);
+      const [{ data: payouts, error: payoutsError }, { data: affiliates, error: affiliatesError }] = await Promise.all([
+        adminTable('affiliate_payouts')
+          .select('id,affiliate_id,amount,net_payout,payout_method,payout_phone,status,requested_at,processed_at,payout_reference,notes,provider_fee_tzs')
+          .order('requested_at', { ascending: false }).limit(300),
+        adminTable('affiliates').select('id,display_name').limit(2000),
+      ]);
+      if (payoutsError || affiliatesError) throw payoutsError || affiliatesError;
+      const names = new Map((affiliates || []).map((row: any) => [row.id, row.display_name]));
+      res.setHeader('Cache-Control', 'no-store');
+      return res.json({ payouts: (payouts || []).map((payout: any) => ({
+        ...payout, affiliate_name: names.get(payout.affiliate_id) || 'Affiliate',
+      })) });
+    } catch (error: any) {
+      return platformAdminError(res, error);
+    }
+  });
+
+  app.post('/api/platform/affiliate-payouts/:payoutId/decision', async (req, res) => {
+    try {
+      const admin = await requirePlatformAdmin(req);
+      const payoutId = String(req.params.payoutId || '');
+      const action = String(req.body?.action || '').trim();
+      const reason = String(req.body?.reason || '').trim();
+      const reference = String(req.body?.reference || '').trim();
+      if (!isUuid(payoutId) || !['reject', 'mark_paid'].includes(action)) {
+        return res.status(400).json({ error: 'Invalid payout decision.' });
+      }
+      if (action === 'reject' && (reason.length < 10 || reason.length > 500)) {
+        return res.status(400).json({ error: 'Rejection requires a reason of 10 to 500 characters.' });
+      }
+      if (action === 'mark_paid' && (reference.length < 5 || reference.length > 120)) {
+        return res.status(400).json({ error: 'A verified external payment reference is required.' });
+      }
+      const now = new Date().toISOString();
+      const changes = action === 'reject'
+        ? { status: 'rejected', notes: reason, processed_at: now, processed_by: admin.id }
+        : { status: 'paid', payout_reference: reference, processed_at: now, processed_by: admin.id };
+      const { data: payout, error } = await adminTable('affiliate_payouts')
+        .update(changes).eq('id', payoutId).in('status', ['requested', 'processing'])
+        .select('id,status,notes,payout_reference,processed_at').maybeSingle();
+      if (error) throw error;
+      if (!payout) return res.status(409).json({ error: 'This payout has already been processed or was not found.' });
+      // Existing database status trigger releases reserved rewards on rejection
+      // and marks reserved rewards paid after a verified manual transfer.
+      res.setHeader('Cache-Control', 'no-store');
+      return res.json({ payout });
+    } catch (error: any) {
+      return platformAdminError(res, error);
+    }
+  });
+
   app.get('/api/notifications/inbox', async (req, res) => {
     try {
       const access = await requireNotificationInboxUser(req);
