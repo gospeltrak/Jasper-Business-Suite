@@ -1156,7 +1156,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         adminTable('affiliate_agent_assignments').select('affiliate_id,agent_user_id').is('ended_at',null).limit(limit),
         adminTable('referred_customers').select('id,tenant_id,affiliate_id,sub_affiliate_id,customer_name,location,payment_status').order('created_at',{ascending:false}).limit(limit),
         adminTable('subscriber_source_tracking').select('tenant_id,affiliate_id,sub_affiliate_id').limit(limit),
-        adminTable('affiliate_payouts').select('id,affiliate_id,status,notes,payout_reference,requested_at').order('requested_at',{ascending:false}).limit(31),
+        adminTable('affiliate_payouts').select('id,affiliate_id,amount,net_payout,status,notes,payout_reference,requested_at').order('requested_at',{ascending:false}).limit(31),
       ]);
       for (const result of [agentsResult,affiliatesResult,assignmentsResult,referredResult,sourcesResult,payoutsResult]) {
         if (result.error) throw result.error;
@@ -1197,7 +1197,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         if(agentUser)agentCustomerCounts.set(agentUser,(agentCustomerCounts.get(agentUser)||0)+1);
       }
       const latestPayouts=(payoutsResult.data||[]).slice(0,30).map((p:any)=>({
-        status:p.status,reason:p.status==='rejected'?p.notes||null:null,
+        status:p.status,amount:Number(p.amount ?? p.net_payout ?? 0),reason:p.status==='rejected'?p.notes||null:null,
         affiliate:affiliateById.get(String(p.affiliate_id))?.display_name||'Affiliate',
         reference:p.status==='paid'?p.payout_reference||null:null,
         requested_at:p.requested_at,
