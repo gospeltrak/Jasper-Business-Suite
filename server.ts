@@ -1093,21 +1093,20 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       if (!affiliate) return res.status(403).json({ error: 'Affiliate access required' });
 
       const affiliateId = String(affiliate.id);
+      // One scoped query per source table rather than separate queries for
+      // each identifier/code. Do not embed untrusted code in a PostgREST OR.
       const codeValues = Array.from(new Set([affiliate.promo_code, affiliate.referral_code]
-        .map((value: unknown) => String(value || '').trim()).filter(Boolean)));
-      const sources: Promise<any>[] = [
-        adminTable('subscriber_source_tracking').select('tenant_id')
-          .or(`affiliate_id.eq.${affiliateId},sub_affiliate_id.eq.${affiliateId}`).limit(1000),
-        adminTable('referred_customers').select('tenant_id')
-          .or(`affiliate_id.eq.${affiliateId},sub_affiliate_id.eq.${affiliateId}`).limit(1000),
-      ];
-      for (const code of codeValues) {
-        sources.push(adminTable('subscriber_source_tracking').select('tenant_id').eq('promo_code_used', code).limit(1000));
-        sources.push(adminTable('subscriber_source_tracking').select('tenant_id').eq('referral_code_used', code).limit(1000));
-        sources.push(adminTable('referred_customers').select('tenant_id').eq('promo_code_used', code).limit(1000));
-        sources.push(adminTable('referred_customers').select('tenant_id').eq('referral_code_used', code).limit(1000));
-      }
-      const results = await Promise.all(sources);
+        .map((value: unknown) => String(value || '').trim())
+        .filter(code => /^[A-Za-z0-9_-]{1,40}$/.test(code))));
+      const conditions = [
+        `affiliate_id.eq.${affiliateId}`,
+        `sub_affiliate_id.eq.${affiliateId}`,
+        ...codeValues.flatMap(code => [`promo_code_used.eq.${code}`, `referral_code_used.eq.${code}`]),
+      ].join(',');
+      const results = await Promise.all([
+        adminTable('subscriber_source_tracking').select('tenant_id').or(conditions).limit(1000),
+        adminTable('referred_customers').select('tenant_id').or(conditions).limit(1000),
+      ]);
       for (const result of results) if (result.error) throw result.error;
       const tenantIds = Array.from(new Set(results.flatMap(result => (result.data || [])
         .map((row: any) => String(row.tenant_id || '').toLowerCase())
