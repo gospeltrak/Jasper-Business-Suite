@@ -274,7 +274,7 @@ export async function loadAffiliateWorkspace(options: AffiliateWorkspaceLoadOpti
 
   let profileQuery = client
     .from('affiliates')
-    .select('id, user_id, display_name, referral_code, promo_code, referral_slug, status, payout_method, payout_account, profile_image_url');
+    .select('id, user_id, display_name, referral_code, promo_code, referral_slug, status, payout_method, payout_account, phone_whatsapp, profile_image_url');
   profileQuery = options.affiliateId
     ? profileQuery.eq('id', options.affiliateId)
     : profileQuery.eq('user_id', authData.user.id);
