@@ -50,5 +50,5 @@ test('Kiswahili landing states actual bonus 10% and withdrawal policy',()=>{
  assert.match(portal,/TZS 2,000/);
  assert.match(portal,/kamisheni ya 10%/);
  assert.match(portal,/Ijumaa ya mwisho/);
- assert.match(portal,/Endelea kwa Google/);
+ assert.doesNotMatch(portal,/Endelea kwa Google|Continue with Google/);
 });
