@@ -12,6 +12,7 @@ export interface AffiliateWorkspaceProfile {
   display_name: string;
   referral_code: string;
   referral_slug: string;
+  promo_code_changed_at?: string | null;
   status: 'active' | 'suspended' | 'pending';
   payout_method: string | null;
   payout_account: string | null;
@@ -275,7 +276,7 @@ export async function loadAffiliateWorkspace(options: AffiliateWorkspaceLoadOpti
 
   let profileQuery = client
     .from('affiliates')
-    .select('id, user_id, display_name, referral_code, promo_code, referral_slug, status, payout_method, payout_account, phone_whatsapp, profile_image_url');
+    .select('id, user_id, display_name, referral_code, promo_code, referral_slug, promo_code_changed_at, status, payout_method, payout_account, phone_whatsapp, profile_image_url');
   profileQuery = options.affiliateId
     ? profileQuery.eq('id', options.affiliateId)
     : profileQuery.eq('user_id', authData.user.id);
