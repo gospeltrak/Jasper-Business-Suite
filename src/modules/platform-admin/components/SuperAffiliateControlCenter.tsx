@@ -12,13 +12,14 @@ import {
   deletePartner,
 } from '../utils/superAffiliateAdmin';
 import { verifySuperAdminPassword } from '../utils/superAdminData';
+import SuperAffiliatePayoutReview from './SuperAffiliatePayoutReview';
 import { formatLocalDate } from '../../../shared/utils/localDate';
 import { downloadExcelFileFromRows } from '../../../shared/utils/excelExport';
 
 const money = new Intl.NumberFormat('en-TZ', { style: 'currency', currency: 'TZS', maximumFractionDigits: 0 });
 const emptyData: AffiliateMonitoringData = { affiliates: [], organicSubscribers: [], agents: [], subAffiliates: [] };
 
-type AffiliateCenterTab = 'agents' | 'subAffiliates';
+type AffiliateCenterTab = 'agents' | 'subAffiliates' | 'payouts';
 
 const openAffiliateMirror = (row: SubAffiliateMonitoringRow) => {
   window.dispatchEvent(new CustomEvent('saas_enter_mirror', {
@@ -183,9 +184,10 @@ export default function SuperAffiliateControlCenter({ initialTab = 'agents', isU
       <div className="flex gap-2">
         <TabButton active={activeTab === 'agents'} onClick={() => setActiveTab('agents')} label="Affiliate Agents" />
         <TabButton active={activeTab === 'subAffiliates'} onClick={() => setActiveTab('subAffiliates')} label="Sub-Affiliates" />
+        <TabButton active={activeTab === 'payouts'} onClick={() => setActiveTab('payouts')} label="Payout Requests" />
       </div>
 
-      <div className="space-y-2.5">
+      {activeTab !== 'payouts' && <div className="space-y-2.5">
         <label className="relative block">
           <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search this monitoring section" className="w-full rounded-xl border border-slate-800 bg-slate-900 py-2.5 pl-10 pr-3 text-sm text-white placeholder:text-slate-600 outline-none focus:border-slate-700" />
@@ -207,8 +209,9 @@ export default function SuperAffiliateControlCenter({ initialTab = 'agents', isU
             </select>
           ) : <div />}
         </div>
-      </div>
+      </div>}
 
+      {activeTab === 'payouts' && <SuperAffiliatePayoutReview />}
       {activeTab === 'agents' && <AgentMonitoringSection rows={agentRows} totals={agentTotals} onExport={exportAgentPayouts} isUnlocked={isUnlocked} onDelete={(row) => setDeleteTarget({ id: row.agentId, name: row.agentName, kind: 'partner' })} />}
       {activeTab === 'subAffiliates' && <SubAffiliateSection rows={subAffiliateRows} totals={subTotals} onExport={exportSubPayouts} onEdit={openAffiliateEditor} loadingAffiliateId={loadingAffiliateId} isUnlocked={isUnlocked} onDelete={(row) => setDeleteTarget({ id: row.id, name: row.name, kind: 'subAffiliate' })} />}
 
