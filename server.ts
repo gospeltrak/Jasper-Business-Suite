@@ -1143,6 +1143,91 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     }
   });
 
+  // Lightweight read-only Super Admin network overview. Heavy affiliate details,
+  // commissions, actions and full transaction ledgers remain in the Agent desk.
+  // One bounded request, fixed number of narrow queries, no tenant workspace scan.
+  app.get('/api/platform/affiliate-network-overview', async (req, res) => {
+    try {
+      await requirePlatformAdmin(req);
+      const limit = 201; // last row is an explicit partial-data sentinel
+      const [agentsResult, affiliatesResult, assignmentsResult, referredResult, sourcesResult, payoutsResult] = await Promise.all([
+        adminTable('affiliate_partners').select('id,user_id,display_name,status,is_disabled').order('created_at',{ascending:false}).limit(limit),
+        adminTable('affiliates').select('id,display_name,location,status').order('created_at',{ascending:false}).limit(limit),
+        adminTable('affiliate_agent_assignments').select('affiliate_id,agent_user_id').is('ended_at',null).limit(limit),
+        adminTable('referred_customers').select('id,tenant_id,affiliate_id,sub_affiliate_id,customer_name,location,payment_status').order('created_at',{ascending:false}).limit(limit),
+        adminTable('subscriber_source_tracking').select('tenant_id,affiliate_id,sub_affiliate_id').limit(limit),
+        adminTable('affiliate_payouts').select('id,affiliate_id,status,notes,payout_reference,requested_at').order('requested_at',{ascending:false}).limit(31),
+      ]);
+      for (const result of [agentsResult,affiliatesResult,assignmentsResult,referredResult,sourcesResult,payoutsResult]) {
+        if (result.error) throw result.error;
+      }
+      const partial = [agentsResult,affiliatesResult,assignmentsResult,referredResult,sourcesResult].some(result=>(result.data||[]).length >= limit);
+      const agents = (agentsResult.data||[]).slice(0,200);
+      const affiliates = (affiliatesResult.data||[]).slice(0,200);
+      const assignments = (assignmentsResult.data||[]).slice(0,200);
+      const referred = (referredResult.data||[]).slice(0,200);
+      const sources = (sourcesResult.data||[]).slice(0,200);
+      const agentByUser = new Map(agents.map((row:any)=>[String(row.user_id),row]));
+      const ownerByAffiliate = new Map<string,string>();
+      for(const assignment of assignments) {
+        const affiliateId=String(assignment.affiliate_id||'');
+        if (isUuid(affiliateId) && agentByUser.has(String(assignment.agent_user_id))) {
+          ownerByAffiliate.set(affiliateId,String(assignment.agent_user_id));
+        }
+      }
+      const affiliateById=new Map(affiliates.map((row:any)=>[String(row.id),row]));
+      const customerByTenant=new Map<string,{name:string;affiliateId:string;location:string;status:string}>();
+      const addCustomer=(row:any,fromReferred:boolean)=>{
+        const tenantId=String(row.tenant_id||'');
+        const affiliateId=String(row.sub_affiliate_id||row.affiliate_id||'');
+        if(!isUuid(tenantId)||!isUuid(affiliateId))return;
+        if(customerByTenant.has(tenantId))return;
+        customerByTenant.set(tenantId,{name:fromReferred?String(row.customer_name||'Not provided'):'Not provided',
+          affiliateId,location:fromReferred?String(row.location||''):'',status:fromReferred?String(row.payment_status||''):'Unknown'});
+      };
+      for(const row of referred)addCustomer(row,true);
+      for(const row of sources)addCustomer(row,false);
+      const customers=[...customerByTenant.entries()];
+      const affiliatesForAgent=(userId:string)=>[...ownerByAffiliate.values()].filter(id=>id===userId).length;
+      const customerCounts=new Map<string,number>();
+      for(const [,customer] of customers) customerCounts.set(customer.affiliateId,(customerCounts.get(customer.affiliateId)||0)+1);
+      const agentCustomerCounts=new Map<string,number>();
+      for(const [,customer] of customers){
+        const agentUser=ownerByAffiliate.get(customer.affiliateId);
+        if(agentUser)agentCustomerCounts.set(agentUser,(agentCustomerCounts.get(agentUser)||0)+1);
+      }
+      const latestPayouts=(payoutsResult.data||[]).slice(0,30).map((p:any)=>({
+        status:p.status,reason:p.status==='rejected'?p.notes||null:null,
+        affiliate:affiliateById.get(String(p.affiliate_id))?.display_name||'Affiliate',
+        reference:p.status==='paid'?p.payout_reference||null:null,
+        requested_at:p.requested_at,
+      }));
+      res.setHeader('Cache-Control','private, no-store');
+      return res.json({
+        partial, agents:agents.map((row:any)=>({
+          name:row.display_name||'Agent',status:row.is_disabled?'inactive':row.status,
+          affiliates:affiliatesForAgent(String(row.user_id)),
+          customers:agentCustomerCounts.get(String(row.user_id))||0,
+        })),
+        affiliate_total:affiliates.length,
+        assigned_affiliates:ownerByAffiliate.size,
+        unassigned_affiliates:affiliates.filter((a:any)=>!ownerByAffiliate.has(String(a.id))).length,
+        referred_customer_total:customers.length,
+        affiliates:affiliates.map((a:any)=>({
+          name:a.display_name||'Affiliate', location:a.location||'Not provided',
+          agent:agentByUser.get(ownerByAffiliate.get(String(a.id))||'')?.display_name||'Unassigned',
+          customers:customerCounts.get(String(a.id))||0,
+        })),
+        customer_sources:customers.slice(0,50).map(([,c])=>({
+          name:c.name,affiliate:affiliateById.get(c.affiliateId)?.display_name||'Affiliate',
+          location:c.location||'Not provided',status:c.status,
+        })),
+        payout_audit:latestPayouts,
+        payout_audit_more:(payoutsResult.data||[]).length>30,
+      });
+    } catch(error:any) { return platformAdminError(res,error); }
+  });
+
   // One read/write service for Agent and Super Admin: identical payout source,
   // filtered by authenticated role. No cross-user cache of financial records.
   const resolveAffiliatePayoutAccess = async (req: express.Request) => {
