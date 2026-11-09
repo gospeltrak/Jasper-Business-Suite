@@ -1246,6 +1246,7 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
                 </div>
                 {(() => {
                   const filtered = (workspace?.payouts || []).filter(payout => {
+                    if (reportMonth && payout.requested_at?.slice(0, 7) !== reportMonth) return false;
                     if (payoutFilter === 'all') return true;
                     if (payoutFilter === 'pending') return payout.status === 'requested' || payout.status === 'processing';
                     if (payoutFilter === 'rejected') return payout.status === 'rejected' || payout.status === 'cancelled';
