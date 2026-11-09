@@ -227,7 +227,8 @@ const mapSubscriberRow = (row: any): AffiliateSubscriber => {
     commission_status: row.commission_status || row.commissionStatus || 'pending',
     status: isActive ? 'active' : 'inactive',
     days_remaining: daysRemaining,
-    last_activity_at: row.last_activity_at || row.lastActivityAt || row.updated_at || row.updatedAt || null,
+    // A record update is NOT evidence the subscriber actually used Orvix.
+    last_activity_at: row.last_activity_at || row.lastActivityAt || null,
     last_login_at: row.last_login_at || row.lastLoginAt || null,
     created_at: row.created_at || row.createdAt || '',
   };
