@@ -1144,62 +1144,111 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     }
   });
 
-  // Super Admin only: manual affiliate payout ledger reconciliation.
-  // Recording a paid status does not send money; the operator must send it
-  // externally and enter the verified transaction reference.
-  app.get('/api/platform/affiliate-payouts', async (req, res) => {
+  // One read/write service for Agent and Super Admin: identical payout source,
+  // filtered by authenticated role. No cross-user cache of financial records.
+  const resolveAffiliatePayoutAccess = async (req: express.Request) => {
+    const user = await requireActiveUser(req);
+    const { data: profile, error: profileError } = await adminTable('users')
+      .select('id, tenant_id, active_tenant, account_type, role, role_key, is_active')
+      .eq('id', user.id).maybeSingle();
+    if (profileError) throw profileError;
+    if (isStrictPlatformAdminProfile(profile)) {
+      return { userId: user.id, role: 'admin' as const, affiliateIds: [] as string[] };
+    }
+
+    // No trusted client-supplied affiliate, partner, or payout scope.
+    const { data: partner, error: partnerError } = await adminTable('affiliate_partners')
+      .select('id,status,is_disabled')
+      .eq('user_id', user.id).maybeSingle();
+    if (partnerError) throw partnerError;
+    if (!partner || partner.is_disabled || partner.status !== 'active') {
+      const denied: any = new Error('Active affiliate agent access required');
+      denied.status = 403;
+      throw denied;
+    }
+    const { data: assignments, error: assignmentError } = await adminTable('affiliate_agent_assignments')
+      .select('affiliate_id')
+      .eq('agent_user_id', user.id)
+      .is('ended_at', null).limit(1000);
+    if (assignmentError) throw assignmentError;
+    const affiliateIds = [...new Set((assignments || []).map((row: any) => String(row.affiliate_id || '')).filter(isUuid))];
+    return { userId: user.id, role: 'agent' as const, affiliateIds };
+  };
+
+  const readAffiliatePayouts = async (req: express.Request, res: express.Response) => {
     try {
-      await requirePlatformAdmin(req);
-      const [{ data: payouts, error: payoutsError }, { data: affiliates, error: affiliatesError }] = await Promise.all([
-        adminTable('affiliate_payouts')
-          .select('id,affiliate_id,amount,net_payout,payout_month,payout_method,payout_phone,status,requested_at,processed_at,payout_reference,notes,provider_fee_tzs')
-          .order('requested_at', { ascending: false }).limit(300),
-        adminTable('affiliates').select('id,display_name').limit(2000),
-      ]);
-      if (payoutsError || affiliatesError) throw payoutsError || affiliatesError;
-      const names = new Map((affiliates || []).map((row: any) => [row.id, row.display_name]));
-      res.setHeader('Cache-Control', 'no-store');
-      return res.json({ payouts: (payouts || []).map((payout: any) => ({
-        ...payout, affiliate_name: names.get(payout.affiliate_id) || 'Affiliate',
+      const access = await resolveAffiliatePayoutAccess(req);
+      if (access.role === 'agent' && access.affiliateIds.length === 0) {
+        res.setHeader('Cache-Control', 'private, no-store');
+        return res.json({ role: access.role, payouts: [] });
+      }
+      let query = adminTable('affiliate_payouts')
+        // FK join avoids a second read of ALL affiliate profiles for every page.
+        .select('id,affiliate_id,amount,net_payout,payout_month,payout_method,payout_phone,status,requested_at,processed_at,payout_reference,notes,provider_fee_tzs,affiliate:affiliates!affiliate_payouts_affiliate_id_fkey(display_name)')
+        .order('requested_at', { ascending: false }).limit(150);
+      if (access.role === 'agent') query = query.in('affiliate_id', access.affiliateIds);
+      const { data, error } = await query;
+      if (error) throw error;
+      res.setHeader('Cache-Control', 'private, no-store');
+      return res.json({ role: access.role, payouts: (data || []).map((row: any) => ({
+        ...row,
+        affiliate_name: row.affiliate?.display_name || 'Affiliate',
+        affiliate: undefined,
       })) });
     } catch (error: any) {
       return platformAdminError(res, error);
     }
-  });
+  };
 
-  app.post('/api/platform/affiliate-payouts/:payoutId/decision', async (req, res) => {
+  const decideAffiliatePayout = async (req: express.Request, res: express.Response) => {
     try {
-      const admin = await requirePlatformAdmin(req);
+      const access = await resolveAffiliatePayoutAccess(req);
+      if (access.role !== 'agent') return res.status(403).json({ error: 'Agent decision required; Super Admin reviews only.' });
       const payoutId = String(req.params.payoutId || '');
       const action = String(req.body?.action || '').trim();
       const reason = String(req.body?.reason || '').trim();
       const reference = String(req.body?.reference || '').trim();
-      if (!isUuid(payoutId) || !['reject', 'mark_paid'].includes(action)) {
+      if (!isUuid(payoutId) || !['approve','reject','mark_paid'].includes(action)) {
         return res.status(400).json({ error: 'Invalid payout decision.' });
       }
       if (action === 'reject' && (reason.length < 10 || reason.length > 500)) {
-        return res.status(400).json({ error: 'Rejection requires a reason of 10 to 500 characters.' });
+        return res.status(400).json({ error: 'A rejection reason of 10 to 500 characters is required.' });
       }
       if (action === 'mark_paid' && (reference.length < 5 || reference.length > 120)) {
-        return res.status(400).json({ error: 'A verified external payment reference is required.' });
+        return res.status(400).json({ error: 'Verified manual transfer reference required.' });
       }
-      const now = new Date().toISOString();
-      const changes = action === 'reject'
-        ? { status: 'rejected', notes: reason, processed_at: now, processed_by: admin.id }
-        : { status: 'paid', payout_reference: reference, processed_at: now, processed_by: admin.id };
+      if (!access.affiliateIds.length) return res.status(403).json({ error: 'No assigned affiliates.' });
+
+      // A state change must target an existing, unprocessed V2 request from
+      // this agent's ACTIVE assignment; no blind updates by arbitrary payout ID.
+      const expectedStatus = action === 'approve' ? ['requested']
+        : action === 'mark_paid' ? ['processing'] : ['requested','processing'];
+      const changes = action === 'approve'
+        ? { status: 'processing', agent_id: access.userId }
+        : action === 'reject'
+          ? { status: 'rejected', notes: reason, processed_at: new Date().toISOString(), processed_by: access.userId, agent_id: access.userId }
+          : { status: 'paid', payout_reference: reference, processed_at: new Date().toISOString(), processed_by: access.userId, agent_id: access.userId };
       const { data: payout, error } = await adminTable('affiliate_payouts')
-        .update(changes).eq('id', payoutId).in('status', ['requested', 'processing']).not('payout_month', 'is', null)
+        .update(changes).eq('id', payoutId)
+        .in('affiliate_id', access.affiliateIds)
+        .in('status', expectedStatus)
+        .not('payout_month', 'is', null)
         .select('id,status,notes,payout_reference,processed_at').maybeSingle();
       if (error) throw error;
-      if (!payout) return res.status(409).json({ error: 'This payout has already been processed or was not found.' });
-      // Existing database status trigger releases reserved rewards on rejection
-      // and marks reserved rewards paid after a verified manual transfer.
+      if (!payout) return res.status(409).json({ error: 'Not assigned, invalid state, or already processed.' });
       res.setHeader('Cache-Control', 'no-store');
       return res.json({ payout });
     } catch (error: any) {
       return platformAdminError(res, error);
     }
-  });
+  };
+
+  // Shared endpoints. Legacy Super Admin GET stays as an alias, using the
+  // same read service; its legacy decision URL now enforces agent-only rules.
+  app.get('/api/affiliate-operations/payouts', readAffiliatePayouts);
+  app.post('/api/affiliate-operations/payouts/:payoutId/decision', decideAffiliatePayout);
+  app.get('/api/platform/affiliate-payouts', readAffiliatePayouts);
+  app.post('/api/platform/affiliate-payouts/:payoutId/decision', decideAffiliatePayout);
 
   app.get('/api/notifications/inbox', async (req, res) => {
     try {
