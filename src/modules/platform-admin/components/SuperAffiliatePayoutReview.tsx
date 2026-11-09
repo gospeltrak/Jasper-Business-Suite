@@ -17,13 +17,13 @@ type PayoutRow = {
   notes: string | null;
   provider_fee_tzs: number | null;
 };
-type Decision = 'reject' | 'mark_paid';
+type Decision = 'approve' | 'reject' | 'mark_paid';
 const formatTZS = (n: number | null | undefined) => 'TZS ' + Number(n || 0).toLocaleString('en-TZ');
 
-async function adminPayoutRequest(path: string, init?: RequestInit) {
+async function sharedPayoutRequest(path: string, init?: RequestInit) {
   const client = await getSecureDataBridgeClient();
   const { data, error } = await client.auth.getSession();
-  if (error || !data.session?.access_token) throw new Error('Sign in as Super Admin to review payouts.');
+  if (error || !data.session?.access_token) throw new Error('Sign in to review payout requests.');
   const response = await fetch(path, {
     ...init,
     headers: {
@@ -38,7 +38,7 @@ async function adminPayoutRequest(path: string, init?: RequestInit) {
   return result;
 }
 
-export default function SuperAffiliatePayoutReview() {
+export default function SuperAffiliatePayoutReview({ mode = 'audit' }: { mode?: 'agent' | 'audit' }) {
   const [rows, setRows] = useState<PayoutRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'pending' | 'paid' | 'rejected' | 'all'>('pending');
@@ -52,7 +52,7 @@ export default function SuperAffiliatePayoutReview() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await adminPayoutRequest('/api/platform/affiliate-payouts');
+      const data = await sharedPayoutRequest('/api/affiliate-operations/payouts');
       setRows(Array.isArray(data.payouts) ? data.payouts : []);
       setError('');
     } catch (e: any) {
@@ -74,14 +74,14 @@ export default function SuperAffiliatePayoutReview() {
     if (!selected || busy) return;
     setBusy(true); setError('');
     try {
-      await adminPayoutRequest(`/api/platform/affiliate-payouts/${encodeURIComponent(selected.row.id)}/decision`, {
+      await sharedPayoutRequest(`/api/affiliate-operations/payouts/${encodeURIComponent(selected.row.id)}/decision`, {
         method: 'POST',
         body: JSON.stringify({
           action: selected.action,
-          ...(selected.action === 'reject' ? { reason: reason.trim() } : { reference: reference.trim() }),
+          ...(selected.action === 'reject' ? { reason: reason.trim() } : selected.action === 'mark_paid' ? { reference: reference.trim() } : {}),
         }),
       });
-      setNotice(selected.action === 'reject' ? 'Request rejected with a reason.' : 'External payment recorded as paid.');
+      setNotice(selected.action === 'reject' ? 'Request rejected with a reason.' : selected.action === 'approve' ? 'Request approved for processing.' : 'External payment recorded as paid.');
       setSelected(null); setReason(''); setReference('');
       await load();
     } catch (e: any) {
@@ -94,8 +94,8 @@ export default function SuperAffiliatePayoutReview() {
   return (
     <section className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div><h2 className="text-base font-semibold text-white">Manual Payout Requests</h2>
-          <p className="mt-1 text-xs text-slate-400">Review requests, send externally, and record verified transfers.</p></div>
+        <div><h2 className="text-base font-semibold text-white">{mode === 'agent' ? 'Affiliate Payout Requests' : 'Payout Audit'}</h2>
+          <p className="mt-1 text-xs text-slate-400">{mode === 'agent' ? 'Approve, reject or confirm manually sent payments for your affiliates.' : 'Read-only overview of payment decisions and references.'}</p></div>
         <button type="button" onClick={() => void load()} className="rounded-lg border border-emerald-800 px-3 py-2 text-xs text-emerald-300 hover:bg-emerald-900/30">Refresh</button>
       </div>
       {error && <p role="alert" className="rounded-lg border border-rose-900 bg-rose-950/60 px-3 py-2 text-xs text-rose-200">{error}</p>}
@@ -120,9 +120,10 @@ export default function SuperAffiliatePayoutReview() {
                 </div>
                 <span className="rounded-md border border-slate-700 px-2.5 py-1 text-[11px] capitalize text-slate-300">{row.status}</span>
                 {!row.payout_month && ['requested','processing'].includes(row.status) && <span className="text-[10px] text-amber-400">Legacy payout · review separately</span>}
-                {['requested','processing'].includes(row.status) && row.payout_month && <div className="flex gap-2">
+                {mode === 'agent' && ['requested','processing'].includes(row.status) && row.payout_month && <div className="flex flex-wrap gap-2">
+                  {row.status === 'requested' && <button type="button" onClick={() => { setSelected({row,action:'approve'}); setReason(''); setReference(''); }} className="rounded-lg border border-emerald-700 bg-emerald-900/40 px-3 py-2 text-xs text-emerald-100">Approve</button>}
                   <button type="button" onClick={() => { setSelected({ row, action: 'reject' }); setReason(''); setReference(''); }} className="rounded-lg border border-rose-800 px-3 py-2 text-xs text-rose-300">Reject</button>
-                  <button type="button" onClick={() => { setSelected({ row, action: 'mark_paid' }); setReason(''); setReference(''); }} className="rounded-lg bg-emerald-700 px-3 py-2 text-xs text-white">Mark Paid</button>
+                  {row.status === 'processing' && <button type="button" onClick={() => { setSelected({ row, action: 'mark_paid' }); setReason(''); setReference(''); }} className="rounded-lg bg-emerald-700 px-3 py-2 text-xs text-white">Mark Paid</button>}
                 </div>}
               </article>
             ))}</div>}
@@ -130,9 +131,9 @@ export default function SuperAffiliatePayoutReview() {
 
       {selected && <div className="fixed inset-0 z-[100] grid place-items-center bg-black/70 p-3" onClick={e => { if (e.target === e.currentTarget && !busy) setSelected(null); }}>
         <form onSubmit={e => { e.preventDefault(); void submit(); }} className="w-full max-w-md space-y-4 rounded-xl border border-slate-700 bg-slate-950 p-5 shadow-2xl">
-          <h3 className="text-base font-semibold text-white">{selected.action === 'reject' ? 'Reject Withdrawal' : 'Confirm External Payment'}</h3>
+          <h3 className="text-base font-semibold text-white">{selected.action === 'reject' ? 'Reject Withdrawal' : selected.action === 'approve' ? 'Approve for Processing' : 'Confirm External Payment'}</h3>
           <p className="text-xs text-slate-400">{selected.row.affiliate_name} · {formatTZS(selected.row.amount)}</p>
-          {selected.action === 'reject' ? <label className="block text-xs text-slate-300">Reason (required, 10–500 characters)
+          {selected.action === 'approve' ? <p className="text-xs text-emerald-200">Move this request to Processing. No money is sent automatically.</p> : selected.action === 'reject' ? <label className="block text-xs text-slate-300">Reason (required, 10–500 characters)
             <textarea required minLength={10} maxLength={500} rows={3} value={reason} onChange={e => setReason(e.target.value)}
               placeholder="Explain why this withdrawal was rejected" className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-900 p-3 text-sm text-white outline-none focus:border-emerald-600" />
           </label> : <label className="block text-xs text-slate-300">Verified transaction reference (required)
@@ -143,7 +144,7 @@ export default function SuperAffiliatePayoutReview() {
           {error && <p role="alert" className="text-xs text-rose-300">{error}</p>}
           <div className="flex justify-end gap-2">
             <button type="button" disabled={busy} onClick={() => setSelected(null)} className="rounded-lg border border-slate-700 px-4 py-2 text-xs text-slate-200">Cancel</button>
-            <button type="submit" disabled={busy || (selected.action === 'reject' ? reason.trim().length < 10 : reference.trim().length < 5)}
+            <button type="submit" disabled={busy || (selected.action === 'reject' ? reason.trim().length < 10 : selected.action === 'mark_paid' ? reference.trim().length < 5 : false)}
               className="rounded-lg bg-emerald-700 px-4 py-2 text-xs font-semibold text-white disabled:opacity-50">{busy ? 'Saving...' : 'Confirm'}</button>
           </div>
         </form>
