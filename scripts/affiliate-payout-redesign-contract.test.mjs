@@ -10,7 +10,7 @@ const payout = ui.slice(ui.indexOf("{activeTab === 'payouts' &&"),ui.indexOf("{a
 const endpoints = api.slice(api.indexOf("app.get('/api/platform/affiliate-payouts'"),api.indexOf("app.get('/api/notifications/inbox'"));
 
 test('Payment Status has compact earnings, available balance, request CTA and status history', () => {
-  for(const word of ['Referral Bonus','Commission (10%)','Total Earnings','Available to Request','Request Funds','Withdrawal Summary','Withdrawal History']) assert.ok(payout.includes(word),word);
+  for(const word of ['Referral Bonus','Commission (10%)','Available Balance','Request Funds','Withdrawal Summary','Withdrawal History']) assert.ok(payout.includes(word),word);
   assert.doesNotMatch(payout,/Referral bonus, commission na withdrawal requests/);
   assert.match(payout,/\['pending', 'Pending'\]/);
   assert.match(payout,/\['paid', 'Paid'\]/);
@@ -18,7 +18,7 @@ test('Payment Status has compact earnings, available balance, request CTA and st
   assert.match(payout,/payout\.notes/);
   assert.match(payout,/\!canWithdraw/);
   assert.match(payout,/metrics\.available < AFFILIATE_MIN_WITHDRAWAL_TZS/);
-  assert.match(payout,/transfer fee is paid by the affiliate and deducted/i);
+  assert.match(payout,/Fee is deducted from your payout/i);
   assert.match(payout,/amount: String\(Math\.round\(metrics\.available\)\)/);
 });
 test('Manual payout RPC remains atomically validated by backend and no automatic transfer added', () => {
