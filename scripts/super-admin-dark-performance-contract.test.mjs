@@ -9,6 +9,8 @@ const metrics = read('src/modules/platform-admin/components/SaaSDashboardMetrics
 const ads = read('src/shared/utils/adPlacement.ts');
 const affiliate = read('src/modules/platform-admin/components/SuperAffiliateNetworkOverview.tsx');
 const payout = read('src/modules/platform-admin/components/SuperAffiliatePayoutReview.tsx');
+const network = read('src/modules/platform-admin/components/SuperAffiliateNetworkOverview.tsx');
+const server = read('server.ts');
 
 test('Super Admin keeps a dark-only scaffold without disabling tenant theme controls', () => {
   assert.match(shell, /user\.role === 'SuperAdmin' \? 'dark'/);
@@ -47,4 +49,13 @@ test('Super Admin affiliate and payouts stay read-only', () => {
 test('Mobile MFA retains one working authenticator control and no unreachable branch', () => {
   assert.doesNotMatch(admin, /\{true \? \(/);
   assert.match(admin, /onClick=\{beginMfaVerification\}/);
+});
+
+test('Admin affiliate navigation uses scoped read-only views and bounded payout amounts', () => {
+  assert.match(shell, /admin-affiliate-agents'/);
+  assert.match(shell, /admin-sub-affiliates'/);
+  assert.match(network, /activeSection === 'payouts'/);
+  assert.match(network, /activeSection === 'subAffiliates'/);
+  assert.match(network, /TZS \{\(p\.amount\|\|0\)\.toLocaleString\(\)\}/);
+  assert.match(server, /affiliate_payouts'\)\.select\('id,affiliate_id,amount,net_payout,status/);
 });
