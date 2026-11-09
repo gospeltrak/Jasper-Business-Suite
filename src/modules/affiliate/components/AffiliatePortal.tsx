@@ -1031,7 +1031,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
   const requestPasswordRecovery = async (e: React.FormEvent) => {
     e.preventDefault();
     const target=recoveryEmail.trim().toLowerCase();
-    if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(target)) { setRecoveryNotice('Enter a valid email.'); return; }
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(target)) { setRecoveryNotice('Enter a valid email.'); return; }
     setRecoveryBusy(true);setRecoveryNotice('');
     try {
       const client:any=await getSecureDataBridgeClient();
@@ -1044,7 +1044,7 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
   };
   const finishPasswordRecovery = async (e: React.FormEvent) => {
     e.preventDefault();
-    if(recoveryPassword.length<10||!/[A-Za-z]/.test(recoveryPassword)||!/\\d/.test(recoveryPassword)){
+    if(recoveryPassword.length<10||!/[A-Za-z]/.test(recoveryPassword)||!/\d/.test(recoveryPassword)){
       setRecoveryNotice('Use at least 10 characters including a letter and number.');return;
     }
     if(recoveryPassword!==recoveryConfirm){setRecoveryNotice('Passwords do not match.');return;}
