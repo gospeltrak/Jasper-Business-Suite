@@ -7,7 +7,7 @@ const admin = readFileSync('src/modules/platform-admin/components/SuperAffiliate
 const adminCenter = readFileSync('src/modules/platform-admin/components/SuperAffiliateControlCenter.tsx','utf8');
 const api = readFileSync('server.ts','utf8');
 const payout = ui.slice(ui.indexOf("{activeTab === 'payouts' &&"),ui.indexOf("{activeTab === 'settings' &&"));
-const endpoints = api.slice(api.indexOf("app.get('/api/platform/affiliate-payouts'"),api.indexOf("app.get('/api/notifications/inbox'"));
+const endpoints = api.slice(api.indexOf('const resolveAffiliatePayoutAccess'),api.indexOf("app.get('/api/notifications/inbox'"));
 
 test('Payment Status has compact earnings, available balance, request CTA and status history', () => {
   for(const word of ['Referral Bonus','Commission (10%)','Available Balance','Request Funds','Withdrawal Summary','Withdrawal History']) assert.ok(payout.includes(word),word);
@@ -33,13 +33,24 @@ test('Super Admin has scoped manual payout review requiring rejection reason or 
   assert.match(admin,/Reason \(required, 10–500 characters\)/);
   assert.match(admin,/Verified transaction reference \(required\)/);
   assert.match(admin,/only after the money has been sent manually/);
-  assert.match(endpoints,/await requirePlatformAdmin\(req\)/);
+  assert.match(admin,/mode === 'agent'/);
+  assert.match(admin,/Approve for Processing/);
+  assert.match(admin,/mode === 'agent' && \['requested','processing'\]/);
+  assert.match(endpoints,/supabaseAdmin\.auth\.getUser\(token\)/);
+  assert.match(endpoints,/isStrictPlatformAdminProfile\(profile\)/);
+  assert.match(endpoints,/affiliate_agent_assignments/);
+  assert.match(endpoints,/\.eq\('agent_user_id', user\.id\)/);
+  assert.match(endpoints,/\.is\('ended_at', null\)/);
+  assert.match(endpoints,/access\.role !== 'agent'/);
+  assert.match(endpoints,/needs_assignment: true/);
+  assert.match(endpoints,/\.in\('affiliate_id', access\.affiliateIds\)/);
   assert.match(endpoints,/reason\.length < 10/);
   assert.match(endpoints,/reference\.length < 5/);
-  assert.match(endpoints,/\.in\('status', \['requested', 'processing'\]\)/);
+  assert.match(endpoints,/\.in\('status', expectedStatus\)/);
   assert.match(endpoints,/\.not\('payout_month', 'is', null\)/);
   assert.match(endpoints,/status: 'rejected'/);
   assert.match(endpoints,/status: 'paid'/);
+  assert.match(endpoints,/status: 'processing'/);
   assert.match(endpoints,/payout_reference: reference/);
   assert.doesNotMatch(endpoints,/azamPay\.disburse|paymentGateway\.send/);
 });
