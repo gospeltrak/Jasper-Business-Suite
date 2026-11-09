@@ -3742,14 +3742,16 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                 <span className="hidden sm:inline font-semibold">{isOfflineMode ? 'OFFLINE' : 'ONLINE'}</span>
               </div>
 
-              {/* Day / Dark Mode Toggle Switch inside Dashboard */}
-              <button
-                onClick={() => onToggleTheme?.()}
-                title={isDark ? "Switch to Day Mode" : "Switch to Dark Mode"}
-                className="p-2 text-slate-400 dark:text-slate-300 hover:text-slate-605 dark:hover:text-amber-400 hover:text-slate-800 transition-colors cursor-pointer bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center justify-center active:scale-95"
-              >
-                {isDark ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4 text-indigo-505 text-indigo-500" />}
-              </button>
+              {/* Super Admin has a fixed dark workspace; tenant theme controls remain available. */}
+              {user.role !== 'SuperAdmin' && (
+                <button
+                  onClick={() => onToggleTheme?.()}
+                  title={isDark ? "Switch to Day Mode" : "Switch to Dark Mode"}
+                  className="p-2 text-slate-400 dark:text-slate-300 hover:text-amber-400 transition-colors cursor-pointer bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center justify-center active:scale-95"
+                >
+                  {isDark ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4 text-indigo-500" />}
+                </button>
+              )}
 
               {/* Language Selection dropdown */}
               <div className="relative">
@@ -3985,7 +3987,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                       <div className="h-px bg-slate-100 dark:bg-slate-800 my-1" />
 
                       {/* Dark / Light Mode Toggle */}
-                      {onToggleTheme && (
+                      {onToggleTheme && user.role !== 'SuperAdmin' && (
                         <button
                           type="button"
                           onClick={onToggleTheme}
@@ -4057,7 +4059,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                 </div>
 
                 {/* Dark / Light Mode Toggle */}
-                {onToggleTheme && (
+                {onToggleTheme && user.role !== 'SuperAdmin' && (
                   <button
                     type="button"
                     onClick={onToggleTheme}
