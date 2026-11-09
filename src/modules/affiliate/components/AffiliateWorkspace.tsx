@@ -625,12 +625,12 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
               </div>
             )}
             <div className="grid gap-3 xl:grid-cols-2">
-              <section className="min-w-0 rounded-xl border border-slate-200 bg-white dark:border-emerald-900 dark:bg-[#092c21]">
-                <div className="flex items-center justify-between gap-2 border-b border-slate-100 px-3.5 py-3 dark:border-emerald-900">
-                  <h2 className="text-xs font-semibold text-slate-950 dark:text-white sm:text-sm">Free Trial & Plans</h2>
-                  <button type="button" onClick={() => setActiveTab('tenants')} className="text-[11px] font-medium text-emerald-700 dark:text-emerald-300">View all</button>
+              <section data-testid="affiliate-plan-summary" className="min-w-0 overflow-hidden rounded-xl border border-emerald-700/70 bg-emerald-800 text-white shadow-[0_9px_24px_-13px_rgba(5,112,78,0.65)] dark:border-emerald-700/60 dark:bg-[#07533f] dark:shadow-[0_12px_26px_-13px_rgba(0,0,0,0.6)]">
+                <div className="flex items-center justify-between gap-2 border-b border-white/15 px-3.5 py-3">
+                  <h2 className="text-xs font-semibold text-white sm:text-sm">Free Trial & Plans</h2>
+                  <button type="button" onClick={() => setActiveTab('tenants')} className="rounded-md px-2 py-1 text-[11px] font-medium text-emerald-50 transition-colors hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">View all</button>
                 </div>
-                <div className="grid grid-cols-4 divide-x divide-slate-100 py-4 dark:divide-emerald-900">
+                <div className="grid grid-cols-4 divide-x divide-white/15 px-1 py-4 sm:px-2">
                   {[
                     ['Trial', customerSummary.trial],
                     ['Ruby', customerSummary.ruby],
@@ -638,12 +638,11 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
                     ['Tanzanite', customerSummary.tanzanite],
                   ].map(([label, total]) => (
                     <div key={label} className="min-w-0 px-1 text-center sm:px-2">
-                      <p className="truncate text-[10px] text-slate-500 dark:text-emerald-100/65">{label}</p>
-                      <p className="mt-1 text-base font-semibold tabular-nums text-emerald-800 dark:text-emerald-200">{total}</p>
+                      <p className="truncate text-[10px] font-medium text-emerald-100/85">{label}</p>
+                      <p className="mt-1 text-lg font-semibold tabular-nums text-white">{total}</p>
                     </div>
                   ))}
                 </div>
-                <p className="px-3.5 pb-3 text-[10px] text-slate-400 dark:text-emerald-100/60">Paid subscriptions by plan</p>
               </section>
               <section className="min-w-0 rounded-xl border border-slate-200 bg-white dark:border-emerald-900 dark:bg-[#092c21]">
                 <div className="flex items-center justify-between gap-2 border-b border-slate-100 px-3.5 py-3 dark:border-emerald-900">
