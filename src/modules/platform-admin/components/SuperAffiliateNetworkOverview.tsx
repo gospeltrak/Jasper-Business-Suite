@@ -77,7 +77,13 @@ export default function SuperAffiliateNetworkOverview({initialTab = 'overview'}:
       {(activeSection === 'overview' || activeSection === 'agents') && (
       <section className="overflow-hidden rounded-xl border border-slate-800 bg-slate-900">
         <h3 className="border-b border-slate-800 px-4 py-3 text-sm font-semibold text-white">Agents</h3>
-        <div className="overflow-x-auto"><table className="w-full min-w-[480px] text-left text-xs">
+        <div className="divide-y divide-slate-800 sm:hidden">
+          {data.agents.map((agent,index)=><div key={index} className="space-y-2 px-4 py-3">
+            <div className="flex items-center justify-between gap-3"><span className="min-w-0 break-words text-sm font-semibold text-white">{agent.name}</span><span className="shrink-0 text-xs text-emerald-300">{agent.status}</span></div>
+            <p className="text-xs text-slate-400">{agent.affiliates} affiliates · {agent.customers} registered customers</p>
+          </div>)}
+        </div>
+        <div className="hidden overflow-x-auto sm:block"><table className="w-full min-w-[480px] text-left text-xs">
           <thead className="bg-slate-950/60 text-slate-400"><tr>
             <th className="px-4 py-2 font-medium">Agent</th><th className="px-4 py-2 font-medium">Affiliates</th>
             <th className="px-4 py-2 font-medium">Customers</th><th className="px-4 py-2 font-medium">Status</th>
@@ -92,7 +98,14 @@ export default function SuperAffiliateNetworkOverview({initialTab = 'overview'}:
       {(activeSection === 'overview' || activeSection === 'subAffiliates') && (
       <section className="overflow-hidden rounded-xl border border-slate-800 bg-slate-900">
         <h3 className="border-b border-slate-800 px-4 py-3 text-sm font-semibold text-white">Affiliate Locations and Sources</h3>
-        <div className="overflow-x-auto"><table className="w-full min-w-[500px] text-left text-xs">
+        <div className="divide-y divide-slate-800 sm:hidden">
+          {data.affiliates.map((affiliate,index)=><div key={index} className="space-y-2 px-4 py-3">
+            <div className="flex items-center justify-between gap-3"><span className="min-w-0 break-words text-sm font-semibold text-white">{affiliate.name}</span><span className="shrink-0 text-xs font-semibold text-emerald-300">{affiliate.customers} customers</span></div>
+            <p className="text-xs text-slate-400">Agent: <span className="text-slate-200">{affiliate.agent}</span></p>
+            <p className="text-xs text-slate-400">Location: {affiliate.location}</p>
+          </div>)}
+        </div>
+        <div className="hidden overflow-x-auto sm:block"><table className="w-full min-w-[500px] text-left text-xs">
           <thead className="bg-slate-950/60 text-slate-400"><tr><th className="px-4 py-2 font-medium">Affiliate</th><th className="px-4 py-2 font-medium">Agent</th><th className="px-4 py-2 font-medium">Location</th><th className="px-4 py-2 font-medium">Customers</th></tr></thead>
           <tbody className="divide-y divide-slate-800 text-slate-100">
             {data.affiliates.map((a,i)=><tr key={i}><td className="px-4 py-3">{a.name}</td><td className="px-4 py-3">{a.agent}</td><td className="px-4 py-3">{a.location}</td><td className="px-4 py-3 tabular-nums">{a.customers}</td></tr>)}
@@ -104,7 +117,14 @@ export default function SuperAffiliateNetworkOverview({initialTab = 'overview'}:
       {(activeSection === 'overview') && (
       <section className="overflow-hidden rounded-xl border border-slate-800 bg-slate-900">
         <h3 className="border-b border-slate-800 px-4 py-3 text-sm font-semibold text-white">Customer Referral Attribution · Recent 50</h3>
-        <div className="overflow-x-auto"><table className="w-full min-w-[500px] text-left text-xs">
+        <div className="divide-y divide-slate-800 sm:hidden">
+          {data.customer_sources.map((customer,index)=><div key={index} className="space-y-2 px-4 py-3">
+            <div className="flex flex-wrap items-start justify-between gap-2"><span className="min-w-0 break-words text-sm font-semibold text-white">{customer.name}</span><span className="text-xs capitalize text-violet-300">{customer.status}</span></div>
+            <p className="text-xs text-slate-400">Referred by: <span className="text-slate-200">{customer.affiliate}</span></p>
+            <p className="text-xs text-slate-400">Location: {customer.location}</p>
+          </div>)}
+        </div>
+        <div className="hidden overflow-x-auto sm:block"><table className="w-full min-w-[500px] text-left text-xs">
           <thead className="bg-slate-950/60 text-slate-400"><tr><th className="px-4 py-2 font-medium">Customer</th><th className="px-4 py-2 font-medium">Referred by</th><th className="px-4 py-2 font-medium">Location</th><th className="px-4 py-2 font-medium">Status</th></tr></thead>
           <tbody className="divide-y divide-slate-800 text-slate-100">{data.customer_sources.map((c,i)=><tr key={i}><td className="px-4 py-3">{c.name}</td><td className="px-4 py-3">{c.affiliate}</td><td className="px-4 py-3">{c.location}</td><td className="px-4 py-3">{c.status}</td></tr>)}</tbody>
         </table></div>
