@@ -1358,6 +1358,55 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
   app.get('/api/platform/affiliate-payouts', readAffiliatePayouts);
   app.post('/api/platform/affiliate-payouts/:payoutId/decision', decideAffiliatePayout);
 
+  // Lightweight task review: one bounded fetch when the Agent opens Tasks.
+  // Existing affiliate_tasks statuses are reused; no polling or tracking table.
+  app.get('/api/affiliate-operations/task-reviews', async (req, res) => {
+    try {
+      const access = await resolveAffiliatePayoutAccess(req);
+      if (access.role !== 'agent') return res.status(403).json({ error: 'Agent review access required.' });
+      if (!access.affiliateIds.length) {
+        res.setHeader('Cache-Control','private, no-store');
+        return res.json({ tasks: [], needs_assignment: true });
+      }
+      const { data, error } = await adminTable('affiliate_tasks')
+        .select('id,affiliate_id,title,status,created_at,due_at')
+        .in('affiliate_id',access.affiliateIds)
+        .eq('status','completed')
+        .order('created_at',{ascending:false}).limit(50);
+      if (error) throw error;
+      res.setHeader('Cache-Control','private, no-store');
+      return res.json({ tasks: data || [], needs_assignment: false });
+    } catch (error: any) {
+      return platformAdminError(res,error);
+    }
+  });
+
+  app.post('/api/affiliate-operations/task-reviews/:taskId/decision', async (req, res) => {
+    try {
+      const access = await resolveAffiliatePayoutAccess(req);
+      if (access.role !== 'agent' || !access.affiliateIds.length) {
+        return res.status(403).json({ error: 'Assigned Agent access required.' });
+      }
+      const taskId = String(req.params.taskId || '');
+      const action = String(req.body?.action || '');
+      if (!isUuid(taskId) || !['approve','return'].includes(action)) {
+        return res.status(400).json({ error: 'Invalid task decision.' });
+      }
+      const { data, error } = await adminTable('affiliate_tasks')
+        .update({status: action === 'approve' ? 'reviewed' : 'pending',updated_at:new Date().toISOString()})
+        .eq('id',taskId)
+        .in('affiliate_id',access.affiliateIds)
+        .eq('status','completed')
+        .select('id,status').maybeSingle();
+      if (error) throw error;
+      if (!data) return res.status(409).json({ error: 'Task is not assigned, submitted or is already reviewed.' });
+      res.setHeader('Cache-Control','no-store');
+      return res.json({ task:data });
+    } catch (error: any) {
+      return platformAdminError(res,error);
+    }
+  });
+
   app.get('/api/notifications/inbox', async (req, res) => {
     try {
       const access = await requireNotificationInboxUser(req);

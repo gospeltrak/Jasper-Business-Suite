@@ -21,6 +21,7 @@ import { sanitizeTrustedHtml } from '../../../shared/utils/safeHtml';
 import { isSettledPaymentStatus } from '../../../shared/utils/financialStatus';
 import GlobalStickyAd from '../../../shared/components/GlobalStickyAd';
 import { formatLocalMonth } from '../../../shared/utils/localDate';
+import { downloadExcelFileFromRows } from '../../../shared/utils/excelExport';
 import { getSecureDataBridgeClient } from '../../../shared/dataBridge/secureDataBridge';
 import { AFFILIATE_MIN_WITHDRAWAL_TZS, getAzamPayFee, getTanzaniaMonthEndWithdrawalDate, sumRewardBalance } from '../utils/affiliatePolicy';
 import { getAffiliateDashboardSummary, getAffiliateCustomerState } from '../utils/affiliateDashboardSummary';
@@ -69,6 +70,7 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
   const [profileDraft, setProfileDraft] = useState({ displayName: '', payoutMethod: '', payoutAccount: '' });
   const [profilePrefs, setProfilePrefs] = useState({ emailUpdates: true, compactView: false });
   const [reportMonth, setReportMonth] = useState(formatLocalMonth());
+  const [reportTab, setReportTab] = useState<'subscribers' | 'payments' | 'tasks'>('subscribers');
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [payoutFilter, setPayoutFilter] = useState<'all' | 'pending' | 'paid' | 'rejected'>('all');
   const [withdrawForm, setWithdrawForm] = useState({ name: '', phone: '', amount: '', password: '' });
@@ -254,70 +256,6 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
     const subscribers = workspace?.subscribers || [];
     return subscribers.filter((subscriber) => (subscriber.created_at || '').slice(0, 7) === reportMonth);
   }, [workspace?.subscribers, reportMonth]);
-
-  const monthStats = useMemo(() => {
-    const monthlyRewards = (workspace?.rewards || []).filter(reward => reward.created_at.slice(0,7) === reportMonth);
-    const registrationBonuses = monthlyRewards.filter(reward => reward.reward_type === 'registration_bonus');
-    const paidCommissions = monthlyRewards.filter(reward => reward.reward_type === 'subscription_commission');
-    const revenue = paidCommissions.reduce((sum, reward) => sum + Number(reward.source_revenue || 0), 0);
-    const grossCommission = paidCommissions.reduce((sum, reward) => sum + Number(reward.gross_amount || 0), 0);
-    const withholding = monthlyRewards.reduce((sum, reward) => sum + Number(reward.withholding_tax || 0), 0);
-    const bonus = registrationBonuses.reduce((sum, reward) => sum + Number(reward.gross_amount || 0), 0);
-    const payout = monthlyRewards.reduce((sum, reward) => sum + Number(reward.net_amount || 0), 0);
-    return {
-      registrations: monthlySubscribers.length,
-      active: monthlySubscribers.filter((subscriber) => subscriber.status === 'active').length,
-      inactive: monthlySubscribers.filter((subscriber) => subscriber.status !== 'active').length,
-      revenue, grossCommission, withholding, bonus, payout,
-    };
-  }, [monthlySubscribers, workspace?.rewards, reportMonth]);
-
-  const taskProgress = useMemo(() => {
-    const tasks = workspace?.tasks || [];
-    const total = tasks.length;
-    const completed = tasks.filter((task) => ['completed', 'reviewed'].includes(task.status)).length;
-    const pending = total - completed;
-    const overdue = tasks.filter((task) => task.due_at && !['completed', 'reviewed'].includes(task.status) && new Date(task.due_at).getTime() < Date.now()).length;
-    const monthTasks = tasks.filter((task) => (task.created_at || '').slice(0, 7) === reportMonth || (task.due_at || '').slice(0, 7) === reportMonth);
-    const monthCompleted = monthTasks.filter((task) => ['completed', 'reviewed'].includes(task.status)).length;
-    return {
-      total,
-      completed,
-      pending,
-      overdue,
-      progress: total ? Math.round((completed / total) * 100) : 0,
-      monthTotal: monthTasks.length,
-      monthCompleted,
-      monthProgress: monthTasks.length ? Math.round((monthCompleted / monthTasks.length) * 100) : 0,
-    };
-  }, [workspace?.tasks, reportMonth]);
-
-  const taskGoalCards = useMemo(() => {
-    const subscribers = workspace?.subscribers || [];
-    const totalRegistrations = subscribers.length;
-    const currentMonthRegistrations = subscribers.filter((subscriber) => (subscriber.created_at || '').slice(0, 7) === reportMonth).length;
-    return (workspace?.tasks || [])
-      .map((task: any) => {
-        const content = `${task.title || ''} ${task.body || ''}`.toLowerCase();
-        const explicitTarget = Number(task.target_count || task.targetCount || task.goal_count || task.goalCount || task.metadata?.target_count || 0);
-        const parsedTarget = explicitTarget || Number(content.match(/(?:target|goal|fikisha|fikia|reach|pata|sajili)\s*(\d+)/)?.[1] || 0);
-        if (!parsedTarget) return null;
-        const isMonthly = content.includes('month') || content.includes('mwezi') || content.includes(reportMonth);
-        const progressValue = Number(task.progress_count || task.progressCount || task.metadata?.progress_count || (isMonthly ? currentMonthRegistrations : totalRegistrations));
-        const progress = Math.min(100, Math.round((progressValue / parsedTarget) * 100));
-        return {
-          id: task.id,
-          title: task.title,
-          target: parsedTarget,
-          progressValue,
-          progress,
-          dueAt: task.due_at,
-          status: task.status,
-          scope: isMonthly ? 'This month' : 'All time',
-        };
-      })
-      .filter(Boolean) as Array<{ id: string; title: string; target: number; progressValue: number; progress: number; dueAt?: string | null; status: string; scope: string }>;
-  }, [workspace?.tasks, workspace?.subscribers, reportMonth]);
 
   const isAgentApprovedForWithdrawals = workspace?.profile?.status === 'active';
   const hasMonthWithdrawal = (workspace?.payouts || []).some(payout =>
@@ -982,121 +920,145 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
             </section>
           )}
           {activeTab === 'meetings' && <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">{workspace!.meetings.map((meeting) => <MeetingRow key={meeting.id} meeting={meeting} onJoin={() => handleTrackedLink('meeting_join', 'meeting', meeting.id, meeting.meeting_url)} />)}{workspace!.meetings.length === 0 && <Empty text="No agent meetings are scheduled for your account." />}</section>}
-          {activeTab === 'reports' && (
-            <section className="space-y-5">
-              <div className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <h2 className="text-xl font-black text-slate-950">Affiliate Reports</h2>
-                  <p className="mt-0.5 text-sm text-slate-500">Measure subscriber, payment, and task progress by month.</p>
+          {activeTab === 'reports' && (() => {
+            const subscribers = monthlySubscribers;
+            const rewards = (workspace?.rewards || []).filter(r => String(r.created_at || '').slice(0,7) === reportMonth && r.status !== 'void');
+            const payouts = (workspace?.payouts || []).filter(p => String(p.requested_at || '').slice(0,7) === reportMonth);
+            const tasks = (workspace?.tasks || []).filter(t => (t.created_at || '').slice(0,7) === reportMonth || (t.due_at || '').slice(0,7) === reportMonth);
+            const paidSubscribers = subscribers.filter(s => isSettledPaymentStatus(s.payment_status)).length;
+            const trials = subscribers.filter(s => /trial/i.test(s.package_name || '') && !isSettledPaymentStatus(s.payment_status)).length;
+            const awaiting = tasks.filter(t => t.status === 'completed').length;
+            const approved = tasks.filter(t => t.status === 'reviewed').length;
+            const pending = tasks.filter(t => t.status === 'new' || t.status === 'pending').length;
+            const bonus = rewards.filter(r => r.reward_type === 'registration_bonus').reduce((v,r)=>v+Number(r.net_amount||0),0);
+            const commission = rewards.filter(r => r.reward_type === 'subscription_commission').reduce((v,r)=>v+Number(r.net_amount||0),0);
+            const pendingPayout = payouts.filter(p=>p.status==='requested'||p.status==='processing').reduce((v,p)=>v+Number(p.amount||0),0);
+            const paidPayout = payouts.filter(p=>p.status==='paid').reduce((v,p)=>v+Number(p.amount||0),0);
+            // Six compact history bars, calculated from the rows already in memory.
+            // No extra API, polling, timers or chart dependency.
+            const [selectedYear,selectedMonth] = reportMonth.split('-').map(Number);
+            const historyMonths = Array.from({length:6},(_,index)=>{
+              const date = new Date(selectedYear,selectedMonth - 1 - (5-index),1);
+              return {key:`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}`,label:date.toLocaleDateString('en-TZ',{month:'short'})};
+            });
+            const subscriberHistory = new Map<string,number>();
+            for (const subscriber of workspace?.subscribers || []) {
+              const key = String(subscriber.created_at||'').slice(0,7);
+              subscriberHistory.set(key,(subscriberHistory.get(key)||0)+1);
+            }
+            const earningsHistory = new Map<string,number>();
+            for (const reward of workspace?.rewards || []) {
+              if (reward.status==='void') continue;
+              const key = String(reward.created_at||'').slice(0,7);
+              earningsHistory.set(key,(earningsHistory.get(key)||0)+Number(reward.net_amount||0));
+            }
+            const history = historyMonths.map(month=>({...month,value:reportTab==='subscribers'?(subscriberHistory.get(month.key)||0):(earningsHistory.get(month.key)||0)}));
+            const historyMax = Math.max(1,...history.map(month=>month.value));
+            const reportCards = reportTab === 'subscribers'
+              ? [['New Subscribers',subscribers.length],['Paid',paidSubscribers],['Free Trial',trials],['Other',subscribers.length-paidSubscribers-trials]]
+              : reportTab === 'payments'
+                ? [['Referral Bonus',currency.format(bonus)],['Commission (10%)',currency.format(commission)],['Pending Withdrawal',currency.format(pendingPayout)],['Paid Out',currency.format(paidPayout)]]
+                : [['Assigned',tasks.length],['Approved',approved],['Awaiting Review',awaiting],['Pending',pending]];
+            const planCounts = ['Free Trial','Ruby','Diamond','Tanzanite'].map(plan => ({
+              plan,count:subscribers.filter(s=>String(s.package_name||'').toLowerCase().includes(plan.toLowerCase().replace('free ',''))).length,
+            }));
+            const exportRows: (string|number)[][] = reportTab === 'subscribers'
+              ? [['Business','Location','Package','Status','Amount Paid','Last Activity'],...subscribers.map(s=>[s.customer_name,s.region||s.location||'',s.package_name,s.payment_status,Number(s.amount_paid||0),s.last_activity_at||'Not recorded'])]
+              : reportTab === 'payments'
+                ? [['Request Date','Amount','Net Amount','Status','Reference','Rejection Reason'],...payouts.map(p=>[p.requested_at,Number(p.amount||0),Number(p.net_payout||0),p.status,p.payout_reference||'',p.status==='rejected'?p.notes||'':''])]
+                : [['Task','Assigned Date','Due Date','Status'],...tasks.map(t=>[t.title,t.created_at,t.due_at||'',t.status==='completed'?'Awaiting Review':t.status==='reviewed'?'Approved':t.status])];
+            return <section className="space-y-4 sm:space-y-5" data-testid="affiliate-lightweight-reports">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2 className="text-lg font-semibold text-slate-950 dark:text-white">Reports</h2>
+                <div className="flex flex-wrap items-center gap-2">
+                  <input type="month" aria-label="Report month" value={reportMonth} onChange={e=>setReportMonth(e.target.value)}
+                    className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 dark:border-emerald-900 dark:bg-[#092c21] dark:text-white"/>
+                  <button type="button" onClick={()=>downloadExcelFileFromRows(`orvix-${reportTab}-${reportMonth}.xlsx`,[{name: 'Report',aoa: exportRows}])}
+                    className="rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs font-medium text-emerald-800 dark:border-emerald-800 dark:bg-[#092c21] dark:text-emerald-100">Export Excel</button>
+                  <button type="button" onClick={()=>window.print()}
+                    className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 dark:border-emerald-900 dark:bg-[#092c21] dark:text-white">Print / PDF</button>
                 </div>
-                <label className="text-xs font-black uppercase tracking-wide text-slate-500">
-                  Report month
-                  <input type="month" value={reportMonth} onChange={(event) => setReportMonth(event.target.value)} className="mt-1 block rounded-lg border border-slate-300 px-3 py-2 text-sm font-bold text-slate-800 outline-none focus:border-emerald-500" />
-                </label>
               </div>
-
-              <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-                <Metric label="Subscriber report" value={monthStats.registrations.toString()} sub={`${monthStats.active} active · ${monthStats.inactive} inactive`} />
-                <Metric label="Payment report" value={currency.format(monthStats.revenue)} sub="Amount entered system" />
-                <Metric label="Commission" value={currency.format(monthStats.grossCommission)} sub="10% of monthly payments" />
-                <Metric label="Task report" value={`${taskProgress.monthProgress}%`} sub={`${taskProgress.monthCompleted}/${taskProgress.monthTotal} monthly tasks`} />
+              <div className="grid grid-cols-3 gap-1.5 rounded-xl border border-slate-200 bg-white p-1.5 dark:border-emerald-900 dark:bg-[#092c21]" role="tablist" aria-label="Report type">
+                {([['subscribers','Subscribers'],['payments','Payments'],['tasks','Tasks']] as const).map(([key,label])=>(
+                  <button key={key} role="tab" aria-selected={reportTab===key} onClick={()=>setReportTab(key)}
+                    className={`min-w-0 rounded-lg px-2 py-2.5 text-xs font-medium sm:text-sm ${reportTab===key?'bg-emerald-700 text-white':'text-slate-600 hover:bg-slate-50 dark:text-emerald-100 dark:hover:bg-emerald-900/40'}`}>{label}</button>
+                ))}
               </div>
-
-              <Panel title="Subscriber report">
-                {monthlySubscribers.length === 0 ? <Empty text="No subscribers found for the selected month." /> : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-[920px] text-left text-sm">
-                      <thead className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
-                        <tr>
-                          <th className="px-4 py-3">Subscriber</th>
-                          <th className="px-4 py-3">Region</th>
-                          <th className="px-4 py-3">Package</th>
-                          <th className="px-4 py-3">Status</th>
-                          <th className="px-4 py-3 text-right">Paid</th>
-                          <th className="px-4 py-3 text-right">Commission</th>
-                          <th className="px-4 py-3 text-right">Days left</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {monthlySubscribers.map((subscriber) => {
-                          const isPaidSubscriber = isSettledPaymentStatus(subscriber.payment_status);
-                          const paidAmount = isPaidSubscriber ? subscriber.amount_paid : 0;
-                          const commission = (workspace?.rewards || [])
-                            .filter(reward => reward.reward_type === 'subscription_commission'
-                              && reward.tenant_id === subscriber.tenant_id
-                              && reward.created_at.startsWith(reportMonth))
-                            .reduce((sum, reward) => sum + Number(reward.gross_amount || 0), 0);
-                          return (
-                            <tr key={subscriber.id}>
-                              <td className="px-4 py-3">
-                                <p className="font-black text-slate-950">{subscriber.customer_name}</p>
-                                <p className="text-xs text-slate-500">{subscriber.phone_number || 'No phone'} · {subscriber.promo_code_used || subscriber.referral_code_used || profile.referral_code}</p>
-                              </td>
-                              <td className="px-4 py-3 text-slate-700">{subscriber.region || subscriber.location || 'Not set'}</td>
-                              <td className="px-4 py-3 font-bold text-slate-800">{subscriber.package_name}</td>
-                              <td className="px-4 py-3">
-                                <span className={`rounded-full px-2.5 py-1 text-xs font-black capitalize ${subscriber.status === 'active' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>{subscriber.status}</span>
-                              </td>
-                              <td className="px-4 py-3 text-right font-mono font-bold">{currency.format(paidAmount)}</td>
-                              <td className="px-4 py-3 text-right font-mono font-black text-emerald-700">{currency.format(commission)}</td>
-                              <td className="px-4 py-3 text-right font-mono font-bold">{subscriber.days_remaining}</td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </Panel>
-
-              <Panel title="Payment report">
-                <div className="grid gap-3 p-4 sm:grid-cols-4">
-                  <Metric label="Entered system" value={currency.format(monthStats.revenue)} />
-                  <Metric label="Commission (10%)" value={currency.format(monthStats.grossCommission)} />
-                  <Metric label="Withholding" value={currency.format(monthStats.withholding)} />
-                  <Metric label="Jumla ya mapato" value={currency.format(monthStats.payout)} />
-                </div>
-              </Panel>
-
-              <Panel title="Task report">
-                <div className="p-4">
-                  <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <p className="text-sm font-black text-slate-950">{taskProgress.monthCompleted}/{taskProgress.monthTotal} tasks completed in {reportMonth}</p>
-                      <p className="mt-1 text-xs text-slate-500">All-time progress: {taskProgress.completed}/{taskProgress.total} tasks complete.</p>
+              <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+                {reportCards.map(([label,value])=><div key={String(label)} className="min-w-0 rounded-xl border border-slate-200 bg-white p-3.5 shadow-[0_5px_18px_-11px_rgba(6,78,59,0.2)] dark:border-emerald-900 dark:bg-[#092c21]">
+                  <p className="text-[11px] text-slate-500 dark:text-emerald-100/70">{label}</p>
+                  <p className="mt-1 text-lg font-semibold tabular-nums text-slate-950 dark:text-white sm:text-xl">{value}</p>
+                </div>)}
+              </div>
+              {(reportTab==='subscribers'||reportTab==='payments') && <section className="rounded-xl border border-slate-200 bg-white p-4 dark:border-emerald-900 dark:bg-[#092c21]" aria-label={reportTab==='subscribers'?'Subscriber growth':'Monthly earnings'}>
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">{reportTab==='subscribers'?'Subscriber Growth':'Monthly Earnings'}</h3>
+                <p className="mt-1 text-[11px] text-slate-500 dark:text-emerald-100/70">Last six months · from existing records</p>
+                <div className="mt-4 grid grid-cols-6 items-end gap-2 sm:gap-3">
+                  {history.map(month=><div key={month.key} className="flex min-w-0 flex-col items-center justify-end gap-1.5">
+                    <span className="truncate text-[10px] tabular-nums text-slate-600 dark:text-emerald-100/80">{reportTab==='subscribers'?month.value:month.value?Math.round(month.value/1000)+'k':'0'}</span>
+                    <div className="flex h-20 w-full max-w-10 items-end overflow-hidden rounded-md bg-emerald-50 dark:bg-emerald-950/60" title={`${month.key}: ${reportTab==='subscribers'?month.value:currency.format(month.value)}`}>
+                      <div className="w-full rounded-t-md bg-emerald-700" style={{height:`${Math.max(2,Math.round(month.value/historyMax*100))}%`}}/>
                     </div>
-                    <span className="text-2xl font-black text-emerald-700">{taskProgress.monthProgress}%</span>
-                  </div>
-                  <div className="mt-4 h-3 overflow-hidden rounded-full bg-slate-100">
-                    <div className="h-full rounded-full bg-emerald-600 transition-all" style={{ width: `${taskProgress.monthProgress}%` }} />
-                  </div>
-                  {taskGoalCards.length > 0 && (
-                    <div className="mt-5 grid gap-3 md:grid-cols-2">
-                      {taskGoalCards.map((goal) => (
-                        <div key={goal.id} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-black text-slate-950">{goal.title}</p>
-                              <p className="mt-1 text-xs text-slate-500">{goal.scope} target · {goal.status}</p>
-                            </div>
-                            <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-black text-emerald-700">{goal.progress}%</span>
-                          </div>
-                          <div className="mt-3 flex items-center justify-between text-xs font-bold text-slate-500">
-                            <span>{goal.progressValue} done</span>
-                            <span>Goal {goal.target}</span>
-                          </div>
-                          <div className="mt-2 h-2 overflow-hidden rounded-full bg-white">
-                            <div className="h-full rounded-full bg-emerald-600" style={{ width: `${goal.progress}%` }} />
-                          </div>
-                          {goal.dueAt && <p className="mt-2 text-[11px] text-slate-400">Due {formatDateTime(goal.dueAt)}</p>}
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                    <span className="text-[10px] text-slate-500 dark:text-emerald-100/60">{month.label}</span>
+                  </div>)}
                 </div>
-              </Panel>
-            </section>
-          )}
+                {reportTab==='payments' && <p className="mt-2 text-[10px] text-slate-500 dark:text-emerald-100/60">Values shown in thousands of TZS (k).</p>}
+              </section>}
+              {reportTab==='subscribers' && <div className="space-y-3">
+                <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-emerald-900 dark:bg-[#092c21]">
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Subscribers by Plan</h3>
+                  <p className="mt-1 text-[11px] text-slate-500 dark:text-emerald-100/70">New registrations in the selected month</p>
+                  <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    {planCounts.map(row=><div key={row.plan} className="rounded-lg bg-slate-50 px-3 py-3 dark:bg-emerald-950/50">
+                      <p className="text-[11px] text-slate-500 dark:text-emerald-100/70">{row.plan}</p><p className="mt-1 text-xl font-semibold text-slate-950 dark:text-white">{row.count}</p>
+                    </div>)}
+                  </div>
+                </div>
+                <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-emerald-900 dark:bg-[#092c21]">
+                  <h3 className="border-b border-slate-100 px-4 py-3 text-sm font-semibold text-slate-900 dark:border-emerald-900 dark:text-white">Subscriber Details</h3>
+                  {subscribers.length===0?<p className="p-4 text-xs text-slate-500">No new subscribers in this month.</p>:subscribers.map(s=><div key={s.id} className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3 text-xs last:border-0 dark:border-emerald-900/50">
+                    <div className="min-w-0"><p className="truncate font-semibold text-slate-900 dark:text-white">{s.customer_name}</p>
+                      <p className="mt-1 truncate text-slate-500 dark:text-emerald-100/60">{s.package_name} · {s.region||s.location||'Location not provided'}</p></div>
+                    <div className="shrink-0 text-right"><p className="font-medium text-slate-900 dark:text-white">{currency.format(Number(s.amount_paid||0))}</p><p className="mt-1 text-slate-500 dark:text-emerald-100/60">{s.payment_status}</p></div>
+                  </div>)}
+                </div>
+              </div>}
+              {reportTab==='payments' && <div className="space-y-3">
+                <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-emerald-900 dark:bg-[#092c21]">
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Earnings Breakdown</h3>
+                  <p className="mt-2 text-xs text-slate-500 dark:text-emerald-100/70">Referral bonuses and eligible subscription commissions; excludes void rewards.</p>
+                </div>
+                <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-emerald-900 dark:bg-[#092c21]">
+                  <h3 className="border-b border-slate-100 px-4 py-3 text-sm font-semibold text-slate-900 dark:border-emerald-900 dark:text-white">Withdrawal History</h3>
+                  {payouts.length===0?<p className="p-4 text-xs text-slate-500">No withdrawal requests in this month.</p>:payouts.map(p=><div key={p.id} className="border-b border-slate-100 px-4 py-3 text-xs last:border-0 dark:border-emerald-900/40">
+                    <div className="flex items-center justify-between gap-3"><span className="text-slate-500 dark:text-emerald-100/70">{new Date(p.requested_at).toLocaleDateString('en-TZ')}</span>
+                      <span className="font-semibold text-slate-900 dark:text-white">{currency.format(Number(p.amount||0))}</span>
+                      <span className="capitalize text-emerald-700 dark:text-emerald-300">{p.status}</span></div>
+                    {p.status==='paid' && <p className="mt-2 text-slate-500 dark:text-emerald-100/70">Reference: {p.payout_reference||'Not recorded'}</p>}
+                    {p.status==='rejected' && <p className="mt-2 text-slate-500 dark:text-emerald-100/70">Reason: {p.notes||'Not recorded'}</p>}
+                  </div>)}
+                </div>
+              </div>}
+              {reportTab==='tasks' && <div className="space-y-3">
+                <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-emerald-900 dark:bg-[#092c21]">
+                  <div className="flex items-center justify-between gap-3"><h3 className="text-sm font-semibold text-slate-900 dark:text-white">Approved Completion</h3>
+                    <span className="text-lg font-semibold text-emerald-700 dark:text-emerald-300">{tasks.length?Math.round(approved/tasks.length*100):0}%</span></div>
+                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-emerald-950">
+                    <div className="h-full rounded-full bg-emerald-700" style={{width:`${tasks.length?approved/tasks.length*100:0}%`}}/>
+                  </div>
+                  <p className="mt-2 text-[11px] text-slate-500 dark:text-emerald-100/70">Submitted tasks require Agent approval. No background monitoring.</p>
+                </div>
+                <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-emerald-900 dark:bg-[#092c21]">
+                  <h3 className="border-b border-slate-100 px-4 py-3 text-sm font-semibold text-slate-900 dark:border-emerald-900 dark:text-white">Task Details</h3>
+                  {tasks.length===0?<p className="p-4 text-xs text-slate-500">No tasks in this month.</p>:tasks.map(t=><div key={t.id} className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-3 text-xs last:border-0 dark:border-emerald-900/40">
+                    <div className="min-w-0"><p className="font-semibold text-slate-900 dark:text-white">{t.title}</p><p className="mt-1 text-slate-500 dark:text-emerald-100/70">{t.due_at?`Due ${new Date(t.due_at).toLocaleDateString('en-TZ')}`:'No deadline'}</p></div>
+                    <span className="shrink-0 text-emerald-700 dark:text-emerald-300">{t.status==='completed'?'Awaiting Review':t.status==='reviewed'?'Approved':'Pending'}</span>
+                  </div>)}
+                </div>
+              </div>}
+            </section>;
+          })()}
           {activeTab === 'payouts' && (
             <section className="space-y-4 pb-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1372,7 +1334,7 @@ function Empty({ text }: { text: string }) {
 }
 
 function TaskRow({ task, busy, readOnly = false, onComplete, onDownload }: { key?: unknown; task: any; busy: boolean; readOnly?: boolean; onComplete: (id: string) => void; onDownload: () => void }) {
-  return <article className="p-4"><div className="flex justify-between gap-3"><div className="min-w-0"><p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">{task.task_type} · {task.status}</p><h3 className="mt-1 text-sm font-bold text-slate-950">{task.title}</h3>{task.body && <p className="mt-1 text-sm leading-5 text-slate-600">{task.body}</p>}<p className="mt-2 text-xs text-slate-400">{task.sender_name ? `From ${task.sender_name}` : 'From assigned agent'}{task.due_at ? ` · Due ${formatDateTime(task.due_at)}` : ''}</p></div><ClipboardList className="h-5 w-5 shrink-0 text-slate-400" /></div><div className="mt-3 flex flex-wrap gap-2">{task.attachment_url ? <button type="button" onClick={onDownload} className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700"><Download className="h-3.5 w-3.5" /> {task.attachment_name || 'Download file'}</button> : null}{!readOnly && !['completed', 'reviewed'].includes(task.status) ? <button type="button" disabled={busy} onClick={() => onComplete(task.id)} className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"><CheckCircle2 className="h-3.5 w-3.5" /> {busy ? 'Updating' : 'Mark complete'}</button> : null}</div></article>;
+  return <article className="p-4"><div className="flex justify-between gap-3"><div className="min-w-0"><p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">{task.task_type} · {task.status === 'completed' ? 'Awaiting Review' : task.status === 'reviewed' ? 'Approved' : task.status}</p><h3 className="mt-1 text-sm font-bold text-slate-950">{task.title}</h3>{task.body && <p className="mt-1 text-sm leading-5 text-slate-600">{task.body}</p>}<p className="mt-2 text-xs text-slate-400">{task.sender_name ? `From ${task.sender_name}` : 'From assigned agent'}{task.due_at ? ` · Due ${formatDateTime(task.due_at)}` : ''}</p></div><ClipboardList className="h-5 w-5 shrink-0 text-slate-400" /></div><div className="mt-3 flex flex-wrap gap-2">{task.attachment_url ? <button type="button" onClick={onDownload} className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700"><Download className="h-3.5 w-3.5" /> {task.attachment_name || 'Download file'}</button> : null}{!readOnly && !['completed', 'reviewed'].includes(task.status) ? <button type="button" disabled={busy} onClick={() => onComplete(task.id)} className="inline-flex items-center gap-1.5 rounded-md bg-emerald-600 px-3 py-2 text-xs font-semibold text-white disabled:opacity-60"><CheckCircle2 className="h-3.5 w-3.5" /> {busy ? 'Updating' : 'Mark as Done'}</button> : null}</div></article>;
 }
 
 function NotificationRow({ notification, onMarkRead }: { key?: unknown; notification: AffiliateNotification; onMarkRead: (id: string) => void }) {

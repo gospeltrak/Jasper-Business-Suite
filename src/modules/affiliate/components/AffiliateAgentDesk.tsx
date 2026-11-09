@@ -166,6 +166,11 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [notice, setNotice] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<DashTab>('overview');
+  const [taskReviews, setTaskReviews] = useState<Array<{id:string;affiliate_id:string;title:string;status:string;created_at:string;due_at:string|null}>>([]);
+  const [taskReviewLoading,setTaskReviewLoading] = useState(false);
+  const [taskReviewError,setTaskReviewError] = useState('');
+  const [taskReviewBusy,setTaskReviewBusy] = useState<string|null>(null);
+
   
   const [moreOpen, setMoreOpen] = useState(false);
   const [isNetworkOnline, setIsNetworkOnline] = useState(isOnline());
@@ -772,6 +777,48 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
   // dependencies update for month or partner-profile changes. Avoid duplicate
   // network calls caused by parallel mount effects.
   useEffect(() => { void refresh(); }, [refresh]);
+
+  // Load only when Messages & Targets is viewed; no background polling.
+  const refreshTaskReviews = useCallback(async () => {
+    setTaskReviewLoading(true);
+    try {
+      const {getSecureDataBridgeClient} = await import('../../../shared/dataBridge/secureDataBridge');
+      const client = await getSecureDataBridgeClient();
+      const {data} = await client.auth.getSession();
+      if(!data.session?.access_token) throw new Error('Sign in to review tasks.');
+      const response=await fetch('/api/affiliate-operations/task-reviews',{
+        headers:{Authorization:`Bearer ${data.session.access_token}`},
+        credentials:'same-origin',
+      });
+      const body=await response.json().catch(()=>({}));
+      if(!response.ok) throw new Error(body.error||'Cannot load submitted tasks.');
+      setTaskReviews(Array.isArray(body.tasks)?body.tasks:[]);
+      setTaskReviewError('');
+    } catch(error:any) {
+      setTaskReviewError(error?.message||'Unable to load submitted tasks.');
+    } finally { setTaskReviewLoading(false); }
+  }, []);
+  useEffect(()=>{ if(activeTab==='tutorials') void refreshTaskReviews(); },[activeTab,refreshTaskReviews]);
+  const decideTaskReview=async(taskId:string,action:'approve'|'return')=>{
+    if(!isNetworkOnline||taskReviewBusy)return;
+    setTaskReviewBusy(taskId);
+    try {
+      const {getSecureDataBridgeClient}=await import('../../../shared/dataBridge/secureDataBridge');
+      const client=await getSecureDataBridgeClient();
+      const {data}=await client.auth.getSession();
+      if(!data.session?.access_token)throw new Error('Sign in required.');
+      const response=await fetch(`/api/affiliate-operations/task-reviews/${encodeURIComponent(taskId)}/decision`,{
+        method:'POST',credentials:'same-origin',
+        headers:{Authorization:`Bearer ${data.session.access_token}`,'Content-Type':'application/json'},
+        body:JSON.stringify({action}),
+      });
+      const payload=await response.json().catch(()=>({}));
+      if(!response.ok)throw new Error(payload.error||'Task could not be updated.');
+      setTaskReviews(current=>current.filter(task=>task.id!==taskId));
+      setNotice(action==='approve'?'Task approved.':'Task returned to Affiliate for revision.');
+    } catch(error:any) {setTaskReviewError(error?.message||'Task review failed.');}
+    finally {setTaskReviewBusy(null);}
+  };
 
   // ── Network totals ──────────────────────────────────────────
 
@@ -1740,6 +1787,26 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
                 <h2 className="text-lg font-black text-white">Tutorials & Tasks</h2>
                 <p className="text-xs text-slate-400 mt-0.5">Send tasks, notes, and instructions to your sub-affiliates</p>
               </div>
+              <section className="rounded-xl border border-emerald-900/60 bg-[#09221c] p-4 space-y-3" data-testid="agent-manual-task-review">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div><h3 className="text-sm font-semibold text-white">Awaiting Review</h3>
+                    <p className="mt-1 text-[11px] text-emerald-100/70">Approve submitted work or return it for revision.</p></div>
+                  <button type="button" onClick={()=>void refreshTaskReviews()} className="rounded-lg border border-emerald-800 px-3 py-2 text-xs text-emerald-100">Refresh</button>
+                </div>
+                {taskReviewError && <p role="alert" className="text-xs text-rose-300">{taskReviewError}</p>}
+                {taskReviewLoading?<p className="text-xs text-slate-400">Loading submitted tasks...</p>:
+                  taskReviews.length===0?<p className="text-xs text-slate-400">No tasks awaiting review.</p>:
+                  <div className="divide-y divide-emerald-900/40">{taskReviews.map(task=>(
+                    <div key={task.id} className="flex flex-wrap items-center gap-3 py-3">
+                      <div className="min-w-0 flex-1"><p className="text-xs font-semibold text-white">{task.title}</p>
+                        {task.due_at && <p className="mt-1 text-[11px] text-slate-400">Due {new Date(task.due_at).toLocaleDateString('en-TZ')}</p>}</div>
+                      <div className="flex gap-2">
+                        <button type="button" disabled={!!taskReviewBusy} onClick={()=>void decideTaskReview(task.id,'return')} className="rounded-lg border border-emerald-800 px-3 py-2 text-xs text-emerald-100 disabled:opacity-50">Return</button>
+                        <button type="button" disabled={!!taskReviewBusy} onClick={()=>void decideTaskReview(task.id,'approve')} className="rounded-lg bg-emerald-700 px-3 py-2 text-xs text-white disabled:opacity-50">Approve</button>
+                      </div>
+                    </div>
+                  ))}</div>}
+              </section>
               <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
                 <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
                   <ClipboardPlus className="w-4 h-4 text-amber-400" />
