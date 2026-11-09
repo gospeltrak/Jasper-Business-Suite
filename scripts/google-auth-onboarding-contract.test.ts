@@ -31,13 +31,14 @@ test('server trusts verified Google session but never OAuth role or tenant metad
   assert.doesNotMatch(server.slice(server.indexOf("app.get('/api/auth/google/resolve'"), server.indexOf("app.post('/api/auth/google/provision'")), /user_metadata\?\.(?:role|tenant)/);
 });
 
-test('Turnstile protects password and Google login across business and portal accounts', () => {
+test('Turnstile protects tenant Google and portal password sign-in; portal Google UI is disabled', () => {
   const affiliate = readFileSync(new URL('../src/modules/affiliate/components/AffiliatePortal.tsx', import.meta.url), 'utf8');
   assert.match(login, /verifyLoginTurnstile/);
   assert.match(login, /\/api\/auth\/turnstile/);
   assert.match(affiliate, /\/api\/auth\/turnstile/);
-  assert.match(affiliate, /handleGooglePortalLogin/);
-  assert.match(affiliate, /resolved\.portalRole === 'partner' \? '\/partner' : '\/affiliate'/);
+  assert.doesNotMatch(affiliate, /handleGooglePortalLogin|signInWithOAuth/);
+  assert.match(affiliate, /handleLoginAffiliate/);
+  assert.match(affiliate, /resetPasswordForEmail/);
   assert.match(server, /app\.post\('\/api\/auth\/turnstile'/);
   assert.match(server, /app\.get\('\/api\/auth\/google\/portal-resolve'/);
   assert.match(server, /affiliate_partners'[\s\S]*\.eq\('user_id', authUser\.id\)/);
