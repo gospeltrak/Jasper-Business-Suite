@@ -1077,6 +1077,73 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
 
   app.use(express.json({ limit: '8mb' }));
 
+  // Affiliate-only, read-only tenant activity aggregate. Never return raw sessions,
+  // user agents, device IDs, IPs or tenants outside this affiliate's verified referrals.
+  app.get('/api/affiliate/subscriber-last-activity', async (req, res) => {
+    try {
+      if (!supabaseAdmin) throw new Error('Supabase backend client is not configured');
+      const token = getBearerToken(req);
+      if (!token) return res.status(401).json({ error: 'Authentication required' });
+      const { data: auth, error: authError } = await supabaseAdmin.auth.getUser(token);
+      if (authError || !auth.user) return res.status(401).json({ error: 'Invalid session' });
+      const { data: affiliate, error: affiliateError } = await adminTable('affiliates')
+        .select('id,referral_code,promo_code,user_id')
+        .eq('user_id', auth.user.id).maybeSingle();
+      if (affiliateError) throw affiliateError;
+      if (!affiliate) return res.status(403).json({ error: 'Affiliate access required' });
+
+      const affiliateId = String(affiliate.id);
+      const codeValues = Array.from(new Set([affiliate.promo_code, affiliate.referral_code]
+        .map((value: unknown) => String(value || '').trim()).filter(Boolean)));
+      const sources: Promise<any>[] = [
+        adminTable('subscriber_source_tracking').select('tenant_id')
+          .or(`affiliate_id.eq.${affiliateId},sub_affiliate_id.eq.${affiliateId}`).limit(1000),
+        adminTable('referred_customers').select('tenant_id')
+          .or(`affiliate_id.eq.${affiliateId},sub_affiliate_id.eq.${affiliateId}`).limit(1000),
+      ];
+      for (const code of codeValues) {
+        sources.push(adminTable('subscriber_source_tracking').select('tenant_id').eq('promo_code_used', code).limit(1000));
+        sources.push(adminTable('subscriber_source_tracking').select('tenant_id').eq('referral_code_used', code).limit(1000));
+        sources.push(adminTable('referred_customers').select('tenant_id').eq('promo_code_used', code).limit(1000));
+        sources.push(adminTable('referred_customers').select('tenant_id').eq('referral_code_used', code).limit(1000));
+      }
+      const results = await Promise.all(sources);
+      for (const result of results) if (result.error) throw result.error;
+      const tenantIds = Array.from(new Set(results.flatMap(result => (result.data || [])
+        .map((row: any) => String(row.tenant_id || '').toLowerCase())
+        .filter(isUuid)))).slice(0, 1000);
+      if (!tenantIds.length) {
+        res.setHeader('Cache-Control', 'private, no-store');
+        return res.json({ activity: [] });
+      }
+
+      const lastByTenant = new Map<string, string>();
+      // Page session summaries to avoid silently dropping tenants when a large
+      // affiliate network contains more sessions than the PostgREST page limit.
+      for (let offset = 0; offset < 10000; offset += 1000) {
+        const { data: sessions, error } = await adminTable('user_sessions')
+          .select('tenant_id,last_activity_at')
+          .in('tenant_id', tenantIds)
+          .not('last_activity_at', 'is', null)
+          .order('last_activity_at', { ascending: false })
+          .range(offset, offset + 999);
+        if (error) throw error;
+        for (const row of sessions || []) {
+          const tenantId = String(row.tenant_id || '').toLowerCase();
+          if (tenantIds.includes(tenantId) && row.last_activity_at && !lastByTenant.has(tenantId)) {
+            lastByTenant.set(tenantId, String(row.last_activity_at));
+          }
+        }
+        if (!sessions || sessions.length < 1000 || lastByTenant.size >= tenantIds.length) break;
+      }
+      res.setHeader('Cache-Control', 'private, no-store');
+      return res.json({ activity: [...lastByTenant].map(([tenant_id, last_activity_at]) => ({ tenant_id, last_activity_at })) });
+    } catch (error: any) {
+      console.error('[Affiliate Activity] Scoped summary failed:', error?.message || error);
+      return res.status(500).json({ error: 'Subscriber activity is temporarily unavailable' });
+    }
+  });
+
   // Super Admin only: manual affiliate payout ledger reconciliation.
   // Recording a paid status does not send money; the operator must send it
   // externally and enter the verified transaction reference.
