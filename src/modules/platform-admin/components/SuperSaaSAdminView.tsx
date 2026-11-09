@@ -3,7 +3,7 @@ import { Shield, Users, Volume2, Sparkles, Unlock, UploadCloud, Image as ImageIc
 
 import SaaSUserDesk from './SaaSUserDesk';
 
-import SuperAffiliateControlCenter from './SuperAffiliateControlCenter';
+import SuperAffiliateControlCenter from './SuperAffiliateNetworkOverview';
 import Dashboard from '../../../components/Dashboard';
 import AffiliateWorkspace from '../../affiliate/components/AffiliateWorkspace';
 import { User } from '../../../types';
