@@ -41,6 +41,7 @@ async function sharedPayoutRequest(path: string, init?: RequestInit) {
 export default function SuperAffiliatePayoutReview({ mode = 'audit' }: { mode?: 'agent' | 'audit' }) {
   const [rows, setRows] = useState<PayoutRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [needsAssignment, setNeedsAssignment] = useState(false);
   const [filter, setFilter] = useState<'pending' | 'paid' | 'rejected' | 'all'>('pending');
   const [selected, setSelected] = useState<{row: PayoutRow; action: Decision} | null>(null);
   const [reason, setReason] = useState('');
@@ -54,6 +55,7 @@ export default function SuperAffiliatePayoutReview({ mode = 'audit' }: { mode?: 
     try {
       const data = await sharedPayoutRequest('/api/affiliate-operations/payouts');
       setRows(Array.isArray(data.payouts) ? data.payouts : []);
+      setNeedsAssignment(Boolean(data.needs_assignment));
       setError('');
     } catch (e: any) {
       setError(e?.message || 'Unable to load payout requests.');
@@ -99,6 +101,7 @@ export default function SuperAffiliatePayoutReview({ mode = 'audit' }: { mode?: 
         <button type="button" onClick={() => void load()} className="rounded-lg border border-emerald-800 px-3 py-2 text-xs text-emerald-300 hover:bg-emerald-900/30">Refresh</button>
       </div>
       {error && <p role="alert" className="rounded-lg border border-rose-900 bg-rose-950/60 px-3 py-2 text-xs text-rose-200">{error}</p>}
+      {mode === 'agent' && needsAssignment && <p role="status" className="rounded-lg border border-amber-900 bg-amber-950/40 px-3 py-2 text-xs text-amber-200">No affiliates are assigned to this agent yet. An authorized administrator must link affiliates before payouts can be processed.</p>}
       {notice && <p role="status" className="rounded-lg border border-emerald-900 bg-emerald-950/60 px-3 py-2 text-xs text-emerald-200">{notice}</p>}
       <div className="flex flex-wrap gap-2" role="group" aria-label="Filter payout requests">
         {(['pending','paid','rejected','all'] as const).map(value => (
