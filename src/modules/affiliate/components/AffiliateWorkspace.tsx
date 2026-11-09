@@ -1212,13 +1212,16 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
                 <h3 className="mb-3 text-sm font-semibold text-slate-950 dark:text-white">Withdrawal Summary</h3>
                 <div className="grid grid-cols-3 gap-2">
                   {[
-                    ['Pending', (workspace?.payouts || []).filter(p => p.status === 'requested' || p.status === 'processing').length],
-                    ['Paid', (workspace?.payouts || []).filter(p => p.status === 'paid').length],
-                    ['Rejected', (workspace?.payouts || []).filter(p => p.status === 'rejected' || p.status === 'cancelled').length],
-                  ].map(([label, value]) => (
-                    <div key={label} className="min-w-0 rounded-lg bg-slate-50 px-2 py-3 text-center dark:bg-emerald-950/60">
+                    ['Pending', (workspace?.payouts || []).filter(p => p.status === 'requested' || p.status === 'processing')],
+                    ['Paid', (workspace?.payouts || []).filter(p => p.status === 'paid')],
+                    ['Rejected', (workspace?.payouts || []).filter(p => p.status === 'rejected' || p.status === 'cancelled')],
+                  ].map(([label, items]) => (
+                    <div key={label} className="min-w-0 rounded-lg bg-slate-50 px-1.5 py-3 text-center dark:bg-emerald-950/60 sm:px-2">
                       <p className="text-[10px] text-slate-500 dark:text-emerald-100/70">{label}</p>
-                      <p className="mt-1 text-base font-semibold tabular-nums text-slate-950 dark:text-white">{value}</p>
+                      <p className="mt-1 break-words text-[11px] font-semibold tabular-nums text-slate-950 dark:text-white sm:text-sm">
+                        {currency.format(items.reduce((sum, item) => sum + Number(item.amount || 0), 0))}
+                      </p>
+                      <p className="mt-1 text-[10px] text-slate-400 dark:text-emerald-100/60">{items.length} requests</p>
                     </div>
                   ))}
                 </div>
