@@ -699,22 +699,10 @@ export default function SuperSaaSAdminView({
                     <Shield className="w-4 h-4 text-slate-400" />
                   </button>
                   <div className="flex items-center space-x-1.5 ml-1">
-                    {true ? (
-                      <button onClick={beginMfaVerification} disabled={mfaBusy}
-                        className="bg-emerald-500 text-slate-950 px-3 py-1 text-[10px] rounded font-extrabold uppercase disabled:opacity-50">
-                        {mfaBusy ? 'Preparing…' : 'Verify MFA'}
-                      </button>
-                    ) : (
-                      <>
-                        <input type="hidden" value=""
-                          readOnly
-                          className="bg-slate-950 border border-slate-800 rounded px-2.5 py-1 text-xs text-white max-w-[135px] font-mono outline-none" />
-                        <button onClick={beginMfaVerification}
-                          className="bg-emerald-500 text-slate-950 px-2.5 py-1 text-[10px] rounded font-extrabold uppercase cursor-pointer">
-                          Verify
-                        </button>
-                      </>
-                    )}
+                    <button onClick={beginMfaVerification} disabled={mfaBusy}
+                      className="bg-emerald-500 text-slate-950 px-3 py-1.5 text-xs rounded-lg font-semibold disabled:opacity-50">
+                      {mfaBusy ? 'Preparing…' : 'Verify MFA'}
+                    </button>
                   </div>
                 </>
               )}
