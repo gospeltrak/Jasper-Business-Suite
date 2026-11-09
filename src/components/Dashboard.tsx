@@ -4143,7 +4143,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
           </header>
 
           {/* Core workspace content viewports */}
-          <main id="workspace-content" className={`relative flex-1 overflow-y-auto scrollbar-none overscroll-contain touch-pan-y ${activeTab === 'super-saas' || activeTab.startsWith('admin-') ? 'p-0 bg-slate-950 flex flex-col' : 'p-3 sm:p-4 xl:p-6 bg-[#f5f6fa] dark:bg-slate-950 space-y-5 xl:space-y-6'} pb-[calc(72px+env(safe-area-inset-bottom))] xl:pb-6 min-h-0`}>
+          <main id="workspace-content" className={`relative flex-1 overflow-y-auto scrollbar-none overscroll-contain touch-pan-y ${activeTab === 'super-saas' || activeTab.startsWith('admin-') ? 'p-0 bg-slate-950 flex flex-col' : 'p-3 sm:p-4 xl:p-6 bg-[#f5f6fa] dark:bg-slate-950 space-y-5 xl:space-y-6 pb-[calc(72px+env(safe-area-inset-bottom))] xl:pb-6'} min-h-0`}>
             <DashboardScreenErrorBoundary
               resetKey={activeTab}
               onReturnToDashboard={() => setActiveTab(getDefaultDashboardTab())}
