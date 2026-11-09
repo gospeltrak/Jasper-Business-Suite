@@ -8,7 +8,7 @@ const overview = ui.slice(ui.indexOf("{activeTab === 'overview' &&"),ui.indexOf(
 const payout = ui.slice(ui.indexOf("{activeTab === 'payouts' &&"),ui.indexOf("{activeTab === 'settings' &&"));
 
 test('Affiliate menu keeps payment status, customer records, reports, messages and real campaigns', () => {
-  for(const t of ["['overview', 'Overview'","['payouts', 'Payment Status'","['tenants', 'Customers'","['reports', 'Reports'","['tasks', 'Messages & Tasks'","['ads', 'Ads & Tutorials'","['settings', 'Settings'"]) assert.ok(ui.includes(t),t);
+  for(const t of ["['overview', 'Overview'","['payouts', 'Payment Status'","['tenants', 'Customers'","['reports', 'Reports'","['tasks', 'Tasks'","['ads', 'Ads & Tutorials'","['settings', 'Settings'"]) assert.ok(ui.includes(t),t);
   assert.match(ui,/handleTrackedLink\('ad_download'/);
   assert.match(ui,/completeAffiliateTask/);
 });

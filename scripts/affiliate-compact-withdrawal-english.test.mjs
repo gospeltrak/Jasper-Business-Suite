@@ -29,7 +29,7 @@ test('Withdrawal modal is concise and has registered phone only, without editabl
 
 test('Client RPC submits saved registered phone and profile load selects that field', () => {
   assert.match(workspace,/const phone = workspace\.profile\.phone_whatsapp \|\| '';/);
-  assert.match(loader,/\.select\('id, user_id, display_name, referral_code, promo_code, referral_slug, status, payout_method, payout_account, phone_whatsapp, profile_image_url'\)/);
+  assert.match(loader,/\.select\('id, user_id, display_name, referral_code, promo_code, referral_slug, promo_code_changed_at, status, payout_method, payout_account, phone_whatsapp, profile_image_url'\)/);
   assert.match(workspace,/request_affiliate_month_end_withdrawal_v2/);
   assert.match(workspace,/p_recipient_phone: phone\.trim\(\)/);
 });

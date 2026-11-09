@@ -78,6 +78,7 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
   const [withdrawError, setWithdrawError] = useState<string | null>(null);
   // Tenants tab state
   const [tenantSearch, setTenantSearch] = useState('');
+  const [contentTab, setContentTab] = useState<'advertisements' | 'tutorials'>('advertisements');
   const [tenantStatusFilter, setTenantStatusFilter] = useState<string>('all');
   const [tenantPlanFilter, setTenantPlanFilter] = useState<string>('all');
   const [selectedTenant, setSelectedTenant] = useState<any>(null);
@@ -118,32 +119,20 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
     }
     const cleaned = newCode.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '');
     if (!cleaned) { setCodeError('Code must contain letters or numbers only.'); return; }
-    let cloudAffiliateCodes: any[] = [];
-    try {
-      const { getSecureDataBridgeClient } = await import('../../../shared/dataBridge/secureDataBridge');
-      const client: any = await getSecureDataBridgeClient();
-      const { data, error } = await client.from('affiliates').select('id, promo_code, referral_code');
-      if (error) throw error;
-      cloudAffiliateCodes = Array.isArray(data) ? data : [];
-    } catch (error: any) {
-      setCodeError(error?.message || ONLINE_ONLY_WRITE_MESSAGE);
+    if (workspace.profile.promo_code_changed_at) {
+      setCodeError('Promo code can only be changed once.');
       return;
     }
-
-    const taken = cloudAffiliateCodes.some((a: any) => (
-      String(a.promo_code || a.referral_code || '').toUpperCase() === cleaned &&
-      a.id !== workspace.profile.id
-    ));
-    if (taken) {
-      const sugg: string[] = [];
-      for (const sfx of ['1','2','3','_TZ','_EA','_PRO']) {
-        const s = `${cleaned}${sfx}`;
-        if (!cloudAffiliateCodes.some((a: any) => String(a.promo_code || a.referral_code || '').toUpperCase() === s)) { sugg.push(s); if (sugg.length >= 3) break; }
-      }
-      setCodeError(`"${cleaned}" is already taken.`);
-      setSuggestions(sugg);
+    if (cleaned.length < 3 || cleaned.length > 20) {
+      setCodeError('Promo code must be between 3 and 20 characters.');
       return;
     }
+    if (cleaned === (savedCode || workspace.profile.referral_code || '').toUpperCase()) {
+      setCodeError('Please choose a different code.');
+      return;
+    }
+    // Database unique indexes and authenticated row trigger check collisions
+    // and one-time eligibility atomically. Never load all Affiliate codes.
     // Save to DB first; local cache follows only after cloud confirms.
     const result = await dbWrite('affiliates', 'update',
       { promo_code: cleaned, referral_code: cleaned, referral_slug: cleaned.toLowerCase() },
@@ -164,11 +153,17 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
       onlineStorage.setItem('jasper_logged_affiliate', JSON.stringify(savedAff));
     }
     setSavedCode(cleaned); // update display immediately
-    setNotice(`✅ Promo code updated to ${cleaned}`);
+    setWorkspace(current => current ? { ...current, profile: {
+      ...current.profile,
+      referral_code: cleaned,
+      referral_slug: cleaned.toLowerCase(),
+      promo_code_changed_at: new Date().toISOString(),
+    } } : current);
+    setNotice(`Promo code updated to ${cleaned}. You cannot change it again.`);
     setEditingCode(false);
     setCodeError('');
     setSuggestions([]);
-    refresh(); // background refresh — savedCode already showing correct value
+    // No full workspace refresh: the profile is updated locally after verified save.
   };
 
   const refresh = useCallback(async () => {
@@ -466,7 +461,7 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
     ['payouts', 'Payment Status', Wallet],
     ['tenants', 'Customers', Users],
     ['reports', 'Reports', TrendingUp],
-    ['tasks', 'Messages & Tasks', ClipboardList],
+    ['tasks', 'Tasks', ClipboardList],
     ['ads', 'Ads & Tutorials', Film],
     ['meetings', 'Meetings', CalendarClock],
     ['code-link', 'Code & Link', LinkIcon],
@@ -486,6 +481,15 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
         </div>
         <Film className="w-5 h-5 text-slate-400 shrink-0" />
       </div>
+      {campaign.media_mime_type?.startsWith('image/') && isSafeExternalUrl(campaign.media_url) && (
+        <img src={campaign.media_url} alt={campaign.title} loading="lazy" decoding="async" className="mt-3 max-h-52 w-full rounded-lg bg-slate-50 object-contain" />
+      )}
+      {campaign.media_mime_type?.startsWith('video/') && (
+        <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-4 text-center">
+          <Film className="mx-auto h-6 w-6 text-emerald-700"/>
+          <p className="mt-2 text-xs text-slate-500">Video available on demand · no autoplay</p>
+        </div>
+      )}
       {campaign.description && <p className="mt-3 text-sm leading-5 text-slate-600">{campaign.description}</p>}
       {campaign.recommended_caption && <p className="mt-3 rounded-md border-l-2 border-emerald-500 bg-emerald-50 px-3 py-2 text-xs leading-5 text-emerald-950">{campaign.recommended_caption}</p>}
       <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-slate-500">
@@ -839,7 +843,7 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
               {editingCode ? (
                 <div className="space-y-3">
                   <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-[11px] text-amber-700 leading-relaxed">
-                    Change this code carefully. A new code will affect referral tracking.
+                    You can change your promo code only once. Your referral link will update automatically.
                   </div>
                   <input autoFocus type="text" value={newCode}
                     onChange={e => { setNewCode(e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g,'')); setCodeError(''); setSuggestions([]); }}
@@ -880,7 +884,7 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
                       className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 font-bold rounded-lg cursor-pointer border-none flex items-center justify-center gap-2 text-sm">
                       <Copy className="h-4 w-4" /> Copy Code
                     </button>
-                    {!mirrorMode && <button type="button" onClick={() => { setEditingCode(true); setNewCode(getLiveCode(profile) || profile.referral_code); }}
+                    {!mirrorMode && !profile.promo_code_changed_at && <button type="button" onClick={() => { setEditingCode(true); setNewCode(getLiveCode(profile) || profile.referral_code); }}
                       className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg cursor-pointer border-none flex items-center justify-center gap-2 text-sm">
                       <PencilIcon className="h-4 w-4" /> Edit Code
                     </button>}
@@ -910,16 +914,62 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
             </section>
           </div>}
 
-          {activeTab === 'tasks' && <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">{workspace!.tasks.map((task) => <TaskRow key={task.id} task={task} busy={busyTaskId === task.id} readOnly={mirrorMode} onComplete={handleTaskComplete} onDownload={() => task.attachment_url && handleTrackedLink('task_download', 'task', task.id, task.attachment_url, task.attachment_name)} />)}{workspace!.tasks.length === 0 && <Empty text="No tasks, notes, or files have been assigned to you yet." />}</section>}
-          {activeTab === 'ads' && (
-            <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {workspace!.campaigns.map(renderCampaign)}
-              {workspace!.campaigns.length === 0 && (
-                <div className="md:col-span-2 xl:col-span-3"><Empty text="No Ads by JB campaigns are assigned to your account." /></div>
-              )}
+          {activeTab === 'tasks' && (
+            <section className="space-y-3" data-testid="affiliate-lightweight-tasks">
+              <h2 className="text-base font-semibold text-slate-950 dark:text-white">Tasks</h2>
+              <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-emerald-900 dark:bg-[#092a20]">
+                {workspace!.tasks.map(task=><TaskRow key={task.id} task={task} busy={busyTaskId===task.id} readOnly={mirrorMode}
+                  onComplete={handleTaskComplete} onDownload={()=>task.attachment_url && handleTrackedLink('task_download','task',task.id,task.attachment_url,task.attachment_name)}/>)}
+                {workspace!.tasks.length===0&&<div className="flex flex-col items-center gap-2 px-4 py-12 text-center">
+                  <ClipboardList className="h-8 w-8 text-emerald-700/55"/>
+                  <p className="text-sm font-semibold text-slate-800 dark:text-white">No tasks assigned</p>
+                  <p className="text-xs text-slate-500 dark:text-emerald-100/60">Tasks from your Agent will appear here.</p>
+                </div>}
+              </div>
             </section>
           )}
-          {activeTab === 'meetings' && <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">{workspace!.meetings.map((meeting) => <MeetingRow key={meeting.id} meeting={meeting} onJoin={() => handleTrackedLink('meeting_join', 'meeting', meeting.id, meeting.meeting_url)} />)}{workspace!.meetings.length === 0 && <Empty text="No agent meetings are scheduled for your account." />}</section>}
+          {activeTab === 'ads' && (
+            <section className="space-y-3" data-testid="affiliate-lightweight-content">
+              <h2 className="text-base font-semibold text-slate-950 dark:text-white">Ads & Tutorials</h2>
+              <div className="grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-white p-1.5 dark:border-emerald-900 dark:bg-[#092a20]">
+                {([['advertisements','Advertisements'],['tutorials','Tutorials']] as const).map(([id,label])=>(
+                  <button key={id} type="button" aria-pressed={contentTab===id} onClick={()=>setContentTab(id)}
+                    className={`rounded-lg px-2 py-2.5 text-xs font-medium sm:text-sm ${contentTab===id?'bg-emerald-700 text-white':'text-slate-600 dark:text-emerald-100'}`}>{label}</button>
+                ))}
+              </div>
+              {contentTab==='advertisements'
+                ? <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    {workspace!.campaigns.filter(c=>!/(tutorial|training|guide)/i.test(c.title+' '+c.campaign_name)).map(renderCampaign)}
+                    {workspace!.campaigns.filter(c=>!/(tutorial|training|guide)/i.test(c.title+' '+c.campaign_name)).length===0&&<div className="col-span-full flex flex-col items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-12 dark:border-emerald-900 dark:bg-[#092a20]">
+                      <Film className="h-8 w-8 text-emerald-700/55"/>
+                      <p className="text-sm font-semibold text-slate-800 dark:text-white">No advertisements assigned</p>
+                      <p className="text-xs text-slate-500 dark:text-emerald-100/60">Images, videos and campaign text will appear here.</p>
+                    </div>}
+                  </div>
+                : <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    {workspace!.campaigns.filter(c=>/(tutorial|training|guide)/i.test(c.title+' '+c.campaign_name)).map(renderCampaign)}
+                    {!workspace!.campaigns.some(c=>/(tutorial|training|guide)/i.test(c.title+' '+c.campaign_name))&&
+                      <div className="col-span-full rounded-xl border border-slate-200 bg-white px-4 py-12 text-center dark:border-emerald-900 dark:bg-[#092a20]">
+                        <Film className="mx-auto mb-3 h-8 w-8 text-emerald-700/55"/>
+                        <p className="text-sm font-semibold text-slate-800 dark:text-white">No tutorials assigned</p>
+                        <p className="mt-1 text-xs text-slate-500 dark:text-emerald-100/60">Training material will appear here when available. Videos do not autoplay.</p>
+                      </div>}
+                  </div>}
+            </section>
+          )}
+          {activeTab === 'meetings' && (
+            <section className="space-y-3" data-testid="affiliate-lightweight-meetings">
+              <h2 className="text-base font-semibold text-slate-950 dark:text-white">Meetings</h2>
+              <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-emerald-900 dark:bg-[#092a20]">
+                {workspace!.meetings.map(meeting=><MeetingRow key={meeting.id} meeting={meeting} onJoin={()=>handleTrackedLink('meeting_join','meeting',meeting.id,meeting.meeting_url)}/>)}
+                {workspace!.meetings.length===0&&<div className="flex flex-col items-center gap-2 px-4 py-12 text-center">
+                  <CalendarClock className="h-8 w-8 text-emerald-700/55"/>
+                  <p className="text-sm font-semibold text-slate-800 dark:text-white">No upcoming meetings</p>
+                  <p className="text-xs text-slate-500 dark:text-emerald-100/60">Meeting dates and joining links will appear here when scheduled.</p>
+                </div>}
+              </div>
+            </section>
+          )}
           {activeTab === 'reports' && (() => {
             const subscribers = monthlySubscribers;
             const rewards = (workspace?.rewards || []).filter(r => String(r.created_at || '').slice(0,7) === reportMonth && r.status !== 'void');
@@ -1279,7 +1329,7 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
                 </div>
                 <div className="mt-5 flex flex-col gap-3 sm:flex-row">
                   <button type="button" onClick={saveAffiliateSettings} className="inline-flex flex-1 items-center justify-center rounded-lg bg-emerald-600 px-4 py-3 text-sm font-black text-white hover:bg-emerald-500">Save Settings</button>
-                  <button type="button" onClick={onLogout} className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-rose-200 px-4 py-3 text-sm font-black text-rose-600 hover:bg-rose-50"><LogOut className="h-4 w-4" /> Sign out</button>
+
                 </div>
               </div>
             </section>
@@ -1357,6 +1407,20 @@ function NotificationRow({ notification, onMarkRead }: { key?: unknown; notifica
 }
 
 function MeetingRow({ meeting, onJoin }: { key?: unknown; meeting: any; onJoin: () => void }) {
-  return <article className="flex flex-col justify-between gap-3 p-4 sm:flex-row sm:items-center"><div><p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">{meeting.status}</p><h3 className="mt-1 text-sm font-bold text-slate-950">{meeting.title}</h3><p className="mt-1 text-sm text-slate-500">{formatDateTime(meeting.starts_at)}{meeting.host_name ? ` · ${meeting.host_name}` : ''}</p>{meeting.notes && <p className="mt-2 text-sm text-slate-600">{meeting.notes}</p>}</div>{['upcoming', 'live'].includes(meeting.status) && <button type="button" onClick={onJoin} className="inline-flex items-center justify-center gap-2 rounded-md bg-slate-900 px-3 py-2.5 text-xs font-semibold text-white"><PlayCircle className="h-4 w-4" /> Join<ExternalLink className="h-3.5 w-3.5" /></button>}</article>;
+  const start = new Date(meeting.starts_at).getTime();
+  const validStart = Number.isFinite(start);
+  const withinJoinWindow = validStart && Date.now() >= start - 30*60*1000;
+  const joinEnabled = ['upcoming','live'].includes(meeting.status) && withinJoinWindow && !!meeting.meeting_url;
+  return <article className="flex flex-col justify-between gap-3 border-b border-slate-100 p-4 last:border-0 dark:border-emerald-900/40 sm:flex-row sm:items-center">
+    <div className="min-w-0">
+      <p className="text-[11px] font-medium uppercase tracking-wide text-emerald-700 dark:text-emerald-200">{meeting.status}</p>
+      <h3 className="mt-1 text-sm font-semibold text-slate-950 dark:text-white">{meeting.title}</h3>
+      <p className="mt-1 text-xs text-slate-500 dark:text-emerald-100/65">{formatDateTime(meeting.starts_at)}{meeting.host_name ? ` · ${meeting.host_name}` : ''}</p>
+      {meeting.notes && <p className="mt-2 text-xs text-slate-600 dark:text-emerald-100/70">{meeting.notes}</p>}
+    </div>
+    {['upcoming','live'].includes(meeting.status) && (joinEnabled
+      ? <button type="button" onClick={onJoin} className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-700 px-3 py-2.5 text-xs font-semibold text-white"><PlayCircle className="h-4 w-4"/> Join Meeting</button>
+      : <span className="shrink-0 text-[11px] text-slate-500 dark:text-emerald-100/60">Link available near meeting time</span>)}
+  </article>;
 }
 
