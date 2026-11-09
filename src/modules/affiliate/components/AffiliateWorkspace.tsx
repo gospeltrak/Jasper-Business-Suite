@@ -77,6 +77,7 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
   // Tenants tab state
   const [tenantSearch, setTenantSearch] = useState('');
   const [tenantStatusFilter, setTenantStatusFilter] = useState<string>('all');
+  const [tenantPlanFilter, setTenantPlanFilter] = useState<string>('all');
   const [selectedTenant, setSelectedTenant] = useState<any>(null);
   const payoutWindow = getTanzaniaMonthEndWithdrawalDate();
   const transferFee = getAzamPayFee(workspace?.profile?.payout_method);
@@ -703,239 +704,181 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
 
           {activeTab === 'tenants' && (() => {
             const subs = workspace!.subscribers || [];
-            // Status helper
-            const getStatus = (s: any): { label: string; color: string } => {
-              const st = (s.payment_status || s.status || '').toLowerCase();
-              const plan = (s.package_name || s.package_id || '').toLowerCase();
-              const endDate = s.subscription_end_date;
-              const isExpired = endDate && new Date(endDate) < new Date();
-              if (isSettledPaymentStatus(st)) return { label: 'Paid', color: 'bg-emerald-100 text-emerald-700' };
-              if (plan.includes('trial') || st === 'trial') {
-                return isExpired
-                  ? { label: 'Trial Expired', color: 'bg-rose-100 text-rose-700' }
-                  : { label: 'Free Trial', color: 'bg-blue-100 text-blue-700' };
-              }
-              if (st === 'suspended' || st === 'cancelled') return { label: st.charAt(0).toUpperCase() + st.slice(1), color: 'bg-slate-100 text-slate-600' };
-              if (isExpired) return { label: 'Expired', color: 'bg-orange-100 text-orange-700' };
-              return { label: 'Pending', color: 'bg-amber-100 text-amber-700' };
+            const formatPlan = (s: typeof subs[number]) => {
+              const plan = String(s.package_name || s.package_id || '').trim();
+              if (/^(free[_ -]?trial|trial)$/i.test(plan) || s.payment_status === 'trial') return 'Free Trial';
+              if (/ruby/i.test(plan)) return 'Ruby';
+              if (/diamond/i.test(plan)) return 'Diamond';
+              if (/tanzanite/i.test(plan)) return 'Tanzanite';
+              return plan || 'Unassigned';
             };
-            const fmtDate = (d: string | null) => d ? new Date(d).toLocaleDateString() : '—';
-            const fmtAgo = (d: string | null) => {
-              if (!d) return 'Never';
-              const diff = Math.floor((Date.now() - new Date(d).getTime()) / 86400000);
-              if (diff === 0) return 'Today';
-              if (diff === 1) return 'Yesterday';
-              if (diff < 7) return `${diff} days ago`;
-              if (diff < 30) return `${Math.floor(diff / 7)}w ago`;
-              return `${Math.floor(diff / 30)}mo ago`;
+            const getStatus = (s: typeof subs[number]) => {
+              const state = getAffiliateCustomerState(s);
+              const expired = s.subscription_end_date && new Date(s.subscription_end_date).getTime() < Date.now();
+              const suspended = ['suspended','cancelled'].includes(String(s.payment_status || '').toLowerCase());
+              if (suspended) return { key: 'unpaid', label: 'Inactive', style: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-200' };
+              if (expired) return { key: 'expired', label: 'Expired', style: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-200' };
+              if (state === 'paid') return { key: 'paid', label: 'Paid', style: 'bg-emerald-50 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-100' };
+              if (state === 'trial') return { key: 'trial', label: 'Free Trial', style: 'bg-emerald-50 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-100' };
+              return { key: 'unpaid', label: 'Pending', style: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-200' };
             };
-            // Filter
+            const countPaid = subs.filter(s => getStatus(s).key === 'paid').length;
+            const countTrial = subs.filter(s => getStatus(s).key === 'trial').length;
+            const countUnpaid = subs.length - countPaid - countTrial;
+            const formatDate = (value?: string | null) => {
+              if (!value) return 'Not recorded';
+              const date = new Date(value);
+              return Number.isFinite(date.getTime()) ? date.toLocaleDateString('en-TZ') : 'Not recorded';
+            };
+            const formatActivity = (value?: string | null) => {
+              if (!value) return 'Not recorded';
+              const time = new Date(value).getTime();
+              if (!Number.isFinite(time) || time > Date.now()) return 'Not recorded';
+              const days = Math.floor((Date.now() - time) / 86400000);
+              if (days === 0) return 'Today';
+              if (days === 1) return 'Yesterday';
+              if (days < 7) return `${days} days ago`;
+              return formatDate(value);
+            };
             const filtered = subs.filter(s => {
-              const q = tenantSearch.toLowerCase();
-              const matchQ = !q ||
-                (s.customer_name || '').toLowerCase().includes(q) ||
-                (s.owner_name || '').toLowerCase().includes(q) ||
-                (s.email || '').toLowerCase().includes(q) ||
-                (s.phone_number || '').includes(q) ||
-                (s.package_name || '').toLowerCase().includes(q) ||
-                (s.region || '').toLowerCase().includes(q) ||
-                (s.location || '').toLowerCase().includes(q);
-              const st = getStatus(s).label;
-              const matchSt = tenantStatusFilter === 'all' || st.toLowerCase().includes(tenantStatusFilter);
-              return matchQ && matchSt;
+              const plan = formatPlan(s);
+              const state = getStatus(s).key;
+              const q = tenantSearch.trim().toLowerCase();
+              const searchable = [s.customer_name,s.owner_name,s.email,s.phone_number,s.region,s.location,plan]
+                .filter(Boolean).join(' ').toLowerCase();
+              return (tenantPlanFilter === 'all' || plan.toLowerCase() === tenantPlanFilter)
+                && (tenantStatusFilter === 'all' || state === tenantStatusFilter)
+                && (!q || searchable.includes(q));
             });
-            // Summary cards
-            const paid = subs.filter(s => getStatus(s).label === 'Paid').length;
-            const trial = subs.filter(s => getStatus(s).label === 'Free Trial').length;
-            const expired = subs.filter(s => ['Trial Expired','Expired'].includes(getStatus(s).label)).length;
-            const totalComm = subs
-              .filter((s) => isSettledPaymentStatus(s.payment_status))
-              .reduce((a, s) => a + (s.commission_amount || 0), 0);
-            const paidComm = subs.filter(s => s.commission_status === 'paid').reduce((a, s) => a + (s.commission_amount || 0), 0);
-            const pendComm = totalComm - paidComm;
-            const cur = workspace!.profile.currency || 'TZS';
-            const fmt = (n: number) => `${cur} ${Math.round(n).toLocaleString()}`;
-
+            const summary = [
+              ['Total Customers', subs.length],
+              ['Paid', countPaid],
+              ['Free Trial', countTrial],
+              ['Unpaid / Expired', countUnpaid],
+            ] as const;
+            const plans = [
+              ['all','All'],
+              ['free trial','Free Trial'],
+              ['ruby','Ruby'],
+              ['diamond','Diamond'],
+              ['tanzanite','Tanzanite'],
+            ] as const;
+            const customerFields = selectedTenant ? [
+              ['Business', selectedTenant.customer_name || 'Name not provided'],
+              ['Owner', selectedTenant.owner_name || 'Not provided'],
+              ['Location', [selectedTenant.location, selectedTenant.region].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).join(', ') || 'Not provided'],
+              ['Phone', selectedTenant.phone_number || 'Not provided'],
+              ['Email', selectedTenant.email || 'Not provided'],
+              ['Package', formatPlan(selectedTenant)],
+              ['Subscription Status', getStatus(selectedTenant).label],
+              ['Registration Date', formatDate(selectedTenant.created_at)],
+              ['Amount Paid', currency.format(Number(selectedTenant.amount_paid || 0))],
+              ['Subscription Start', formatDate(selectedTenant.subscription_start_date)],
+              ['Subscription Expiry', formatDate(selectedTenant.subscription_end_date)],
+              ['Last Activity', formatActivity(selectedTenant.last_activity_at)],
+            ] as const : [];
             return (
-              <div className="space-y-4">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <h2 className="text-base font-black text-slate-900">My Subscribers</h2>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      Only tenants registered with your promo code or linked to your affiliate ID are shown here.
-                    </p>
-                  </div>
-                  <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-black text-emerald-700">
-                    <ShieldCheck className="h-3.5 w-3.5" /> Scoped to your account
-                  </span>
-                </div>
-                {/* Summary cards */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  {[
-                    ['Total Subscribers', subs.length, 'bg-indigo-50 text-indigo-700'],
-                    ['Paid', paid, 'bg-emerald-50 text-emerald-700'],
-                    ['Free Trial', trial, 'bg-blue-50 text-blue-700'],
-                    ['Expired', expired, 'bg-rose-50 text-rose-700'],
-                  ].map(([label, val, cls]) => (
-                    <div key={label as string} className={`rounded-2xl p-4 ${cls}`}>
-                      <p className="text-xs font-bold opacity-70 uppercase tracking-wider">{label}</p>
-                      <p className="text-2xl font-black mt-1">{val}</p>
-                    </div>
-                  ))}
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  {[
-                    ['Est. Commission', fmt(totalComm), 'bg-slate-50 text-slate-700'],
-                    ['Pending', fmt(pendComm), 'bg-amber-50 text-amber-700'],
-                    ['Paid Out', fmt(paidComm), 'bg-emerald-50 text-emerald-700'],
-                  ].map(([label, val, cls]) => (
-                    <div key={label as string} className={`rounded-2xl p-4 ${cls}`}>
-                      <p className="text-xs font-bold opacity-70 uppercase tracking-wider">{label}</p>
-                      <p className="text-lg font-black mt-1">{val}</p>
+              <section className="space-y-4 sm:space-y-5">
+                <h2 className="text-base font-semibold text-slate-950 dark:text-white sm:text-lg">My Subscribers</h2>
+
+                <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4" data-testid="subscriber-summary">
+                  {summary.map(([label,total]) => (
+                    <div key={label} className="min-w-0 rounded-xl border border-slate-200 bg-white px-3.5 py-3.5 shadow-[0_5px_18px_-11px_rgba(6,78,59,0.27)] dark:border-emerald-900/70 dark:bg-[#092c21] sm:px-4 sm:py-4">
+                      <p className="text-[11px] font-medium leading-4 text-slate-500 dark:text-emerald-100/70">{label}</p>
+                      <p className="mt-1.5 text-xl font-semibold tabular-nums text-slate-950 dark:text-white sm:text-2xl">{total}</p>
                     </div>
                   ))}
                 </div>
 
-                {/* Search + filter */}
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <input value={tenantSearch} onChange={e => setTenantSearch(e.target.value)}
-                      placeholder="Search by business, owner, phone, email, plan, region..."
-                      className="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500" />
+                <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-[0_5px_18px_-11px_rgba(6,78,59,0.2)] dark:border-emerald-900/70 dark:bg-[#092c21] sm:p-4">
+                  <div className="-mx-1 flex flex-nowrap items-center gap-1.5 overflow-x-auto px-1 pb-2 [-webkit-overflow-scrolling:touch]" role="group" aria-label="Filter by subscription plan" data-testid="subscriber-plan-filters">
+                    {plans.map(([value,label]) => (
+                      <button key={value} type="button" onClick={() => setTenantPlanFilter(value)}
+                        aria-pressed={tenantPlanFilter === value}
+                        className={`shrink-0 whitespace-nowrap rounded-lg border px-3 py-2 text-[11px] font-medium transition-colors sm:text-xs ${
+                          tenantPlanFilter === value
+                            ? 'border-emerald-700 bg-emerald-700 text-white'
+                            : 'border-slate-200 bg-white text-slate-600 hover:border-emerald-300 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-100'
+                        }`}>{label}</button>
+                    ))}
                   </div>
-                  <select value={tenantStatusFilter} onChange={e => setTenantStatusFilter(e.target.value)}
-                    className="px-3 py-2 text-sm border border-slate-200 rounded-xl bg-white focus:outline-none focus:border-emerald-500">
-                    <option value="all">All Statuses</option>
-                    <option value="paid">Paid</option>
-                    <option value="trial">Free Trial</option>
-                    <option value="expired">Expired</option>
-                    <option value="pending">Pending</option>
-                    <option value="suspended">Suspended</option>
-                  </select>
+                  <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-[minmax(0,1fr)_170px]">
+                    <label className="relative block min-w-0">
+                      <span className="sr-only">Search customers</span>
+                      <Search aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                      <input value={tenantSearch} onChange={e => setTenantSearch(e.target.value)}
+                        placeholder="Search customers..."
+                        className="w-full rounded-lg border border-slate-200 bg-white py-2.5 pl-9 pr-3 text-xs text-slate-900 outline-none focus:border-emerald-500 dark:border-emerald-900 dark:bg-emerald-950 dark:text-white sm:text-sm"/>
+                    </label>
+                    <label className="block">
+                      <span className="sr-only">Filter by customer status</span>
+                      <select value={tenantStatusFilter} onChange={e => setTenantStatusFilter(e.target.value)}
+                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs text-slate-700 outline-none focus:border-emerald-500 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-100 sm:text-sm">
+                        <option value="all">All Statuses</option>
+                        <option value="paid">Paid</option>
+                        <option value="trial">Free Trial</option>
+                        <option value="unpaid">Pending / Unpaid</option>
+                        <option value="expired">Expired</option>
+                      </select>
+                    </label>
+                  </div>
                 </div>
 
-                {/* Empty state */}
-                {subs.length === 0 && (
-                  <div className="text-center py-16 rounded-2xl border-2 border-dashed border-slate-200">
-                    <Users className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-                    <p className="font-bold text-slate-600">You do not have registered subscribers yet.</p>
-                    <p className="text-sm text-slate-400 mt-1">Share your promo code to start earning.</p>
+                <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-[0_5px_18px_-11px_rgba(6,78,59,0.2)] dark:border-emerald-900/70 dark:bg-[#092c21]">
+                  <div className="flex items-center justify-between border-b border-slate-100 px-3.5 py-3 dark:border-emerald-900/60 sm:px-4">
+                    <h3 className="text-xs font-semibold text-slate-950 dark:text-white sm:text-sm">Customers</h3>
+                    <span className="text-[11px] tabular-nums text-slate-500 dark:text-emerald-100/70">{filtered.length} results</span>
                   </div>
-                )}
-
-                {/* Desktop table */}
-                {filtered.length > 0 && (
-                  <>
-                    <div className="hidden md:block overflow-x-auto rounded-2xl border border-slate-200 shadow-sm">
-                      <table className="w-full text-sm">
-                        <thead className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider">
-                          <tr>
-                            <th className="px-4 py-3 text-left">Business / Owner</th>
-                            <th className="px-4 py-3 text-left">Contact</th>
-                            <th className="px-4 py-3 text-left">Plan</th>
-                            <th className="px-4 py-3 text-left">Status</th>
-                            <th className="px-4 py-3 text-left">Joined</th>
-                            <th className="px-4 py-3 text-left">Location</th>
-                            <th className="px-4 py-3 text-left">Promo</th>
-                            <th className="px-4 py-3 text-right">Commission</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                          {filtered.map(s => {
-                            const st = getStatus(s);
-                            return (
-                              <tr key={s.id} className="hover:bg-slate-50 cursor-pointer" onClick={() => setSelectedTenant(s)}>
-                                <td className="px-4 py-3">
-                                  <p className="font-semibold text-slate-900">{s.customer_name || 'Unnamed'}</p>
-                                  <p className="text-[11px] text-slate-500">{s.owner_name || 'Owner not recorded'}</p>
-                                </td>
-                                <td className="px-4 py-3 text-slate-500 text-xs">
-                                  <p className="font-mono">{s.phone_number || '—'}</p>
-                                  {s.email && <p translate="no" className="mt-0.5 max-w-[180px] truncate">{s.email}</p>}
-                                </td>
-                                <td className="px-4 py-3 text-slate-600 text-xs">{s.package_name || '—'}</td>
-                                <td className="px-4 py-3"><span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${st.color}`}>{st.label}</span></td>
-                                <td className="px-4 py-3 text-slate-500 text-xs">{fmtDate(s.created_at)}</td>
-                                <td className="px-4 py-3 text-slate-500 text-xs">{s.region || s.location || 'Not provided'}</td>
-                                <td className="px-4 py-3 font-mono text-xs text-emerald-700">{s.promo_code_used || s.referral_code_used || '—'}</td>
-                                <td className="px-4 py-3 text-right font-mono text-xs text-slate-700">{s.commission_amount ? fmt(s.commission_amount) : '—'}</td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
+                  {filtered.length === 0 ? (
+                    <div className="px-4 py-10 text-center">
+                      <Users aria-hidden="true" className="mx-auto mb-2 h-6 w-6 text-emerald-500/60"/>
+                      <p className="text-xs text-slate-500 dark:text-emerald-100/70">{subs.length === 0 ? 'No customers yet.' : 'No customers match your filters.'}</p>
                     </div>
+                  ) : <div className="divide-y divide-slate-100 dark:divide-emerald-900/40" data-testid="subscriber-list">
+                    {filtered.map(s => {
+                      const state = getStatus(s);
+                      return (
+                        <button key={s.id} type="button" onClick={() => setSelectedTenant(s)}
+                          aria-label={`View details for ${s.customer_name || 'subscriber'}`}
+                          className="flex w-full min-w-0 items-center gap-2.5 px-3.5 py-3.5 text-left transition-colors hover:bg-emerald-50/60 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-emerald-600 dark:hover:bg-emerald-900/30 sm:gap-4 sm:px-4">
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-xs font-semibold text-slate-900 dark:text-white sm:text-sm">{s.customer_name || 'Name not provided'}</span>
+                            <span className="mt-1 block truncate text-[10px] text-slate-500 dark:text-emerald-100/65 sm:text-xs">
+                              {formatPlan(s)} · {s.location || s.region || 'Location not provided'}
+                            </span>
+                          </span>
+                          <span className={`shrink-0 rounded-md px-2 py-1 text-[10px] font-medium ${state.style}`}>{state.label}</span>
+                          <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-slate-400 dark:text-emerald-100/60"/>
+                        </button>
+                      );
+                    })}
+                  </div>}
+                </div>
 
-                    {/* Mobile cards */}
-                    <div className="md:hidden space-y-3">
-                      {filtered.map(s => {
-                        const st = getStatus(s);
-                        return (
-                          <button key={s.id} type="button" onClick={() => setSelectedTenant(s)}
-                            className="w-full text-left bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-2">
-                            <div className="flex items-start justify-between gap-2">
-                              <p className="font-bold text-slate-900 leading-tight">{s.customer_name || 'Unnamed'}</p>
-                              <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold ${st.color}`}>{st.label}</span>
-                            </div>
-                            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
-                              <span className="flex items-center gap-1"><Building2 className="w-3 h-3" />{s.package_name || 'No plan'}</span>
-                              {s.owner_name && <span className="flex items-center gap-1"><User className="w-3 h-3" />{s.owner_name}</span>}
-                              <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{fmtDate(s.created_at)}</span>
-                              {(s.region || s.location) && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{s.region || s.location}</span>}
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </>
-                )}
-
-                {/* Tenant detail modal */}
-                {selectedTenant && (() => {
-                  const s = selectedTenant;
-                  const st = getStatus(s);
-                  return (
-                    <div className="fixed inset-0 z-[110] bg-black/50 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={() => setSelectedTenant(null)}>
-                      <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md shadow-xl overflow-hidden" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-                          <h3 className="font-black text-slate-900">Tenant Details</h3>
-                          <button onClick={() => setSelectedTenant(null)} className="p-1.5 rounded-xl hover:bg-slate-100 cursor-pointer border-none bg-transparent"><X className="w-4 h-4 text-slate-500" /></button>
-                        </div>
-                        <div className="p-5 space-y-3 overflow-y-auto max-h-[70vh]">
-                          <div className="flex items-center justify-between">
-                            <p className="font-black text-lg text-slate-900">{s.customer_name || 'Unnamed'}</p>
-                            <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${st.color}`}>{st.label}</span>
-                          </div>
-                          {[
-                            ['Phone', s.phone_number],
-                            ['Owner/Admin', s.owner_name],
-                            ['Email', s.email],
-                            ['Plan', s.package_name],
-                            ['Promo Code', s.promo_code_used || s.referral_code_used],
-                            ['Date Joined', fmtDate(s.created_at)],
-                            ['Sub. Start', fmtDate(s.subscription_start_date)],
-                            ['Sub. Ends', fmtDate(s.subscription_end_date)],
-                            ['Last Login', s.last_login_at ? fmtAgo(s.last_login_at) : 'Never used after registration'],
-                            ['Last Activity', s.last_activity_at ? fmtAgo(s.last_activity_at) : 'Never used after registration'],
-                            ['Location', s.region || s.location || 'Not provided'],
-                            ['Commission', s.commission_amount ? fmt(s.commission_amount) : '—'],
-                            ['Comm. Status', s.commission_status || '—'],
-                          ].map(([label, val]) => val && (
-                            <div key={label} className="flex justify-between text-sm border-b border-slate-50 pb-2">
-                              <span className="text-slate-500">{label}</span>
-                              <span className="font-semibold text-slate-800 text-right max-w-[60%]">{val}</span>
-                            </div>
-                          ))}
-                        </div>
+                {selectedTenant && (
+                  <div className="fixed inset-0 z-[110] flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4"
+                    onClick={e => { if (e.target === e.currentTarget) setSelectedTenant(null); }}>
+                    <section role="dialog" aria-modal="true" aria-labelledby="subscriber-detail-heading"
+                      className="flex max-h-[88dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-slate-200 bg-white shadow-2xl dark:border-emerald-900 dark:bg-[#092c21] sm:rounded-2xl">
+                      <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-4 py-3.5 dark:border-emerald-900">
+                        <h3 id="subscriber-detail-heading" className="text-sm font-semibold text-slate-950 dark:text-white">Customer Details</h3>
+                        <button type="button" onClick={() => setSelectedTenant(null)} aria-label="Close details"
+                          className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:text-emerald-100 dark:hover:bg-emerald-900/40"><X className="h-4 w-4"/></button>
                       </div>
-                    </div>
-                  );
-                })()}
-              </div>
+                      <dl className="min-h-0 space-y-0 overflow-y-auto px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-1 sm:px-5">
+                        {customerFields.map(([label,value]) => (
+                          <div key={label} className="grid grid-cols-[minmax(105px,0.85fr)_minmax(0,1.15fr)] gap-3 border-b border-slate-100 py-3 text-xs last:border-0 dark:border-emerald-900/40 sm:text-sm">
+                            <dt className="text-slate-500 dark:text-emerald-100/70">{label}</dt>
+                            <dd className="min-w-0 break-words text-right font-medium text-slate-900 dark:text-white">{value}</dd>
+                          </div>
+                        ))}
+                      </dl>
+                    </section>
+                  </div>
+                )}
+              </section>
             );
           })()}
-
 
           {activeTab === 'code-link' && <div className="space-y-5 max-w-2xl">
             <div>

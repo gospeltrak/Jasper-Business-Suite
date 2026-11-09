@@ -227,7 +227,8 @@ const mapSubscriberRow = (row: any): AffiliateSubscriber => {
     commission_status: row.commission_status || row.commissionStatus || 'pending',
     status: isActive ? 'active' : 'inactive',
     days_remaining: daysRemaining,
-    last_activity_at: row.last_activity_at || row.lastActivityAt || row.updated_at || row.updatedAt || null,
+    // A record update is NOT evidence the subscriber actually used Orvix.
+    last_activity_at: row.last_activity_at || row.lastActivityAt || null,
     last_login_at: row.last_login_at || row.lastLoginAt || null,
     created_at: row.created_at || row.createdAt || '',
   };
@@ -347,6 +348,35 @@ export async function loadAffiliateWorkspace(options: AffiliateWorkspaceLoadOpti
       candidate.id === subscriber.id
     )) === index
   ));
+
+  // Optional scoped aggregate from active tenant sessions, not profile.updated_at.
+  // In mirrored Agent/Admin views this endpoint is intentionally not requested:
+  // a signed-in affiliate can only read their own verified tenant referrals.
+  if (subscribers.length && String(profile.user_id) === authData.user.id) {
+    try {
+      const { data: sessionData } = await client.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (token) {
+        const response = await fetch('/api/affiliate/subscriber-last-activity', {
+          headers: { Authorization: `Bearer ${token}` },
+          credentials: 'same-origin',
+        });
+        if (response.ok) {
+          const payload = await response.json();
+          const activityByTenant = new Map<string, string>((Array.isArray(payload?.activity) ? payload.activity : [])
+            .filter((row: any) => typeof row?.tenant_id === 'string' && typeof row?.last_activity_at === 'string')
+            .map((row: any) => [row.tenant_id.toLowerCase(), row.last_activity_at]));
+          for (const subscriber of subscribers) {
+            const activityAt = activityByTenant.get(String(subscriber.tenant_id || '').toLowerCase());
+            if (activityAt) subscriber.last_activity_at = activityAt;
+          }
+        }
+      }
+    } catch (error: any) {
+      // Subscriber list still loads safely when presence data is unavailable.
+      console.warn('[Affiliate workspace] Subscriber activity unavailable:', error?.message || error);
+    }
+  }
 
   return {
     profile: profile as AffiliateWorkspaceProfile,
