@@ -76,7 +76,7 @@ test('super admin renders a narrow read-only overview without loading full affil
   const end=server.indexOf('const resolveAffiliatePayoutAccess',begin);
   assert.ok(begin>0&&end>begin);
   const api=server.slice(begin,end);
-  assert.match(view,/import SuperAffiliateControlCenter from '\.\/SuperAffiliateNetworkOverview'/);
+  assert.match(view,/(?:import SuperAffiliateControlCenter from '\.\/SuperAffiliateNetworkOverview'|const SuperAffiliateControlCenter = React\.lazy\(\(\) => import\('\.\/SuperAffiliateNetworkOverview'\)\))/);
   assert.match(overview,/affiliate-network-overview/);
   assert.match(overview,/Read-only supervision/);
   assert.doesNotMatch(overview,/approve|mark_paid|Reject Withdrawal|Payout Requests|loadAffiliateMonitoringData/);
