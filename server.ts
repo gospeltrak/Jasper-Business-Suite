@@ -1146,11 +1146,29 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
   // One read/write service for Agent and Super Admin: identical payout source,
   // filtered by authenticated role. No cross-user cache of financial records.
   const resolveAffiliatePayoutAccess = async (req: express.Request) => {
-    const user = await requireActiveUser(req);
+    if (!supabaseAdmin) throw new Error('Supabase backend client is not configured');
+    const token = getBearerToken(req);
+    if (!token) {
+      const denied: any = new Error('Authentication required');
+      denied.status = 401;
+      throw denied;
+    }
+    const { data: auth, error: authError } = await supabaseAdmin.auth.getUser(token);
+    if (authError || !auth.user) {
+      const denied: any = new Error('Invalid session');
+      denied.status = 401;
+      throw denied;
+    }
+    const user = auth.user;
     const { data: profile, error: profileError } = await adminTable('users')
       .select('id, tenant_id, active_tenant, account_type, role, role_key, is_active')
       .eq('id', user.id).maybeSingle();
     if (profileError) throw profileError;
+    if (profile?.is_active === false) {
+      const denied: any = new Error('Inactive account');
+      denied.status = 403;
+      throw denied;
+    }
     if (isStrictPlatformAdminProfile(profile)) {
       return { userId: user.id, role: 'admin' as const, affiliateIds: [] as string[] };
     }
