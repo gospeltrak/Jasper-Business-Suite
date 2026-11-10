@@ -66,6 +66,8 @@ export default function SaaSStatusAndRequests() {
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [rejectingId, setRejectingId] = useState<string | null>(null);
+  // Independent accordions: at most one reviewed request open per status group.
+  const [expandedReviewedProof, setExpandedReviewedProof] = useState<{ approved: string | null; rejected: string | null }>({ approved: null, rejected: null });
   const [emergencyTenantId, setEmergencyTenantId] = useState('');
   const [emergencyPlan, setEmergencyPlan] = useState('diamond');
   const [adminReason, setAdminReason] = useState('');
@@ -498,6 +500,94 @@ export default function SaaSStatusAndRequests() {
   const filtered = proofs.filter(p => filterStatus === 'all' ? true : p.status === filterStatus);
   const pendingCount = proofs.filter(p => p.status === 'pending').length;
 
+  // Pending approvals retain their existing UI and approve/reject actions.
+  // Reviewed requests share a read-only compact card with independent state.
+  const renderReviewedProof = (proof: PaymentProof) => {
+    if (proof.status === 'pending') return null;
+    const status = proof.status;
+    const isOpen = expandedReviewedProof[status] === proof.id;
+    const plan = SUBSCRIPTION_PLANS[normalizeSubscriptionPlanId(proof.requested_package_id)];
+    const isApproved = status === 'approved';
+    const detailId = 'reviewed-proof-' + proof.id;
+    return (
+      <div key={proof.id} className={['min-w-0 overflow-hidden rounded-xl border bg-slate-950/60',
+        isOpen ? (isApproved ? 'border-emerald-500/40' : 'border-rose-500/40') : 'border-slate-800'
+      ].join(' ')}>
+        <button
+          type="button"
+          aria-expanded={isOpen}
+          aria-controls={detailId}
+          onClick={() => setExpandedReviewedProof(previous => ({
+            ...previous,
+            [status]: previous[status] === proof.id ? null : proof.id,
+          }))}
+          className="flex w-full min-w-0 flex-col gap-2 px-3 py-3 text-left transition-colors hover:bg-slate-800/50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-emerald-400 sm:px-4"
+        >
+          <span className="flex w-full min-w-0 items-center justify-between gap-2">
+            <span className="min-w-0 truncate text-sm font-semibold text-white">{proof.tenant_name}</span>
+            <span className={['shrink-0 rounded-full border px-2 py-1 text-[10px] font-bold',
+              isApproved ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-400' : 'border-rose-500/25 bg-rose-500/10 text-rose-400'
+            ].join(' ')}>{isApproved ? 'Approved' : 'Rejected'}</span>
+          </span>
+          <span className="flex w-full min-w-0 items-center justify-between gap-2">
+            <span className="min-w-0 truncate text-xs text-slate-400">
+              {plan?.name || proof.requested_package_name} · {proof.currency} {proof.amount?.toLocaleString()}
+            </span>
+            <span className={['inline-flex shrink-0 items-center gap-1 text-xs font-semibold',
+              isApproved ? 'text-emerald-400' : 'text-rose-400'
+            ].join(' ')}>
+              {isOpen ? 'Hide' : 'Details'}
+              <span aria-hidden="true">{isOpen ? '−' : '+'}</span>
+            </span>
+          </span>
+        </button>
+        {isOpen && (
+          <div id={detailId} className="space-y-3 border-t border-slate-800 px-3 pb-3 pt-3 sm:px-4 sm:pb-4">
+            <p className="break-all text-[11px] text-slate-500">Tenant ID: {proof.tenant_id}</p>
+            <div className="admin-reviewed-proof-details-grid grid grid-cols-2 gap-3">
+              <div className="min-w-0">
+                <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Package</p>
+                <p className="break-words text-sm font-semibold text-white">{plan?.name || proof.requested_package_name}</p>
+              </div>
+              <div className="min-w-0">
+                <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Amount</p>
+                <p className="break-words text-sm font-semibold text-emerald-400">{proof.currency} {proof.amount?.toLocaleString()}</p>
+              </div>
+              <div className="min-w-0">
+                <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Submitted</p>
+                <p className="text-sm text-slate-300">{new Date(proof.submitted_at).toLocaleDateString()}</p>
+              </div>
+              <div className="min-w-0">
+                <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">Receipt</p>
+                {proof.receipt_file_url ? (
+                  <div className="min-w-0">
+                    <p className="truncate text-xs text-slate-400" title={proof.receipt_file_name}>{proof.receipt_file_name}</p>
+                    <button type="button" onClick={() => handleViewReceipt(proof)}
+                      className="mt-1 inline-flex min-h-9 items-center gap-1 rounded-lg border border-slate-600 px-2 py-1 text-xs font-semibold text-emerald-300 hover:border-emerald-500 hover:text-emerald-200">
+                      <FileText className="h-3.5 w-3.5" /> Open receipt
+                    </button>
+                  </div>
+                ) : <p className="text-xs italic text-slate-500">No receipt — see note</p>}
+              </div>
+            </div>
+            {proof.note && (
+              <div className="rounded-lg border border-slate-700 bg-slate-800/50 p-3">
+                <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">Note from tenant</p>
+                <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-200">{proof.note}</p>
+              </div>
+            )}
+            {isApproved && proof.reviewed_at && (
+              <p className="text-xs text-emerald-400">Approved on {new Date(proof.reviewed_at).toLocaleString()}</p>
+            )}
+            {!isApproved && proof.rejected_reason && (
+              <p className="break-words text-xs leading-relaxed text-rose-400">Rejected: {proof.rejected_reason}</p>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const renderProof = (proof: PaymentProof) => {
 
             const plan = SUBSCRIPTION_PLANS[normalizeSubscriptionPlanId(proof.requested_package_id)];
@@ -709,7 +799,7 @@ export default function SaaSStatusAndRequests() {
                   <span className="shrink-0 rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-300 group-open:border-emerald-700 group-open:text-emerald-300">Details</span>
                 </summary>
                 <div className="space-y-3 border-t border-slate-800 p-3 sm:p-4">
-                  {items.map(renderProof)}
+                  {items.map(renderReviewedProof)}
                 </div>
               </details>
             );
