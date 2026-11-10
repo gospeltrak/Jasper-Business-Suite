@@ -56,6 +56,7 @@ export interface SubAffiliateProfile {
   id: string;
   userId: string;
   parentSuperAgentId: string;
+  location?: string;
   name: string;
   phone: string;
   email: string;
