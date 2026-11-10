@@ -47,3 +47,39 @@ revoke all on public.orvix_pro_shift_sessions from public,anon,authenticated;
 revoke all on public.orvix_pro_shift_audit from public,anon,authenticated;
 comment on table public.orvix_pro_shift_sessions is 'Opt-in Pro manual shift opening and cash count audit; not a verified treasury or sales reconciliation.';
 comment on column public.orvix_pro_shift_sessions.counted_cash is 'Physical cash declared by cashier; not independently verified and does not move funds.';
+
+-- Every state transition and its audit row are committed in the same DB transaction.
+create or replace function private.capture_orvix_pro_shift_audit()
+returns trigger language plpgsql security invoker set search_path='' as $$
+declare
+  event_label text;
+  acting_user uuid;
+begin
+  if TG_OP='INSERT' then
+    event_label := 'opened';
+    acting_user := NEW.cashier_id;
+  elsif NEW.status is distinct from OLD.status then
+    event_label := case NEW.status
+      when 'submitted' then 'cash_count_submitted'
+      when 'reviewed' then 'review_approved'
+      when 'flagged' then 'review_flagged'
+      else null
+    end;
+    acting_user := coalesce(NEW.reviewed_by,NEW.cashier_id);
+  else
+    raise exception 'Orvix Pro shifts are immutable outside state transitions';
+  end if;
+  if event_label is null then raise exception 'Unexpected Orvix Pro shift transition'; end if;
+  insert into public.orvix_pro_shift_audit
+    (shift_id,tenant_id,branch_id,actor_id,event_type,snapshot)
+  values (NEW.id,NEW.tenant_id,NEW.branch_id,acting_user,event_label,
+    jsonb_build_object('status',NEW.status,'opening_float',NEW.opening_float,
+      'counted_cash',NEW.counted_cash,'opened_at',NEW.opened_at,
+      'submitted_at',NEW.submitted_at,'reviewed_at',NEW.reviewed_at));
+  return NEW;
+end; $$;
+revoke all on function private.capture_orvix_pro_shift_audit() from public,anon,authenticated;
+drop trigger if exists trg_orvix_pro_shift_audit on public.orvix_pro_shift_sessions;
+create trigger trg_orvix_pro_shift_audit after insert or update
+on public.orvix_pro_shift_sessions for each row
+execute function private.capture_orvix_pro_shift_audit();
