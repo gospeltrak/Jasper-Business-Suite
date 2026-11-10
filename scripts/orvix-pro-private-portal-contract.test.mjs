@@ -36,3 +36,14 @@ test('Private Pro route has no self-serve billing or enrollment',()=>{
   assert.doesNotMatch(login,/\/api\/orvix-pro\/(?:register|checkout|activate)/);
   assert.match(app,/No standard Pro price, automatic charge or self-service checkout/);
 });
+
+test('Unverified /pro session offers a safe account switch instead of a 403 trap',()=>{
+  assert.match(app,/if \(!proPortalAccess\.registered\)/);
+  assert.match(app,/handleSwitchToProAccount/);
+  assert.match(app,/client\.auth\.signOut\(\{ scope: 'local' \}\)/);
+  assert.match(app,/setProPortalAccess\(null\)/);
+  assert.match(app,/localStorage\.removeItem\('jasper_cashier_user'\)/);
+  assert.match(app,/commitNavigation\('\/pro'\)/);
+  assert.match(app,/Sign in with another Pro account/);
+  assert.doesNotMatch(app,/return <SystemErrorPage status=\{403\} onHome=\{\(\) => navigateTo\('\/login'\)\} \/>/);
+});
