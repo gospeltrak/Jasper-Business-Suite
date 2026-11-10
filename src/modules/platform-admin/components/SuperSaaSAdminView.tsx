@@ -820,7 +820,7 @@ export default function SuperSaaSAdminView({
 
         {/* Private Pro workspace: read-only until server-authorized billing and ledger land. */}
         {activeTab === 'orvix-pro' && (
-          <OrvixProAdminPanel onOpenSubscribers={() => setActiveTab('subscribers')} />
+          <OrvixProAdminPanel onOpenSubscribers={() => (externalSetActiveTab ? externalSetActiveTab('subscribers') : setInternalActiveTab('subscribers'))} />
         )}
 
         {/* ======================= HARDWARE PANELS ======================= */}
