@@ -741,7 +741,7 @@ export default function SuperSaaSAdminView({
       )}
 
       {/* Main interactive subpage container */}
-      <div id="saas-active-subpage-view" className="flex-1 min-h-0 overflow-y-auto flex flex-col w-full min-w-0 p-4 sm:p-5 lg:p-7 space-y-5 lg:space-y-7 pb-24 md:pb-8">
+      <div id="saas-active-subpage-view" className="flex-1 min-h-0 overflow-y-auto flex flex-col w-full min-w-0 p-4 sm:p-5 lg:p-7 space-y-5 lg:space-y-7 pb-3 md:pb-8">
         <React.Suspense fallback={<div role="status" className="rounded-xl border border-slate-800 bg-slate-900 p-5 text-sm text-slate-300">Loading workspace…</div>}>
         
         {/* ======================= TAB 1: USER DESK ======================= */}
