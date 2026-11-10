@@ -3139,3 +3139,26 @@ button:active:not(:disabled),
     display: none !important;
   }
 }
+
+
+/* Super Admin mobile: content ends at the fixed bottom menu.
+   This view already owns its own scrollport, so global dashboard ad/nav
+   clearance must not create a second empty area beneath it. */
+@media (max-width: 1279px) {
+  #workspace-content:has(> #super-saas-admin-container) {
+    padding-bottom: 0 !important;
+    scroll-padding-bottom: 0;
+  }
+
+  #super-saas-admin-container {
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  #super-saas-admin-container #saas-active-subpage-view {
+    padding-bottom: 0.75rem !important;
+    scroll-padding-bottom: 0.75rem;
+    overscroll-behavior-y: contain;
+  }
+}
