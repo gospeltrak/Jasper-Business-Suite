@@ -2223,6 +2223,46 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     }
   });
 
+  // Private, branch-isolated Pro manager read model. These are recorded
+  // activities, not verified cash settlements or payroll/commission results.
+  app.get('/api/orvix-pro/accountability', async (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, private');
+    try {
+      const ctx = await resolveProShiftActor(req, res, 'cashier_accountability_enabled');
+      if (!ctx) return;
+      if (!ctx.manager) return res.status(403).json({ error: 'Manager access required.' });
+      const { account, branch } = ctx;
+      const scope = (table: string) => supabaseAdmin!.from(table)
+        .select(table === 'sales'
+          ? 'id,staff_name,cashier_name,reference,total,amount_paid,payment_method,created_at,source_active'
+          : 'id,sale_id,customer_name,status,delivery_cost,delivery_payment_method,rider_details,created_at,source_active')
+        .eq('tenant_id', account.tenant_id).eq('branch_id', branch.id)
+        .order('created_at', { ascending: false }).limit(125);
+      const [salesResult, deliveryResult, usersResult] = await Promise.all([
+        scope('sales'),
+        scope('deliveries'),
+        supabaseAdmin!.from('users')
+          .select('id,name,role,is_active,created_at')
+          .eq('tenant_id', account.tenant_id).eq('is_active', true).limit(150),
+      ]);
+      if (salesResult.error || deliveryResult.error || usersResult.error) {
+        throw salesResult.error || deliveryResult.error || usersResult.error;
+      }
+      const sales = (salesResult.data || []).filter((item: any) => item.source_active !== false);
+      const deliveries = (deliveryResult.data || []).filter((item: any) => item.source_active !== false);
+      return res.json({
+        branch: { id: branch.id, name: branch.branch_name },
+        staff: usersResult.data || [],
+        sales,
+        deliveries,
+        limitations: 'Read-only latest 125 branch sales/deliveries; employee matching by recorded name is indicative, not a payroll/commission or cash reconciliation ledger.',
+      });
+    } catch (error: any) {
+      console.error('[Orvix Pro] accountability load failed:', error?.message);
+      return res.status(503).json({ error: 'Could not load Pro activity records.' });
+    }
+  });
+
   app.get('/api/branches/bootstrap', async (req, res) => {
     const branchClient = await requireBranchRpcClient(req, res);
     if (!branchClient) return;
