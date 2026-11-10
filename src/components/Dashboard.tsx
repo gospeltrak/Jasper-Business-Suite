@@ -4648,6 +4648,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                  activeTab === 'admin-inbox' ? 'inbox' :
                  activeTab === 'admin-security' ? 'security' :
                  activeTab === 'admin-promotions' ? 'promotions' :
+                 activeTab === 'admin-tutorials' ? 'tutorials' :
                  activeTab === 'admin-ad-placements' ? 'ad-placements' :
                  activeTab === 'admin-web-editor' ? 'web-editor' :
                  activeTab === 'admin-settings' ? 'settings' : 'dashboard'
@@ -4670,6 +4671,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                    subTab === 'inbox' ? 'admin-inbox' :
                    subTab === 'security' ? 'admin-security' :
                    subTab === 'promotions' ? 'admin-promotions' :
+                   subTab === 'tutorials' ? 'admin-tutorials' :
                    subTab === 'ad-placements' ? 'admin-ad-placements' :
                    subTab === 'web-editor' ? 'admin-web-editor' :
                    subTab === 'settings' ? 'admin-settings' : 'admin-dashboard';
