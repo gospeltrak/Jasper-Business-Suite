@@ -54,6 +54,10 @@ export interface AffiliateCampaign {
   id: string;
   campaign_name: string;
   title: string;
+  content_type?: 'advertisement' | 'tutorial';
+  thumbnail_url?: string | null;
+  orientation?: 'horizontal' | 'vertical';
+  platform?: string | null;
   description: string | null;
   recommended_caption: string | null;
   media_url: string;
@@ -250,6 +254,9 @@ const mapSspBannerToCampaign = (banner: any): AffiliateCampaign | null => {
   return {
     id: String(banner.id || `ssp-${banner.title || Date.now()}`),
     campaign_name: 'Ad Exchange SSP',
+    content_type: 'advertisement',
+    thumbnail_url: banner.thumbnailData || (String(banner.creativeMime || '').startsWith('image/') ? banner.assetData : null),
+    orientation: String(banner.size || '') === '1080x1920' ? 'vertical' : 'horizontal',
     title: banner.title || 'Promotional Material',
     description: banner.message || banner.description || null,
     recommended_caption: banner.message || null,
@@ -259,6 +266,34 @@ const mapSspBannerToCampaign = (banner: any): AffiliateCampaign | null => {
     media_size_bytes: banner.assetData ? Math.round(String(banner.assetData).length * 0.75) : null,
     duration_seconds: null,
     campaign_url: banner.url || null,
+    status: 'active',
+    available_from: null,
+    available_until: null,
+  };
+};
+
+const mapTutorialToCampaign = (tutorial: any): AffiliateCampaign | null => {
+  if (!tutorial || String(tutorial.status || 'Active').toLowerCase() !== 'active') return null;
+  // New tutorials always have a cover. Existing legacy entries remain visible,
+  // with a safe visual placeholder until an admin uploads their thumbnails.
+  const hasLink = /^https?:\/\//i.test(String(tutorial.link || ''));
+  const mediaUrl = String(tutorial.thumbnailData || (hasLink ? tutorial.link : ''));
+  return {
+    id: 'tutorial-' + String(tutorial.id || tutorial.title || ''),
+    campaign_name: 'Affiliate Tutorials',
+    content_type: 'tutorial',
+    thumbnail_url: tutorial.thumbnailData || null,
+    orientation: tutorial.orientation === 'vertical' ? 'vertical' : 'horizontal',
+    platform: tutorial.platform || null,
+    title: String(tutorial.title || 'Affiliate Tutorial'),
+    description: tutorial.description || null,
+    recommended_caption: tutorial.description || null,
+    media_url: mediaUrl,
+    media_name: tutorial.fileName || null,
+    media_mime_type: tutorial.thumbnailData ? (tutorial.fileMime || 'image/jpeg') : null,
+    media_size_bytes: null,
+    duration_seconds: null,
+    campaign_url: hasLink ? tutorial.link : null,
     status: 'active',
     available_from: null,
     available_until: null,
@@ -313,11 +348,12 @@ export async function loadAffiliateWorkspace(options: AffiliateWorkspaceLoadOpti
     promoCode ? `referral_code_used.eq.${promoCode}` : '',
   ].filter(Boolean).join(',');
 
-  const [tasksResult, meetingsResult, assignmentsResult, sspBanners, referralsResult, subscribersResult, sourceTrackingResult, commissionsResult, payoutsResult, activitiesResult, notificationsResult, rewardsResult, walletSummaryResult] = await Promise.all([
+  const [tasksResult, meetingsResult, assignmentsResult, sspBanners, publishedTutorials, referralsResult, subscribersResult, sourceTrackingResult, commissionsResult, payoutsResult, activitiesResult, notificationsResult, rewardsResult, walletSummaryResult] = await Promise.all([
     requiredQuery('affiliate_tasks', () => client.from('affiliate_tasks').select('id,affiliate_id,group_id,assigned_by,sender_name,title,body,task_type,status,due_at,attachment_url,attachment_name,attachment_mime_type,created_at').eq('affiliate_id', profile.id).order('created_at', { ascending: false }).limit(50)),
     requiredQuery('affiliate_meetings', () => client.from('affiliate_meetings').select('id,affiliate_id,title,host_name,notes,meeting_url,starts_at,ends_at,status,created_at').eq('affiliate_id', profile.id).order('starts_at', { ascending: true }).limit(50)),
     requiredQuery('affiliate_ad_assignments', () => client.from('affiliate_ad_assignments').select('campaign:affiliate_ad_campaigns(id,campaign_name,title,description,recommended_caption,media_url,media_name,media_mime_type,media_size_bytes,duration_seconds,campaign_url,status,available_from,available_until)').eq('affiliate_id', profile.id).order('created_at', { ascending: false }).limit(50)),
     loadPlatformRecord<any[]>('promotional_banners', 'global', []),
+    loadPlatformRecord<any[]>('training_tutorials', 'global', []),
     requiredQuery('affiliate_referrals', () => client.from('affiliate_referrals').select('id, status, created_at').or(affiliateScope).order('created_at', { ascending: false }).limit(500)),
     ownReferralScope
       ? optionalQuery('referred_customers', () => client.from('referred_customers').select('*').or(ownReferralScope).order('created_at', { ascending: false }).limit(1000))
@@ -338,7 +374,8 @@ export async function loadAffiliateWorkspace(options: AffiliateWorkspaceLoadOpti
   const sspCampaigns = asArray<any>(sspBanners)
     .map(mapSspBannerToCampaign)
     .filter(Boolean) as AffiliateCampaign[];
-  const campaigns = [...assignedCampaigns, ...sspCampaigns]
+  const tutorialCampaigns = asArray<any>(publishedTutorials).map(mapTutorialToCampaign).filter(Boolean) as AffiliateCampaign[];
+  const campaigns = [...assignedCampaigns, ...sspCampaigns, ...tutorialCampaigns]
     .filter((campaign, index, all) => all.findIndex((candidate) => candidate.id === campaign.id) === index);
   const subscribers = [
     ...asArray<any>(subscribersResult.data).map(mapSubscriberRow),
