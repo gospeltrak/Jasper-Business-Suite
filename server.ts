@@ -2133,7 +2133,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
   const proCashAmount = (value: unknown, allowZero = true) => {
     const parsed = typeof value === 'string' && value.trim() === '' ? NaN : Number(value);
     return Number.isFinite(parsed) && parsed >= (allowZero ? 0 : 0.01)
-      && parsed <= 1000000000000 && Math.round(parsed * 100) === parsed * 100
+      && parsed <= 1000000000000 && Math.abs(Math.round(parsed * 100) - parsed * 100) < 0.000001
       ? parsed : null;
   };
   // All shifts are always scoped to the verified user tenant AND selected branch.
