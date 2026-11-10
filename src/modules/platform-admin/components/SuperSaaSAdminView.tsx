@@ -916,80 +916,90 @@ export default function SuperSaaSAdminView({
         {/* ======================= TAB 3: MESSAGING & HOTLINE ======================= */}
         {activeTab === 'chats' && (
           <div className="space-y-6 animate-fade-in text-left">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            <div className="space-y-5">
+              <header className="space-y-1 px-1">
+                <h2 className="text-xl font-bold tracking-tight text-white sm:text-2xl">Chats & Broadcasts</h2>
+                <p className="text-sm leading-relaxed text-slate-400">Send announcements and direct support messages from one place.</p>
+              </header>
+              <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 lg:items-stretch lg:gap-6">
               
               {/* Broadcast Center */}
-              <div className="lg:col-span-5 space-y-6">
-                <div className="bg-slate-900 border border-slate-850 p-5 rounded-xl space-y-4">
-                  <div className="flex items-center space-x-2">
+              <div className="min-w-0 lg:col-span-5">
+                <section aria-label="Broadcast announcement" className="h-full space-y-5 rounded-2xl border border-slate-800 bg-slate-900 p-4 shadow-sm sm:p-6">
+                  <div className="flex items-center gap-3">
                     <Volume2 className="w-4 h-4 text-rose-400" />
-                    <h3 className="text-xs font-mono font-bold text-white uppercase tracking-wider">Deploy System-Wide Broadcasts</h3>
+                    <h3 className="text-base font-bold tracking-tight text-white">Broadcast Announcement</h3>
                   </div>
-                  <p className="text-[10.5px] text-slate-400 leading-normal">Send alerts to cashiers.</p>
+                  <p className="text-sm leading-relaxed text-slate-400">Send announcements to active subscribers or affiliates.</p>
                   
-                  <form onSubmit={handleSendBroadcast} className="space-y-3">
-                    <div className="flex bg-slate-950 p-1 rounded-lg border border-slate-800">
+                  <form onSubmit={handleSendBroadcast} className="space-y-5">
+                    <div role="group" aria-label="Broadcast audience" className="grid grid-cols-2 gap-1.5 rounded-xl border border-slate-800 bg-slate-950 p-1.5">
                       <button 
                         type="button" 
                         onClick={() => setBroadcastTarget('subscribers')}
-                        className={`flex-1 py-1 text-[9.5px] font-bold uppercase rounded ${broadcastTarget === 'subscribers' ? 'bg-slate-850 text-white' : 'text-slate-500'}`}
+                        className={`min-h-11 min-w-0 rounded-lg px-2 py-2 text-center text-xs font-semibold leading-snug transition-colors ${broadcastTarget === 'subscribers' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:bg-slate-800/60 hover:text-white'}`}
                       >
-                        ⚠️ To Active Subscribers
+                        Subscribers
                       </button>
                       <button 
                         type="button" 
                         onClick={() => setBroadcastTarget('affiliates')}
-                        className={`flex-1 py-1 text-[9.5px] font-bold uppercase rounded ${broadcastTarget === 'affiliates' ? 'bg-slate-850 text-white' : 'text-slate-500'}`}
+                        className={`min-h-11 min-w-0 rounded-lg px-2 py-2 text-center text-xs font-semibold leading-snug transition-colors ${broadcastTarget === 'affiliates' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:bg-slate-800/60 hover:text-white'}`}
                       >
-                        👥 To Active Affiliates
+                        Affiliates
                       </button>
                     </div>
 
+                    <label htmlFor="admin-broadcast-message" className="mb-2 block text-xs font-semibold text-slate-300">Announcement message</label>
                     <textarea
-                      rows={3}
-                      placeholder="Announcement text..."
+                      id="admin-broadcast-message"
+                      rows={5}
+                      placeholder="Write your announcement... "
                       value={broadcastMessage}
                       onChange={(e) => setBroadcastMessage(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white outline-none focus:border-rose-500"
+                      className="block min-h-32 w-full resize-y rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm leading-relaxed text-white placeholder:text-slate-500 outline-none transition-colors focus:border-rose-500 focus:ring-2 focus:ring-rose-500/15"
                     />
 
                     <button 
                       type="submit"
-                      className="w-full py-2 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 text-xs font-mono font-bold uppercase rounded-lg cursor-pointer"
+                      disabled={!broadcastMessage.trim()}
+                      className="min-h-12 w-full rounded-xl border border-rose-500/30 bg-rose-500/20 px-4 py-3 text-sm font-bold text-rose-300 transition-colors hover:bg-rose-500/30 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      Transmit Broadcast Pulse
+                      Send Broadcast
                     </button>
                   </form>
-                </div>
+                </section>
               </div>
 
               {/* Specific Support Ticket DM */}
-              <div className="lg:col-span-7 bg-slate-900 border border-slate-850 p-5 rounded-xl space-y-4">
+              <section aria-label="Direct support" className="min-w-0 space-y-5 rounded-2xl border border-slate-800 bg-slate-900 p-4 shadow-sm sm:p-6 lg:col-span-7">
                 <div className="flex items-center space-x-2">
                   <Volume2 className="w-4 h-4 text-cyan-400" />
-                  <h3 className="text-xs font-mono font-bold text-white uppercase tracking-wider">Targeted Direct Support gateway</h3>
+                  <h3 className="text-base font-bold tracking-tight text-white">Direct Support Message</h3>
                 </div>
-                <p className="text-[10.5px] text-slate-400 leading-normal">Send subscriber message.</p>
+                <p className="text-sm leading-relaxed text-slate-400">Send a private message to a specific subscriber or affiliate.</p>
 
-                <form onSubmit={handleSendDM} className="space-y-3">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1 text-xs">
-                      <label className="text-[9.5px] font-mono text-slate-500 uppercase">Target user</label>
+                <form onSubmit={handleSendDM} className="space-y-5">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div className="min-w-0 space-y-2">
+                      <label htmlFor="admin-dm-target" className="block text-xs font-semibold text-slate-300">Target user</label>
                       <input 
+                        id="admin-dm-target"
                         type="text"
                         placeholder="e.g. @sarah_orvix"
                         value={dmSearchQuery}
                         onChange={(e) => setDmSearchQuery(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white outline-none focus:border-cyan-500"
+                        className="min-h-12 w-full min-w-0 rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white placeholder:text-slate-500 outline-none transition-colors focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/15"
                         required
                       />
                     </div>
-                    <div className="space-y-1">
-                      <label className="text-[9.5px] font-mono text-slate-500 uppercase">Gateway Target Desk</label>
+                    <div className="min-w-0 space-y-2">
+                      <label htmlFor="admin-dm-desk" className="block text-xs font-semibold text-slate-300">Recipient desk</label>
                       <select 
+                        id="admin-dm-desk"
                         value={dmRecipientType}
                         onChange={(e) => setDmRecipientType(e.target.value as any)}
-                        className="w-full bg-slate-950 border border-slate-800 p-2 text-xs text-slate-300 rounded outline-none cursor-pointer"
+                        className="min-h-12 w-full min-w-0 cursor-pointer rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-sm text-slate-100 outline-none transition-colors focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/15"
                       >
                         <option value="subscriber">Subscriber Instance</option>
                         <option value="affiliate">Affiliate Portal</option>
@@ -997,48 +1007,52 @@ export default function SuperSaaSAdminView({
                     </div>
                   </div>
 
+                  <label htmlFor="admin-dm-message" className="mb-2 block text-xs font-semibold text-slate-300">Private message</label>
                   <textarea
-                    rows={3}
-                    placeholder="Enter Private payload message to push..."
+                    id="admin-dm-message"
+                    rows={5}
+                    placeholder="Write your private message..."
                     value={dmMessage}
                     onChange={(e) => setDmMessage(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white outline-none focus:border-cyan-500"
+                    className="block min-h-32 w-full resize-y rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm leading-relaxed text-white placeholder:text-slate-500 outline-none transition-colors focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/15"
                     required
                   />
 
                   <button 
                     type="submit"
-                    className="w-full py-2 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/30 text-xs font-mono font-bold uppercase rounded-lg cursor-pointer"
+                    disabled={!dmSearchQuery.trim() || !dmMessage.trim()}
+                    className="min-h-12 w-full rounded-xl border border-cyan-500/30 bg-cyan-500/20 px-4 py-3 text-sm font-bold text-cyan-300 transition-colors hover:bg-cyan-500/30 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    Transmit Targeted Direct Message
+                    Send Direct Message
                   </button>
                 </form>
+              </section>
               </div>
-
             </div>
 
             {/* Support Message history */}
-            <div className="bg-slate-900 border border-slate-850 rounded-xl p-5 space-y-3 font-mono text-xs">
-              <span className="text-[10px] text-slate-500 uppercase font-bold block">Consolidated Outbound System logs</span>
-              <div className="max-h-[220px] overflow-y-auto space-y-2">
+            <section aria-label="Outbound message history" className="space-y-4 rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:p-6">
+              <h3 className="text-base font-bold tracking-tight text-white">Outbound Message History</h3>
+              <div className="max-h-80 space-y-3 overflow-y-auto pr-1">
                 {messages.map((m, idx) => (
-                  <div key={idx} className="bg-slate-950 p-2.5 rounded border border-slate-850 flex justify-between gap-3 font-mono text-[11px]">
-                    <div>
-                      <div className="flex items-center space-x-2 text-[9px] text-slate-500 pb-1 border-b border-slate-900 mb-2">
+                  <div key={idx} className="flex min-w-0 flex-wrap items-start justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950 p-3 text-xs sm:p-4">
+                    <div className="min-w-0 flex-1">
+                      <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-slate-400">
                         <span className="text-white font-bold">{m.sender}</span>
                         <span>➡️</span>
                         <span className="text-slate-300 font-bold">{m.target}</span>
                         <span>{m.date}</span>
                       </div>
-                      <p className="text-slate-300 max-w-sm font-sans">{m.message}</p>
+                      <p className="break-words text-sm leading-relaxed text-slate-200">{m.message}</p>
                     </div>
-                    <span className={`px-1 rounded text-[8.5px] font-bold uppercase h-fit self-center ${m.type === 'broadcast' ? 'bg-rose-500/10 text-rose-400' : 'bg-cyan-500/10 text-cyan-400'}`}>
+                    <span className={`shrink-0 rounded-lg px-2 py-1 text-[10px] font-bold uppercase ${m.type === 'broadcast' ? 'bg-rose-500/10 text-rose-400' : 'bg-cyan-500/10 text-cyan-400'}`}>
                       {m.type}
                     </span>
                   </div>
                 ))}
+                {messages.length === 0 && <p className="rounded-xl border border-dashed border-slate-700 px-4 py-6 text-center text-sm text-slate-400">No outbound messages yet.</p>}
               </div>
-            </div>
+            </section>
           </div>
         )}
 
