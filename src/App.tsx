@@ -756,8 +756,8 @@ export default function App() {
               <p className="text-xs font-bold uppercase tracking-wide text-emerald-600">Orvix Pro — Private Login</p>
               <h1 className="text-xl font-bold">Switch to your Pro account</h1>
               <p className="text-sm text-slate-600 dark:text-slate-300">
-                This browser is signed in with an account that has not been verified for Orvix Pro.
-                Sign out of this account, then enter your Pro Demo email and password.
+                The current session could not be verified for Orvix Pro.
+                Sign in again with your Pro Demo email and password. Your other business data will remain unchanged.
               </p>
               <p className="break-words text-xs text-slate-500 dark:text-slate-400">Current account: {user.email || 'Unknown'}</p>
               {redirectMessage && <p role="alert" className="text-sm text-rose-600">{redirectMessage}</p>}
