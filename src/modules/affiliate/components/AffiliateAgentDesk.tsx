@@ -309,7 +309,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
     } catch {}
     return {};
   });
-  const [partnerProfileDraft, setPartnerProfileDraft] = useState({ name: '', phone: '', payoutMethod: '', payoutPhone: '' });
+  const [partnerProfileDraft, setPartnerProfileDraft] = useState({ name: '', phone: '', payoutMethod: '', payoutPhone: '', country: 'Tanzania', region: '', district: '', location: '' });
   const [partnerPrefs, setPartnerPrefs] = useState({ emailUpdates: true, compactView: false });
   const [partnerNotifications, setPartnerNotifications] = useState<AffiliateNotification[]>([]);
 
@@ -324,6 +324,10 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
       phone: partnerInfo?.phone || '',
       payoutMethod: partnerInfo?.paymentMethod || '',
       payoutPhone: partnerInfo?.payoutPhone || '',
+      country: partnerInfo?.country || 'Tanzania',
+      region: partnerInfo?.region || '',
+      district: partnerInfo?.district || '',
+      location: partnerInfo?.location || '',
     });
     setPartnerPrefs(savedPrefs);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -337,7 +341,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
         const client: any = await getSecureDataBridgeClient();
 
         let profile: any = null;
-        const cols = 'id, user_id, display_name, promo_code, promo_code_locked, phone_whatsapp, payout_account, payout_method, tin_number, tin_status';
+        const cols = 'id, user_id, display_name, promo_code, promo_code_locked, phone_whatsapp, payout_account, payout_method, tin_number, tin_status, country, region, district, location';
 
         // Try 1: Supabase auth session (reliable after Supabase login)
         const { data: authUser } = await client.auth.getUser();
@@ -380,8 +384,16 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
             promoCodeLocked: !!profile.promo_code_locked,
             payoutPhone: profile.payout_account,
             paymentMethod: profile.payout_method,
+            country: profile.country || 'Tanzania',
+            region: profile.region || '',
+            district: profile.district || '',
+            location: profile.location || '',
           };
           setPartnerInfo(updated);
+          setPartnerProfileDraft(prev => ({ ...prev,
+            country: updated.country, region: updated.region,
+            district: updated.district, location: updated.location,
+          }));
           onlineStorage.setItem('jasper_logged_affiliate', JSON.stringify(updated));
         }
       } catch { /* Cloud profile unavailable; keep the last confirmed session cache. */ }
@@ -431,8 +443,16 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
       setNotice(ONLINE_ONLY_WRITE_MESSAGE);
       return;
     }
+    if (![partnerProfileDraft.country,partnerProfileDraft.region,partnerProfileDraft.district,partnerProfileDraft.location].every(v=>v.trim())) {
+      setNotice('Complete country, region, district and area before saving.');
+      return;
+    }
     const updated = {
       ...partnerInfo,
+      country: partnerProfileDraft.country.trim(),
+      region: partnerProfileDraft.region.trim(),
+      district: partnerProfileDraft.district.trim(),
+      location: partnerProfileDraft.location.trim(),
       name: partnerProfileDraft.name.trim() || partnerName,
       phone: partnerProfileDraft.phone.trim(),
       paymentMethod: partnerProfileDraft.payoutMethod.trim(),
@@ -447,6 +467,10 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
           phone_whatsapp: updated.phone || null,
           payout_method: updated.paymentMethod || null,
           payout_account: updated.payoutPhone || null,
+          country: updated.country,
+          region: updated.region,
+          district: updated.district,
+          location: updated.location,
         },
         { column: 'id', value: partnerId },
         partnerId,
@@ -473,7 +497,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
       partnerSupabaseUserId,
       partnerCode,
     ].map((value) => String(value || '').trim()).filter(Boolean)));
-    const affiliateColumns = 'id, user_id, display_name, promo_code, referral_code, phone_whatsapp, payout_account, payout_method, tin_number, tin_status, total_revenue, gross_commission, withholding_tax, net_payout, customers_count, is_disabled, status, created_at, parent_super_agent_id, parent_agent_id';
+    const affiliateColumns = 'id, user_id, display_name, promo_code, referral_code, phone_whatsapp, payout_account, payout_method, tin_number, tin_status, total_revenue, gross_commission, withholding_tax, net_payout, customers_count, is_disabled, status, created_at, parent_super_agent_id, parent_agent_id, country, region, district, location';
     const mapDbAffiliate = (a: any): SubAffiliateProfile => {
       const revenue = 0;
       const gross = 0;
@@ -488,6 +512,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
         parentSuperAgentId: String(a.parent_super_agent_id || a.parent_agent_id || partnerId),
         name: displayName,
         phone: a.phone_whatsapp || '',
+        location: [a.location,a.district,a.region,a.country].filter(Boolean).join(', ') || 'Not provided',
         email: '',
         promoCode: a.promo_code || a.referral_code || '',
         status: a.is_disabled ? 'suspended' : 'active',
@@ -1460,6 +1485,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
                             <div className="min-w-0">
                               <p translate="no" className="font-black text-white text-sm truncate">{aff.name}</p>
                               <p translate="no" className="text-[10px] text-slate-500 mt-0.5">{aff.phone}</p>
+                              <p className="mt-1 break-words text-xs text-slate-300">Location: {aff.location || 'Not provided'}</p>
                               <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                                 <span className="text-[9px] font-black text-amber-400 font-mono bg-amber-500/10 px-2 py-0.5 rounded">{aff.promoCode}</span>
                                 <span className="text-[9px] font-bold text-emerald-300 bg-emerald-500/10 px-2 py-0.5 rounded">
@@ -1721,6 +1747,20 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
                     Phone
                     <input value={partnerProfileDraft.phone} onChange={event => setPartnerProfileDraft({ ...partnerProfileDraft, phone: event.target.value })} placeholder="+255..." className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm normal-case tracking-normal text-white outline-none focus:border-amber-500" />
                   </label>
+                  {([
+                    ['country','Country','Tanzania'],
+                    ['region','Region','Dar es Salaam'],
+                    ['district','District','Kinondoni'],
+                    ['location','Area / Ward','Tegeta'],
+                  ] as const).map(([key,label,placeholder])=>(
+                    <label key={key} className="min-w-0 space-y-1 text-xs font-bold uppercase tracking-wider text-slate-400">
+                      {label}
+                      <input required maxLength={key==='location'?160:100} value={partnerProfileDraft[key]}
+                        onChange={event=>setPartnerProfileDraft({...partnerProfileDraft,[key]:event.target.value})}
+                        placeholder={placeholder}
+                        className="min-h-11 w-full min-w-0 rounded-xl border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm normal-case tracking-normal text-white outline-none focus:border-amber-500" />
+                    </label>
+                  ))}
                   <label className="space-y-1 text-xs font-bold uppercase tracking-wider text-slate-400">
                     Payout provider
                     <input value={partnerProfileDraft.payoutMethod} onChange={event => setPartnerProfileDraft({ ...partnerProfileDraft, payoutMethod: event.target.value })} placeholder="M-Pesa, Airtel Money..." className="w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2.5 text-sm normal-case tracking-normal text-white outline-none focus:border-amber-500" />

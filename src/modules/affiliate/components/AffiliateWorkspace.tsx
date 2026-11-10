@@ -64,7 +64,7 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
   const [busyTaskId, setBusyTaskId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [isNetworkOnline, setIsNetworkOnline] = useState(isOnline());
-  const [profileDraft, setProfileDraft] = useState({ displayName: '', payoutMethod: '', payoutAccount: '' });
+  const [profileDraft, setProfileDraft] = useState({ displayName: '', payoutMethod: '', payoutAccount: '', country: 'Tanzania', region: '', district: '', location: '' });
   const [profilePrefs, setProfilePrefs] = useState({ emailUpdates: true, compactView: false });
   const [reportMonth, setReportMonth] = useState(formatLocalMonth());
   const [reportTab, setReportTab] = useState<'subscribers' | 'payments' | 'tasks'>('subscribers');
@@ -189,6 +189,10 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
       displayName: workspace.profile.display_name || '',
       payoutMethod: workspace.profile.payout_method || '',
       payoutAccount: workspace.profile.payout_account || '',
+      country: workspace.profile.country || 'Tanzania',
+      region: workspace.profile.region || '',
+      district: workspace.profile.district || '',
+      location: workspace.profile.location || '',
     });
     setProfilePrefs(savedPrefs);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -306,11 +310,16 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
     const displayName = profileDraft.displayName.trim() || workspace.profile.display_name;
     const payoutMethod = profileDraft.payoutMethod.trim() || null;
     const payoutAccount = profileDraft.payoutAccount.trim() || null;
+    if (![profileDraft.country,profileDraft.region,profileDraft.district,profileDraft.location].every(v=>v.trim())) {
+      setNotice('Please complete country, region, district and area before saving.');
+      return;
+    }
+    const locationFields = { country: profileDraft.country.trim(), region: profileDraft.region.trim(), district: profileDraft.district.trim(), location: profileDraft.location.trim() };
     const prefsKey = `jasper_affiliate_preferences_${workspace.profile.id}`;
     const result = await dbWrite(
       'affiliates',
       'update',
-      { display_name: displayName, payout_method: payoutMethod, payout_account: payoutAccount },
+      { display_name: displayName, payout_method: payoutMethod, payout_account: payoutAccount, ...locationFields },
       { column: 'id', value: workspace.profile.id },
       workspace.profile.id,
     );
@@ -326,6 +335,7 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
         display_name: displayName,
         payout_method: payoutMethod,
         payout_account: payoutAccount,
+        ...locationFields,
       },
     });
     setNotice('Profile settings saved.');
@@ -1335,6 +1345,20 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
                     Payout method
                     <input value={profileDraft.payoutMethod} onChange={(event) => setProfileDraft({ ...profileDraft, payoutMethod: event.target.value })} placeholder="M-Pesa, Airtel Money..." className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-emerald-500" />
                   </label>
+                  {([
+                    ['country','Country','Tanzania'],
+                    ['region','Region','Dar es Salaam'],
+                    ['district','District','Kinondoni'],
+                    ['location','Area / Ward','Tegeta'],
+                  ] as const).map(([key,label,placeholder])=>(
+                    <label key={key} className="min-w-0 space-y-1 text-sm font-semibold text-slate-700">
+                      {label}
+                      <input required maxLength={key==='location'?160:100} value={profileDraft[key]}
+                        onChange={event=>setProfileDraft({...profileDraft,[key]:event.target.value})}
+                        placeholder={placeholder}
+                        className="min-h-11 w-full min-w-0 rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-emerald-500" />
+                    </label>
+                  ))}
                   <label className="space-y-1 text-sm font-semibold text-slate-700 sm:col-span-2">
                     Payout account / phone
                     <input value={profileDraft.payoutAccount} onChange={(event) => setProfileDraft({ ...profileDraft, payoutAccount: event.target.value })} placeholder="+255..." className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm outline-none focus:border-emerald-500" />

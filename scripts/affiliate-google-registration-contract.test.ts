@@ -55,3 +55,23 @@ test('Forgot Password and reset use the same Supabase auth flow as tenants', () 
   assert.match(tenant,/verifySuperAdminMfa/);
   assert.match(tenant,/Continue with Google/);
 });
+
+test('Affiliate and Agent locations are required at registration and saved on both profiles', () => {
+  const migration=fs.readFileSync('supabase/migrations/20261110090000_affiliate_partner_self_declared_locations.sql','utf8');
+  const workspace=fs.readFileSync('src/modules/affiliate/components/AffiliateWorkspace.tsx','utf8');
+  const agent=fs.readFileSync('src/modules/affiliate/components/AffiliateAgentDesk.tsx','utf8');
+  const admin=fs.readFileSync('src/modules/platform-admin/components/SuperAffiliateNetworkOverview.tsx','utf8');
+  assert.match(portal,/registrationCountry/);
+  assert.match(portal,/registrationRegion/);
+  assert.match(portal,/registrationDistrict/);
+  assert.match(portal,/registrationLocation/);
+  assert.match(portal,/country: registrationCountry\.trim\(\)/);
+  assert.match(server,/const normalizedLocation = \{/);
+  assert.match(server,/\.\.\.normalizedLocation/);
+  assert.match(migration,/ALTER TABLE public\.affiliates/);
+  assert.match(migration,/ALTER TABLE public\.affiliate_partners/);
+  assert.match(workspace,/\.\.\.locationFields/);
+  assert.match(agent,/country: updated\.country/);
+  assert.match(admin,/Location: \{agent\.location/);
+  assert.match(server,/location:\[row\.location,row\.district,row\.region,row\.country\]/);
+});
