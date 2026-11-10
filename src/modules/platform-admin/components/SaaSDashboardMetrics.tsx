@@ -69,7 +69,7 @@ export default function SaaSDashboardMetrics() {
         <KpiCard icon={Landmark} iconColor="indigo" label="Net Balance" value={`TZS ${(metrics?.balance || 0).toLocaleString()}`} />
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-4">
+      <div className="admin-two-column-metrics-grid grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-4">
         <LiveMetric icon={Activity} label="Online accounts" value={metrics?.activeSessions || 0} />
         <LiveMetric icon={Smartphone} label="Online devices" value={metrics?.onlineDevices || 0} />
         <LiveMetric icon={Store} label="Businesses online" value={metrics?.onlineBusinesses || 0} />
