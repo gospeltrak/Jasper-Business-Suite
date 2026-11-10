@@ -3378,7 +3378,6 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     { id: 'admin-hw-pos', label: 'Hardware POS', icon: ShoppingCart, tabId: 'admin-hw-pos' },
     { id: 'admin-hw-inventory', label: 'HW Inventory', icon: Package, tabId: 'admin-hw-inventory' },
     { id: 'admin-hw-sales', label: 'HW Sales', icon: TrendingUp, tabId: 'admin-hw-sales' },
-    { id: 'admin-affiliates', label: 'Affiliates', icon: Award, tabId: 'admin-affiliates' },
     { id: 'admin-affiliate-agents', label: 'Agents', icon: Users, tabId: 'admin-affiliate-agents' },
     { id: 'admin-sub-affiliates', label: 'Sub-Affiliates', icon: Network, tabId: 'admin-sub-affiliates' },
 
@@ -4695,7 +4694,6 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                 // ── Super SaaS Admin bottom nav ──────────────────────────
                 { id: 'admin-dashboard',    label: 'Dashboard',    icon: LayoutDashboard },
                 { id: 'admin-subscribers',  label: 'Subscribers',  icon: Users },
-                { id: 'admin-affiliates',   label: 'Affiliates',   icon: Award },
                 { id: '__more__',           label: 'More',         icon: Menu },
               ] : [
                 // ── Tenant / business user bottom nav ────────
@@ -4779,7 +4777,6 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                   // ── Super SaaS Admin more menu ─────────────────────
                   { id: 'admin-dashboard',   label: 'Dashboard',  icon: LayoutDashboard, bg: 'bg-emerald-600' },
                   { id: 'admin-subscribers', label: 'Subscribers',icon: Users,           bg: 'bg-blue-600' },
-                  { id: 'admin-affiliates',  label: 'Affiliates', icon: Award,           bg: 'bg-amber-500' },
                   { id: 'admin-affiliate-agents', label: 'Agents', icon: Users,           bg: 'bg-teal-600' },
                   { id: 'admin-sub-affiliates', label: 'Sub-Affiliates', icon: Network,   bg: 'bg-emerald-600' },
                   { id: 'admin-status',      label: 'Approvals',  icon: Activity,        bg: 'bg-teal-600' },
