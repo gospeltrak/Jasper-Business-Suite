@@ -36,7 +36,10 @@ test('Pro entitlement API derives tenant from verified auth and refuses unknown 
 });
 
 test('Pro clients admin API and UI are restricted and read only', () => {
-  const adminRoute = server.slice(server.indexOf("app.get('/api/orvix-pro/admin/clients'"), server.indexOf("app.get('/api/orvix-pro/entitlement'"));
+  const clientsStart = server.indexOf("app.get('/api/orvix-pro/admin/clients'");
+  const agreementsStart = server.indexOf("app.get('/api/orvix-pro/admin/agreements'", clientsStart);
+  const entitlementStart = server.indexOf("app.get('/api/orvix-pro/entitlement'", clientsStart);
+  const adminRoute = server.slice(clientsStart, agreementsStart > 0 ? agreementsStart : entitlementStart);
   assert.match(adminRoute, /await requirePlatformAdmin\(req\)/);
   assert.match(adminRoute, /\.from\('orvix_pro_entitlements'\)/);
   assert.doesNotMatch(adminRoute, /\.insert\(|\.update\(|\.delete\(/);

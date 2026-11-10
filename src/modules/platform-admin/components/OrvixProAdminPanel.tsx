@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Building2, CreditCard, FileCheck2, FlaskConical, Server, Users, ShieldCheck, ArrowRight } from 'lucide-react';
 import OrvixProClientList from './OrvixProClientList';
+import OrvixProAgreementsEditor from './OrvixProAgreementsEditor';
 
 /**
  * Additive Orvix Pro admin workspace. This first UI stage deliberately does
@@ -60,17 +61,7 @@ export default function OrvixProAdminPanel({ onOpenSubscribers }: Props) {
             </button>
           </>
         )}
-        {section === 'agreements' && (
-          <>
-            <h3 className="text-base font-bold text-white">Individual Client Agreements</h3>
-            <p className="text-sm text-slate-400">Every Pro client will have an individually agreed monthly amount, till count, resource allocation and effective date, set only by the Orvix team.</p>
-            <div className="rounded-xl bg-slate-950/50 border border-slate-800 p-4 text-sm text-slate-300 space-y-2">
-              <p>Monthly fee: <strong className="text-white">Set per client — no flat rate</strong></p>
-              <p>Billing period: <strong className="text-white">Monthly</strong></p>
-              <p>Terms and activation: <strong className="text-white">Admin-managed, pending secure billing implementation</strong></p>
-            </div>
-          </>
-        )}
+        {section === 'agreements' && <OrvixProAgreementsEditor />}
         {section === 'billing' && (
           <>
             <h3 className="text-base font-bold text-white">Payments & Renewal</h3>
@@ -87,8 +78,8 @@ export default function OrvixProAdminPanel({ onOpenSubscribers }: Props) {
             <div className="rounded-xl border border-slate-700 p-4 flex items-start gap-3">
               <ShieldCheck size={19} className="text-emerald-400 shrink-0" />
               <div>
-                <p className="text-sm font-semibold text-white">Demo account not provisioned</p>
-                <p className="text-xs text-slate-400 mt-1">The new test tenant, verified identity and database entitlement must exist before the demo can sign in. This panel does not create a fake login.</p>
+                <p className="text-sm font-semibold text-white">Private demo setup</p>
+                <p className="text-xs text-slate-400 mt-1">A dedicated Orvix Pro Demo 1 tenant has been configured separately. Review Pro Clients for its current trial status and feature access. Credentials are not shown on this page.</p>
               </div>
             </div>
             <button type="button" onClick={onOpenSubscribers} className="flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-xs font-bold text-emerald-400 hover:bg-slate-800">
