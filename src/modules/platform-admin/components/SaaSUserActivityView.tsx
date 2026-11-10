@@ -357,7 +357,7 @@ export default function SaaSUserActivityView() {
         )}
 
         {/* Visitor summary cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <div className="admin-two-column-metrics-grid grid grid-cols-2 sm:grid-cols-4 gap-2">
           {[
             { label: "Total",      count: totalVisitors,   color: "text-white",       bg: "bg-slate-800 border-slate-700",           icon: Users      },
             { label: "Tenants",    count: visitTenants,    color: "text-blue-400",    bg: "bg-blue-950/40 border-blue-800/40",        icon: Briefcase  },

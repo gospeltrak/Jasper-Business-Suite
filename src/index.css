@@ -3139,3 +3139,69 @@ button:active:not(:disabled),
     display: none !important;
   }
 }
+
+
+/* Super Admin only: use one scrollport, sized to end at the fixed menu.
+   The general dashboard reserves an ad + nav spacer in its scroll area,
+   while Super Admin already has its own nested scrolling subpage.
+   Reserving the nav exactly once removes the empty band on every admin tab
+   without altering tenant, staff, affiliate or agent layouts. */
+@media (max-width: 1279px) {
+  #dashboard-scaffold #workspace-content.admin-workspace {
+    margin-bottom: var(--dashboard-bottom-nav-height);
+    padding-bottom: 0 !important;
+    scroll-padding-bottom: 0;
+    overflow-y: hidden !important;
+    min-height: 0;
+  }
+
+  #workspace-content.admin-workspace > #super-saas-admin-container {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  #super-saas-admin-container #saas-active-subpage-view {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding-bottom: 0.75rem !important;
+    scroll-padding-bottom: 0.75rem;
+    overscroll-behavior-y: contain;
+  }
+}
+
+/* Admin summary KPI cards: always two equal columns on phone/tablet.
+   Override the global responsive safety rule that forces every grid-cols-*
+   utility back to a single column. Do not change other application roles. */
+@media (max-width: 1279px) {
+  #dashboard-scaffold #super-saas-admin-container .admin-two-column-metrics-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 0.75rem;
+  }
+
+  #super-saas-admin-container .admin-two-column-metrics-grid > * {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+}
+
+/* Four compact Affiliate Network navigation tabs in a single mobile row.
+   The generic dashboard accessibility fallback collapses grid-cols-4 to one
+   column; override only this Super Admin control, not other app screens. */
+@media (max-width: 1279px) {
+  #dashboard-scaffold #super-saas-admin-container .admin-affiliate-section-tabs {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 0.375rem;
+  }
+
+  #super-saas-admin-container .admin-affiliate-section-tabs > button {
+    min-width: 0;
+    white-space: nowrap;
+    font-size: clamp(9px, 2.5vw, 12px);
+    padding-inline: 0.125rem;
+    text-align: center;
+  }
+}
