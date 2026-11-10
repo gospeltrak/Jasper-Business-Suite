@@ -17,6 +17,10 @@ export interface AffiliateWorkspaceProfile {
   payout_method: string | null;
   payout_account: string | null;
   profile_image_url: string | null;
+  country?: string | null;
+  region?: string | null;
+  district?: string | null;
+  location?: string | null;
   currency?: string | null;
   phone_whatsapp?: string | null;
 }
@@ -311,7 +315,7 @@ export async function loadAffiliateWorkspace(options: AffiliateWorkspaceLoadOpti
 
   let profileQuery = client
     .from('affiliates')
-    .select('id, user_id, display_name, referral_code, promo_code, referral_slug, promo_code_changed_at, status, payout_method, payout_account, phone_whatsapp, profile_image_url');
+    .select('id, user_id, display_name, referral_code, promo_code, referral_slug, promo_code_changed_at, status, payout_method, payout_account, phone_whatsapp, profile_image_url, country, region, district, location');
   profileQuery = options.affiliateId
     ? profileQuery.eq('id', options.affiliateId)
     : profileQuery.eq('user_id', authData.user.id);
