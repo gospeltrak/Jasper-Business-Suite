@@ -41,6 +41,10 @@ interface Affiliate {
   nidaNumber?: string;
   tinNumber?: string;
   payoutPhone?: string;
+  country?: string;
+  region?: string;
+  district?: string;
+  location?: string;
 }
 
 interface AffiliatePortalProps {
@@ -88,6 +92,10 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
   const [tinNumber, setTinNumber] = useState("");
   const [firstName, setFirstName] = useState("");
   const [secondName, setSecondName] = useState("");
+  const [registrationCountry, setRegistrationCountry] = useState('Tanzania');
+  const [registrationRegion, setRegistrationRegion] = useState('');
+  const [registrationDistrict, setRegistrationDistrict] = useState('');
+  const [registrationLocation, setRegistrationLocation] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [googleRegistrationVerified, setGoogleRegistrationVerified] = useState(false);
   const [useEmailRegistration, setUseEmailRegistration] = useState(false);
@@ -895,6 +903,11 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
       return;
     }
 
+    if (!registrationCountry.trim() || !registrationRegion.trim() || !registrationDistrict.trim() || !registrationLocation.trim()) {
+      alert('Jaza nchi, mkoa, wilaya na eneo unalotokea.');
+      return;
+    }
+
     if (!payoutPhone || payoutPhone.trim().length === 0) {
       alert("Namba ya Kupokea Malipo is required.");
       return;
@@ -971,6 +984,10 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
           isPartner: portalRole === 'partner',
           nidaNumber,
           tinNumber,
+          country: registrationCountry.trim(),
+          region: registrationRegion.trim(),
+          district: registrationDistrict.trim(),
+          location: registrationLocation.trim(),
           turnstileToken,
           googleRegistration: usingGoogle,
         }),
@@ -990,13 +1007,13 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
         if (!resolvedResponse.ok || !resolved?.profile) throw new Error(resolved?.error || 'The new profile could not be opened.');
         const profile = resolved.profile;
         sessionToken = googleToken;
-        mappedAffiliate = { id: profile.id, name: profile.display_name, email: result.authEmail || '', phone: profile.phone_whatsapp || payoutPhone, paymentMethod: profile.payout_method || paymentMethod, promoCode: profile.promo_code || profile.referral_code || generatedReferralCode, parentSuperId: profile.parent_super_agent_id, isSuper: resolved.portalRole === 'partner', nidaNumber: profile.nida_number || '', tinNumber: profile.tin_number || '', payoutPhone: profile.payout_account || payoutPhone };
+        mappedAffiliate = { id: profile.id, name: profile.display_name, email: result.authEmail || '', phone: profile.phone_whatsapp || payoutPhone, paymentMethod: profile.payout_method || paymentMethod, promoCode: profile.promo_code || profile.referral_code || generatedReferralCode, parentSuperId: profile.parent_super_agent_id, isSuper: resolved.portalRole === 'partner', nidaNumber: profile.nida_number || '', tinNumber: profile.tin_number || '', payoutPhone: profile.payout_account || payoutPhone, country: profile.country || registrationCountry, region: profile.region || registrationRegion, district: profile.district || registrationDistrict, location: profile.location || registrationLocation };
       } else {
         const { data: signInData, error: signInError } = await client.auth.signInWithPassword({ email: result.authEmail, password });
         if (signInError) throw new Error('Your akaunti was created, but automatic sign-in failed. Please sign in manually.');
         sessionToken = signInData?.session?.access_token;
         const profile = result.affiliate;
-        mappedAffiliate = { id: profile.id, name: profile.display_name, email: result.authEmail || email.trim(), phone: payoutPhone, paymentMethod, promoCode: profile.promo_code || profile.referral_code || generatedReferralCode, parentSuperId: profile.parent_super_agent_id, isSuper: isPartnerAccount, nidaNumber, tinNumber, payoutPhone };
+        mappedAffiliate = { id: profile.id, name: profile.display_name, email: result.authEmail || email.trim(), phone: payoutPhone, paymentMethod, promoCode: profile.promo_code || profile.referral_code || generatedReferralCode, parentSuperId: profile.parent_super_agent_id, isSuper: isPartnerAccount, nidaNumber, tinNumber, payoutPhone, country: registrationCountry, region: registrationRegion, district: registrationDistrict, location: registrationLocation };
       }
 
       const existing = JSON.parse(onlineStorage.getItem("jasper_affiliates") || "[]").filter((item: any) => item.id !== mappedAffiliate.id);
@@ -1807,6 +1824,30 @@ export default function AffiliatePortal({ onNavigate, forcedRole }: AffiliatePor
                           className="w-full bg-slate-950 border border-slate-700 text-white placeholder-slate-600 outline-none rounded-2xl px-3 py-3 text-xs font-mono focus:border-emerald-500" />
                       </div>
                     </div>
+
+                    {/* Self-declared location for both Affiliate and Agent registration. */}
+                    <fieldset className="space-y-3 rounded-2xl border border-slate-700 bg-slate-950/60 p-3 sm:p-4">
+                      <legend className="px-1 text-xs font-bold text-emerald-300">Mahali Unapotokea / Your Location</legend>
+                      <p className="text-[11px] leading-relaxed text-slate-400">Weka eneo unalofanyia kazi. Taarifa hizi zinaonekana kwenye profile yako na Super Admin.</p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <label className="min-w-0 space-y-1 text-xs font-semibold text-slate-300">Nchi / Country
+                          <input required maxLength={80} value={registrationCountry} onChange={e=>setRegistrationCountry(e.target.value)}
+                            placeholder="Tanzania" className="mt-1 min-h-11 w-full min-w-0 rounded-xl border border-slate-700 bg-slate-900 px-3 text-sm text-white focus:border-emerald-500" />
+                        </label>
+                        <label className="min-w-0 space-y-1 text-xs font-semibold text-slate-300">Mkoa / Region
+                          <input required maxLength={100} value={registrationRegion} onChange={e=>setRegistrationRegion(e.target.value)}
+                            placeholder="Dar es Salaam" className="mt-1 min-h-11 w-full min-w-0 rounded-xl border border-slate-700 bg-slate-900 px-3 text-sm text-white focus:border-emerald-500" />
+                        </label>
+                        <label className="min-w-0 space-y-1 text-xs font-semibold text-slate-300">Wilaya / District
+                          <input required maxLength={100} value={registrationDistrict} onChange={e=>setRegistrationDistrict(e.target.value)}
+                            placeholder="Kinondoni" className="mt-1 min-h-11 w-full min-w-0 rounded-xl border border-slate-700 bg-slate-900 px-3 text-sm text-white focus:border-emerald-500" />
+                        </label>
+                        <label className="min-w-0 space-y-1 text-xs font-semibold text-slate-300">Eneo / Ward or Area
+                          <input required maxLength={160} value={registrationLocation} onChange={e=>setRegistrationLocation(e.target.value)}
+                            placeholder="Tegeta" className="mt-1 min-h-11 w-full min-w-0 rounded-xl border border-slate-700 bg-slate-900 px-3 text-sm text-white focus:border-emerald-500" />
+                        </label>
+                      </div>
+                    </fieldset>
 
                     {/* Partner code — only shown for affiliates, NOT for partners */}
                     {portalRole !== 'partner' && (
