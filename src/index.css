@@ -3186,3 +3186,22 @@ button:active:not(:disabled),
     overflow-wrap: anywhere;
   }
 }
+
+/* Four compact Affiliate Network navigation tabs in a single mobile row.
+   The generic dashboard accessibility fallback collapses grid-cols-4 to one
+   column; override only this Super Admin control, not other app screens. */
+@media (max-width: 1279px) {
+  #dashboard-scaffold #super-saas-admin-container .admin-affiliate-section-tabs {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 0.375rem;
+  }
+
+  #super-saas-admin-container .admin-affiliate-section-tabs > button {
+    min-width: 0;
+    white-space: nowrap;
+    font-size: clamp(9px, 2.5vw, 12px);
+    padding-inline: 0.125rem;
+    text-align: center;
+  }
+}
