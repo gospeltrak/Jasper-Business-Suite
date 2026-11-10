@@ -83,3 +83,7 @@ drop trigger if exists trg_orvix_pro_shift_audit on public.orvix_pro_shift_sessi
 create trigger trg_orvix_pro_shift_audit after insert or update
 on public.orvix_pro_shift_sessions for each row
 execute function private.capture_orvix_pro_shift_audit();
+
+-- Data API is inaccessible to standard sessions; only the authenticated API service role may access the ledger.
+grant select,insert,update on public.orvix_pro_shift_sessions to service_role;
+grant select,insert on public.orvix_pro_shift_audit to service_role;
