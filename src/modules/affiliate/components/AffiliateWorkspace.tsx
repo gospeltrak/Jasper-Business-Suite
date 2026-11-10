@@ -16,10 +16,7 @@ import {
   flushSyncQueue,
 } from '../utils/offlineSync';
 import { ONLINE_ONLY_WRITE_MESSAGE } from '../../../shared/utils/onlineOnly';
-import { canShowDashboardAd, useGlobalAdSettings } from '../../../shared/utils/adPlacement';
-import { sanitizeTrustedHtml } from '../../../shared/utils/safeHtml';
 import { isSettledPaymentStatus } from '../../../shared/utils/financialStatus';
-import GlobalStickyAd from '../../../shared/components/GlobalStickyAd';
 import { formatLocalMonth } from '../../../shared/utils/localDate';
 import { downloadExcelFileFromRows } from '../../../shared/utils/excelExport';
 import { getSecureDataBridgeClient } from '../../../shared/dataBridge/secureDataBridge';
@@ -85,7 +82,6 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
   const [selectedTenant, setSelectedTenant] = useState<any>(null);
   const payoutWindow = getTanzaniaMonthEndWithdrawalDate();
   const transferFee = getAzamPayFee(workspace?.profile?.payout_method);
-  const adSettings = useGlobalAdSettings();
 
   useEffect(() => {
     initOfflineSync();
@@ -573,12 +569,6 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
                 </button>
               ))}
             </section>
-            {canShowDashboardAd(adSettings) && (
-              <div className="overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-emerald-900 dark:bg-[#092c21]">
-                <div className="mx-auto w-full max-w-[728px] overflow-hidden [&>*]:max-w-full"
-                  dangerouslySetInnerHTML={{ __html: sanitizeTrustedHtml(adSettings.dashboardAdCode) }} />
-              </div>
-            )}
             <div className="grid gap-3 xl:grid-cols-2">
               <section data-testid="affiliate-plan-summary" className="relative isolate min-w-0 overflow-hidden rounded-xl border border-emerald-700/50 bg-[linear-gradient(112deg,#075c45_0%,#087658_58%,#086b51_100%)] text-white shadow-[0_9px_24px_-13px_rgba(5,112,78,0.48)] dark:border-emerald-700/50 dark:bg-[linear-gradient(112deg,#064c3a_0%,#076048_60%,#075640_100%)] dark:shadow-[0_12px_26px_-13px_rgba(0,0,0,0.55)]">
                 <div aria-hidden="true" className="pointer-events-none absolute -right-8 -top-9 z-0 h-32 w-32 rounded-full border border-white/[0.08]" />
@@ -1392,13 +1382,6 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
         </div>
       )}
 
-      {!mirrorMode && (
-        <GlobalStickyAd
-          bottomOffsetClass="bottom-[calc(4.75rem+env(safe-area-inset-bottom))] lg:bottom-4"
-          leftOffsetClass="left-3 lg:left-1/2 lg:-translate-x-1/2"
-          maxWidthClass="max-w-[640px]"
-        />
-      )}
 
     </main>
   );
