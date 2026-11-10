@@ -148,6 +148,10 @@ export default function SuperSaaSAdminView({
   const [newTutorialDescription, setNewTutorialDescription] = useState('');
   const [newTutorialLink, setNewTutorialLink] = useState('');
   const [newTutorialFile, setNewTutorialFile] = useState<File | null>(null);
+  const [newTutorialPlatform, setNewTutorialPlatform] = useState<'youtube' | 'tiktok' | 'instagram' | 'facebook' | 'website' | 'none'>('youtube');
+  const [newTutorialOrientation, setNewTutorialOrientation] = useState<'horizontal' | 'vertical'>('horizontal');
+  const [newTutorialStatus, setNewTutorialStatus] = useState<'Active' | 'Draft'>('Active');
+  const [editingTutorialId, setEditingTutorialId] = useState<string | null>(null);
 
   const [mirroredAccount, setMirroredAccount] = useState<any | null>(null);
   const [isMirrorAffiliate, setIsMirrorAffiliate] = useState<boolean>(false);
@@ -264,48 +268,101 @@ export default function SuperSaaSAdminView({
     setTutorials(nextTutorials);
   };
 
-  const handleCreateTutorial = (e: React.FormEvent) => {
+  const resetTutorialForm = () => {
+    setEditingTutorialId(null);
+    setNewTutorialTitle('');
+    setNewTutorialType('guide');
+    setNewTutorialDescription('');
+    setNewTutorialLink('');
+    setNewTutorialFile(null);
+    setNewTutorialPlatform('youtube');
+    setNewTutorialOrientation('horizontal');
+    setNewTutorialStatus('Active');
+  };
+
+  const handleEditTutorial = (tutorial: any) => {
+    setEditingTutorialId(tutorial.id);
+    setNewTutorialTitle(tutorial.title || '');
+    setNewTutorialType(tutorial.type || 'guide');
+    setNewTutorialDescription(tutorial.description || '');
+    setNewTutorialLink(tutorial.link || '');
+    setNewTutorialPlatform(tutorial.platform || 'youtube');
+    setNewTutorialOrientation(tutorial.orientation || 'horizontal');
+    setNewTutorialStatus(tutorial.status || 'Active');
+    setNewTutorialFile(null);
+  };
+
+  const handleCreateTutorial = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTutorialTitle.trim()) return;
-    if (!newTutorialDescription.trim() && !newTutorialLink.trim() && !newTutorialFile) {
-      alert('Add a short lesson description, link, or file.');
+    if (!newTutorialDescription.trim() && !newTutorialLink.trim()) {
+      alert('Add a message or an external video link.');
       return;
     }
-
-    const persistTutorial = async (assetData: string | null = null) => {
+    if (newTutorialType === 'video' && !newTutorialLink.trim()) {
+      alert('Video tutorials need an external link.');
+      return;
+    }
+    if (newTutorialLink.trim()) {
+      try {
+        const parsed = new URL(newTutorialLink.trim());
+        if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('Invalid protocol');
+        const host = parsed.hostname.toLowerCase();
+        const approvedHosts: Record<string, string[]> = {
+          youtube: ['youtube.com', 'youtu.be'],
+          tiktok: ['tiktok.com'],
+          instagram: ['instagram.com'],
+          facebook: ['facebook.com', 'fb.watch', 'fb.com'],
+        };
+        const expected = approvedHosts[newTutorialPlatform];
+        if (expected && !expected.some(value => host === value || host.endsWith('.' + value))) {
+          alert('This link does not match the selected platform.');
+          return;
+        }
+      } catch {
+        alert('Enter a valid https:// video or website URL.');
+        return;
+      }
+    }
+    const current = editingTutorialId ? tutorials.find(t => t.id === editingTutorialId) : null;
+    if (!newTutorialFile && !current?.thumbnailData) {
+      alert('Every tutorial needs a cover thumbnail.');
+      return;
+    }
+    if (newTutorialFile && (!newTutorialFile.type.startsWith('image/') || newTutorialFile.size > 800 * 1024)) {
+      alert('Use a JPG, PNG or WEBP thumbnail smaller than 800 KB.');
+      return;
+    }
+    const saveWithThumbnail = async (thumbnailData: string | null) => {
       const tutorial = {
-        id: 'tut-' + Math.floor(Math.random() * 1000000),
+        id: editingTutorialId || 'tut-' + Math.floor(Math.random() * 1000000),
         title: newTutorialTitle.trim(),
         type: newTutorialType,
         description: newTutorialDescription.trim(),
         link: newTutorialLink.trim(),
-        fileName: newTutorialFile ? newTutorialFile.name : '',
-        fileMime: newTutorialFile ? newTutorialFile.type : '',
-        assetData,
-        createdAt: new Date().toISOString(),
+        platform: newTutorialLink.trim() ? newTutorialPlatform : 'none',
+        orientation: newTutorialOrientation,
+        status: newTutorialStatus,
+        thumbnailData: thumbnailData || current?.thumbnailData || null,
+        fileName: newTutorialFile?.name || current?.fileName || '',
+        fileMime: newTutorialFile?.type || current?.fileMime || '',
+        createdAt: current?.createdAt || new Date().toISOString(),
       };
       try {
-        await saveTutorials([tutorial, ...tutorials]);
+        await saveTutorials(editingTutorialId
+          ? tutorials.map(item => item.id === editingTutorialId ? tutorial : item)
+          : [tutorial, ...tutorials]);
+        resetTutorialForm();
+        handleAuditLog('Saved tutorial: ' + tutorial.title, 'Tutorial Library');
+        alert('Tutorial saved successfully.');
       } catch (error: any) {
         alert(error?.message || ONLINE_ONLY_WRITE_MESSAGE);
-        return;
       }
-      setNewTutorialTitle('');
-      setNewTutorialDescription('');
-      setNewTutorialLink('');
-      setNewTutorialFile(null);
-      handleAuditLog(`Uploaded tutorial: ${tutorial.title}`, 'Tutorial Library');
-      alert('Tutorial saved.');
     };
-
-    if (!newTutorialFile) {
-      persistTutorial(null);
-      return;
-    }
-
+    if (!newTutorialFile) { void saveWithThumbnail(null); return; }
     const reader = new FileReader();
-    reader.onload = () => { persistTutorial(typeof reader.result === 'string' ? reader.result : null); };
-    reader.onerror = () => alert('Could not read tutorial file.');
+    reader.onload = () => { void saveWithThumbnail(typeof reader.result === 'string' ? reader.result : null); };
+    reader.onerror = () => alert('Thumbnail could not be read.');
     reader.readAsDataURL(newTutorialFile);
   };
 
@@ -1279,110 +1336,103 @@ export default function SuperSaaSAdminView({
 
         {/* ======================= TAB 6: TUTORIALS ======================= */}
         {activeTab === 'tutorials' && (
-          <div className="space-y-6 animate-fade-in text-left">
-            <div className="w-full bg-slate-900 border border-slate-850 p-5 rounded-xl space-y-4">
-              <div className="flex items-center space-x-2">
-                <BookOpen className="w-4 h-4 text-teal-400" />
-                <h3 className="text-xs font-mono font-bold text-white uppercase tracking-wider">Tutorial Library</h3>
+          <div className="space-y-5 animate-fade-in text-left">
+            <header className="rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:p-5">
+              <div className="flex items-center gap-2">
+                <BookOpen className="h-5 w-5 text-teal-400" />
+                <h2 className="text-lg font-bold text-white sm:text-xl">Affiliate Tutorials</h2>
               </div>
-              <p className="text-[10.5px] text-slate-400 leading-normal">Upload guides, video tutorials, lessons, and short messages for super agents to share with their sub-affiliates.</p>
-
-              <form onSubmit={handleCreateTutorial} className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-[9.5px] font-mono text-slate-500 uppercase">Tutorial Title</label>
-                  <input
-                    type="text"
-                    value={newTutorialTitle}
-                    onChange={(e) => setNewTutorialTitle(e.target.value)}
-                    placeholder="e.g. How to register a new retail shop"
-                    className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white outline-none focus:border-teal-500"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[9.5px] font-mono text-slate-500 uppercase">Tutorial Type</label>
-                  <select
-                    value={newTutorialType}
-                    onChange={(e) => setNewTutorialType(e.target.value as any)}
-                    className="bg-slate-950 border border-slate-800 p-2 text-xs text-slate-300 w-full rounded outline-none cursor-pointer"
-                  >
-                    <option value="guide">Guide / PDF</option>
-                    <option value="video">Video Tutorial</option>
-                    <option value="lesson">Lesson / Training</option>
-                    <option value="message">Message</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1 lg:col-span-2">
-                  <label className="text-[9.5px] font-mono text-slate-500 uppercase">Description / Message</label>
-                  <textarea
-                    value={newTutorialDescription}
-                    onChange={(e) => setNewTutorialDescription(e.target.value)}
-                    rows={4}
-                    placeholder="Write what this lesson teaches..."
-                    className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white outline-none focus:border-teal-500 resize-none"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[9.5px] font-mono text-slate-500 uppercase">Video / Guide Link</label>
-                  <input
-                    type="url"
-                    value={newTutorialLink}
-                    onChange={(e) => setNewTutorialLink(e.target.value)}
-                    placeholder="https://..."
-                    className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white outline-none focus:border-teal-500"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[9.5px] font-mono text-slate-500 uppercase">Upload File</label>
-                  <input
-                    type="file"
-                    accept="application/pdf,image/*,video/mp4,video/webm,video/quicktime"
-                    onChange={(e) => setNewTutorialFile(e.target.files?.[0] || null)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-xs text-slate-300 file:mr-3 file:rounded file:border-0 file:bg-teal-500 file:px-2 file:py-1 file:text-slate-950 file:font-bold"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  className="lg:col-span-2 w-full py-2 bg-teal-500 hover:bg-teal-400 text-slate-950 font-mono font-bold text-xs uppercase tracking-wider rounded-lg"
-                >
-                  Save Tutorial
-                </button>
-              </form>
-            </div>
-
-            <div className="w-full bg-slate-900 border border-slate-850 p-5 rounded-xl space-y-4">
-              <span className="text-[10px] uppercase font-mono text-slate-500 font-bold block">Tutorials Available To Super Agents</span>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {tutorials.length === 0 && (
-                  <div className="md:col-span-2 bg-slate-950 border border-slate-850 rounded-xl p-5 text-xs text-slate-400">
-                    No tutorials uploaded yet.
+              <p className="mt-2 text-sm text-slate-400">Publish learning materials with a required thumbnail and an external YouTube, TikTok, Instagram or Facebook link. Videos are never uploaded to Orvix.</p>
+            </header>
+            <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+              <section className="min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:p-5">
+                <h3 className="mb-4 text-base font-bold text-white">{editingTutorialId ? 'Edit Tutorial' : 'New Tutorial'}</h3>
+                <form onSubmit={handleCreateTutorial} className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label htmlFor="tutorial-title" className="text-xs font-semibold text-slate-300">Tutorial title</label>
+                    <input id="tutorial-title" type="text" required value={newTutorialTitle} onChange={e=>setNewTutorialTitle(e.target.value)}
+                      placeholder="How to promote Orvix" className="min-h-11 w-full min-w-0 rounded-xl border border-slate-700 bg-slate-950 px-3 text-sm text-white outline-none focus:border-teal-400" />
                   </div>
-                )}
-                {tutorials.map((tutorial) => (
-                  <div key={tutorial.id} className="bg-slate-950 border border-slate-850 rounded-xl p-4 space-y-2">
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="px-2 py-0.5 rounded bg-teal-500/10 text-teal-300 border border-teal-500/20 text-[9px] font-mono uppercase font-bold">{tutorial.type}</span>
-                      <button
-                        type="button"
-                        onClick={() => saveTutorials(tutorials.filter((item) => item.id !== tutorial.id))}
-                        className="text-[9px] text-rose-400 hover:text-rose-300 font-mono uppercase"
-                      >
-                        Delete
-                      </button>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div className="min-w-0 space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-300">Content type</label>
+                      <select value={newTutorialType} onChange={e=>setNewTutorialType(e.target.value as any)}
+                        className="min-h-11 w-full min-w-0 rounded-xl border border-slate-700 bg-slate-950 px-3 text-sm text-white">
+                        <option value="video">External video</option><option value="guide">Guide</option><option value="lesson">Lesson</option><option value="message">Message</option>
+                      </select>
                     </div>
-                    <h4 className="text-sm text-white font-extrabold">{tutorial.title}</h4>
-                    <p className="text-[11px] text-slate-400 leading-normal">{tutorial.description || 'No description.'}</p>
-                    {(tutorial.fileName || tutorial.link) && (
-                      <p className="text-[10px] text-slate-500 font-mono truncate">{tutorial.fileName || tutorial.link}</p>
-                    )}
+                    <div className="min-w-0 space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-300">Platform</label>
+                      <select value={newTutorialPlatform} onChange={e=>setNewTutorialPlatform(e.target.value as any)}
+                        className="min-h-11 w-full min-w-0 rounded-xl border border-slate-700 bg-slate-950 px-3 text-sm text-white">
+                        <option value="youtube">YouTube</option><option value="tiktok">TikTok</option>
+                        <option value="instagram">Instagram</option><option value="facebook">Facebook</option>
+                        <option value="website">Other website</option><option value="none">Message only</option>
+                      </select>
+                    </div>
                   </div>
-                ))}
-              </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-300">External link (required for video)</label>
+                    <input type="url" value={newTutorialLink} onChange={e=>setNewTutorialLink(e.target.value)}
+                      placeholder="https://..." className="min-h-11 w-full min-w-0 rounded-xl border border-slate-700 bg-slate-950 px-3 text-sm text-white outline-none focus:border-teal-400" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-300">Description / message</label>
+                    <textarea rows={3} value={newTutorialDescription} onChange={e=>setNewTutorialDescription(e.target.value)}
+                      placeholder="What will affiliates learn?" className="w-full min-w-0 resize-y rounded-xl border border-slate-700 bg-slate-950 p-3 text-sm text-white outline-none focus:border-teal-400" />
+                  </div>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div className="min-w-0 space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-300">Thumbnail orientation</label>
+                      <select value={newTutorialOrientation} onChange={e=>setNewTutorialOrientation(e.target.value as any)}
+                        className="min-h-11 w-full min-w-0 rounded-xl border border-slate-700 bg-slate-950 px-3 text-sm text-white">
+                        <option value="horizontal">Horizontal (16:9)</option><option value="vertical">Vertical (9:16)</option>
+                      </select>
+                    </div>
+                    <div className="min-w-0 space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-300">Publish status</label>
+                      <select value={newTutorialStatus} onChange={e=>setNewTutorialStatus(e.target.value as any)}
+                        className="min-h-11 w-full min-w-0 rounded-xl border border-slate-700 bg-slate-950 px-3 text-sm text-white">
+                        <option value="Active">Published</option><option value="Draft">Draft</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="min-w-0 space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-300">Thumbnail image (required)</label>
+                    <input type="file" accept="image/png,image/jpeg,image/webp" onChange={e=>setNewTutorialFile(e.target.files?.[0] || null)}
+                      className="w-full min-w-0 rounded-xl border border-dashed border-slate-700 bg-slate-950 p-3 text-xs text-slate-200 file:mr-2 file:rounded file:border-none file:bg-teal-500 file:px-3 file:py-2 file:font-bold file:text-slate-950" />
+                    <p className="text-xs text-slate-500">JPG, PNG or WEBP, max 800 KB. No video upload.</p>
+                    {editingTutorialId && <p className="text-xs text-teal-300">Existing cover is retained unless replaced.</p>}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button type="submit" className="min-h-11 flex-1 rounded-xl bg-teal-500 px-4 py-2 text-sm font-bold text-slate-950 hover:bg-teal-400">{editingTutorialId?'Update Tutorial':'Publish Tutorial'}</button>
+                    {editingTutorialId && <button type="button" onClick={resetTutorialForm} className="min-h-11 rounded-xl bg-slate-800 px-4 text-sm text-white">Cancel</button>}
+                  </div>
+                </form>
+              </section>
+              <section className="min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:p-5">
+                <h3 className="mb-4 text-base font-bold text-white">Tutorial Library ({tutorials.length})</h3>
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+                  {tutorials.length === 0 && <p className="rounded-xl border border-dashed border-slate-700 p-5 text-sm text-slate-400">No tutorials yet. Add the first thumbnail and link.</p>}
+                  {tutorials.map((tutorial:any)=>(
+                    <article key={tutorial.id} className="min-w-0 overflow-hidden rounded-xl border border-slate-800 bg-slate-950 p-3">
+                      {tutorial.thumbnailData && <div className="flex h-32 items-center justify-center overflow-hidden rounded-lg bg-slate-900">
+                        <img src={tutorial.thumbnailData} alt={tutorial.title+' cover'} loading="lazy" className="h-full w-full object-contain" />
+                      </div>}
+                      <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] font-semibold uppercase">
+                        <span className="text-teal-300">{tutorial.type}</span><span className="text-slate-400">{tutorial.platform||'legacy'}</span>
+                        <span className={tutorial.status==='Draft'?'text-amber-400':'text-emerald-400'}>{tutorial.status||'Legacy'}</span>
+                      </div>
+                      <h4 className="mt-1 truncate text-sm font-semibold text-white">{tutorial.title}</h4>
+                      <p className="mt-1 line-clamp-2 text-xs text-slate-400">{tutorial.description}</p>
+                      <div className="mt-3 grid grid-cols-2 gap-2">
+                        <button type="button" onClick={()=>handleEditTutorial(tutorial)} className="min-h-9 rounded-lg bg-slate-800 text-xs font-semibold text-cyan-300">Edit</button>
+                        <button type="button" onClick={async()=>{if(!confirm('Delete this tutorial?'))return;try{await saveTutorials(tutorials.filter(item=>item.id!==tutorial.id));}catch(error:any){alert(error?.message||ONLINE_ONLY_WRITE_MESSAGE);}}} className="min-h-9 rounded-lg bg-slate-800 text-xs font-semibold text-rose-300">Delete</button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </section>
             </div>
           </div>
         )}
