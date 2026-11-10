@@ -2082,6 +2082,147 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     }
   });
 
+  // Pro shift data is a branch-scoped CASH-COUNT AUDIT, not a treasury
+  // transfer, sale verification, cash balance, or settlement posting.
+  const resolveProShiftActor = async (req: any, res: any, requiredFlag = 'settle_enabled') => {
+    if (!supabaseAdmin) { res.status(503).json({ error: 'Shift service unavailable.' }); return null; }
+    const token = getBearerToken(req);
+    if (!token) { res.status(401).json({ error: 'Please sign in again.' }); return null; }
+    const { data: auth, error: authError } = await supabaseAdmin.auth.getUser(token);
+    if (authError || !auth?.user?.id) { res.status(401).json({ error: 'Invalid session.' }); return null; }
+    const { data: account, error: profileError } = await supabaseAdmin
+      .from('users').select('id,name,tenant_id,role,is_active,account_type')
+      .eq('id', auth.user.id).maybeSingle();
+    if (profileError || !account?.tenant_id || account.is_active === false) {
+      res.status(403).json({ error: 'An active business account is required.' }); return null;
+    }
+    const { data: grant, error: grantError } = await supabaseAdmin
+      .from('orvix_pro_entitlements')
+      .select('tier,status,starts_at,expires_at,settle_enabled,shift_reports_enabled,cashier_accountability_enabled')
+      .eq('tenant_id',account.tenant_id).maybeSingle();
+    if (grantError) { res.status(503).json({ error: 'Pro entitlement unavailable.' }); return null; }
+    const now = Date.now();
+    const from = grant?.starts_at ? Date.parse(grant.starts_at) : null;
+    const until = grant?.expires_at ? Date.parse(grant.expires_at) : null;
+    const active = grant?.tier === 'pro' && ['trial','active'].includes(grant?.status)
+      && (from === null || (Number.isFinite(from) && from <= now))
+      && (until === null || (Number.isFinite(until) && until > now))
+      && (grant.status !== 'trial' || (from !== null && until !== null))
+      && grant[requiredFlag] === true;
+    if (!active) { res.status(403).json({ error: 'Orvix Pro shift access is not active.' }); return null; }
+    const branchId = String(req.method === 'GET' ? req.query.branchId || '' : req.body?.branchId || '').trim();
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(branchId)) {
+      res.status(400).json({ error: 'Select a valid branch first.' }); return null;
+    }
+    const { data: branch, error: branchError } = await supabaseAdmin
+      .from('branches').select('id,tenant_id,branch_name,status,is_locked')
+      .eq('id',branchId).eq('tenant_id',account.tenant_id).maybeSingle();
+    if (branchError || !branch || branch.status !== 'active' || branch.is_locked === true) {
+      res.status(403).json({ error: 'This branch is not available to your account.' }); return null;
+    }
+    const manager = ['Admin','Manager'].includes(String(account.role || ''));
+    if (!manager) {
+      const { data: assignment, error: assignmentError } = await supabaseAdmin
+        .from('branch_staff_assignments').select('id')
+        .eq('tenant_id',account.tenant_id).eq('branch_id',branchId)
+        .eq('staff_id',account.id).eq('status','active').limit(1).maybeSingle();
+      if (assignmentError || !assignment) { res.status(403).json({ error: 'You are not assigned to this branch.' }); return null; }
+    }
+    return { account, branch, manager };
+  };
+  const proCashAmount = (value: unknown, allowZero = true) => {
+    const parsed = typeof value === 'string' && value.trim() === '' ? NaN : Number(value);
+    return Number.isFinite(parsed) && parsed >= (allowZero ? 0 : 0.01)
+      && parsed <= 1000000000000 && Math.abs(Math.round(parsed * 100) - parsed * 100) < 0.000001
+      ? parsed : null;
+  };
+  // All shifts are always scoped to the verified user tenant AND selected branch.
+  app.get('/api/orvix-pro/shifts', async (req, res) => {
+    res.setHeader('Cache-Control','no-store, private');
+    try {
+      const ctx = await resolveProShiftActor(req,res,'shift_reports_enabled');
+      if (!ctx) return;
+      let query = supabaseAdmin!.from('orvix_pro_shift_sessions')
+        .select('id,tenant_id,branch_id,cashier_id,cashier_name,currency_code,opening_float,counted_cash,status,opened_at,submitted_at,reviewed_at,review_note,cashier_note')
+        .eq('tenant_id',ctx.account.tenant_id).eq('branch_id',ctx.branch.id)
+        .order('opened_at',{ascending:false}).limit(75);
+      if (!ctx.manager) query = query.eq('cashier_id',ctx.account.id);
+      const { data, error } = await query;
+      if (error) throw error;
+      return res.json({ records:data || [], branchId:ctx.branch.id,
+        manager:ctx.manager, note:'Cash counts are self-declared; no financial ledger reconciliation or fund movement is performed.' });
+    } catch (e:any) {
+      console.error('[Pro Shift] list error:',e?.message);
+      return res.status(503).json({error:'Unable to load branch shift records.'});
+    }
+  });
+  app.post('/api/orvix-pro/shifts/open', async (req, res) => {
+    res.setHeader('Cache-Control','no-store, private');
+    try {
+      const ctx = await resolveProShiftActor(req,res);
+      if (!ctx) return;
+      const openingFloat = proCashAmount(req.body?.openingFloat);
+      if (openingFloat === null) return res.status(400).json({error:'Enter a valid opening float.'});
+      const { data: shift, error } = await supabaseAdmin!.from('orvix_pro_shift_sessions')
+        .insert({tenant_id:ctx.account.tenant_id,branch_id:ctx.branch.id,
+          cashier_id:ctx.account.id,cashier_name:ctx.account.name || 'Cashier',
+          currency_code:'TZS',opening_float:openingFloat})
+        .select('id,status,opening_float,opened_at').single();
+      if (error?.code === '23505') return res.status(409).json({error:'An open shift already exists for this cashier and branch.'});
+      if (error) throw error;
+      return res.status(201).json({shift});
+    } catch (e:any) {
+      console.error('[Pro Shift] open error:',e?.message);
+      return res.status(503).json({error:'Could not open shift.'});
+    }
+  });
+  app.post('/api/orvix-pro/shifts/submit', async (req, res) => {
+    res.setHeader('Cache-Control','no-store, private');
+    try {
+      const ctx = await resolveProShiftActor(req,res);
+      if (!ctx) return;
+      const cashCount = proCashAmount(req.body?.countedCash);
+      const shiftId = String(req.body?.shiftId || '');
+      if (cashCount === null || !/^[0-9a-f-]{36}$/i.test(shiftId)) return res.status(400).json({error:'Valid shift and physical cash count required.'});
+      const { data, error } = await supabaseAdmin!.from('orvix_pro_shift_sessions')
+        .update({status:'submitted',counted_cash:cashCount,submitted_at:new Date().toISOString(),
+          cashier_note:String(req.body?.note || '').trim().slice(0,500),updated_at:new Date().toISOString()})
+        .eq('id',shiftId).eq('tenant_id',ctx.account.tenant_id)
+        .eq('branch_id',ctx.branch.id).eq('cashier_id',ctx.account.id).eq('status','open')
+        .select('id,status,counted_cash,submitted_at').maybeSingle();
+      if (error) throw error;
+      if (!data) return res.status(409).json({error:'This shift has already been submitted or belongs to a different cashier.'});
+      return res.json({shift:data,note:'Cash count submitted for independent manager review; no transfer posted.'});
+    } catch(e:any) {
+      console.error('[Pro Shift] submit error:',e?.message);
+      return res.status(503).json({error:'Could not submit cash count.'});
+    }
+  });
+  app.post('/api/orvix-pro/shifts/review', async(req,res)=>{
+    res.setHeader('Cache-Control','no-store, private');
+    try {
+      const ctx = await resolveProShiftActor(req,res,'cashier_accountability_enabled');
+      if(!ctx) return;
+      if(!ctx.manager) return res.status(403).json({error:'Only managers may review submitted shifts.'});
+      const shiftId=String(req.body?.shiftId||'');
+      const decision=String(req.body?.decision||'');
+      if(!/^[0-9a-f-]{36}$/i.test(shiftId) || !['reviewed','flagged'].includes(decision)) return res.status(400).json({error:'Valid review decision required.'});
+      const {data,error}=await supabaseAdmin!.from('orvix_pro_shift_sessions')
+        .update({status:decision,reviewed_by:ctx.account.id,reviewed_at:new Date().toISOString(),
+          review_note:String(req.body?.note||'').trim().slice(0,500),updated_at:new Date().toISOString()})
+        .eq('id',shiftId).eq('tenant_id',ctx.account.tenant_id)
+        .eq('branch_id',ctx.branch.id).eq('status','submitted')
+        .neq('cashier_id',ctx.account.id)
+        .select('id,status,reviewed_at').maybeSingle();
+      if(error)throw error;
+      if(!data)return res.status(409).json({error:'Review requires a different manager from the cashier and a submitted shift.'});
+      return res.json({shift:data});
+    }catch(e:any){
+      console.error('[Pro Shift] review error:',e?.message);
+      return res.status(503).json({error:'Unable to review shift.'});
+    }
+  });
+
   app.get('/api/branches/bootstrap', async (req, res) => {
     const branchClient = await requireBranchRpcClient(req, res);
     if (!branchClient) return;
