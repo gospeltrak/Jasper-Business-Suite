@@ -32,6 +32,7 @@ const DashboardReports = lazyWithReload('DashboardReports', () => import('../mod
 const DashboardExpenses = lazyWithReload('DashboardExpenses', () => import('../modules/expenses/DashboardExpenses'));
 const DashboardSalesList = lazyWithReload('DashboardSalesList', () => import('../modules/sales/DashboardSalesList'));
 const OrvixProSettleWorkspace = lazyWithReload('OrvixProSettleWorkspace', () => import('../modules/sales/OrvixProSettleWorkspace'));
+const OrvixProAccountabilityWorkspace = lazyWithReload('OrvixProAccountabilityWorkspace', () => import('../modules/sales/OrvixProAccountabilityWorkspace'));
 
 const DashboardForecasting = lazyWithReload('DashboardForecasting', () => import('../modules/forecasting/DashboardForecasting'));
 const DashboardCashBank = lazyWithReload('DashboardCashBank', () => import('../modules/cash-bank/DashboardCashBank'));
@@ -486,6 +487,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     'forecasting',
     'cash-bank-matrix',
     'pro-settle',
+    'pro-accountability',
     'whitelabel',
     'staff-members',
     'settings'
@@ -1463,6 +1465,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     }
 
     if (tabId === 'pro-settle') return privateProPortal && proFeatures.settle;
+    if (tabId === 'pro-accountability') return privateProPortal && proFeatures.cashierAccountability && ['Admin','Manager'].includes(user.role);
 
     // Enforce package access at the common navigation boundary. Desktop,
     // mobile More, Lucy navigation, and restored session tabs all call this
@@ -3430,8 +3433,10 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     // Diamond:   + Purchases, Deliveries, Money&Bank, Staff, Parties/Suppliers, advanced Reports
     // Tanzanite: + Forecasting + everything in Diamond
 
-    const proItems = privateProPortal && proFeatures.settle
-      ? [{ id: 'pro-settle', label: 'Pro Settle', icon: Wallet, tabId: 'pro-settle', hasSubmenu: false }] : [];
+    const proItems = privateProPortal ? [
+      ...(proFeatures.settle ? [{ id: 'pro-settle', label: 'Pro Settle', icon: Wallet, tabId: 'pro-settle', hasSubmenu: false }] : []),
+      ...(proFeatures.cashierAccountability && ['Admin','Manager'].includes(user.role) ? [{ id: 'pro-accountability', label: 'Pro Accountability', icon: Users, tabId: 'pro-accountability', hasSubmenu: false }] : []),
+    ] : [];
     const allItems = [
       { id: 'dashboard',          label: 'Dashboard',       icon: LayoutDashboard,      tabId: 'overview',            plans: ['ruby','diamond','tanzanite'] },
       { id: 'pos',                label: 'POS',             icon: ShoppingCart,          tabId: 'pos',                 plans: ['ruby','diamond','tanzanite'] },
@@ -4549,6 +4554,14 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
               branchId={activeBranchSelection.activeBranchId || branchContextSelectedBranch?.id || null}
               userId={user.id}
               cashierName={user.name}
+              currency={activeTenant.currencyCode || 'TZS'}
+            />
+          )}
+
+          {/* Read-only Pro activity and employee profiles for verified managers. */}
+          {activeTab === 'pro-accountability' && privateProPortal && proFeatures.cashierAccountability && ['Admin','Manager'].includes(user.role) && (
+            <OrvixProAccountabilityWorkspace
+              branchId={activeBranchSelection.activeBranchId || branchContextSelectedBranch?.id || null}
               currency={activeTenant.currencyCode || 'TZS'}
             />
           )}
