@@ -673,6 +673,35 @@ export default function App() {
     }
   };
 
+  // Pro is private; a browser may already hold an unrelated tenant/admin
+  // session. Offer a safe account switch instead of trapping them on 403.
+  const handleSwitchToProAccount = async () => {
+    logoutInProgressRef.current = true;
+    try {
+      try { await endCloudSession(); } catch { /* Existing session may already have expired. */ }
+      const client: any = await getSecureDataBridgeClient();
+      if (!isPlaceholderSecureDataBridgeClient(client)) {
+        const { error }: any = await Promise.race([
+          client.auth.signOut({ scope: 'local' }),
+          new Promise((_, reject) => window.setTimeout(() => reject(new Error('Sign out timed out')), 5000)),
+        ]);
+        if (error) throw error;
+      }
+      setUser(null);
+      setProPortalAccess(null);
+      localStorage.removeItem('jasper_cashier_user');
+      resetOnlineStorage();
+      splashShownRef.current = false;
+      setRedirectMessage('');
+      commitNavigation('/pro');
+    } catch (error) {
+      console.warn('Could not switch the signed-in account for Pro', error);
+      setRedirectMessage('Please sign out of the current account before entering Orvix Pro.');
+    } finally {
+      logoutInProgressRef.current = false;
+    }
+  };
+
   // Dynamic Component switcher based on pathname
   const renderRoute = () => {
     if (tenantDomainContext.kind === 'loading') {
@@ -721,7 +750,28 @@ export default function App() {
         return <div className="min-h-[100dvh] bg-white dark:bg-slate-950" aria-busy="true" />;
       }
       if (!proPortalAccess.registered) {
-        return <SystemErrorPage status={403} onHome={() => navigateTo('/login')} />;
+        return (
+          <main className="flex min-h-[100dvh] items-start justify-center bg-slate-50 px-4 py-12 text-slate-900 dark:bg-slate-950 dark:text-white">
+            <section className="w-full max-w-md space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-6">
+              <p className="text-xs font-bold uppercase tracking-wide text-emerald-600">Orvix Pro — Private Login</p>
+              <h1 className="text-xl font-bold">Switch to your Pro account</h1>
+              <p className="text-sm text-slate-600 dark:text-slate-300">
+                This browser is signed in with an account that has not been verified for Orvix Pro.
+                Sign out of this account, then enter your Pro Demo email and password.
+              </p>
+              <p className="break-words text-xs text-slate-500 dark:text-slate-400">Current account: {user.email || 'Unknown'}</p>
+              {redirectMessage && <p role="alert" className="text-sm text-rose-600">{redirectMessage}</p>}
+              <button type="button" onClick={() => void handleSwitchToProAccount()}
+                className="min-h-11 w-full rounded-xl bg-emerald-600 px-4 py-2 text-sm font-bold text-white hover:bg-emerald-500">
+                Sign in with another Pro account
+              </button>
+              <button type="button" onClick={() => navigateTo('/dashboard')}
+                className="min-h-11 w-full rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:text-slate-200">
+                Back to current dashboard
+              </button>
+            </section>
+          </main>
+        );
       }
       if (!proPortalAccess.enabled) {
         return (
