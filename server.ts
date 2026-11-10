@@ -2024,6 +2024,56 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
     }
   });
 
+  // Individual Pro commercial terms are drafts only. Saving never charges
+  // a client, changes Pro entitlement, or activates a billing period.
+  app.get('/api/orvix-pro/admin/agreements', async (req,res)=>{
+    res.setHeader('Cache-Control','no-store, private');
+    try {
+      await requirePlatformAdmin(req);
+      if (!supabaseAdmin) return res.status(503).json({error:'Pro billing store unavailable.'});
+      const {data,error}=await supabaseAdmin.from('orvix_pro_agreements')
+        .select('id,tenant_id,status,till_count,currency_code,fee_per_till,monthly_amount,effective_date,notes,updated_at')
+        .order('updated_at',{ascending:false}).limit(200);
+      if(error)throw error;
+      return res.json({agreements:data||[]});
+    }catch(e:any){return platformAdminError(res,e);}
+  });
+
+  app.post('/api/orvix-pro/admin/agreements', async(req,res)=>{
+    res.setHeader('Cache-Control','no-store, private');
+    try {
+      const admin=await requirePlatformAdmin(req);
+      if(!supabaseAdmin)return res.status(503).json({error:'Pro billing store unavailable.'});
+      const tenantId=String(req.body?.tenantId||'');
+      const tillCount=Number(req.body?.tillCount);
+      const fee=Number(req.body?.feePerTill);
+      const notes=String(req.body?.notes||'').trim().slice(0,900);
+      if(!isUuid(tenantId)||!Number.isInteger(tillCount)||tillCount<1||tillCount>1000
+        ||!Number.isFinite(fee)||fee<0||fee>1000000000000
+        ||Math.abs(Math.round(fee*100)-fee*100)>0.000001)
+        return res.status(400).json({error:'Valid Pro tenant, till count and agreed fee required.'});
+      const {data:membership,error:membershipError}=await supabaseAdmin
+        .from('orvix_pro_entitlements').select('tenant_id').eq('tenant_id',tenantId).maybeSingle();
+      if(membershipError)throw membershipError;
+      if(!membership)return res.status(404).json({error:'Register the private Pro tenant before setting an agreement.'});
+      const {data:previous,error:previousError}=await supabaseAdmin
+        .from('orvix_pro_agreements').select('id,status').eq('tenant_id',tenantId).maybeSingle();
+      if(previousError)throw previousError;
+      if(previous && previous.status!=='draft')return res.status(409).json({error:'Accepted commercial terms cannot be silently overwritten.'});
+      const values={tenant_id:tenantId,till_count:tillCount,fee_per_till:fee,
+        notes,currency_code:'TZS',status:'draft',updated_by:admin.id,
+        updated_at:new Date().toISOString()};
+      const result=previous
+        ? await supabaseAdmin.from('orvix_pro_agreements').update(values).eq('id',previous.id).eq('status','draft')
+            .select('id,tenant_id,till_count,fee_per_till,monthly_amount,status').maybeSingle()
+        : await supabaseAdmin.from('orvix_pro_agreements').insert({...values,created_by:admin.id})
+            .select('id,tenant_id,till_count,fee_per_till,monthly_amount,status').maybeSingle();
+      if(result.error)throw result.error;
+      if(!result.data)return res.status(409).json({error:'Agreement changed. Refresh before saving.'});
+      return res.json({agreement:result.data,note:'Draft saved, with no charges or activation.'});
+    }catch(e:any){return platformAdminError(res,e);}
+  });
+
   // Orvix Pro is a separately provisioned entitlement, not inherited from
   // Tanzanite (or free trials). Enforce entitlement on the server.
   // This read endpoint is scoped exclusively to the authenticated user tenant.
