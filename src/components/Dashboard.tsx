@@ -97,7 +97,7 @@ import {
 
 const DashboardBranchesSettings = lazyWithReload('DashboardBranchesSettings', () => import('../modules/branches/components/DashboardBranchesSettings'));
 
-import { LogOut, LayoutDashboard, ShoppingCart, Package, Users, Activity, Database, Building, TrendingUp, FileText, Receipt, Truck, Globe, Clock, Settings as SettingsIcon, Wallet, ChevronLeft, ChevronRight, Award, MessageSquare, Inbox, MonitorPlay, Menu, X, Sun, Moon, PieChart, TrendingDown, CloudLightning, MapPin, MinusCircle, Handshake, LoaderCircle } from "lucide-react";
+import { BookOpen, LogOut, LayoutDashboard, ShoppingCart, Package, Users, Activity, Database, Building, TrendingUp, FileText, Receipt, Truck, Globe, Clock, Settings as SettingsIcon, Wallet, ChevronLeft, ChevronRight, Award, MessageSquare, Inbox, MonitorPlay, Menu, X, Sun, Moon, PieChart, TrendingDown, CloudLightning, MapPin, MinusCircle, Handshake, LoaderCircle, Network } from "lucide-react";
 
 // A high-fidelity composite component representing a rider on a motorcycle with a delivery basket on their back
 function DeliveryMotorcycleIcon({ className, size = 18 }: { className?: string; size?: number }) {
@@ -3379,6 +3379,8 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     { id: 'admin-hw-inventory', label: 'HW Inventory', icon: Package, tabId: 'admin-hw-inventory' },
     { id: 'admin-hw-sales', label: 'HW Sales', icon: TrendingUp, tabId: 'admin-hw-sales' },
     { id: 'admin-affiliates', label: 'Affiliates', icon: Award, tabId: 'admin-affiliates' },
+    { id: 'admin-affiliate-agents', label: 'Agents', icon: Users, tabId: 'admin-affiliate-agents' },
+    { id: 'admin-sub-affiliates', label: 'Sub-Affiliates', icon: Network, tabId: 'admin-sub-affiliates' },
 
     { id: 'admin-status', label: 'Status & Requests', icon: Activity, tabId: 'admin-status' },
     { id: 'admin-reports', label: 'Reports', icon: Database, tabId: 'admin-reports' },
@@ -3386,8 +3388,10 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     { id: 'admin-expenses', label: 'Expenses', icon: Receipt, tabId: 'admin-expenses' },
     { id: 'admin-chats', label: 'Chats', icon: MessageSquare, tabId: 'admin-chats' },
     { id: 'admin-inbox', label: 'Inbox', icon: Inbox, tabId: 'admin-inbox' },
+    { id: 'admin-security', label: 'Security', icon: Shield, tabId: 'admin-security' },
     { id: 'admin-ad-placements', label: 'Ad Placements', icon: MonitorPlay, tabId: 'admin-ad-placements' },
     { id: 'admin-promotions', label: 'Ad Exchange SSP', icon: MonitorPlay, tabId: 'admin-promotions' },
+    { id: 'admin-tutorials', label: 'Tutorials', icon: BookOpen, tabId: 'admin-tutorials' },
     { id: 'admin-web-editor', label: 'Web Editor', icon: Globe, tabId: 'admin-web-editor' },
     { id: 'admin-settings', label: 'Settings', icon: SettingsIcon, tabId: 'admin-settings' }
   ] : (() => {
@@ -3457,7 +3461,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
   }
 
   return (
-    <div id="dashboard-scaffold" className="w-full h-dvh bg-[#f5f6fa] dark:bg-slate-950 flex text-slate-800 dark:text-slate-200 font-sans antialiased overflow-hidden select-none">
+    <div id="dashboard-scaffold" className={`${user.role === 'SuperAdmin' ? 'dark' : '' } w-full h-dvh bg-[#f5f6fa] dark:bg-slate-950 flex text-slate-800 dark:text-slate-200 font-sans antialiased overflow-hidden select-none`}>
 
       {/* Branch-switch data reload indicator. GlobalBranchSwitcher's own
           spinner only covers the quick branch-selection step; this covers
@@ -3533,7 +3537,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
 
       
       {/* 1. Left Sidebar (Fixed, Dark #1a1f2e with smooth transition) */}
-      <aside className={`hidden xl:flex flex-col ${sidebarCollapsed ? 'w-20' : 'w-64'} bg-[#1a1f2e] border-r border-[#262c3f]/50 text-white h-full shrink-0 sticky top-0 overflow-y-auto overflow-x-hidden select-none z-45 transition-all duration-300 ease-in-out`}>
+      <aside className={`hidden xl:flex flex-col ${sidebarCollapsed ? 'w-20' : user.role === 'SuperAdmin' ? 'w-72' : 'w-64'} bg-[#1a1f2e] border-r border-[#262c3f]/50 text-white h-full shrink-0 sticky top-0 overflow-y-auto overflow-x-hidden select-none z-45 transition-all duration-300 ease-in-out`}>
         
         {/* Fixed Header Section with Logo top left */}
         <div className="p-5 border-b border-[#262c3f]/50 shrink-0 select-none flex flex-col items-center justify-center">
@@ -3607,7 +3611,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                       setActiveTab(item.tabId as any);
                     }
                   }}
-                  className={`w-full flex items-center px-4 py-3 rounded-xl transition-all cursor-pointer group relative ${
+                  className={`w-full flex items-center px-4 ${user.role === 'SuperAdmin' ? 'py-3.5' : 'py-3'} rounded-xl transition-colors cursor-pointer group relative ${
                     sidebarCollapsed ? 'justify-center' : 'justify-start space-x-3.5'
                   } ${
                     isActive 
@@ -3619,7 +3623,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                   
                   {/* Label with clean fade transition */}
                   <span 
-                    className={`text-[12px] font-medium tracking-tight truncate transition-all duration-300 ease-in-out origin-left flex items-center justify-between flex-1 ${
+                    className={`text-[13px] font-medium tracking-tight truncate transition-all duration-300 ease-in-out origin-left flex items-center justify-between flex-1 ${
                       sidebarCollapsed 
                         ? 'opacity-0 scale-x-0 w-0 pointer-events-none' 
                         : 'opacity-100 scale-x-100 w-auto'
@@ -3742,14 +3746,16 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                 <span className="hidden sm:inline font-semibold">{isOfflineMode ? 'OFFLINE' : 'ONLINE'}</span>
               </div>
 
-              {/* Day / Dark Mode Toggle Switch inside Dashboard */}
-              <button
-                onClick={() => onToggleTheme?.()}
-                title={isDark ? "Switch to Day Mode" : "Switch to Dark Mode"}
-                className="p-2 text-slate-400 dark:text-slate-300 hover:text-slate-605 dark:hover:text-amber-400 hover:text-slate-800 transition-colors cursor-pointer bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center justify-center active:scale-95"
-              >
-                {isDark ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4 text-indigo-505 text-indigo-500" />}
-              </button>
+              {/* Super Admin has a fixed dark workspace; tenant theme controls remain available. */}
+              {user.role !== 'SuperAdmin' && (
+                <button
+                  onClick={() => onToggleTheme?.()}
+                  title={isDark ? "Switch to Day Mode" : "Switch to Dark Mode"}
+                  className="p-2 text-slate-400 dark:text-slate-300 hover:text-amber-400 transition-colors cursor-pointer bg-slate-50 dark:bg-slate-900 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center justify-center active:scale-95"
+                >
+                  {isDark ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4 text-indigo-500" />}
+                </button>
+              )}
 
               {/* Language Selection dropdown */}
               <div className="relative">
@@ -3985,7 +3991,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                       <div className="h-px bg-slate-100 dark:bg-slate-800 my-1" />
 
                       {/* Dark / Light Mode Toggle */}
-                      {onToggleTheme && (
+                      {onToggleTheme && user.role !== 'SuperAdmin' && (
                         <button
                           type="button"
                           onClick={onToggleTheme}
@@ -4057,7 +4063,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                 </div>
 
                 {/* Dark / Light Mode Toggle */}
-                {onToggleTheme && (
+                {onToggleTheme && user.role !== 'SuperAdmin' && (
                   <button
                     type="button"
                     onClick={onToggleTheme}
@@ -4137,7 +4143,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
           </header>
 
           {/* Core workspace content viewports */}
-          <main id="workspace-content" className={`relative flex-1 overflow-y-auto scrollbar-none overscroll-contain touch-pan-y ${activeTab === 'super-saas' || activeTab.startsWith('admin-') ? 'p-0 bg-slate-950 flex flex-col' : 'p-3 sm:p-4 xl:p-6 bg-[#f5f6fa] dark:bg-slate-950 space-y-5 xl:space-y-6'} pb-[calc(72px+env(safe-area-inset-bottom))] xl:pb-6 min-h-0`}>
+          <main id="workspace-content" className={`relative flex-1 overflow-y-auto scrollbar-none overscroll-contain touch-pan-y ${activeTab === 'super-saas' || activeTab.startsWith('admin-') ? 'p-0 bg-slate-950 flex flex-col' : 'p-3 sm:p-4 xl:p-6 bg-[#f5f6fa] dark:bg-slate-950 space-y-5 xl:space-y-6 pb-[calc(72px+env(safe-area-inset-bottom))] xl:pb-6'} min-h-0`}>
             <DashboardScreenErrorBoundary
               resetKey={activeTab}
               onReturnToDashboard={() => setActiveTab(getDefaultDashboardTab())}
@@ -4774,6 +4780,8 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                   { id: 'admin-dashboard',   label: 'Dashboard',  icon: LayoutDashboard, bg: 'bg-emerald-600' },
                   { id: 'admin-subscribers', label: 'Subscribers',icon: Users,           bg: 'bg-blue-600' },
                   { id: 'admin-affiliates',  label: 'Affiliates', icon: Award,           bg: 'bg-amber-500' },
+                  { id: 'admin-affiliate-agents', label: 'Agents', icon: Users,           bg: 'bg-teal-600' },
+                  { id: 'admin-sub-affiliates', label: 'Sub-Affiliates', icon: Network,   bg: 'bg-emerald-600' },
                   { id: 'admin-status',      label: 'Approvals',  icon: Activity,        bg: 'bg-teal-600' },
                   { id: 'admin-hw-pos',      label: 'HW POS',     icon: ShoppingCart,    bg: 'bg-violet-600' },
                   { id: 'admin-hw-inventory',label: 'HW Stock',   icon: Database,        bg: 'bg-orange-500' },
@@ -4782,8 +4790,12 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                   { id: 'admin-user-activity', label: 'Activity', icon: Users,           bg: 'bg-sky-600' },
                   { id: 'admin-expenses',    label: 'Expenses',   icon: MinusCircle,     bg: 'bg-rose-600' },
                   { id: 'admin-chats',       label: 'Chats',      icon: MessageSquare,   bg: 'bg-cyan-600' },
+                  { id: 'admin-inbox',       label: 'Inbox',      icon: Inbox,          bg: 'bg-sky-600' },
+                  { id: 'admin-security',    label: 'Security',   icon: Shield,         bg: 'bg-rose-600' },
                   { id: 'admin-ad-placements', label: 'Placements', icon: MonitorPlay,   bg: 'bg-purple-600' },
                   { id: 'admin-promotions',  label: 'Ads',        icon: MonitorPlay,     bg: 'bg-pink-600' },
+                  { id: 'admin-tutorials',   label: 'Tutorials',  icon: BookOpen,      bg: 'bg-teal-600' },
+                  { id: 'admin-web-editor',  label: 'Web Editor', icon: Globe,         bg: 'bg-indigo-600' },
                   { id: 'admin-settings',    label: 'Settings',   icon: SettingsIcon,    bg: 'bg-slate-700' },
                 ] : [
                   // ── Tenant / business user more menu (UNCHANGED) ──

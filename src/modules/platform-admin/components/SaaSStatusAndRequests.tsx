@@ -498,81 +498,8 @@ export default function SaaSStatusAndRequests() {
   const filtered = proofs.filter(p => filterStatus === 'all' ? true : p.status === filterStatus);
   const pendingCount = proofs.filter(p => p.status === 'pending').length;
 
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-black text-white">Status & Requests</h2>
-          <p className="text-xs text-slate-400 mt-0.5">Approvals, overrides, and tenant communication in one place</p>
-        </div>
-        <button onClick={() => loadData()} className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl border border-slate-700 cursor-pointer transition-colors">
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-        </button>
-      </div>
+  const renderProof = (proof: PaymentProof) => {
 
-      {/* Message */}
-      {message && (
-        <div className={`p-3.5 rounded-xl text-xs font-semibold flex items-start gap-2 ${message.type === 'success' ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' : 'bg-rose-500/10 border border-rose-500/20 text-rose-400'}`}>
-          {message.type === 'success' ? <CheckCircle className="w-4 h-4 shrink-0 mt-0.5" /> : <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />}
-          {message.text}
-        </div>
-      )}
-
-      {/* Section navigation — each opens on its own, only one shown at a time */}
-      <div className="flex flex-wrap gap-2">
-        {STATUS_SECTIONS.map(section => {
-          const isActive = activeSection === section.id;
-          const Icon = section.icon;
-          return (
-            <button
-              key={section.id}
-              type="button"
-              onClick={() => setActiveSection(section.id)}
-              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border ${isActive ? 'bg-cyan-600 text-white border-cyan-600' : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700'}`}
-            >
-              <Icon className="w-3.5 h-3.5" />
-              {section.label}
-              {section.id === 'approvals' && pendingCount > 0 && (
-                <span className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-black ${isActive ? 'bg-white/20 text-white' : 'bg-amber-500/20 text-amber-400'}`}>
-                  {pendingCount}
-                </span>
-              )}
-              {section.id === 'select-tenants' && selectedTenantIds.size > 0 && (
-                <span className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-black ${isActive ? 'bg-white/20 text-white' : 'bg-cyan-500/20 text-cyan-400'}`}>
-                  {selectedTenantIds.size}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
-
-      {activeSection === 'approvals' && (
-        <div className="space-y-4">
-      {/* Filter tabs */}
-      <div className="flex gap-1.5">
-        {(['pending', 'approved', 'rejected', 'all'] as const).map(s => (
-          <button key={s} onClick={() => setFilterStatus(s)}
-            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer ${filterStatus === s ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
-            {s} {s !== 'all' && proofs.filter(p => p.status === s).length > 0 && `(${proofs.filter(p => p.status === s).length})`}
-          </button>
-        ))}
-      </div>
-
-      {/* Payment proof cards */}
-      {loading ? (
-        <div className="flex items-center justify-center py-16 text-slate-500 text-sm">
-          <RefreshCw className="w-5 h-5 animate-spin mr-2" /> Loading requests...
-        </div>
-      ) : filtered.length === 0 ? (
-        <div className="py-16 text-center">
-          <FileText className="w-8 h-8 text-slate-700 mx-auto mb-3" />
-          <p className="text-slate-500 text-sm">No {filterStatus === 'all' ? '' : filterStatus} payment requests</p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {filtered.map(proof => {
             const plan = SUBSCRIPTION_PLANS[normalizeSubscriptionPlanId(proof.requested_package_id)];
             const isPending = proof.status === 'pending';
             const isProcessing = processingId === proof.id;
@@ -685,6 +612,106 @@ export default function SaaSStatusAndRequests() {
                   </div>
                 )}
               </div>
+            );
+
+  };
+
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-black text-white">Status & Requests</h2>
+          <p className="text-xs text-slate-400 mt-0.5">Approvals, overrides, and tenant communication in one place</p>
+        </div>
+        <button onClick={() => loadData()} className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl border border-slate-700 cursor-pointer transition-colors">
+          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+        </button>
+      </div>
+
+      {/* Message */}
+      {message && (
+        <div className={`p-3.5 rounded-xl text-xs font-semibold flex items-start gap-2 ${message.type === 'success' ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' : 'bg-rose-500/10 border border-rose-500/20 text-rose-400'}`}>
+          {message.type === 'success' ? <CheckCircle className="w-4 h-4 shrink-0 mt-0.5" /> : <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />}
+          {message.text}
+        </div>
+      )}
+
+      {/* Section navigation — each opens on its own, only one shown at a time */}
+      <div className="flex flex-wrap gap-2">
+        {STATUS_SECTIONS.map(section => {
+          const isActive = activeSection === section.id;
+          const Icon = section.icon;
+          return (
+            <button
+              key={section.id}
+              type="button"
+              onClick={() => setActiveSection(section.id)}
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border ${isActive ? 'bg-cyan-600 text-white border-cyan-600' : 'bg-slate-800 text-slate-400 border-slate-700 hover:bg-slate-700'}`}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              {section.label}
+              {section.id === 'approvals' && pendingCount > 0 && (
+                <span className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-black ${isActive ? 'bg-white/20 text-white' : 'bg-amber-500/20 text-amber-400'}`}>
+                  {pendingCount}
+                </span>
+              )}
+              {section.id === 'select-tenants' && selectedTenantIds.size > 0 && (
+                <span className={`ml-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-black ${isActive ? 'bg-white/20 text-white' : 'bg-cyan-500/20 text-cyan-400'}`}>
+                  {selectedTenantIds.size}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {activeSection === 'approvals' && (
+        <div className="space-y-4">
+      {/* Filter tabs */}
+      <div className="flex gap-1.5">
+        {(['pending', 'approved', 'rejected', 'all'] as const).map(s => (
+          <button key={s} onClick={() => setFilterStatus(s)}
+            className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer ${filterStatus === s ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}>
+            {s} {s !== 'all' && proofs.filter(p => p.status === s).length > 0 && `(${proofs.filter(p => p.status === s).length})`}
+          </button>
+        ))}
+      </div>
+
+      {/* Payment proof cards */}
+      {loading ? (
+        <div className="flex items-center justify-center py-16 text-slate-500 text-sm">
+          <RefreshCw className="w-5 h-5 animate-spin mr-2" /> Loading requests...
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="py-16 text-center">
+          <FileText className="w-8 h-8 text-slate-700 mx-auto mb-3" />
+          <p className="text-slate-500 text-sm">No {filterStatus === 'all' ? '' : filterStatus} payment requests</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {filtered.filter(proof => proof.status === 'pending').map(renderProof)}
+          {(['approved', 'rejected'] as const).map(status => {
+            const items = filtered.filter(proof => proof.status === status);
+            if (items.length === 0) return null;
+            const isApproved = status === 'approved';
+            return (
+              <details key={status} className="group overflow-hidden rounded-xl border border-slate-800 bg-slate-900">
+                <summary className="flex min-h-16 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-400">
+                  <span className="flex min-w-0 items-center gap-3">
+                    {isApproved ? <CheckCircle className="h-5 w-5 shrink-0 text-emerald-400"/> : <XCircle className="h-5 w-5 shrink-0 text-rose-400"/>}
+                    <span className="min-w-0">
+                      <span className="block text-sm font-semibold text-white">{isApproved ? 'Approved requests' : 'Rejected requests'}</span>
+                      <span className="block text-xs text-slate-400">{items.length} customer requests · Tap to view details</span>
+                    </span>
+                  </span>
+                  <span className="shrink-0 rounded-lg border border-slate-700 px-3 py-1.5 text-xs font-medium text-slate-300 group-open:border-emerald-700 group-open:text-emerald-300">Details</span>
+                </summary>
+                <div className="space-y-3 border-t border-slate-800 p-3 sm:p-4">
+                  {items.map(renderProof)}
+                </div>
+              </details>
             );
           })}
         </div>

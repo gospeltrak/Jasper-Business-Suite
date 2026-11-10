@@ -53,7 +53,7 @@ export default function SaaSDashboardMetrics() {
   const colors = ['#34d399', '#60a5fa', '#f87171', '#f59e0b', '#a78bfa', '#22d3ee'];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       {loadError && (
         <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3 text-xs text-amber-200">
           {loadError}
@@ -61,7 +61,7 @@ export default function SaaSDashboardMetrics() {
       )}
 
       {/* Top Value Cards */}
-      <div className="mobile-tablet-kpi-grid gap-3 sm:gap-4" style={{ ['--desktop-kpi-columns' as any]: 'repeat(5, minmax(0, 1fr))' }}>
+      <div className="mobile-tablet-kpi-grid gap-3 sm:gap-4" style={{ ['--desktop-kpi-columns' as any]: 'repeat(3, minmax(0, 1fr))' }}>
         <KpiCard icon={Users} iconColor="blue" label="Subscribers" value={`${metrics?.subscribersCount || 0}`} />
         <KpiCard icon={DollarSign} iconColor="emerald" label="Total Revenue" value={`TZS ${(metrics?.totalIncome || 0).toLocaleString()}`} />
         <KpiCard icon={Share2} iconColor="amber" label="Affiliate Shares" value={`TZS ${(metrics?.affiliatePayouts || 0).toLocaleString()}`} />
@@ -69,7 +69,7 @@ export default function SaaSDashboardMetrics() {
         <KpiCard icon={Landmark} iconColor="indigo" label="Net Balance" value={`TZS ${(metrics?.balance || 0).toLocaleString()}`} />
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-4">
         <LiveMetric icon={Activity} label="Online accounts" value={metrics?.activeSessions || 0} />
         <LiveMetric icon={Smartphone} label="Online devices" value={metrics?.onlineDevices || 0} />
         <LiveMetric icon={Store} label="Businesses online" value={metrics?.onlineBusinesses || 0} />
@@ -87,7 +87,7 @@ export default function SaaSDashboardMetrics() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-6">
 
         {/* GRAPH 1: Bar graph: monthly users by package */}
-        <div className="rounded-2xl border border-slate-800/80 bg-slate-900 p-4 shadow-sm shadow-black/20 sm:p-5">
+        <div className="rounded-xl border border-slate-800 bg-slate-900 p-4 sm:p-5">
           <h3 className="mb-4 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-300">
             <BarChart2 className="h-4 w-4 text-emerald-400" />
             <span>Monthly Users by Package</span>
@@ -112,7 +112,7 @@ export default function SaaSDashboardMetrics() {
         </div>
 
         {/* GRAPH 2: Cycle graph: most subscribed packages */}
-        <div className="rounded-2xl border border-slate-800/80 bg-slate-900 p-4 shadow-sm shadow-black/20 sm:p-5">
+        <div className="rounded-2xl border border-slate-800/80 bg-slate-900 p-4  sm:p-5">
           <h3 className="mb-4 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-300">
             <PieChartIcon className="h-4 w-4 text-indigo-400" />
             <span>Package Subscribe Ratio</span>
@@ -141,7 +141,7 @@ export default function SaaSDashboardMetrics() {
         </div>
 
         {/* GRAPH 3: Line graph: organic subscribers vs promo-code subscribers */}
-        <div className="rounded-2xl border border-slate-800/80 bg-slate-900 p-4 shadow-sm shadow-black/20 sm:p-5 lg:col-span-2">
+        <div className="rounded-2xl border border-slate-800/80 bg-slate-900 p-4  sm:p-5 lg:col-span-2">
           <h3 className="mb-4 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-slate-300">
             <TrendingUp className="h-4 w-4 text-amber-400" />
             <span>Organic vs Sub-Affiliate Subscriber Growth</span>
@@ -178,13 +178,13 @@ const KPI_ICON_COLORS: Record<string, string> = {
 
 function KpiCard({ icon: Icon, iconColor, label, value }: { icon: React.ElementType; iconColor: string; label: string; value: string }) {
   return (
-    <div className="flex items-center gap-2.5 rounded-2xl border border-slate-800/80 bg-slate-900 p-4 shadow-sm shadow-black/20">
+    <div className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900 p-4 min-w-0 ">
       <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${KPI_ICON_COLORS[iconColor]}`}>
         <Icon className="h-4.5 w-4.5" />
       </div>
       <div className="min-w-0">
-        <p className="truncate text-[10px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
-        <p className="break-words text-sm font-bold leading-tight text-white sm:text-base">{value}</p>
+        <p className="text-[11px] leading-4 font-semibold tracking-wide text-slate-400">{label}</p>
+        <p className="break-words text-base font-semibold leading-snug text-white sm:text-lg">{value}</p>
       </div>
     </div>
   );
@@ -192,10 +192,10 @@ function KpiCard({ icon: Icon, iconColor, label, value }: { icon: React.ElementT
 
 function LiveMetric({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: number }) {
   return (
-    <div className="rounded-2xl border border-slate-800/80 bg-slate-900 p-3.5 shadow-sm shadow-black/20">
+    <div className="rounded-2xl border border-slate-800/80 bg-slate-900 p-3.5 ">
       <Icon className="mb-2 h-4 w-4 text-emerald-400" />
-      <p className="truncate text-[10px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
-      <p className="mt-1 text-base font-bold text-white sm:text-lg">{value.toLocaleString()}</p>
+      <p className="text-[11px] leading-4 font-medium tracking-wide text-slate-400">{label}</p>
+      <p className="mt-1 text-lg font-semibold text-white sm:text-xl">{value.toLocaleString()}</p>
     </div>
   );
 }

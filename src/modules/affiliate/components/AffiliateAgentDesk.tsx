@@ -1173,7 +1173,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
         </aside>
 
         {/* Main — add bottom padding on mobile for the nav */}
-        <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain p-3.5 sm:p-5 pb-[calc(88px+env(safe-area-inset-bottom))] md:pb-6 [-webkit-overflow-scrolling:touch]">
+        <main className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain bg-[#061b16] p-3.5 pb-4 sm:p-5 md:pb-6 [-webkit-overflow-scrolling:touch]">
           {notice && (
             <div className="flex items-center gap-2 p-3 mb-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-sm text-emerald-400">
               <CheckCircle className="w-4 h-4 shrink-0" /> {notice}
@@ -1950,7 +1950,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
       )}
 
       {/* ── MOBILE BOTTOM NAV (Partner Dashboard — md:hidden) ── */}
-      <nav className="md:hidden fixed inset-x-0 bottom-0 z-40 bg-[#062a21]/95 backdrop-blur border-t border-emerald-900/60"
+      <nav className="md:hidden relative z-40 shrink-0 bg-[#062a21] border-t border-emerald-900/60"
         style={{ height: 'calc(60px + env(safe-area-inset-bottom))', paddingBottom: 'env(safe-area-inset-bottom)' }}>
         <div className="flex items-stretch h-[60px]">
           {NAV_TABS.filter((tab) => MOBILE_PRIMARY_TAB_IDS.includes(tab.id)).map(tab => {

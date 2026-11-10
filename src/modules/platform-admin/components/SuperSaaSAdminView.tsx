@@ -1,26 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { Shield, Users, Volume2, Sparkles, Unlock, UploadCloud, Image as ImageIcon, MessageSquare, Video, BookOpen, Store, Pill, ArrowLeft, Laptop, Globe, Clock } from "lucide-react";
 
-import SaaSUserDesk from './SaaSUserDesk';
+const SaaSUserDesk = React.lazy(() => import('./SaaSUserDesk'));
 
-import SuperAffiliateControlCenter from './SuperAffiliateNetworkOverview';
-import Dashboard from '../../../components/Dashboard';
-import AffiliateWorkspace from '../../affiliate/components/AffiliateWorkspace';
+const SuperAffiliateControlCenter = React.lazy(() => import('./SuperAffiliateNetworkOverview'));
+const Dashboard = React.lazy(() => import('../../../components/Dashboard'));
+const AffiliateWorkspace = React.lazy(() => import('../../affiliate/components/AffiliateWorkspace'));
 import { User } from '../../../types';
-import SaaSStatusAndRequests from './SaaSStatusAndRequests';
-import SaaSReportsView from './SaaSReportsView';
-import SaaSUserActivityView from './SaaSUserActivityView';
-import SaaSDashboardMetrics from './SaaSDashboardMetrics';
-import SaaSExpensesView from './SaaSExpensesView';
-import SaaSInbox from './SaaSInbox';
-import SecurityActivityView from './SecurityActivityView';
-import SaaSHardwarePOS from '../../../shared/components/SaaSHardwarePOS';
-import SaaSHardwareInventory from '../../../shared/components/SaaSHardwareInventory';
-import SaaSHardwareSales from './SaaSHardwareSales';
-import SaaSStaffManager from './SaaSStaffManager';
+const SaaSStatusAndRequests = React.lazy(() => import('./SaaSStatusAndRequests'));
+const SaaSReportsView = React.lazy(() => import('./SaaSReportsView'));
+const SaaSUserActivityView = React.lazy(() => import('./SaaSUserActivityView'));
+const SaaSDashboardMetrics = React.lazy(() => import('./SaaSDashboardMetrics'));
+const SaaSExpensesView = React.lazy(() => import('./SaaSExpensesView'));
+const SaaSInbox = React.lazy(() => import('./SaaSInbox'));
+const SecurityActivityView = React.lazy(() => import('./SecurityActivityView'));
+const SaaSHardwarePOS = React.lazy(() => import('../../../shared/components/SaaSHardwarePOS'));
+const SaaSHardwareInventory = React.lazy(() => import('../../../shared/components/SaaSHardwareInventory'));
+const SaaSHardwareSales = React.lazy(() => import('./SaaSHardwareSales'));
+const SaaSStaffManager = React.lazy(() => import('./SaaSStaffManager'));
 import { initPlatformSync } from '../utils/superAdminPlatformRecords';
-import SaaSWebEditor from './SaaSWebEditor';
-import SaaSAdPlacementsPanel from './SaaSAdPlacementsPanel';
+const SaaSWebEditor = React.lazy(() => import('./SaaSWebEditor'));
+const SaaSAdPlacementsPanel = React.lazy(() => import('./SaaSAdPlacementsPanel'));
 import { loadPlatformRecord, savePlatformRecord } from '../utils/superAdminPlatformRecords';
 import { ONLINE_ONLY_WRITE_MESSAGE, canWriteBusinessDataOnline } from '../../../shared/utils/onlineOnly';
 
@@ -190,8 +190,8 @@ export default function SuperSaaSAdminView({
   };
 
   useEffect(() => {
-    initializeSaaSData();
-
+    // Load marketing records only when their workspace is actually opened.
+    // The ordinary dashboard must not fetch creatives, messages or tutorials.
     const handleEnterMirror = (e: any) => {
       if (e.detail && e.detail.account) {
         setMirroredAccount(e.detail.account);
@@ -220,29 +220,42 @@ export default function SuperSaaSAdminView({
     });
   };
 
-  const initializeSaaSData = async () => {
-    const [placements, activeBanners, currentMessages, currentTutorials] = await Promise.all([
-      loadPlatformRecord<any[]>('ad_placements', 'global', [
-        { id: 'place-1', size: '728x90', label: 'Leaderboard Header (Website)', activeBannersCount: 0, usedBy: 'Public landing pages' },
-        { id: 'place-2', size: '300x250', label: 'Medium Rectangle Sidebar', activeBannersCount: 0, usedBy: 'Dashboard placements' },
-        { id: 'place-3', size: '320x50', label: 'Mobile Ledger footer ad', activeBannersCount: 0, usedBy: 'Mobile screens' }
-      ]),
-      loadPlatformRecord<any[]>('promotional_banners', 'global', []),
-      loadPlatformRecord<any[]>('platform_messages', 'global', []),
-      loadPlatformRecord<any[]>('training_tutorials', 'global', [])
-    ]);
-
-    setAdPlacements(placements);
-    setBanners(activeBanners);
-    setMessages(currentMessages);
-    setTutorials(currentTutorials);
+  // Fetch only the active workspace's records. Opening Chats never fetches
+  // creative media, while opening Tutorials never reads ad placements.
+  const initializeSaaSData = async (section: SuperAdminWorkspaceTab) => {
+    if (section === 'promotions') {
+      const [placements, activeBanners] = await Promise.all([
+        loadPlatformRecord<any[]>('ad_placements', 'global', [
+          { id: 'place-1', size: '728x90', label: 'Leaderboard Header (Website)', activeBannersCount: 0, usedBy: 'Public landing pages' },
+          { id: 'place-2', size: '300x250', label: 'Medium Rectangle Sidebar', activeBannersCount: 0, usedBy: 'Dashboard placements' },
+          { id: 'place-3', size: '320x50', label: 'Mobile Ledger footer ad', activeBannersCount: 0, usedBy: 'Mobile screens' }
+        ]),
+        loadPlatformRecord<any[]>('promotional_banners', 'global', [])
+      ]);
+      setAdPlacements(placements);
+      setBanners(activeBanners);
+    } else if (section === 'chats') {
+      setMessages(await loadPlatformRecord<any[]>('platform_messages', 'global', []));
+    } else if (section === 'tutorials') {
+      setTutorials(await loadPlatformRecord<any[]>('training_tutorials', 'global', []));
+    }
   };
 
-  const saveData = async (placements: any[], activeBanners: any[], currentMessages: any[]) => {
+  useEffect(() => {
+    if (!['promotions', 'chats', 'tutorials'].includes(activeTab)) return;
+    void initializeSaaSData(activeTab).catch((error) => {
+      console.warn('[super-admin] Active workspace records unavailable:', error);
+    });
+  }, [activeTab]);
+
+  const saveMessages = async (nextMessages: any[]) => {
+    await savePlatformRecord('platform_messages', 'global', nextMessages);
+  };
+
+  const saveCampaignData = async (placements: any[], activeBanners: any[]) => {
     await Promise.all([
       savePlatformRecord('ad_placements', 'global', placements),
-      savePlatformRecord('promotional_banners', 'global', activeBanners),
-      savePlatformRecord('platform_messages', 'global', currentMessages)
+      savePlatformRecord('promotional_banners', 'global', activeBanners)
     ]);
   };
 
@@ -341,7 +354,7 @@ export default function SuperSaaSAdminView({
 
     const updated = [newMsg, ...messages];
     try {
-      await saveData(adPlacements, banners, updated);
+      await saveMessages(updated);
       setMessages(updated);
     } catch (error: any) {
       alert(error?.message || ONLINE_ONLY_WRITE_MESSAGE);
@@ -368,7 +381,7 @@ export default function SuperSaaSAdminView({
 
     const updated = [newDm, ...messages];
     try {
-      await saveData(adPlacements, banners, updated);
+      await saveMessages(updated);
       setMessages(updated);
     } catch (error: any) {
       alert(error?.message || ONLINE_ONLY_WRITE_MESSAGE);
@@ -413,7 +426,7 @@ export default function SuperSaaSAdminView({
       return { ...placement, activeBannersCount: Math.max(0, Number(placement.activeBannersCount || 0) - 1) };
     });
     try {
-      await saveData(updatedPlacements, updatedBanners, messages);
+      await saveCampaignData(updatedPlacements, updatedBanners);
       setBanners(updatedBanners);
       setAdPlacements(updatedPlacements);
     } catch (error: any) {
@@ -473,7 +486,7 @@ export default function SuperSaaSAdminView({
       });
 
       try {
-        await saveData(updatedPlacements, updatedBanners, messages);
+        await saveCampaignData(updatedPlacements, updatedBanners);
         setBanners(updatedBanners);
         setAdPlacements(updatedPlacements);
       } catch (error: any) {
@@ -591,7 +604,7 @@ export default function SuperSaaSAdminView({
   }
 
   return (
-    <div id="super-saas-admin-container" className="flex-1 min-h-0 flex flex-col text-slate-100 font-sans text-left bg-slate-950 animate-fade-in select-text">
+    <div id="super-saas-admin-container" className="dark flex-1 min-h-0 flex flex-col text-slate-100 font-sans text-left bg-slate-950 animate-fade-in select-text">
 
       {/* ── MOBILE HEADER (md:hidden) ─────────────────────────── */}
       <div className="md:hidden sticky top-0 z-30 bg-slate-900/95 backdrop-blur border-b border-slate-800 px-4 py-3 flex items-center justify-between">
@@ -626,22 +639,10 @@ export default function SuperSaaSAdminView({
       {/* Mobile password input */}
       {showPasswordInput && !isUnlocked && (
         <div className="md:hidden px-4 py-3 bg-slate-900 border-b border-slate-800 flex items-center gap-2">
-          {true ? (
-            <button onClick={beginMfaVerification} disabled={mfaBusy}
-              className="w-full px-4 py-2 bg-emerald-500 text-slate-950 rounded-xl text-xs font-black disabled:opacity-50">
-              {mfaBusy ? 'Preparing MFA…' : 'Verify Authenticator'}
-            </button>
-          ) : (
-            <>
-              <input type="hidden" value=""
-                readOnly
-                className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white font-mono outline-none" />
-              <button onClick={beginMfaVerification}
-                className="px-4 py-2 bg-emerald-500 text-slate-950 rounded-xl text-xs font-black cursor-pointer border-none">
-                Verify
-              </button>
-            </>
-          )}
+          <button onClick={beginMfaVerification} disabled={mfaBusy}
+            className="w-full px-4 py-2 bg-emerald-500 text-slate-950 rounded-xl text-xs font-semibold disabled:opacity-50">
+            {mfaBusy ? 'Preparing MFA…' : 'Verify Authenticator'}
+          </button>
         </div>
       )}
 
@@ -698,22 +699,10 @@ export default function SuperSaaSAdminView({
                     <Shield className="w-4 h-4 text-slate-400" />
                   </button>
                   <div className="flex items-center space-x-1.5 ml-1">
-                    {true ? (
-                      <button onClick={beginMfaVerification} disabled={mfaBusy}
-                        className="bg-emerald-500 text-slate-950 px-3 py-1 text-[10px] rounded font-extrabold uppercase disabled:opacity-50">
-                        {mfaBusy ? 'Preparing…' : 'Verify MFA'}
-                      </button>
-                    ) : (
-                      <>
-                        <input type="hidden" value=""
-                          readOnly
-                          className="bg-slate-950 border border-slate-800 rounded px-2.5 py-1 text-xs text-white max-w-[135px] font-mono outline-none" />
-                        <button onClick={beginMfaVerification}
-                          className="bg-emerald-500 text-slate-950 px-2.5 py-1 text-[10px] rounded font-extrabold uppercase cursor-pointer">
-                          Verify
-                        </button>
-                      </>
-                    )}
+                    <button onClick={beginMfaVerification} disabled={mfaBusy}
+                      className="bg-emerald-500 text-slate-950 px-3 py-1.5 text-xs rounded-lg font-semibold disabled:opacity-50">
+                      {mfaBusy ? 'Preparing…' : 'Verify MFA'}
+                    </button>
                   </div>
                 </>
               )}
@@ -752,7 +741,8 @@ export default function SuperSaaSAdminView({
       )}
 
       {/* Main interactive subpage container */}
-      <div id="saas-active-subpage-view" className="flex-1 min-h-0 overflow-y-auto flex flex-col w-full p-3 md:p-6 space-y-4 md:space-y-6 pb-24 md:pb-8">
+      <div id="saas-active-subpage-view" className="flex-1 min-h-0 overflow-y-auto flex flex-col w-full min-w-0 p-4 sm:p-5 lg:p-7 space-y-5 lg:space-y-7 pb-24 md:pb-8">
+        <React.Suspense fallback={<div role="status" className="rounded-xl border border-slate-800 bg-slate-900 p-5 text-sm text-slate-300">Loading workspace…</div>}>
         
         {/* ======================= TAB 1: USER DESK ======================= */}
         {activeTab === 'subscribers' && (
@@ -789,7 +779,7 @@ export default function SuperSaaSAdminView({
                   ? 'agents'
                   : activeTab === 'sub-affiliates'
                     ? 'subAffiliates'
-                    : 'agents'
+                    : 'overview'
               }
               isUnlocked={isUnlocked}
             />
@@ -1389,7 +1379,7 @@ export default function SuperSaaSAdminView({
             <SaaSExpensesView />
           </div>
         )}
-
+        </React.Suspense>
       </div>
 
     </div>
