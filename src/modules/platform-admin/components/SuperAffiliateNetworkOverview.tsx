@@ -63,7 +63,7 @@ export default function SuperAffiliateNetworkOverview({initialTab = 'overview'}:
     {loading&&!data&&<p className="text-sm text-slate-400">Loading network summary...</p>}
     {data&&<>
       {data.partial&&<p role="status" className="rounded-lg border border-amber-900 bg-amber-950/40 px-3 py-2 text-xs text-amber-200">Large network: only the first 200 records per source were counted. Totals below are partial, not complete.</p>}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="admin-two-column-metrics-grid grid grid-cols-2 gap-3 lg:grid-cols-4">
         {[
           ['Agents',data.agents.length],
           ['Affiliates',data.affiliate_total],
