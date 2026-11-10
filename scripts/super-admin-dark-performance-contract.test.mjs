@@ -67,11 +67,19 @@ test('Admin shows real linked tenant details without placeholder tracker names',
   assert.match(server, /unlinkedLegacyReferrals/);
 });
 
-test('Approved and rejected proof histories use one compact expandable group each', () => {
+test('Approved and rejected requests start collapsed with independent single-open compact cards', () => {
   const statusView = read('src/modules/platform-admin/components/SaaSStatusAndRequests.tsx');
+  const css = read('src/index.css');
   assert.match(statusView, /\['approved', 'rejected'\] as const/);
   assert.match(statusView, /<details key=\{status\}/);
-  assert.match(statusView, /items\.map\(renderProof\)/);
+  assert.match(statusView, /expandedReviewedProof.*approved: null, rejected: null/);
+  assert.match(statusView, /expandedReviewedProof\[status\] === proof\.id/);
+  assert.match(statusView, /\[status\]: previous\[status\] === proof\.id \? null : proof\.id/);
+  assert.match(statusView, /items\.map\(renderReviewedProof\)/);
+  assert.match(statusView, /admin-reviewed-proof-details-grid grid grid-cols-2/);
+  assert.match(statusView, /Note from tenant/);
+  assert.match(statusView, /handleViewReceipt\(proof\)/);
+  assert.match(css, /\.admin-reviewed-proof-details-grid[\s\S]*?grid-template-columns: repeat\(2, minmax\(0, 1fr\)\) !important/);
   assert.match(statusView, /filtered\.filter\(proof => proof\.status === 'pending'\)\.map\(renderProof\)/);
 });
 

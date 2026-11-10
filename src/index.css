@@ -3205,3 +3205,19 @@ button:active:not(:disabled),
     text-align: center;
   }
 }
+
+/* Two-column reviewed payment details on phones and tablets.
+   Override only this Super Admin section: the global grid-cols-* safety net
+   otherwise turns these read-only fields into a tall one-column stack. */
+@media (max-width: 1279px) {
+  #dashboard-scaffold #super-saas-admin-container .admin-reviewed-proof-details-grid {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 0.75rem;
+  }
+
+  #super-saas-admin-container .admin-reviewed-proof-details-grid > * {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+}
