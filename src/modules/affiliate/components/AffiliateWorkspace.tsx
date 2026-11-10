@@ -16,10 +16,7 @@ import {
   flushSyncQueue,
 } from '../utils/offlineSync';
 import { ONLINE_ONLY_WRITE_MESSAGE } from '../../../shared/utils/onlineOnly';
-import { canShowDashboardAd, useGlobalAdSettings } from '../../../shared/utils/adPlacement';
-import { sanitizeTrustedHtml } from '../../../shared/utils/safeHtml';
 import { isSettledPaymentStatus } from '../../../shared/utils/financialStatus';
-import GlobalStickyAd from '../../../shared/components/GlobalStickyAd';
 import { formatLocalMonth } from '../../../shared/utils/localDate';
 import { downloadExcelFileFromRows } from '../../../shared/utils/excelExport';
 import { getSecureDataBridgeClient } from '../../../shared/dataBridge/secureDataBridge';
@@ -79,12 +76,12 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
   // Tenants tab state
   const [tenantSearch, setTenantSearch] = useState('');
   const [contentTab, setContentTab] = useState<'advertisements' | 'tutorials'>('advertisements');
+  const [contentSlide, setContentSlide] = useState(0);
   const [tenantStatusFilter, setTenantStatusFilter] = useState<string>('all');
   const [tenantPlanFilter, setTenantPlanFilter] = useState<string>('all');
   const [selectedTenant, setSelectedTenant] = useState<any>(null);
   const payoutWindow = getTanzaniaMonthEndWithdrawalDate();
   const transferFee = getAzamPayFee(workspace?.profile?.payout_method);
-  const adSettings = useGlobalAdSettings();
 
   useEffect(() => {
     initOfflineSync();
@@ -209,6 +206,13 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
     }, delay);
     return () => clearTimeout(timer);
   }, [state, autoRetryCount, refresh]);
+
+  // Autoplay rotates cards only on the overview; no automatic media playback.
+  useEffect(() => {
+    if (activeTab !== 'overview' || !workspace?.campaigns?.length || workspace.campaigns.length < 2) return;
+    const timer = window.setInterval(() => setContentSlide(index => (index + 1) % workspace.campaigns.length), 5500);
+    return () => window.clearInterval(timer);
+  }, [activeTab, workspace?.campaigns]);
 
   const metrics = useMemo(() => {
     const referrals = workspace?.referrals || [];
@@ -475,16 +479,18 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
     <article key={campaign.id} className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex gap-3 justify-between">
         <div className="min-w-0">
-          <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-700">Ads by JB</p>
+          <p className="text-[11px] font-bold uppercase tracking-wide text-emerald-700">{campaign.content_type === 'tutorial' ? 'Affiliate Tutorial' : 'Promotion Material'}</p>
           <h3 className="mt-1 text-sm font-bold text-slate-950">{campaign.title}</h3>
           <p className="mt-1 text-xs text-slate-500">{campaign.campaign_name}</p>
         </div>
         <Film className="w-5 h-5 text-slate-400 shrink-0" />
       </div>
-      {campaign.media_mime_type?.startsWith('image/') && isSafeExternalUrl(campaign.media_url) && (
-        <img src={campaign.media_url} alt={campaign.title} loading="lazy" decoding="async" className="mt-3 max-h-52 w-full rounded-lg bg-slate-50 object-contain" />
+      {(campaign.thumbnail_url || (campaign.media_mime_type?.startsWith('image/') ? campaign.media_url : null)) && isSafeExternalUrl(campaign.thumbnail_url || campaign.media_url) && (
+        <div className="mt-3 flex h-44 w-full items-center justify-center overflow-hidden rounded-lg bg-slate-50 dark:bg-emerald-950/50">
+          <img src={campaign.thumbnail_url || campaign.media_url} alt={campaign.title} loading="lazy" decoding="async" className="h-full w-full object-contain" />
+        </div>
       )}
-      {campaign.media_mime_type?.startsWith('video/') && (
+      {!campaign.thumbnail_url && campaign.media_mime_type?.startsWith('video/') && (
         <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-4 text-center">
           <Film className="mx-auto h-6 w-6 text-emerald-700"/>
           <p className="mt-2 text-xs text-slate-500">Video available on demand · no autoplay</p>
@@ -497,7 +503,9 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
         {formatBytes(campaign.media_size_bytes) ? <span>{formatBytes(campaign.media_size_bytes)}</span> : null}
       </div>
       <div className="mt-4 grid gap-2 sm:grid-cols-3">
-        <button type="button" onClick={() => handleTrackedLink('ad_download', 'campaign', campaign.id, campaign.media_url, campaign.media_name)} className="inline-flex items-center justify-center gap-2 rounded-md bg-slate-900 px-3 py-2.5 text-xs font-semibold text-white"><Download className="w-3.5 h-3.5" /> Download</button>
+        {campaign.content_type === 'tutorial' ? (
+          <button type="button" disabled={!campaign.campaign_url} onClick={() => campaign.campaign_url && handleTrackedLink('ad_download', 'tutorial', campaign.id, campaign.campaign_url)} className="inline-flex items-center justify-center gap-2 rounded-md bg-emerald-700 px-3 py-2.5 text-xs font-semibold text-white disabled:opacity-50"><ExternalLink className="w-3.5 h-3.5" /> Open tutorial</button>
+        ) : <button type="button" disabled={!campaign.media_url} onClick={() => handleTrackedLink('ad_download', 'campaign', campaign.id, campaign.media_url, campaign.media_name)} className="inline-flex items-center justify-center gap-2 rounded-md bg-slate-900 px-3 py-2.5 text-xs font-semibold text-white disabled:opacity-50"><Download className="w-3.5 h-3.5" /> Download</button>}
         <button type="button" onClick={() => copyCampaignMaterial(campaign)} className="inline-flex items-center justify-center gap-2 rounded-md border border-slate-300 px-3 py-2.5 text-xs font-semibold text-slate-700"><Copy className="w-3.5 h-3.5" /> Copy text</button>
         {campaign.campaign_url ? <button type="button" onClick={() => handleTrackedLink('campaign_link_copy', 'campaign', campaign.id, campaign.campaign_url!)} className="inline-flex items-center justify-center gap-2 rounded-md border border-slate-300 px-3 py-2.5 text-xs font-semibold text-slate-700"><Copy className="w-3.5 h-3.5" /> Copy link</button> : <span className="grid place-items-center rounded-md border border-dashed border-slate-300 px-3 py-2.5 text-xs text-slate-400">No link</span>}
       </div>
@@ -561,12 +569,6 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
                 </button>
               ))}
             </section>
-            {canShowDashboardAd(adSettings) && (
-              <div className="overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-emerald-900 dark:bg-[#092c21]">
-                <div className="mx-auto w-full max-w-[728px] overflow-hidden [&>*]:max-w-full"
-                  dangerouslySetInnerHTML={{ __html: sanitizeTrustedHtml(adSettings.dashboardAdCode) }} />
-              </div>
-            )}
             <div className="grid gap-3 xl:grid-cols-2">
               <section data-testid="affiliate-plan-summary" className="relative isolate min-w-0 overflow-hidden rounded-xl border border-emerald-700/50 bg-[linear-gradient(112deg,#075c45_0%,#087658_58%,#086b51_100%)] text-white shadow-[0_9px_24px_-13px_rgba(5,112,78,0.48)] dark:border-emerald-700/50 dark:bg-[linear-gradient(112deg,#064c3a_0%,#076048_60%,#075640_100%)] dark:shadow-[0_12px_26px_-13px_rgba(0,0,0,0.55)]">
                 <div aria-hidden="true" className="pointer-events-none absolute -right-8 -top-9 z-0 h-32 w-32 rounded-full border border-white/[0.08]" />
@@ -623,18 +625,39 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
                 <h2 className="text-xs font-semibold text-slate-950 dark:text-white sm:text-sm">Ads & Tutorials</h2>
                 <button type="button" onClick={() => setActiveTab('ads')} className="text-[11px] font-medium text-emerald-700 dark:text-emerald-300">View all</button>
               </div>
-              {workspace!.campaigns.some(c => c.status === 'active') ? (
-                <div className="grid gap-2.5 p-3 sm:grid-cols-2">
-                  {workspace!.campaigns.filter(c => c.status === 'active').slice(0,2).map(c => (
-                    <button key={c.id} type="button" onClick={() => setActiveTab('ads')}
-                      className="flex min-w-0 items-center gap-2.5 rounded-lg bg-emerald-50 px-3 py-3 text-left dark:bg-emerald-950/70">
-                      <Film className="h-4 w-4 shrink-0 text-emerald-700 dark:text-emerald-300" />
-                      <span className="min-w-0 flex-1 truncate text-xs text-slate-900 dark:text-white">{c.title}</span>
-                      <ChevronRight className="h-3.5 w-3.5 text-slate-400" />
+              {workspace!.campaigns.some(c => c.status === 'active') ? (() => {
+                const slides = workspace!.campaigns.filter(c => c.status === 'active');
+                const selected = slides[contentSlide % slides.length];
+                return (
+                  <div className="min-w-0 space-y-3 p-3">
+                    <button type="button"
+                      onClick={() => { setContentTab(selected.content_type === 'tutorial' ? 'tutorials' : 'advertisements'); setActiveTab('ads'); }}
+                      className="flex w-full min-w-0 items-center gap-3 rounded-xl border border-slate-200 bg-emerald-50 p-2 text-left dark:border-emerald-900 dark:bg-emerald-950/70">
+                      <div className="flex h-20 w-28 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-slate-100 dark:bg-emerald-900/60 sm:h-24 sm:w-40">
+                        {(selected.thumbnail_url || (selected.media_mime_type?.startsWith('image/') ? selected.media_url : null)) && isSafeExternalUrl(selected.thumbnail_url || selected.media_url)
+                          ? <img src={selected.thumbnail_url || selected.media_url} loading="lazy" alt={selected.title} className="h-full w-full object-contain" />
+                          : <Film className="h-7 w-7 text-emerald-600 dark:text-emerald-300" />}
+                      </div>
+                      <span className="min-w-0 flex-1">
+                        <span className="mb-1 block text-[10px] font-bold uppercase text-emerald-700 dark:text-emerald-300">{selected.content_type === 'tutorial' ? 'Tutorial' : 'Advertisement'}</span>
+                        <span className="block line-clamp-2 text-sm font-semibold text-slate-900 dark:text-white">{selected.title}</span>
+                        <span className="mt-1 block text-xs text-slate-500 dark:text-emerald-100/65">{selected.platform || 'Orvix content'}</span>
+                      </span>
+                      <ChevronRight className="h-4 w-4 shrink-0 text-emerald-700 dark:text-emerald-300" />
                     </button>
-                  ))}
-                </div>
-              ) : <p className="p-4 text-xs text-slate-500 dark:text-emerald-100/65">Campaigns will appear here.</p>}
+                    {slides.length > 1 && (
+                      <div className="flex items-center justify-center gap-2" aria-label="Content carousel controls">
+                        {slides.slice(0, 12).map((slide, index) => (
+                          <button key={slide.id} type="button" onClick={() => setContentSlide(index)}
+                            aria-label={'Show content ' + (index + 1)}
+                            aria-current={contentSlide % slides.length === index ? 'true' : undefined}
+                            className={`h-2 rounded-full transition-all ${contentSlide % slides.length === index ? 'w-6 bg-emerald-600' : 'w-2 bg-slate-300 dark:bg-emerald-800'}`} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })() : <p className="p-4 text-xs text-slate-500 dark:text-emerald-100/65">Published Ads and Tutorials will appear here.</p>}
             </section>
             {(openTasks.length > 0 || notifications.length > 0) && (
               <button type="button" onClick={() => setActiveTab('tasks')}
@@ -939,16 +962,16 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
               </div>
               {contentTab==='advertisements'
                 ? <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                    {workspace!.campaigns.filter(c=>!/(tutorial|training|guide)/i.test(c.title+' '+c.campaign_name)).map(renderCampaign)}
-                    {workspace!.campaigns.filter(c=>!/(tutorial|training|guide)/i.test(c.title+' '+c.campaign_name)).length===0&&<div className="col-span-full flex flex-col items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-12 dark:border-emerald-900 dark:bg-[#092a20]">
+                    {workspace!.campaigns.filter(c=>c.content_type !== 'tutorial' && !(!c.content_type && /(tutorial|training|guide)/i.test(c.title+' '+c.campaign_name))).map(renderCampaign)}
+                    {workspace!.campaigns.filter(c=>c.content_type !== 'tutorial' && !(!c.content_type && /(tutorial|training|guide)/i.test(c.title+' '+c.campaign_name))).length===0&&<div className="col-span-full flex flex-col items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-12 dark:border-emerald-900 dark:bg-[#092a20]">
                       <Film className="h-8 w-8 text-emerald-700/55"/>
                       <p className="text-sm font-semibold text-slate-800 dark:text-white">No advertisements assigned</p>
                       <p className="text-xs text-slate-500 dark:text-emerald-100/60">Images, videos and campaign text will appear here.</p>
                     </div>}
                   </div>
                 : <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                    {workspace!.campaigns.filter(c=>/(tutorial|training|guide)/i.test(c.title+' '+c.campaign_name)).map(renderCampaign)}
-                    {!workspace!.campaigns.some(c=>/(tutorial|training|guide)/i.test(c.title+' '+c.campaign_name))&&
+                    {workspace!.campaigns.filter(c=>c.content_type === 'tutorial' || (!c.content_type && /(tutorial|training|guide)/i.test(c.title+' '+c.campaign_name))).map(renderCampaign)}
+                    {!workspace!.campaigns.some(c=>c.content_type === 'tutorial' || (!c.content_type && /(tutorial|training|guide)/i.test(c.title+' '+c.campaign_name)))&&
                       <div className="col-span-full rounded-xl border border-slate-200 bg-white px-4 py-12 text-center dark:border-emerald-900 dark:bg-[#092a20]">
                         <Film className="mx-auto mb-3 h-8 w-8 text-emerald-700/55"/>
                         <p className="text-sm font-semibold text-slate-800 dark:text-white">No tutorials assigned</p>
@@ -1359,13 +1382,6 @@ export default function AffiliateWorkspace({ onLogout, mirrorAffiliateId, mirror
         </div>
       )}
 
-      {!mirrorMode && (
-        <GlobalStickyAd
-          bottomOffsetClass="bottom-[calc(4.75rem+env(safe-area-inset-bottom))] lg:bottom-4"
-          leftOffsetClass="left-3 lg:left-1/2 lg:-translate-x-1/2"
-          maxWidthClass="max-w-[640px]"
-        />
-      )}
 
     </main>
   );
