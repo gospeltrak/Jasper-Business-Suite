@@ -1425,6 +1425,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       'admin-chats': 'chats',
       'admin-inbox': 'inbox',
       'admin-promotions': 'promotions',
+      'admin-orvix-pro': 'orvix-pro',
       'admin-ad-placements': 'web-editor',
       'admin-tutorials': 'tutorials',
       'admin-web-editor': 'web-editor',
@@ -3381,6 +3382,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     { id: 'admin-affiliate-agents', label: 'Agents', icon: Users, tabId: 'admin-affiliate-agents' },
     { id: 'admin-sub-affiliates', label: 'Sub-Affiliates', icon: Network, tabId: 'admin-sub-affiliates' },
 
+    { id: 'admin-orvix-pro', label: 'Orvix Pro', icon: Shield, tabId: 'admin-orvix-pro' },
     { id: 'admin-status', label: 'Status & Requests', icon: Activity, tabId: 'admin-status' },
     { id: 'admin-reports', label: 'Reports', icon: Database, tabId: 'admin-reports' },
     { id: 'admin-user-activity', label: 'User Activity', icon: Users, tabId: 'admin-user-activity' },
@@ -4647,6 +4649,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                  activeTab === 'admin-chats' ? 'chats' :
                  activeTab === 'admin-inbox' ? 'inbox' :
                  activeTab === 'admin-security' ? 'security' :
+                 activeTab === 'admin-orvix-pro' ? 'orvix-pro' :
                  activeTab === 'admin-promotions' ? 'promotions' :
                  activeTab === 'admin-tutorials' ? 'tutorials' :
                  activeTab === 'admin-ad-placements' ? 'ad-placements' :
@@ -4670,6 +4673,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                    subTab === 'chats' ? 'admin-chats' :
                    subTab === 'inbox' ? 'admin-inbox' :
                    subTab === 'security' ? 'admin-security' :
+                   subTab === 'orvix-pro' ? 'admin-orvix-pro' :
                    subTab === 'promotions' ? 'admin-promotions' :
                    subTab === 'tutorials' ? 'admin-tutorials' :
                    subTab === 'ad-placements' ? 'admin-ad-placements' :
@@ -4792,6 +4796,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
                   { id: 'admin-inbox',       label: 'Inbox',      icon: Inbox,          bg: 'bg-sky-600' },
                   { id: 'admin-security',    label: 'Security',   icon: Shield,         bg: 'bg-rose-600' },
                   { id: 'admin-ad-placements', label: 'Placements', icon: MonitorPlay,   bg: 'bg-purple-600' },
+                  { id: 'admin-orvix-pro',  label: 'Orvix Pro', icon: Shield, bg: 'bg-emerald-600' },
                   { id: 'admin-promotions',  label: 'Ads',        icon: MonitorPlay,     bg: 'bg-pink-600' },
                   { id: 'admin-tutorials',   label: 'Tutorials',  icon: BookOpen,      bg: 'bg-teal-600' },
                   { id: 'admin-web-editor',  label: 'Web Editor', icon: Globe,         bg: 'bg-indigo-600' },

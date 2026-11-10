@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Shield, Users, Volume2, Sparkles, Unlock, UploadCloud, Image as ImageIcon, MessageSquare, Video, BookOpen, Store, Pill, ArrowLeft, Laptop, Globe, Clock } from "lucide-react";
 
 const SaaSUserDesk = React.lazy(() => import('./SaaSUserDesk'));
+const OrvixProAdminPanel = React.lazy(() => import('./OrvixProAdminPanel'));
 
 const SuperAffiliateControlCenter = React.lazy(() => import('./SuperAffiliateNetworkOverview'));
 const Dashboard = React.lazy(() => import('../../../components/Dashboard'));
@@ -26,7 +27,7 @@ import { ONLINE_ONLY_WRITE_MESSAGE, canWriteBusinessDataOnline } from '../../../
 
 import { prepareSuperAdminMfa, SuperAdminMfaPrompt, verifySuperAdminMfa } from '../utils/superAdminMfa';
 
-export type SuperAdminWorkspaceTab = 'dashboard' | 'subscribers' | 'hw-pos' | 'hw-inventory' | 'hw-sales' | 'affiliates' | 'affiliate-agents' | 'sub-affiliates' | 'status' | 'reports' | 'user-activity' | 'expenses' | 'chats' | 'inbox' | 'security' | 'promotions' | 'tutorials' | 'ad-placements' | 'web-editor' | 'settings';
+export type SuperAdminWorkspaceTab = 'dashboard' | 'subscribers' | 'orvix-pro' | 'hw-pos' | 'hw-inventory' | 'hw-sales' | 'affiliates' | 'affiliate-agents' | 'sub-affiliates' | 'status' | 'reports' | 'user-activity' | 'expenses' | 'chats' | 'inbox' | 'security' | 'promotions' | 'tutorials' | 'ad-placements' | 'web-editor' | 'settings';
 
 export interface SuperSaaSAdminViewProps {
   activeAdminSubTab?: SuperAdminWorkspaceTab;
@@ -815,6 +816,11 @@ export default function SuperSaaSAdminView({
           <div className="space-y-6 animate-fade-in text-left">
             <SaaSUserDesk isUnlocked={isUnlocked} onLock={() => setIsUnlocked(false)} />
           </div>
+        )}
+
+        {/* Private Pro workspace: read-only until server-authorized billing and ledger land. */}
+        {activeTab === 'orvix-pro' && (
+          <OrvixProAdminPanel onOpenSubscribers={() => (externalSetActiveTab ? externalSetActiveTab('subscribers') : setInternalActiveTab('subscribers'))} />
         )}
 
         {/* ======================= HARDWARE PANELS ======================= */}
