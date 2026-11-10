@@ -38,13 +38,13 @@ export default function SuperAffiliateNetworkOverview({initialTab = 'overview'}:
   useEffect(()=>{void load();},[load]);
 
   return <section className="space-y-5">
-    <nav aria-label="Affiliate monitoring" className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+    <nav aria-label="Affiliate monitoring" className="admin-affiliate-section-tabs grid grid-cols-4 gap-1.5 sm:flex sm:flex-wrap sm:gap-2">
       {([
         ['overview','Overview'],['agents','Agents'],['subAffiliates','Affiliates'],['payouts','Withdrawals'],
       ] as const).map(([key,label])=>(
         <button key={key} type="button" aria-current={activeSection===key?'page':undefined}
           onClick={()=>setActiveSection(key)}
-          className={`rounded-xl border px-3 py-2.5 text-xs font-semibold transition-colors ${activeSection===key
+          className={`min-w-0 whitespace-nowrap rounded-xl border px-1 py-2.5 text-[10px] font-semibold tracking-tight transition-colors sm:px-3 sm:text-xs ${activeSection===key
             ? 'border-emerald-500/50 bg-emerald-500/10 text-emerald-300'
             : 'border-slate-800 bg-slate-900 text-slate-300 hover:border-slate-700 hover:text-white'}`}>
           {label}
