@@ -1151,8 +1151,8 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       await requirePlatformAdmin(req);
       const limit = 201; // last row is an explicit partial-data sentinel
       const [agentsResult, affiliatesResult, assignmentsResult, referredResult, sourcesResult, payoutsResult] = await Promise.all([
-        adminTable('affiliate_partners').select('id,user_id,display_name,status,is_disabled').order('created_at',{ascending:false}).limit(limit),
-        adminTable('affiliates').select('id,display_name,location,status').order('created_at',{ascending:false}).limit(limit),
+        adminTable('affiliate_partners').select('id,user_id,display_name,country,region,district,location,status,is_disabled').order('created_at',{ascending:false}).limit(limit),
+        adminTable('affiliates').select('id,display_name,country,region,district,location,status').order('created_at',{ascending:false}).limit(limit),
         adminTable('affiliate_agent_assignments').select('affiliate_id,agent_user_id').is('ended_at',null).limit(limit),
         adminTable('referred_customers').select('id,tenant_id,affiliate_id,sub_affiliate_id,customer_name,location,payment_status,amount_paid,created_at').order('created_at',{ascending:false}).limit(limit),
         adminTable('subscriber_source_tracking').select('tenant_id,affiliate_id,sub_affiliate_id,status,created_at').order('created_at',{ascending:false}).limit(limit),
@@ -1241,6 +1241,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       return res.json({
         partial, agents:agents.map((row:any)=>({
           name:row.display_name||'Agent',status:row.is_disabled?'inactive':row.status,
+          location:[row.location,row.district,row.region,row.country].filter(Boolean).join(', ')||'Not provided',
           affiliates:affiliatesForAgent(String(row.user_id)),
           customers:agentCustomerCounts.get(String(row.user_id))||0,
         })),
@@ -1249,7 +1250,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
         unassigned_affiliates:affiliates.filter((a:any)=>!ownerByAffiliate.has(String(a.id))).length,
         referred_customer_total:customers.length,
         affiliates:affiliates.map((a:any)=>({
-          name:a.display_name||'Affiliate', location:a.location||'Not provided',
+          name:a.display_name||'Affiliate', location:[a.location,a.district,a.region,a.country].filter(Boolean).join(', ')||'Not provided',
           agent:agentByUser.get(ownerByAffiliate.get(String(a.id))||'')?.display_name||'Unassigned',
           customers:customerCounts.get(String(a.id))||0,
         })),
@@ -3812,10 +3813,23 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       payoutPhone,
       turnstileToken,
       googleRegistration,
+      country,
+      region,
+      district,
+      location,
     } = req.body || {};
     const turnstileOk = googleRegistration ? true : await verifyTurnstileToken(turnstileToken, req.ip);
     if (!turnstileOk) {
       return res.status(400).json({ error: 'Security verification failed. Please refresh the page and try again.' });
+    }
+    const normalizedLocation = {
+      country: String(country || '').trim().slice(0,80),
+      region: String(region || '').trim().slice(0,100),
+      district: String(district || '').trim().slice(0,100),
+      location: String(location || '').trim().slice(0,160),
+    };
+    if (Object.values(normalizedLocation).some(value => !value)) {
+      return res.status(400).json({ error: 'Country, region, district and area are required.' });
     }
     const normalizedPhone = String(phone || '').replace(/\D/g, '');
     const normalizedCode = String(referralCode || '').trim().toUpperCase().replace(/[^A-Z0-9_-]/g, '');
@@ -3903,6 +3917,7 @@ export async function createApp(options: { serveClient?: boolean } = {}) {
       const commonProfile = {
         user_id: userId,
         display_name: normalizeText(name),
+        ...normalizedLocation,
         phone_whatsapp: normalizedPhone,
         referral_slug: referralSlug,
         status: 'active',
