@@ -3431,7 +3431,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     // Tanzanite: + Forecasting + everything in Diamond
 
     const proItems = privateProPortal && proFeatures.settle
-      ? [{ id: 'pro-settle', label: 'Pro Settle', icon: Wallet, tabId: 'pro-settle' }] : [];
+      ? [{ id: 'pro-settle', label: 'Pro Settle', icon: Wallet, tabId: 'pro-settle', hasSubmenu: false }] : [];
     const allItems = [
       { id: 'dashboard',          label: 'Dashboard',       icon: LayoutDashboard,      tabId: 'overview',            plans: ['ruby','diamond','tanzanite'] },
       { id: 'pos',                label: 'POS',             icon: ShoppingCart,          tabId: 'pos',                 plans: ['ruby','diamond','tanzanite'] },
