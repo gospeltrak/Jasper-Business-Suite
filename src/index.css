@@ -3141,22 +3141,30 @@ button:active:not(:disabled),
 }
 
 
-/* Super Admin mobile: content ends at the fixed bottom menu.
-   This view already owns its own scrollport, so global dashboard ad/nav
-   clearance must not create a second empty area beneath it. */
+/* Super Admin only: use one scrollport, sized to end at the fixed menu.
+   The general dashboard reserves an ad + nav spacer in its scroll area,
+   while Super Admin already has its own nested scrolling subpage.
+   Reserving the nav exactly once removes the empty band on every admin tab
+   without altering tenant, staff, affiliate or agent layouts. */
 @media (max-width: 1279px) {
-  #workspace-content:has(> #super-saas-admin-container) {
+  #dashboard-scaffold #workspace-content.admin-workspace {
+    margin-bottom: var(--dashboard-bottom-nav-height);
     padding-bottom: 0 !important;
     scroll-padding-bottom: 0;
+    overflow-y: hidden !important;
+    min-height: 0;
   }
 
-  #super-saas-admin-container {
+  #workspace-content.admin-workspace > #super-saas-admin-container {
+    flex: 1 1 auto;
     min-height: 0;
     height: 100%;
     overflow: hidden;
   }
 
   #super-saas-admin-container #saas-active-subpage-view {
+    flex: 1 1 auto;
+    min-height: 0;
     padding-bottom: 0.75rem !important;
     scroll-padding-bottom: 0.75rem;
     overscroll-behavior-y: contain;
