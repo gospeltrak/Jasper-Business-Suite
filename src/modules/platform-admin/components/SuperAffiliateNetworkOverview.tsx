@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { getSecureDataBridgeClient } from '../../../shared/dataBridge/secureDataBridge';
 
-type Agent = { name:string; status:string; affiliates:number; customers:number };
+type Agent = { name:string; location:string; status:string; affiliates:number; customers:number };
 type Affiliate = { name:string; location:string; agent:string; customers:number };
 type Customer = { name:string; affiliate:string; location:string; status:string };
 type Audit = { affiliate:string; status:string; amount:number; reason:string|null; reference:string|null; requested_at:string|null };
@@ -81,16 +81,17 @@ export default function SuperAffiliateNetworkOverview({initialTab = 'overview'}:
           {data.agents.map((agent,index)=><div key={index} className="space-y-2 px-4 py-3">
             <div className="flex items-center justify-between gap-3"><span className="min-w-0 break-words text-sm font-semibold text-white">{agent.name}</span><span className="shrink-0 text-xs text-emerald-300">{agent.status}</span></div>
             <p className="text-xs text-slate-400">{agent.affiliates} affiliates · {agent.customers} registered customers</p>
+            <p className="break-words text-xs text-slate-300">Location: {agent.location || 'Not provided'}</p>
           </div>)}
         </div>
         <div className="hidden overflow-x-auto sm:block"><table className="w-full min-w-[480px] text-left text-xs">
           <thead className="bg-slate-950/60 text-slate-400"><tr>
-            <th className="px-4 py-2 font-medium">Agent</th><th className="px-4 py-2 font-medium">Affiliates</th>
+            <th className="px-4 py-2 font-medium">Agent</th><th className="px-4 py-2 font-medium">Location</th><th className="px-4 py-2 font-medium">Affiliates</th>
             <th className="px-4 py-2 font-medium">Customers</th><th className="px-4 py-2 font-medium">Status</th>
           </tr></thead>
           <tbody className="divide-y divide-slate-800 text-slate-100">
-            {data.agents.map((a,i)=><tr key={i}><td className="px-4 py-3">{a.name}</td><td className="px-4 py-3 tabular-nums">{a.affiliates}</td><td className="px-4 py-3 tabular-nums">{a.customers}</td><td className="px-4 py-3">{a.status}</td></tr>)}
-            {!data.agents.length&&<tr><td colSpan={4} className="px-4 py-5 text-slate-500">No registered Agents.</td></tr>}
+            {data.agents.map((a,i)=><tr key={i}><td className="px-4 py-3">{a.name}</td><td className="px-4 py-3">{a.location || 'Not provided'}</td><td className="px-4 py-3 tabular-nums">{a.affiliates}</td><td className="px-4 py-3 tabular-nums">{a.customers}</td><td className="px-4 py-3">{a.status}</td></tr>)}
+            {!data.agents.length&&<tr><td colSpan={5} className="px-4 py-5 text-slate-500">No registered Agents.</td></tr>}
           </tbody>
         </table></div>
       </section>
