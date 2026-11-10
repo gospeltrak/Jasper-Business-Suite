@@ -390,6 +390,10 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
             location: profile.location || '',
           };
           setPartnerInfo(updated);
+          setPartnerProfileDraft(prev => ({ ...prev,
+            country: updated.country, region: updated.region,
+            district: updated.district, location: updated.location,
+          }));
           onlineStorage.setItem('jasper_logged_affiliate', JSON.stringify(updated));
         }
       } catch { /* Cloud profile unavailable; keep the last confirmed session cache. */ }
