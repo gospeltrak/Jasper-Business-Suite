@@ -497,7 +497,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
       partnerSupabaseUserId,
       partnerCode,
     ].map((value) => String(value || '').trim()).filter(Boolean)));
-    const affiliateColumns = 'id, user_id, display_name, promo_code, referral_code, phone_whatsapp, payout_account, payout_method, tin_number, tin_status, total_revenue, gross_commission, withholding_tax, net_payout, customers_count, is_disabled, status, created_at, parent_super_agent_id, parent_agent_id';
+    const affiliateColumns = 'id, user_id, display_name, promo_code, referral_code, phone_whatsapp, payout_account, payout_method, tin_number, tin_status, total_revenue, gross_commission, withholding_tax, net_payout, customers_count, is_disabled, status, created_at, parent_super_agent_id, parent_agent_id, country, region, district, location';
     const mapDbAffiliate = (a: any): SubAffiliateProfile => {
       const revenue = 0;
       const gross = 0;
@@ -512,6 +512,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
         parentSuperAgentId: String(a.parent_super_agent_id || a.parent_agent_id || partnerId),
         name: displayName,
         phone: a.phone_whatsapp || '',
+        location: [a.location,a.district,a.region,a.country].filter(Boolean).join(', ') || 'Not provided',
         email: '',
         promoCode: a.promo_code || a.referral_code || '',
         status: a.is_disabled ? 'suspended' : 'active',
@@ -1484,6 +1485,7 @@ export default function AffiliateAgentDesk({ onLogout }: { onLogout: () => void 
                             <div className="min-w-0">
                               <p translate="no" className="font-black text-white text-sm truncate">{aff.name}</p>
                               <p translate="no" className="text-[10px] text-slate-500 mt-0.5">{aff.phone}</p>
+                              <p className="mt-1 break-words text-xs text-slate-300">Location: {aff.location || 'Not provided'}</p>
                               <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                                 <span className="text-[9px] font-black text-amber-400 font-mono bg-amber-500/10 px-2 py-0.5 rounded">{aff.promoCode}</span>
                                 <span className="text-[9px] font-bold text-emerald-300 bg-emerald-500/10 px-2 py-0.5 rounded">
