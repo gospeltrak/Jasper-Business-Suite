@@ -31,9 +31,12 @@ const DashboardLogsAndSync = lazyWithReload('DashboardLogsAndSync', () => import
 const DashboardReports = lazyWithReload('DashboardReports', () => import('../modules/reports/DashboardReports'));
 const DashboardExpenses = lazyWithReload('DashboardExpenses', () => import('../modules/expenses/DashboardExpenses'));
 const DashboardSalesList = lazyWithReload('DashboardSalesList', () => import('../modules/sales/DashboardSalesList'));
+const OrvixProSettleWorkspace = lazyWithReload('OrvixProSettleWorkspace', () => import('../modules/sales/OrvixProSettleWorkspace'));
+
 const DashboardForecasting = lazyWithReload('DashboardForecasting', () => import('../modules/forecasting/DashboardForecasting'));
 const DashboardCashBank = lazyWithReload('DashboardCashBank', () => import('../modules/cash-bank/DashboardCashBank'));
 import { saveData } from '../shared/utils/dbSync';
+import { loadOrvixProFeatures, ORVIX_PRO_DISABLED, type OrvixProFeatures } from '../shared/utils/orvixProEntitlement';
 import { findBatchBarcodeConflict } from '../modules/products/utils/barcodeUniqueness';
 import type { ManualStockAudit } from '../modules/products/utils/manualStockAdjustment';
 const DashboardPurchases = lazyWithReload('DashboardPurchases', () => import('../modules/purchases/DashboardPurchases'));
@@ -482,6 +485,7 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     'inventory',
     'forecasting',
     'cash-bank-matrix',
+    'pro-settle',
     'whitelabel',
     'staff-members',
     'settings'
@@ -716,6 +720,21 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     selectedBranch: null,
   });
   const [branchSwitching, setBranchSwitching] = useState(false);
+  const privateProPortal = typeof window !== 'undefined' && window.location.pathname === '/pro';
+  const [proFeatures, setProFeatures] = useState<OrvixProFeatures>({ ...ORVIX_PRO_DISABLED });
+  useEffect(() => {
+    let cancelled = false;
+    if (!privateProPortal || !activeTenant.id || user.role === 'SuperAdmin') {
+      setProFeatures({ ...ORVIX_PRO_DISABLED });
+      return;
+    }
+    setProFeatures({ ...ORVIX_PRO_DISABLED });
+    void loadOrvixProFeatures(activeTenant.id).then(features => {
+      if (!cancelled) setProFeatures(features);
+    });
+    return () => { cancelled = true; };
+  }, [privateProPortal, activeTenant.id, user.role]);
+
   // Direct read of the centralized branch context, in addition to the
   // window-event-driven state above. The event only fires when
   // BranchContext successfully publishes a snapshot; if that publish is
@@ -1442,6 +1461,8 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
       }
       return tabId === 'super-saas' || tabId.startsWith('admin-') || tabId === 'staff' || tabId === 'staff-members';
     }
+
+    if (tabId === 'pro-settle') return privateProPortal && proFeatures.settle;
 
     // Enforce package access at the common navigation boundary. Desktop,
     // mobile More, Lucy navigation, and restored session tabs all call this
@@ -3409,6 +3430,8 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     // Diamond:   + Purchases, Deliveries, Money&Bank, Staff, Parties/Suppliers, advanced Reports
     // Tanzanite: + Forecasting + everything in Diamond
 
+    const proItems = privateProPortal && proFeatures.settle
+      ? [{ id: 'pro-settle', label: 'Pro Settle', icon: Wallet, tabId: 'pro-settle' }] : [];
     const allItems = [
       { id: 'dashboard',          label: 'Dashboard',       icon: LayoutDashboard,      tabId: 'overview',            plans: ['ruby','diamond','tanzanite'] },
       { id: 'pos',                label: 'POS',             icon: ShoppingCart,          tabId: 'pos',                 plans: ['ruby','diamond','tanzanite'] },
@@ -3428,13 +3451,13 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
     ];
 
     // For trial — show all items so user can see what they'll get, but limits still apply
-    if (subStatus.plan.id === 'trial') return allItems.map(({ plans, ...rest }) => rest);
+    if (subStatus.plan.id === 'trial') return [...proItems, ...allItems.map(({ plans, ...rest }) => rest)];
 
     // Filter by current plan
     const currentPlanKey = isTanzanite ? 'tanzanite' : isDiamond ? 'diamond' : 'ruby';
-    return allItems
+    return [...proItems, ...allItems
       .filter(item => item.plans.includes(currentPlanKey))
-      .map(({ plans, ...rest }) => rest);
+      .map(({ plans, ...rest }) => rest)];
   })();
   const visibleSidebarItems = customSidebarItems.filter(item => isTabAllowed(item.tabId || item.id));
 
@@ -4517,6 +4540,16 @@ function DashboardContent({ user, onLogout, onNavigate, isDark = false, onToggle
               expenses={activeExpenses}
               systemSettings={systemSettings}
               onUpdateStocks={handleUpdateActiveStocks}
+            />
+          )}
+
+          {/* Pro-only audited cashier shifts. No general plan inherits this route. */}
+          {activeTab === 'pro-settle' && privateProPortal && proFeatures.settle && (
+            <OrvixProSettleWorkspace
+              branchId={activeBranchSelection.activeBranchId || branchContextSelectedBranch?.id || null}
+              userId={user.id}
+              cashierName={user.name}
+              currency={activeTenant.currencyCode || 'TZS'}
             />
           )}
 
