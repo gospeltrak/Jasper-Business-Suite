@@ -502,6 +502,14 @@ export default function SuperSaaSAdminView({
       alert('Upload a creative file or choose Message Ad.');
       return;
     }
+    if (newBannerAdType === 'message' && !newBannerCreative && !existingBanner?.thumbnailData) {
+      alert('Message advertisements need a thumbnail image.');
+      return;
+    }
+    if (newBannerAdType === 'message' && newBannerCreative && (!newBannerCreative.type.startsWith('image/') || newBannerCreative.size > 800 * 1024)) {
+      alert('Use a thumbnail image under 800 KB for message ads.');
+      return;
+    }
     if (newBannerAdType === 'message' && !newBannerMessage.trim()) {
       alert('Write the message ad text first.');
       return;
@@ -524,6 +532,7 @@ export default function SuperSaaSAdminView({
         creativeName: newBannerAdType === 'message' ? null : finalCreativeName,
         creativeMime: newBannerAdType === 'message' ? null : finalCreativeMime,
         assetData: newBannerAdType === 'message' ? null : finalAssetData,
+        thumbnailData: newBannerAdType === 'message' ? finalAssetData : (String(finalCreativeMime || '').startsWith('image/') ? finalAssetData : existingBanner?.thumbnailData || null),
       };
 
       const updatedBanners = editingBannerId
@@ -1125,20 +1134,20 @@ export default function SuperSaaSAdminView({
 
         {/* ======================= TAB 5: AD EXCHANGE SSP ======================= */}
         {activeTab === 'promotions' && (
-          <div className="space-y-6 animate-fade-in text-left">
-            <div className="flex flex-col gap-6 items-stretch">
+          <div className="space-y-5 animate-fade-in text-left">
+            <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] xl:items-start">
               
               {/* Ad Exchange SSP Manager */}
-              <div className="w-full bg-slate-900 border border-slate-850 p-5 rounded-xl space-y-4">
-                <div className="flex items-center space-x-2">
-                  <ImageIcon className="w-4 h-4 text-emerald-400" />
-                  <h3 className="text-xs font-mono font-bold text-white uppercase tracking-wider">
-                    {editingBannerId ? 'Edit Ad Exchange (SSP) Material' : 'Ad Exchange (SSP) Manager'}
+              <div className="w-full min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:p-6 space-y-5">
+                <div className="flex items-center gap-3">
+                  <ImageIcon className="w-5 h-5 text-emerald-400" />
+                  <h3 className="text-lg font-bold tracking-tight text-white">
+                    {editingBannerId ? 'Edit Affiliate Promotion' : 'Affiliate Promotion Materials'}
                   </h3>
                 </div>
-                <p className="text-[10.5px] text-slate-400 leading-normal">Manage ad units.</p>
+                <p className="text-sm leading-relaxed text-slate-400">Publish images, videos, animations and message cards for affiliate campaigns. Placements for tenants and staff are managed separately.</p>
 
-                <form onSubmit={handleCreateBanner} className="space-y-3">
+                <form onSubmit={handleCreateBanner} className="space-y-4">
                   <div className="space-y-1">
                     <label className="text-[9.5px] font-mono text-slate-500 uppercase">Ad Unit Campaign Title</label>
                     <input 
@@ -1146,14 +1155,14 @@ export default function SuperSaaSAdminView({
                       placeholder="e.g. Orvix Standard Leaderboard 2026"
                       value={newBannerTitle}
                       onChange={(e) => setNewBannerTitle(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white outline-none focus:border-emerald-500"
+                      className="min-h-11 w-full min-w-0 rounded-xl border border-slate-700 bg-slate-950 px-3 text-sm text-white outline-none focus:border-emerald-500"
                       required
                     />
                   </div>
 
                   <div className="space-y-1">
                     <label className="text-[9.5px] font-mono text-slate-500 uppercase">Ad Type</label>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                       {[
                         { id: 'image', label: 'Image', icon: ImageIcon },
                         { id: 'video', label: 'Video', icon: Video },
@@ -1167,7 +1176,7 @@ export default function SuperSaaSAdminView({
                             key={type.id}
                             type="button"
                             onClick={() => setNewBannerAdType(type.id as any)}
-                            className={`p-2 rounded-lg border text-[10px] font-mono font-bold uppercase flex items-center justify-center gap-1.5 ${
+                            className={`min-h-11 min-w-0 p-2 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1.5 ${
                               active
                                 ? 'bg-emerald-500 text-slate-950 border-emerald-400'
                                 : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
@@ -1181,13 +1190,13 @@ export default function SuperSaaSAdminView({
                     </div>
                   </div>
                   
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <label className="text-[9.5px] font-mono text-slate-500 uppercase">AdSense Format (Size)</label>
                       <select 
                         value={newBannerSize}
                         onChange={(e) => setNewBannerSize(e.target.value)}
-                        className="bg-slate-950 border border-slate-800 p-2 text-xs text-slate-300 w-full rounded outline-none cursor-pointer"
+                        className="min-h-11 w-full min-w-0 cursor-pointer rounded-xl border border-slate-700 bg-slate-950 px-3 text-sm text-slate-200 outline-none"
                       >
                         <option value="728x90">728x90 Leaderboard Unit</option>
                         <option value="300x250">300x250 Medium Rectangle</option>
@@ -1202,7 +1211,7 @@ export default function SuperSaaSAdminView({
                       <select 
                         value={newBannerStatus}
                         onChange={(e) => setNewBannerStatus(e.target.value)}
-                        className="bg-slate-950 border border-slate-800 p-2 text-xs text-slate-300 w-full rounded outline-none cursor-pointer"
+                        className="min-h-11 w-full min-w-0 cursor-pointer rounded-xl border border-slate-700 bg-slate-950 px-3 text-sm text-slate-200 outline-none"
                       >
                         <option value="Active">Live (Serving)</option>
                         <option value="Draft">Paused (Not Serving)</option>
@@ -1210,13 +1219,13 @@ export default function SuperSaaSAdminView({
                     </div>
                   </div>
 
-                  {newBannerAdType !== 'message' && (
+                  {true && (
                   <div className="space-y-1">
-                    <label className="text-[9.5px] font-mono text-slate-500 uppercase">Upload Creative Asset (Image / Video / Motion Graphics)</label>
+                    <label className="text-xs font-semibold text-slate-300">{newBannerAdType === 'message' ? 'Thumbnail image (required)' : 'Creative media'}</label>
                     <div className="w-full bg-slate-950 border border-slate-800 border-dashed rounded p-4 text-center cursor-pointer hover:bg-slate-900 transition-colors">
                       <input 
                         type="file" 
-                        accept="image/png, image/jpeg, image/webp, image/gif, video/mp4, video/webm, video/quicktime" 
+                        accept={newBannerAdType === 'message' ? 'image/png,image/jpeg,image/webp' : 'image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,video/quicktime'} 
                         onChange={(e) => {
                           if (e.target.files && e.target.files[0]) {
                             setNewBannerCreative(e.target.files[0]);
@@ -1230,7 +1239,7 @@ export default function SuperSaaSAdminView({
                         <span className="text-[10px] text-slate-300">
                           {newBannerCreative ? newBannerCreative.name : "Click to select or drag and drop file"}
                         </span>
-                        <span className="text-[9px] text-slate-500">Supported: JPG, PNG, WEBP, GIF, MP4, WEBM, MOV. Small files save best in browser storage.</span>
+                        <span className="text-[9px] text-slate-500">{newBannerAdType === 'message' ? 'Thumbnail: JPG, PNG, WEBP (max 800 KB)' : 'Supported: JPG, PNG, WEBP, GIF, MP4, WEBM, MOV.'}</span>
                       </label>
                     </div>
                   </div>
@@ -1281,11 +1290,11 @@ export default function SuperSaaSAdminView({
               </div>
 
               {/* SSP Banners display */}
-              <div className="w-full bg-slate-900 border border-slate-850 p-5 rounded-xl space-y-4">
-                <span className="text-[10px] uppercase font-mono text-slate-500 font-bold block">Active Ad Exchange Inventory (SSP)</span>
-                <div className="grid gap-2">
+              <div className="w-full min-w-0 rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:p-6 space-y-4">
+                <h3 className="text-base font-bold text-white">Promotion Library ({banners.length})</h3>
+                <div className="grid min-w-0 gap-3">
                   {banners.map((ban, idx) => (
-                    <div key={idx} className="rounded-xl border border-slate-850 bg-slate-950 p-3 text-left">
+                    <div key={idx} className="min-w-0 rounded-xl border border-slate-800 bg-slate-950 p-3 text-left">
                       <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
                         <div className="min-w-0 space-y-2">
                           <div className="flex flex-wrap items-center gap-2">
@@ -1297,7 +1306,7 @@ export default function SuperSaaSAdminView({
                           <div className="grid gap-1 text-[10px] font-mono text-slate-500 sm:grid-cols-2 xl:grid-cols-3">
                             <p className="truncate">Creative: <span className="text-cyan-300">{ban.creativeName || (ban.message ? 'Message ad' : 'Stored asset')}</span></p>
                             <p className="truncate">Destination: <span className="text-slate-300">{ban.url}</span></p>
-                            <p className="truncate">Impressions / Clicks: <span className="text-emerald-300">{ban.clicks * 42} / {ban.clicks}</span></p>
+                            <p className="truncate">Clicks: <span className="text-emerald-300">{ban.clicks || 0}</span></p>
                           </div>
                           {ban.message && (
                             <p className="line-clamp-1 text-[10px] text-slate-400">{ban.message}</p>
