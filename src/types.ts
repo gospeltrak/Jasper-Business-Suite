@@ -8,6 +8,8 @@ export interface User {
   profileImage?: string;
   isDuress?: boolean;
   isSaaSStaff?: boolean;
+  /** Routing hint only: server revalidates private Pro membership on /pro. */
+  isProAccount?: boolean;
   saasPermissions?: Record<string, boolean>;
   rolePermissions?: CustomRole['permissions'];
   phone?: string;
