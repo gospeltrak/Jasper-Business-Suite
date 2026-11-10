@@ -532,7 +532,7 @@ export default function SuperSaaSAdminView({
         creativeName: newBannerAdType === 'message' ? null : finalCreativeName,
         creativeMime: newBannerAdType === 'message' ? null : finalCreativeMime,
         assetData: newBannerAdType === 'message' ? null : finalAssetData,
-        thumbnailData: newBannerAdType === 'message' ? finalAssetData : (String(finalCreativeMime || '').startsWith('image/') ? finalAssetData : existingBanner?.thumbnailData || null),
+        thumbnailData: newBannerAdType === 'message' ? (finalAssetData || existingBanner?.thumbnailData || null) : (String(finalCreativeMime || '').startsWith('image/') ? finalAssetData : existingBanner?.thumbnailData || null),
       };
 
       const updatedBanners = editingBannerId
